@@ -4,14 +4,14 @@ import type { MenuItem } from "./menus";
 
 /** What an entry of the menus does. Each stage of the HTML UI adds its own here, as it builds them. */
 export type AppAction = "quit" | "settings" | "export" | "import"
-  | "analyse" | "lulucf" | "loadKml" | "dataFolder" | "openPlotsMap" | "myDashboard" | "missingPlots" | "divideCsv" | "deletePlots" | "sendToCloud"
+  | "analyse" | "lulucf" | "loadKml" | "dataFolder" | "myDashboard" | "missingPlots" | "divideCsv" | "deletePlots" | "sendToCloud"
   | "importCep" | "projects" | "joinCloud" | "cloudStatus" | "language"
   | "surveyGuide" | "manual" | "support" | "log" | "showExceptions" | "updates" | "disclaimer" | "about";
 
 // A Map, not an object: an entry called "constructor" would find a property of every object
 const ACTIONS = new Map<string, AppAction>([
   ["quit", "quit"], ["properties", "settings"], ["export", "export"], ["import", "import"],
-  ["analyse", "analyse"], ["lulucf", "lulucf"], ["loadKml", "loadKml"], ["dataFolder", "dataFolder"], ["openPlotsMap", "openPlotsMap"], ["myDashboard", "myDashboard"],
+  ["analyse", "analyse"], ["lulucf", "lulucf"], ["loadKml", "loadKml"], ["dataFolder", "dataFolder"], ["myDashboard", "myDashboard"],
   ["missingPlots", "missingPlots"], ["divideCsv", "divideCsv"], ["deletePlots", "deletePlots"], ["sendToCloud", "sendToCloud"],
   ["importCep", "importCep"], ["projects", "projects"], ["joinCloud", "joinCloud"], ["cloudStatus", "cloudStatus"], ["language", "language"],
   ["surveyGuide", "surveyGuide"], ["manual", "manual"], ["support", "support"], ["log", "log"], ["showExceptions", "showExceptions"],

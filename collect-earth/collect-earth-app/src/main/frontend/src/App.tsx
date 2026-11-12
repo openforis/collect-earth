@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import Box from "@mui/material/Box";
-import GlobalStyles from "@mui/material/GlobalStyles";
 import Snackbar from "@mui/material/Snackbar";
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
@@ -10,29 +9,18 @@ import type { MapController } from "./controller";
 import { plotLabel } from "./plots";
 import { I18nContext, translator } from "./i18n";
 import { FormPanel } from "./components/FormPanel";
-import { MapArea } from "./components/MapArea";
-import { PlotSidebar, RAIL_WIDTH, SIDEBAR_WIDTH } from "./components/PlotSidebar";
+import { PlotSidebar } from "./components/PlotSidebar";
 import { currentScale, useUiScale } from "./uiScale";
-import { gewFollowFormWindow } from "./api";
-import { IN_PANEL } from "./panel";
 import { expandForDialogs, frozenLayout, subscribeFrozenLayout } from "./panelDialogs";
 import { useAppInfo } from "./appInfo";
 import { windowTitle } from "./appBar";
 import { serverText } from "./serverTexts";
 import { AppBar } from "./components/AppBar";
 import { useServerTexts } from "./serverTexts";
-import { IN_HOME } from "./home";
-import { HomePage } from "./components/HomePage";
 import { formWindow, imageryKey, imageryNumber, isFormMessage, keyOfMessage, type PanelKey } from "./shortcuts";
 import { SettingsPage } from "./components/settings/SettingsPage";
 
-/**
- * Narrower than this, the map is not worth its room next to the form or the list: the window shows one pane at a
- * time, the form or the plot list, each over the whole width. That is how it opens next to Google Earth Web on a
- * single screen (GoogleEarthWebService.formWindowWidth), leaving the imagery the rest of the screen.
- */
-const MIN_MAP_WIDTH = 360;
-/** Narrower than this, the menus of the app bar go under one button: their labels would not fit side by side. */
+/** Narrower than this, the settings page is laid out for a narrow window (the panel is, until a dialog widens it). */
 const COMPACT_BAR_WIDTH = 760;
 /** How long the toast of a submitted plot stays. */
 const TOAST_MILLIS = 3000;
@@ -45,27 +33,20 @@ export function App({ controller }: { controller: MapController }) {
   const scale = useUiScale();
   const formOpen = state.formUrl != null;
   const unsubmittedKey = state.unsubmitted?.key;
-  // In Google Earth Web's panel there is no map: the list or the form, whatever the width
-  const onePane = IN_PANEL
-    || width - (formOpen ? RAIL_WIDTH * scale + state.formWidth : SIDEBAR_WIDTH * scale) < MIN_MAP_WIDTH * scale;
-  // One pane: the form, or the plot list when there is no form or the user asked for it until a plot is chosen, the one
-  // open included: a click on it in the list brings its form back
+  // In Google Earth Web's panel (javascript_plots_map_panel.fmt), Google Earth Web being the map, one pane: the form, or
+  // the plot list when there is no form or the user asked for it until a plot is chosen, the one open included: a click
+  // on it in the list brings its form back
   const [listShown, setListShown] = useState(false);
-  useEffect(() => setListShown(false), [state.activeId, state.selected, onePane]);
-  const listPane = onePane && (!formOpen || listShown);
-  // The home page is no window next to Google Earth Web, and has no list or form for the shortcuts to act on
-  useFollowedByGoogleEarthWeb(!IN_PANEL && !IN_HOME);
-  // In Google Earth Web's panel the dialogs show over the whole page, not squeezed into the panel
-  useEffect(() => (IN_PANEL ? expandForDialogs(window, currentScale) : undefined), []);
-  // With no map, nothing else starts the controller (MapArea does, once its container is there): the home page needs it
-  // for the statuses, which it polls from then on
-  useEffect(() => { if (IN_PANEL || IN_HOME) controller.start(null); }, [controller]);
-  // The settings page over the map or the home page: the map stays laid out under it, so it needs no resize when it
-  // comes back, and the controller keeps its state
+  useEffect(() => setListShown(false), [state.activeId, state.selected]);
+  const listPane = !formOpen || listShown;
+  // The dialogs show over the whole page of Google Earth Web, not squeezed into the panel
+  useEffect(() => expandForDialogs(window, currentScale), []);
+  useEffect(() => { controller.start(); }, [controller]);
+  // The settings page over the list and the form: the controller keeps its state
   const [page, setPage] = useState<"main" | "settings">("main");
   // the same function from one render to the next, so that the shortcuts' listeners are not added again on every render
-  const showList = useCallback(() => (onePane ? setListShown(true) : controller.setSidebarCollapsed(false)), [onePane, controller]);
-  useShortcuts(controller, showList, !IN_HOME && page === "main");
+  const showList = useCallback(() => setListShown(true), []);
+  useShortcuts(controller, showList, page === "main");
   const t = useMemo(() => translator(state.language), [state.language]);
   useEffect(() => { document.documentElement.lang = state.language; }, [state.language]);
   const [info, reloadInfo] = useAppInfo();
@@ -82,35 +63,15 @@ export function App({ controller }: { controller: MapController }) {
     <I18nContext.Provider value={t}>
     <Box sx={{ display: "flex", flexDirection: "column", height: "100vh", bgcolor: "background.default" }}>
     {/* Once /api/app and the texts are read: until then the bar would have no project or operator, and no labels */}
-    {info && texts && <AppBar info={info} texts={texts} reload={reloadInfo} compact={IN_PANEL || width < COMPACT_BAR_WIDTH * scale}
-      onSettings={() => setPage("settings")} />}
+    {info && texts && <AppBar info={info} texts={texts} reload={reloadInfo} onSettings={() => setPage("settings")} />}
     <Box sx={{ flex: 1, minHeight: 0, position: "relative" }}>
-    {/* A modal dialog in the middle of the page, over the map, the list and the form (the whole window when narrow) */}
+    {/* A modal dialog in the middle of the page, over the list and the form (the whole window when narrow) */}
     {page === "settings" && (
       <SettingsPage texts={texts} compact={width < COMPACT_BAR_WIDTH * scale} width={width} onClose={() => setPage("main")} onApplied={reloadInfo} />
     )}
-    {IN_HOME ? <HomePage info={info} state={state} /> : (
     <Box sx={{ display: "flex", height: "100%", overflow: "hidden" }}>
-      <GlobalStyles styles={{
-        ".leaflet-container": { fontFamily: "inherit" },
-        ".leaflet-tooltip.plot-tooltip": {
-          background: "var(--mui-palette-background-paper)", color: "var(--mui-palette-text-primary)",
-          border: 0, borderRadius: 6, boxShadow: "var(--mui-shadows-2)", fontWeight: 600, padding: "3px 8px",
-        },
-        ".leaflet-tooltip.plot-tooltip::before": { display: "none" },
-        // The numbers of the open plot's sample points (sample_point_numbers), readable on any imagery
-        ".sample-point-number": {
-          color: "#ffffff", fontWeight: 700, fontSize: 12, lineHeight: "14px", textAlign: "center", pointerEvents: "none",
-          textShadow: "0 0 3px #000, 0 0 2px #000, 0 0 1px #000",
-        },
-      }} />
-      {onePane
-        ? listPane && <PlotSidebar controller={controller} state={state} collapsed={false} fill
-            onCollapsedChange={formOpen ? () => setListShown(false) : undefined} />
-        : <PlotSidebar controller={controller} state={state} />}
-      {!IN_PANEL && <MapArea controller={controller} state={state} hidden={onePane} />}
-      {formOpen && <FormPanel controller={controller} state={state} fill={onePane} hidden={listPane}
-        onShowList={onePane ? () => setListShown(true) : undefined} />}
+      {listPane && <PlotSidebar controller={controller} state={state} onHide={formOpen ? () => setListShown(false) : undefined} />}
+      {formOpen && <FormPanel controller={controller} state={state} hidden={listPane} onShowList={() => setListShown(true)} />}
       {state.submitted && (
         <Snackbar key={state.submitted.key} open autoHideDuration={TOAST_MILLIS} onClose={(_, reason) => {
           if (reason !== "clickaway") controller.dismissSubmitted();
@@ -150,7 +111,6 @@ export function App({ controller }: { controller: MapController }) {
         </Snackbar>
       )}
     </Box>
-    )}
     </Box>
     </Box>
     </I18nContext.Provider>
@@ -207,31 +167,6 @@ function useShortcuts(controller: MapController, showList: () => void, enabled: 
     window.addEventListener("message", onMessage);
     return () => { document.removeEventListener("keydown", onKey); window.removeEventListener("message", onMessage); };
   }, [controller, showList, enabled]);
-}
-
-/**
- * Tells the server when the user resized or moved this window, once they stop: next to Google Earth Web on one screen,
- * Google Earth Web is then fitted into the room left. Moves fire no event, so the position is checked every second.
- */
-function useFollowedByGoogleEarthWeb(enabled: boolean) {
-  useEffect(() => {
-    // A panel resized in Google Earth Web's page is no window of its own
-    if (!enabled) return;
-    let timer = 0;
-    let last = "";
-    const changed = () => {
-      window.clearTimeout(timer);
-      timer = window.setTimeout(gewFollowFormWindow, 400);
-    };
-    const checkPosition = () => {
-      const now = `${window.screenX},${window.screenY}`;
-      if (last && now !== last) changed();
-      last = now;
-    };
-    window.addEventListener("resize", changed);
-    const interval = window.setInterval(checkPosition, 1000);
-    return () => { window.removeEventListener("resize", changed); window.clearInterval(interval); window.clearTimeout(timer); };
-  }, [enabled]);
 }
 
 function subscribeToResize(onChange: () => void) {

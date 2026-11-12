@@ -18,11 +18,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.StringJoiner;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
-import java.util.function.Function;
 
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.EarthConstants;
@@ -88,12 +86,6 @@ import io.github.bonigarcia.wdm.WebDriverManager;
 @Component
 public class BrowserService implements InitializingBean, DisposableBean, ApplicationListener<ContextClosedEvent> {
 
-	// Browser type enumeration for thread-safe lock management. The imagery sources need none: ImageryBrowser.loadLatest
-	// lets one plot at a time load in each of their tabs.
-	private enum BrowserType {
-		LEAFLET_MAP
-	}
-
 	// Constants for timeouts and wait durations
 	private static final int ELEMENT_WAIT_TIMEOUT_SECONDS = 60;
 	private static final int WAIT_POLL_INTERVAL_MILLIS = 1000;
@@ -154,14 +146,6 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	private final CopyOnWriteArrayList<RemoteWebDriver> drivers = new CopyOnWriteArrayList<>();
 	private final Logger logger = LoggerFactory.getLogger(BrowserService.class);
 
-	/** The page an app window opens on, before it is sent where it belongs (a load there would be wasted). */
-	private static final String BLANK_PAGE = "about:blank";
-	private static final String APP_WINDOW_ARGUMENT = "--app=data:text/html,";
-	private static final String FIREFOX_APP_PROFILE_FOLDER = "browser_profiles" + File.separator + "firefox_app_window";
-	/** Firefox without tabs, address bar or bookmarks: see {@link #initAppWindow(File)}. */
-	private static final String FIREFOX_APP_WINDOW_CSS = "#TabsToolbar, #nav-bar, #PersonalToolbar { visibility: collapse !important; }"
-			// the minimum width Firefox keeps for its toolbars, which are gone
-			+ " :root { min-width: 0 !important; }";
 	/**
 	 * The profiles of Chrome and Edge in the imagery window, one each: see {@link #imageryChromiumProfile(File, String)}.
 	 * Followed by the browser's name, as {@link #IMAGERY_FIREFOX_PROFILE_FOLDER} is.
@@ -175,15 +159,10 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	private static final String IMAGERY_FIREFOX_USER_JS = "user_pref(\"toolkit.legacyUserProfileCustomizations.stylesheets\", true);\n";
 	private final Configuration freemarkerConfig = createFreemarkerConfiguration();
 
-	// Volatile to ensure visibility across threads when modified within synchronized blocks
-	private volatile RemoteWebDriver webDriverLeafletMap;
-
-	private final Map<BrowserType, Object> locks = new ConcurrentHashMap<>();
-
 	private volatile boolean geeMethodUpdated = false;
 	private volatile boolean isClosing = false;
 	private final List<Runnable> leafletMapOpenedListeners = new CopyOnWriteArrayList<>();
-	private volatile Function<String, Boolean> plotsMapInGoogleEarthWebOpener;
+	private volatile Runnable plotsMapInGoogleEarthWebOpener;
 
 	/**
 	 * Creates and configures the Freemarker Configuration instance.
@@ -383,98 +362,6 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	}
 
 	/**
-	 * Opens a browser window without tabs, address bar or bookmarks bar (the plots map and Google Earth Web: every pixel
-	 * of their height goes to the imagery and the form), on a blank page. Chrome and Edge open it as an app window; with
-	 * {@code chromeProfileDir} they keep their profile there, so that cookie consent, Google sign-in and site settings
-	 * survive restarts instead of being asked for again in a fresh temporary profile each time. Firefox, which has no app
-	 * windows, hides its toolbars with a userChrome.css and keeps the title bar of the system, so the window can still be
-	 * moved and closed. The browser chosen in the options is tried first, then the others; a normal window when none of
-	 * them can open an app window (e.g. another Collect Earth has the profile open).
-	 */
-	RemoteWebDriver initAppWindow(File chromeProfileDir) throws BrowserNotFoundException {
-		String chosen = localPropertiesService.getValue(EarthProperty.BROWSER_TO_USE).trim();
-		RemoteWebDriver driver = null;
-		if (chosen.equalsIgnoreCase(EarthConstants.FIREFOX_BROWSER)) {
-			driver = tryStartFirefoxAppWindow();
-		} else if (chosen.equalsIgnoreCase(EarthConstants.EDGE_BROWSER)) {
-			driver = tryStartEdgeAppWindow(chromeProfileDir);
-		}
-		if (driver == null) {
-			driver = tryStartChromeAppWindow(chromeProfileDir);
-		}
-		if (driver == null) {
-			driver = tryStartEdgeAppWindow(chromeProfileDir);
-		}
-		if (driver == null) {
-			driver = tryStartFirefoxAppWindow();
-		}
-		if (driver == null) {
-			return initBrowser();
-		}
-		if (isClosing) {
-			driver.quit();
-			return null;
-		}
-		drivers.add(driver);
-		recordRunningBrowsers();
-		return driver;
-	}
-
-	private static List<String> appWindowArguments(File profileDir) {
-		List<String> arguments = new ArrayList<>(Arrays.asList(APP_WINDOW_ARGUMENT, "--no-first-run", "--no-default-browser-check"));
-		if (profileDir != null) {
-			arguments.add("--user-data-dir=" + profileDir.getAbsolutePath());
-		}
-		return arguments;
-	}
-
-	private RemoteWebDriver tryStartChromeAppWindow(File profileDir) {
-		try {
-			ChromeOptions options = new ChromeOptions();
-			options.addArguments(appWindowArguments(profileDir));
-			return (RemoteWebDriver) WebDriverManager.chromedriver().capabilities(options).create();
-		} catch (final Exception e) {
-			logger.warn("Could not open a Chrome app window (profile {})", profileDir, e);
-			return null;
-		}
-	}
-
-	private RemoteWebDriver tryStartEdgeAppWindow(File profileDir) {
-		try {
-			EdgeOptions options = new EdgeOptions();
-			options.addArguments(appWindowArguments(profileDir));
-			return (RemoteWebDriver) WebDriverManager.edgedriver().capabilities(options).create();
-		} catch (final Exception e) {
-			logger.warn("Could not open an Edge app window (profile {})", profileDir, e);
-			return null;
-		}
-	}
-
-	private RemoteWebDriver tryStartFirefoxAppWindow() {
-		try {
-			// The profile is copied from this folder for every window: only its chrome/userChrome.css matters
-			File template = new File(FolderFinder.getCollectEarthDataFolder(), FIREFOX_APP_PROFILE_FOLDER);
-			File css = new File(template, "chrome" + File.separator + "userChrome.css");
-			if (!css.getParentFile().isDirectory() && !css.getParentFile().mkdirs()) {
-				logger.warn("Could not create {}", css.getParentFile());
-			}
-			Files.write(css.toPath(), FIREFOX_APP_WINDOW_CSS.getBytes(StandardCharsets.UTF_8));
-			FirefoxProfile profile = new FirefoxProfile(template);
-			profile.setPreference("toolkit.legacyUserProfileCustomizations.stylesheets", true);
-			// The system title bar, since the tab strip that holds the window buttons is hidden
-			profile.setPreference("browser.tabs.inTitlebar", 0);
-			FirefoxOptions options = new FirefoxOptions();
-			options.setProfile(profile);
-			RemoteWebDriver driver = (RemoteWebDriver) WebDriverManager.firefoxdriver().capabilities(options).create();
-			driver.navigate().to(BLANK_PAGE);
-			return driver;
-		} catch (final Exception e) {
-			logger.warn("Could not open a Firefox window without toolbars", e);
-			return null;
-		}
-	}
-
-	/**
 	 * Starts the one browser of the imagery window, a tab per source, driven over WebDriver BiDi. The browser chosen in
 	 * the options first, then Firefox, Edge and Chrome; a browser that does not start, or not with BiDi, is skipped for
 	 * the next one. Each keeps a profile of its own in the Collect Earth data folder, so the sign-ins to Google, Planet
@@ -504,11 +391,10 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 			Arrays.asList("local-network-access", "loopback-network", "local-network"));
 
 	/**
-	 * Lets Google Earth Web's page show the plots map, which this computer serves, in a panel ("plots map inside Google
-	 * Earth Web" layout): Chrome, Edge and Firefox refuse a public site the pages of this computer and of the local
-	 * network unless the user allows it, and a browser under automation refuses without asking. Firefox gives no sign of
-	 * it: the panel's frame stays blank. Granted in every imagery browser, as the layout can be chosen while it runs.
-	 * The names a browser does not know are only logged.
+	 * Lets Google Earth Web's page show the plots map, which this computer serves, in a panel: Chrome, Edge and Firefox
+	 * refuse a public site the pages of this computer and of the local network unless the user allows it, and a browser
+	 * under automation refuses without asking. Firefox gives no sign of it: the panel's frame stays blank. The names a
+	 * browser does not know are only logged.
 	 */
 	private void allowPlotsMapInGoogleEarthWeb(RemoteWebDriver driver) {
 		Permission permission = new Permission(driver);
@@ -527,8 +413,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	 * With {@code gew_fly_animation=false}, has Google Earth Web's fly animation turned off before its page loads, so
 	 * that its camera jumps to each plot from the first one on (see
 	 * {@link GoogleEarthWebService#animationOffPreloadScript()}). When this fails the overlay turns it off at the first
-	 * plot, for the next page load. Installed in every imagery browser, as the viewer can be chosen while it runs: other
-	 * pages end it at once. The setting is read when the browser starts: changed while it runs, it applies from the next
+	 * plot, for the next page load. Other pages end it at once. The setting is read when the browser starts: changed while it runs, it applies from the next
 	 * start, and meanwhile the preload and the overlay may each write their own.
 	 */
 	private void turnGoogleEarthWebAnimationOff(TabDriver tabDriver) {
@@ -965,14 +850,11 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	}
 
 	/**
-	 * The imagery sources switched on, in the order of their tabs: Google Earth Web when it is the viewer, and each
-	 * source whose {@code openX} method below would load the plot (the same checks).
+	 * The imagery sources switched on, in the order of their tabs: Google Earth Web, and each source whose {@code openX}
+	 * method below would load the plot (the same checks).
 	 */
 	public Set<ImagerySource> enabledImagerySources() {
-		Set<ImagerySource> sources = EnumSet.noneOf(ImagerySource.class);
-		if (localPropertiesService.isGoogleEarthWebViewer()) {
-			sources.add(ImagerySource.GOOGLE_EARTH_WEB);
-		}
+		Set<ImagerySource> sources = EnumSet.of(ImagerySource.GOOGLE_EARTH_WEB);
 		if (localPropertiesService.isEsriWaybackSupported()) {
 			sources.add(ImagerySource.ESRI_WAYBACK);
 		}
@@ -1136,17 +1018,6 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 		return stillWorking;
 	}
 
-
-	/**
-	 * Gets or creates a lock object for the specified browser type.
-	 * Thread-safe using ConcurrentHashMap.
-	 *
-	 * @param type The browser type
-	 * @return A lock object for synchronization
-	 */
-	private Object getOrCreateLock(BrowserType type) {
-		return locks.computeIfAbsent(type, k -> new Object());
-	}
 
 	/**
 	 * Shows the Planet Basemaps representation of the plot in the Planet tab of the imagery window.
@@ -1487,54 +1358,14 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 
 
 	/**
-	 * Opens the Collect Earth Leaflet plots map (served by the embedded server)
-	 * in a Selenium-driven browser window.
+	 * Opens Google Earth Web, with the plots map in its panel, or shows the plot shown last in it again if it is open (see
+	 * {@link #showPlotsMapInGoogleEarthWebWith}). A failure is logged.
 	 */
-	/**
-	 * Closes the plots map window, if it is open: with the plots map inside Google Earth Web it has no use (see
-	 * {@link #plotsMapInGoogleEarthWeb()}). Quit on a thread of its own, as a browser may take seconds to end; another
-	 * layout opens it again (see {@link PlotsMapKeeper}).
-	 */
-	public void closeLeafletMap() {
-		RemoteWebDriver driver;
-		synchronized (getOrCreateLock(BrowserType.LEAFLET_MAP)) {
-			driver = webDriverLeafletMap;
-			webDriverLeafletMap = null;
-		}
-		if (driver == null) {
-			return;
-		}
-		drivers.remove(driver);
-		Thread quit = new Thread(() -> quietlyQuit(driver), "Close the plots map window");
-		quit.setDaemon(true);
-		quit.start();
-	}
-
-	/** The plots map window, or null if it is not open (used to lay out the windows). */
-	public RemoteWebDriver getLeafletMapDriver() {
-		return webDriverLeafletMap;
-	}
-
-	/** Opens the plots map window, or loads the plots map again in it if it is open. A failure is logged. */
 	public void openLeafletMap() {
-		openLeafletMap(null);
-	}
-
-	/**
-	 * As {@link #openLeafletMap()}, on a plot: the window the user closed comes back on the plot that was open in it
-	 * (see {@link #leafletMapUrl}).
-	 *
-	 * @param plotId the plot to select in the plots map, or null for none
-	 */
-	public void openLeafletMap(String plotId) {
 		try {
-			if (plotsMapInGoogleEarthWeb()) {
-				showPlotsMapInGoogleEarthWeb(plotId);
-				return;
-			}
-			showLeafletMap(plotId);
+			reopenLeafletMap();
 		} catch (final Exception e) {
-			logger.error("Problems loading the Leaflet plots map", e);
+			logger.error("Problems opening Google Earth Web with the plots map", e);
 		}
 	}
 
@@ -1542,106 +1373,35 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	 * As {@link #openLeafletMap()}, but failing instead of logging an error: {@link PlotsMapKeeper} reopens the window
 	 * by itself every few seconds while no browser can start, and says so once, as a warning.
 	 *
-	 * @return whether the plots map window is open now
+	 * @return whether Google Earth Web is opening: not while Collect Earth closes
 	 */
-	boolean reopenLeafletMap(String plotId) throws BrowserNotFoundException {
-		return plotsMapInGoogleEarthWeb() ? showPlotsMapInGoogleEarthWeb(plotId) : showLeafletMap(plotId);
+	boolean reopenLeafletMap() {
+		Runnable opener = plotsMapInGoogleEarthWebOpener;
+		if (isClosing || opener == null) {
+			return false;
+		}
+		opener.run();
+		for (Runnable listener : leafletMapOpenedListeners) {
+			listener.run();
+		}
+		return true;
 	}
 
 	/**
-	 * Whether the plots map is shown in a panel of Google Earth Web's window ("plots map inside Google Earth Web"
-	 * layout), instead of a window of its own: opening the plots map then opens Google Earth Web, see
-	 * {@link #showPlotsMapInGoogleEarthWebWith}.
+	 * How Google Earth Web is opened, with the plots map in its panel (see {@link PlotImageryService}); it returns at
+	 * once.
 	 */
-	public boolean plotsMapInGoogleEarthWeb() {
-		return localPropertiesService.isPlotsMapInGoogleEarthWeb() && plotsMapInGoogleEarthWebOpener != null;
-	}
-
-	/**
-	 * How Google Earth Web is opened, with the plots map in its panel, where the plots map window would be (see
-	 * {@link PlotImageryService}): given the plot to show, or null, it answers whether Google Earth Web is opening.
-	 */
-	public void showPlotsMapInGoogleEarthWebWith(Function<String, Boolean> opener) {
+	public void showPlotsMapInGoogleEarthWebWith(Runnable opener) {
 		plotsMapInGoogleEarthWebOpener = opener;
 	}
 
-	/** Opens Google Earth Web in place of the plots map window, which {@link PlotsMapKeeper} then keeps open. */
-	private boolean showPlotsMapInGoogleEarthWeb(String plotId) {
-		if (isClosing || !Boolean.TRUE.equals(plotsMapInGoogleEarthWebOpener.apply(plotId))) {
-			return false;
-		}
-		for (Runnable listener : leafletMapOpenedListeners) {
-			listener.run();
-		}
-		return true;
+	/** The address of the plots map in Google Earth Web's panel. */
+	static String leafletMapUrl(String base) {
+		return base + "map";
 	}
 
 	/**
-	 * The address of the plots map, on the plot {@code plotId} if not null: the page selects it once its plots have
-	 * loaded, as a click would, and takes the parameter out of its address (see App's controller).
-	 *
-	 * @param base the address of the embedded server, ending with /
-	 */
-	static String leafletMapUrl(String base, String plotId) {
-		String url = base + "map";
-		if (StringUtils.isBlank(plotId)) {
-			return url;
-		}
-		return url + "?plot=" + URLEncoder.encode(plotId, StandardCharsets.UTF_8);
-	}
-
-	/** The app without a map, for the Google Earth Pro viewer (see App.tsx, IN_HOME). */
-	static String homeUrl(String base) {
-		return base + "map?home";
-	}
-
-	/**
-	 * Opens the home page of the app in the plots map window, or loads it again there if the window is open: with the
-	 * Google Earth Pro viewer it is the main window of Collect Earth, which the plots map is with the other viewers. A
-	 * failure is logged.
-	 * <p>
-	 * Never in Google Earth Web's window ({@link #plotsMapInGoogleEarthWeb()}): there is no Google Earth Web with the
-	 * Google Earth Pro viewer. Nor does it tell the listeners of {@link #onLeafletMapOpened}: it is not the plots map,
-	 * which {@link PlotsMapKeeper} keeps open because it holds the form.
-	 */
-	public void openHomePage() {
-		try {
-			showInLeafletMapWindow(homeUrl(serverBase()));
-		} catch (final Exception e) {
-			logger.error("Problems loading the home page", e);
-		}
-	}
-
-	/** The address of the embedded server, ending with / (the base of {@link #leafletMapUrl} and {@link #homeUrl}). */
-	private String serverBase() {
-		return ServerController.getHostAddress(localPropertiesService.getHost(), localPropertiesService.getLocalPort());
-	}
-
-	private boolean showLeafletMap(String plotId) throws BrowserNotFoundException {
-		if (!showInLeafletMapWindow(leafletMapUrl(serverBase(), plotId))) {
-			return false;
-		}
-		for (Runnable listener : leafletMapOpenedListeners) {
-			listener.run();
-		}
-		return true;
-	}
-
-	/** Loads {@code url} in the plots map window, opened if it is not; returns whether the window is open now. */
-	private boolean showInLeafletMapWindow(String url) throws BrowserNotFoundException {
-		Object lock = getOrCreateLock(BrowserType.LEAFLET_MAP);
-		synchronized (lock) {
-			// A window the user closed is quit and an app window opened instead, there or when the window turns out to
-			// be gone as the page is loaded: see navigateTo. No refresh after it: the page takes ?plot= out of its
-			// address as soon as it starts, so a refresh would load it again on no plot. Its address has no #fragment,
-			// so the navigation alone loads the page anew.
-			webDriverLeafletMap = navigateTo(url, webDriverLeafletMap, true, false, () -> initAppWindow(null));
-			return webDriverLeafletMap != null;
-		}
-	}
-
-	/**
-	 * Called after the plots map window opened or loaded again, on the thread that opened it: {@link PlotsMapKeeper}
+	 * Called after Google Earth Web, with the plots map in its panel, was asked to open, on the thread that asked: {@link PlotsMapKeeper}
 	 * keeps it open from then on.
 	 */
 	public void onLeafletMapOpened(Runnable listener) {

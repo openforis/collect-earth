@@ -25,7 +25,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.openforis.collect.earth.app.EarthConstants.UI_LANGUAGE;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
-import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.model.CollectSurvey;
 import org.springframework.http.MediaType;
@@ -57,14 +56,10 @@ public class AppInfoControllerTest {
 	public void saysWhatTheAppBarShows() throws Exception {
 		when(properties.getOperator()).thenReturn("alfonso");
 		when(properties.getUiLanguage()).thenReturn(UI_LANGUAGE.ES);
-		when(properties.getValue(EarthProperty.VIEWER_TYPE)).thenReturn("google_earth_web");
-		when(properties.isPlotsMapViewer()).thenReturn(true);
 		mvc.perform(get("/api/app")).andExpect(status().isOk())
 				.andExpect(jsonPath("$.project").value("Sierra Leone 2026"))
 				.andExpect(jsonPath("$.operator").value("alfonso"))
 				.andExpect(jsonPath("$.language").value("es"))
-				.andExpect(jsonPath("$.viewer").value("google_earth_web"))
-				.andExpect(jsonPath("$.plotsMap").value(true))
 				.andExpect(jsonPath("$.version").value("1.23.20"))
 				.andExpect(jsonPath("$.cloud").value(false))
 				.andExpect(jsonPath("$.cloudLoginNeeded").value(false))

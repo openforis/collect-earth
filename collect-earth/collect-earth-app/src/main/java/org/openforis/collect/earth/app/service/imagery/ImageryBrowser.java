@@ -29,7 +29,6 @@ import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 
 import org.openforis.collect.earth.app.service.BrowserService;
-import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openqa.selenium.WebDriverException;
 import org.openqa.selenium.remote.RemoteWebDriver;
 import org.slf4j.Logger;
@@ -190,8 +189,6 @@ public class ImageryBrowser {
 	private volatile ImageryErrorReporter reporter;
 	@Autowired
 	private BrowserService browserService;
-	@Autowired
-	private LocalPropertiesService localPropertiesService;
 	private volatile TabDriver driver;
 	private volatile ImagerySource visible;
 	/** What the worker runs now, and since when (set first): a caller that gives up looks here for a hang. */
@@ -238,16 +235,12 @@ public class ImageryBrowser {
 
 	/**
 	 * Only keeps a reference to the browser service: the two beans refer to each other, and this runs while the other
-	 * may still be being set up. The viewer type is set again at every start, as it can change in the options.
+	 * may still be being set up.
 	 */
 	@PostConstruct
 	void init() {
 		BrowserService service = browserService;
-		starter = () -> {
-			reporter.setViewerType(localPropertiesService.getViewerType());
-			return service.startImageryBrowser();
-		};
-		reporter.setViewerType(localPropertiesService.getViewerType());
+		starter = service::startImageryBrowser;
 	}
 
 	void setStarter(Starter starter) {
@@ -464,21 +457,6 @@ public class ImageryBrowser {
 		separateWindowsWanted = wanted;
 	}
 
-	/** Whether the browser running has its windows as {@link #separateWindowsWhen} wants them now; true when none runs. */
-	public boolean windowsAsWanted() {
-		TabDriver d = driver;
-		if (d == null || !d.isAlive()) {
-			return true;
-		}
-		boolean wanted = wantsSeparateWindows();
-		synchronized (tabsLock) {
-			return separate == wanted;
-		}
-	}
-
-	private boolean wantsSeparateWindows() {
-		return separateWindowsWanted.getAsBoolean();
-	}
 
 	/** The window the tab of the source is in, or would open in. */
 	public ImageryWindow windowOf(ImagerySource source) {
@@ -504,11 +482,11 @@ public class ImageryBrowser {
 	}
 
 	/**
-	 * Quits the browser, as if the user had closed it: the next command starts a new one, with its windows as wanted
-	 * then. For the window layout, when the layout chosen wants them otherwise.
+	 * Quits the browser, as if the user had closed it: the next command starts a new one. For a setting the browser
+	 * takes at its start (see WindowLayoutService#restartImageryBrowser).
 	 */
 	public void close() {
-		reporter.breadcrumb(null, "browser closed for the window layout");
+		reporter.breadcrumb(null, "browser closed to start it again");
 		quitDriver();
 	}
 
@@ -802,7 +780,7 @@ public class ImageryBrowser {
 			} finally {
 				queueLock.unlock();
 			}
-			boolean separateWindows = wantsSeparateWindows();
+			boolean separateWindows = separateWindowsWanted.getAsBoolean();
 			synchronized (tabsLock) {
 				tabOfSource.clear();
 				sourceOfTab.clear();

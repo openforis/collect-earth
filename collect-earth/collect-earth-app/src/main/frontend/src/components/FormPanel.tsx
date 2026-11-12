@@ -1,4 +1,4 @@
-import { type MouseEvent as ReactMouseEvent, useMemo } from "react";
+import { useMemo } from "react";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
 import IconButton from "@mui/material/IconButton";
@@ -17,73 +17,42 @@ import { countStatuses, plotLabel } from "../plots";
 import { useT } from "../i18n";
 import { HANDS_FOCUS } from "../shortcuts";
 import { ImageryBar } from "./ImageryBar";
-import { useUiScale } from "../uiScale";
 import type { PlotStatus } from "../types";
 
 const STATUS_CHIP: Record<PlotStatus, "error" | "warning" | "success"> = { empty: "error", partial: "warning", saved: "success" };
-const MIN_WIDTH = 380;
 
 /**
- * {@code fill}: the form takes all the room left (the one-pane layout of App), without a resize handle.
+ * The form of the plot open, over the whole panel (the one-pane layout of App).
  * {@code hidden}: kept mounted, so the form keeps what was typed while the plot list is shown instead.
- * {@code onShowList}: a button to show the plot list, in the header (the one-pane layout has no list rail).
+ * {@code onShowList}: shows the plot list, from a button in the header.
  */
-export function FormPanel({ controller, state, fill, hidden, onShowList }: {
-  controller: MapController; state: UiState; fill?: boolean; hidden?: boolean; onShowList?: () => void;
+export function FormPanel({ controller, state, hidden, onShowList }: {
+  controller: MapController; state: UiState; hidden?: boolean; onShowList: () => void;
 }) {
   const t = useT();
-  const minWidth = Math.round(MIN_WIDTH * useUiScale());
   const id = state.activeId!;
   const status = state.statuses[id] ?? "empty";
   const prev = controller.neighbourOf(id, -1);
   const next = controller.neighbourOf(id, 1);
-  // The work done, otherwise only in the list, which the one-pane layout hides while the form is shown
+  // The work done, otherwise only in the list, which is hidden while the form is shown
   const counts = useMemo(() => countStatuses(state.order, state.statuses), [state.order, state.statuses]);
   const pct = counts.total ? Math.round((counts.saved * 100) / counts.total) : 0;
   // The arrows go through the list as filtered, which is remembered from one session to the next: shown, and undone here
   const filterLabel = state.filter !== "all" ? t(`filter.${state.filter}`) : null;
-  // and so does the search, which stays when the list is hidden (the one-pane layout) and a plot opened from it
+  // and so does the search, which stays when the list is hidden and a plot opened from it
   const query = state.query.trim();
-  // In the one-pane layout (Google Earth Web's panel), a slimmer header leaves the room to the form
-  const size = fill ? "small" : "medium";
-
-  // Drag the left edge to resize; the width is remembered per viewer.
-  const startResize = (e: ReactMouseEvent) => {
-    e.preventDefault();
-    document.body.classList.add("ce-resizing");
-    let width = state.formWidth;
-    const onMove = (ev: MouseEvent) => {
-      width = Math.max(minWidth, Math.min(Math.round(window.innerWidth - ev.clientX), Math.round(window.innerWidth * 0.75)));
-      controller.setFormWidth(width, false);
-    };
-    const onUp = () => {
-      document.body.classList.remove("ce-resizing");
-      document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseup", onUp);
-      controller.setFormWidth(width, true);
-    };
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup", onUp);
-  };
 
   return (
     <Paper square elevation={0} component="section" aria-label={t("form.label")} data-testid="form-panel" sx={{
       position: "relative", zIndex: 1100, borderLeft: 1, borderColor: "divider",
-      display: hidden ? "none" : "flex", flexDirection: "column",
-      ...(fill ? { flex: 1, minWidth: 0 } : { width: state.formWidth, minWidth, maxWidth: "75%" }),
+      display: hidden ? "none" : "flex", flexDirection: "column", flex: 1, minWidth: 0,
     }}>
-      {!fill && <Box onMouseDown={startResize} title={t("form.resize")} data-testid="resize-handle" sx={{
-        position: "absolute", left: -4, top: 0, bottom: 0, width: 8, cursor: "col-resize", zIndex: 1,
-        "&:hover, .ce-resizing &": { bgcolor: "primary.main", opacity: 0.35 },
-      }} />}
-      <Stack direction="row" spacing={0.5} sx={{ alignItems: "center", p: fill ? 0.5 : 1, borderBottom: 1, borderColor: "divider" }}>
-        {onShowList && (
-          <Tooltip title={t("showList")}>
-            <IconButton size={size} onClick={onShowList} aria-label={t("showList")} data-testid="show-list"><FormatListBulletedIcon /></IconButton>
-          </Tooltip>
-        )}
+      <Stack direction="row" spacing={0.5} sx={{ alignItems: "center", p: 0.5, borderBottom: 1, borderColor: "divider" }}>
+        <Tooltip title={t("showList")}>
+          <IconButton size="small" onClick={onShowList} aria-label={t("showList")} data-testid="show-list"><FormatListBulletedIcon /></IconButton>
+        </Tooltip>
         <Tooltip title={t("form.prev")}>
-          <span><IconButton size={size} onClick={() => controller.step(-1)} disabled={!prev} aria-label={t("form.prev")} data-testid="form-prev" {...{ [HANDS_FOCUS]: true }}><ChevronLeftIcon /></IconButton></span>
+          <span><IconButton size="small" onClick={() => controller.step(-1)} disabled={!prev} aria-label={t("form.prev")} data-testid="form-prev" {...{ [HANDS_FOCUS]: true }}><ChevronLeftIcon /></IconButton></span>
         </Tooltip>
         {/* The plot on its line, never squeezed by the rest (the panel may be 380 px wide), which goes on a line below */}
         <Stack sx={{ flex: 1, minWidth: 0, px: 0.5 }}>
@@ -114,16 +83,16 @@ export function FormPanel({ controller, state, fill, hidden, onShowList }: {
           </Stack>
         </Stack>
         <Tooltip title={t("form.next")}>
-          <span><IconButton size={size} onClick={() => controller.step(1)} disabled={!next} aria-label={t("form.next")} data-testid="form-next" {...{ [HANDS_FOCUS]: true }}><ChevronRightIcon /></IconButton></span>
+          <span><IconButton size="small" onClick={() => controller.step(1)} disabled={!next} aria-label={t("form.next")} data-testid="form-next" {...{ [HANDS_FOCUS]: true }}><ChevronRightIcon /></IconButton></span>
         </Tooltip>
         <Tooltip title={t("form.close")}>
-          <IconButton size={size} onClick={controller.closeForm} aria-label={t("form.close")} data-testid="form-close"><CloseIcon /></IconButton>
+          <IconButton size="small" onClick={controller.closeForm} aria-label={t("form.close")} data-testid="form-close"><CloseIcon /></IconButton>
         </Tooltip>
       </Stack>
       <ImageryBar controller={controller} state={state} />
       {/* key: a fresh iframe per plot, so a stale form can never post into the next one */}
       <Box component="iframe" key={state.formUrl} src={state.formUrl!} title={t("form.frame")} data-testid="form-frame"
-        sx={{ flex: 1, border: 0, bgcolor: "background.paper", ".ce-resizing &": { pointerEvents: "none" } }} />
+        sx={{ flex: 1, border: 0, bgcolor: "background.paper" }} />
     </Paper>
   );
 }

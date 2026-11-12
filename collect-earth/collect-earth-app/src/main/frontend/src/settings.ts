@@ -19,7 +19,7 @@ export type Condition =
 export type FieldType = "text" | "password" | "integer" | "boolean" | "choice" | "file" | "folder" | "date";
 
 /** An option of a choice: its label is a key of the server texts, or a plain text (a month). */
-export interface Choice { value: string; label?: string; text?: string; description?: string }
+export interface Choice { value: string; label?: string; text?: string }
 
 export interface Field {
   key: string;

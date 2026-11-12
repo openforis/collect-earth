@@ -36,7 +36,6 @@ public class ActionsControllerTest {
 		actions.put("quit", () -> run.add("quit"));
 		actions.put("openBackupFolder", () -> run.add("openBackupFolder"));
 		actions.put("openDataFolder", () -> run.add("openDataFolder"));
-		actions.put("openPlotsMap", () -> run.add("openPlotsMap"));
 		actions.put("broken", () -> {
 			throw new IllegalStateException("the folder cannot be opened");
 		});
@@ -59,10 +58,9 @@ public class ActionsControllerTest {
 	}
 
 	@Test
-	public void theDataFolderAndThePlotsMapAreOpened() throws Exception {
+	public void theDataFolderIsOpened() throws Exception {
 		mvc.perform(post("/api/actions/openDataFolder")).andExpect(status().isOk());
-		mvc.perform(post("/api/actions/openPlotsMap")).andExpect(status().isOk());
-		assertEquals(List.of("openDataFolder", "openPlotsMap"), run);
+		assertEquals(List.of("openDataFolder"), run);
 	}
 
 	@Test
@@ -191,7 +189,7 @@ public class ActionsControllerTest {
 		LocalDashboardService dashboard = mock(LocalDashboardService.class);
 		when(dashboard.newSignInUrl()).thenReturn(null);
 		when(dashboard.getStateText()).thenReturn("Not installed");
-		ActionsController controller = new ActionsController(null, null, null, null, null, dashboard, project(false), mock(CloudApiClient.class));
+		ActionsController controller = new ActionsController(null, null, null, null, dashboard, project(false), mock(CloudApiClient.class));
 		MockMvc wired = TemplateWiring.mockMvc(controller, new ApiExceptionHandler());
 		// the two of the dashboard, through the server's own wiring: told why they cannot open
 		wired.perform(post("/api/actions/openDashboard")).andExpect(status().isBadRequest()).andExpect(jsonPath("$.error").value("dashboard.notReady"));

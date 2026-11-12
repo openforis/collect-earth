@@ -1,4 +1,4 @@
-import type { GewStatus, GroundView, ImagerySource, ImageryStatus, LatLng, MapConfig, PlotFeature, PlotStatus } from "./types";
+import type { GewStatus, GroundView, ImagerySource, ImageryStatus, MapConfig, PlotFeature, PlotStatus } from "./types";
 
 /**
  * Base URL of the Collect Earth embedded server (the page is served from it). Read at each call, not when the module
@@ -23,7 +23,7 @@ export async function fetchStatuses(since: number | null): Promise<{ now: number
 }
 
 /**
- * The form next to the map: by default the one Collect Earth generates from the survey (/form, which
+ * The form of a plot: by default the one Collect Earth generates from the survey (/form, which
  * reads the plot file values itself), or the CEP's balloon, where /balloon substitutes the $[...]
  * tokens with the plot's properties.
  */
@@ -47,7 +47,7 @@ export function openAuxiliaryWindows(feature: PlotFeature): void {
     + "&plotId=" + encodeURIComponent(p.id)).catch(() => { /* non-fatal */ });
 }
 
-// ---------- Google Earth Web window (plot viewer "Plots map + Google Earth Web") ----------
+// ---------- Google Earth Web, around the panel ----------
 
 export async function fetchGewStatus(): Promise<GewStatus> {
   const r = await fetch(earthBase() + "googleEarthWeb/status");
@@ -55,31 +55,10 @@ export async function fetchGewStatus(): Promise<GewStatus> {
   return r.json();
 }
 
-/** Shows the plot even if it was the last one opened (reopens a closed window). */
-export function gewShowPlot(feature: PlotFeature): void {
-  const p = feature.properties;
-  fetch(earthBase() + "googleEarthWeb/show?latLongCoordinates=" + p.latitude + "," + p.longitude
-    + "&plotId=" + encodeURIComponent(p.id)).catch(() => { /* reported through the status */ });
-}
-
-/** Opens the window over the survey area before any plot is selected (no-op if open). */
-export function gewOpenOverview(center: LatLng): void {
-  fetch(earthBase() + "googleEarthWeb/open?latLongCoordinates=" + center[0] + "," + center[1]).catch(() => {});
-}
-
-/** The user moved the map: Google Earth Web looks at the same place, with as much ground in view. */
+/** Google Earth Web looks at this place, with as much ground in view. */
 export function gewMoveCamera(view: GroundView): void {
   fetch(earthBase() + "googleEarthWeb/camera?latitude=" + view.center[0] + "&longitude=" + view.center[1]
     + "&heightMeters=" + view.heightMeters).catch(() => {});
-}
-
-export function gewArrangeWindows(): void {
-  fetch(earthBase() + "googleEarthWeb/arrange").catch(() => {});
-}
-
-/** This window was resized or moved: side by side, Google Earth Web takes the room left beside it. */
-export function gewFollowFormWindow(): void {
-  fetch(earthBase() + "googleEarthWeb/followForm").catch(() => {});
 }
 
 // ---------- The imagery window: a tab per source ----------

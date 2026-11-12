@@ -61,7 +61,7 @@ public class SettingsService {
 
 	/**
 	 * The stored value of every setting, by key, as the dialog showed it: a number within its range (the spinners
-	 * replaced what was not), the viewer, layout, map engine, form and driver resolved to one of their choices (as
+	 * replaced what was not), the form and driver resolved to one of their choices (as
 	 * LocalPropertiesService resolves them), a switch as true or false, the reference area shape as the panel showed
 	 * it for the projects older than the setting, and the first of several reference distances.
 	 */
@@ -91,13 +91,7 @@ public class SettingsService {
 	private String shown(Setting setting, Map<String, String> stored) {
 		String value = Condition.valueOf(stored, setting.key());
 		EarthProperty property = setting.getProperty();
-		if (property == EarthProperty.VIEWER_TYPE) {
-			return properties.getViewerType();
-		} else if (property == EarthProperty.WINDOW_LAYOUT) {
-			return properties.getWindowLayout();
-		} else if (property == EarthProperty.MAP_ENGINE) {
-			return properties.getMapEngine();
-		} else if (property == EarthProperty.DB_DRIVER) {
+		if (property == EarthProperty.DB_DRIVER) {
 			CollectDBDriver driver = properties.getCollectDBDriver();
 			return (driver == null ? CollectDBDriver.SQLITE : driver).name();
 		} else if (property == EarthProperty.SAMPLE_SHAPE) {

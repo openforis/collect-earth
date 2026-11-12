@@ -21,7 +21,7 @@ import { serverText, type Texts } from "../../serverTexts";
 export interface SettingFieldProps {
   field: Field;
   value: string;
-  /** All the values, for the label and the description that depend on them */
+  /** All the values, for the label that depends on them */
   values: Values;
   texts: Texts | null;
   error?: string;
@@ -43,12 +43,10 @@ export function SettingField({ field, value, values, texts, error, warning, chan
   const label = s(fieldLabel(field, values));
   const tooltip = field.tooltip ? s(field.tooltip) : "";
   const hint = field.type === "date" ? [tooltip, s("SettingsPage.date.hint")].filter(Boolean).join(". ") : tooltip;
-  const description = field.type === "choice" ? field.choices?.find((c) => c.value === value)?.description : undefined;
   const message = error ?? warning ?? hint;
   const helper = (
     <FormHelperText component="div" error={!!error} sx={{ mx: 0, color: !error && warning ? "warning.main" : undefined, whiteSpace: "pre-line" }}>
       {message}
-      {description && <Typography variant="caption" component="p" color="text.secondary" sx={{ mt: 0.5 }}>{s(description)}</Typography>}
     </FormHelperText>
   );
   const chip = field.restart ? <Chip label={s("SettingsPage.restartBadge")} size="small" variant="outlined" color="warning" /> : null;

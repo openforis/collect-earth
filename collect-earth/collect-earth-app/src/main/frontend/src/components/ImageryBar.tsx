@@ -5,18 +5,17 @@ import Tooltip from "@mui/material/Tooltip";
 import type { MapController, UiState } from "../controller";
 import { useT } from "../i18n";
 import { imageryChoices, imageryNumberOf } from "../imagery";
-import { IN_PANEL } from "../panel";
 import type { ImagerySource } from "../types";
 
 /**
- * A button per tab of the imagery window, the one shown pressed: brings that tab to the front, and the window over
- * the others. Nothing when there is only one tab or none, as there is nothing to switch between. Scrolls sideways
+ * A button per tab of the imagery window but Google Earth Web's (see imageryChoices), the one shown pressed: brings that
+ * tab to the front, and the window over the others. Nothing when there is no other source. Scrolls sideways
  * rather than wrapping when the form panel is narrow, and shares the width when there is room; sized in rem, so it
  * follows the scale of the UI.
  */
 export function ImageryBar({ controller, state }: { controller: MapController; state: UiState }) {
   const t = useT();
-  const choices = imageryChoices(state.imagery, IN_PANEL);
+  const choices = imageryChoices(state.imagery);
   if (!choices.length) return null;
   const shown = choices.find((choice) => choice.shown)?.source ?? null;
   return (

@@ -52,9 +52,6 @@ public class SettingsServiceTest {
 			String value = stored.get(call.getArgument(0).toString());
 			return value == null ? "" : value;
 		});
-		when(properties.getViewerType()).thenReturn("plots_map");
-		when(properties.getWindowLayout()).thenReturn("auto");
-		when(properties.getMapEngine()).thenReturn("leaflet");
 		when(properties.getCollectDBDriver()).thenReturn(CollectDBDriver.SQLITE);
 	}
 
@@ -84,8 +81,7 @@ public class SettingsServiceTest {
 		assertEquals("C:/plots.csv", current.get("csv"));
 		assertEquals("SQUARE", current.get("sample_shape"));
 		assertEquals("25", current.get("number_of_sampling_points_in_plot"));
-		// The viewer as resolved from the legacy flags, the driver as resolved
-		assertEquals("plots_map", current.get("viewer_type"));
+		// The driver as resolved
 		assertEquals("SQLITE", current.get("db_driver"));
 		// Projects older than the reference area setting: a distance means a square one
 		assertEquals("SQUARE", current.get("buffer_shape"));

@@ -10,36 +10,17 @@ export interface PlotFeature {
 }
 
 export interface MapConfig {
-  engine?: string;
-  googleMapsApiKey?: string;
-  viewerType?: string;
   /** Collect Earth UI language (ISO code, e.g. "es") */
   language?: string;
   /** "generated" (from the survey, the default) or "balloon" (the CEP's balloon HTML) */
   webForm?: string;
-  /** The open plot's sample points numbered, as the rows of the form's table per point (sample_point_numbers) */
-  samplePointNumbers?: boolean;
 }
 
 export type GewState = "CLOSED" | "OPENING" | "MOVING" | "READY" | "WAITING" | "ERROR";
 
-/** Ground area shown by a top-down Google Earth Web view (heading: degrees clockwise from north). */
-export interface GewView {
-  latitude: number;
-  longitude: number;
-  widthMeters: number;
-  heightMeters: number;
-  heading: number;
-}
-
-/** What the Google Earth Web window is doing (/googleEarthWeb/status). */
+/** What the Google Earth Web window is doing (/googleEarthWeb/status): what the panel reads of it. */
 export interface GewStatus {
   state: GewState;
-  plotId: string | null;
-  message: string | null;
-  view?: GewView | null;
-  /** Whether the camera can follow the plots map (false when Google Earth Web needs page loads). */
-  cameraSync?: boolean;
 }
 
 export type ImagerySource = "GOOGLE_EARTH_WEB" | "ESRI_WAYBACK" | "PLANET" | "GEE_APP" | "EARTH_MAP"
@@ -48,7 +29,7 @@ export type ImagerySource = "GOOGLE_EARTH_WEB" | "ESRI_WAYBACK" | "PLANET" | "GE
 /** The tabs of the imagery window (/imagery/status). */
 export interface ImageryStatus { sources: ImagerySource[]; visible: ImagerySource | null }
 
-/** Where a map or Google Earth Web looks: the centre and the height of ground in view (metres). */
+/** Where Google Earth Web looks: the centre and the height of ground in view (metres). */
 export interface GroundView {
   center: LatLng;
   heightMeters: number;
@@ -59,5 +40,3 @@ export const STATUS_COLORS: Record<PlotStatus, string> = {
   partial: "#fdd835",
   saved: "#43a047",
 };
-/** The selected plot, in the yellow Collect Earth has always drawn plots in (as in Google Earth Web and Pro). */
-export const ACTIVE_COLOR = "#ffff00";

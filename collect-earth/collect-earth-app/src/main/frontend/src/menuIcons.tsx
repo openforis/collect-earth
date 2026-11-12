@@ -18,7 +18,6 @@ import GroupAddOutlinedIcon from "@mui/icons-material/GroupAddOutlined";
 import HelpOutlineOutlinedIcon from "@mui/icons-material/HelpOutlineOutlined";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import ManageSearchOutlinedIcon from "@mui/icons-material/ManageSearchOutlined";
-import MapOutlinedIcon from "@mui/icons-material/MapOutlined";
 import MenuBookOutlinedIcon from "@mui/icons-material/MenuBookOutlined";
 import PowerSettingsNewOutlinedIcon from "@mui/icons-material/PowerSettingsNewOutlined";
 import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
@@ -46,7 +45,6 @@ export const MENU_ICONS: Record<string, SvgIconComponent> = {
   loadKml: AddLocationAltOutlinedIcon,
   dataFolder: FolderOpenOutlinedIcon,
   myDashboard: DashboardOutlinedIcon,
-  openPlotsMap: MapOutlinedIcon,
   missingPlots: ManageSearchOutlinedIcon,
   divideCsv: CallSplitOutlinedIcon,
   deletePlots: DeleteSweepOutlinedIcon,

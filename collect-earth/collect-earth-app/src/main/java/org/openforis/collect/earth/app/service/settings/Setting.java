@@ -26,21 +26,16 @@ public final class Setting {
 		}
 	}
 
-	/**
-	 * An entry of a choice: its stored value, its label as a key of Messages.properties or as a plain text, and for a
-	 * few a description, a key too, which the page shows under the field while the entry is chosen.
-	 */
+	/** An entry of a choice: its stored value, and its label as a key of Messages.properties or as a plain text. */
 	public static final class Choice {
 		final String value;
 		final String label;
 		final String text;
-		final String description;
 
-		Choice(String value, String label, String text, String description) {
+		Choice(String value, String label, String text) {
 			this.value = value;
 			this.label = label;
 			this.text = text;
-			this.description = description;
 		}
 
 		public String getValue() {
@@ -52,11 +47,6 @@ public final class Setting {
 			return label;
 		}
 
-		/** The key of the description, null for most */
-		public String getDescription() {
-			return description;
-		}
-
 		Map<String, Object> toJson() {
 			Map<String, Object> json = new LinkedHashMap<>();
 			json.put("value", value);
@@ -64,9 +54,6 @@ public final class Setting {
 				json.put("label", label);
 			} else {
 				json.put("text", text);
-			}
-			if (description != null) {
-				json.put("description", description);
 			}
 			return json;
 		}
@@ -190,13 +177,7 @@ public final class Setting {
 	}
 
 	public Setting option(String value, String label) {
-		choices.add(new Choice(value, label, null, null));
-		return this;
-	}
-
-	/** An option with a description shown under the field while it is chosen. */
-	public Setting option(String value, String label, String description) {
-		choices.add(new Choice(value, label, null, description));
+		choices.add(new Choice(value, label, null));
 		return this;
 	}
 
@@ -206,7 +187,7 @@ public final class Setting {
 
 	/** An option whose label is no text of Messages.properties, such as a month. */
 	public Setting optionText(String value, String text) {
-		choices.add(new Choice(value, null, text, null));
+		choices.add(new Choice(value, null, text));
 		return this;
 	}
 

@@ -442,7 +442,7 @@ public class EarthApp {
 	}
 
 	/**
-	 * Generates the KML for the project and opens it in Google Earth
+	 * Generates the KML for the project and opens the plots again
 	 * 
 	 * @param forceKmlRecreation Set to true if you want to forece the regeneration
 	 *                           of the KML even if is is up to date (you might want
@@ -457,8 +457,7 @@ public class EarthApp {
 	private static synchronized void loadKmlInGoogleEarth(boolean forceKmlRecreation)
 			throws IOException, KmlGenerationException, CsvValidationException {
 		earthApp.getKmlGeneratorService().generatePlacemarksKmzFile(forceKmlRecreation);
-		// Not the server starting: the home page is open already, and loading it again would only make it flicker
-		earthApp.simulateClickKmz(false);
+		earthApp.openLeafletMap();
 	}
 
 	/**
@@ -684,33 +683,11 @@ public class EarthApp {
 			}
 		} else {
 
-			useGoogleEarthWeb();
-
 			startServer(doubleClickedProjectFile);
 
 		}
 
 		GAlogger.logGAnalytics("StartCollectEarth");
-	}
-
-	/**
-	 * Google Earth Web replaces Google Earth Pro: an installation still set to Google Earth Pro (or set to nothing) is
-	 * moved to Google Earth Web at start-up. Runs before the server starts so the viewer is already in earth.properties
-	 * when the server-side properties service loads it.
-	 */
-	private static void useGoogleEarthWeb() {
-		final LocalPropertiesService localProperties = getLocalProperties();
-		// Unattended runs ( automated tests ) can still choose the viewer with -Dcollectearth.viewerType=...
-		String forcedViewerType = System.getProperty("collectearth.viewerType"); //$NON-NLS-1$
-		if (StringUtils.isNotBlank(forcedViewerType)) {
-			localProperties.saveViewerType(forcedViewerType.trim());
-			logger.info("Plot viewer set from the command line : {}", forcedViewerType); //$NON-NLS-1$
-			return;
-		}
-		if (LocalPropertiesService.VIEWER_TYPE_GOOGLE_EARTH_PRO.equals(localProperties.getViewerType())) {
-			localProperties.saveViewerType(LocalPropertiesService.VIEWER_TYPE_GOOGLE_EARTH_WEB);
-			logger.info("Plot viewer moved from Google Earth Pro to Google Earth Web"); //$NON-NLS-1$
-		}
 	}
 
 	public static void startServer(final String doubleClickedProjectFile) throws Exception {
@@ -749,7 +726,7 @@ public class EarthApp {
 					earthApp.generateKml();
 					StartupProgressWindow.step(Messages.getString("StartupWindow.window")); //$NON-NLS-1$
 					// The main window opens on a thread of its own, which closes the progress window (inServerContext)
-					earthApp.simulateClickKmz(true);
+					earthApp.openLeafletMap();
 					// The announcements and the update offer are StartupNotices' now, a bean of the context
 					closeSplash();
 				} catch (final Exception e) {
@@ -776,13 +753,6 @@ public class EarthApp {
 		});
 	}
 
-	private void openKmlOnGoogleEarth() {
-		if (!CollectEarthUtils.openFile(new File(KmlGeneratorService.KML_NETWORK_LINK_STARTER))) {
-			notify(Notice.ERROR, MessageFormat.format(Messages.getString("EarthApp.kmlCannotOpen"), //$NON-NLS-1$
-					StringEscapeUtils.escapeHtml4(new File(KmlGeneratorService.KML_NETWORK_LINK_STARTER).getAbsolutePath())));
-		}
-	}
-	
 	private void loadProjectIfDoubleClicked(String doubleClickedProjectFile) {
 		try {
 			if (doubleClickedProjectFile != null) {
@@ -843,44 +813,12 @@ public class EarthApp {
 		});
 	}
 
-	/**
-	 * Opens the plots in the viewer.
-	 *
-	 * @param serverStarted whether the server has just started (Collect Earth started, or the server restarted for a
-	 *                      new project or settings, with a new Spring context and so no window of its own): only then
-	 *                      is the home page opened with the Google Earth Pro viewer, not on every reload of the KML
-	 */
-	private void simulateClickKmz(boolean serverStarted) {
-		try {
-			if (getLocalProperties().isPlotsMapViewer()) {
-				// Plots map / Google Earth Web viewer: no KML handoff to Google Earth Pro;
-				// open the plots map served by the embedded server instead.
-				openLeafletMap();
-			} else {
-				getKmlGeneratorService().generateLoaderKmlFile();
-				openKmlOnGoogleEarth();
-				// The main window of Collect Earth, which the Swing window was: Google Earth Pro shows the plots
-				if (serverStarted) {
-					openHomePage();
-				}
-			}
-		} catch (final Exception e) {
-			StartupProgressWindow.close();
-			notify(Notice.ERROR, Messages.getString("EarthApp.61")); //$NON-NLS-1$
-			logger.error("The KMZ file could not be found", e); //$NON-NLS-1$
-		}
-	}
-
 	private void openLeafletMap() {
 		inServerContext("the Leaflet plots map", context -> { //$NON-NLS-1$
 			context.getBean(BrowserService.class).openLeafletMap();
-			// Into its place next to Google Earth Web, also after the options changed the layout
+			// Into its place on the screens
 			context.getBean(WindowLayoutService.class).arrange();
 		});
-	}
-
-	private void openHomePage() {
-		inServerContext("the home page", context -> context.getBean(BrowserService.class).openHomePage()); //$NON-NLS-1$
 	}
 
 	/**

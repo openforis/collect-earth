@@ -10,7 +10,6 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
@@ -40,8 +39,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
- * Drives Google Earth Web, the imagery viewer when the plot viewer is "Plots map + Google Earth
- * Web", in its tab of the imagery window ({@link ImageryBrowser}). Google Earth Web has no API:
+ * Drives Google Earth Web, the plot viewer, with the plots map in a panel of its page, in its tab
+ * of the imagery window ({@link ImageryBrowser}). Google Earth Web has no API:
  * the camera is moved through the page URL and the plot outline is drawn by an injected script
  * (resources/javascript_google_earth_web.fmt).
  *
@@ -71,7 +70,7 @@ public class GoogleEarthWebService {
 	private static final String OVERLAY_TEMPLATE = "resources/javascript_google_earth_web.fmt";
 	/** How long Chrome may take to show the title of a page as the one of its window. */
 	private static final long WINDOW_TITLE_DELAY_MILLIS = 1000;
-	/** The plots map in a panel of the page, with the "plots map inside Google Earth Web" layout. */
+	/** The plots map in a panel of the page. */
 	private static final String PANEL_TEMPLATE = "resources/javascript_plots_map_panel.fmt";
 	private static final String OVERLAY_TAG = "__collectEarthGewOverlay";
 
@@ -361,9 +360,6 @@ public class GoogleEarthWebService {
 	 *                  {@code PlotImageryService}); the plot of the selection shown last is shown again
 	 */
 	public void showPlot(SimplePlacemarkObject plot, long selection) {
-		if (!isTheViewer()) {
-			return;
-		}
 		// The waiting plot of a later selection is not replaced by the one of an earlier selection
 		pending.accumulateAndGet(new Selection(plot, selection),
 				(waiting, arrived) -> waiting != null && waiting.number > arrived.number ? waiting : arrived);
@@ -390,8 +386,7 @@ public class GoogleEarthWebService {
 	/**
 	 * Waits until Google Earth Web is done with the plot of this selection: shown (READY), or waiting for the user or
 	 * failed (WAITING, ERROR), for {@code timeoutMillis} at most, or until {@code stop} says so. A state of the same plot
-	 * from an earlier selection (A, B, A again) is not taken for it. At once when Google Earth Web is not the viewer or
-	 * the plot has no id; after {@link #CLOSED_GRACE_MILLIS} when Google Earth Web stays closed. For the other imagery
+	 * from an earlier selection (A, B, A again) is not taken for it. At once when the plot has no id; after {@link #CLOSED_GRACE_MILLIS} when Google Earth Web stays closed. For the other imagery
 	 * sources, whose loads would otherwise take the worker of the imagery window and the machine from Google Earth Web
 	 * while it moves to the plot.
 	 *
@@ -399,7 +394,7 @@ public class GoogleEarthWebService {
 	 */
 	public void awaitShown(String plotId, long selection, long timeoutMillis, BooleanSupplier stop)
 			throws InterruptedException {
-		if (plotId == null || !isTheViewer()) {
+		if (plotId == null) {
 			return;
 		}
 		long start = System.nanoTime();
@@ -432,11 +427,6 @@ public class GoogleEarthWebService {
 		return state == State.CLOSED;
 	}
 
-	/** Whether Google Earth Web is the plot viewer. */
-	boolean isTheViewer() {
-		return localPropertiesService.isGoogleEarthWebViewer();
-	}
-
 	/** Shows the plot of the latest selection; holding {@link #lock}. */
 	void showSelected(SimplePlacemarkObject plot) {
 		show(plot, false);
@@ -448,7 +438,7 @@ public class GoogleEarthWebService {
 	 * the window is already open or a plot is being shown.
 	 */
 	public void openOverview(SimplePlacemarkObject center) {
-		if (!localPropertiesService.isGoogleEarthWebViewer() || tab().isOpen()) {
+		if (tab().isOpen()) {
 			return;
 		}
 		synchronized (lock) {
@@ -538,9 +528,9 @@ public class GoogleEarthWebService {
 		moveCamera(latitude, longitude, heightMeters, showCount.get());
 	}
 
-	/** Whether the camera can follow the plots map at all: in Google Earth Web, and only by in-page navigation. */
+	/** Whether the camera can follow the plots map at all: only by in-page navigation. */
 	private boolean canMoveCamera() {
-		return localPropertiesService.isGoogleEarthWebViewer() && inPage.mayFollow();
+		return inPage.mayFollow();
 	}
 
 	/**
@@ -1148,9 +1138,8 @@ public class GoogleEarthWebService {
 	}
 
 	/**
-	 * Shows the plots map in a panel on the left of the page, or takes it away, as the window layout wants (see
-	 * javascript_plots_map_panel.fmt): with the outline, as a page loaded anew lost both, and when the layout changes.
-	 * A failure leaves Google Earth Web as it is, with the plots map in its own window.
+	 * Shows the plots map in a panel on the left of the page (see javascript_plots_map_panel.fmt): with the outline, as
+	 * a page loaded anew lost both. A failure leaves Google Earth Web as it is, and the watchdog tries again.
 	 */
 	private void syncPanel() {
 		String url = panelUrl();
@@ -1167,14 +1156,13 @@ public class GoogleEarthWebService {
 			if (!"no_body".equals(result)) {
 				panelShown = url;
 			}
-			if ("shown".equals(result) || "removed".equals(result)) {
+			if ("shown".equals(result)) {
 				markWindowsSoon(); // the page has another title, and its window another icon
 			}
 		} catch (TabClosedException e) {
 			throw e;
 		} catch (Exception e) {
-			logger.warn("Google Earth Web: the plots map panel could not be {}: {}", url == null ? "removed" : "shown",
-					e.getMessage());
+			logger.warn("Google Earth Web: the plots map panel could not be shown: {}", e.getMessage());
 		}
 	}
 
@@ -1197,16 +1185,10 @@ public class GoogleEarthWebService {
 		return BrowserService.plotsInGoogleEarthWebTitle(name);
 	}
 
-	/**
-	 * The address of the plots map for the panel, or null when the window layout wants none: with ?panel, as it shows
-	 * only the plot list and the form there (panel.ts), Google Earth Web being the map.
-	 */
+	/** The address of the plots map for the panel. */
 	private String panelUrl() {
-		if (!localPropertiesService.isPlotsMapInGoogleEarthWeb()) {
-			return null;
-		}
 		return BrowserService.leafletMapUrl(ServerController.getHostAddress(localPropertiesService.getHost(),
-				localPropertiesService.getLocalPort()), null) + "?panel";
+				localPropertiesService.getLocalPort()));
 	}
 
 	/**
@@ -1292,10 +1274,8 @@ public class GoogleEarthWebService {
 				if (state == State.READY && plot != null && aimAtTheGround(href, plot)) {
 					return;
 				}
-				String panelWanted = panelUrl();
-				boolean panelInPage = Boolean.TRUE.equals(page.get(4));
-				if (!Objects.equals(panelWanted, panelShown) || panelWanted != null && !panelInPage) {
-					// the window layout was changed, or the page lost the panel: a window opened again, a page loaded anew
+				if (!panelUrl().equals(panelShown) || !Boolean.TRUE.equals(page.get(4))) {
+					// the page lost the panel: a window opened again, a page loaded anew
 					syncPanel();
 				}
 				double[] camera = GoogleEarthWebUrls.cameraPosition(href);

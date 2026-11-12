@@ -4,38 +4,31 @@ import { imageryChoices, imageryForNumber, imageryNumberOf, reconcileImagery } f
 describe("the keys of the imagery sources", () => {
   const status = { sources: ["GOOGLE_EARTH_WEB", "ESRI_WAYBACK", "GEE_APP", "EARTH_MAP"], visible: "GOOGLE_EARTH_WEB" } as const;
   const all = { ...status, sources: [...status.sources] };
-  it("number them in the order of their buttons, Google Earth Web first", () => {
+  it("number them in the order of the tabs, Google Earth Web first", () => {
     expect(imageryNumberOf(all, "GOOGLE_EARTH_WEB")).toBe(1);
     expect(imageryNumberOf(all, "EARTH_MAP")).toBe(4);
-    expect(imageryForNumber(all, false, 1)).toBe("GOOGLE_EARTH_WEB");
-    expect(imageryForNumber(all, false, 3)).toBe("GEE_APP");
+    expect(imageryForNumber(all, 2)).toBe("ESRI_WAYBACK");
+    expect(imageryForNumber(all, 3)).toBe("GEE_APP");
   });
-  it("keep their numbers in Google Earth Web's panel, where Alt+1 has no button to press", () => {
-    expect(imageryForNumber(all, true, 1)).toBeNull();
-    expect(imageryForNumber(all, true, 2)).toBe("ESRI_WAYBACK");
-  });
-  it("show nothing for a number with no source, or when there is nothing to switch between", () => {
-    expect(imageryForNumber(all, false, 5)).toBeNull();
-    expect(imageryForNumber({ sources: ["GOOGLE_EARTH_WEB"], visible: null }, false, 1)).toBeNull();
+  it("show nothing for Google Earth Web, which has no button in its own panel, nor for a number with no source", () => {
+    expect(imageryForNumber(all, 1)).toBeNull();
+    expect(imageryForNumber(all, 5)).toBeNull();
   });
 });
 
 describe("imageryChoices", () => {
-  it("leaves Google Earth Web out in its own panel, and keeps a single other source there", () => {
-    expect(imageryChoices({ sources: ["GOOGLE_EARTH_WEB", "ESRI_WAYBACK"], visible: "ESRI_WAYBACK" }, true)).toEqual([
+  it("leaves Google Earth Web out, keeps a single other source, and marks the one shown", () => {
+    expect(imageryChoices({ sources: ["GOOGLE_EARTH_WEB", "ESRI_WAYBACK"], visible: "ESRI_WAYBACK" })).toEqual([
       { source: "ESRI_WAYBACK", shown: true },
     ]);
-    expect(imageryChoices({ sources: ["GOOGLE_EARTH_WEB"], visible: "GOOGLE_EARTH_WEB" }, true)).toEqual([]);
+    expect(imageryChoices({ sources: ["GOOGLE_EARTH_WEB", "ESRI_WAYBACK", "PLANET"], visible: "PLANET" })).toEqual([
+      { source: "ESRI_WAYBACK", shown: false },
+      { source: "PLANET", shown: true },
+    ]);
   });
-  it("offers nothing to switch with one tab or none", () => {
+  it("offers nothing with Google Earth Web alone, or no tab", () => {
     expect(imageryChoices({ sources: [], visible: null })).toEqual([]);
     expect(imageryChoices({ sources: ["GOOGLE_EARTH_WEB"], visible: "GOOGLE_EARTH_WEB" })).toEqual([]);
-  });
-  it("lists the tabs in their order and marks the one shown", () => {
-    expect(imageryChoices({ sources: ["GOOGLE_EARTH_WEB", "ESRI_WAYBACK"], visible: "ESRI_WAYBACK" })).toEqual([
-      { source: "GOOGLE_EARTH_WEB", shown: false },
-      { source: "ESRI_WAYBACK", shown: true },
-    ]);
   });
 });
 

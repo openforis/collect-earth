@@ -1,12 +1,9 @@
 import type { ListFilter } from "./types";
 
-// Per-viewer UI preferences. Best effort: storage can be unavailable (private mode,
+// UI preferences. Best effort: storage can be unavailable (private mode,
 // blocked site data), in which case the defaults are used.
 export interface Prefs {
   filter?: ListFilter;
-  sidebarCollapsed?: boolean;
-  formWidth?: number;
-  baseLayer?: string;
 }
 
 const KEY = "ce.plotsMap.prefs";

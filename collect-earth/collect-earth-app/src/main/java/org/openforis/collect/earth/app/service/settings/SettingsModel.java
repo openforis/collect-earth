@@ -18,7 +18,6 @@ import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.EarthConstants.BUFFER_SHAPE;
 import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
 import org.openforis.collect.earth.app.EarthConstants.SAMPLE_SHAPE;
-import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.service.settings.PlanetMonths.Month;
 
@@ -163,23 +162,6 @@ public final class SettingsModel {
 			to.optionText(month.getValue(), month.getLabel());
 		}
 		return new Section(IMAGERY, "SettingsPage.section.imagery",
-				Setting.choice(EarthProperty.VIEWER_TYPE, "ExternalServicesPanel.viewerType").tooltip("ExternalServicesPanel.viewerTypeTooltip")
-						.defaultValue(LocalPropertiesService.VIEWER_TYPE_GOOGLE_EARTH_WEB)
-						.option(LocalPropertiesService.VIEWER_TYPE_PLOTS_MAP, "ExternalServicesPanel.viewerType.plots_map",
-								"ExternalServicesPanel.viewerHelp.plots_map")
-						.option(LocalPropertiesService.VIEWER_TYPE_GOOGLE_EARTH_WEB, "ExternalServicesPanel.viewerType.google_earth_web",
-								"ExternalServicesPanel.viewerHelp.google_earth_web"),
-				Setting.choice(EarthProperty.WINDOW_LAYOUT, "ExternalServicesPanel.windowLayout").tooltip("ExternalServicesPanel.windowLayoutTooltip")
-						.defaultValue(LocalPropertiesService.WINDOW_LAYOUT_AUTO)
-						.option(LocalPropertiesService.WINDOW_LAYOUT_AUTO, "ExternalServicesPanel.windowLayout.auto")
-						.option(LocalPropertiesService.WINDOW_LAYOUT_SIDE_BY_SIDE, "ExternalServicesPanel.windowLayout.side_by_side")
-						.option(LocalPropertiesService.WINDOW_LAYOUT_SEPARATE_SCREENS, "ExternalServicesPanel.windowLayout.separate_screens")
-						.option(LocalPropertiesService.WINDOW_LAYOUT_IMAGERY_FULL_SCREEN, "ExternalServicesPanel.windowLayout.imagery_full_screen")
-						.option(LocalPropertiesService.WINDOW_LAYOUT_PLOTS_MAP_IN_EARTH, "ExternalServicesPanel.windowLayout.plots_map_in_earth"),
-				Setting.choice(EarthProperty.MAP_ENGINE, "OptionWizard.147").tooltip("SettingsPage.mapEngine.tooltip")
-						.defaultValue(LocalPropertiesService.MAP_ENGINE_LEAFLET)
-						.option(LocalPropertiesService.MAP_ENGINE_LEAFLET, "SettingsPage.mapEngine.leaflet")
-						.option(LocalPropertiesService.MAP_ENGINE_GOOGLE, "SettingsPage.mapEngine.google_maps"),
 				Setting.bool(EarthProperty.OPEN_GEE_APP, "OptionWizard.136").tooltip("SettingsPage.geeApp.tooltip").defaultValue("true"),
 				Setting.date(EarthProperty.GEEAPP_FROM_DATE, "OptionWizard.121").tooltip("OptionWizard.1038").visibleWhen(GEE_APP),
 				Setting.date(EarthProperty.GEEAPP_TO_DATE, "OptionWizard.122").tooltip("OptionWizard.1039").visibleWhen(GEE_APP),

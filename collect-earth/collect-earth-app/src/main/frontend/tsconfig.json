@@ -11,7 +11,7 @@
     "noFallthroughCasesInSwitch": true,
     "isolatedModules": true,
     "skipLibCheck": true,
-    "types": ["google.maps", "vite/client", "node"],
+    "types": ["vite/client", "node"],
     "noEmit": true,
     "paths": { "@shared/*": ["../../../../../collect-earth-cloud/web/src/shared/*"] }
   },
