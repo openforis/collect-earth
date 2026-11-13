@@ -61,6 +61,12 @@ public class LinuxKeyringProtectorTest {
 		protector.forget();
 		assertNull(tool.item);
 		assertNull(protector.reveal("keyring:cloud_sync_token"));
+		// the miss is kept too: the sync's reads every 30 s do not run secret-tool again
+		lookups = tool.lookups;
+		assertNull(protector.reveal("keyring:cloud_sync_token"));
+		assertEquals(lookups, tool.lookups);
+		protector.protect("New-456");
+		assertEquals("New-456", protector.reveal("keyring:cloud_sync_token"));
 	}
 
 	@Test

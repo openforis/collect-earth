@@ -1,7 +1,8 @@
 package org.openforis.collect.earth.app.desktop;
 
-import java.awt.Image;
+import java.awt.Desktop;
 import java.awt.SplashScreen;
+import java.awt.Taskbar;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
@@ -11,11 +12,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.lang.reflect.Proxy;
 import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
 import java.net.Socket;
 import java.net.URL;
 import java.net.URLConnection;
@@ -42,6 +39,7 @@ import org.openforis.collect.earth.app.service.EarthProjectsService;
 import org.openforis.collect.earth.app.service.FolderFinder;
 import org.openforis.collect.earth.app.service.KmlGeneratorService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
+import org.openforis.collect.earth.app.service.QuitService;
 import org.openforis.collect.earth.app.service.SecretProtector;
 import org.openforis.collect.earth.app.service.ShellFolderFallback;
 import org.openforis.collect.earth.app.service.UpdateIniUtils;
@@ -207,127 +205,64 @@ public class EarthApp {
 		}
 	}
 
+	/** The CEP file macOS asked to open before the server was started, taken by handleMacStartup. */
+	private static String macFileAtStart;
+	private static boolean macStartupDone;
+	private static final Object MAC_OPEN_LOCK = new Object();
+
 	/**
-	 * Special code that uses reflection to handle how the application should behave
-	 * in Mac OS X. Without reflection the code provokes compilation-time errors.
+	 * Registers the dock icon and the opening of double-clicked CEP files, then starts Collect Earth with the file
+	 * macOS sent, if any.
 	 * 
-	 * @param doubleClickedProjectFile Project file (CEP) that was clicked
+	 * @param doubleClickedProjectFile Project file (CEP) of the command line, or the demo when there is no project
 	 * @throws Exception Throws Exception when the process fails to open the file
 	 *                   double-clicked. Initializes the server in any case
 	 */
-	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public static void handleMacStartup(String doubleClickedProjectFile) throws Exception {
 		try {
-			
-			try {
-				// This code is only available in Java 9 and later and in newer Mac OS versions
-				setIconMacNewOS();
-			} catch (Exception e) {
-				logger.error("Error while defining the double-click behaviour on CEP files in NEW Mac OS X", e);
-				try {
-					setIconMacOldOS();
-				} catch (Exception e2) {
-					logger.error("Error while defining the double-click behaviour on CEP files in OLD Mac OS X", e2);
-				}
-				
-			}
-			
-			// Lets wait for the Apple event to arrive. If it did then the earthApp variable
-			// will be non-nulls
+			setMacDockIconAndOpenFileHandler();
+			// macOS sends the file a double-click launched Collect Earth with only after the handler is set, and never
+			// says that none is coming: wait for it
 			Thread.sleep(2000);
-
 		} catch (InterruptedException e) {
 			// Stopped while waiting: Collect Earth starts all the same (finally), and the interruption is kept
 			Thread.currentThread().interrupt();
 			logger.warn("Interrupted while waiting for the double-clicked CEP file in Mac OS X", e);
 		} catch (Exception e) {
 			logger.error("Error while defining the double-click behaviour on CEP files in Mac OS X", e);
-			
 		} finally {
-			if (earthApp == null) {
-				logger.info("Collect Earth started by double-clicking a CEP file in Mac OS X " + doubleClickedProjectFile);
-				startCollectEarth(doubleClickedProjectFile);
-			} else {
-				logger.info("Collect Earth started but no CEP file loaded in Mac OS X");
-				startCollectEarth(null);
+			String macFile;
+			synchronized (MAC_OPEN_LOCK) {
+				macFile = macFileAtStart;
+				macStartupDone = true;
+			}
+			logger.info("Collect Earth started in Mac OS X with the CEP file {}", macFile != null ? macFile : doubleClickedProjectFile);
+			startCollectEarth(macFile != null ? macFile : doubleClickedProjectFile);
+		}
+	}
+
+	private static void setMacDockIconAndOpenFileHandler() {
+		if (Taskbar.isTaskbarSupported() && Taskbar.getTaskbar().isSupported(Taskbar.Feature.ICON_IMAGE)) {
+			Taskbar.getTaskbar().setIconImage(new ImageIcon("images/dockIconMac.png").getImage()); //$NON-NLS-1$
+		}
+		if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.APP_OPEN_FILE)) {
+			Desktop.getDesktop().setOpenFileHandler(event -> event.getFiles().forEach(file -> openFileFromMac(file.getAbsolutePath())));
+		}
+	}
+
+	private static void openFileFromMac(String projectFile) {
+		synchronized (MAC_OPEN_LOCK) {
+			if (!macStartupDone) {
+				// No server to send it to yet: the start opens it
+				macFileAtStart = projectFile;
+				return;
 			}
 		}
-	}
-
-	private static void setIconMacOldOS()
-			throws ClassNotFoundException, NoSuchMethodException, IllegalAccessException, InvocationTargetException {
-		Class applicationClass = Class.forName("com.apple.eawt.Application");
-		Method getApplicationMethod = applicationClass.getMethod("getApplication");
-		Method setDockIconImageMethod = applicationClass.getMethod("setDockIconImage", Image.class);
-
-		Class openFilesHandlerInterface = Class.forName("com.apple.eawt.OpenFilesHandler");
-		Method setOpenFileHandlerMethod = applicationClass.getMethod("setOpenFileHandler",
-				openFilesHandlerInterface);
-
-		// SET THE MAC OS X DOCK ICON!
-		// Get an Application object
-		Object applicationObject = getApplicationMethod.invoke(null);
 		try {
-			Image dockIconImage = new ImageIcon(new File("images/dockIconMac.png").toURI().toURL()).getImage();
-			// Invoke the setDockIconImage on the application object using the dockIconImage
-			// as an argument
-			setDockIconImageMethod.invoke(applicationObject, dockIconImage);
-		} catch (MalformedURLException e2) {
-			logger.error("Problems finding the docker icon", e2);
+			openProjectFileInRunningCollectEarth(projectFile);
+		} catch (IOException e) {
+			logger.error("Error opening CEP file {}", projectFile, e);
 		}
-		// -------------------------------------------
-
-		// DEFINE A LISTENER THAT IS REGISTERED BY THE OS TO HEAR DOUBLE-CLICK EVENTS
-		// AND REGISTER ITSELF AS THE CEP OPENER
-		MacOpenFilesInvocationHandler macOpenFileHandlerProxyInterface = new MacOpenFilesInvocationHandler();
-		Object openFilesHandlerImplementation = Proxy.newProxyInstance(applicationClass.getClassLoader(),
-				new Class[] { openFilesHandlerInterface }, macOpenFileHandlerProxyInterface);
-
-		// Call the setOpenFileHandler method of the application object using the
-		setOpenFileHandlerMethod.invoke(applicationObject,
-				(openFilesHandlerInterface.cast(openFilesHandlerImplementation)));
-	}
-	
-
-	private static void setIconMacNewOS()
-			throws ClassNotFoundException, NoSuchMethodException, IllegalAccessException, InvocationTargetException {
-		// SET THE MAC OS X DOCK ICON!
-		// Get an Application object
-		Object taskbarObject;
-		Object desktopObject;
- 
-		Class taskbarClass = Class.forName("java.awt.Taskbar");
-		Class desktopClass = Class.forName("java.awt.Desktop");
-		Method getTaskBarMethod = taskbarClass.getMethod("getTaskbar");
-		Method getDesktopMethod = desktopClass.getMethod("getDesktop");
-		Method setIconImage = taskbarClass.getMethod("setIconImage", Image.class);
- 
-		Class openFilesHandlerInterface = Class.forName("java.awt.desktop.OpenFilesHandler");
-		Method setOpenFileHandlerMethod = desktopClass.getMethod("setOpenFileHandler",
-				openFilesHandlerInterface);
- 
-		taskbarObject = getTaskBarMethod.invoke(null);
-		try {
-			Image dockIconImage = new ImageIcon(new File("images/dockIconMac.png").toURI().toURL()).getImage();
-			// Invoke the setDockIconImage on the application object using the dockIconImage
-			// as an argument
-			setIconImage.invoke(taskbarObject, dockIconImage);
-		} catch (MalformedURLException e2) {
-			logger.error("Problems finding the docker icon", e2);
-		}
-		// -------------------------------------------
- 
-		// DEFINE A LISTENER THAT IS REGISTERED BY THE OS TO HEAR DOUBLE-CLICK EVENTS
-		// AND REGISTER ITSELF AS THE CEP OPENER
-		MacOpenFilesInvocationHandlerNewIos macOpenFileHandlerProxyInterface = new MacOpenFilesInvocationHandlerNewIos();
-		Object openFilesHandlerImplementation = Proxy.newProxyInstance(desktopClass.getClassLoader(),
-				new Class[] { openFilesHandlerInterface }, macOpenFileHandlerProxyInterface);
- 
-		desktopObject = getDesktopMethod.invoke(null);
- 
-		// Call the setOpenFileHandler method of the application object using the
-		setOpenFileHandlerMethod.invoke(desktopObject,
-				(openFilesHandlerInterface.cast(openFilesHandlerImplementation)));
 	}
 
 	public void generateKml() {
@@ -496,6 +431,10 @@ public class EarthApp {
 				// Jetty throws a TimeoutException when a request is still open after its stop timeout, having stopped
 				// everything all the same: relaunch anyway, or the restart ends with no Collect Earth at all
 				logger.warn("The server did not stop cleanly, relaunching all the same", e); //$NON-NLS-1$
+			}
+			if (QuitService.isQuitAsked()) {
+				// The user quit while restarting: QuitService left the stop to this thread, so end here
+				System.exit(0);
 			}
 			StartupProgressWindow.step(Messages.getString("StartupWindow.relaunching")); //$NON-NLS-1$
 			relaunch();

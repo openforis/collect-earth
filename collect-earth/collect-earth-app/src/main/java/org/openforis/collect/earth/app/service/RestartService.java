@@ -24,22 +24,27 @@ public class RestartService implements Runnable {
 
 	private final Runnable prepare;
 	private final Runnable restart;
-	private final AtomicBoolean restarting = new AtomicBoolean();
+	private final AtomicBoolean stopping;
 
 	@Autowired
 	public RestartService(LocalPropertiesService properties) {
-		this(properties::nullifyChecksumValues, EarthApp::restart);
+		this(properties::nullifyChecksumValues, EarthApp::restart, QuitService.STOPPING);
 	}
 
 	/** For the tests, which cannot let the process restart. */
 	RestartService(Runnable prepare, Runnable restart) {
+		this(prepare, restart, new AtomicBoolean());
+	}
+
+	RestartService(Runnable prepare, Runnable restart, AtomicBoolean stopping) {
 		this.prepare = prepare;
 		this.restart = restart;
+		this.stopping = stopping;
 	}
 
 	@Override
 	public void run() {
-		if (!restarting.compareAndSet(false, true)) {
+		if (!stopping.compareAndSet(false, true)) {
 			return;
 		}
 		new Thread(() -> {

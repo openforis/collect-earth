@@ -48,17 +48,6 @@ public class FolderFinder {
 		return absolutePath;
 	}
 
-	/**
-	 * @return The data folder with its ampersands escaped. Only for a path that is written inside XML or KML, where a name
-	 *         like "Romeo&Giulietta" would be read as an entity. For a path on the disk use {@link #getCollectEarthDataFolder()}
-	 */
-	public static String getCollectEarthDataFolderNoAmpersad() {
-		String dataFolder = getCollectEarthDataFolder();
-		// Remove ampersands from the URL (like in case a username is something like "Romeo&Giulietta") so that the SAX parser does not confuse it with an XML entity
-		dataFolder =  dataFolder.replaceAll( "&([^;]+(?!(?:\\w|;)))", "&amp;$1" );
-		return dataFolder;
-	}
-
 	private static String getUserHome() {
 		String userHome = "" ;
 
