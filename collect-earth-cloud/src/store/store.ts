@@ -636,8 +636,8 @@ export interface Store {
    * `code` and `message`, of one project. How many.
    */
   failStaleAiRuns(projectId: string, before: number, code: string, message: string, now: number): Promise<number>;
-  /** The project's runs, newest first, at most `limit`. */
-  listAiRuns(projectId: string, limit: number): Promise<AiRunSummary[]>;
+  /** The project's runs, newest first, at most `limit`; `exceptViews`: without the analysis page's view proposals (the AI tab). */
+  listAiRuns(projectId: string, limit: number, options?: { exceptViews?: boolean }): Promise<AiRunSummary[]>;
   /** Null when the project has no run with that id. */
   getAiRun(projectId: string, runId: string): Promise<AiRunRow | null>;
   /** Every project's AI use for runs started at or after `from`, by project id only; projects without runs are left out. */

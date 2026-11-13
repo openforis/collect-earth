@@ -2172,7 +2172,7 @@ export class InMemoryStore implements Store {
     const entry = this.requireProject(projectId);
     this.requireUserOrNull(start.startedBy);
     // One thread: nothing runs between the checks and the insert, as the lock does in Postgres.
-    InMemoryStore.failStale(entry, w.staleBefore, AI_INTERRUPTED.code, AI_INTERRUPTED.message, w.now);
+    this.failStale(entry, w.staleBefore, AI_INTERRUPTED.code, AI_INTERRUPTED.message, w.now);
     const runs = entry.aiRuns;
     const limit = aiLimitReached(
       start.kind,
@@ -2231,23 +2231,28 @@ export class InMemoryStore implements Store {
       return false;
     }
     Object.assign(run, structuredClone(end));
+    this.spend(run);
+    return true;
+  }
+
+  /** Adds an ended run's tokens to its starter's month (ai_token_ledger): once, as it leaves 'running'. */
+  private spend(run: AiRunRow): void {
     const tokens = run.inputTokens + run.outputTokens;
     if (run.startedBy && tokens > 0) {
       const key = `${run.startedBy} ${monthOf(run.startedAt)}`;
       this.aiTokenLedger.set(key, (this.aiTokenLedger.get(key) ?? 0) + tokens);
     }
-    return true;
   }
 
   async failStaleAiRuns(projectId: string, before: number, code: string, message: string, now: number): Promise<number> {
     const entry = this.projects.get(projectId);
-    return entry ? InMemoryStore.failStale(entry, before, code, message, now) : 0;
+    return entry ? this.failStale(entry, before, code, message, now) : 0;
   }
 
-  async listAiRuns(projectId: string, limit: number): Promise<AiRunSummary[]> {
+  async listAiRuns(projectId: string, limit: number, options: { exceptViews?: boolean } = {}): Promise<AiRunSummary[]> {
     const runs = this.projects.get(projectId)?.aiRuns ?? [];
     return runs
-      .slice()
+      .filter((r) => !options.exceptViews || r.kind !== 'views')
       .reverse()
       .slice(0, limit)
       .map((r) => {
@@ -2475,11 +2480,12 @@ export class InMemoryStore implements Store {
     entry.attentionReads.set(userId, new Set(keys));
   }
 
-  private static failStale(entry: ProjectEntry, before: number, code: string, message: string, now: number): number {
+  private failStale(entry: ProjectEntry, before: number, code: string, message: string, now: number): number {
     let n = 0;
     for (const r of entry.aiRuns) {
       if (r.status === 'running' && r.startedAt < before) {
         Object.assign(r, { status: 'failed', errorCode: code, error: message, finishedAt: now });
+        this.spend(r);
         n++;
       }
     }

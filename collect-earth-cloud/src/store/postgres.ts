@@ -3014,16 +3014,16 @@ export class PostgresStore implements Store {
     return this.withProject(projectId, (client) => failStaleRuns(client, projectId, before, code, message, now));
   }
 
-  async listAiRuns(projectId: string, limit: number): Promise<AiRunSummary[]> {
+  async listAiRuns(projectId: string, limit: number, options: { exceptViews?: boolean } = {}): Promise<AiRunSummary[]> {
     return this.withProject(projectId, async (client) => {
       const res = await client.query(
         `SELECT a.id, a.kind, a.status, a.started_at, a.finished_at, a.model, a.input_tokens, a.output_tokens,
                 a.parent_run, a.finding_index, a.action, a.error_code, u.username
            FROM ai_runs a LEFT JOIN users u ON u.id = a.started_by
-          WHERE a.project_id = $1
+          WHERE a.project_id = $1 AND (NOT $3::boolean OR a.kind <> 'views')
           ORDER BY a.started_at DESC, a.id DESC
           LIMIT $2`,
-        [projectId, limit],
+        [projectId, limit, options.exceptViews === true],
       );
       return res.rows.map(mapAiRunSummary);
     });
@@ -3428,14 +3428,26 @@ export class PostgresStore implements Store {
   }
 }
 
-/** Fails one project's runs still running that started before `before`; how many. */
+/**
+ * Fails one project's runs still running that started before `before`; how many. Their tokens so far go to the
+ * person's month (ai_token_ledger), as finishAiRun does; a later finishAiRun finds them not running and adds nothing.
+ */
 async function failStaleRuns(client: pg.PoolClient, projectId: string, before: number, code: string, message: string, now: number): Promise<number> {
   const res = await client.query(
-    `UPDATE ai_runs SET status = 'failed', error_code = $3, error = $4, finished_at = $5
-      WHERE project_id = $1 AND status = 'running' AND started_at < $2`,
+    `WITH failed AS (
+       UPDATE ai_runs SET status = 'failed', error_code = $3, error = $4, finished_at = $5
+        WHERE project_id = $1 AND status = 'running' AND started_at < $2
+        RETURNING started_by, started_at, input_tokens + output_tokens AS tokens),
+     spent AS (
+       INSERT INTO ai_token_ledger (user_id, month, tokens)
+       SELECT started_by, date_trunc('month', started_at AT TIME ZONE 'UTC')::date, sum(tokens)
+         FROM failed WHERE started_by IS NOT NULL AND tokens > 0
+        GROUP BY 1, 2
+       ON CONFLICT (user_id, month) DO UPDATE SET tokens = ai_token_ledger.tokens + EXCLUDED.tokens)
+     SELECT count(*)::int AS n FROM failed`,
     [projectId, new Date(before), code, message, new Date(now)],
   );
-  return res.rowCount ?? 0;
+  return res.rows[0].n as number;
 }
 
 function mapAiRunSummary(r: Record<string, unknown>): AiRunSummary {
