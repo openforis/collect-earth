@@ -4,8 +4,9 @@
 // plot's centre: SQUARE (and SQUARE_CIRCLE, whose outline is the square's), CIRCLE and
 // HEXAGON. The others (NFMA, NFI circles, polygons from the plot file) give only the place.
 
-/** What the dashboard draws: a square or regular polygon around the centre, or only the place. */
-export type PlotOutline = { kind: 'square'; sideMeters: number } | { kind: 'circle'; radiusMeters: number; vertices: number } | { kind: 'place' };
+import type { PlotOutline } from './wire/quality.js';
+
+export type { PlotOutline } from './wire/quality.js';
 
 /** CircleKmlGenerator.MARGIN_CIRCLE: the circle is drawn this much beyond its radius. */
 const CIRCLE_MARGIN_M = 5;

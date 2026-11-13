@@ -21,6 +21,8 @@ The dashboard and the server are built and shipped together (the Dockerfile buil
 `src/wire/`; local mode bundles both), so the dashboard never talks to an older server and needs no
 fallbacks for one.
 
-Moved here so far: progress, the bell, progress links and the Settings tab's project calls. The
+Moved here so far: progress, the bell, progress links, the Settings tab's project calls, the Quality
+tab's figures, decisions, notes, answers per person and pattern flags, the AI assistant's runs and
+the printable reports. The
 other areas of `web/src/api.ts` still have their own copies and clean-up functions; move them one
 area at a time.

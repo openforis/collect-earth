@@ -43,7 +43,6 @@ import {
   getCsvColumns,
   getDistribution,
   getQuality,
-  toQualityData,
   saveQualityMargins,
   setQualityDecision,
   deleteQualityDecision,
@@ -87,6 +86,11 @@ import {
   getMyQuality,
   getTeamReport,
   downloadExport,
+  type AiRunAnswer,
+  type AiRunListed,
+  type MyQualityAnswer,
+  type QualityAnswer,
+  type TeamReportAnswer,
 } from "./api";
 import { CATALOGUES } from "./i18n";
 import { setToken } from "./storage";
@@ -492,58 +496,41 @@ describe("the quality figures", () => {
     return { url, method: init?.method, body: init?.body ? JSON.parse(init.body as string) : undefined };
   };
 
-  it("reads the figures with decisions, notes, margins and whether they are stale", async () => {
-    fetchMock.mockResolvedValue(
-      jsonResponse(200, {
-        plotsChecked: 25,
-        plotsDiffering: 5,
-        questions: [
-          { key: "collect_integer_forest", label: "Forest %", kind: "number", compared: 25, agreeing: 25, rate: 1, margin: 10 },
-          { key: "collect_code_land_use", label: "", kind: "choice", compared: 12, agreeing: 10, rate: null },
-        ],
-        confusions: [{ key: "collect_code_land_use", first: "F", check: "G", count: 5, plots: ["21", 22] }],
-        people: [
-          {
-            username: "ana",
-            asFirst: { compared: 25, agreeing: 20, rate: 0.8 },
-            asChecker: { compared: 0, agreeing: 0, rate: null },
-            weakest: [{ key: "collect_code_land_use", rate: null, compared: 12, differing: 2 }],
-            personal: { asFirst: { compared: 1, agreeing: 1, rate: null }, confusions: [] },
-          },
-        ],
-        weeks: [{ week: "2026-W44", compared: 25, agreeing: 20 }],
-        differences: [{ plot: "21", first: { operator: "ana", recordKey: "21,1" }, check: { operator: "ben", recordKey: "21,2" }, fields: [{ key: "k", first: "F", check: null }] }],
-        problems: [{ kind: "two_main", plot: "3", recordKey: "3,1", operator: "ana" }],
-        problemsTotal: 1,
-        beyondOutline: { count: 0, keys: [] },
-        decisions: [{ plot: "21", decision: "check", comment: null, decidedBy: "boss", decidedAt: 1000 }],
-        notes: [{ id: "n1", questionKey: "collect_code_land_use", firstValue: "F", checkValue: null, text: "Look at the canopy", updatedBy: null, updatedAt: 2000 }],
-        settings: { margins: { "collect_entity_tree[*].real_height": 5, bad: "x" } },
-        computedAt: 3000,
-        stale: true,
-      }),
-    );
-    const data = await getQuality("p1");
+  it("reads the figures as the server sends them", async () => {
+    const figures: QualityAnswer = {
+      plotsChecked: 25,
+      plotsDiffering: 5,
+      questions: [
+        { key: "collect_integer_forest", label: "Forest %", kind: "number", compared: 25, agreeing: 25, rate: 1, margin: 10 },
+        { key: "collect_code_land_use", label: "Land use", kind: "choice", compared: 12, agreeing: 10, rate: null },
+      ],
+      confusions: [{ key: "collect_code_land_use", first: "F", check: "G", count: 5, plots: ["21", "22"] }],
+      people: [
+        {
+          username: "ana",
+          asFirst: { compared: 25, agreeing: 20, rate: 0.8 },
+          asChecker: { compared: 0, agreeing: 0, rate: null },
+          weakest: [{ key: "collect_code_land_use", rate: null, compared: 12, differing: 2 }],
+          personal: { asFirst: { compared: 1, agreeing: 1, rate: null }, confusions: [] },
+        },
+      ],
+      weeks: [{ week: "2026-W44", compared: 25, agreeing: 20 }],
+      differences: [{ plot: "21", first: { operator: "ana", recordKey: "21,1" }, check: { operator: "ben", recordKey: "21,2" }, fields: [{ key: "k", first: "F", check: "" }] }],
+      problems: [{ kind: "two_main", plot: "3", recordKey: "3,1", operator: "ana" }],
+      problemsTotal: 1,
+      problemsByPerson: [{ operator: "ana", kind: "two_main", count: 1 }],
+      beyondOutline: { count: 0, keys: [] },
+      decisions: [{ plot: "21", decision: "check", comment: null, decidedBy: "boss", decidedAt: 1000, batch: null, byAssessor: false }],
+      notes: [{ id: "n1", questionKey: "collect_code_land_use", firstValue: "F", checkValue: null, text: "Look at the canopy", updatedBy: null, updatedAt: 2000 }],
+      settings: { margins: { "collect_entity_tree[*].real_height": 5 }, fastSeconds: 15 },
+      options: { collect_code_land_use: [{ code: "F", label: "Forest" }] },
+      excluded: [{ username: "ben", reason: null }],
+      computedAt: 3000,
+      stale: true,
+    };
+    fetchMock.mockResolvedValue(jsonResponse(200, figures));
+    expect(await getQuality("p1")).toEqual(figures);
     expect(call().url).toBe("/v1/projects/p1/quality");
-    expect(data.questions[1]).toEqual({ key: "collect_code_land_use", label: "collect_code_land_use", kind: "choice", compared: 12, agreeing: 10, rate: null, margin: null });
-    expect(data.confusions[0].plots).toEqual(["21", "22"]);
-    expect(data.people[0]).toEqual({
-      username: "ana",
-      asFirst: { compared: 25, agreeing: 20, rate: 0.8 },
-      asChecker: { compared: 0, agreeing: 0, rate: null },
-      weakest: [{ key: "collect_code_land_use", rate: null, compared: 12, differing: 2 }],
-    });
-    expect(data.differences[0].fields).toEqual([{ key: "k", first: "F", check: "" }]);
-    // Without byAssessor (an older server): not said.
-    expect(data.decisions).toEqual([{ plot: "21", decision: "check", comment: null, decidedBy: "boss", decidedAt: 1000, byAssessor: false }]);
-    expect(data.notes[0]).toMatchObject({ id: "n1", firstValue: "F", checkValue: null, updatedAt: 2000 });
-    expect(data.margins).toEqual({ "collect_entity_tree[*].real_height": 5 });
-    expect(data).toMatchObject({ plotsChecked: 25, plotsDiffering: 5, problemsTotal: 1, computedAt: 3000, stale: true });
-  });
-
-  it("gives empty lists for a server that leaves them out", () => {
-    expect(toQualityData({})).toMatchObject({ questions: [], confusions: [], people: [], weeks: [], differences: [], problems: [], decisions: [], notes: [], margins: {}, options: {}, stale: false, computedAt: null });
-    expect(toQualityData({ options: { q: [{ code: "true", label: "Yes" }] } }).options).toEqual({ q: [{ code: "true", label: "Yes" }] });
   });
 
   it("says the figures are busy or failed in plain words", () => {
@@ -604,7 +591,7 @@ describe("the quality figures", () => {
       plot: "7",
       section: "resubmitted",
       people: ["ana"],
-      flags: [{ kind: "very_fast", gapMs: 3000, previousPlot: "6" }],
+      flags: [{ kind: "very_fast", details: { gapMs: 3000, previousPlot: "6" } }],
       resubmitted: [{ operator: "ana", at: 9, decidedAt: 8 }],
       waiting: ["ben"],
       left: ["cy"],
@@ -662,7 +649,7 @@ describe("the quality figures", () => {
     expect(page.questions).toEqual([{ key: "q", label: "Land use" }, { key: "n", label: "n" }]);
     expect(page).toMatchObject({ plot: "1", name: "1", ownPlot: true, figures: { computedAt: 3, stale: true }, place: { lat: -10, lon: 20, name: "1" }, outline: { kind: "square", sideMeters: 70 }, unsupportedSrs: null });
     expect(page.decision).toMatchObject({ decision: "check", decidedBy: "rita", comment: "G" });
-    expect(page.flags).toEqual([expect.objectContaining({ kind: "very_fast", gapMs: 3000 })]);
+    expect(page.flags).toEqual([expect.objectContaining({ kind: "very_fast", details: { gapMs: 3000, previousPlot: "0" } })]);
     expect(page.differences?.[0]).toMatchObject({ changed: false, fields: [{ key: "q", first: "F", check: "G" }] });
     expect(page.options).toEqual({ q: [{ code: "F", label: "Forest" }] });
     // No figures at hand: no flags nor differences, rather than none.
@@ -761,10 +748,10 @@ describe("the quality figures", () => {
     fetchMock.mockImplementation(async (_url, init) => {
       if (init?.method === "DELETE") return new Response(null, { status: 404 });
       const url = String(_url);
-      if (url.endsWith("/settings")) return jsonResponse(200, { margins: { a: 5 } });
-      if (url.includes("/decisions/")) return jsonResponse(200, { plot: "1,2", decision: "recheck", comment: "look", decidedBy: null, decidedAt: 5 });
-      if (url.endsWith("/places")) return jsonResponse(200, { places: [{ plot: "1", lat: -12.5, lon: 30, name: "1" }, { plot: "2", lat: "x", lon: 1 }], outline: { kind: "square", sideMeters: 70 } });
-      return jsonResponse(201, { id: "n2", questionKey: "q", firstValue: null, checkValue: null, text: "t" });
+      if (url.endsWith("/settings")) return jsonResponse(200, { margins: { a: 5 }, fastSeconds: 15 });
+      if (url.includes("/decisions/")) return jsonResponse(200, { plot: "1,2", decision: "recheck", comment: "look", decidedBy: null, decidedAt: 5, byAssessor: false });
+      if (url.endsWith("/places")) return jsonResponse(200, { places: [{ plot: "1", lat: -12.5, lon: 30, name: "1" }], outline: { kind: "square", sideMeters: 70 } });
+      return jsonResponse(201, { id: "n2", questionKey: "q", firstValue: null, checkValue: null, text: "t", updatedBy: null, updatedAt: 5 });
     });
     expect(await saveQualityMargins("p1", { a: 5 })).toEqual({ a: 5 });
     expect(call(0)).toEqual({ url: "/v1/projects/p1/quality/settings", method: "PUT", body: { margins: { a: 5 } } });
@@ -782,14 +769,14 @@ describe("the quality figures", () => {
     expect(call(5)).toMatchObject({ url: "/v1/projects/p1/quality/notes/n2", method: "PUT" });
     await deleteGuidanceNote("p1", "n2");
     expect(call(6)).toMatchObject({ url: "/v1/projects/p1/quality/notes/n2", method: "DELETE" });
-    expect(await getPlotPlaces("p1", ["1", "2"])).toEqual({ places: [{ plot: "1", lat: -12.5, lon: 30, name: "1" }], outline: { kind: "square", sideMeters: 70 }, unsupportedSrs: null });
+    expect(await getPlotPlaces("p1", ["1", "2"])).toEqual({ places: [{ plot: "1", lat: -12.5, lon: 30, name: "1" }], outline: { kind: "square", sideMeters: 70 } });
     expect(call(7)).toEqual({ url: "/v1/projects/p1/quality/places", method: "POST", body: { plots: ["1", "2"] } });
-    expect(await getPlotPlaces("p1", [])).toEqual({ places: [], outline: { kind: "place" }, unsupportedSrs: null });
+    expect(await getPlotPlaces("p1", [])).toEqual({ places: [], outline: { kind: "place" } });
     expect(fetchMock).toHaveBeenCalledTimes(8);
   });
 
   it("says when the survey's coordinates are not latitude and longitude", async () => {
-    fetchMock.mockImplementation(async () => jsonResponse(200, { places: [], unsupportedSrs: "EPSG:32633" }));
+    fetchMock.mockImplementation(async () => jsonResponse(200, { places: [], outline: { kind: "place" }, unsupportedSrs: "EPSG:32633" }));
     expect(await getPlotPlaces("p1", ["1"])).toEqual({ places: [], outline: { kind: "place" }, unsupportedSrs: "EPSG:32633" });
   });
 });
@@ -940,72 +927,49 @@ describe("the AI assistant and the reports", () => {
     expect((err as ApiError).details).toMatchObject({ limit: "reports", resetsAt: null });
   });
 
-  it("lists runs newest first as the server gives them", async () => {
-    fetchMock.mockResolvedValue(
-      jsonResponse(200, {
-        runs: [
-          { id: "r2", kind: "follow_up", status: "running", startedAt: 2000, finishedAt: null, startedBy: "boss", tokens: 5, parentRunId: "r1", findingIndex: 0, action: "explain", errorCode: null },
-          { id: "r1", kind: "report", status: "done", startedAt: "1970-01-01T00:00:01.000Z", startedBy: null, tokens: "12" },
-        ],
-      }),
-    );
-    const runs = await listAiRuns("p1");
-    expect(call().url).toBe("/v1/projects/p1/ai/runs");
-    expect(runs[0]).toEqual({
+  it("lists runs and reads one run as the server gives them", async () => {
+    const listed: AiRunListed = {
       id: "r2",
       kind: "follow_up",
       status: "running",
       startedAt: 2000,
       finishedAt: null,
       startedBy: "boss",
+      inputTokens: 3,
+      outputTokens: 2,
       tokens: 5,
       parentRunId: "r1",
       findingIndex: 0,
       action: "explain",
       errorCode: null,
-    });
-    expect(runs[1]).toMatchObject({ id: "r1", kind: "report", status: "done", startedAt: 1000, startedBy: null, tokens: 12, parentRunId: null, action: null });
-  });
+    };
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { runs: [listed] }));
+    expect(await listAiRuns("p1")).toEqual([listed]);
+    expect(call().url).toBe("/v1/projects/p1/ai/runs");
 
-  it("reads a report run, its progress and a failed or refused run", async () => {
-    fetchMock.mockResolvedValueOnce(
-      jsonResponse(200, {
-        id: "r1",
-        kind: "report",
-        status: "done",
-        startedAt: 1000,
-        progress: { tools: ["get_agreement", 7] },
-        result: {
-          summary: "Land use is mixed up.",
-          findings: [{ title: "T", explanation: "E", cause: "weird", questions: ["q1"], persons: ["ana"], plots: ["21"], suggestedNote: null }, "junk"],
-          recheckPlots: ["21"],
-          surveyChanges: [{ question: "q1", suggestion: "Reword" }],
-        },
-        error: null,
-        refusal: null,
-      }),
-    );
-    const run = await getAiRun("p1", "r1");
-    expect(call().url).toBe("/v1/projects/p1/ai/runs/r1");
-    expect(run.tools).toEqual(["get_agreement", "7"]);
-    expect(run.report).toEqual({
-      summary: "Land use is mixed up.",
-      findings: [{ title: "T", explanation: "E", cause: "other", questions: ["q1"], persons: ["ana"], plots: ["21"], suggestedNote: null }],
-      recheckPlots: ["21"],
-      surveyChanges: [{ question: "q1", suggestion: "Reword" }],
-    });
-    expect(run.answer).toBeNull();
-
-    fetchMock.mockResolvedValueOnce(
-      jsonResponse(200, { id: "r3", kind: "question", status: "done", question: "Why ana?", result: { text: "Because", plots: ["21"], note: "Look" } }),
-    );
-    const answer = await getAiRun("p1", "r3");
-    expect(answer).toMatchObject({ question: "Why ana?", report: null, answer: { text: "Because", plots: ["21"], note: "Look" } });
-
-    fetchMock.mockResolvedValueOnce(jsonResponse(200, { id: "r4", kind: "report", status: "failed", errorCode: "ai_timeout", error: { code: "ai_timeout", message: "x" } }));
-    expect(await getAiRun("p1", "r4")).toMatchObject({ status: "failed", errorCode: "ai_timeout", report: null });
-    fetchMock.mockResolvedValueOnce(jsonResponse(200, { id: "r5", kind: "question", status: "refused", errorCode: "off_topic", refusal: "Only quality" }));
-    expect(await getAiRun("p1", "r5")).toMatchObject({ status: "refused", errorCode: "off_topic", refusal: "Only quality" });
+    const run: AiRunAnswer = {
+      ...listed,
+      id: "r1",
+      kind: "report",
+      status: "done",
+      finishedAt: 3000,
+      parentRunId: null,
+      findingIndex: null,
+      action: null,
+      question: null,
+      progress: { tools: ["get_agreement"] },
+      result: {
+        summary: "Land use is mixed up.",
+        findings: [{ title: "T", explanation: "E", cause: "other", questions: ["q1"], persons: ["ana"], plots: ["21"], suggestedNote: null }],
+        recheckPlots: ["21"],
+        surveyChanges: [{ question: "q1", suggestion: "Reword" }],
+      },
+      error: null,
+      refusal: null,
+    };
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, run));
+    expect(await getAiRun("p1", "r1")).toEqual(run);
+    expect(call(1).url).toBe("/v1/projects/p1/ai/runs/r1");
   });
 
   it("reads the server's AI settings and its use this month, by project id", async () => {
@@ -1019,6 +983,8 @@ describe("the AI assistant and the reports", () => {
     fetchMock.mockResolvedValue(
       jsonResponse(200, {
         month: "2026-10",
+        from: 1,
+        until: 2,
         projects: [{ projectId: "p1", runs: 3, reports: 1, followUps: 1, questions: 1, failed: 0, refused: 1, inputTokens: 10, outputTokens: 5, tokens: 15 }],
         totals: { runs: 3, reports: 1, followUps: 1, questions: 1, failed: 0, refused: 1, inputTokens: 10, outputTokens: 5, tokens: 15 },
       }),
@@ -1026,7 +992,7 @@ describe("the AI assistant and the reports", () => {
     const usage = await getAiUsage();
     expect(call().url).toBe("/v1/admin/ai-usage");
     expect(usage.month).toBe("2026-10");
-    expect(usage.projects[0]).toEqual({ projectId: "p1", runs: 3, reports: 1, followUps: 1, questions: 1, failed: 0, refused: 1, tokens: 15 });
+    expect(usage.projects[0]).toEqual({ projectId: "p1", runs: 3, reports: 1, followUps: 1, questions: 1, failed: 0, refused: 1, inputTokens: 10, outputTokens: 5, tokens: 15 });
     expect(usage.totals.tokens).toBe(15);
   });
 
@@ -1040,8 +1006,6 @@ describe("the AI assistant and the reports", () => {
   it("reads who is left out of the results, and leaves someone out or puts them back", async () => {
     expect(toPersonRow({ userId: "u1", excluded: { at: 5, reason: "protocol" } }).excluded).toEqual({ at: 5, reason: "protocol" });
     expect(toPersonRow({ userId: "u1" }).excluded).toBeNull();
-    expect(toQualityData({ excluded: [{ username: "ben", reason: null }] }).excluded).toEqual([{ username: "ben", reason: null }]);
-    expect(toQualityData({}).excluded).toEqual([]);
     fetchMock.mockResolvedValueOnce(jsonResponse(200, { ok: true }));
     await setMemberExcluded("p1", "u1", true, "  protocol ");
     expect(call().url).toBe("/v1/projects/p1/members/u1/excluded");
@@ -1081,54 +1045,36 @@ describe("the AI assistant and the reports", () => {
   });
 
   it("reads a member's own report and the team report", async () => {
-    fetchMock.mockResolvedValueOnce(
-      jsonResponse(200, {
-        username: "ana",
-        minChecks: 20,
-        asFirst: { checks: 30, agreeing: 24, rate: 0.8 },
-        confusions: [{ key: "q1", label: "Land use", first: "F", check: "G", checks: 3, plots: ["1", 2], notes: [{ id: "n1", questionKey: "q1", firstValue: "F", checkValue: null, text: "Look" }] }],
-        computedAt: 5000,
-        stale: false,
-        options: { q1: [{ code: "F", label: "Forest" }, { code: "G" }, "junk"], bad: "x" },
-      }),
-    );
-    const mine = await getMyQuality("p1");
-    // The answer options of the choice questions, to show labels instead of codes.
-    expect(mine.options).toEqual({ q1: [{ code: "F", label: "Forest" }, { code: "G", label: "" }] });
+    const mine: MyQualityAnswer = {
+      username: "ana",
+      minChecks: 20,
+      asFirst: { checks: 30, agreeing: 24, rate: 0.8 },
+      confusions: [{ key: "q1", label: "Land use", first: "F", check: "G", checks: 3, plots: ["1", "2"], notes: [{ id: "n1", questionKey: "q1", firstValue: "F", checkValue: null, text: "Look" }] }],
+      options: { q1: [{ code: "F", label: "Forest" }] },
+      computedAt: 5000,
+      stale: false,
+    };
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, mine));
+    expect(await getMyQuality("p1")).toEqual(mine);
     expect(call(0).url).toBe("/v1/projects/p1/my-quality");
-    expect(mine.asFirst).toEqual({ compared: 30, agreeing: 24, rate: 0.8 });
-    expect(mine.confusions[0]).toEqual({
-      key: "q1",
-      label: "Land use",
-      first: "F",
-      check: "G",
-      checks: 3,
-      plots: ["1", "2"],
-      notes: [{ id: "n1", questionKey: "q1", firstValue: "F", checkValue: null, text: "Look" }],
-    });
 
-    fetchMock.mockResolvedValueOnce(
-      jsonResponse(200, {
-        minChecks: 20,
-        plotsChecked: 40,
-        plotsDiffering: 6,
-        questions: [
-          { key: "q1", label: "Land use", kind: "choice", checks: 40, agreeing: 34, rate: 0.85 },
-          { key: "q2", label: "", kind: "number", checks: 3, agreeing: 3, rate: null, margin: 5 },
-        ],
-        confusions: [],
-        notes: [{ id: "n1", questionKey: "q1", firstValue: null, checkValue: null, text: "Look" }],
-        computedAt: 5000,
-        stale: true,
-        options: { q1: [{ code: "F", label: "Forest" }] },
-      }),
-    );
-    const team = await getTeamReport("p1");
-    expect(team.options).toEqual({ q1: [{ code: "F", label: "Forest" }] });
+    const team: TeamReportAnswer = {
+      minChecks: 20,
+      plotsChecked: 40,
+      plotsDiffering: 6,
+      questions: [
+        { key: "q1", label: "Land use", kind: "choice", checks: 40, agreeing: 34, rate: 0.85 },
+        { key: "q2", label: "Height", kind: "number", checks: 3, agreeing: 3, rate: null, margin: 5 },
+      ],
+      confusions: [],
+      notes: [{ id: "n1", questionKey: "q1", firstValue: null, checkValue: null, text: "Look" }],
+      options: { q1: [{ code: "F", label: "Forest" }] },
+      computedAt: 5000,
+      stale: true,
+    };
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, team));
+    expect(await getTeamReport("p1")).toEqual(team);
     expect(call(1).url).toBe("/v1/projects/p1/quality/team-report");
-    expect(team.questions[1]).toEqual({ key: "q2", label: "q2", kind: "number", compared: 3, agreeing: 3, rate: null, margin: 5 });
-    expect(team).toMatchObject({ plotsChecked: 40, plotsDiffering: 6, stale: true, computedAt: 5000 });
-    expect(team.notes).toHaveLength(1);
   });
 });
 

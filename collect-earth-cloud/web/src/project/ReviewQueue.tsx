@@ -463,7 +463,7 @@ export function ReviewQueue({
     getPlotPlaces(projectId, asked).then(
       (answer) => {
         if (cancelled) return;
-        if (answer.unsupportedSrs !== null) {
+        if (answer.unsupportedSrs !== undefined) {
           setUnsupportedSrs(answer.unsupportedSrs);
           return;
         }

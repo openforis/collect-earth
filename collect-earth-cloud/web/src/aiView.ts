@@ -2,7 +2,7 @@
 // tool names and failure codes in words, why a run did not start (with the local time a
 // limit resets), which plots can be linked, the server's own figures for a finding.
 
-import { ApiError, type AiRunKind, type AiRunStatus, type AiRunSummary, type FindingCause, type QuestionAgreement, type Rate } from "./api";
+import { ApiError, type AiAnswer, type AiReport, type AiRunAnswer, type AiRunKind, type AiRunListed, type AiRunStatus, type FindingCause, type QuestionAgreement, type Rate } from "./api";
 import { formatDate } from "./format";
 import type { MessageKey, Translate } from "./i18n";
 
@@ -107,7 +107,7 @@ export function runRetryDelay(failures: number): number {
 }
 
 /** The runs list with a run's newer state (a run not in it is left out), so a finished run is not followed again before the list comes back. */
-export function withRunState(runs: readonly AiRunSummary[], run: AiRunSummary): AiRunSummary[] {
+export function withRunState(runs: readonly AiRunListed[], run: AiRunListed): AiRunListed[] {
   return runs.map((r) =>
     r.id === run.id ? { ...r, status: run.status, finishedAt: run.finishedAt, tokens: run.tokens, errorCode: run.errorCode } : r,
   );
@@ -117,7 +117,7 @@ export function withRunState(runs: readonly AiRunSummary[], run: AiRunSummary): 
  * The run the panel follows: the one it follows already, else one the list says is
  * running and the panel is not done with (finished here, or given up on).
  */
-export function runToFollow(runs: readonly AiRunSummary[], activeId: string | null, done: ReadonlySet<string>): string | null {
+export function runToFollow(runs: readonly AiRunListed[], activeId: string | null, done: ReadonlySet<string>): string | null {
   if (activeId !== null) return activeId;
   return runs.find((r) => r.status === "running" && !done.has(r.id))?.id ?? null;
 }
@@ -125,11 +125,23 @@ export function runToFollow(runs: readonly AiRunSummary[], activeId: string | nu
 /** The kind of the run followed: as started here (known at once), else from the list or its details. */
 export function followedKind(
   active: { id: string; kind?: AiRunKind } | null,
-  runs: readonly AiRunSummary[],
+  runs: readonly AiRunListed[],
   details: ReadonlyMap<string, { kind: AiRunKind }>,
 ): AiRunKind | null {
   if (!active) return null;
   return active.kind ?? runs.find((r) => r.id === active.id)?.kind ?? details.get(active.id)?.kind ?? null;
+}
+
+/** A report run's report, once it is done (null before, or for another kind of run). */
+export function reportOf(run: AiRunAnswer | undefined): AiReport | null {
+  const result = run?.result;
+  return run?.kind === "report" && result && "findings" in result ? result : null;
+}
+
+/** A follow-up's or a question's answer, once it is done (null before, or for another kind of run). */
+export function answerOf(run: AiRunAnswer | undefined): AiAnswer | null {
+  const result = run?.result;
+  return (run?.kind === "follow_up" || run?.kind === "question") && result && "text" in result ? result : null;
 }
 
 /** The plots of a finding or an answer: a link only for a plot in the differences list. */
@@ -153,9 +165,9 @@ export function questionCounter(question: string): { count: number; over: boolea
 }
 
 /** A report's follow-ups by finding (oldest first) and its free questions (oldest first). */
-export function followUpsOf(runs: readonly AiRunSummary[], reportId: string): { byFinding: Map<number, AiRunSummary[]>; questions: AiRunSummary[] } {
+export function followUpsOf(runs: readonly AiRunListed[], reportId: string): { byFinding: Map<number, AiRunListed[]>; questions: AiRunListed[] } {
   const children = runs.filter((r) => r.parentRunId === reportId).reverse();
-  const byFinding = new Map<number, AiRunSummary[]>();
+  const byFinding = new Map<number, AiRunListed[]>();
   for (const run of children) {
     if (run.kind !== "follow_up" || run.findingIndex === null) continue;
     byFinding.set(run.findingIndex, [...(byFinding.get(run.findingIndex) ?? []), run]);

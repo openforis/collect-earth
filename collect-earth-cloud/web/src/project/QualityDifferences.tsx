@@ -27,7 +27,7 @@ import {
   type Difference,
   type PlotOutline,
   type PlotPlace,
-  type QualityData,
+  type QualityAnswer,
   type QualityDecision,
 } from "../api";
 import { useApp } from "../appContext";
@@ -249,7 +249,7 @@ export function QualityDifferences({
   onDecision,
 }: {
   projectId: string;
-  data: QualityData;
+  data: QualityAnswer;
   /** A plot to show: its page is opened and it is scrolled into view. */
   focus?: PlotFocus | null;
   /** A plot's decision was made (or undone, with null). */
@@ -315,7 +315,7 @@ export function QualityDifferences({
     getPlotPlaces(projectId, asked).then(
       (answer) => {
         if (cancelled) return;
-        if (answer.unsupportedSrs !== null) {
+        if (answer.unsupportedSrs !== undefined) {
           setUnsupportedSrs(answer.unsupportedSrs);
           return;
         }

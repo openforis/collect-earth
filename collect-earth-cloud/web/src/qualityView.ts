@@ -2,7 +2,7 @@
 // geometry, the Google Earth link, the differences grouped by plot, local changes and
 // when to ask for newer figures.
 
-import type { AnswerOptions, DataProblemKind, Difference, GuidanceNote, QualityData, QualityDecision, QuestionAgreement, Rate, WeekAgreement } from "./api";
+import type { AnswerOptions, DataProblemKind, Difference, GuidanceNote, QualityAnswer, QualityDecision, QuestionAgreement, Rate, ReportRate, WeekAgreement } from "./api";
 import type { MessageKey, Translate } from "./i18n";
 
 /** Below this many checks a rate is not given (the server's MIN_PLOTS). */
@@ -20,9 +20,11 @@ export function formatRate(rate: number, language: string): string {
 }
 
 /** "82 % agree (41 of 50 checks)", or "Too few checks to judge (12 of 20)". */
-export function rateText(t: Translate, rate: Rate, language: string): string {
-  if (rate.rate === null) return t(rate.compared === 1 ? "quality.tooFewOne" : "quality.tooFew", { count: rate.compared, min: MIN_CHECKS });
-  return t("quality.agree", { pct: formatRate(rate.rate, language), agreeing: rate.agreeing, count: rate.compared });
+export function rateText(t: Translate, rate: Rate | ReportRate, language: string): string {
+  // The quality figures count compared checks; the printable reports call them checks.
+  const count = "checks" in rate ? rate.checks : rate.compared;
+  if (rate.rate === null) return t(count === 1 ? "quality.tooFewOne" : "quality.tooFew", { count, min: MIN_CHECKS });
+  return t("quality.agree", { pct: formatRate(rate.rate, language), agreeing: rate.agreeing, count });
 }
 
 /** The bar's length in percent, or null when there is no rate to show. */
@@ -204,8 +206,8 @@ export function withNote(notes: readonly GuidanceNote[], saved: GuidanceNote): G
  * For a load that started before a change made on this page: the loaded figures, with
  * the decisions, notes and margins as changed here (the load may have read them before).
  */
-export function keepLocalChanges(fresh: QualityData, prev: QualityData): QualityData {
-  return { ...fresh, decisions: prev.decisions, notes: prev.notes, margins: prev.margins };
+export function keepLocalChanges(fresh: QualityAnswer, prev: QualityAnswer): QualityAnswer {
+  return { ...fresh, decisions: prev.decisions, notes: prev.notes, settings: { ...fresh.settings, margins: prev.settings.margins } };
 }
 
 /** Shown again after this long, the page asks for the figures again even when they were fresh. */

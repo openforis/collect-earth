@@ -3522,7 +3522,7 @@ function mapAiRunSummary(r: Record<string, unknown>): AiRunSummary {
     outputTokens: Number(r.output_tokens),
     parentRun: (r.parent_run as string | null) ?? null,
     findingIndex: (r.finding_index as number | null) ?? null,
-    action: (r.action as string | null) ?? null,
+    action: (r.action as AiRunSummary['action']) ?? null,
     errorCode: (r.error_code as string | null) ?? null,
   };
 }

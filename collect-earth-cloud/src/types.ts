@@ -1,9 +1,13 @@
 /** Membership role within a single project. Authority derives only from these. */
 import type { ProgressSettings } from './wire/progress.js';
 import type { ProjectStatus } from './wire/projectSettings.js';
+import type { AiRunKind, AiRunStatus, FollowUpAction } from './wire/ai.js';
+import type { DecisionKind } from './wire/quality.js';
 
 export type { ProgressSettings } from './wire/progress.js';
 export type { ProjectStatus, ShareLink } from './wire/projectSettings.js';
+export type { DecisionKind, GuidanceNote, GuidanceNoteInput, QualitySettings } from './wire/quality.js';
+export type { AiRunKind, AiRunStatus } from './wire/ai.js';
 
 export type Role = 'admin' | 'reviewer' | 'operator';
 
@@ -690,13 +694,6 @@ export type RecordState = Pick<RecordRow, 'recordKey' | 'operator' | 'activelySa
 /** A record's stored XML (getRecordXml), as Collect Earth sent it. */
 export type RecordXml = Pick<RecordRow, 'recordKey' | 'operator' | 'step' | 'xml' | 'deleted'>;
 
-/** A project's quality-review settings: number margins (percent) by question key. */
-export interface QualitySettings {
-  margins: Record<string, number>;
-  /** The "very fast" flag's threshold in whole seconds (Task 5); absent: DEFAULT_FAST_SECONDS (15). */
-  fastSeconds?: number;
-}
-
 export const DEFAULT_PROGRESS_SETTINGS: ProgressSettings = { deadline: null, targetPlots: null, quietDays: 3 };
 
 /**
@@ -711,9 +708,6 @@ export interface SharedAnalysisView {
   savedBy: string;
   savedAt: number;
 }
-
-/** Which answer of a differing plot is right: the first assessment, the check, or neither (look again). */
-export type DecisionKind = 'first' | 'check' | 'recheck';
 
 /** The coordinator's decision on one plot unit (the plot as the quality figures pair it). */
 export interface QualityDecision {
@@ -733,27 +727,7 @@ export interface QualityDecision {
   batch?: string | null;
 }
 
-/** What a guidance note is about: a question and, for a mixed-up pair, both answers. */
-export interface GuidanceNoteInput {
-  questionKey: string;
-  firstValue: string | null;
-  checkValue: string | null;
-  text: string;
-}
-
-/** A note for collectors about a question (or one mix-up of its answers). */
-export interface GuidanceNote extends GuidanceNoteInput {
-  id: string;
-  /** Username of who last wrote it; null when made with a project token or the account is gone. */
-  updatedBy: string | null;
-  updatedAt: number;
-}
-
 // --- The AI assistant's runs (ai_runs, migration 011) ---
-
-/** `views`: the analysis page's views proposed from the survey's structure (src/ai/analysisViews.ts). */
-export type AiRunKind = 'report' | 'follow_up' | 'question' | 'views';
-export type AiRunStatus = 'running' | 'done' | 'failed' | 'refused';
 
 /** One tool call of a run as stored: our tool's name (or "unknown"), the arguments as validated (pseudonymous), and whether it worked. */
 export interface AiToolCall {
@@ -776,7 +750,7 @@ export interface AiRunSummary {
   outputTokens: number;
   parentRun: string | null;
   findingIndex: number | null;
-  action: string | null;
+  action: FollowUpAction | null;
   /** Why it failed (a FailureCode of src/ai/run.ts, or `interrupted`); `off_topic` when refused. */
   errorCode: string | null;
 }
@@ -800,7 +774,7 @@ export interface AiRunStart {
   model: string;
   parentRun?: string | null;
   findingIndex?: number | null;
-  action?: string | null;
+  action?: FollowUpAction | null;
   question?: string | null;
   questionNames?: Record<string, string> | null;
 }
