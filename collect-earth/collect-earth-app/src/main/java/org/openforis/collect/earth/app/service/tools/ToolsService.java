@@ -278,6 +278,7 @@ public class ToolsService {
 			int total = Math.max(0, rows.size() - 1);
 			JobProgress progress = new JobProgress(context);
 			progress.setMessage(Messages.getString("RemovePlotsDialog.8"));
+			surveys.flushAndForgetWorkingRecords();
 			try {
 				for (int i = 1; i < rows.size() && !context.isCancelled(); i++) {
 					String[] row = rows.get(i);
@@ -300,6 +301,8 @@ public class ToolsService {
 					}
 				}
 			} finally {
+				// a deleted plot opened again is not given its answers back from memory
+				surveys.flushAndForgetWorkingRecords();
 				if (deleted > 0) {
 					reload.run();
 				}

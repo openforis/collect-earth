@@ -2,7 +2,9 @@ package org.openforis.collect.earth.app.service.settings;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
@@ -42,18 +44,27 @@ public class SettingsService {
 	private final SettingsValidator validator;
 	private final Runnable restart;
 	private final Runnable reload;
+	/** The check of a plots file (SampleFileCheck.check), or null for none */
+	private final Function<String, Map<String, Object>> sampleFileCheck;
 
 	@Autowired
-	public SettingsService(LocalPropertiesService properties, SettingsValidator validator, RestartService restart) {
-		this(properties, validator, restart, EarthApp::reloadPlots);
+	public SettingsService(LocalPropertiesService properties, SettingsValidator validator, RestartService restart, SampleFileCheck sampleFile) {
+		this(properties, validator, restart, EarthApp::reloadPlots, sampleFile::check);
 	}
 
-	/** For the tests: what to run for a restart and for a reload of the plots. */
+	/** For the tests: what to run for a restart and for a reload of the plots; no plots file is read. */
 	public SettingsService(LocalPropertiesService properties, SettingsValidator validator, Runnable restart, Runnable reload) {
+		this(properties, validator, restart, reload, path -> null);
+	}
+
+	/** For the tests: with the check of the plots file. */
+	public SettingsService(LocalPropertiesService properties, SettingsValidator validator, Runnable restart, Runnable reload,
+			Function<String, Map<String, Object>> sampleFileCheck) {
 		this.properties = properties;
 		this.validator = validator;
 		this.restart = restart;
 		this.reload = reload;
+		this.sampleFileCheck = sampleFileCheck;
 	}
 
 	public SettingsModel getModel() {
@@ -173,6 +184,7 @@ public class SettingsService {
 		Map<String, String> merged = overlay(current, changes);
 		Validation validation = validator.validate(merged);
 		refuseCoordinatorsSettings(current, changes, merged, validation);
+		refuseBlockingSampleFile(current, changes, validation);
 		boolean coordinatorsKept = inCloudProject(merged);
 		if (!validation.isValid()) {
 			throw new InvalidSettingsException(validation.getErrors());
@@ -187,7 +199,8 @@ public class SettingsService {
 			}
 			String value;
 			if (setting.isVisible(merged)) {
-				if (!changes.containsKey(key)) {
+				// a password sent as null is left as it is
+				if (!changes.containsKey(key) || setting.getType() == Type.PASSWORD && changes.get(key) == null) {
 					continue;
 				}
 				value = setting.getType() == Type.PASSWORD ? changes.get(key) : StringUtils.trimToEmpty(changes.get(key));
@@ -227,6 +240,26 @@ public class SettingsService {
 			reload.run();
 		}
 		return restartNeeded;
+	}
+
+	/** A plots file changed to one the page would refuse (SampleFileCheck.isBlocking) is refused here too. */
+	@SuppressWarnings("unchecked")
+	private void refuseBlockingSampleFile(Map<String, String> current, Map<String, String> changes, Validation validation) {
+		String key = EarthProperty.SAMPLE_FILE.toString();
+		String path = changes == null ? null : StringUtils.trimToNull(changes.get(key));
+		if (path == null || path.equals(StringUtils.trimToEmpty(current.get(key))) || validation.hasError(key)) {
+			return;
+		}
+		Map<String, Object> check = sampleFileCheck.apply(path);
+		if (check == null || !SampleFileCheck.isBlocking(check)) {
+			return;
+		}
+		for (Map<String, Object> problem : (List<Map<String, Object>>) check.get("problems")) {
+			if (Boolean.TRUE.equals(problem.get("blocking"))) {
+				validation.error(key, String.valueOf(problem.get("message")));
+				return;
+			}
+		}
 	}
 
 	private static Map<String, String> overlay(Map<String, String> base, Map<String, String> over) {

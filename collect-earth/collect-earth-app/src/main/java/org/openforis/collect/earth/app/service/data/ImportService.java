@@ -245,6 +245,7 @@ public class ImportService {
 		return context -> {
 			int imported = 0;
 			int overwritten = 0;
+			surveys.flushAndForgetWorkingRecords();
 			try {
 				for (PreparedFile file : batch.files) {
 					if (file.process == null || context.isCancelled()) {
@@ -265,6 +266,8 @@ public class ImportService {
 				}
 			} finally {
 				close(batch);
+				// an open plot is read again from the import, not saved back over it
+				surveys.flushAndForgetWorkingRecords();
 				if (imported > 0) {
 					reload.run();
 				}
@@ -308,6 +311,7 @@ public class ImportService {
 	 */
 	public Job updateFromCsv(List<String> paths) {
 		return context -> {
+			surveys.flushAndForgetWorkingRecords();
 			List<Map<String, Object>> files = new ArrayList<>();
 			for (String path : paths) {
 				if (context.isCancelled()) {
@@ -350,6 +354,8 @@ public class ImportService {
 				entry.put("errors", errors);
 				files.add(entry);
 			}
+			// an open plot is read again with the values of the files
+			surveys.flushAndForgetWorkingRecords();
 			return Collections.singletonMap("files", files);
 		};
 	}

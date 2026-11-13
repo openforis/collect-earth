@@ -1018,8 +1018,9 @@ public class LocalPropertiesService extends Observable {
 
 	}
 
-	public void setLastExportedDate(String surveyName) {
-		setValue(getExportedSurveyName(surveyName), Long.toString(System.currentTimeMillis()));
+	/** @param exportedAt when the export started: a record saved while it ran goes in the next one */
+	public void setLastExportedDate(String surveyName, Date exportedAt) {
+		setValue(getExportedSurveyName(surveyName), Long.toString(exportedAt.getTime()));
 	}
 
 	public void setModelVersionName(String modelVersionName) {
@@ -1074,12 +1075,28 @@ public class LocalPropertiesService extends Observable {
 		}
 
 		File propertiesFile = new File(PROPERTIES_FILE_PATH);
-		try(FileWriter fw = new FileWriter(propertiesFile) ) {
-			properties.store(fw, null);
+		// written aside then moved over: a crash mid-write must not leave a truncated file, read as a new install
+		File temp = new File(propertiesFile.getAbsoluteFile().getParentFile(), propertiesFile.getName() + ".tmp");
+		try {
+			try (FileWriter fw = new FileWriter(temp)) {
+				properties.store(fw, null);
+			}
+			ownerOnly(temp.toPath());
+			replace(temp.toPath(), propertiesFile.toPath());
 		} catch (final IOException e) {
 			logger.error("The properties could not be saved", e);
+			temp.delete();
 		}
 		ownerOnly(propertiesFile.toPath());
+	}
+
+	static void replace(java.nio.file.Path source, java.nio.file.Path target) throws IOException {
+		try {
+			java.nio.file.Files.move(source, target, java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+					java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+		} catch (java.nio.file.AtomicMoveNotSupportedException e) {
+			java.nio.file.Files.move(source, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+		}
 	}
 
 	private static final java.util.Set<java.nio.file.attribute.PosixFilePermission> OWNER_ONLY =

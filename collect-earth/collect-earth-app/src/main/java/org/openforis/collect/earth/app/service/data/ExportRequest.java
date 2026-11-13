@@ -6,9 +6,9 @@ package org.openforis.collect.earth.app.service.data;
  */
 public class ExportRequest {
 
-	/** The formats of the Data menu; the tag is what the Swing file name carried (DataFormat.name()). */
+	/** The formats of the Data menu; the tag is what the Swing file name carried (DataFormat.name()). BACKUP is a CSV of every column (DataImportExportService.exportSurveyAsBackup), no Collect backup. */
 	public enum Format {
-		CSV("csv", "CSV"), XML("zip", "ZIP_WITH_XML"), BACKUP("collect-data", "COLLECT_BACKUP"), KML("kml", "KML_FILE");
+		CSV("csv", "CSV"), XML("zip", "ZIP_WITH_XML"), BACKUP("csv", "COLLECT_CSV"), KML("kml", "KML_FILE");
 
 		private final String extension;
 		private final String tag;

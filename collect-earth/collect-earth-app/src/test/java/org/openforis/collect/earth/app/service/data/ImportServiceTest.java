@@ -172,7 +172,11 @@ public class ImportServiceTest {
 		RecordingContext context = new RecordingContext();
 		List<DataImportSummaryItem> conflicts = process.getSummary().getConflictingRecords();
 		Map<String, Object> result = (Map<String, Object>) service.importPrepared(token, Collections.singletonList(zip.getAbsolutePath())).run(context);
-		verify(data).importRecordsFrom(eq(zip), eq(process), eq(conflicts));
+		// the edits kept in memory are saved before, and forgotten after, so an open plot is read again from the import
+		org.mockito.InOrder order = org.mockito.Mockito.inOrder(surveys, data);
+		order.verify(surveys).flushAndForgetWorkingRecords();
+		order.verify(data).importRecordsFrom(eq(zip), eq(process), eq(conflicts));
+		order.verify(surveys).flushAndForgetWorkingRecords();
 		assertEquals(3, result.get("imported"));
 		assertEquals(1, result.get("overwritten"));
 		assertEquals(1, reloads.get());
