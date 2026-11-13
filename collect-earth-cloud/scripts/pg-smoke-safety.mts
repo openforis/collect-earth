@@ -101,8 +101,7 @@ const msg = { audience: 'everyone', subject: 'Hello', text: 'Maintenance tonight
 const preview = (await admin('POST', '/v1/admin/messages/preview', msg)).json();
 check('the preview counts the confirmed addresses', preview.recipients === 1, preview);
 res = await admin('POST', '/v1/admin/messages', { ...msg, recipients: 1 });
-await app.mailWork?.idle();
-check('sent', res.statusCode === 202 && mailer.sent.some((m) => m.tag === 'server.message.everyone' && m.to === 'owner@fao.org'), res.body);
+check('sent', res.statusCode === 200 && res.json().sent === 1 && mailer.sent.some((m) => m.tag === 'server.message.everyone' && m.to === 'owner@fao.org'), res.body);
 res = await admin('POST', '/v1/admin/messages', { ...msg, recipients: 1 });
 check('a second one within the hour is refused (read from the activity log)', res.statusCode === 429 && res.json().error === 'message_too_soon', res.body);
 

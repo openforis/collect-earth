@@ -736,8 +736,10 @@ A billing budget alert (*AI assistant*, step 4) is the third one worth having.
 
 People can ask for a weekly email on their account page (**off by default**):
 coordinators the weekly summary of the projects they coordinate (plots done that week
-and in all, who has been quiet with plots left to do, the plots waiting for a
-decision, a link to the weekly page), collectors their own week (My work's numbers
+and in all, who has been quiet with plots left to do, a link to the weekly page, and
+the plots waiting for a decision only when the instance sending it already has the
+project's quality figures at hand: on Cloud Run usually not, so that line is mostly
+left out), collectors their own week (My work's numbers
 and the plots sent back to them; never anyone else's name, never which plots are
 checks, never an answer). Each mail is in the language the person chose, with their
 time zone's days, as plain text and simple HTML, and carries a one-click unsubscribe

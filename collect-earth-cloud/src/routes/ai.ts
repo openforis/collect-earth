@@ -249,7 +249,7 @@ export async function registerAiRoutes(app: FastifyInstance, store: Store, confi
     }
     await runs.failStale(projectId);
     // The views proposed for the analysis page are runs too (they count against the limits), but no part of the AI tab
-    return reply.send({ runs: (await store.listAiRuns(projectId, limit)).filter((r) => r.kind !== 'views').map(summaryOf) });
+    return reply.send({ runs: (await store.listAiRuns(projectId, limit, { exceptViews: true })).map(summaryOf) });
   });
 
   app.get('/v1/projects/:pid/ai/runs/:id', admin, async (request: FastifyRequest, reply: FastifyReply) => {

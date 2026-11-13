@@ -18,7 +18,7 @@ import { errorSummary, isPermanentFailure, isSenderLimit, type Mailer, type Mail
 import { writeUnsubscribeToken } from './mailLinks.js';
 import { personDetail } from './people.js';
 import { PACE_DAYS, progressReport, type AttentionItem } from './progress.js';
-import type { ProjectStateCache } from './projectState.js';
+import type { ProjectStateCache, ServedState } from './projectState.js';
 import type { QualityService } from './qualityService.js';
 import { weeklyOf } from './routes/activity.js';
 import { loadPeopleFor } from './routes/people.js';
@@ -217,7 +217,7 @@ export function confirmMail(ctx: ConfirmContext, to: string): MailMessage {
 export interface DigestDeps {
   store: Store;
   quality: QualityService;
-  states: ProjectStateCache;
+  states: Pick<ProjectStateCache, 'get'>;
   mailer: Mailer;
   secret: Buffer;
   log: FastifyBaseLogger;
@@ -251,7 +251,23 @@ export interface DigestRunResult {
 }
 
 /** Runs the weekly job over the due subscriptions, within `budgetMs` and `maxMails`. */
-export async function runDigests(deps: DigestDeps, options: { baseUrl: string; budgetMs?: number; maxMails?: number }): Promise<DigestRunResult> {
+export async function runDigests(shared: DigestDeps, options: { baseUrl: string; budgetMs?: number; maxMails?: number }): Promise<DigestRunResult> {
+  // Each project's state is read once per run: subscribers come in user order, and the shared cache keeps only a few projects.
+  const kept = new Map<string, Promise<ServedState>>();
+  const deps: DigestDeps = {
+    ...shared,
+    states: {
+      get: (projectId, log) => {
+        let served = kept.get(projectId);
+        if (!served) {
+          served = shared.states.get(projectId, log);
+          kept.set(projectId, served);
+          served.catch(() => kept.delete(projectId));
+        }
+        return served;
+      },
+    },
+  };
   const started = deps.now();
   const budget = Math.min(options.budgetMs ?? DEFAULT_BUDGET_MS, MAX_BUDGET_MS);
   const maxMails = options.maxMails ?? DEFAULT_MAX_MAILS;

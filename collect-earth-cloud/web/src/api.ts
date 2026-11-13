@@ -5793,4 +5793,4 @@ export const previewServerMessage = (m: ServerMessage, language: string) =>
 
 /** Sends it; `recipients`: the count shown (a different one now is refused with the new count). */
 export const sendServerMessage = (m: ServerMessage, recipients: number) =>
-  request<{ recipients: number }>("POST", "/v1/admin/messages", { json: { ...m, recipients } });
+  request<{ recipients: number; sent: number; failed: number }>("POST", "/v1/admin/messages", { json: { ...m, recipients } });

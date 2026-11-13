@@ -75,7 +75,7 @@ export function activitySentence(t: T, e: ServerActivityEntry, language: string)
         ? t("serverLog.mail.testRefused", { ...p, code: String(d.responseCode ?? d.code ?? "?") })
         : t("serverLog.mail.test", p);
     case "message.sent":
-      return t("serverLog.message.sent", { ...p, subject: String(d.subject ?? ""), count: formatNumber(typeof d.recipients === "number" ? d.recipients : 0, language) });
+      return t("serverLog.message.sent", { ...p, subject: String(d.subject ?? ""), count: formatNumber(typeof d.sent === "number" ? d.sent : typeof d.recipients === "number" ? d.recipients : 0, language) });
     case "alerts.seen":
       return d.count === 1 ? t("serverLog.alerts.seenOne", p) : t("serverLog.alerts.seen", { ...p, count: formatNumber(typeof d.count === "number" ? d.count : 0, language) });
     case "account.unlocked":

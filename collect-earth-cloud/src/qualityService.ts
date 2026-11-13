@@ -665,17 +665,24 @@ export class QualityService {
     return { version, at, known: { info, files, members, settings } };
   }
 
-  /** The outline of the served project file's survey (cached by its sha256), or null without a readable one. */
+  /**
+   * The outline of the served project file's survey, or null without a readable one. Cached by the file's size and
+   * time (a new upload changes the time), so the file itself (up to 32 MB) is read only on a miss.
+   */
   async outline(projectId: string, log: Log): Promise<ReadonlyMap<string, Question> | null> {
-    const cep = await this.store.getCep(projectId);
-    if (!cep) {
+    const info = await this.store.getCepInfo(projectId);
+    if (!info) {
       return null;
     }
-    const checksum = sha256(cep);
+    const checksum = `${projectId} ${info.bytes} ${info.updatedAt}`;
     if (this.outlines.has(checksum)) {
       const hit = this.outlines.get(checksum)!;
       remember(this.outlines, checksum, hit, MAX_CACHED_OUTLINES);
       return hit;
+    }
+    const cep = await this.store.getCep(projectId);
+    if (!cep) {
+      return null;
     }
     let outline: ReadonlyMap<string, Question> | null = null;
     try {
