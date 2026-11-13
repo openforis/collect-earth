@@ -19,7 +19,9 @@ Rules, so both sides can import these files without dragging anything else along
 
 The dashboard and the server are built and shipped together (the Dockerfile builds `web/` next to
 `src/wire/`; local mode bundles both), so the dashboard never talks to an older server and needs no
-fallbacks for one.
+fallbacks for one. The one case left, a page left open across an upgrade, is handled once:
+server-info's `dashboardBuild` changes with each build, and the page offers to reload
+(`web/src/newVersion.ts`).
 
 Moved here: every area of `web/src/api.ts`. `account.ts` (accounts, sign-in, the current user,
 two-step sign-in, digests, invites, server-info), `serverAdmin.ts` (the server page), `projects.ts`,

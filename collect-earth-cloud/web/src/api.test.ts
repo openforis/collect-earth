@@ -112,6 +112,7 @@ const SERVER_INFO: ServerInfo = {
   mapTiles: OSM_TILES,
   localMode: false,
   telemetry: null,
+  dashboardBuild: "0a1b2c3d4e5f6a7b",
 };
 
 /** What a server answers to GET /v1/admin/settings (made-up). */

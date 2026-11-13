@@ -56,7 +56,7 @@ describe('first-run setup and server info', () => {
     expect(res.json().mapTiles).toEqual(OSM_TILES);
     // Every field of the dashboard's ServerInfo (src/wire/account.ts), localMode included
     expect(Object.keys(res.json()).sort()).toEqual([
-      'aiAvailable', 'contactEmail', 'localMode', 'mapTiles', 'minPasswordLength', 'needsSetup', 'projectCreation',
+      'aiAvailable', 'contactEmail', 'dashboardBuild', 'localMode', 'mapTiles', 'minPasswordLength', 'needsSetup', 'projectCreation',
       'selfServiceReset', 'serverName', 'signupDomains', 'signupOpen', 'telemetry', 'termsUrl', 'version',
     ]);
     expect(res.json().localMode).toBe(false);

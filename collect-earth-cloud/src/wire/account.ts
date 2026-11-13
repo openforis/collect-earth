@@ -61,6 +61,11 @@ export interface ServerInfo {
   localMode: boolean;
   /** Error reports and usage events; null when the server sends none. */
   telemetry: DashboardTelemetry | null;
+  /**
+   * Which build of the dashboard the server serves (a hash of its index.html, which names the build's hashed
+   * files); null when it serves none. A page left open across an upgrade sees it change and offers to reload.
+   */
+  dashboardBuild: string | null;
 }
 
 // --- signing in and up ---

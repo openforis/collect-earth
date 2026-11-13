@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -311,6 +312,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   await registerAdminRoutes(app, store, config, limiter, {
     setupCode,
     version: VERSION,
+    dashboardBuild: dashboardBuildOf(webDir),
     now,
     counters,
     startedAt: STARTED_AT,
@@ -416,6 +418,19 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
  * /join/<token>, /setup, /reset/<token>, /projects/... work on a direct visit or
  * reload. Everything else that matches no route is a JSON 404, as before.
  */
+/**
+ * The served dashboard's build: a hash of its index.html, which names the build's files by their content's hash, so
+ * it changes with every build. Read once: a new build comes with a new server process.
+ */
+export function dashboardBuildOf(webDir: string | null): string | null {
+  if (webDir === null) return null;
+  try {
+    return createHash('sha256').update(readFileSync(join(webDir, 'index.html'))).digest('hex').slice(0, 16);
+  } catch {
+    return null;
+  }
+}
+
 async function registerDashboard(app: FastifyInstance, webDir: string | null): Promise<void> {
   const serveSpa = webDir !== null && existsSync(join(webDir, 'index.html'));
   if (serveSpa) {

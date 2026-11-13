@@ -117,6 +117,8 @@ export interface AdminRouteOptions {
   now?: () => number;
   /** Failed logins and refused requests (the server owner's panel); none counted when absent. */
   counters?: ServerCounters;
+  /** The dashboard's build (ServerInfo.dashboardBuild): a hash of the served index.html, null when none is served. */
+  dashboardBuild?: string | null;
   /** When this process started (epoch ms). */
   startedAt?: number;
   /** The mail routes' confirmation sender, for an address given at sign-up, and the notice after a reset. */
@@ -166,6 +168,7 @@ export async function registerAdminRoutes(
         signupDomains: null,
         mapTiles: config.mapTiles ?? OSM_TILES,
         telemetry: null,
+        dashboardBuild: options.dashboardBuild ?? null,
       } satisfies ServerInfo);
     }
     const settings = await store.getSettings();
@@ -189,6 +192,7 @@ export async function registerAdminRoutes(
       mapTiles: config.mapTiles ?? OSM_TILES,
       // The dashboard's error reports (Sentry), when the server sends them: its public DSN only.
       telemetry: telemetry.dashboardConfig(),
+      dashboardBuild: options.dashboardBuild ?? null,
     } satisfies ServerInfo);
   });
 
