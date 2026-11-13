@@ -42,7 +42,7 @@ const SOURCE_KEYS: Record<string, MessageKey> = {
  * (the values of the columns chosen, as the plot files have them) or one total area. `version`: changes when the plot
  * files do, to count their plots again.
  */
-export function StrataAreas({ projectId, version }: { projectId: string; version: unknown }) {
+export function StrataAreas({ projectId, version }: { projectId: string; version?: unknown }) {
   const t = useT();
   const { language } = useApp();
   // null: the saved columns; a choice previews the strata those columns make

@@ -680,7 +680,7 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
             title={t("map.noFiles")}
             action={
               coordinator ? (
-                <Button variant="contained" onClick={() => navigate(pathFor({ name: "project", projectId, tab: "plots" }))}>
+                <Button variant="contained" onClick={() => navigate(pathFor({ name: "project", projectId, tab: "setup", view: "plots" }))}>
                   {t("tab.plots")}
                 </Button>
               ) : undefined

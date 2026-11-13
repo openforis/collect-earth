@@ -11,7 +11,7 @@ import CheckCircle from "@mui/icons-material/CheckCircle";
 import RadioButtonUnchecked from "@mui/icons-material/RadioButtonUnchecked";
 import { getOverview, listAssignments, listCsvFiles, listInvites } from "../api";
 import { useApp } from "../appContext";
-import { checklist, doneCount, STEP_TAB, type StepId } from "../checklist";
+import { checklist, doneCount, STEP_PLACE, type StepId } from "../checklist";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { FoldingCard } from "../components/FoldingCard";
 import { MoreInfo } from "../components/Explain";
@@ -73,15 +73,13 @@ function StorageUse({ usedBytes, limitBytes }: { usedBytes: number; limitBytes: 
   );
 }
 
-export function OverviewTab({ projectId, onGo }: { projectId: string; onGo: (tab: ProjectTab) => void }) {
-  const t = useT();
-  const state = useLoad(["project", projectId, "loadOverview"], () => loadOverview(projectId));
+/** The project's getting-started checklist (Setup's overview, and the marks of Setup's sections): one load for both. */
+export function useSetupOverview(projectId: string) {
+  return useLoad(["project", projectId, "loadOverview"], () => loadOverview(projectId));
+}
 
-  if (state.loading && !state.data) return <Loading />;
-  if (state.error || !state.data) return <ErrorAlert error={state.error} onRetry={state.reload} />;
-
-  const { overview, openInvites, assignments, dividedFiles } = state.data;
-  const steps = checklist({
+export function stepsOf({ overview, openInvites, assignments, dividedFiles }: Awaited<ReturnType<typeof loadOverview>>) {
+  return checklist({
     hasProjectFile: overview.cep !== null,
     plotFileCount: overview.csvFiles,
     memberCount: overview.members,
@@ -90,6 +88,17 @@ export function OverviewTab({ projectId, onGo }: { projectId: string; onGo: (tab
     dividedFileCount: dividedFiles,
     recordCount: overview.records.total,
   });
+}
+
+export function OverviewTab({ projectId, onGo }: { projectId: string; onGo: (tab: ProjectTab, view?: string) => void }) {
+  const t = useT();
+  const state = useSetupOverview(projectId);
+
+  if (state.loading && !state.data) return <Loading />;
+  if (state.error || !state.data) return <ErrorAlert error={state.error} onRetry={state.reload} />;
+
+  const { overview } = state.data;
+  const steps = stepsOf(state.data);
   const done = doneCount(steps);
 
   const allDone = done === steps.length;
@@ -146,7 +155,7 @@ export function OverviewTab({ projectId, onGo }: { projectId: string; onGo: (tab
               <Button
                 variant={step.current ? "contained" : "outlined"}
                 endIcon={<ArrowForward />}
-                onClick={() => onGo(STEP_TAB[step.id])}
+                onClick={() => onGo(STEP_PLACE[step.id].tab, STEP_PLACE[step.id].view)}
                 sx={{ ml: { xs: 4.5, sm: 0 }, flexShrink: 0 }}
               >
                 {t(`step.${step.id}.action`)}

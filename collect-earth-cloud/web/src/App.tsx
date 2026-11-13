@@ -51,7 +51,7 @@ function RoutedPage({ route }: { route: Route }) {
     case "project":
       return <ProjectPage key={route.projectId} projectId={route.projectId} tab={route.tab} view={route.view} />;
     case "plotFile":
-      return <ProjectPage key={route.projectId} projectId={route.projectId} tab="plots" fileId={route.fileId} />;
+      return <ProjectPage key={route.projectId} projectId={route.projectId} tab="setup" view="plots" fileId={route.fileId} />;
     case "trainingSet":
       return <ProjectPage key={route.projectId} projectId={route.projectId} tab="training" trainingSetId={route.setId} />;
     case "person":

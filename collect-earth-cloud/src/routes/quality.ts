@@ -583,6 +583,11 @@ export async function registerQualityRoutes(
   // Number margins (percent, 0-100), only for the number questions of the served survey,
   // and the "very fast" flag's threshold (whole seconds, MIN_FAST_SECONDS-MAX_FAST_SECONDS).
   // Either may be left out: the one left out stays as it is.
+  // The settings alone (Setup's Quality rules): read from the store, with no figures to work out.
+  app.get('/v1/projects/:pid/quality/settings', admin, async (request: FastifyRequest, reply: FastifyReply) => {
+    return reply.send(settingsAnswer(await store.getQualitySettings(request.membership!.projectId)));
+  });
+
   app.put('/v1/projects/:pid/quality/settings', admin, async (request: FastifyRequest, reply: FastifyReply) => {
     const projectId = request.membership!.projectId;
     const body = (request.body ?? {}) as { margins?: unknown; fastSeconds?: unknown };

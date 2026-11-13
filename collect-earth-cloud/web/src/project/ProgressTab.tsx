@@ -459,7 +459,7 @@ export function ProgressTab({ projectId, onGo }: { projectId: string; onGo: (tab
       <AsOf asOf={data.asOf} />
       {data.totals.plots === 0 ? (
         // Only coordinators can open Setup (reviewers get no cards either); Collect Earth sends the local mode's plot files.
-        <Alert severity="info" action={!local && data.attention !== null ? <Button onClick={() => onGo("plots")}>{t("tab.plots")}</Button> : undefined}>
+        <Alert severity="info" action={!local && data.attention !== null ? <Button onClick={() => onGo("setup", "plots")}>{t("tab.plots")}</Button> : undefined}>
           {t(local ? "progress.noPlotsLocal" : "progress.noPlots")}
         </Alert>
       ) : (

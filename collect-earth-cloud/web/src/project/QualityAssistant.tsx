@@ -651,7 +651,7 @@ export function QualityAssistant({
             <Alert
               severity="info"
               action={
-                <Button color="inherit" size="small" {...linkProps(pathFor({ name: "project", projectId, tab: "settings" }))}>
+                <Button color="inherit" size="small" {...linkProps(pathFor({ name: "project", projectId, tab: "setup", view: "sharing" }))}>
                   {t("ai.openSettings")}
                 </Button>
               }

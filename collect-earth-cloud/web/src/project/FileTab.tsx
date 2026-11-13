@@ -25,11 +25,10 @@ import { FileDrop } from "../components/FileDrop";
 import { Loading } from "../components/Loading";
 import { formatBytes, formatDate } from "../format";
 import { CATALOGUES, useT, type MessageKey } from "../i18n";
-import { ImageryCard } from "./ImageryCard";
-import { PlotLayoutCard } from "./PlotLayoutCard";
 import { noteMessage, originalFileName, roundCodeLabel, roundMessage } from "../roundText";
 import { saveBlob } from "../saveBlob";
 import { useLoad } from "../useLoad";
+import { queryClient } from "../queryClient";
 
 /** The Select's value for "None" (a code is never empty). */
 const NO_CODE = "";
@@ -244,6 +243,8 @@ export function FileTab({ projectId }: { projectId: string }) {
       const info = await uploadCep(projectId, file, setProgress);
       setUploaded(true);
       setUploads((n) => n + 1);
+      // The new file's plot layout and imagery (Setup's section of them): asked again when it opens, not the old file's
+      for (const what of ["getPlotLayout", "getImagery"]) queryClient.removeQueries({ queryKey: ["project", projectId, what] });
       overview.reload();
       round.setData(info);
       await addGridFiles(file);
@@ -309,8 +310,6 @@ export function FileTab({ projectId }: { projectId: string }) {
       ) : null}
 
       {/* Read again after an upload: the new file brings its own layout. */}
-      {cep && <PlotLayoutCard key={uploads} projectId={projectId} />}
-      {cep && <ImageryCard key={`imagery${uploads}`} projectId={projectId} />}
 
       {/* No close on Escape or outside clicks: the grid files wait for one of the two answers. */}
       <Dialog open={pendingGrid !== null} aria-labelledby="grid-choice" maxWidth="sm" fullWidth>

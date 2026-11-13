@@ -126,37 +126,26 @@ export function forecastTargetKey(f: Pick<Forecast, "target" | "targetFrom">, op
   return options.local ? null : "progress.forecastTarget";
 }
 
-/** Where each card's problem is fixed. */
-export const ATTENTION_TAB: Record<AttentionKind, ProjectTab> = {
-  quiet: "people",
-  neverDownloaded: "people",
-  notAssigned: "plots",
-  oldUnsentWork: "people",
-  differencesWaiting: "quality",
-  storage: "setup",
-  oldProjectFile: "people",
-  oldCollectEarth: "people",
-  trainingFinished: "training",
-};
+// People's problems (quiet, late, old files) are in the table of how each person is doing
+const PEOPLE = { tab: "people", view: "team", go: "progress.goPeople" } as const;
 
-const GO: Record<ProjectTab, MessageKey> = {
-  progress: "tab.progress",
-  setup: "progress.goSetup",
-  file: "tab.file",
-  people: "progress.goPeople",
-  plots: "progress.goPlots",
-  map: "tab.map",
-  data: "tab.data",
-  quality: "progress.goQuality",
-  training: "tab.training",
-  activity: "tab.activity",
-  settings: "tab.settings",
+/** Where each card's problem is fixed: a tab and, for a tab split into views, the view; and the button's words. */
+export const ATTENTION_PLACE: Record<AttentionKind, { tab: ProjectTab; view?: string; go: MessageKey }> = {
+  quiet: PEOPLE,
+  neverDownloaded: PEOPLE,
+  notAssigned: { tab: "setup", view: "plots", go: "progress.goPlots" },
+  oldUnsentWork: PEOPLE,
+  differencesWaiting: { tab: "quality", go: "progress.goQuality" },
+  // The space used is on Setup's overview
+  storage: { tab: "setup", go: "progress.goSetup" },
+  oldProjectFile: PEOPLE,
+  oldCollectEarth: PEOPLE,
+  trainingFinished: { tab: "training", go: "tab.training" },
 };
 
 export function attentionAction(t: Translate, kind: AttentionKind): { tab: ProjectTab; view?: string; label: string } {
-  const tab = ATTENTION_TAB[kind];
-  // People's problems (quiet, late, old files) are in the table of how each person is doing
-  return { tab, ...(tab === "people" ? { view: "team" } : {}), label: t(GO[tab]) };
+  const { tab, view, go } = ATTENTION_PLACE[kind];
+  return { tab, ...(view ? { view } : {}), label: t(go) };
 }
 
 const DAY_MS = 86_400_000;

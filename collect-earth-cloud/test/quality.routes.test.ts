@@ -175,6 +175,10 @@ describe('quality routes', () => {
     }
     // Nothing refused was stored.
     expect((await get('/quality')).json().settings).toEqual({ margins: { [FOREST]: 0, collect_integer_cropland_percentage: 100 }, fastSeconds: 15 });
+    // The settings alone (Setup's Quality rules), with the threshold in force
+    const alone = await get('/quality/settings');
+    expect(alone.statusCode).toBe(200);
+    expect(alone.json()).toEqual({ margins: { [FOREST]: 0, collect_integer_cropland_percentage: 100 }, fastSeconds: 15 });
   });
 
   it('decisions: set, replace, list, delete, by plot unit', async () => {

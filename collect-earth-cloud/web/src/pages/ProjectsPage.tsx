@@ -62,7 +62,7 @@ function NewProjectDialog({ open, onClose }: { open: boolean; onClose: () => voi
       const created = await createProject(name.trim());
       await refreshMe();
       // Started "from a project file": it opens where the .cep is dropped (which also adds its grid files and round).
-      navigate(pathFor({ name: "project", projectId: created.projectId, tab: "file" }));
+      navigate(pathFor({ name: "project", projectId: created.projectId, tab: "setup", view: "survey" }));
     } catch (err) {
       setError(err);
     } finally {

@@ -48,7 +48,6 @@ import { useLoad } from "../useLoad";
 import { fromPairs, pairKey } from "../assignmentGrid";
 import { sortPeople } from "../division";
 import { PlotDesign } from "./PlotDesign";
-import { StrataAreas } from "./StrataAreas";
 
 interface UploadState {
   name: string;
@@ -428,7 +427,6 @@ export function PlotsTab({ projectId, onGo }: { projectId: string; onGo: (tab: P
 
       {/* Designing plots is what a project without plot files needs first: open and above then, folded below once there are some */}
       {data && data.files.length === 0 && <PlotDesign key="open" projectId={projectId} busy={upload !== null} onFile={(file) => uploadFiles([file])} defaultOpen />}
-      {data && <StrataAreas projectId={projectId} version={data} />}
       {data && data.files.length > 0 && <PlotDesign key="folded" projectId={projectId} busy={upload !== null} onFile={(file) => uploadFiles([file])} defaultOpen={false} />}
     </Stack>
   );

@@ -4,8 +4,9 @@ import { useSyncExternalStore, type MouseEvent } from "react";
 // path <-> route table is all it needs. The server returns index.html for every
 // app path (/join/<token>, /projects/..., /setup, /reset/<token>), so deep links work.
 
-// Progress is the first tab (its path is the project's own); Setup is the getting-started checklist.
-export const PROJECT_TABS = ["progress", "setup", "file", "people", "plots", "map", "data", "quality", "training", "activity", "settings"] as const;
+// Progress is the first tab (its path is the project's own). The tabs are what is used day to day; Setup holds the
+// project's configuration, section by section (PROJECT_VIEWS.setup), starting with the getting-started checklist.
+export const PROJECT_TABS = ["progress", "map", "people", "quality", "training", "data", "activity", "setup"] as const;
 export type ProjectTab = (typeof PROJECT_TABS)[number];
 
 /**
@@ -15,9 +16,13 @@ export type ProjectTab = (typeof PROJECT_TABS)[number];
 export const PROJECT_VIEWS = {
   quality: ["review", "checks", "figures", "notes"],
   people: ["members", "team"],
+  setup: ["overview", "survey", "plots", "areas", "layout", "quality", "schedule", "sharing", "next", "project"],
 } as const satisfies Partial<Record<ProjectTab, readonly string[]>>;
 export type ViewTab = keyof typeof PROJECT_VIEWS;
 export type ProjectView<T extends ViewTab = ViewTab> = (typeof PROJECT_VIEWS)[T][number];
+
+/** Tabs of before, now Setup's sections: their old addresses open the section. */
+const MOVED_TABS: Record<string, ProjectView<"setup">> = { overview: "overview", file: "survey", plots: "plots", settings: "project" };
 
 /** A tab's view from an address part: the first view when none or not one of them. */
 export function viewOf<T extends ViewTab>(tab: T, view: string | undefined): ProjectView<T> {
@@ -170,8 +175,10 @@ export function matchRoute(pathname: string): Route {
   }
   if (first === "projects" && (parts.length === 2 || parts.length === 3)) {
     const projectId = decode(second);
-    // "overview" is Setup's old name: old links still open it.
-    const tab = (third === "overview" ? "setup" : (third ?? "progress")) as ProjectTab;
+    // The tabs that became Setup's sections, and "overview" (Setup's old name): old links still open them.
+    const moved = third ? MOVED_TABS[third] : undefined;
+    if (projectId && moved) return { name: "project", projectId, tab: "setup", ...(moved === "overview" ? {} : { view: moved }) };
+    const tab = (third ?? "progress") as ProjectTab;
     if (projectId && PROJECT_TABS.includes(tab)) return { name: "project", projectId, tab };
   }
   if (first === "projects" && parts.length === 4 && third === "plots") {

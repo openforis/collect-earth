@@ -17,14 +17,15 @@ import {
   plotPageParts,
   projectTabs,
   qualitySections,
-  settingsCards,
+  setupSectionOf,
+  setupSections,
   totalStats,
   weeklyBlocks,
 } from "./localMode";
 import { plotPopup, statusLabelKey } from "./mapView";
 import { choosePage } from "./pageChoice";
 import { forecastSentences, forecastTargetKey } from "./progressView";
-import { PROJECT_TABS, type Route } from "./router";
+import { PROJECT_TABS, PROJECT_VIEWS, type Route } from "./router";
 
 // The single-person view (the server's LOCAL_MODE, plan 2026-11-03-desktop-dashboard Task 4):
 // what each tab shows with serverInfo.localMode, and that the cloud's view is unchanged without it.
@@ -34,10 +35,10 @@ const local = { needsSetup: false, localMode: true };
 const cloud = { needsSetup: false, localMode: false };
 
 describe("local mode: pages and tabs", () => {
-  it("has the Progress, Map, Data, Quality, Activity and Settings tabs, in the cloud's order", () => {
-    expect(projectTabs(true)).toEqual(["progress", "map", "data", "quality", "activity", "settings"]);
+  it("has the Progress, Map, Quality, Data, Activity and Setup tabs, in the cloud's order", () => {
+    expect(projectTabs(true)).toEqual(["progress", "map", "quality", "data", "activity", "setup"]);
     expect(PROJECT_TABS.filter((tab) => isLocalTab(tab))).toEqual([...LOCAL_TABS]);
-    for (const hidden of ["people", "plots", "setup", "file"] as const) expect(isLocalTab(hidden)).toBe(false);
+    for (const hidden of ["people", "training"] as const) expect(isLocalTab(hidden)).toBe(false);
     expect(projectTabs(false)).toBe(PROJECT_TABS);
   });
 
@@ -68,9 +69,12 @@ describe("local mode: pages and tabs", () => {
 
   it("sends pages about other people to Progress, and account, mail and invitation pages home", () => {
     const toProgress = { kind: "redirect", to: "/projects/p1" };
-    for (const tab of ["people", "plots", "setup", "file"] as const) {
+    for (const tab of ["people", "training"] as const) {
       expect(choosePage({ name: "project", projectId: "p1", tab }, local, true, "p1")).toEqual(toProgress);
     }
+    // Setup's sections of the cloud (the survey, the plot files...) lead to Setup's first section here
+    expect(choosePage({ name: "project", projectId: "p1", tab: "setup", view: "plots" }, local, true, "p1")).toEqual({ kind: "redirect", to: "/projects/p1/setup/quality" });
+    expect(choosePage({ name: "project", projectId: "p1", tab: "setup", view: "schedule" }, local, true, "p1")).toEqual({ kind: "route", route: { name: "project", projectId: "p1", tab: "setup", view: "schedule" } });
     for (const route of [
       { name: "plotFile", projectId: "p1", fileId: "f" },
       { name: "person", projectId: "p1", userId: "u" },
@@ -281,10 +285,14 @@ describe("local mode: Activity", () => {
   });
 });
 
-describe("local mode: Settings", () => {
-  it("has the progress settings only (deadline and target: quiet days are about a team)", () => {
-    expect(settingsCards(true)).toEqual(["progress"]);
-    expect(settingsCards(false)).toEqual(["rename", "status", "progress", "shareLinks", "ai", "copy", "repeat", "delete"]);
+describe("local mode: Setup", () => {
+  it("has the quality rules (the very fast threshold) and the schedule only (deadline and target: quiet days are about a team)", () => {
+    expect(setupSections(true)).toEqual(["quality", "schedule"]);
+    expect(setupSections(false)).toEqual(PROJECT_VIEWS.setup);
+    expect(setupSectionOf(undefined, true)).toBe("quality");
+    expect(setupSectionOf("plots", true)).toBe("quality");
+    expect(setupSectionOf(undefined, false)).toBe("overview");
+    expect(setupSectionOf("sharing", false)).toBe("sharing");
     expect(t("progressSettings.targetHelpLocal")).not.toMatch(/given to/);
   });
 });

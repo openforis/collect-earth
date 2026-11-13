@@ -53,6 +53,11 @@ export const MIN_FAST_SECONDS = 1;
 export const MAX_FAST_SECONDS = 120;
 
 /** Sets the "very fast" flag's threshold (whole seconds); returns it as saved. The margins stay as they are. */
+/** The quality settings alone (the number margins and the "very fast" threshold in force), without the figures. */
+export function getQualitySettings(projectId: string): Promise<QualitySettingsAnswer> {
+  return request("GET", `${p(projectId)}/quality/settings`);
+}
+
 export async function saveFastSeconds(projectId: string, fastSeconds: number): Promise<number> {
   return (await request<QualitySettingsAnswer>("PUT", `${p(projectId)}/quality/settings`, { json: { fastSeconds } })).fastSeconds;
 }

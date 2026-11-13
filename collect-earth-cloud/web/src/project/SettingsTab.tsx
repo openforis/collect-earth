@@ -34,16 +34,13 @@ import { CardFrame } from "../components/FoldingCard";
 import { Explain, MoreInfo } from "../components/Explain";
 import { Loading } from "../components/Loading";
 import { useT } from "../i18n";
-import { settingsCards } from "../localMode";
 import { progressDraftOf, readProgressDraft, type ProgressDraft, type ProgressProblems } from "../progressView";
 import { linkProps, navigate, pathFor } from "../router";
 import { useLoad } from "../useLoad";
 import type { MessageKey } from "../i18n";
-import { RepeatCard } from "./RepeatSurvey";
-import { ShareLinksCard } from "./ShareLinks";
 import { projectChanged } from "../queryClient";
 
-function RenameCard({ projectId, name }: { projectId: string; name: string }) {
+export function RenameCard({ projectId, name }: { projectId: string; name: string }) {
   const t = useT();
   const { refreshMe } = useApp();
   const [value, setValue] = useState(name);
@@ -198,7 +195,7 @@ function ProgressSettingsForm({ projectId, saved, onSaved }: { projectId: string
   );
 }
 
-function ProgressCard({ projectId }: { projectId: string }) {
+export function ProgressCard({ projectId }: { projectId: string }) {
   const t = useT();
   const local = useLocalMode();
   const settings = useLoad(["project", projectId, "getProgressSettings"], () => getProgressSettings(projectId));
@@ -225,7 +222,7 @@ function ProgressCard({ projectId }: { projectId: string }) {
  * The AI assistant's switch for this project, off by default, with what it sends. It can
  * be switched on only while the server owner has it set up and allowed; off always.
  */
-function AiCard({ projectId }: { projectId: string }) {
+export function AiCard({ projectId }: { projectId: string }) {
   const t = useT();
   const ai = useLoad(["project", projectId, "getProjectAi"], () => getProjectAi(projectId));
   const [busy, setBusy] = useState(false);
@@ -329,7 +326,7 @@ function moveLabel(from: ProjectStatus, to: ProjectStatus): MessageKey {
 }
 
 /** The project's lifecycle: what its status means, and the moves it can make (publish, close, reopen, archive, restore). */
-function StatusCard({ projectId, status }: { projectId: string; status: ProjectStatus }) {
+export function StatusCard({ projectId, status }: { projectId: string; status: ProjectStatus }) {
   const t = useT();
   const { refreshMe } = useApp();
   const [error, setError] = useState<unknown>(null);
@@ -369,7 +366,7 @@ function StatusCard({ projectId, status }: { projectId: string; status: ProjectS
 }
 
 /** A new project from this one (a template), as a draft: the coordinator lands on its getting-started checklist. */
-function CopyCard({ projectId, name }: { projectId: string; name: string }) {
+export function CopyCard({ projectId, name }: { projectId: string; name: string }) {
   const t = useT();
   const { refreshMe } = useApp();
   const [value, setValue] = useState(() => t("copy.defaultName", { name }));
@@ -418,7 +415,7 @@ function CopyCard({ projectId, name }: { projectId: string; name: string }) {
 }
 
 /** The danger zone: deleting the project, confirmed by typing its name. */
-function DeleteCard({ projectId, name }: { projectId: string; name: string }) {
+export function DeleteCard({ projectId, name }: { projectId: string; name: string }) {
   const t = useT();
   const { refreshMe } = useApp();
   const [typed, setTyped] = useState("");
@@ -463,33 +460,5 @@ function DeleteCard({ projectId, name }: { projectId: string; name: string }) {
         </Box>
       </Stack>
     </CardFrame>
-  );
-}
-
-/** The project's settings; in the local mode (one person), the progress settings only (src/localMode.ts, settingsCards). */
-export function SettingsTab({ projectId, name, status }: { projectId: string; name: string; status: ProjectStatus }) {
-  const cards = settingsCards(useLocalMode());
-  return (
-    <Stack spacing={3}>
-      {cards.map((card) =>
-        card === "rename" ? (
-          <RenameCard key={card} projectId={projectId} name={name} />
-        ) : card === "progress" ? (
-          <ProgressCard key={card} projectId={projectId} />
-        ) : card === "shareLinks" ? (
-          <ShareLinksCard key={card} projectId={projectId} />
-        ) : card === "ai" ? (
-          <AiCard key={card} projectId={projectId} />
-        ) : card === "copy" ? (
-          <CopyCard key={card} projectId={projectId} name={name} />
-        ) : card === "repeat" ? (
-          <RepeatCard key={card} projectId={projectId} name={name} />
-        ) : card === "status" ? (
-          <StatusCard key={card} projectId={projectId} status={status} />
-        ) : (
-          <DeleteCard key={card} projectId={projectId} name={name} />
-        ),
-      )}
-    </Stack>
   );
 }

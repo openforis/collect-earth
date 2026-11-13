@@ -180,6 +180,7 @@ describe('cross-tenant isolation', () => {
     const note = { questionKey: 'collect_code_land_use', text: 'x' };
     const cases = [
       { method: 'GET' as const, url: `/v1/projects/${b.projectId}/quality` },
+      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/quality/settings` },
       { method: 'PUT' as const, url: `/v1/projects/${b.projectId}/quality/settings`, payload: { margins: {} } },
       { method: 'PUT' as const, url: `/v1/projects/${b.projectId}/quality/settings`, payload: { fastSeconds: 30 } },
       { method: 'GET' as const, url: `/v1/projects/${b.projectId}/quality/flags` },

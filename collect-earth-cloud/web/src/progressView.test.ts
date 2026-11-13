@@ -112,7 +112,7 @@ describe("attention cards", () => {
       expect(text.text.length, kind).toBeGreaterThan(0);
       expect(attentionAction(t, kind).label, kind).toMatch(/^Go to /);
     }
-    expect(attentionAction(t, "notAssigned").tab).toBe("plots");
+    expect(attentionAction(t, "notAssigned")).toMatchObject({ tab: "setup", view: "plots" });
     expect(attentionAction(t, "differencesWaiting").tab).toBe("quality");
     expect(attentionAction(t, "storage").tab).toBe("setup");
   });

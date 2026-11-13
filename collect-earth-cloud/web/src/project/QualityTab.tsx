@@ -56,7 +56,6 @@ import { linkProps, navigate, pathFor, type ProjectView } from "../router";
 import { ViewTabs } from "../components/ViewTabs";
 import { useLoad } from "../useLoad";
 import { QualityAnswers } from "./QualityAnswers";
-import { QualityChecks } from "./QualityChecks";
 import { QualityFlags } from "./QualityFlags";
 import { QualitySurvey } from "./QualitySurvey";
 import { QualityReference } from "./QualityReference";
@@ -803,12 +802,8 @@ function TeamQualityTab({ projectId, view }: { projectId: string; view: ProjectV
           <QualityFlags projectId={projectId} canEdit />
         </>
       )}
-      {view === "checks" && (
-        <>
-          <QualityChecks projectId={projectId} />
-          <QualityReference projectId={projectId} canEdit />
-        </>
-      )}
+      {/* How many plots are checked twice is set in Setup's Quality rules; the reference plots stay here with their figures */}
+      {view === "checks" && <QualityReference projectId={projectId} canEdit />}
       {view === "figures" && (
         <>
           <SectionNav root={sectionsRef} label={t("quality.onThisPage")} prefix="quality-section" />

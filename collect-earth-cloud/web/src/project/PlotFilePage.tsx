@@ -671,7 +671,7 @@ export function PlotFilePage({ projectId, fileId, onGo }: { projectId: string; f
   const [moves, setMoves] = useState(0);
   const back = (
     <Box>
-      <Button startIcon={<ArrowBack />} {...linkProps(pathFor({ name: "project", projectId, tab: "plots" }))}>
+      <Button startIcon={<ArrowBack />} {...linkProps(pathFor({ name: "project", projectId, tab: "setup", view: "plots" }))}>
         {t("divide.back")}
       </Button>
     </Box>
