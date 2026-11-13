@@ -83,4 +83,10 @@ public class UpdateServiceTest {
 		UpdateService.UpdaterMissingException e = org.junit.jupiter.api.Assertions.assertThrows(UpdateService.UpdaterMissingException.class, () -> service.runUpdater(folder));
 		assertTrue(e.getMessage().contains("autoupdate"));
 	}
+
+	@Test
+	public void onAMacCheckForUpdatesOpensTheInstallerPage() throws Exception {
+		new UpdateService(notices, properties, check, true, opened::add).runUpdater(folder);
+		assertEquals(List.of(URI.create(UpdateService.INSTALLER_URL)), opened);
+	}
 }

@@ -20,7 +20,7 @@ Then set jre.version in collect-earth-installer/pom.xml to the version it prints
 
 Layout of each zip (see src/main/resources/java.xml):
     jre<version>-<classifier>/java-<os>/{bin,conf,legal,lib,release,...}
-The macOS archive's Contents/Home is what goes into java-osx.
+The macOS archives' Contents/Home is what goes into java-osx (x64) and java-osx-aarch64.
 """
 import argparse
 import hashlib
@@ -42,11 +42,13 @@ API = "https://api.adoptium.net/v3"
 # Adoptium answers 403 to Python's default User-Agent
 HEADERS = {"User-Agent": "collect-earth-installer-repack-jres/1.0"}
 
-# Maven classifier -> (Adoptium os, folder inside the zip). x64 only, as the installers are.
+# Maven classifier -> (Adoptium os, Adoptium architecture, folder inside the zip). x64, and aarch64 on macOS: the one
+# macOS installer carries both and installs the one of the machine (java.xml).
 PLATFORMS = {
-    "windows-x64": ("windows", "java-windows"),
-    "linux-x64": ("linux", "java-linux-x64"),
-    "osx": ("mac", "java-osx"),
+    "windows-x64": ("windows", "x64", "java-windows"),
+    "linux-x64": ("linux", "x64", "java-linux-x64"),
+    "osx": ("mac", "x64", "java-osx"),
+    "osx-aarch64": ("mac", "aarch64", "java-osx-aarch64"),
 }
 
 
@@ -55,12 +57,12 @@ def get_json(url):
         return json.load(response)
 
 
-QUERY = {"image_type": "jre", "architecture": "x64", "heap_size": "normal", "jvm_impl": "hotspot", "vendor": "eclipse"}
+QUERY = {"image_type": "jre", "heap_size": "normal", "jvm_impl": "hotspot", "vendor": "eclipse"}
 
 
 def jre_packages(binaries):
-    """Adoptium os -> package, for the x64 JREs among the binaries of a release."""
-    return {b["os"]: b["package"] for b in binaries if b["architecture"] == "x64" and b["image_type"] == "jre"}
+    """(Adoptium os, architecture) -> package, for the JREs among the binaries of a release."""
+    return {(b["os"], b["architecture"]): b["package"] for b in binaries if b["image_type"] == "jre"}
 
 
 def find_release(feature, release):
@@ -68,14 +70,14 @@ def find_release(feature, release):
 
     The platforms of a release do not come out together (Windows can lag days behind), and installers on different
     builds would report different versions, so a release with a platform missing is passed over."""
-    wanted = {os_name for os_name, _ in PLATFORMS.values()}
+    wanted = {(os_name, arch) for os_name, arch, _ in PLATFORMS.values()}
     if release:
         query = urllib.parse.urlencode(QUERY)
         data = get_json(f"{API}/assets/release_name/eclipse/{urllib.parse.quote(release)}?{query}")
         packages = jre_packages(data["binaries"])
         missing = wanted - packages.keys()
         if missing:
-            sys.exit(f"{release} has no x64 JRE for {', '.join(sorted(missing))}")
+            sys.exit(f"{release} has no JRE for {', '.join('-'.join(m) for m in sorted(missing))}")
         return data["release_name"], packages
     query = urllib.parse.urlencode(dict(QUERY, page_size=10, sort_order="DESC"))
     for data in get_json(f"{API}/assets/feature_releases/{feature}/ga?{query}"):
@@ -83,8 +85,8 @@ def find_release(feature, release):
         missing = wanted - packages.keys()
         if not missing:
             return data["release_name"], packages
-        print(f"{data['release_name']}: skipped, no x64 JRE yet for {', '.join(sorted(missing))}")
-    sys.exit(f"No recent Temurin {feature} release has an x64 JRE for every platform")
+        print(f"{data['release_name']}: skipped, no JRE yet for {', '.join('-'.join(m) for m in sorted(missing))}")
+    sys.exit(f"No recent Temurin {feature} release has a JRE for every platform")
 
 
 def download(package, folder):
@@ -218,9 +220,9 @@ def main():
     os.makedirs(out, exist_ok=True)
     try:
         for classifier in classifiers:
-            os_name, java_folder = PLATFORMS[classifier]
+            os_name, arch, java_folder = PLATFORMS[classifier]
             print(f"{classifier}: Temurin {version}")
-            archive = download(packages[os_name], work)
+            archive = download(packages[(os_name, arch)], work)
             target = os.path.join(out, f"jre-{version}-{classifier}.zip")
             repack(archive, version, classifier, java_folder, target)
             os.remove(archive)

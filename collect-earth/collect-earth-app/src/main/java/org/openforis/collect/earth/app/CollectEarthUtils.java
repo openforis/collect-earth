@@ -150,8 +150,6 @@ public class CollectEarthUtils {
 		} else {
 			if (SystemUtils.IS_OS_WINDOWS) {
 				new ProcessBuilder("explorer.exe", "/open," + folder).start(); //$NON-NLS-1$ //$NON-NLS-2$
-			} else if (SystemUtils.IS_OS_MAC) {
-				new ProcessBuilder("usr/bin/open", folder).start(); //$NON-NLS-1$ //$NON-NLS-2$
 			} else if (SystemUtils.IS_OS_UNIX) {
 				tryUnixFileExplorers(folder);
 			}

@@ -124,13 +124,18 @@ public class UpdateService {
 		}
 	}
 
-	/** Starts the updater of the platform, next to Collect Earth or in its autoupdate folder. */
+	/** Starts the updater of the platform, next to Collect Earth or in its autoupdate folder; on a Mac, opens the download page of the installer. */
 	public void runUpdater() throws UpdaterMissingException, IOException {
 		runUpdater(new File("."));
 	}
 
 	/** @param base where Collect Earth runs from: the working folder, where the installer put the updater */
 	void runUpdater(File base) throws UpdaterMissingException, IOException {
+		if (mac) {
+			// The updater does not work on a Mac: the installer is downloaded instead, as the offer does
+			openUrl.accept(URI.create(INSTALLER_URL));
+			return;
+		}
 		String name = updaterName();
 		File updater = new File(base, name);
 		if (!updater.exists()) {

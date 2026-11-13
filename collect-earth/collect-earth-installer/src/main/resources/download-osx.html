@@ -27,5 +27,15 @@
 <p>Downloading <strong>Collect Earth PROJECT_VERSION</strong> for macOS.</p>
 <p>If the download does not start,
    <a href="https://github.com/openforis/collect-earth/releases/download/collect-earth-PROJECT_VERSION/collect-earth-installer-PROJECT_VERSION-osx.dmg">click here</a>.</p>
+<h2 style="font-size:1.1rem;margin-top:2rem">If macOS says the installer cannot be opened</h2>
+<p>The installer is not yet notarized by Apple, so the first time macOS blocks it. To open it:</p>
+<ol>
+  <li>Open the downloaded <code>.dmg</code> and double-click the installer. When macOS says it cannot be opened, click <strong>Done</strong> (or <strong>OK</strong>).</li>
+  <li>Open <strong>System Settings &gt; Privacy &amp; Security</strong>, scroll down to <strong>Security</strong> and click <strong>Open Anyway</strong> next to the message about Collect Earth.</li>
+  <li>Confirm with <strong>Open Anyway</strong> and your password. From then on it opens normally.</li>
+</ol>
+<p>On macOS 14 and older you can also right-click (Control-click) the installer, choose <strong>Open</strong>, then <strong>Open</strong> again.</p>
+<p>Advanced users can instead clear the download mark in Terminal before opening the <code>.dmg</code>:<br>
+   <code>xattr -dr com.apple.quarantine ~/Downloads/collect-earth-installer-PROJECT_VERSION-osx.dmg</code></p>
 </body>
 </html>

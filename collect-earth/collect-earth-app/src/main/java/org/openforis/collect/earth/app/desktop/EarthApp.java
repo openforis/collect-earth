@@ -3,6 +3,7 @@ package org.openforis.collect.earth.app.desktop;
 import java.awt.Desktop;
 import java.awt.SplashScreen;
 import java.awt.Taskbar;
+import java.awt.desktop.AppReopenedListener;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
@@ -107,6 +108,10 @@ public class EarthApp {
 	public static void main(String[] args) {
 
 		try {
+			// The name of the menu bar and the Dock on macOS, not "java"; read when AWT starts, so before anything of Swing
+			if (SystemUtils.IS_OS_MAC) {
+				System.setProperty("apple.awt.application.name", "Collect Earth"); //$NON-NLS-1$ //$NON-NLS-2$
+			}
 
 			// collectEarth.userFolder is set in the static block above, before the first logger of this class is created
 
@@ -247,6 +252,35 @@ public class EarthApp {
 		}
 		if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.APP_OPEN_FILE)) {
 			Desktop.getDesktop().setOpenFileHandler(event -> event.getFiles().forEach(file -> openFileFromMac(file.getAbsolutePath())));
+		}
+		// A click on the Dock icon opens the window, as starting Collect Earth again does (OpenWindowServlet)
+		if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.APP_EVENT_REOPENED)) {
+			Desktop.getDesktop().addAppEventListener((AppReopenedListener) event -> openWindowFromDock());
+		}
+	}
+
+	private static void openWindowFromDock() {
+		try {
+			if (serverController != null && serverController.getContext() != null) {
+				serverController.getContext().getBean(AppShell.class).openInBackground();
+			}
+		} catch (RuntimeException e) {
+			logger.warn("The window could not be opened from the Dock", e); //$NON-NLS-1$
+		}
+	}
+
+	/**
+	 * Whether macOS opens .cep files with Collect Earth: when the installer added the document type to the launcher it
+	 * runs from (CollectEarthMain.xml), not in a development run or an installation made before that.
+	 */
+	static boolean macOpensCepFiles(File installFolder) {
+		File infoPlist = new File(installFolder, "CollectEarth-launcher.app/Contents/Info.plist"); //$NON-NLS-1$
+		try {
+			// Binary or XML plist alike: the key is stored as plain ASCII in both
+			return infoPlist.isFile() && new String(Files.readAllBytes(infoPlist.toPath()), StandardCharsets.ISO_8859_1)
+					.contains("CFBundleTypeExtensions"); //$NON-NLS-1$
+		} catch (IOException e) {
+			return false;
 		}
 	}
 
@@ -767,7 +801,7 @@ public class EarthApp {
 
 		// Inform Mac OS users of the issues about opening CEP files in the Mac version
 		// of CE
-		if (SystemUtils.IS_OS_MAC_OSX) {
+		if (SystemUtils.IS_OS_MAC_OSX && !macOpensCepFiles(new File(System.getProperty("user.dir")))) { //$NON-NLS-1$
 			notify(Notice.INFO, Messages.getString("EarthApp.73"), "<b>" //$NON-NLS-1$ //$NON-NLS-2$
 					+ Messages.getString("EarthApp.70") + "</b>: " //$NON-NLS-2$
 					+ Messages.getString("EarthApp.71") + Messages.getString("EarthApp.72") + "<b>" //$NON-NLS-3$

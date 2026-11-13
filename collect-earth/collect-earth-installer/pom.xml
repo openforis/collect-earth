@@ -202,6 +202,15 @@
 											<overWrite>false</overWrite>
 											<outputDirectory>${installer-build-path}/jre_files</outputDirectory>
 										</artifactItem>
+										<artifactItem>
+											<groupId>net.java.openjdk</groupId>
+											<artifactId>jre</artifactId>
+											<version>${jre.version}</version>
+											<classifier>osx-aarch64</classifier>
+											<type>zip</type>
+											<overWrite>false</overWrite>
+											<outputDirectory>${installer-build-path}/jre_files</outputDirectory>
+										</artifactItem>
 
 										<artifactItem>
 											<groupId>net.java.openjdk</groupId>

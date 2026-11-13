@@ -284,8 +284,12 @@
         </substitute>
 
         <changePermissions>
-            <files>${installdir}/${java_launcher_binary_name};${installdir}/*.log;${installdir}/*.properties;${installdir}/generated;${installdir}/*.db;${installdir}/*.dbSaiku</files>
-            <permissions>0777</permissions>
+            <files>${installdir}/${java_launcher_binary_name};${installdir}/autoupdate*.run;${installdir}/generated</files>
+            <permissions>0755</permissions>
+        </changePermissions>
+        <changePermissions>
+            <files>${installdir}/*.log;${installdir}/*.properties;${installdir}/*.db;${installdir}/*.dbSaiku</files>
+            <permissions>0644</permissions>
         </changePermissions>
 
 		<changePermissions>
@@ -325,17 +329,63 @@
         </associateWindowsFileExtension>
 
 
-        <!-- Restart the launch services to reload the configuration (Mac OS X)-->
-        <runProgram>
-        	<abortOnError>0</abortOnError>
-            <program>/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister</program>
-            <programArguments>-kill -domain local -domain system -domain user</programArguments>
+        <!-- macOS: .cep files open with the launcher. The document type goes into the launcher's Info.plist (merged from
+             a file, which needs no quoting), then Launch Services registers that one app. -->
+        <actionGroup>
+            <actionList>
+                <writeFile>
+                    <path>${installdir}/cep-document-type.plist</path>
+                    <text><![CDATA[<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Collect Earth Project file</string>
+			<key>CFBundleTypeExtensions</key>
+			<array>
+				<string>cep</string>
+			</array>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
+			<key>CFBundleTypeIconFile</key>
+			<string>installbuilder.icns</string>
+		</dict>
+	</array>
+</dict>
+</plist>
+]]></text>
+                </writeFile>
+                <!-- Merge adds only keys that are not there yet -->
+                <runProgram>
+                    <program>/usr/libexec/PlistBuddy</program>
+                    <programArguments>-c "Delete :CFBundleDocumentTypes" "${installdir}/${java_launcher_binary_name}/Contents/Info.plist"</programArguments>
+                    <abortOnError>0</abortOnError>
+                    <showMessageOnError>0</showMessageOnError>
+                </runProgram>
+                <runProgram>
+                    <program>/usr/libexec/PlistBuddy</program>
+                    <programArguments>-c "Merge '${installdir}/cep-document-type.plist'" "${installdir}/${java_launcher_binary_name}/Contents/Info.plist"</programArguments>
+                    <abortOnError>0</abortOnError>
+                    <showMessageOnError>0</showMessageOnError>
+                </runProgram>
+                <deleteFile path="${installdir}/cep-document-type.plist" abortOnError="0" showMessageOnError="0" />
+                <runProgram>
+                    <program>/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister</program>
+                    <programArguments>-f "${installdir}/${java_launcher_binary_name}"</programArguments>
+                    <abortOnError>0</abortOnError>
+                    <showMessageOnError>0</showMessageOnError>
+                </runProgram>
+            </actionList>
             <ruleList>
-                <platformTest>
-                    <type>osx</type>
-                </platformTest>
+                <platformTest type="osx"/>
+                <fileExists path="${installdir}/${java_launcher_binary_name}/Contents/Info.plist"/>
             </ruleList>
-        </runProgram>
+        </actionGroup>
 
         <!-- Make sure that Collect Earth runs properly n 4K displays by disabling the High DPI feature -->
          <registrySet>
