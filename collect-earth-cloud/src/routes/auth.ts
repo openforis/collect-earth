@@ -43,9 +43,9 @@ interface ProjectRef {
 
 /** What deleting an account would do, worked out from its memberships. */
 interface AccountDeletionPlan {
-  /** Projects the user is the only coordinator of while others are in them: refusal. */
+  /** Projects the user is the only coordinator of while others are in them, or that hold records: refusal. */
   soleCoordinator: ProjectRef[];
-  /** Projects where the user is the only member and coordinator: deleted with the account. */
+  /** Projects with no records where the user is the only member and coordinator: deleted with the account. */
   deletedWithAccount: ProjectRef[];
   /** The last platform admin cannot leave: the server would have no owner. */
   lastPlatformAdmin: boolean;
@@ -60,7 +60,8 @@ export async function accountDeletionPlan(store: Store, userId: string, isPlatfo
     }
     const members = await store.listMembers(m.projectId);
     const ref = { projectId: m.projectId, name: m.projectName };
-    if (members.length <= 1) {
+    // Only an empty project goes with the account: one with records is deleted on purpose, or handed over
+    if (members.length <= 1 && !(await store.hasRecords(m.projectId))) {
       plan.deletedWithAccount.push(ref);
     } else if (members.filter((x) => x.role === 'admin').length <= 1) {
       plan.soleCoordinator.push(ref);

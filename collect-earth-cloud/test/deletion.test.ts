@@ -237,6 +237,19 @@ describe('deleting my account', () => {
     expect((await signup(ctx.app, 'coord')).statusCode).toBe(201);
   });
 
+  it('keeps a project where I am the only member when it holds records: deleted on purpose first', async () => {
+    const alone = await project(coord.token, 'Just me');
+    await batchRequest(ctx.app, alone, coord.token, [envelope({ operator: 'coord' })]);
+    expect((await preview(coord.token)).json()).toEqual({
+      soleCoordinator: [{ projectId: alone, name: 'Just me' }],
+      deletedWithAccount: [],
+      lastPlatformAdmin: false,
+    });
+    expect((await deleteMe(ctx.app, coord.token, 'coord-password')).statusCode).toBe(409);
+    expect(await ctx.store.getProject(alone)).not.toBeNull();
+    expect(await ctx.store.getUserById(coord.userId)).not.toBeNull();
+  });
+
   it("removes a collector's assignments but keeps their records", async () => {
     const pid = await project(coord.token, 'Bolivia NFI');
     const juan = (await register(ctx.app, 'juan', await invite(ctx.app, pid, coord.token))).json();
