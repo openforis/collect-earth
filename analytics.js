@@ -1,10 +1,10 @@
-/* Google Analytics (GA4), in the same property as openforis.org (G-8K943HZKJZ),
-   so visits to collectearth.org show up there; filter the reports by hostname.
+/* Google Analytics (GA4), in Collect Earth's property (G-LRHVV8FNZB), as the
+   desktop app, the cloud and the download pages.
    As on openforis.org, it loads 3 seconds after the page opens, or at the
    visitor's first scroll, touch, mouse move or key press, so it never slows
    the page down. */
 (function () {
-  var ID = "G-8K943HZKJZ";
+  var ID = "G-LRHVV8FNZB";
   var EVENTS = ["scroll", "mousemove", "touchstart", "keydown"];
   var loaded = false;
 
