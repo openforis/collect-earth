@@ -298,6 +298,12 @@ export async function registerCeoImportRoutes(app: FastifyInstance, store: Store
           plotColumns: survey.answers.plotColumns,
           now: receivedAt,
         });
+        // The records fit the project's storage, as an import into a project must (routes/collectImport.ts)
+        const over = await checkUploadFits(store, projectId, { kind: 'records' }, built.reduce((n, r) => n + Buffer.byteLength(r.xml) + Buffer.byteLength(JSON.stringify(r.summary)), 0));
+        if (over) {
+          await store.deleteProject(projectId);
+          return reply.code(413).send(over);
+        }
         for (const r of built) {
           const envelope = { recordKey: r.recordKey, surveyUri: `http://www.openforis.org/idm/${survey.surveyName}`, operator: r.operator, modifiedOn: r.modifiedOn,
             activelySaved: r.activelySaved, step: 1, xml: r.xml, summary: r.summary, deleted: false, payloadVersion: 1, activeSeconds: r.activeSeconds };
