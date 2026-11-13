@@ -1,68 +1,16 @@
 // The review queue, plot search and a plot's page, as the server sends them. Types only: see README.md
 // in this folder.
 import type { PlotOutline } from './map.js';
+import type { AnswerOptions, DecisionKind, Difference, Flag, PublicDecision } from './quality.js';
 
-// ---------------------------------------------------------------------------
-// The quality figures' pieces these answers carry. Their server types live with the quality figures
-// and the pattern flags (Flag in src/flags.ts, Difference in src/quality.ts, QualityDecision and
-// DecisionKind in src/types.ts, AnswerOptions in src/qualityReports.ts, Resubmitted in src/flags.ts);
-// these are their shapes as sent, which the routes' `satisfies` checks. Merge: once those move to
-// src/wire/, import them from there instead.
+export type { AnswerOptions, DecisionKind, Difference, Flag, FlagDetails, FlagKind } from './quality.js';
+/** A plot's decision as the review queue and the plot page carry it (the quality figures' PublicDecision). */
+export type PlotDecision = PublicDecision;
 
-export type DecisionKind = 'first' | 'check' | 'recheck';
-
-export type FlagKind = 'very_fast' | 'same_as_before' | 'required_empty' | 'edited_after_decision' | 'two_main' | 'no_plot';
-
-export type FlagDetails =
-  /** very_fast: ms since the same person's previous first assessment, and its plot (null: a plot hidden from the viewer). */
-  | { gapMs: number; previousPlot: string | null }
-  /** same_as_before: the plot before it (same answers), the run's length and its first plot (null: hidden from the viewer). */
-  | { previousPlot: string | null; runLength: number; firstPlot: string | null; answers: number }
-  /** required_empty: the questions left empty. */
-  | { questions: { key: string; label: string }[] }
-  /** edited_after_decision: the decision and when it was made. */
-  | { decision: DecisionKind; decidedAt: number }
-  /** two_main, no_plot: the record (the quality report's data problem). */
-  | { recordKey: string };
-
-/** A plot worth a look (pattern flags, Task 5). Only `operator` names a person. */
-export interface Flag {
-  kind: FlagKind;
-  /** The plot unit (as Difference.plot and the decisions), or for a plot in no file its id. */
-  plot: string;
-  /** The username of the person whose record it is: the only person a flag ever names. */
-  operator: string;
-  /** When that record was saved (modifiedOn, ms), or null when it is not known. */
-  at: number | null;
-  details: FlagDetails;
-}
-
-/** A check of a plot whose answers differ from the first assessment; `changed` (only ever true): the records changed since the figures. */
-export interface Difference {
-  /** The plot unit, as in the plot file (with its round part for an own round). */
-  plot: string;
-  first: { operator: string; recordKey: string };
-  check: { operator: string; recordKey: string };
-  /** Answers as given, blank and null values left out, several joined by ", ". */
-  fields: { key: string; first: string; check: string }[];
+/** A check whose answers differ from the first assessment; `changed` (only ever true): the records changed since the figures. */
+export interface ListedDifference extends Difference {
   changed?: boolean;
 }
-
-/** A plot's decision as sent (publicDecision): whoever decided it has a record of it (`byAssessor`). */
-export interface PlotDecision {
-  plot: string;
-  decision: DecisionKind;
-  comment: string | null;
-  /** Username of who decided; null when made with a project token or the account is gone. */
-  decidedBy: string | null;
-  decidedAt: number;
-  /** The bulk run that made it; null for a decision made alone. */
-  batch?: string | null;
-  byAssessor: boolean;
-}
-
-/** The answer options of choice questions, by question key: to show an answer by its label ("Forest") instead of its code ("F"). */
-export type AnswerOptions = Record<string, { code: string; label: string }[]>;
 
 // ---------------------------------------------------------------------------
 // The review queue (Task 7): GET /v1/projects/:pid/quality/queue, POST .../quality/decisions:bulk
@@ -84,7 +32,7 @@ export interface ReviewQueueItem {
   /** Everyone whose record is shown, sorted. */
   people: string[];
   /** Its checks that differ from the first assessment, with the answers. */
-  differences: Difference[];
+  differences: ListedDifference[];
   /** Its flags in the queue, newest first. */
   flags: Flag[];
   /** Who submitted it again after "both need another look", newest first. */
@@ -196,7 +144,7 @@ export interface PlotPageAnswer {
   reference: { assessor: string } | null;
   /** From the quality figures at hand; null when there are none (the Quality tab works them out). */
   flags: Flag[] | null;
-  differences: Difference[] | null;
+  differences: ListedDifference[] | null;
   figures: { computedAt: number; stale: boolean } | null;
   place: { lat: number; lon: number; name: string } | null;
   outline: PlotOutline;

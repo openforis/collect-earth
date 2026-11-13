@@ -1,14 +1,11 @@
 // The activity log, the weekly summary and the downloads (coordinators), as the server sends them. The bell is in
 // progress.ts (BellAnswer). Types only: see README.md in this folder.
+import type { AnswerOptions, DecisionKind } from './quality.js';
+
+export type { AnswerOptions, DecisionKind } from './quality.js';
 
 import type { FlagCounts, PersonRow, PersonStatus, Role } from './people.js';
 import type { ProgressTotals, Rate } from './progress.js';
-
-/** Which answer of a differing plot is right: the first assessment, the check, or neither (look again). (The server's src/types.ts DecisionKind.) */
-export type DecisionKind = 'first' | 'check' | 'recheck';
-
-/** A choice question's codes and their labels, by question key (the server's src/qualityReports.ts answerOptions). */
-export type AnswerOptions = Record<string, { code: string; label: string }[]>;
 
 /**
  * What one stored upload did to a record (recordChange, src/lww.ts), from the stored

@@ -1,24 +1,14 @@
 // The People tab, a person's page, My work and the time spent on each plot, as the server sends them.
 // Types only: see README.md in this folder.
+import type { Role } from './account.js';
+import type { FlagCounts } from './quality.js';
+import type { ReferencePerson } from './checks.js';
+
+export type { Role } from './account.js';
+export type { FlagCounts, FlagKind } from './quality.js';
+export type { ReferencePerson } from './checks.js';
 
 import type { Rate } from './progress.js';
-
-/** A member's role in a project (the server's src/types.ts Role). */
-export type Role = 'admin' | 'reviewer' | 'operator';
-
-/** The kinds of pattern flag (the server's src/flags.ts FLAG_KINDS). */
-export type FlagKind = 'very_fast' | 'same_as_before' | 'required_empty' | 'edited_after_decision' | 'two_main' | 'no_plot';
-/** Pattern flags counted by kind. */
-export type FlagCounts = Record<FlagKind, number>;
-
-/** One person's accuracy against the reference plots (the server's src/reference.ts). */
-export interface ReferencePerson {
-  username: string;
-  /** Reference plots they checked (one check per plot, their latest); agreeing = every compared answer matches. */
-  plots: Rate;
-  /** Per question, in the survey's order: their answers compared with the reference's. */
-  questions: { key: string; label: string; compared: number; agreeing: number; rate: number | null }[];
-}
 
 export type PersonStatus =
   /** Holds no plots (a coordinator, or someone whose plots were all moved). */

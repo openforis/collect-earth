@@ -91,7 +91,6 @@ import type {
   ReferenceAnswersReport,
   ReferenceChangeAnswer,
   ReferenceMarkBody,
-  ReferencePerson,
   SamplingDrawAnswer,
   SamplingRuleInput,
   SamplingView,
@@ -103,10 +102,8 @@ import type {
   AnswerColumnsAnswer,
   AnswersAnswer,
   DecisionKind,
-  FlagCounts,
   FlagKind,
   FlagsAnswer,
-  Flag as PatternFlag,
   GuidanceNote,
   GuidanceNoteInput,
   PlotPlaces,
@@ -493,33 +490,6 @@ function upload<T>(method: string, path: string, body: Blob, contentType: string
 
 // --- normalisers -----------------------------------------------------------------
 
-/** Epoch ms from a number (ms) or an ISO 8601 string; null when absent or unreadable. */
-export function toMillis(value: unknown): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string" && value) {
-    const parsed = Date.parse(value);
-    return Number.isNaN(parsed) ? null : parsed;
-  }
-  return null;
-}
-
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-/** A calendar day (YYYY-MM-DD), or null. */
-const toDate = (value: unknown): string | null => (typeof value === "string" && DATE_RE.test(value) ? value : null);
-
-/** A count from a number or a list (its length). */
-export function toCount(value: unknown): number {
-  if (Array.isArray(value)) return value.length;
-  const n = Number(value);
-  return Number.isFinite(n) ? n : 0;
-}
-
-/** An absolute URL for a server link that may be relative or missing. */
-export function absoluteUrl(url: string | null | undefined, fallbackPath: string, origin = window.location.origin): string {
-  if (url && /^https?:\/\//i.test(url)) return url;
-  const path = url || fallbackPath;
-  return `${origin.replace(/\/+$/, "")}${path.startsWith("/") ? "" : "/"}${path}`;
-}
 
 /** Optional text from the server: null when missing or empty. */
 function optionalText(value: unknown): string | null {
@@ -532,14 +502,12 @@ export function safeUrl(value: unknown): string | null {
   return text && /^https?:\/\//i.test(text) ? text : null;
 }
 
-/** A server without statuses (older) has active projects only. */
+/** A status read from free-form data (an audit entry's details); anything else reads as active. */
 export function asStatus(value: unknown): ProjectStatus {
   return value === "draft" || value === "closed" || value === "archived" ? value : "active";
 }
 
 const p = (projectId: string) => `/v1/projects/${encodeURIComponent(projectId)}`;
-
-void [toDate]; // merge: drop when unused
 
 // --- server & account --------------------------------------------------------------
 
@@ -1184,10 +1152,6 @@ export function rebalance(
 
 // --- quality ---------------------------------------------------------------------------------
 
-const text = (value: unknown): string => (value == null ? "" : String(value));
-const list = (value: unknown): Record<string, unknown>[] =>
-  Array.isArray(value) ? value.filter((v): v is Record<string, unknown> => !!v && typeof v === "object") : [];
-const obj = (value: unknown): Record<string, unknown> => (value && typeof value === "object" ? (value as Record<string, unknown>) : {});
 
 export type {
   AnswerOptions,
@@ -1209,15 +1173,6 @@ export type {
   WeekAgreement,
 } from "../../src/wire/quality";
 
-// merge: the people, review queue, plot search and activity sections still read their answers with these; drop when unused.
-function toRate(value: unknown): Rate {
-  const r = obj(value);
-  return { compared: toCount(r.compared), agreeing: toCount(r.agreeing), rate: typeof r.rate === "number" && Number.isFinite(r.rate) ? r.rate : null };
-}
-
-export function toDecision(value: unknown): QualityDecision {
-  return value as QualityDecision;
-}
 
 /** The quality figures. A 503 "busy" (other projects' figures being worked out) is thrown as ApiError code "busy". */
 export function getQuality(projectId: string): Promise<QualityAnswer> {
@@ -1229,9 +1184,6 @@ export const DEFAULT_FAST_SECONDS = 15;
 export const MIN_FAST_SECONDS = 1;
 export const MAX_FAST_SECONDS = 120;
 
-export function toFastSeconds(value: unknown): number {
-  return typeof value === "number" && Number.isInteger(value) && value >= MIN_FAST_SECONDS && value <= MAX_FAST_SECONDS ? value : DEFAULT_FAST_SECONDS;
-}
 
 /** Sets the "very fast" flag's threshold (whole seconds); returns it as saved. The margins stay as they are. */
 export async function saveFastSeconds(projectId: string, fastSeconds: number): Promise<number> {
@@ -1710,15 +1662,6 @@ export interface FlagsFilter {
 
 export const NO_FLAGS_FILTER: FlagsFilter = { person: null, kind: null };
 
-// merge: the people, review queue and plot search sections still read their answers with these; drop when unused.
-export function toFlagCounts(value: unknown): FlagCounts {
-  const v = obj(value);
-  return Object.fromEntries(FLAG_KINDS.map((k) => [k, toCount(v[k])])) as FlagCounts;
-}
-
-function toPatternFlags(f: Record<string, unknown>): PatternFlag[] {
-  return (FLAG_KINDS as readonly unknown[]).includes(f.kind) ? [f as unknown as PatternFlag] : [];
-}
 
 /** Plots worth a look (coordinators and reviewers). A 503 "busy" is thrown as ApiError code "busy". */
 export function getFlags(projectId: string, filter: FlagsFilter): Promise<FlagsAnswer> {
@@ -1772,15 +1715,6 @@ export type {
   ReferenceSet,
 } from "../../src/wire/checks";
 
-// merge: the people section's toPersonData still reads a person's reference line with it.
-export function toReferencePerson(value: unknown): ReferencePerson {
-  const p = obj(value);
-  return {
-    username: text(p.username),
-    plots: toRate(p.plots),
-    questions: list(p.questions).map((q) => ({ key: text(q.key), label: text(q.label) || text(q.key), ...toRate(q) })),
-  };
-}
 
 /** Uploads a reference set (a CSV, or a JSON array for a .json file); it replaces the one the project had. */
 export function uploadReferenceAnswers(projectId: string, file: File): Promise<ReferenceAnswersReport> {
@@ -1813,11 +1747,9 @@ export type { BulkDecisionAnswer, BulkRule, PlotDecision, QueueSection, Resubmis
 export const QUEUE_KINDS = ["difference", ...FLAG_KINDS, "resubmitted"] as const;
 export type QueueKind = (typeof QUEUE_KINDS)[number];
 
-// merge: the flags are the pattern flags section's PatternFlag (toPatternFlags) until that section
-// uses the server's Flag; then QueueItem and ReviewQueueData are ReviewQueueItem and ReviewQueueAnswer.
 /** One plot of the review queue, with everything known about it. */
-export type QueueItem = Omit<ReviewQueueItem, "flags"> & { flags: PatternFlag[] };
-export type ReviewQueueData = Omit<ReviewQueueAnswer, "items"> & { items: QueueItem[] };
+export type QueueItem = ReviewQueueItem;
+export type ReviewQueueData = ReviewQueueAnswer;
 
 export interface QueueFilter {
   person: string | null;
@@ -1833,8 +1765,7 @@ export async function getReviewQueue(projectId: string, filter: QueueFilter, aft
   if (filter.kind) query.set("kind", filter.kind);
   if (after) query.set("after", after);
   const q = query.toString();
-  const queue = await request<ReviewQueueAnswer>("GET", `${p(projectId)}/quality/queue${q ? `?${q}` : ""}`);
-  return { ...queue, items: queue.items.map((item) => ({ ...item, flags: item.flags.flatMap((f) => toPatternFlags({ ...f })) })) };
+  return request<ReviewQueueAnswer>("GET", `${p(projectId)}/quality/queue${q ? `?${q}` : ""}`);
 }
 
 /** Bulk decisions (coordinators): `dryRun` only counts the plots the rule would decide. */
@@ -1863,16 +1794,12 @@ export async function searchPlots(projectId: string, query: string): Promise<Plo
   return request("GET", `${p(projectId)}/plots/search?${new URLSearchParams({ q }).toString()}`);
 }
 
-// merge: the flags are the pattern flags section's PatternFlag (toPatternFlags), and the decision the
-// quality section's QualityDecision (what setQualityDecision answers), until those sections use the
-// server's types; then PlotPageData is PlotPageAnswer.
 /** One plot's page (GET /plots/:plot). */
-export type PlotPageData = Omit<PlotPageAnswer, "flags" | "decision"> & { flags: PatternFlag[] | null; decision: QualityDecision | null };
+export type PlotPageData = PlotPageAnswer;
 
 /** One plot (coordinators and reviewers); a 404 for a plot in no plot file. */
 export async function getPlotPage(projectId: string, plot: string): Promise<PlotPageData> {
-  const page = await request<PlotPageAnswer>("GET", `${p(projectId)}/plots/${encodeURIComponent(plot)}`);
-  return { ...page, flags: page.flags && page.flags.flatMap((f) => toPatternFlags({ ...f })) };
+  return request<PlotPageAnswer>("GET", `${p(projectId)}/plots/${encodeURIComponent(plot)}`);
 }
 
 // --- map of progress (Task 9) -------------------------------------------------------

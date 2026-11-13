@@ -29,7 +29,6 @@ import {
   getPlotPage,
   searchPlots,
   saveFastSeconds,
-  absoluteUrl,
   ApiError,
   apiErrorFrom,
   changePassword,
@@ -60,8 +59,6 @@ import {
   saveServerSettings,
   setUnauthorizedHandler,
   signup,
-  toCount,
-  toMillis,
   downloadOriginalCep,
   getBackupLink,
   getBackupSummary,
@@ -435,17 +432,6 @@ describe("normalising responses", () => {
     expect(fetchMock.mock.calls[0][0]).toBe("/v1/projects/p%201/overview");
   });
 
-  it("toMillis / toCount / absoluteUrl", () => {
-    expect(toMillis(5)).toBe(5);
-    expect(toMillis("nonsense")).toBeNull();
-    expect(toMillis(null)).toBeNull();
-    expect(toCount([1, 2])).toBe(2);
-    expect(toCount("4")).toBe(4);
-    expect(toCount(undefined)).toBe(0);
-    expect(absoluteUrl("/reset/x", "/", "https://a.org/")).toBe("https://a.org/reset/x");
-    expect(absoluteUrl(null, "/join/y", "https://a.org")).toBe("https://a.org/join/y");
-    expect(absoluteUrl("http://b.org/r", "/", "https://a.org")).toBe("http://b.org/r");
-  });
 });
 
 describe("dividing plots", () => {
