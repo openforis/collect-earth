@@ -156,6 +156,22 @@ describe('a plot file with a user column (routes)', () => {
     expect(JSON.stringify(log)).toContain('division.applied');
   });
 
+  it('uploaded again, keeps the copies the check sampling drew, unless the file gives their checker the plot', async () => {
+    const content = 'id,lat,lon,user\n1,0,0,maria\n2,0,0,maria\n3,0,0,jose\n';
+    const fileId = (await upload(content)).json().id;
+    const held = await ctx.store.listPlotAssignments(pid, fileId);
+    // jose was drawn to check plots 1 and 2
+    const drawn = ['1', '2'].map((plotKey) => ({ plotKey, userId: jose.userId, overlap: true, sampledAt: 1_000 }));
+    await ctx.store.setDivision(pid, fileId, { mode: 'manual' }, [...held, ...drawn]);
+    expect((await upload(content.replace('2,0,0,maria', '2,0,0,jose'))).statusCode).toBe(201);
+    const after = await ctx.store.listPlotAssignments(pid, fileId);
+    expect(after.filter((a) => a.userId === jose.userId).map(({ plotKey, overlap, sampledAt }) => [plotKey, overlap, sampledAt]).sort()).toEqual([
+      ['1', true, 1_000],
+      ['2', false, undefined],
+      ['3', false, undefined],
+    ]);
+  });
+
   it('a file without a user column is stored as it is and stays whole', async () => {
     const res = await upload('id,lat,lon,reviewers\n1,0,0,jose\n');
     expect(res.json()).not.toHaveProperty('assignment');

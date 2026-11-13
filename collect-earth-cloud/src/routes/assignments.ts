@@ -283,7 +283,11 @@ export async function registerAssignmentRoutes(
       if (fromFile) {
         // The file says who has which plot: its holdings become the file's (reference plots keep theirs, setDivision).
         const distribution: StoredDistribution = { mode: 'manual' };
-        await store.setDivision(projectId, meta.id, distribution, fromFile.plots);
+        // The copies the check sampling drew stay with their checkers, as a division keeps them, unless the file gives them the plot
+        const given = new Set(fromFile.plots.map((a) => `${a.plotKey} ${a.userId}`));
+        const inFile = new Set(plotIds);
+        const drawn = (await store.listPlotAssignments(projectId, meta.id)).filter((a) => a.sampledAt !== undefined && inFile.has(a.plotKey) && !given.has(`${a.plotKey} ${a.userId}`));
+        await store.setDivision(projectId, meta.id, distribution, [...fromFile.plots, ...drawn]);
         await audit(store, request, 'division.applied', { csvFileId: meta.id, mode: 'file', people: new Set(fromFile.plots.map((a) => a.userId)).size, plots: meta.plotCount });
         meta = { ...meta, distribution };
         const { plots: _plots, columns: _columns, ...counts } = fromFile;
