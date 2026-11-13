@@ -1,7 +1,11 @@
-# CE Earth Viewer
+# Collect Earth Explorer
 
-Firebase-hosted viewer that Collect Earth opens for a plot. Replaces the GEE app
+Firebase-hosted imagery and time-series window that Collect Earth opens for a plot. Replaces the GEE app
 `users/collectearth/ce_scripts:frames_landsat_v4_tempSegmentation`.
+
+Formerly the standalone `ce-earth-viewer` repository. The Firebase/GCP project id is
+still `ce-earth-viewer` (project ids cannot be renamed), so that name remains in URLs,
+`.firebaserc` and the setup docs.
 
 ## Run locally
     cd functions && npm install && cd ../web && npm install && cd ..

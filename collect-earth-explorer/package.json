@@ -1,5 +1,5 @@
 {
-  "name": "ce-earth-viewer",
+  "name": "collect-earth-explorer",
   "private": true,
   "scripts": {
     "build": "npm --prefix web run build",
