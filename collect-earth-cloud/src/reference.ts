@@ -409,12 +409,12 @@ export function parseReferenceAnswers(
   const unmatchedColumns = names.filter((n) => !taken.has(n) && n.trim() !== '');
   const questionOf = new Map(columns.map((c) => [c.column, outline.get(c.key)!]));
   const bad = new Map<string, { column: string; value: string; count: number }>();
-  const unknown: string[] = [];
+  const unknown = new Set<string>();
   const seen = new Set<string>();
   const rows: ParsedReferenceAnswers['rows'] = [];
   for (const { plot, cells } of table) {
     if (!units.has(plot)) {
-      if (plot !== '' && !unknown.includes(plot)) unknown.push(plot);
+      if (plot !== '') unknown.add(plot);
       continue;
     }
     if (seen.has(plot)) continue; // the first row of a plot is taken, as in a plot file
@@ -449,8 +449,8 @@ export function parseReferenceAnswers(
     unmatchedColumns,
     // The most frequent first; else in the order met.
     unmatchedValues: [...bad.values()].sort((a, b) => b.count - a.count).slice(0, MAX_REPORTED),
-    unknownPlots: unknown.slice(0, MAX_REPORTED),
-    unknownPlotCount: unknown.length,
+    unknownPlots: [...unknown].slice(0, MAX_REPORTED),
+    unknownPlotCount: unknown.size,
   };
 }
 
