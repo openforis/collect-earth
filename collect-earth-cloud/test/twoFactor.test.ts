@@ -186,6 +186,9 @@ describe('signing in with two steps', () => {
     // the coordinator's pages are refused until then; a collector's are not
     const people = (token: string) => ctx.app.inject({ method: 'GET', url: `/v1/projects/${pid}/people`, headers: bearer(token) });
     expect((await people(coordinator)).json().error).toBe('two_factor_required');
+    // the pages a reviewer may see too, when a coordinator opens them; the desktop's own routes stay open
+    expect((await ctx.app.inject({ method: 'GET', url: `/v1/projects/${pid}/progress`, headers: bearer(coordinator) })).json().error).toBe('two_factor_required');
+    expect((await ctx.app.inject({ method: 'GET', url: `/v1/projects/${pid}`, headers: bearer(coordinator) })).statusCode).toBe(200);
     expect((await ctx.app.inject({ method: 'GET', url: `/v1/projects/${pid}/my-assignment`, headers: bearer(collector) })).statusCode).not.toBe(403);
     // and they cannot turn it off while it is required
     const { secret } = await setUp(coordinator, 'password12');

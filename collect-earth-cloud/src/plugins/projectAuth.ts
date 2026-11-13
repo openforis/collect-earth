@@ -45,8 +45,9 @@ export function requireProjectMembership(store: Store, requiredRole?: Role): pre
     if (requiredRole && !roleSatisfies(membership.role, requiredRole)) {
       return reply.code(403).send({ error: 'forbidden' });
     }
-    // Coordinators' pages, when the server requires two-step sign-in of coordinators and the person has not set it up
-    if (requiredRole === 'admin' && membership.userId && (await secondStepMissing(store, membership.userId))) {
+    // A coordinator's dashboard pages (coordinator and reviewer routes), when the server requires two-step sign-in of
+    // coordinators and the person has not set it up; the routes any member uses (desktop sync, project file) stay open
+    if (membership.role === 'admin' && requiredRole !== undefined && membership.userId && (await secondStepMissing(store, membership.userId))) {
       return reply.code(403).send(TWO_FACTOR_REQUIRED);
     }
     const refusal = await statusRefusal(store, request, membership.projectId);
