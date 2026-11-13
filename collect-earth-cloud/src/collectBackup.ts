@@ -8,13 +8,14 @@ import type { RecordRound } from './rounds.js';
 import type { Store } from './store/store.js';
 import type { RecordState } from './types.js';
 import { zipStream, type ZipEntry } from './zipStream.js';
+import type { BackupFormat, BackupRounds } from './wire/data.js';
+
+export type { BackupFormat, BackupRounds } from './wire/data.js';
 
 /** Which records: the first assessments only, or every round. */
-export type BackupRounds = '1' | 'all';
 export const BACKUP_ROUNDS: readonly BackupRounds[] = ['1', 'all'];
 
 /** Which file: the zip Collect Earth imports, or OpenForis Collect's own backup (.collect-backup). */
-export type BackupFormat = 'zip' | 'collect';
 export const BACKUP_FORMATS: readonly BackupFormat[] = ['zip', 'collect'];
 
 /** About how many bytes of zip a record takes (17 KB of XML deflates to about 1.8 KB). */

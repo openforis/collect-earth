@@ -3,6 +3,9 @@
 import * as zlib from 'node:zlib';
 import { XMLParser, XMLValidator } from 'fast-xml-parser';
 import { crc32, toDosDateTime } from './zipStream.js';
+import type { CepErrorCode, CodeItem, NoteInfo, NoteRefusal, RefusalCode, RoundInfo } from './wire/projects.js';
+
+export type { CepErrorCode, CodeItem, NoteInfo, NoteRefusal, RefusalCode, RoundInfo, RoundState } from './wire/projects.js';
 
 export interface CepFiles {
   /** Every zip entry, in zip order. */
@@ -21,11 +24,6 @@ export interface SurveyKey {
   list: string | null;
 }
 
-export interface CodeItem {
-  code: string;
-  label: string;
-}
-
 export interface SurveyInfo {
   /** Name of the first <entity> under <schema>. */
   rootEntity: string;
@@ -41,8 +39,6 @@ export interface SurveyInfo {
   /** <survey lastId="...">. */
   lastId: number;
 }
-
-export type CepErrorCode = 'not_a_zip' | 'too_large' | 'no_survey' | 'survey_unreadable';
 
 export class CepError extends Error {
   constructor(
@@ -760,38 +756,6 @@ export function writeZip(entries: PackedZipEntry[]): Buffer {
 // ---------------------------------------------------------------------------------------
 // Adding the round key
 
-export type RoundState = 'added' | 'own' | 'none';
-export type RefusalCode =
-  | CepErrorCode
-  | 'several_entities'
-  | 'several_keys'
-  | 'round_not_key'
-  | 'balloon_missing'
-  | 'balloon_marker_missing'
-  | 'balloon_ids_missing'
-  | 'template_missing'
-  | 'template_marker_missing';
-
-export interface RoundInfo {
-  /** added: the server added round; own: the survey has a round key; none: no round. */
-  state: RoundState;
-  /** Why the server did not add it (state none), else null. */
-  refusal: RefusalCode | null;
-  /** Keys of the served survey. */
-  keyCount: number;
-  /** Position of round among the keys of the served survey. */
-  roundIndex: number | null;
-  /** Codes of round's list (own and added). */
-  roundCodes: CodeItem[];
-  /** added: "2"; own: "2" when that code exists, else null until the coordinator picks one. */
-  reassessmentCode: string | null;
-  /**
-   * The coordinator's note (Task 16): whether the served survey has it and at which extra column of
-   * a served row it is read. Absent on infos stored before it (read as none).
-   */
-  note?: NoteInfo;
-}
-
 const BALLOON_MARKER = '<!-- START OF EXTRA CSV DATA -->';
 const TEMPLATE_MARKER =
   '<!-- DO NOT REMOVE THIS LINE - IT GENERATES THE EXTRA FIELDS FROM THE CSV-BALLOON INTEGRATION -->';
@@ -1264,30 +1228,6 @@ export function addPeriodStatus(zip: Buffer, date: Date = new Date(), limits: Ce
 /** The note's attribute; Collect Earth sends it in a record's summary as NOTE_SUMMARY_KEY. */
 export const NOTE_NAME = 'coordinator_note';
 export const NOTE_SUMMARY_KEY = `collect_text_${NOTE_NAME}`;
-
-export type NoteRefusal =
-  | CepErrorCode
-  | 'several_entities'
-  | 'note_name_taken'
-  | 'note_mismatch'
-  | 'nested_plot_columns'
-  | 'balloon_missing'
-  | 'balloon_marker_missing'
-  | 'template_missing'
-  | 'template_marker_missing'
-  | 'records_exist';
-
-export interface NoteInfo {
-  /** added: the served survey has the note (the server added it, or the upload had it). */
-  state: 'added' | 'none';
-  /** Why the server did not add it (state none), else null. */
-  refusal: NoteRefusal | null;
-  /**
-   * added: the note's place among a served row's extra columns (those after the keys and the
-   * latitude and longitude): the number of attributes the survey fills from the plot file before it.
-   */
-  column: number | null;
-}
 
 /** Whether the served survey has the note, and at which extra column (null: no note). */
 export const noteColumn = (info: { note?: NoteInfo } | null | undefined): number | null =>

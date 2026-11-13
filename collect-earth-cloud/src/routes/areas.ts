@@ -7,6 +7,7 @@ import { isPlotUnit } from '../progress.js';
 import type { ProjectStateCache } from '../projectState.js';
 import { recordResolver } from '../quality.js';
 import type { Store } from '../store/store.js';
+import type { AreasData, AreasSaved } from '../wire/plotFiles.js';
 import { firstAssessments, modelOf, plotFilesOf, plotFileValues, projectFactors, questionOf, strataValues, type Parsed } from './analysis.js';
 
 /** The strata found in the plots and listed on the page, beyond those with an area (a column of many values). */
@@ -105,7 +106,7 @@ export async function registerAreaRoutes(app: FastifyInstance, store: Store, sta
       unknownColumns: factors?.unknownColumns ?? [],
       noStratum: factors?.noStratum ?? { plots: 0, examples: [] },
       canEdit: request.membership!.role === 'admin',
-    });
+    } satisfies AreasData);
   });
 
   app.put('/v1/projects/:pid/areas', coordinator, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -128,7 +129,7 @@ export async function registerAreaRoutes(app: FastifyInstance, store: Store, sta
     }
     await store.setAreaSettings(projectId, settings);
     await audit(store, request, 'settings.changed', { setting: 'areas', mode: settings?.mode ?? null, strata: settings?.mode === 'strata' ? settings.strata.length : null });
-    return reply.send({ settings });
+    return reply.send({ settings } satisfies AreasSaved);
   });
 
   app.get('/v1/projects/:pid/areas/file', reviewer, async (request: FastifyRequest, reply: FastifyReply) => {

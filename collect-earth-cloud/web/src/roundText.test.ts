@@ -10,7 +10,6 @@ const info = (over: Partial<RoundInfo>): RoundInfo => ({
   roundIndex: null,
   roundCodes: [],
   reassessmentCode: null,
-  note: null,
   ...over,
 });
 
@@ -73,7 +72,7 @@ describe("what the page says", () => {
   });
 
   it("none because the file itself looks wrong: check the file", () => {
-    for (const refusal of ["not_a_zip", "too_large", "no_survey", "survey_unreadable"]) {
+    for (const refusal of ["not_a_zip", "too_large", "no_survey", "survey_unreadable"] as const) {
       expect(roundMessage(info({ refusal, keyCount: 0 }))).toMatchObject({
         severity: "warning",
         keys: [refusalMessageKey(refusal), "file.round.checkFile"],

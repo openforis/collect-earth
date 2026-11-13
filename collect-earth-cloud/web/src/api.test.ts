@@ -71,7 +71,6 @@ import {
   getBackupSummary,
   getRoundInfo,
   setReassessmentCode,
-  toRoundInfo,
   uploadCep,
   getProjectAi,
   setProjectAi,
@@ -87,6 +86,7 @@ import {
   getMyQuality,
   getTeamReport,
   downloadExport,
+  type RoundInfo,
 } from "./api";
 import { CATALOGUES } from "./i18n";
 import { setToken } from "./storage";
@@ -141,7 +141,7 @@ describe("error messages", () => {
 
   it("reads what replacing a plot file would take away, from its refusal only", () => {
     const refusal = apiErrorFrom(409, { error: "replace_needs_confirm", removedPlots: 299, heldRemoved: 290, submittedRemoved: 133, keptPlots: 1, newPlots: 0, divided: true });
-    expect(replaceImpactOf(refusal)).toEqual({ removedPlots: 299, heldRemoved: 290, submittedRemoved: 133, keptPlots: 1, newPlots: 0, divided: true });
+    expect(replaceImpactOf(refusal)).toMatchObject({ removedPlots: 299, heldRemoved: 290, submittedRemoved: 133, keptPlots: 1, newPlots: 0, divided: true });
     expect(replaceImpactOf(apiErrorFrom(409, { error: "note_column_in_file" }))).toBeNull();
     expect(replaceImpactOf(new Error("x"))).toBeNull();
   });
@@ -218,8 +218,7 @@ describe("transport", () => {
 
   it("sends the session as a bearer token", async () => {
     setToken("tok-1");
-    fetchMock.mockResolvedValue(jsonResponse(200, { projects: [{ projectId: "p", projectName: "P", role: "admin" }] }));
-    // A server without project statuses: every project is active.
+    fetchMock.mockResolvedValue(jsonResponse(200, { projects: [{ projectId: "p", projectName: "P", role: "admin", status: "active" }] }));
     expect(await listProjects()).toEqual([{ projectId: "p", projectName: "P", role: "admin", status: "active" }]);
     const init = fetchMock.mock.calls[0][1]!;
     expect((init.headers as Record<string, string>).authorization).toBe("Bearer tok-1");
@@ -312,15 +311,6 @@ describe("normalising responses", () => {
     expect(safeUrl(42)).toBeNull();
   });
 
-  it("overview storage, and none from older servers", async () => {
-    fetchMock.mockResolvedValue(jsonResponse(200, { name: "P", records: {}, storage: { usedBytes: 1200, limitBytes: null } }));
-    expect((await getOverview("p1")).storage).toEqual({ usedBytes: 1200, limitBytes: null });
-    fetchMock.mockResolvedValue(jsonResponse(200, { name: "P", records: {}, storage: { usedBytes: 5, limitBytes: 1048576 } }));
-    expect((await getOverview("p1")).storage).toEqual({ usedBytes: 5, limitBytes: 1048576 });
-    fetchMock.mockResolvedValue(jsonResponse(200, { name: "P", records: {} }));
-    expect((await getOverview("p1")).storage).toBeNull();
-  });
-
   it("server settings keep what an older server does not send", () => {
     expect(toServerSettings({ signupOpen: true, projectCreation: "anyone" })).toEqual({ ...DEFAULT_SERVER_SETTINGS, signupOpen: true, projectCreation: "anyone" });
     const current = { ...DEFAULT_SERVER_SETTINGS, maxProjectsPerUser: 3, termsUrl: "https://e.org/t" };
@@ -393,21 +383,19 @@ describe("normalising responses", () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1]!.body as string)).toEqual({ role: "admin", maxUses: 1 });
   });
 
-  it("overview with ISO dates and counts", async () => {
-    fetchMock.mockResolvedValue(
-      jsonResponse(200, {
-        name: "P",
-        cep: { bytes: 2048, updatedAt: "2026-10-01T10:00:00.000Z" },
-        members: 3,
-        csvFiles: 2,
-        plots: 150,
-        records: { total: 10, submitted: 7, byOperator: [{ operator: "maria", total: 10, submitted: 7, lastModifiedOn: "2026-10-02T00:00:00Z" }] },
-      }),
-    );
-    const overview = await getOverview("p1");
-    expect(overview.cep).toEqual({ bytes: 2048, updatedAt: Date.parse("2026-10-01T10:00:00.000Z") });
-    expect(overview.records.byOperator[0].lastModifiedOn).toBe(Date.parse("2026-10-02T00:00:00Z"));
-    expect(overview.members).toBe(3);
+  it("reads the overview", async () => {
+    const answer = {
+      name: "P",
+      cep: { bytes: 2048, updatedAt: 1_790_000_000_000 },
+      members: 3,
+      csvFiles: 2,
+      plots: 150,
+      records: { total: 10, submitted: 7, byOperator: [{ operator: "maria", total: 10, submitted: 7, lastModifiedOn: 1_790_000_100_000 }] },
+      storage: { usedBytes: 1200, limitBytes: null },
+    };
+    fetchMock.mockResolvedValue(jsonResponse(200, answer));
+    expect(await getOverview("p 1")).toEqual(answer);
+    expect(fetchMock.mock.calls[0][0]).toBe("/v1/projects/p%201/overview");
   });
 
   it("toMillis / toCount / absoluteUrl", () => {
@@ -438,21 +426,12 @@ describe("dividing plots", () => {
         separator: ";",
         columns: [
           { index: 0, name: "id", distinctCount: 120, values: null },
-          { index: 4, name: null, distinctCount: 1, values: [{ value: "Oruro", count: "40" }] },
+          { index: 4, name: null, distinctCount: 1, values: [{ value: "Oruro", count: 40 }] },
         ],
         nearby: { available: true, reason: null, withPlace: 118, withoutPlace: 2 },
       }),
     );
-    expect(await getCsvColumns("p 1", "f1")).toEqual({
-      plotCount: 120,
-      hasHeader: true,
-      separator: ";",
-      columns: [
-        { index: 0, name: "id", distinctCount: 120, values: null },
-        { index: 4, name: null, distinctCount: 1, values: [{ value: "Oruro", count: 40 }] },
-      ],
-      nearby: { available: true, reason: null, withPlace: 118, withoutPlace: 2, srid: null },
-    });
+    expect(await getCsvColumns("p 1", "f1")).toMatchObject({ plotCount: 120, nearby: { available: true, withPlace: 118 } });
     expect(call()).toEqual({ url: "/v1/projects/p%201/csv-files/f1/columns", method: "GET", body: undefined });
   });
 
@@ -477,12 +456,11 @@ describe("dividing plots", () => {
     const plan = { left: { u1: 9, u2: 1 }, target: { u1: 5, u2: 5 }, moves: [{ from: "u1", to: "u2", count: 4 }] };
     fetchMock.mockImplementation(async () => jsonResponse(200, { ...plan, saved: false }));
     const people = [{ userId: "u1", weight: 1 }, { userId: "u2", weight: 1 }];
-    expect(await rebalance("p1", "f1", people, true)).toMatchObject({ ...plan, saved: false, state: null });
+    expect(await rebalance("p1", "f1", people, true)).toEqual({ ...plan, saved: false });
     expect(call(0)).toEqual({ url: "/v1/projects/p1/csv-files/f1/rebalance", method: "POST", body: { people, dryRun: true } });
     fetchMock.mockImplementation(async () => jsonResponse(200, { ...state, ...plan, saved: true, moved: 4, notMoved: 0 }));
-    const applied = await rebalance("p1", "f1", people, false);
-    expect(applied).toMatchObject({ saved: true, moved: 4 });
-    expect(applied.state).toMatchObject({ plotCount: 3 });
+    expect(await rebalance("p1", "f1", people, false)).toMatchObject({ saved: true, moved: 4, plotCount: 3 });
+    expect(call(1).body).toEqual({ people, dryRun: false });
   });
 });
 
@@ -795,7 +773,7 @@ describe("the quality figures", () => {
 });
 
 describe("the project file and round", () => {
-  const added = { state: "added", refusal: null, keyCount: 2, roundIndex: 1, roundCodes: [{ code: "1", label: "First assessment" }, { code: "2", label: "Re-assessment" }], reassessmentCode: "2" };
+  const added: RoundInfo = { state: "added", refusal: null, keyCount: 2, roundIndex: 1, roundCodes: [{ code: "1", label: "First assessment" }, { code: "2", label: "Re-assessment" }], reassessmentCode: "2" };
 
   /** A minimal XMLHttpRequest that answers every upload with one status and body. */
   function fakeXhr(status: number, body: unknown) {
@@ -827,13 +805,8 @@ describe("the project file and round", () => {
 
   it("an upload returns what the server did about round", async () => {
     const sent = fakeXhr(200, { ok: true, bytes: 10, round: added });
-    expect(await uploadCep("p 1", new Blob(["zip"]))).toEqual({ ...added, note: null });
+    expect(await uploadCep("p 1", new Blob(["zip"]))).toEqual(added);
     expect(sent[0]).toMatchObject({ method: "PUT", url: "/v1/projects/p%201/cep", headers: { "content-type": "application/zip" } });
-  });
-
-  it("an older server's upload answer has no round", async () => {
-    fakeXhr(200, { ok: true, bytes: 10 });
-    expect(await uploadCep("p1", new Blob(["zip"]))).toBeNull();
   });
 
   it.each([
@@ -856,34 +829,16 @@ describe("the project file and round", () => {
 
   it("reads the round info, or null before any upload", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(200, added)).mockResolvedValueOnce(jsonResponse(200, null));
-    expect(await getRoundInfo("p1")).toEqual({ ...added, note: null });
+    expect(await getRoundInfo("p1")).toEqual(added);
     expect(await getRoundInfo("p1")).toBeNull();
     expect(fetchMock.mock.calls[0][0]).toBe("/v1/projects/p1/round");
   });
 
-  it("normalises a round info", () => {
-    expect(toRoundInfo({ state: "odd", roundCodes: [{ code: 2020 }, { label: "no code" }], keyCount: "2", roundIndex: 1 })).toEqual({
-      state: "none",
-      refusal: null,
-      keyCount: 2,
-      roundIndex: 1,
-      roundCodes: [{ code: "2020", label: "" }],
-      reassessmentCode: null,
-      note: null,
-    });
-    expect(toRoundInfo({ state: "none", refusal: "several_keys" })?.refusal).toBe("several_keys");
-    expect(toRoundInfo("nope")).toBeNull();
-    // The coordinator's note (Task 16): absent from older servers and older infos.
-    expect(toRoundInfo({ state: "added", note: { state: "added", refusal: null, column: 9 } })?.note).toEqual({ state: "added", refusal: null, column: 9 });
-    expect(toRoundInfo({ state: "added", note: { state: "odd", refusal: "records_exist", column: "9" } })?.note).toEqual({ state: "none", refusal: "records_exist", column: null });
-    expect(toRoundInfo({ state: "added", note: "nope" })?.note).toBeNull();
-  });
-
   it("saves the re-assessment code, or none", async () => {
-    const own = { ...added, state: "own", reassessmentCode: "3" };
+    const own: RoundInfo = { ...added, state: "own", reassessmentCode: "3" };
     fetchMock.mockResolvedValueOnce(jsonResponse(200, own)).mockResolvedValueOnce(jsonResponse(200, { ...own, reassessmentCode: null }));
-    expect((await setReassessmentCode("p1", "3"))?.reassessmentCode).toBe("3");
-    expect((await setReassessmentCode("p1", null))?.reassessmentCode).toBeNull();
+    expect((await setReassessmentCode("p1", "3")).reassessmentCode).toBe("3");
+    expect((await setReassessmentCode("p1", null)).reassessmentCode).toBeNull();
     const [url, init] = fetchMock.mock.calls[0];
     expect([url, init?.method, JSON.parse(init?.body as string)]).toEqual(["/v1/projects/p1/round", "PUT", { reassessmentCode: "3" }]);
     expect(JSON.parse(fetchMock.mock.calls[1][1]?.body as string)).toEqual({ reassessmentCode: null });
@@ -1033,7 +988,7 @@ describe("the AI assistant and the reports", () => {
   it("reads a member disabled by the server owner: a flag in the member list, a status on the People tab", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(200, { members: [{ userId: "u1", username: "maria", role: "operator", disabled: true }, { userId: "u2", username: "ana", role: "operator" }] }));
     const members = await listMembers("p1");
-    expect(members.map((m) => m.disabled)).toEqual([true, false]);
+    expect(members.map((m) => m.disabled)).toEqual([true, undefined]);
     expect(toPersonRow({ userId: "u1", username: "maria", status: { kind: "disabled" } }).status).toEqual({ kind: "disabled", days: null, level: null });
   });
 
@@ -1154,23 +1109,12 @@ describe("the data download", () => {
 describe("the Collect Earth backup", () => {
   const url = (i = 0) => String(fetchMock.mock.calls[i][0]);
 
-  it("reads what each choice would hold; all rounds is null without the round key", async () => {
-    const counts = { records: 4, drafts: 1, otherRounds: 1, measurements: 3, sameKey: 2, sameKeyExamples: ["1,1", 7], noXml: 1, estimatedBytes: 7200 };
-    fetchMock.mockResolvedValue(jsonResponse(200, { projectFile: true, roundKey: true, roundState: "own", firstCodes: ["2025", 3], note: true, rounds: { "1": counts, all: { ...counts, records: "x" } } }));
-    const summary = await getBackupSummary("p 1");
+  it("reads what each choice would hold", async () => {
+    const counts = { records: 4, drafts: 1, otherRounds: 1, measurements: 3, sameKey: 2, sameKeyExamples: ["1,1"], noXml: 1, estimatedBytes: 7200 };
+    const answer = { projectFile: true, roundKey: true, roundState: "own", firstCodes: ["2025"], note: true, rounds: { "1": counts, all: { ...counts, records: 5 } } };
+    fetchMock.mockResolvedValue(jsonResponse(200, answer));
+    expect(await getBackupSummary("p 1")).toEqual(answer);
     expect(url()).toBe("/v1/projects/p%201/exports/collect-backup/summary");
-    expect(summary).toEqual({
-      projectFile: true,
-      roundKey: true,
-      firstCodes: ["2025"],
-      note: true,
-      first: { ...counts, sameKeyExamples: ["1,1"] },
-      all: { ...counts, records: 0, sameKeyExamples: ["1,1"] },
-    });
-    fetchMock.mockResolvedValue(jsonResponse(200, { projectFile: true, roundKey: false, firstCodes: null, rounds: { "1": counts, all: counts } }));
-    const none = await getBackupSummary("p1");
-    expect(none.all).toBeNull();
-    expect(none.firstCodes).toBeNull();
   });
 
   it("asks for a download link; refusals are told as such", async () => {

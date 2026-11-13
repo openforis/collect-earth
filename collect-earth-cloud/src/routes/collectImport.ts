@@ -17,6 +17,7 @@ import { checkUploadFits } from '../limits.js';
 import { applyLww, recordEventOf } from '../lww.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import type { Store } from '../store/store.js';
+import type { CollectImportPreview, CollectImportResult } from '../wire/projects.js';
 import type { RecordEnvelope } from '../types.js';
 
 const MAX_PROBLEMS = 20;
@@ -140,7 +141,7 @@ async function prepare(store: Store, request: FastifyRequest, reply: FastifyRepl
 }
 
 /** What the coordinator sees before importing: nothing stored. */
-function counts(p: Prepared) {
+function counts(p: Prepared): CollectImportPreview {
   let newerThere = 0;
   let olderThere = 0;
   for (const r of p.records) {
@@ -198,7 +199,7 @@ export async function registerCollectImportRoutes(app: FastifyInstance, store: S
       });
       if (kept) stored++;
     }
-    const result = { ...counts(prepared), stored, kept: prepared.records.length - stored };
+    const result: CollectImportResult = { ...counts(prepared), stored, kept: prepared.records.length - stored };
     await audit(store, request, 'project.imported', { source: 'collect-earth', records: stored, kept: result.kept, problems: prepared.problemCount, operators: prepared.operators.length });
     request.log.info({ projectId, stored, kept: result.kept }, 'records imported from a Collect Earth backup');
     return reply.send(result);

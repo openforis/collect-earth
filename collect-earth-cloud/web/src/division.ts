@@ -1,4 +1,4 @@
-import type { CsvColumn, CsvColumns, Distribution, DivisionOrder, Member, NearbyInfo } from "./api";
+import type { CsvColumns, DivisionBody, DivisionOrder, Member, NearbyAvailability, PlotColumn, StoredDistribution } from "./api";
 import { formatNumber } from "./format";
 import type { MessageKey, Translate } from "./i18n";
 
@@ -63,7 +63,7 @@ export function collectors(members: Member[]): Member[] {
  * The form for what the file has now. `holders` are the people who hold plots now:
  * they are ticked when the form starts on "Evenly" without a saved list of people.
  */
-export function initialForm(distribution: Distribution | null, holders: string[], members: Member[]): DivisionForm {
+export function initialForm(distribution: StoredDistribution | null, holders: string[], members: Member[]): DivisionForm {
   const ids = new Set(members.map((m) => m.userId));
   const known = (people: string[]) => people.filter((id) => ids.has(id));
   const startPeople = known(holders).length > 0 ? known(holders) : collectors(members).map((m) => m.userId);
@@ -78,11 +78,11 @@ export function initialForm(distribution: Distribution | null, holders: string[]
     overlap: false,
     overlapPercent: String(DEFAULT_OVERLAP_PERCENT),
   };
-  if (!distribution || distribution.mode === "whole") return form;
+  if (!distribution) return form;
   // Plots moved by hand: there is no rule to show, so start from an even division between the same people.
   // After a division by place, the same order (the served files keep it).
   if (distribution.mode === "manual") return { ...form, mode: "even", order: distribution.order ?? form.order };
-  const overlap = (distribution.overlapPercent ?? 0) > 0;
+  const overlap = distribution.overlapPercent > 0;
   const common = {
     order: distribution.order,
     overlap,
@@ -104,12 +104,12 @@ export function initialForm(distribution: Distribution | null, holders: string[]
 }
 
 /** A column has few enough different values to divide by. */
-export function columnUsable(column: CsvColumn): boolean {
+export function columnUsable(column: PlotColumn): boolean {
   return column.values !== null && column.values.length > 0;
 }
 
 /** "province (e.g. La Paz, Oruro)" or, without a header, "Column 5 (e.g. La Paz, Oruro)". */
-export function columnLabel(column: CsvColumn, t: Translate): string {
+export function columnLabel(column: PlotColumn, t: Translate): string {
   const label = column.name?.trim() || t("divide.columnN", { n: column.index + 1 });
   const examples = (column.values ?? [])
     .map((v) => v.value)
@@ -155,7 +155,7 @@ export function percentTotal(form: DivisionForm): number {
 }
 
 /** The selected column, when it can be used. */
-function selectedColumn(form: DivisionForm, columns: CsvColumns | null): CsvColumn | null {
+function selectedColumn(form: DivisionForm, columns: CsvColumns | null): PlotColumn | null {
   const column = columns?.columns.find((c) => c.index === form.column) ?? null;
   return column && columnUsable(column) ? column : null;
 }
@@ -197,17 +197,14 @@ export function formProblem(form: DivisionForm, columns: CsvColumns | null): Mes
  * have no latitude and longitude (they are shared out last); null when nothing is to be said.
  * `format` writes a count in the viewer's language.
  */
-export function nearbyNote(info: NearbyInfo, t: Translate, format: (n: number) => string): string | null {
-  if (!info.available) {
-    if (info.reason === "other_srs" && info.srid) return t("divide.orderNearbyOtherSrs", { srid: info.srid });
-    return info.reason === "no_places" ? t("divide.orderNearbyNoPlaces") : t("divide.orderNearbyUnknown");
-  }
+export function nearbyNote(info: NearbyAvailability, t: Translate, format: (n: number) => string): string | null {
+  if (!info.available) return info.reason === "other_srs" ? t("divide.orderNearbyOtherSrs", { srid: info.srid }) : t("divide.orderNearbyNoPlaces");
   if (info.withoutPlace === 1) return t("divide.orderNearbyMissingOne");
   return info.withoutPlace > 1 ? t("divide.orderNearbyMissing", { count: format(info.withoutPlace) }) : null;
 }
 
 /** The request body for a complete form (see formProblem). */
-export function toRequest(form: DivisionForm, columns: CsvColumns | null): Distribution {
+export function toRequest(form: DivisionForm, columns: CsvColumns | null): DivisionBody {
   const overlapPercent = form.overlap ? (percent(form) ?? undefined) : undefined;
   const extra = overlapPercent !== undefined ? { overlapPercent } : {};
   switch (form.mode) {
@@ -224,7 +221,7 @@ export function toRequest(form: DivisionForm, columns: CsvColumns | null): Distr
  * The request to apply after a preview: mixed plots are shuffled from a seed, so the
  * seed of the preview is sent back to get exactly the division that was shown.
  */
-export function withSeed(request: Distribution, previewed: Distribution | null): Distribution {
+export function withSeed(request: DivisionBody, previewed: StoredDistribution | null): DivisionBody {
   if (request.mode !== "even" && request.mode !== "column") return request;
   if (request.order !== "mixed" || !previewed || previewed.mode !== request.mode) return request;
   const seed = "seed" in previewed ? previewed.seed : undefined;

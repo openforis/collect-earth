@@ -15,7 +15,9 @@ import { loadPlotContext } from '../qualityService.js';
 import type { Store } from '../store/store.js';
 import { QUALIFIER_SEPARATOR, SUMMARY_VALUES_SEPARATOR } from '../surveyOutline.js';
 import { PROJECT_STATUSES, STATUS_MOVES, type AuditDetails, type EventCursor, type ProjectStatus, type RecordRow, type User } from '../types.js';
+import type { ExportChoices } from '../wire/data.js';
 import type { ProjectCopyAnswer, ProjectRenameAnswer, ProjectStatusAnswer } from '../wire/projectSettings.js';
+import type { NewProjectAnswer, OperatorProgress, Overview, ProjectInfo } from '../wire/projects.js';
 import { copyProject } from '../projectCopy.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import { factorsByRecord, firstAssessments, projectFactors } from './analysis.js';
@@ -86,7 +88,7 @@ export async function registerProjectRoutes(
       // their session, as a project admin member.
       const { projectId } = await store.createProject({ name });
       await store.addMembership(projectId, user.id, 'admin');
-      return reply.code(201).send({ projectId, name });
+      return reply.code(201).send({ projectId, name } satisfies NewProjectAnswer);
     }
 
     if (!config.adminApiKey && config.storeBackend === 'memory') {
@@ -114,7 +116,7 @@ export async function registerProjectRoutes(
         hasSurvey: project.idmlBase64 !== null,
         role: request.membership!.role,
         status: project.status,
-      });
+      } satisfies ProjectInfo);
     },
   );
 
@@ -240,7 +242,7 @@ export async function registerProjectRoutes(
         store.listRecordSummaries(projectId),
         storageSummary(store, projectId),
       ]);
-      const byOperator = new Map<string, { operator: string; total: number; submitted: number; lastModifiedOn: number }>();
+      const byOperator = new Map<string, OperatorProgress>();
       let submitted = 0;
       for (const r of records) {
         const entry = byOperator.get(r.operator) ?? { operator: r.operator, total: 0, submitted: 0, lastModifiedOn: 0 };
@@ -264,7 +266,7 @@ export async function registerProjectRoutes(
           byOperator: [...byOperator.values()].sort((a, b) => a.operator.localeCompare(b.operator)),
         },
         storage,
-      });
+      } satisfies Overview);
     },
   );
 
@@ -359,7 +361,7 @@ export async function registerProjectRoutes(
       const [{ model }, lastDownload] = await Promise.all([surveyOf(store, projectId), lastDataDownload(store, projectId, request.membership!.userId)]);
       const questions = model.tables[0].columns.map((c) => ({ key: c.key, name: c.name, labels: c.labels, list: c.type === 'code' && c.list && model.lists[c.list] ? c.list : null }));
       const lists = Object.fromEntries(questions.flatMap((q) => (q.list ? [[q.list, model.lists[q.list]]] : [])));
-      return reply.header('cache-control', 'no-store').send({ lastDownload, languages: model.languages, questions, lists });
+      return reply.header('cache-control', 'no-store').send({ lastDownload, languages: model.languages, questions, lists } satisfies ExportChoices);
     },
   );
 }

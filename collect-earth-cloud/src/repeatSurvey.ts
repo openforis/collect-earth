@@ -7,6 +7,11 @@ import type { AnalysisColumn, AnalysisModel } from './analysis.js';
 import type { RecordRound } from './rounds.js';
 import { QUALIFIER_SEPARATOR, SUMMARY_VALUES_SEPARATOR, type Question } from './surveyOutline.js';
 import { stratifiedTotal } from './uncertainty.js';
+import type { AreaEstimate, ChangeAreaEstimates as ChangeAreas } from './wire/data.js';
+import type { ChangeOutcome, ChangeRow, MatchReport, PeriodStatusAnswer } from './wire/projects.js';
+
+export type { AreaEstimate, ChangeAreaEstimates as ChangeAreas } from './wire/data.js';
+export type { ChangeOutcome, ChangeRow, MatchReport, PeriodStatusAnswer } from './wire/projects.js';
 
 /** A record of the earlier project, as it is read (listRecordSummaries). */
 export interface SourceRecord {
@@ -53,14 +58,6 @@ export function earlierRecords(
 
 /** A summary key with its rows' keys left out: collect_entity_land_use[F].code_coverage -> collect_entity_land_use[].code_coverage */
 const shapeOf = (key: string) => key.replace(/\[[^\]]*\]/g, '[]');
-
-/** What could not be matched to the new survey, for the coordinator. */
-export interface MatchReport {
-  /** Questions of the earlier answers the new survey does not have (by key, rows' keys left out), with their plots */
-  questionsLeftOut: { key: string; plots: number }[];
-  /** Answers whose code the new survey's question does not offer, kept as they were */
-  unknownAnswers: { key: string; code: string; plots: number }[];
-}
 
 /**
  * The earlier answers matched to the new survey (`outline`, surveyOutline of its served survey): the answers to its
@@ -164,36 +161,6 @@ export function yearOf(records: readonly { savedAt: number }[]): string | null {
 // ---------------------------------------------------------------------------------------------------------------
 // The comparison (stage 3): an earlier period's answers against this period's, for one question
 
-/** What the collector said of a plot against the earlier period (the survey's period_status) */
-export type PeriodStatusAnswer = 'same' | 'changed' | 'corrected';
-
-/** How a plot compares between the two periods, for the question compared. */
-export type ChangeOutcome =
-  /** the same answer in both periods */
-  | 'unchanged'
-  /** another answer: a change of the land */
-  | 'changed'
-  /** another answer, the collector having said the earlier one was wrong: a correction, not a change */
-  | 'corrected'
-  /** collected now, with no earlier answer */
-  | 'new'
-  /** an earlier answer, not collected yet (or not submitted) */
-  | 'pending';
-
-export interface ChangeRow {
-  plot: string;
-  earlier: string | null;
-  now: string | null;
-  /** the collector's answer to the header (period_status), null when none */
-  status: PeriodStatusAnswer | null;
-  outcome: ChangeOutcome;
-  /**
-   * The collector's answer and the answers disagree: said "still the same" with another answer now, or "changed" with
-   * the same answer (to look at again)
-   */
-  mismatch: 'sameButDiffers' | 'changedButSame' | null;
-}
-
 export interface Change {
   rows: ChangeRow[];
   /** plots by earlier answer and answer now, real changes and unchanged only (not the corrections), by code */
@@ -266,42 +233,6 @@ export function changeQuestions(outline: ReadonlyMap<string, Question>, earlier:
 
 // ---------------------------------------------------------------------------------------------------------------
 // The areas of the changes (stage 4), with their uncertainty, as the IPCC uncertainty page has them (src/uncertainty.ts)
-
-/** An area estimated from the plots, in hectares (or in shares of 1 when the area is not known). */
-export interface AreaEstimate {
-  plots: number;
-  area: number;
-  /** of the total area, 0–1 */
-  share: number;
-  se: number;
-  /** half the 95% confidence interval: 1.96 · se */
-  ci: number;
-  /** ci / |area| · 100; null when the area is 0 */
-  uncertainty: number | null;
-}
-
-export interface ChangeAreas {
-  /** "simple": one stratum, every plot standing for the same area; "stratified": the areas file's strata */
-  estimator: 'simple' | 'stratified';
-  totalArea: number;
-  /** the plots compared and used */
-  plots: number;
-  strata: { key: string; area: number; plots: number }[];
-  /** strata with fewer than 2 plots used: no variance; with none their area is not counted */
-  notEstimable: { key: string; area: number; plots: number }[];
-  /** plots not used: not compared (new, or not collected yet), and in no stratum (no area) */
-  skipped: { notCompared: number; noArea: number };
-  outcomes: Record<'unchanged' | 'changed' | 'corrected', AreaEstimate>;
-  /** the area of each cell of the transition matrix (unchanged and changed plots) */
-  matrix: { from: string; to: string; estimate: AreaEstimate }[];
-  /** the area of the corrections, by earlier answer and the answer that corrects it */
-  corrections: { from: string; to: string; estimate: AreaEstimate }[];
-  /**
-   * Each answer's area in the earlier period (as now known: a corrected plot counts with the answer that corrects it,
-   * the earlier one having been wrong), now, and the net change between them (now − then), each with its uncertainty
-   */
-  classes: { code: string; then: AreaEstimate; now: AreaEstimate; net: AreaEstimate }[];
-}
 
 const COMPARED = new Set<ChangeOutcome>(['unchanged', 'changed', 'corrected']);
 

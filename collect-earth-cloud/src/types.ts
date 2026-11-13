@@ -1,11 +1,12 @@
-/** Membership role within a single project. Authority derives only from these. */
 import type { ProgressSettings } from './wire/progress.js';
 import type { ProjectStatus } from './wire/projectSettings.js';
+import type { Role } from './wire/projects.js';
 
 export type { ProgressSettings } from './wire/progress.js';
 export type { ProjectStatus, ShareLink } from './wire/projectSettings.js';
-
-export type Role = 'admin' | 'reviewer' | 'operator';
+/** Membership role within a single project (Role), and the project calls' types (src/wire/projects.ts). */
+export type { CepInfo, Member, Membership, RepeatSettings, Role } from './wire/projects.js';
+export type { Assignment, AssignmentDetail, CsvFile, DivisionOrder, StoredDistribution } from './wire/plotFiles.js';
 
 export interface User {
   id: string;
@@ -20,14 +21,6 @@ export interface User {
   disabledAt?: number | null;
 }
 
-/** A user's membership of one project, with the project name for listings. */
-export interface Membership {
-  projectId: string;
-  projectName: string;
-  role: Role;
-  status: ProjectStatus;
-}
-
 export const PROJECT_STATUSES: readonly ProjectStatus[] = ['draft', 'active', 'closed', 'archived'];
 /** The moves a coordinator can make: publish, close, reopen, archive, restore. */
 export const STATUS_MOVES: Record<ProjectStatus, readonly ProjectStatus[]> = {
@@ -36,17 +29,6 @@ export const STATUS_MOVES: Record<ProjectStatus, readonly ProjectStatus[]> = {
   closed: ['active', 'archived'],
   archived: ['closed'],
 };
-
-/** One project member, for the admin members listing. */
-export interface Member {
-  userId: string;
-  username: string;
-  role: Role;
-  /** The server owner disabled the account (a flag only: not when or by whom). */
-  disabled?: boolean;
-  /** A coordinator left their records out of the results (the figures and the exports); absent otherwise. */
-  excluded?: { at: number; reason: string | null };
-}
 
 export interface Invite {
   projectId: string;
@@ -369,49 +351,7 @@ export function totalStorageBytes(s: ProjectStorage): number {
 }
 
 /** What the server did about the round key of a project's CEP (see src/cep.ts). */
-export type { RoundInfo } from './cep.js';
-
-/** Size and last upload time (epoch ms) of a project's CEP. */
-export interface CepInfo {
-  bytes: number;
-  updatedAt: number;
-}
-
-/** A plot CSV file belonging to a project (metadata; content fetched separately). */
-export interface CsvFile {
-  id: string;
-  filename: string;
-  checksum: string;
-  plotCount: number;
-  /** How its plots are divided between people; null (or absent) = whole file, the assignments grid applies. */
-  distribution?: StoredDistribution | null;
-}
-
-/**
- * The order plots are dealt in: the file's, 'mixed' (a seeded shuffle) or 'nearby' (along a
- * Hilbert curve over their latitude and longitude, Task 15: each share a compact area, and
- * the rows of each served file in that order too).
- */
-export type DivisionOrder = 'file' | 'mixed' | 'nearby';
-
-/**
- * A divided plot file's rule (csv_files.distribution), as last applied. `seed` is the
- * shuffle seed of order 'mixed'. 'manual' = changed by hand (move-unfinished); it keeps
- * `order: 'nearby'` when the division it changed had it, so the served files keep their
- * rows in that order.
- */
-export type StoredDistribution =
-  /** `percents`: each person's share of the plots (one per person, adding up to 100); absent = even shares. */
-  | { mode: 'even'; people: string[]; percents?: number[]; order: DivisionOrder; overlapPercent: number; seed?: number }
-  | {
-      mode: 'column';
-      column: number;
-      groups: { value: string; people: string[] }[];
-      order: DivisionOrder;
-      overlapPercent: number;
-      seed?: number;
-    }
-  | { mode: 'manual'; order?: 'nearby' };
+export type { RoundInfo } from './wire/projects.js';
 
 /** A plot's answers in the reference set a coordinator uploaded, by summary key. */
 /** One plot's answers in an earlier period of a repeat survey (migration 037). */
@@ -422,18 +362,6 @@ export interface PeriodAnswer {
   /** Summary key -> answer, as the record's summary */
   answers: Record<string, string>;
   savedAt: number;
-}
-
-/** A repeat survey's settings (docs/plans/2026-11-11-repeat-survey.md). */
-export interface RepeatSettings {
-  /** This project's period ("2025") */
-  label: string;
-  /** The earlier periods, oldest first */
-  earlier: { label: string; sourceProjectId: string; sourceName: string; plots: number; madeAt: number }[];
-  /** The summary keys of the questions the form's header shows of the earlier period (the plot's main characteristics) */
-  headerQuestions: string[];
-  /** The total area in hectares, for the areas of the changes when the project file has no areas file */
-  totalArea?: number;
 }
 
 export interface ReferenceAnswer {
@@ -601,20 +529,6 @@ export interface ReferenceChangeResult {
   marked: number;
   copiesAdded: number;
   copiesDropped: number;
-}
-
-/** One csv-file ↔ user assignment. */
-export interface Assignment {
-  userId: string;
-  csvFileId: string;
-}
-
-/** An assignment enriched with names, for the admin listing. */
-export interface AssignmentDetail {
-  userId: string;
-  username: string;
-  csvFileId: string;
-  filename: string;
 }
 
 /**

@@ -1,6 +1,27 @@
 import { unzipSync } from "fflate";
 import type { MessageKey } from "./i18n";
 import { getToken } from "./storage";
+import type { BackupFormat, BackupLinkAnswer, BackupRounds, BackupSummary, ExportChoices } from "../../src/wire/data";
+import type {
+  Assignment,
+  AssignmentDetail,
+  AssignmentsAnswer,
+  CsvColumns,
+  CsvFilesAnswer,
+  CsvUploadAnswer,
+  DesignArea,
+  DesignFacts,
+  DesignPlan,
+  DistributionSummary,
+  DivisionBody,
+  ListedCsvFile,
+  MoveUnfinishedAnswer,
+  PlotDesign,
+  RebalanceAnswer,
+  ReplaceImpact,
+  SigridCountries,
+  SigridFacts,
+} from "../../src/wire/plotFiles";
 import type { BellAnswer, ProgressAnswer, ProgressSettings, ProgressTotals, PublicProgress } from "../../src/wire/progress";
 import type {
   NewShareLinkAnswer,
@@ -11,6 +32,37 @@ import type {
   ShareLink,
   ShareLinksAnswer,
 } from "../../src/wire/projectSettings";
+import type {
+  BackupImportAnswer,
+  BackupImportPreview,
+  CeoFetchAnswer,
+  CeoImportAnswer,
+  CeoImportPreview,
+  CepUploadAnswer,
+  CollectImportPreview,
+  CollectImportResult,
+  ImageryAnswer,
+  Member,
+  MembersAnswer,
+  Membership,
+  NewProjectAnswer,
+  Overview,
+  PeriodHeaderAnswer,
+  Periods,
+  PlotLayout,
+  PlotLayoutAnswer,
+  PlotLayoutChangeAnswer,
+  PlotPeriodsAnswer,
+  ProjectInfo,
+  ProjectListAnswer,
+  PropertiesValues,
+  RepeatAnswer,
+  RepeatAreaAnswer,
+  RepeatChange,
+  RepeatPreview,
+  RoundAnswer,
+  RoundInfo,
+} from "../../src/wire/projects";
 
 // Every call the dashboard makes to the Collect Earth Cloud server, in one place.
 //
@@ -121,12 +173,7 @@ export interface Session {
   username: string;
 }
 
-export interface Membership {
-  projectId: string;
-  projectName: string;
-  role: Role;
-  status: ProjectStatus;
-}
+export type { Membership } from "../../src/wire/projects";
 
 /** The server owner's message to everyone signed in; `until`: when it ends (epoch ms), null: until cleared. */
 export interface Announcement {
@@ -144,30 +191,7 @@ export interface Me {
   twoFactor: { enabled: boolean; required: boolean };
 }
 
-export interface ProjectInfo {
-  projectId: string;
-  name: string;
-  role: Role;
-  status: ProjectStatus;
-}
-
-export interface OperatorProgress {
-  operator: string;
-  total: number;
-  submitted: number;
-  lastModifiedOn: number | null;
-}
-
-export interface Overview {
-  name: string;
-  cep: { bytes: number; updatedAt: number | null } | null;
-  members: number;
-  csvFiles: number;
-  plots: number;
-  records: { total: number; submitted: number; byOperator: OperatorProgress[] };
-  /** Space the project uses; limitBytes null = no limit. Null from servers that do not report it. */
-  storage: { usedBytes: number; limitBytes: number | null } | null;
-}
+export type { CepInfo, OperatorProgress, Overview, ProjectInfo } from "../../src/wire/projects";
 
 export interface Invite {
   id: string;
@@ -195,115 +219,22 @@ export interface JoinPreview {
   valid: boolean;
 }
 
-export interface Member {
-  userId: string;
-  username: string;
-  role: Role;
-  /** The server administrator disabled the account: it cannot log in or sync. */
-  disabled?: boolean;
-  /** A coordinator left their records out of the results (figures and exports). */
-  excluded?: { at: number; reason: string | null };
-}
-
-export interface CsvFile {
-  id: string;
-  filename: string;
-  checksum: string;
-  plotCount: number;
-  /** Its plots are divided between people (see the file's distribution). */
-  divided?: boolean;
-  /** People holding at least one of its plots; 0 for a whole file. */
-  dividedPeople?: number;
-  /** Given on upload of a file with a user column: how its plots were given out (the plots of unknown names were not). */
-  assignment?: { assigned: number; checks: number; notAssigned: number; unknown: string[] };
-  /** Given on upload: what may be wrong with the file, which was still taken. */
-  warnings?: {
-    /** Ids the survey's number keys cannot take. */
-    badIds?: number;
-    badIdExamples?: string[];
-    duplicateIds: number;
-    duplicateExamples: string[];
-    badCoordinates: number;
-    badCoordinateExamples: string[];
-  };
-}
-
-export interface Assignment {
-  userId: string;
-  csvFileId: string;
-}
-
-/** One column of a plot file, for dividing its plots by the column's values. */
-export interface CsvColumn {
-  /** 0-based. */
-  index: number;
-  /** From the header row; null when the file has none. */
-  name: string | null;
-  distinctCount: number;
-  /** Sorted by value; null when the column has too many different values (more than 200). */
-  values: { value: string; count: number }[] | null;
-}
-
-export interface CsvColumns {
-  plotCount: number;
-  hasHeader: boolean;
-  separator: string;
-  columns: CsvColumn[];
-  /** Whether the plots can be divided by place (order "nearby"), and why not. */
-  nearby: NearbyInfo;
-}
-
-/**
- * Order "nearby" needs latitude and longitude: the survey's coordinates must be in latitude
- * and longitude ("other_srs" otherwise, with its `srid`) and some plots must have them
- * ("no_places"). `withoutPlace` plots are shared out last. "unknown": the server did not say.
- */
-export interface NearbyInfo {
-  available: boolean;
-  reason: "other_srs" | "no_places" | "unknown" | null;
-  withPlace: number;
-  withoutPlace: number;
-  srid: string | null;
-}
-
-export type DivisionOrder = "file" | "mixed" | "nearby";
-
-/** How a plot file's plots are divided between people (what the server stores and applies). */
-export type Distribution =
-  | { mode: "whole" }
-  | { mode: "manual"; order?: "nearby" }
-  | { mode: "even"; people: string[]; percents?: number[]; order: DivisionOrder; overlapPercent?: number; seed?: number }
-  | {
-      mode: "column";
-      column: number;
-      groups: { value: string; people: string[] }[];
-      order: DivisionOrder;
-      overlapPercent?: number;
-      seed?: number;
-    };
-
-export interface PersonShare {
-  userId: string;
-  username: string;
-  /** Includes the quality-check copies. */
-  plots: number;
-  /** Quality-check copies: plots someone else also has. */
-  overlap: number;
-  /** Of the copies, those drawn by the automatic checks (the others came with the division). */
-  sampled: number;
-  /** Of the copies, those of reference plots (Task 14). */
-  reference: number;
-  /** Plots this person has submitted, among the ones they hold. */
-  submitted: number;
-}
-
-/** Who holds a file's plots. distribution null = the whole file goes to the people ticked in the grid. */
-export interface DistributionState {
-  distribution: Distribution | null;
-  plotCount: number;
-  unassigned: number;
-  people: PersonShare[];
-}
+export type { Member } from "../../src/wire/projects";
+export type {
+  Assignment,
+  AssignmentDetail,
+  CsvColumns,
+  CsvFile,
+  CsvFileWarnings,
+  DistributionSummary,
+  DivisionBody,
+  DivisionOrder,
+  ListedCsvFile,
+  NearbyAvailability,
+  PersonShare,
+  PlotColumn,
+  StoredDistribution,
+} from "../../src/wire/plotFiles";
 
 /** Agreement over some checks; rate (0..1) is null when there are too few checks to judge. */
 export interface Rate {
@@ -535,37 +466,7 @@ export interface ResetLink {
   mailed: boolean;
 }
 
-/** added: the server added a hidden round key; own: the survey has one; none: no round. */
-export type RoundState = "added" | "own" | "none";
-
-/** A code of the round key's list, with its label in the survey's default language. */
-export interface RoundCode {
-  code: string;
-  label: string;
-}
-
-/** What the server did about the round key of the project file (GET /round). */
-export interface RoundInfo {
-  state: RoundState;
-  /** Why the server did not add round (state none before collection), e.g. "several_keys". */
-  refusal: string | null;
-  keyCount: number;
-  roundIndex: number | null;
-  roundCodes: RoundCode[];
-  /** The code that marks re-assessments; null for none (or not chosen yet). */
-  reassessmentCode: string | null;
-  /** The coordinator's note in Collect Earth (Task 16); null from older servers and older files. */
-  note: NoteInfo | null;
-}
-
-/** Whether the served project file carries the coordinator's note to Collect Earth, else why not. */
-export interface NoteInfo {
-  state: "added" | "none";
-  /** Why the server did not add it, e.g. "records_exist". */
-  refusal: string | null;
-  /** The plot file column it is read from (added). */
-  column: number | null;
-}
+export type { CodeItem, NoteInfo, RoundInfo, RoundState } from "../../src/wire/projects";
 
 /** A failed call. status 0 means the server could not be reached at all. */
 export class ApiError extends Error {
@@ -1191,35 +1092,14 @@ export async function forgotPassword(login: string, language: string): Promise<v
 // --- projects --------------------------------------------------------------------------
 
 export async function listProjects(): Promise<Membership[]> {
-  const body = await request<{ projects?: Membership[] }>("GET", "/v1/projects");
-  return (body?.projects ?? []).map((m) => ({ ...m, role: asRole(m.role), status: asStatus(m.status) }));
+  return (await request<ProjectListAnswer>("GET", "/v1/projects")).projects;
 }
 
-export function createProject(name: string): Promise<{ projectId: string; name: string }> {
+export function createProject(name: string): Promise<NewProjectAnswer> {
   return request("POST", "/v1/projects", { json: { name } });
 }
 
-/** One line of a Collect Earth Online import's report (src/ceo/report.ts); its subject and message are the server's, in English. */
-export interface CeoReportEntry {
-  area: "project" | "question" | "rule" | "plots";
-  subject: string;
-  outcome: "imported" | "changed" | "skipped" | "info";
-  message: string;
-}
-
-export interface CeoImportPreview {
-  name: string;
-  ceoProjectId: number | null;
-  /** plots: null without CEO's plot list */
-  counts: { questions: number; questionsChanged: number; questionsSkipped: number; rules: number; rulesSkipped: number; plots: number | null };
-  /** the points of the questions' table when answered per sample point; null: once for the plot */
-  perPoint: number | null;
-  /** the points a plot could be answered per (a square grid of several); null: per plot only */
-  samplePoints: number | null;
-  /** null without CEO's sample data; the collectors by email, for the coordinator to map (the server keeps no email) */
-  answers: { plots: number; flagged: number; collectors: { email: string; plots: number }[] } | null;
-  report: CeoReportEntry[];
-}
+export type { CeoImportAnswer, CeoImportPreview, CeoImportSummary, CeoReportEntry, ImportedPlotFile } from "../../src/wire/projects";
 
 /** CEO's files, as saved: the project (required), its plot list, its sample data (CSV); null when not given. */
 export interface CeoFiles {
@@ -1238,7 +1118,7 @@ const ceoBody = (files: CeoFiles) => ({
 });
 
 /** A CEO project and its plot list, as text, read by the server from Collect Earth Online by the project's number. */
-export function fetchCeoProject(ceoProjectId: string): Promise<{ project: string; plots: string }> {
+export function fetchCeoProject(ceoProjectId: string): Promise<CeoFetchAnswer> {
   return request("POST", "/v1/projects/from-ceo/fetch", { json: { ceoProjectId } });
 }
 
@@ -1256,44 +1136,11 @@ export function importCeoProject(
   name: string,
   /** CEO collector's email -> the username of their account here (the others get a pseudonym) */
   collectors: Record<string, string>,
-): Promise<CeoImportPreview & { projectId: string; round: string; reportText: string; records: number; plotFile: { csvFileId: string; filename: string; plots: number } | null }> {
+): Promise<CeoImportAnswer> {
   return request("POST", "/v1/projects/from-ceo", { json: { ...ceoBody(files), name, collectors } });
 }
 
-/** A plot layout of a project file: the shape, its sample points and their spacing, in metres. */
-export interface PlotLayout {
-  shape: "SQUARE" | "CIRCLE";
-  points: number;
-  /** a square's spacing between points; a circle's radius */
-  distance: number;
-  /** a square's distance from the outer points to its edge */
-  boundary: number;
-  pointSide: number;
-}
-
-/** What a Collect Earth backup (its "Export data to XML (ZIP)") would become; nothing is stored. */
-export interface BackupImportPreview {
-  name: string;
-  surveyName: string;
-  records: { total: number; submitted: number; drafts: number; steps: { entry: number; cleansing: number; analysis: number }; unreadable: number; unreadableExamples: string[] };
-  /** the names typed in Collect Earth, with their records */
-  collectors: { name: string; records: number }[];
-  plots: {
-    withRecords: number;
-    done: number;
-    withoutPlace: number;
-    withoutPlaceExamples: string[];
-    /** null: no plot file given */
-    inFile: number | null;
-    toDo: number;
-    notInFile: number | null;
-  };
-  /** the strata with an area in the backup's areas_per_attribute.csv (a .collect's), null without one */
-  strata: number | null;
-  /** the layout the survey suggests (its plot area and points) */
-  layout: PlotLayout;
-  survey: { plotAreaHa: number | null; samplePoints: number | null; plotColumns: string[] };
-}
+export type { BackupImportAnswer, BackupImportPreview, PlotLayout } from "../../src/wire/projects";
 
 /** A backup and the project's original plot file, as sent: the zip in base64, the plot file as text. */
 export interface BackupFiles {
@@ -1326,13 +1173,12 @@ export function importBackup(
   layout: PlotLayout,
   /** a name typed in Collect Earth -> the username of their account here (the others keep the name) */
   collectors: Record<string, string>,
-): Promise<{ projectId: string; name: string; records: number }> {
+): Promise<BackupImportAnswer> {
   return request("POST", "/v1/projects/from-backup", { json: { ...backupBody(files), name, layout, collectors } });
 }
 
-export async function getProject(projectId: string): Promise<ProjectInfo> {
-  const body = await request<{ projectId: string; name: string; role: string; status?: string }>("GET", p(projectId));
-  return { projectId: body.projectId, name: body.name, role: asRole(body.role), status: asStatus(body.status) };
+export function getProject(projectId: string): Promise<ProjectInfo> {
+  return request("GET", p(projectId));
 }
 
 /** A new project (a draft) from this one: its survey, plot files and settings; with `members`, its people and who does which plots. */
@@ -1340,23 +1186,7 @@ export function copyProject(projectId: string, name: string, members: boolean): 
   return request("POST", `${p(projectId)}/copy`, { json: { name, members } });
 }
 
-/** What a repeat survey would bring (docs/plans/2026-11-11-repeat-survey.md); nothing is stored. */
-export interface RepeatPreview {
-  /** the plots with an earlier answer (a submitted first assessment, or the coordinator's final one) */
-  plots: number;
-  /** the plots of the plot files: all of them can be collected again, or only those collected (`plots`) */
-  filePlots: number;
-  /** the proposed labels: this project's period, and the new one's */
-  earlierLabel: string;
-  label: string;
-  /** the periods before this one, when this project repeats another */
-  periods: { label: string; plots: number }[];
-  /** the questions the form's header can show, and the ones proposed */
-  questions: { key: string; label: string; kind: string }[];
-  headerQuestions: string[];
-  /** what a newer survey no longer asks, and answers it no longer offers */
-  report: { questionsLeftOut: { key: string; plots: number }[]; unknownAnswers: { key: string; code: string; plots: number }[] };
-}
+export type { HeaderQuestion, MatchReport, RepeatAnswer, RepeatPreview } from "../../src/wire/projects";
 
 export function previewRepeat(projectId: string, projectFile: string | null): Promise<RepeatPreview> {
   return request("POST", `${p(projectId)}/repeat/preview`, { json: projectFile ? { projectFile } : {} });
@@ -1366,88 +1196,23 @@ export function previewRepeat(projectId: string, projectFile: string | null): Pr
 export function repeatSurvey(
   projectId: string,
   body: { name: string; label: string; earlierLabel: string; members: boolean; headerQuestions: string[]; plots: "all" | "collected"; projectFile: string | null },
-): Promise<{ projectId: string; name: string }> {
+): Promise<RepeatAnswer> {
   const { projectFile, ...rest } = body;
   return request("POST", `${p(projectId)}/repeat`, { json: { ...rest, ...(projectFile ? { projectFile } : {}) } });
 }
 
-/** A repeat survey's periods and the questions its form's header shows (settings null: it repeats none). */
-export interface Periods {
-  settings: { label: string; earlier: { label: string; sourceProjectId: string; sourceName: string; plots: number; madeAt: number }[]; headerQuestions: string[] } | null;
-  periods: { label: string; plots: number }[];
-  questions: { key: string; label: string }[];
-  candidates?: { key: string; label: string; kind: string }[];
-}
+export type { Periods, RepeatSettings } from "../../src/wire/projects";
 
 export function getPeriods(projectId: string): Promise<Periods> {
   return request("GET", `${p(projectId)}/periods`);
 }
 
-export function setPeriodHeader(projectId: string, headerQuestions: string[]): Promise<{ headerQuestions: string[] }> {
+export function setPeriodHeader(projectId: string, headerQuestions: string[]): Promise<PeriodHeaderAnswer> {
   return request("PUT", `${p(projectId)}/periods/header`, { json: { headerQuestions } });
 }
 
-/** How a plot compares between an earlier period and this one, for one question (docs/plans/2026-11-11-repeat-survey.md). */
-export type ChangeOutcome = "unchanged" | "changed" | "corrected" | "new" | "pending";
-
-export interface ChangeRow {
-  plot: string;
-  earlier: string | null;
-  now: string | null;
-  status: "same" | "changed" | "corrected" | null;
-  outcome: ChangeOutcome;
-  mismatch: "sameButDiffers" | "changedButSame" | null;
-}
-
-/** One question compared between an earlier period and this one: its counts, its transition matrix, every plot. */
-export interface RepeatChange {
-  period: string;
-  label: string;
-  periods: string[];
-  question: { key: string; label: string };
-  questions: { key: string; label: string }[];
-  options: { code: string; label: string }[];
-  counts: Record<ChangeOutcome, number> & { mismatches: number };
-  matrix: { from: string; to: string; plots: number }[];
-  corrections: { from: string; to: string; plots: number }[];
-  rows: ChangeRow[];
-  /** the areas of the changes, with their uncertainty (stage 4) */
-  areas: ChangeAreas;
-  /** a coordinator: may save the total area */
-  canEdit: boolean;
-}
-
-/** An area estimated from the plots: hectares, or shares of 1 when the area is not known. */
-export interface AreaEstimate {
-  plots: number;
-  area: number;
-  /** of the total area, 0–1 */
-  share: number;
-  se: number;
-  /** half the 95% confidence interval */
-  ci: number;
-  /** ci / |area| · 100, null when the area is 0 */
-  uncertainty: number | null;
-}
-
-export interface ChangeAreas {
-  /** the areas file of the project file the strata come from; null: none */
-  source: string | null;
-  /** false: no areas file and no total area, the areas are shares of the whole */
-  areaKnown: boolean;
-  /** the total area saved by the coordinator, null when none */
-  savedArea: number | null;
-  estimator: "simple" | "stratified";
-  totalArea: number;
-  plots: number;
-  strata: { key: string; area: number; plots: number }[];
-  notEstimable: { key: string; area: number; plots: number }[];
-  skipped: { notCompared: number; noArea: number };
-  outcomes: Record<"unchanged" | "changed" | "corrected", AreaEstimate>;
-  matrix: { from: string; to: string; estimate: AreaEstimate }[];
-  corrections: { from: string; to: string; estimate: AreaEstimate }[];
-  classes: { code: string; then: AreaEstimate; now: AreaEstimate; net: AreaEstimate }[];
-}
+export type { ChangeOutcome, ChangeRow, PeriodStatusAnswer, RepeatChange } from "../../src/wire/projects";
+export type { AreaEstimate, ChangeAreas } from "../../src/wire/data";
 
 const changeQuery = (question: string | null, period: string | null) =>
   [question ? `question=${encodeURIComponent(question)}` : "", period ? `period=${encodeURIComponent(period)}` : ""].filter(Boolean).join("&");
@@ -1478,20 +1243,14 @@ export async function downloadPeriodsExport(projectId: string): Promise<{ blob: 
 }
 
 /** The total area in hectares of a repeat survey whose project file has no areas file; null clears it. */
-export function setRepeatArea(projectId: string, totalArea: number | null): Promise<{ totalArea: number | null }> {
+export function setRepeatArea(projectId: string, totalArea: number | null): Promise<RepeatAreaAnswer> {
   return request("PUT", `${p(projectId)}/periods/area`, { json: { totalArea } });
 }
 
-/** One plot's answers in the earlier periods, oldest first (who collected them: for coordinators and reviewers). */
-export interface PlotPeriod {
-  label: string;
-  savedAt: number;
-  answers: Record<string, string>;
-  operator?: string;
-}
+export type { PlotPeriod, PlotPeriodsAnswer } from "../../src/wire/projects";
 
 /** One plot's answers in the earlier periods, with the questions' labels and the answers' names (from the survey). */
-export function getPlotPeriods(projectId: string, plot: string): Promise<{ periods: PlotPeriod[]; labels: Record<string, string>; options: AnswerOptions }> {
+export function getPlotPeriods(projectId: string, plot: string): Promise<PlotPeriodsAnswer> {
   return request("GET", `${p(projectId)}/periods/plots/${encodeURIComponent(plot)}`);
 }
 
@@ -1508,92 +1267,16 @@ export async function deleteProject(projectId: string, confirmName: string): Pro
   await send("DELETE", p(projectId), { json: { confirmName } });
 }
 
-export async function getOverview(projectId: string): Promise<Overview> {
-  const body = await request<Record<string, unknown>>("GET", `${p(projectId)}/overview`);
-  const cep = body?.cep as Record<string, unknown> | null | undefined;
-  const records = (body?.records ?? {}) as Record<string, unknown>;
-  const byOperator = Array.isArray(records.byOperator) ? (records.byOperator as Record<string, unknown>[]) : [];
-  const storage = body?.storage as Record<string, unknown> | null | undefined;
-  return {
-    name: String(body?.name ?? ""),
-    cep: cep ? { bytes: toCount(cep.bytes), updatedAt: toMillis(cep.updatedAt) } : null,
-    members: toCount(body?.members),
-    csvFiles: toCount(body?.csvFiles),
-    plots: toCount(body?.plots),
-    records: {
-      total: toCount(records.total),
-      submitted: toCount(records.submitted),
-      byOperator: byOperator.map((o) => ({
-        operator: String(o.operator ?? ""),
-        total: toCount(o.total),
-        submitted: toCount(o.submitted),
-        // 0 = the client sent no modification time
-        lastModifiedOn: toMillis(o.lastModifiedOn) || null,
-      })),
-    },
-    storage: storage
-      ? { usedBytes: toCount(storage.usedBytes), limitBytes: storage.limitBytes == null ? null : toCount(storage.limitBytes) || null }
-      : null,
-  };
+export function getOverview(projectId: string): Promise<Overview> {
+  return request("GET", `${p(projectId)}/overview`);
 }
 
-/** What the server did about round, from a server answer; null when absent or not an object. */
-export function toRoundInfo(body: unknown): RoundInfo | null {
-  if (!body || typeof body !== "object") return null;
-  const record = body as Record<string, unknown>;
-  const state: RoundState = record.state === "added" || record.state === "own" ? record.state : "none";
-  const codes = Array.isArray(record.roundCodes) ? (record.roundCodes as Record<string, unknown>[]) : [];
-  return {
-    state,
-    refusal: typeof record.refusal === "string" && record.refusal ? record.refusal : null,
-    keyCount: toCount(record.keyCount),
-    roundIndex: typeof record.roundIndex === "number" ? record.roundIndex : null,
-    roundCodes: codes
-      .filter((c) => c && (typeof c.code === "string" || typeof c.code === "number"))
-      .map((c) => ({ code: String(c.code), label: typeof c.label === "string" ? c.label : "" })),
-    reassessmentCode: typeof record.reassessmentCode === "string" ? record.reassessmentCode : null,
-    note: toNoteInfo(record.note),
-  };
+/** Uploads the project file; answers what the server did about round. */
+export async function uploadCep(projectId: string, file: Blob, onProgress?: Progress): Promise<RoundInfo> {
+  return (await upload<CepUploadAnswer>("PUT", `${p(projectId)}/cep`, file, "application/zip", onProgress)).round;
 }
 
-function toNoteInfo(body: unknown): NoteInfo | null {
-  if (!body || typeof body !== "object") return null;
-  const record = body as Record<string, unknown>;
-  const state = record.state === "added" ? "added" : "none";
-  return {
-    state,
-    refusal: typeof record.refusal === "string" && record.refusal ? record.refusal : null,
-    column: state === "added" && typeof record.column === "number" ? record.column : null,
-  };
-}
-
-/** Uploads the project file; returns what the server did about round (null from older servers). */
-export async function uploadCep(projectId: string, file: Blob, onProgress?: Progress): Promise<RoundInfo | null> {
-  const body = await upload<Record<string, unknown> | null>("PUT", `${p(projectId)}/cep`, file, "application/zip", onProgress);
-  return toRoundInfo(body?.round);
-}
-
-/** A Collect Earth backup's records against the project (POST .../records/import/preview): nothing stored. */
-export interface CollectImportPreview {
-  records: number;
-  submitted: number;
-  drafts: number;
-  newRecords: number;
-  /** In the project already, newer there: left as they are. */
-  newerThere: number;
-  /** In the project already, older there: replaced. */
-  olderThere: number;
-  /** Who collected them: the name Collect Earth wrote, the username they are kept under, whether a member. */
-  operators: { name: string; username: string; records: number; member: boolean }[];
-  /** Up to 20 files that could not be read, and how many in all. */
-  problems: string[];
-  problemCount: number;
-}
-
-export interface CollectImportResult extends CollectImportPreview {
-  stored: number;
-  kept: number;
-}
+export type { CollectImportPreview, CollectImportResult } from "../../src/wire/projects";
 
 /** `query`: collectImportQuery, the accounts the coordinator named for the operators. */
 export function previewCollectImport(projectId: string, file: Blob, query: string, onProgress?: Progress): Promise<CollectImportPreview> {
@@ -1605,38 +1288,35 @@ export function importCollectData(projectId: string, file: Blob, query: string, 
 }
 
 /** What the server did about round in the current project file; null before any upload. */
-export async function getRoundInfo(projectId: string): Promise<RoundInfo | null> {
-  return toRoundInfo(await request<unknown>("GET", `${p(projectId)}/round`));
+export function getRoundInfo(projectId: string): Promise<RoundAnswer> {
+  return request("GET", `${p(projectId)}/round`);
 }
+
+export type { ImageryAnswer, PlotLayoutAnswer, PlotLayoutChangeAnswer, PropertiesValues } from "../../src/wire/projects";
 
 /** The plot layout keys the project file has (Collect Earth's Settings > Plot), and whether records exist. */
-export interface ProjectPlotLayout {
-  layout: Record<string, string>;
-  recordsExist: boolean;
-}
-
-export function getPlotLayout(projectId: string): Promise<ProjectPlotLayout> {
-  return request<ProjectPlotLayout>("GET", `${p(projectId)}/plot-layout`);
+export function getPlotLayout(projectId: string): Promise<PlotLayoutAnswer> {
+  return request("GET", `${p(projectId)}/plot-layout`);
 }
 
 /** Writes the changed plot layout settings into the project file; answers the layout as it is now. */
-export function setPlotLayout(projectId: string, changes: Record<string, string>): Promise<{ layout: Record<string, string> }> {
-  return request<{ layout: Record<string, string> }>("PUT", `${p(projectId)}/plot-layout`, { json: changes });
+export function setPlotLayout(projectId: string, changes: PropertiesValues): Promise<PlotLayoutChangeAnswer> {
+  return request("PUT", `${p(projectId)}/plot-layout`, { json: changes });
 }
 
 /** The imagery window keys the project file has (Collect Earth's Settings > Imagery, without the Planet key). */
-export function getImagery(projectId: string): Promise<{ imagery: Record<string, string> }> {
-  return request<{ imagery: Record<string, string> }>("GET", `${p(projectId)}/imagery`);
+export function getImagery(projectId: string): Promise<ImageryAnswer> {
+  return request("GET", `${p(projectId)}/imagery`);
 }
 
 /** Writes the changed imagery window settings into the project file; answers them as they are now. */
-export function setImagery(projectId: string, changes: Record<string, string>): Promise<{ imagery: Record<string, string> }> {
-  return request<{ imagery: Record<string, string> }>("PUT", `${p(projectId)}/imagery`, { json: changes });
+export function setImagery(projectId: string, changes: PropertiesValues): Promise<ImageryAnswer> {
+  return request("PUT", `${p(projectId)}/imagery`, { json: changes });
 }
 
 /** Which code of the survey's own round marks re-assessments (null: none). */
-export async function setReassessmentCode(projectId: string, reassessmentCode: string | null): Promise<RoundInfo | null> {
-  return toRoundInfo(await request<unknown>("PUT", `${p(projectId)}/round`, { json: { reassessmentCode } }));
+export function setReassessmentCode(projectId: string, reassessmentCode: string | null): Promise<RoundInfo> {
+  return request("PUT", `${p(projectId)}/round`, { json: { reassessmentCode } });
 }
 
 /**
@@ -1700,8 +1380,7 @@ export function previewInvite(token: string): Promise<JoinPreview> {
 // --- people -----------------------------------------------------------------------------------
 
 export async function listMembers(projectId: string): Promise<Member[]> {
-  const body = await request<{ members?: Member[] }>("GET", `${p(projectId)}/members`);
-  return (body?.members ?? []).map((m) => ({ ...m, role: asRole(m.role), disabled: m.disabled === true }));
+  return (await request<MembersAnswer>("GET", `${p(projectId)}/members`)).members;
 }
 
 export async function setMemberRole(projectId: string, userId: string, role: Role): Promise<void> {
@@ -1725,18 +1404,17 @@ export async function removeMember(projectId: string, userId: string): Promise<v
 
 // --- plot files and assignments ----------------------------------------------------------
 
-export async function listCsvFiles(projectId: string): Promise<CsvFile[]> {
-  const body = await request<{ csvFiles?: CsvFile[] }>("GET", `${p(projectId)}/csv-files`);
-  return body?.csvFiles ?? [];
+export async function listCsvFiles(projectId: string): Promise<ListedCsvFile[]> {
+  return (await request<CsvFilesAnswer>("GET", `${p(projectId)}/csv-files`)).csvFiles;
 }
 
 /**
  * Uploads (or replaces) a plot file. A replacement that drops plots people hold or submitted
  * is refused with code "replace_needs_confirm" (its details: ReplaceImpact) unless `confirmReplace`.
  */
-export function uploadCsvFile(projectId: string, file: File, onProgress?: Progress, confirmReplace = false): Promise<CsvFile> {
+export function uploadCsvFile(projectId: string, file: File, onProgress?: Progress, confirmReplace = false): Promise<CsvUploadAnswer> {
   const query = confirmReplace ? "?confirm=replace" : "";
-  return upload<CsvFile>("PUT", `${p(projectId)}/csv-files/${encodeURIComponent(file.name)}${query}`, file, "text/csv", onProgress);
+  return upload<CsvUploadAnswer>("PUT", `${p(projectId)}/csv-files/${encodeURIComponent(file.name)}${query}`, file, "text/csv", onProgress);
 }
 
 /** The plot files a project file brings in its grid folder (grid/*.csv, sub-folders left out). */
@@ -1782,31 +1460,7 @@ export async function mergeGridFiles(files: File[], name: string): Promise<{ mer
   return { merged: new File(chunks, name, { type: "text/csv" }), separate };
 }
 
-/** How plot design lays out the plots over the area of interest. */
-export type PlotDesign =
-  | { method: "random"; count: number }
-  | { method: "grid"; spacingMeters: number; randomOffset: boolean }
-  | { method: "stratified"; field: string; allocation: "equal" | "proportional"; count: number };
-
-/** The area of interest as sent: a GeoJSON text, or a zipped shapefile in base64. */
-export type DesignArea = { geojson: string } | { shapefile: string };
-
-/** The area as the server read it. */
-export interface DesignFacts {
-  features: number;
-  fields: string[];
-  areaKm2: number;
-  /** Most plots a design may make. */
-  max: number;
-}
-
-/** How many plots a design makes, laid out with `seed`. */
-export interface DesignPlan extends DesignFacts {
-  plots: number;
-  tooMany: boolean;
-  strata: { value: string; areaKm2: number; plots: number }[] | null;
-  seed: number;
-}
+export type { CsvUploadAnswer, DesignArea, DesignFacts, DesignPlan, DesignStratum, PlotDesign } from "../../src/wire/plotFiles";
 
 const designPath = (projectId: string) => `${p(projectId)}/plot-design`;
 
@@ -1821,11 +1475,7 @@ export async function generatePlotDesign(projectId: string, area: DesignArea, de
   return response.text();
 }
 
-/** A SIGRID country package: its name, and its file name's stem (Cote_d_Ivoire). */
-export interface SigridCountry {
-  name: string;
-  file: string;
-}
+export type { SigridCountries, SigridCountry, SigridFacts } from "../../src/wire/plotFiles";
 
 /** What a SIGRID choice is: the country, its provinces and districts (none: all of it), an area to clip to. */
 export type SigridChoice = {
@@ -1835,22 +1485,10 @@ export type SigridChoice = {
   districts: { province: string; district: string }[];
 } & ({ geojson: string } | { shapefile: string } | object);
 
-/** A SIGRID country as the server read it: plots per spacing (as `spacings`) by province and district, and for the choice. */
-export interface SigridFacts {
-  country: string;
-  spacings: number[];
-  provinces: { name: string; plots: number[]; districts: { name: string; plots: number[] }[] }[];
-  /** The plots per spacing of the provinces and districts chosen, before any clip. */
-  selected: number[];
-  max: number;
-  /** With a spacing: the plots of the whole choice (clip too). */
-  plots?: number;
-  tooMany?: boolean;
-}
 
 const sigridPath = (projectId: string) => `${p(projectId)}/sigrid`;
 
-export const listSigridCountries = (projectId: string) => request<{ countries: SigridCountry[]; spacings: number[]; max: number }>("GET", `${sigridPath(projectId)}/countries`);
+export const listSigridCountries = (projectId: string) => request<SigridCountries>("GET", `${sigridPath(projectId)}/countries`);
 
 export const planSigrid = (projectId: string, choice: SigridChoice) => request<SigridFacts>("POST", sigridPath(projectId), { json: choice });
 
@@ -1860,33 +1498,15 @@ export async function generateSigrid(projectId: string, choice: SigridChoice): P
   return response.text();
 }
 
-/** What replacing a plot file would take out of the project (the "replace_needs_confirm" error's details). */
-export interface ReplaceImpact {
-  removedPlots: number;
-  heldRemoved: number;
-  submittedRemoved: number;
-  keptPlots: number;
-  newPlots: number;
-  divided: boolean;
-}
+export type { ReplaceImpact } from "../../src/wire/plotFiles";
 
+/** What replacing a plot file would take out of the project: the details of the 409 "replace_needs_confirm" error. */
 export function replaceImpactOf(error: unknown): ReplaceImpact | null {
-  if (!(error instanceof ApiError) || error.code !== "replace_needs_confirm") return null;
-  const d = error.details;
-  const n = (key: string) => (typeof d[key] === "number" ? (d[key] as number) : 0);
-  return {
-    removedPlots: n("removedPlots"),
-    heldRemoved: n("heldRemoved"),
-    submittedRemoved: n("submittedRemoved"),
-    keptPlots: n("keptPlots"),
-    newPlots: n("newPlots"),
-    divided: d.divided === true,
-  };
+  return error instanceof ApiError && error.code === "replace_needs_confirm" ? (error.details as unknown as ReplaceImpact) : null;
 }
 
-export async function listAssignments(projectId: string): Promise<Assignment[]> {
-  const body = await request<{ assignments?: Assignment[] }>("GET", `${p(projectId)}/assignments`);
-  return (body?.assignments ?? []).map((a) => ({ userId: a.userId, csvFileId: a.csvFileId }));
+export async function listAssignments(projectId: string): Promise<AssignmentDetail[]> {
+  return (await request<AssignmentsAnswer>("GET", `${p(projectId)}/assignments`)).assignments;
 }
 
 export async function saveAssignments(projectId: string, assignments: Assignment[]): Promise<void> {
@@ -1899,151 +1519,47 @@ const f = (projectId: string, csvFileId: string) => `${p(projectId)}/csv-files/$
 
 const strings = (value: unknown): string[] => (Array.isArray(value) ? value.map((v) => String(v ?? "")) : []);
 
-/** A stored division from the server; null for a whole file (or anything unreadable). */
-export function toDistribution(value: unknown): Distribution | null {
-  if (!value || typeof value !== "object") return null;
-  const d = value as Record<string, unknown>;
-  const order: DivisionOrder = d.order === "mixed" || d.order === "nearby" ? d.order : "file";
-  const extra: { overlapPercent?: number; seed?: number } = {};
-  if (typeof d.overlapPercent === "number" && d.overlapPercent > 0) extra.overlapPercent = d.overlapPercent;
-  if (typeof d.seed === "number") extra.seed = d.seed;
-  switch (d.mode) {
-    case "manual":
-      return d.order === "nearby" ? { mode: "manual", order: "nearby" } : { mode: "manual" };
-    case "even": {
-      const people = strings(d.people);
-      const percents = Array.isArray(d.percents) && d.percents.length === people.length ? d.percents.map((p) => toCount(p)) : null;
-      return { mode: "even", people, ...(percents ? { percents } : {}), order, ...extra };
-    }
-    case "column":
-      return {
-        mode: "column",
-        column: toCount(d.column),
-        groups: Array.isArray(d.groups)
-          ? d.groups.map((g: Record<string, unknown>) => ({ value: String(g?.value ?? ""), people: strings(g?.people) }))
-          : [],
-        order,
-        ...extra,
-      };
-  }
-  return null;
+export function getCsvColumns(projectId: string, csvFileId: string): Promise<CsvColumns> {
+  return request("GET", `${f(projectId, csvFileId)}/columns`);
 }
 
-export function toDistributionState(body: unknown): DistributionState {
-  const b = body && typeof body === "object" ? (body as Record<string, unknown>) : {};
-  const people = Array.isArray(b.people) ? (b.people as Record<string, unknown>[]) : [];
-  return {
-    distribution: toDistribution(b.distribution),
-    plotCount: toCount(b.plotCount),
-    unassigned: toCount(b.unassigned),
-    people: people.map((person) => ({
-      userId: String(person.userId ?? ""),
-      username: String(person.username ?? ""),
-      plots: toCount(person.plots),
-      overlap: toCount(person.overlap),
-      sampled: toCount(person.sampled),
-      reference: toCount(person.reference),
-      submitted: toCount(person.submitted),
-    })),
-  };
-}
-
-export async function getCsvColumns(projectId: string, csvFileId: string): Promise<CsvColumns> {
-  const body = await request<Record<string, unknown>>("GET", `${f(projectId, csvFileId)}/columns`);
-  const columns = Array.isArray(body?.columns) ? (body.columns as Record<string, unknown>[]) : [];
-  return {
-    plotCount: toCount(body?.plotCount),
-    hasHeader: body?.hasHeader === true,
-    separator: typeof body?.separator === "string" ? body.separator : ",",
-    columns: columns.map((c) => ({
-      index: toCount(c.index),
-      name: typeof c.name === "string" ? c.name : null,
-      distinctCount: toCount(c.distinctCount),
-      values: Array.isArray(c.values)
-        ? c.values.map((v: Record<string, unknown>) => ({ value: String(v?.value ?? ""), count: toCount(v?.count) }))
-        : null,
-    })),
-    nearby: toNearbyInfo(body?.nearby, toCount(body?.plotCount)),
-  };
-}
-
-/**
- * The server's answer on order "nearby". A server that does not say (or gives no reason) does
- * not offer it, and the reason is "unknown": nothing is claimed about the file's places.
- */
-export function toNearbyInfo(value: unknown, plotCount: number): NearbyInfo {
-  const v = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
-  const reason = v.reason === "other_srs" || v.reason === "no_places" ? v.reason : null;
-  if (v.available === true) {
-    return { available: true, reason: null, withPlace: toCount(v.withPlace), withoutPlace: toCount(v.withoutPlace), srid: null };
-  }
-  if (reason === null) return { available: false, reason: "unknown", withPlace: 0, withoutPlace: 0, srid: null };
-  return {
-    available: false,
-    reason,
-    withPlace: 0,
-    withoutPlace: v.withoutPlace === undefined ? plotCount : toCount(v.withoutPlace),
-    srid: typeof v.srid === "string" ? v.srid : null,
-  };
-}
-
-export async function getDistribution(projectId: string, csvFileId: string): Promise<DistributionState> {
-  return toDistributionState(await request<unknown>("GET", `${f(projectId, csvFileId)}/distribution`));
+export function getDistribution(projectId: string, csvFileId: string): Promise<DistributionSummary> {
+  return request("GET", `${f(projectId, csvFileId)}/distribution`);
 }
 
 /** Divides the file's plots (or, with dryRun, only says what the result would be). */
-export async function saveDistribution(projectId: string, csvFileId: string, distribution: Distribution, dryRun = false): Promise<DistributionState> {
-  const json = dryRun ? { ...distribution, dryRun: true } : distribution;
-  return toDistributionState(await request<unknown>("PUT", `${f(projectId, csvFileId)}/distribution`, { json }));
+export function saveDistribution(projectId: string, csvFileId: string, distribution: DivisionBody, dryRun = false): Promise<DistributionSummary> {
+  const json: DivisionBody = dryRun ? { ...distribution, dryRun: true } : distribution;
+  return request("PUT", `${f(projectId, csvFileId)}/distribution`, { json });
 }
 
 /**
  * Gives the plots `fromUserId` has not submitted to `toUserId`: all of them, or (`which`) `count` of the plots
  * they have to assess (the last of their list), or only `plots` (picked on the map).
  */
-export async function moveUnfinished(
+export function moveUnfinished(
   projectId: string,
   csvFileId: string,
   fromUserId: string,
   toUserId: string,
   which: { count?: number; plots?: string[] } = {},
-): Promise<DistributionState & { moved: number; notMoved: number; droppedChecks: number }> {
-  const body = await request<Record<string, unknown>>("POST", `${f(projectId, csvFileId)}/move-unfinished`, { json: { fromUserId, toUserId, ...which } });
-  // notMoved: kept with `from` (`to` assessed or checked them); droppedChecks: copies to compare of plots `to` collects.
-  return { ...toDistributionState(body), moved: toCount(body?.moved), notMoved: toCount(body?.notMoved), droppedChecks: toCount(body?.droppedChecks) };
+): Promise<MoveUnfinishedAnswer> {
+  return request("POST", `${f(projectId, csvFileId)}/move-unfinished`, { json: { fromUserId, toUserId, ...which } });
 }
 
-/** A rebalance's plan: each person's plots still to assess before (`left`) and after (`target`), and the moves. */
-export interface RebalancePlan {
-  left: Record<string, number>;
-  target: Record<string, number>;
-  moves: { from: string; to: string; count: number }[];
-}
+export type { MoveUnfinishedAnswer, RebalanceAnswer, RebalanceMove, RebalancePlan } from "../../src/wire/plotFiles";
 
 /**
  * Shares again the plots still to assess of `people` by their weights (1 and 1: equally; 0: gives all away); what is
  * submitted stays. `dryRun`: the plan only, nothing saved. A file given whole has nothing to share (ApiError 409).
  */
-export async function rebalance(
+export function rebalance(
   projectId: string,
   csvFileId: string,
   people: { userId: string; weight: number }[],
   dryRun: boolean,
-): Promise<RebalancePlan & { saved: boolean; moved: number; notMoved: number; state: DistributionState | null }> {
-  const body = await request<Record<string, unknown>>("POST", `${f(projectId, csvFileId)}/rebalance`, { json: { people, dryRun } });
-  const counts = (v: unknown): Record<string, number> =>
-    Object.fromEntries(Object.entries(obj(v)).map(([k, n]) => [k, toCount(n)]));
-  const moves = list(body?.moves).map((m) => ({ from: text(m.from), to: text(m.to), count: toCount(m.count) }));
-  const saved = body?.saved === true;
-  return {
-    left: counts(body?.left),
-    target: counts(body?.target),
-    moves,
-    saved,
-    moved: toCount(body?.moved),
-    notMoved: toCount(body?.notMoved),
-    state: saved ? toDistributionState(body) : null,
-  };
+): Promise<RebalanceAnswer> {
+  return request("POST", `${f(projectId, csvFileId)}/rebalance`, { json: { people, dryRun } });
 }
 
 // --- quality ---------------------------------------------------------------------------------
@@ -2566,13 +2082,7 @@ export async function downloadExport(projectId: string, format: ExportFormat, op
   return { blob: await response.blob(), filename: attachmentName(response, `collect-earth-data.${format}`) };
 }
 
-/** What "Records to download" offers: when you last downloaded the data (ms, or null), and the survey's plot questions with the code lists of the code ones. */
-export interface ExportChoices {
-  lastDownload: number | null;
-  languages: string[];
-  questions: { key: string; name: string; labels: Record<string, string>; list: string | null }[];
-  lists: Record<string, AnalysisListItem[]>;
-}
+export type { ExportChoices } from "../../src/wire/data";
 
 export const getExportChoices = (projectId: string) => request<ExportChoices>("GET", `${p(projectId)}/export/choices`);
 
@@ -2588,77 +2098,11 @@ function attachmentName(response: Response, fallback: string): string {
   }
 }
 
-/** Which records a Collect Earth backup holds: the first assessments (round 1), or every round. */
-export type BackupRounds = "1" | "all";
-
-/** Which file: the zip Collect Earth imports, or OpenForis Collect's own backup (.collect-backup). */
-export type BackupFormat = "zip" | "collect";
-
-/** What a Collect Earth backup would hold with one choice. */
-export interface BackupCounts {
-  /** Records in the backup (one per plot and round). */
-  records: number;
-  /** Of them, not submitted. */
-  drafts: number;
-  /** Records of other rounds left out (the checks, with the first assessments only). */
-  otherRounds: number;
-  /** The collectors' measurements of reference plots, left out in every choice. */
-  measurements: number;
-  /** Records left out because another record has the same plot and round (Collect Earth keeps one). */
-  sameKey: number;
-  /** Some of the plots and rounds that had more than one record ("17,1"). */
-  sameKeyExamples: string[];
-  /** Records left out because the server has no XML for them. */
-  noXml: number;
-  /** About how large the file is, in bytes. */
-  estimatedBytes: number;
-}
-
-export interface BackupSummary {
-  /** A project file was uploaded (the backup carries its survey). */
-  projectFile: boolean;
-  /** The survey has the round key, so every round can go in the backup. */
-  roundKey: boolean;
-  /** The round codes of the first assessments ("1"; a survey's own codes), or null when they are told apart by who holds the plots. */
-  firstCodes: string[] | null;
-  /** The project file carries the coordinator's note (Task 16). */
-  note: boolean;
-  first: BackupCounts;
-  /** Null without the round key. */
-  all: BackupCounts | null;
-}
-
-function toBackupCounts(value: unknown): BackupCounts {
-  const v = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
-  return {
-    records: toCount(v.records),
-    drafts: toCount(v.drafts),
-    otherRounds: toCount(v.otherRounds),
-    measurements: toCount(v.measurements),
-    sameKey: toCount(v.sameKey),
-    sameKeyExamples: Array.isArray(v.sameKeyExamples) ? v.sameKeyExamples.filter((k): k is string => typeof k === "string") : [],
-    noXml: toCount(v.noXml),
-    estimatedBytes: toCount(v.estimatedBytes),
-  };
-}
-
-export function toBackupSummary(value: unknown): BackupSummary {
-  const v = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
-  const rounds = v.rounds && typeof v.rounds === "object" ? (v.rounds as Record<string, unknown>) : {};
-  const roundKey = v.roundKey === true;
-  return {
-    projectFile: v.projectFile === true,
-    roundKey,
-    firstCodes: Array.isArray(v.firstCodes) ? v.firstCodes.filter((c): c is string => typeof c === "string") : null,
-    note: v.note === true,
-    first: toBackupCounts(rounds["1"]),
-    all: roundKey && rounds.all ? toBackupCounts(rounds.all) : null,
-  };
-}
+export type { BackupCounts, BackupFormat, BackupLinkAnswer, BackupRounds, BackupSummary } from "../../src/wire/data";
 
 /** What the Collect Earth backup would hold with each choice. */
-export async function getBackupSummary(projectId: string): Promise<BackupSummary> {
-  return toBackupSummary(await request<unknown>("GET", `${p(projectId)}/exports/collect-backup/summary`));
+export function getBackupSummary(projectId: string): Promise<BackupSummary> {
+  return request("GET", `${p(projectId)}/exports/collect-backup/summary`);
 }
 
 /**
@@ -2666,10 +2110,11 @@ export async function getBackupSummary(projectId: string): Promise<BackupSummary
  * from ZIP", or OpenForis Collect's own backup): used once within a minute, by the browser itself,
  * which saves the file to disk as it comes and shows its progress (the page holds none of it).
  */
-export async function getBackupLink(projectId: string, rounds: BackupRounds, format: BackupFormat): Promise<{ url: string; expiresAt: number }> {
-  const body = await request<{ url?: unknown; expiresAt?: unknown }>("POST", `${p(projectId)}/exports/collect-backup/link`, { json: { rounds, format } });
-  if (typeof body?.url !== "string" || !body.url.startsWith("/v1/collect-backup/")) throw new ApiError(500, "http_500");
-  return { url: body.url, expiresAt: toMillis(body.expiresAt) ?? 0 };
+export async function getBackupLink(projectId: string, rounds: BackupRounds, format: BackupFormat): Promise<BackupLinkAnswer> {
+  const link = await request<BackupLinkAnswer>("POST", `${p(projectId)}/exports/collect-backup/link`, { json: { rounds, format } });
+  // The browser is sent to it: only a link of this server's backup is followed.
+  if (!link.url.startsWith("/v1/collect-backup/")) throw new ApiError(500, "http_500");
+  return link;
 }
 
 // --- platform admin ---------------------------------------------------------------------

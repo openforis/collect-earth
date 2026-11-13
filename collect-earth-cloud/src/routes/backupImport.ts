@@ -23,6 +23,7 @@ import { plotFileCsv, type DesignedPlot } from '../plotDesign.js';
 import { isNumber, parsePlotFile } from '../plots.js';
 import { requireSession } from '../plugins/projectAuth.js';
 import type { Store } from '../store/store.js';
+import type { BackupImportAnswer, BackupImportPreview } from '../wire/projects.js';
 import { acceptCep } from './platform.js';
 import { plotFileFormat, type PlotFileFormat } from './plotDesign.js';
 import { creationRefusal } from './projects.js';
@@ -164,7 +165,7 @@ function collectorsOf(records: readonly BackupRecord[]): { name: string; records
 }
 
 /** What the dashboard shows before anything is made. */
-function preview(read: ReadBackup, plotFile: GivenPlotFile | null, firstRound: string | null) {
+function preview(read: ReadBackup, plotFile: GivenPlotFile | null, firstRound: string | null): BackupImportPreview {
   const survey = read.zip.survey;
   const { withRecords, done, noPlace } = plotsOf(read, firstRound);
   const inFile = plotFile ? new Set(plotFile.rows.map((r) => r.plot)) : null;
@@ -423,7 +424,7 @@ export async function registerBackupImportRoutes(app: FastifyInstance, store: St
         collectors: [...operators].map(([typed, o]) => ({ name: typed, username: o.username, account: o.userId !== null })),
         // what the preview showed, for the report
         backup: preview(read, plotFile, firstRound),
-      });
+      } satisfies BackupImportAnswer);
     } catch (e) {
       await store.deleteProject(projectId);
       throw e;

@@ -4,14 +4,9 @@
 // Uncertainty page's total area. The expansion factor of a plot is its stratum's area divided by the stratum's plots
 // with a submitted first assessment, as Collect Earth's RegionCalculationUtils works it out.
 import { areaOf, csvSeparatorOf, parseCsv, type Factors } from './analysis.js';
+import type { AreaSettings, StrataAreas } from './wire/plotFiles.js';
 
-export interface StrataAreas {
-  /** The columns whose values make a stratum: questions of the survey or columns of the plot files. */
-  columns: string[];
-  strata: { values: string[]; area: number }[];
-}
-
-export type AreaSettings = ({ mode: 'strata' } & StrataAreas) | { mode: 'total'; area: number };
+export type { AreaSettings, StrataAreas } from './wire/plotFiles.js';
 
 /** What a setting may hold. */
 export const AREA_LIMITS = { columns: 5, strata: 20_000, valueChars: 500, area: 1e12 };

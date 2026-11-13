@@ -5,19 +5,10 @@
 import type { DesignedPlot } from '../plotDesign.js';
 import { CeoImportError, type CeoProject } from './project.js';
 import type { Report } from './report.js';
+import type { PlotLayout } from '../wire/projects.js';
 
 /** Collect Earth's plot settings (project_definition.properties; KmlGeneratorService reads them). */
-export interface PlotLayout {
-  shape: 'CIRCLE' | 'SQUARE';
-  /** number_of_sampling_points_in_plot */
-  points: number;
-  /** distance_between_sample_points: the circle's radius, or the square's spacing between points */
-  distance: number;
-  /** distance_to_plot_boundaries: from the outer points to the square's edge (unused by a circle) */
-  boundary: number;
-  /** inner_point_side: the side of each sample point's square, in metres */
-  pointSide: number;
-}
+export type { PlotLayout } from '../wire/projects.js';
 
 /** The plot side Collect Earth uses when CEO's plots are uploaded shapes (CEO gives no size for them). */
 export const DEFAULT_SIDE_M = 100;
