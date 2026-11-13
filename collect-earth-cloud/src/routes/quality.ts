@@ -21,6 +21,17 @@ import type { Store } from '../store/store.js';
 import type { DecisionKind, GuidanceNoteInput, QualityDecision, QualitySettings } from '../types.js';
 import type { SurveyHealthAnswer } from '../wire/checks.js';
 import type { BulkDecisionAnswer, ReviewQueueAnswer } from '../wire/review.js';
+import type {
+  AnswerColumnsAnswer,
+  AnswersAnswer,
+  FlagsAnswer,
+  GuidanceNote,
+  GuidanceNotesAnswer,
+  PublicDecision,
+  QualityAnswer,
+  QualitySettingsAnswer,
+} from '../wire/quality.js';
+import type { MyQualityAnswer, TeamReportAnswer } from '../wire/reports.js';
 
 /** Longest decision comment and guidance note, in characters (the tables check it too). */
 export const MAX_TEXT = 2000;
@@ -76,7 +87,7 @@ function noteInput(body: unknown): GuidanceNoteInput | BadRequest {
  * and whether whoever decided has a record of the plot (a coordinator may decide their own
  * plot; the page says so). `byAssessor` is false when the figures are not at hand.
  */
-export function publicDecision(d: QualityDecision, flags?: FlagTable | null): Omit<QualityDecision, 'seen'> & { byAssessor: boolean } {
+export function publicDecision(d: QualityDecision, flags?: FlagTable | null): PublicDecision {
   const { seen: _seen, ...rest } = d;
   return { ...rest, byAssessor: !!flags && d.decidedBy !== null && plotOperators(flags, d.plot).has(d.decidedBy) };
 }
@@ -136,6 +147,11 @@ function teamOnly(stats: AnswerStats): AnswerStats {
     numbers: stats.numbers.map((n) => ({ ...n, people: [] })),
     flags: [],
   };
+}
+
+/** The quality settings as sent: the margins, and the "very fast" threshold in force (the default when none is set). */
+function settingsAnswer(settings: QualitySettings): QualitySettingsAnswer {
+  return { margins: settings.margins, fastSeconds: fastSecondsOf(settings) };
 }
 
 /** The plot of a decision route, or null when it is not 1-MAX_NAME characters. */
@@ -210,7 +226,17 @@ export async function registerQualityRoutes(
     const { pairs: _pairs, ...report } = figures.report;
     // The people left out of these figures (a coordinator's choice), with why.
     const excluded = members.filter((m) => m.excluded).map((m) => ({ username: m.username, reason: m.excluded!.reason }));
-    return reply.send({ ...report, computedAt: figures.computedAt, stale: figures.stale, decisions: decisions.map((d) => publicDecision(d, figures.flags)), notes, settings, options, excluded });
+    const answer: QualityAnswer = {
+      ...report,
+      computedAt: figures.computedAt,
+      stale: figures.stale,
+      decisions: decisions.map((d) => publicDecision(d, figures.flags)),
+      notes,
+      settings: settingsAnswer(settings),
+      options,
+      excluded,
+    };
+    return reply.send(answer);
   });
 
   // Answers per person (Task 4), for coordinators and reviewers (never collectors, never
@@ -295,7 +321,7 @@ export async function registerQualityRoutes(
         people: coordinator ? [...figures.answers.operators].sort() : [],
         files: files.map((f) => ({ id: f.id, filename: f.filename })).sort((a, b) => a.filename.localeCompare(b.filename)),
       },
-    });
+    } satisfies AnswersAnswer);
   });
 
   // Pattern flags (Task 5), for coordinators and reviewers (never collectors, never My
@@ -327,7 +353,7 @@ export async function registerQualityRoutes(
       ? null
       : new Set([...figures.reference.byPlot.map((p) => p.plot), ...(userId ? await copiesHeld(store, projectId, userId) : [])]);
     const flags = patternFlags(figures, decisions, { fastSeconds: fastSecondsOf(settings), person, kind: kind as FlagKind | null, hidden });
-    return reply.send({ ...flags, ...(coordinator ? {} : { people: [] }), computedAt: figures.computedAt, stale: figures.stale });
+    return reply.send({ ...flags, ...(coordinator ? {} : { people: [] }), computedAt: figures.computedAt, stale: figures.stale } satisfies FlagsAnswer);
   });
 
   // Survey health (Task 6), for coordinators and reviewers (never collectors): per question,
@@ -518,7 +544,7 @@ export async function registerQualityRoutes(
     // A reviewer is offered no value of fewer than MIN_REVIEWER_GROUP plots (the answers route refuses them too).
     const offered =
       request.membership!.role === 'admin' ? columns : columns.map((c) => ({ ...c, values: c.values && c.values.filter((v) => v.count >= MIN_REVIEWER_GROUP) }));
-    return reply.send({ hasHeader: plotFile.header !== null, columns: offered });
+    return reply.send({ hasHeader: plotFile.header !== null, columns: offered } satisfies AnswerColumnsAnswer);
   });
 
   // A collector's own report (any member signed in as a person; a project token is no
@@ -537,7 +563,7 @@ export async function registerQualityRoutes(
     if (!figures) {
       return reply;
     }
-    return reply.send({ ...personalReport(figures.report, user.username, notes, outline), computedAt: figures.computedAt, stale: figures.stale });
+    return reply.send({ ...personalReport(figures.report, user.username, notes, outline), computedAt: figures.computedAt, stale: figures.stale } satisfies MyQualityAnswer);
   });
 
   // The team report for training (admin): mix-ups, examples, notes and agreement, no names.
@@ -551,7 +577,7 @@ export async function registerQualityRoutes(
     if (!figures) {
       return reply;
     }
-    return reply.send({ ...teamReport(figures.report, notes, outline), computedAt: figures.computedAt, stale: figures.stale });
+    return reply.send({ ...teamReport(figures.report, notes, outline), computedAt: figures.computedAt, stale: figures.stale } satisfies TeamReportAnswer);
   });
 
   // Number margins (percent, 0-100), only for the number questions of the served survey,
@@ -581,7 +607,7 @@ export async function registerQualityRoutes(
     // One write that keeps what is not sent: a margins save and a threshold save at the same time both stay.
     const saved = await store.patchQualitySettings(projectId, patch);
     await audit(store, request, 'settings.changed', { setting: 'quality' });
-    return reply.send(saved);
+    return reply.send(settingsAnswer(saved));
   });
 
   // Decisions: coordinators and reviewers (they work the review queue, Decision 3); audited with who.
@@ -683,7 +709,7 @@ export async function registerQualityRoutes(
   });
 
   app.get('/v1/projects/:pid/quality/notes', admin, async (request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send({ notes: await store.listGuidanceNotes(request.membership!.projectId) });
+    return reply.send({ notes: await store.listGuidanceNotes(request.membership!.projectId) } satisfies GuidanceNotesAnswer);
   });
 
   app.post('/v1/projects/:pid/quality/notes', admin, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -692,7 +718,7 @@ export async function registerQualityRoutes(
       return reply.code(400).send(input);
     }
     const note = await store.createGuidanceNote(request.membership!.projectId, input, request.membership!.userId ?? null);
-    return reply.code(201).send(note);
+    return reply.code(201).send(note satisfies GuidanceNote);
   });
 
   app.put('/v1/projects/:pid/quality/notes/:id', admin, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -702,7 +728,7 @@ export async function registerQualityRoutes(
     }
     const id = (request.params as { id: string }).id;
     const note = await store.updateGuidanceNote(request.membership!.projectId, id, input, request.membership!.userId ?? null);
-    return note ? reply.send(note) : reply.code(404).send({ error: 'not_found' });
+    return note ? reply.send(note satisfies GuidanceNote) : reply.code(404).send({ error: 'not_found' });
   });
 
   app.delete('/v1/projects/:pid/quality/notes/:id', admin, async (request: FastifyRequest, reply: FastifyReply) => {

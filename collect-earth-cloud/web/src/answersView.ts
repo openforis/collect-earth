@@ -1,6 +1,6 @@
 // The Quality tab's Answers section (Task 4): what it shows, worked out from the
 // server's figures. Pure, so it is tested on its own.
-import { ApiError, type AnswerFlag, type AnswersData, type ChoiceAnswers, type NumberAnswers, type NumberSpread } from "./api";
+import { ApiError, type AnswerFlag, type AnswersAnswer, type ChoiceStats, type NumberStats, type Spread } from "./api";
 import { formatNumber } from "./format";
 import type { Translate } from "./i18n";
 import { formatRate } from "./qualityView";
@@ -23,7 +23,7 @@ export interface AnswerQuestion {
 }
 
 /** The questions with answers, in the survey's order (choices, then numbers, as the server lists them), with the server's count of flags on each (not only the listed ones). */
-export function answerQuestions(data: AnswersData): AnswerQuestion[] {
+export function answerQuestions(data: Pick<AnswersAnswer, "choices" | "numbers">): AnswerQuestion[] {
   return [
     ...data.choices.map((c) => ({ key: c.key, label: c.label, kind: "choice" as const, flags: c.flags })),
     ...data.numbers.map((n) => ({ key: n.key, label: n.label, kind: "number" as const, flags: 0 })),
@@ -55,7 +55,7 @@ const shareOrNull = (count: number, of: number) => (of > 0 ? count / of : null);
  * The rows of a choice question. With `person` (a username with a row in it): their
  * shares and the rest of the team's, the same comparison the flags make.
  */
-export function choiceRows(choice: ChoiceAnswers, person: string | null): ChoiceRow[] {
+export function choiceRows(choice: ChoiceStats, person: string | null): ChoiceRow[] {
   const mine = person === null ? undefined : choice.people.find((p) => p.username === person);
   return choice.codes.map((code, i) => {
     const row: ChoiceRow = { code: code.code, label: code.label, count: code.count, share: share(code.count, choice.answered), person: null, rest: null };
@@ -70,7 +70,7 @@ export function choiceRows(choice: ChoiceAnswers, person: string | null): Choice
 }
 
 /** The rest of the team's row of a choice's table (everyone answering but `person`), or null without a person in it. */
-export function restOfTeam(choice: ChoiceAnswers, person: string | null): { answered: number; counts: number[] } | null {
+export function restOfTeam(choice: ChoiceStats, person: string | null): { answered: number; counts: number[] } | null {
   const mine = person === null ? undefined : choice.people.find((p) => p.username === person);
   if (!mine) return null;
   return { answered: choice.answered - mine.answered, counts: choice.codes.map((c, i) => c.count - (mine.counts[i] ?? 0)) };
@@ -150,13 +150,13 @@ export function numberText(value: number | null, language: string): string {
 }
 
 /** "median 12 (half of the plots between 8 and 20)" or "no numbers". */
-export function spreadText(t: Translate, s: NumberSpread, language: string): string {
+export function spreadText(t: Translate, s: Spread, language: string): string {
   if (s.median === null) return t("answers.noNumbers");
   return t("answers.spread", { median: numberText(s.median, language), q1: numberText(s.q1, language), q3: numberText(s.q3, language) });
 }
 
 /** The scale of a number question's chart: from the lowest Q1 to the highest Q3 of the team and the people shown (a single value gets some room). */
-export function spreadScale(n: NumberAnswers): { min: number; max: number } {
+export function spreadScale(n: NumberStats): { min: number; max: number } {
   const all = [n.team, ...n.people].filter((s) => s.q1 !== null && s.q3 !== null);
   if (all.length === 0) return { min: 0, max: 1 };
   let min = Math.min(...all.map((s) => s.q1!));

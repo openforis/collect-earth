@@ -11,6 +11,7 @@ import type { Config } from '../config.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import type { Store } from '../store/store.js';
 import type { AiRunRow, AiRunSummary } from '../types.js';
+import type { AiRunAnswer, AiRunListed, AiRunsAnswer, AiRunStarted } from '../wire/ai.js';
 import type { ProjectAi } from '../wire/projectSettings.js';
 import { areasSource, modelOf } from './analysis.js';
 
@@ -36,7 +37,7 @@ const NOT_ENABLED = {
 const bad = (reason: string) => ({ error: 'bad_request', reason });
 
 /** A run as listed: who, when, what, and its tokens; never a result, a question or tool arguments. */
-function summaryOf(r: AiRunSummary) {
+function summaryOf(r: AiRunSummary): AiRunListed {
   return {
     id: r.id,
     kind: r.kind,
@@ -55,13 +56,13 @@ function summaryOf(r: AiRunSummary) {
 }
 
 /** One run for the dashboard: its progress (the tools used so far), and its result with real names and plot ids. */
-function runOf(r: AiRunRow) {
+function runOf(r: AiRunRow): AiRunAnswer {
   return {
     ...summaryOf(r),
     // Stored with pseudonyms for the usernames in it: shown with the real names.
     question: r.question !== null && r.questionNames ? questionWithRealNames(r.question, r.questionNames) : r.question,
     progress: { tools: r.toolCalls.map((c) => c.name) },
-    result: r.status === 'done' && r.result !== null ? withRealNames(r.result as StoredResult<unknown>) : null,
+    result: r.status === 'done' && r.result !== null ? withRealNames(r.result as StoredResult<NonNullable<AiRunAnswer['result']>>) : null,
     error: r.status === 'failed' ? { code: r.errorCode ?? 'server_error', message: r.error ?? '' } : null,
     refusal: r.status === 'refused' ? r.error : null,
   };
@@ -144,7 +145,7 @@ export async function registerAiRoutes(app: FastifyInstance, store: Store, confi
     }
     const started = await runs.start(projectId, userId, parsed, settings);
     if (started.ok) {
-      return reply.code(202).send({ runId: started.runId });
+      return reply.code(202).send({ runId: started.runId } satisfies AiRunStarted);
     }
     if (started.limit === 'busy') {
       return reply.code(409).send({ error: 'busy', reason: 'The assistant is already working for this project. Wait until it has finished.' });
@@ -254,7 +255,7 @@ export async function registerAiRoutes(app: FastifyInstance, store: Store, confi
     }
     await runs.failStale(projectId);
     // The views proposed for the analysis page are runs too (they count against the limits), but no part of the AI tab
-    return reply.send({ runs: (await store.listAiRuns(projectId, limit, { exceptViews: true })).map(summaryOf) });
+    return reply.send({ runs: (await store.listAiRuns(projectId, limit, { exceptViews: true })).map(summaryOf) } satisfies AiRunsAnswer);
   });
 
   app.get('/v1/projects/:pid/ai/runs/:id', admin, async (request: FastifyRequest, reply: FastifyReply) => {

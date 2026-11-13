@@ -201,30 +201,23 @@ describe("local mode: Quality", () => {
     }
   });
 
-  const flag = (over: Partial<PatternFlag>): PatternFlag => ({
-    kind: "very_fast",
+  const flag = (details: PatternFlag["details"] = { gapMs: 4000, previousPlot: "16" }, kind: PatternFlag["kind"] = "very_fast"): PatternFlag => ({
+    kind,
     plot: "17",
     operator: "ana",
     at: null,
-    gapMs: 4000,
-    previousPlot: "16",
-    runLength: null,
-    firstPlot: null,
-    questions: [],
-    decision: null,
-    decidedAt: null,
-    ...over,
+    details,
   });
 
   it("says 'your previous plot' in the flags", () => {
-    expect(flagText(t, flag({}), "en", { local: true })).toBe("Submitted 4 s after your previous plot (16).");
-    expect(flagText(t, flag({ previousPlot: null }), "en", { local: true })).toBe("Submitted 4 s after your previous plot.");
-    expect(flagText(t, flag({ kind: "same_as_before", runLength: 3, firstPlot: "14" }), "en", { local: true })).toBe(
+    expect(flagText(t, flag(), "en", { local: true })).toBe("Submitted 4 s after your previous plot (16).");
+    expect(flagText(t, flag({ gapMs: 4000, previousPlot: null }), "en", { local: true })).toBe("Submitted 4 s after your previous plot.");
+    expect(flagText(t, flag({ previousPlot: "16", runLength: 3, firstPlot: "14", answers: 4 }, "same_as_before"), "en", { local: true })).toBe(
       "Every answer is the same as on your previous plot (16): 3 plots in a row from plot 14.",
     );
-    expect(flagText(translator("fr"), flag({}), "fr", { local: true })).toContain("votre parcelle précédente");
+    expect(flagText(translator("fr"), flag(), "fr", { local: true })).toContain("votre parcelle précédente");
     // The cloud's are unchanged.
-    expect(flagText(t, flag({}), "en")).toBe("Submitted 4 s after their previous plot (16).");
+    expect(flagText(t, flag(), "en")).toBe("Submitted 4 s after their previous plot (16).");
   });
 
   it("orders the survey's health without checks or decisions", () => {

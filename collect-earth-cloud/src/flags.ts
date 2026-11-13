@@ -17,10 +17,12 @@ import type { AnswerTable, FirstAssessment } from './answerStats.js';
 import { keyRule, recordResolver, type QualityInput, type QualityReport } from './quality.js';
 import { BOOKKEEPING_KEYS, SUMMARY_VALUES_SEPARATOR } from './surveyOutline.js';
 import type { DecisionKind } from './types.js';
+import type { Flag, FlagCounts, FlagKind, PatternFlags } from './wire/quality.js';
 import type { Assessment } from './rounds.js';
 
-export const FLAG_KINDS = ['very_fast', 'same_as_before', 'required_empty', 'edited_after_decision', 'two_main', 'no_plot'] as const;
-export type FlagKind = (typeof FLAG_KINDS)[number];
+export type { Flag, FlagCounts, FlagDetails, FlagKind, PatternFlags } from './wire/quality.js';
+
+export const FLAG_KINDS: readonly FlagKind[] = ['very_fast', 'same_as_before', 'required_empty', 'edited_after_decision', 'two_main', 'no_plot'];
 
 /** The "very fast" threshold of a project that has not set one, in seconds. */
 export const DEFAULT_FAST_SECONDS = 15;
@@ -38,30 +40,6 @@ export const MIN_SAME_ANSWERS = 3;
 export const MAX_LISTED_FLAGS = 500;
 /** Required questions a table keeps (more are left out). */
 const MAX_REQUIRED = 65_000;
-
-/** One plot worth a look. A stable shape: the review queue (Task 7) is built from it. */
-export interface Flag {
-  kind: FlagKind;
-  /** The plot unit (as Difference.plot and the decisions), or for a plot in no file its id. */
-  plot: string;
-  /** The username of the person whose record it is: the only person a flag ever names. */
-  operator: string;
-  /** When that record was saved (modifiedOn, ms), or null when it is not known. */
-  at: number | null;
-  details: FlagDetails;
-}
-
-export type FlagDetails =
-  /** very_fast: ms since the same person's previous first assessment, and its plot (null: a plot hidden from the viewer). */
-  | { gapMs: number; previousPlot: string | null }
-  /** same_as_before: the plot before it (same answers), the run's length and its first plot (null: hidden from the viewer). */
-  | { previousPlot: string | null; runLength: number; firstPlot: string | null; answers: number }
-  /** required_empty: the questions left empty. */
-  | { questions: { key: string; label: string }[] }
-  /** edited_after_decision: the decision and when it was made. */
-  | { decision: DecisionKind; decidedAt: number }
-  /** two_main, no_plot: the record (the quality report's data problem). */
-  | { recordKey: string };
 
 /**
  * What the flags need of the answers, its rows those of the answer table (row r is the
@@ -421,8 +399,6 @@ function groupIndexOf(f: FlagTable): Map<string, number> {
   return m;
 }
 
-export type FlagCounts = Record<FlagKind, number>;
-
 export const noCounts = (): FlagCounts => ({ very_fast: 0, same_as_before: 0, required_empty: 0, edited_after_decision: 0, two_main: 0, no_plot: 0 });
 
 export interface FlagOptions {
@@ -453,22 +429,6 @@ export interface FlagDecision {
   decision: DecisionKind;
   decidedAt: number;
   seen?: readonly DecisionSeen[] | null;
-}
-
-export interface PatternFlags {
-  fastSeconds: number;
-  /** First assessments looked at (the answer table's rows). */
-  plots: number;
-  /** Flags of each kind, of the person when one is chosen; two_main and no_plot are all the report found. */
-  counts: FlagCounts;
-  /** Everyone with a flag, the most first: their counts by kind and in all. */
-  people: { username: string; counts: FlagCounts; total: number }[];
-  /** Flags that match the filters, listed or not. */
-  total: number;
-  /** Up to MAX_LISTED_FLAGS of them, newest first (the report lists up to 500 data problems: the two_main and no_plot listed are among those). */
-  flags: Flag[];
-  /** Whether the survey has questions required without condition (else required_empty can never be found). */
-  requiredQuestions: number;
 }
 
 /** The figures the flags are worked out from: the report and the two tables of one computation. */

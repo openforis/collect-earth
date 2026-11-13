@@ -22,11 +22,11 @@ import {
   getAnswerColumns,
   getAnswers,
   NO_ANSWERS_FILTER,
-  type AnswersData,
+  type AnswersAnswer,
   type AnswersFilter,
-  type ChoiceAnswers,
-  type NumberAnswers,
-  type NumberSpread,
+  type ChoiceStats,
+  type NumberStats,
+  type Spread,
 } from "../api";
 import { useApp, useLocalMode } from "../appContext";
 import {
@@ -169,7 +169,7 @@ function BarRows({
 }
 
 /** `local`: the local mode (one person): your plots only, no one to compare with. */
-function ChoiceView({ choice, person, narrowed, local }: { choice: ChoiceAnswers; person: string | null; narrowed: boolean; local: boolean }) {
+function ChoiceView({ choice, person, narrowed, local }: { choice: ChoiceStats; person: string | null; narrowed: boolean; local: boolean }) {
   const t = useT();
   const { language } = useApp();
   const rows = choiceRows(choice, person);
@@ -284,7 +284,7 @@ function ChoiceView({ choice, person, narrowed, local }: { choice: ChoiceAnswers
 }
 
 /** One row of the number chart: the middle half of the values as a bar, the median as a mark across it. */
-function SpreadRow({ label, s, color, scale, active, onEnter, readout }: { label: string; s: NumberSpread; color: string; scale: { min: number; max: number }; active: boolean; onEnter: () => void; readout: string }) {
+function SpreadRow({ label, s, color, scale, active, onEnter, readout }: { label: string; s: Spread; color: string; scale: { min: number; max: number }; active: boolean; onEnter: () => void; readout: string }) {
   const theme = useTheme();
   const at = (v: number) => ((v - scale.min) / (scale.max - scale.min)) * 100;
   return (
@@ -304,7 +304,7 @@ function SpreadRow({ label, s, color, scale, active, onEnter, readout }: { label
   );
 }
 
-function NumberView({ numbers, person, local }: { numbers: NumberAnswers; person: string | null; local: boolean }) {
+function NumberView({ numbers, person, local }: { numbers: NumberStats; person: string | null; local: boolean }) {
   const t = useT();
   const { language } = useApp();
   const scale = spreadScale(numbers);
@@ -313,7 +313,7 @@ function NumberView({ numbers, person, local }: { numbers: NumberAnswers; person
   // Alone: one row, your plots.
   const rows = local
     ? [{ label: t("answers.yourPlots"), s: numbers.team, color: ALONE }]
-    : [{ label: t("answers.team"), s: numbers.team, color: TEAM }, ...numbers.people.map((p) => ({ label: p.username, s: p as NumberSpread, color: PERSON }))];
+    : [{ label: t("answers.team"), s: numbers.team, color: TEAM }, ...numbers.people.map((p) => ({ label: p.username, s: p as Spread, color: PERSON }))];
   const readout = (r: (typeof rows)[number]) =>
     `${r.label}: ${spreadText(t, r.s, language)}${r.s.nonNumeric > 0 ? ` · ${t(r.s.nonNumeric === 1 ? "answers.nonNumericOne" : "answers.nonNumeric", { n: formatNumber(r.s.nonNumeric, language) })}` : ""}`;
   const chart = (
@@ -428,7 +428,7 @@ function Filters({
   teamOnly,
 }: {
   projectId: string;
-  data: AnswersData | null;
+  data: AnswersAnswer | null;
   filter: AnswersFilter;
   onChange: (f: AnswersFilter) => void;
   teamOnly: boolean;

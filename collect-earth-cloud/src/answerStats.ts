@@ -11,6 +11,9 @@ import { keyRule, MIN_PLOTS, pairBuffers, qualityReport, recordResolver, type Di
 import { QUALIFIER_SEPARATOR, SUMMARY_VALUES_SEPARATOR } from './surveyOutline.js';
 import { checkedPlots, healthBuffers, healthTable, type HealthTable } from './surveyHealth.js';
 import { externalReferenceFigures, referenceFigures, type ReferenceFigures } from './reference.js';
+import type { AnswerFlag, AnswerStats, ChoiceStats, NumberStats, Spread } from './wire/quality.js';
+
+export type { AnswerFlag, AnswerStats, ChoiceStats, CodeCount, NumberStats, Spread } from './wire/quality.js';
 
 /** |z| at or above this flags a person's share of an answer (two-proportion z-test). */
 export const FLAG_Z = 3;
@@ -478,77 +481,6 @@ export interface AnswerFilter {
   from?: string | null;
   to?: string | null;
   timeZone?: string;
-}
-
-export interface CodeCount {
-  code: string;
-  label: string;
-  count: number;
-}
-
-export interface ChoiceStats {
-  key: string;
-  label: string;
-  multiple: boolean;
-  /** Plots answering it (at least one code). */
-  answered: number;
-  /** Plots in the filter that did not answer it (blank, or not shown). */
-  blank: number;
-  /** Plots holding each code (a plot of a multiple question counts once per code it holds), codes nobody gave left out. */
-  codes: CodeCount[];
-  /** Per person: plots answering, and plots holding each of `codes`, in that order. */
-  people: { username: string; answered: number; counts: number[] }[];
-  /** Flags on this question (all of them, also those beyond MAX_FLAGS). */
-  flags: number;
-}
-
-export interface Spread {
-  /** Plots holding one number. */
-  values: number;
-  /** Plots holding something else (text, several values): not used. */
-  nonNumeric: number;
-  median: number | null;
-  q1: number | null;
-  q3: number | null;
-}
-
-export interface NumberStats {
-  key: string;
-  label: string;
-  team: Spread;
-  people: ({ username: string } & Spread)[];
-}
-
-export interface AnswerFlag {
-  key: string;
-  label: string;
-  username: string;
-  code: string;
-  codeLabel: string;
-  /** The person's plots answering the question, and those holding the code. */
-  plots: number;
-  count: number;
-  share: number;
-  /** The same for the rest of the team (everyone in the filter but this person). */
-  others: { plots: number; count: number; share: number };
-  z: number;
-}
-
-export interface AnswerStats {
-  /** First assessments in the filter. */
-  plots: number;
-  person: string | null;
-  /** Each person's plots in the filter (only the person's when one is chosen), by name. */
-  people: { username: string; plots: number }[];
-  choices: ChoiceStats[];
-  numbers: NumberStats[];
-  /** Up to MAX_FLAGS, the largest |z| first. */
-  flags: AnswerFlag[];
-  flagsTotal: number;
-  /** Comparisons made (a person and an answer against the rest of the team, enough plots on both sides). */
-  tests: number;
-  /** About how many flags chance alone would give: tests × CHANCE_PER_TEST. */
-  chanceFlags: number;
 }
 
 /**

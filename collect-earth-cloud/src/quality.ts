@@ -6,10 +6,19 @@ import { holderHas, type Holders } from './holders.js';
 import { METADATA_KEY_PARTS } from './division.js';
 import { copyUnitsByUser, keyShape, recordRound, unitOfRecord, type RecordRound } from './rounds.js';
 import { BOOKKEEPING_KEYS, MAX_INDEXED_ENTITIES, QUALIFIER_SEPARATOR, SUMMARY_VALUES_SEPARATOR, type Question } from './surveyOutline.js';
-import type { DecisionKind } from './types.js';
 import type { Rate } from './wire/progress.js';
+import type {
+  Confusion,
+  DataProblem,
+  DataProblemKind,
+  DecisionKind,
+  Difference,
+  QualityReportFigures,
+  QuestionAgreement,
+} from './wire/quality.js';
 
 export type { Rate } from './wire/progress.js';
+export type { Confusion, DataProblem, DataProblemKind, Difference, PersonQuality, QualityReportFigures, QuestionAgreement, WeekAgreement } from './wire/quality.js';
 
 /** Below this many compared plots a rate says nothing: it is null ("too few plots to judge"). */
 export const MIN_PLOTS = 20;
@@ -83,66 +92,6 @@ export function overallAgreement(report: Pick<QualityReport, 'weeks'>): Rate {
     agreeing += w.agreeing;
   }
   return { compared, agreeing, rate: compared >= MIN_PLOTS ? agreeing / compared : null };
-}
-
-export interface QuestionAgreement extends Rate {
-  key: string;
-  label: string;
-  kind: 'choice' | 'number';
-  /** The margin used, for a number question. */
-  margin?: number;
-}
-
-export interface Confusion {
-  key: string;
-  /** The first assessment's answer and the check's: codes without qualifier, several sorted and joined by ", ". */
-  first: string;
-  check: string;
-  count: number;
-  /** Up to MAX_CONFUSION_PLOTS plots, in plot order. */
-  plots: string[];
-}
-
-export interface PersonQuality {
-  username: string;
-  /** Checked plots this person assessed first; a plot agrees when no compared question differs. */
-  asFirst: Rate;
-  /** Plots this person checked. */
-  asChecker: Rate;
-  /** Up to MAX_WEAKEST questions where their plots (in either role) differ most; only questions that differed. */
-  weakest: { key: string; rate: number | null; compared: number; differing: number }[];
-  /**
-   * For the person's own report: only the plots that are certainly theirs as first
-   * assessor. A plot with two main assessments (two_main) is left out, and so is a plot
-   * of a divided file they do not hold as main: anyone could otherwise post a first
-   * assessment of someone else's plot and read its check in their report.
-   */
-  personal: {
-    /** The checks of those plots, as asFirst. */
-    asFirst: Rate;
-    /**
-     * Up to MAX_PERSON_CONFUSIONS mix-ups of a choice between their first assessment and
-     * a check of it, ordered as the report's confusions; count is checks, with up to
-     * MAX_PERSON_CONFUSION_PLOTS plots (in plot order).
-     */
-    confusions: Confusion[];
-  };
-}
-
-export interface WeekAgreement {
-  /** ISO week (yyyy-Www) of the check's modifiedOn, in UTC. */
-  week: string;
-  compared: number;
-  agreeing: number;
-}
-
-export interface Difference {
-  /** The plot unit, as in the plot file (with its round part for an own round). */
-  plot: string;
-  first: { operator: string; recordKey: string };
-  check: { operator: string; recordKey: string };
-  /** Answers as given, blank and null values left out, several joined by ", ". */
-  fields: { key: string; first: string; check: string }[];
 }
 
 /** A differing pair named without its answers; `latest`: its check is the plot's latest (the one a decision for the check takes). */
@@ -225,40 +174,16 @@ export function pairBuffers(p: DifferingPairs): ArrayBufferView[] {
   return [p.first, p.check, p.latest];
 }
 
-export type DataProblemKind = 'no_plot' | 'unknown_round' | 'two_main' | 'extra_key_parts';
-
-export interface DataProblem {
-  kind: DataProblemKind;
-  plot: string;
-  recordKey: string;
-  operator: string;
-}
-
-export interface QualityReport {
-  /** Plots with at least one main record and one check record. */
-  plotsChecked: number;
-  plotsDiffering: number;
-  questions: QuestionAgreement[];
-  confusions: Confusion[];
-  people: PersonQuality[];
-  weeks: WeekAgreement[];
-  /** Up to MAX_DIFFERENCES, in plot order. */
-  differences: Difference[];
+/** The quality report: its figures as sent, and every differing pair (never sent). */
+export interface QualityReport extends QualityReportFigures {
   /**
-   * Every differing pair (up to MAX_PAIRS), in the same order, without the answers: for the
-   * review queue (a plot beyond the listed differences has its answers read when shown) and
-   * the bulk decisions. Not sent with GET /quality. Kept as string tables and typed arrays
-   * (handed over from the worker without copying): 200,000 pairs hold about 22 MB, against
+   * Every differing pair (up to MAX_PAIRS), in the same order as the differences, without the
+   * answers: for the review queue (a plot beyond the listed differences has its answers read when
+   * shown) and the bulk decisions. Not sent with GET /quality. Kept as string tables and typed
+   * arrays (handed over from the worker without copying): 200,000 pairs hold about 22 MB, against
    * 53 MB as objects.
    */
   pairs: DifferingPairs;
-  /** Up to MAX_PROBLEMS, in plot order. */
-  problems: DataProblem[];
-  problemsTotal: number;
-  /** How many problems of each kind name each person, over all of them (not only the listed ones); by person, then kind. */
-  problemsByPerson: { operator: string; kind: DataProblemKind; count: number }[];
-  /** Answers to entities the outline does not list (e.g. tree[11]: it lists 1 to 10), never compared. */
-  beyondOutline: { count: number; keys: string[] };
 }
 
 export type Kind = 'choice' | 'number';

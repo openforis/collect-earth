@@ -15,6 +15,7 @@ import { migrationFiles } from '../store/migrate.js';
 import { UsernameTakenError } from '../store/memory.js';
 import { isStoredTime, type Store } from '../store/store.js';
 import { MAIL_LANGUAGES, SETTING_BOUNDS, type MailLanguage, type ProjectCreation, type ServerSettings } from '../types.js';
+import type { AiUsageAnswer } from '../wire/ai.js';
 import type { AccountMailHooks } from './mail.js';
 import { accountDeletionPlan } from './auth.js';
 import { accountsCsv, parseAccountQuery, parseNewAccounts, queryAccounts } from '../accounts.js';
@@ -608,7 +609,7 @@ export async function registerAdminRoutes(
           outputTokens: sum('outputTokens'),
           tokens: sum('tokens'),
         },
-      });
+      } satisfies AiUsageAnswer);
     },
   );
 

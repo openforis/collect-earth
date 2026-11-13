@@ -16,6 +16,7 @@ import type {
   DivisionBody,
   ListedCsvFile,
   MoveUnfinishedAnswer,
+  PlotColumn,
   PlotDesign,
   RebalanceAnswer,
   ReplaceImpact,
@@ -77,6 +78,24 @@ import type {
 } from "../../src/wire/checks";
 import type { BulkDecisionAnswer, BulkRule, PlotPageAnswer, PlotSearchAnswer, ReviewQueueAnswer, ReviewQueueItem } from "../../src/wire/review";
 import type { MapFile, MapPage, MapStatus } from "../../src/wire/map";
+import type {
+  AnswerColumnsAnswer,
+  AnswerOptions,
+  AnswersAnswer,
+  DecisionKind,
+  FlagCounts,
+  FlagKind,
+  FlagsAnswer,
+  Flag as PatternFlag,
+  GuidanceNote,
+  GuidanceNoteInput,
+  PlotPlaces,
+  PublicDecision as QualityDecision,
+  QualityAnswer,
+  QualitySettingsAnswer,
+} from "../../src/wire/quality";
+import type { AiRunAnswer, AiRunListed, AiRunsAnswer, AiRunStartBody, AiRunStarted, AiStart, AiUsageAnswer } from "../../src/wire/ai";
+import type { MyQualityAnswer, TeamReportAnswer } from "../../src/wire/reports";
 
 // Every call the dashboard makes to the Collect Earth Cloud server, in one place.
 //
@@ -255,142 +274,6 @@ export interface Rate {
   compared: number;
   agreeing: number;
   rate: number | null;
-}
-
-export interface QuestionAgreement extends Rate {
-  key: string;
-  label: string;
-  kind: "choice" | "number";
-  /** The margin used (percent), for a number question. */
-  margin: number | null;
-}
-
-/** How often a first answer was met by another answer in the check. */
-export interface Confusion {
-  key: string;
-  first: string;
-  check: string;
-  count: number;
-  plots: string[];
-}
-
-export interface PersonQuality {
-  username: string;
-  asFirst: Rate;
-  asChecker: Rate;
-  weakest: { key: string; rate: number | null; compared: number; differing: number }[];
-}
-
-export interface WeekAgreement {
-  /** ISO week, yyyy-Www. */
-  week: string;
-  compared: number;
-  agreeing: number;
-}
-
-/** One check of a plot whose answers differ from the first assessment. */
-export interface Difference {
-  plot: string;
-  first: { operator: string; recordKey: string };
-  check: { operator: string; recordKey: string };
-  fields: { key: string; first: string; check: string }[];
-}
-
-export type DataProblemKind = "no_plot" | "unknown_round" | "two_main" | "extra_key_parts";
-
-export interface DataProblem {
-  kind: DataProblemKind | string;
-  plot: string;
-  recordKey: string;
-  operator: string;
-}
-
-export type DecisionKind = "first" | "check" | "recheck";
-
-export interface QualityDecision {
-  plot: string;
-  decision: DecisionKind;
-  comment: string | null;
-  decidedBy: string | null;
-  decidedAt: number | null;
-  /** Whoever decided has a record of the plot (a coordinator may decide their own plot). */
-  byAssessor: boolean;
-}
-
-export interface GuidanceNoteInput {
-  questionKey: string;
-  firstValue: string | null;
-  checkValue: string | null;
-  text: string;
-}
-
-export interface GuidanceNote extends GuidanceNoteInput {
-  id: string;
-  updatedBy: string | null;
-  updatedAt: number | null;
-}
-
-/**
- * The answer options of choice questions, by question key, from the survey: to show an
- * answer by its label ("Forest") instead of its code ("F").
- */
-export type AnswerOptions = Record<string, { code: string; label: string }[]>;
-
-/** The Quality tab's figures (GET /quality). Counts are checks, except plotsChecked and plotsDiffering. */
-export interface QualityData {
-  plotsChecked: number;
-  plotsDiffering: number;
-  questions: QuestionAgreement[];
-  confusions: Confusion[];
-  people: PersonQuality[];
-  weeks: WeekAgreement[];
-  differences: Difference[];
-  problems: DataProblem[];
-  problemsTotal: number;
-  beyondOutline: { count: number; keys: string[] };
-  decisions: QualityDecision[];
-  notes: GuidanceNote[];
-  /** Number margins in percent, by margin key (an indexed entity's question as [*]). */
-  margins: Record<string, number>;
-  /** The "very fast" flag's threshold, in seconds (Task 5). */
-  fastSeconds: number;
-  /** The answer options of the choice questions shown. */
-  options: AnswerOptions;
-  /** When the figures' records were read (ms). */
-  computedAt: number | null;
-  /** Older figures, given while newer ones are worked out. */
-  stale: boolean;
-  /** People a coordinator left out of these figures, with why. */
-  excluded: { username: string; reason: string | null }[];
-}
-
-/** Where a plot is, from the plot files. */
-export interface PlotPlace {
-  plot: string;
-  lat: number;
-  lon: number;
-  /** The plot id as the collector sees it (keys hidden from the record list left out). */
-  name: string;
-}
-
-/** The outline Collect Earth draws around a plot (from the project file), or only its place. */
-export type PlotOutline = { kind: "square"; sideMeters: number } | { kind: "circle"; radiusMeters: number; vertices: number } | { kind: "place" };
-
-/** The places asked for; none, with the system's id, when the survey's coordinates are not latitude and longitude. */
-export interface PlotPlaces {
-  places: PlotPlace[];
-  outline: PlotOutline;
-  unsupportedSrs: string | null;
-}
-
-function toOutline(value: unknown): PlotOutline {
-  const o = obj(value);
-  const positive = (n: unknown): n is number => typeof n === "number" && Number.isFinite(n) && n > 0;
-  if (o.kind === "square" && positive(o.sideMeters)) return { kind: "square", sideMeters: o.sideMeters };
-  if (o.kind === "circle" && positive(o.radiusMeters) && positive(o.vertices) && Number.isInteger(o.vertices) && o.vertices >= 3 && o.vertices <= 400) {
-    return { kind: "circle", radiusMeters: o.radiusMeters, vertices: o.vertices };
-  }
-  return { kind: "place" };
 }
 
 export interface ServerSettings {
@@ -1584,102 +1467,43 @@ const list = (value: unknown): Record<string, unknown>[] =>
   Array.isArray(value) ? value.filter((v): v is Record<string, unknown> => !!v && typeof v === "object") : [];
 const obj = (value: unknown): Record<string, unknown> => (value && typeof value === "object" ? (value as Record<string, unknown>) : {});
 
+export type {
+  AnswerOptions,
+  Confusion,
+  DataProblem,
+  DataProblemKind,
+  DecisionKind,
+  Difference,
+  GuidanceNote,
+  GuidanceNoteInput,
+  PersonQuality,
+  PlotOutline,
+  PlotPlace,
+  PlotPlaces,
+  PublicDecision as QualityDecision,
+  QualityAnswer,
+  QualitySettingsAnswer,
+  QuestionAgreement,
+  WeekAgreement,
+} from "../../src/wire/quality";
+
+// merge: the people, review queue, plot search and activity sections still read their answers with these; drop when unused.
 function toRate(value: unknown): Rate {
   const r = obj(value);
   return { compared: toCount(r.compared), agreeing: toCount(r.agreeing), rate: typeof r.rate === "number" && Number.isFinite(r.rate) ? r.rate : null };
 }
 
 export function toDecision(value: unknown): QualityDecision {
-  const d = obj(value);
-  const decision = d.decision === "check" || d.decision === "recheck" ? d.decision : "first";
-  return { plot: text(d.plot), decision, comment: nullableText(d.comment), decidedBy: nullableText(d.decidedBy), decidedAt: toMillis(d.decidedAt), byAssessor: d.byAssessor === true };
+  return value as QualityDecision;
 }
 
-export function toNote(value: unknown): GuidanceNote {
-  const n = obj(value);
-  return {
-    id: text(n.id),
-    questionKey: text(n.questionKey),
-    firstValue: nullableText(n.firstValue),
-    checkValue: nullableText(n.checkValue),
-    text: text(n.text),
-    updatedBy: nullableText(n.updatedBy),
-    updatedAt: toMillis(n.updatedAt),
-  };
-}
-
-function toMargins(value: unknown): Record<string, number> {
-  const margins: Record<string, number> = {};
-  for (const [key, v] of Object.entries(obj(value))) {
-    if (typeof v === "number" && Number.isFinite(v)) margins[key] = v;
-  }
-  return margins;
-}
-
-/** The Quality tab's figures from the server's answer, with every list present. */
-/** Answer options as sent (a list of { code, label } per key); anything else is left out. */
 function toOptions(value: unknown): AnswerOptions {
-  const out: AnswerOptions = {};
-  for (const [key, options] of Object.entries(obj(value))) {
-    if (!Array.isArray(options)) continue;
-    out[key] = options.filter((o) => o && typeof o === "object" && typeof (o as { code?: unknown }).code === "string").map((o) => ({ code: text(o.code), label: text(o.label) }));
-  }
-  return out;
-}
-
-export function toQualityData(body: unknown): QualityData {
-  const b = obj(body);
-  const beyond = obj(b.beyondOutline);
-  return {
-    plotsChecked: toCount(b.plotsChecked),
-    plotsDiffering: toCount(b.plotsDiffering),
-    questions: list(b.questions).map((q) => ({
-      ...toRate(q),
-      key: text(q.key),
-      label: text(q.label) || text(q.key),
-      kind: q.kind === "number" ? "number" : "choice",
-      margin: typeof q.margin === "number" && Number.isFinite(q.margin) ? q.margin : null,
-    })),
-    confusions: list(b.confusions).map((c) => ({ key: text(c.key), first: text(c.first), check: text(c.check), count: toCount(c.count), plots: strings(c.plots) })),
-    people: list(b.people).map((person) => ({
-      username: text(person.username),
-      asFirst: toRate(person.asFirst),
-      asChecker: toRate(person.asChecker),
-      weakest: list(person.weakest).map((w) => ({
-        key: text(w.key),
-        rate: typeof w.rate === "number" && Number.isFinite(w.rate) ? w.rate : null,
-        compared: toCount(w.compared),
-        differing: toCount(w.differing),
-      })),
-    })),
-    weeks: list(b.weeks).map((w) => ({ week: text(w.week), compared: toCount(w.compared), agreeing: toCount(w.agreeing) })),
-    differences: list(b.differences).map((d) => {
-      const first = obj(d.first);
-      const check = obj(d.check);
-      return {
-        plot: text(d.plot),
-        first: { operator: text(first.operator), recordKey: text(first.recordKey) },
-        check: { operator: text(check.operator), recordKey: text(check.recordKey) },
-        fields: list(d.fields).map((f) => ({ key: text(f.key), first: text(f.first), check: text(f.check) })),
-      };
-    }),
-    problems: list(b.problems).map((pr) => ({ kind: text(pr.kind), plot: text(pr.plot), recordKey: text(pr.recordKey), operator: text(pr.operator) })),
-    problemsTotal: toCount(b.problemsTotal ?? b.problems),
-    beyondOutline: { count: toCount(beyond.count), keys: strings(beyond.keys) },
-    decisions: list(b.decisions).map(toDecision),
-    notes: list(b.notes).map(toNote),
-    margins: toMargins(obj(b.settings).margins),
-    fastSeconds: toFastSeconds(obj(b.settings).fastSeconds),
-    options: toOptions(b.options),
-    computedAt: toMillis(b.computedAt),
-    stale: b.stale === true,
-    excluded: list(b.excluded).map((x) => ({ username: text(x.username), reason: typeof x.reason === "string" ? x.reason : null })),
-  };
+  return obj(value) as AnswerOptions;
 }
 
 /** The quality figures. A 503 "busy" (other projects' figures being worked out) is thrown as ApiError code "busy". */
-export async function getQuality(projectId: string): Promise<QualityData> {
-  return toQualityData(await request<unknown>("GET", `${p(projectId)}/quality`));
+export function getQuality(projectId: string): Promise<QualityAnswer> {
+  return request("GET", `${p(projectId)}/quality`);
 }
 
 /** The "very fast" threshold of a project that has not set one, and the range it may take (as the server's). */
@@ -1693,14 +1517,12 @@ export function toFastSeconds(value: unknown): number {
 
 /** Sets the "very fast" flag's threshold (whole seconds); returns it as saved. The margins stay as they are. */
 export async function saveFastSeconds(projectId: string, fastSeconds: number): Promise<number> {
-  const body = await request<{ fastSeconds?: unknown }>("PUT", `${p(projectId)}/quality/settings`, { json: { fastSeconds } });
-  return toFastSeconds(body?.fastSeconds);
+  return (await request<QualitySettingsAnswer>("PUT", `${p(projectId)}/quality/settings`, { json: { fastSeconds } })).fastSeconds;
 }
 
 /** Replaces the number margins (percent, by margin key); returns them as saved. */
 export async function saveQualityMargins(projectId: string, margins: Record<string, number>): Promise<Record<string, number>> {
-  const body = await request<{ margins?: unknown }>("PUT", `${p(projectId)}/quality/settings`, { json: { margins } });
-  return toMargins(body?.margins);
+  return (await request<QualitySettingsAnswer>("PUT", `${p(projectId)}/quality/settings`, { json: { margins } })).margins;
 }
 
 const decisionPath = (projectId: string, plot: string) => `${p(projectId)}/quality/decisions/${encodeURIComponent(plot)}`;
@@ -1708,7 +1530,7 @@ const decisionPath = (projectId: string, plot: string) => `${p(projectId)}/quali
 export async function setQualityDecision(projectId: string, plot: string, decision: DecisionKind, comment: string): Promise<QualityDecision> {
   const json = comment.trim() ? { decision, comment: comment.trim() } : { decision };
   try {
-    return toDecision(await request<unknown>("PUT", decisionPath(projectId, plot), { json }));
+    return await request<QualityDecision>("PUT", decisionPath(projectId, plot), { json });
   } catch (error) {
     // A plot in no plot file and without records (or one a reviewer may not see) is a 404: say so plainly.
     if (error instanceof ApiError && error.status === 404) throw new ApiError(404, NO_SUCH_PLOT, error.reason, error.details);
@@ -1730,12 +1552,12 @@ export async function deleteQualityDecision(projectId: string, plot: string): Pr
 
 const notesPath = (projectId: string) => `${p(projectId)}/quality/notes`;
 
-export async function createGuidanceNote(projectId: string, note: GuidanceNoteInput): Promise<GuidanceNote> {
-  return toNote(await request<unknown>("POST", notesPath(projectId), { json: note }));
+export function createGuidanceNote(projectId: string, note: GuidanceNoteInput): Promise<GuidanceNote> {
+  return request("POST", notesPath(projectId), { json: note });
 }
 
-export async function updateGuidanceNote(projectId: string, id: string, note: GuidanceNoteInput): Promise<GuidanceNote> {
-  return toNote(await request<unknown>("PUT", `${notesPath(projectId)}/${encodeURIComponent(id)}`, { json: note }));
+export function updateGuidanceNote(projectId: string, id: string, note: GuidanceNoteInput): Promise<GuidanceNote> {
+  return request("PUT", `${notesPath(projectId)}/${encodeURIComponent(id)}`, { json: note });
 }
 
 /** Deletes a note (one already gone counts as deleted). */
@@ -1749,141 +1571,29 @@ export async function deleteGuidanceNote(projectId: string, id: string): Promise
 
 /** Where some plots are (the ones in no plot file are left out). */
 export async function getPlotPlaces(projectId: string, plots: string[]): Promise<PlotPlaces> {
-  if (plots.length === 0) return { places: [], outline: { kind: "place" }, unsupportedSrs: null };
-  const body = await request<{ places?: unknown; outline?: unknown; unsupportedSrs?: unknown }>("POST", `${p(projectId)}/quality/places`, { json: { plots } });
-  const places = list(body?.places)
-    .map((place) => ({ plot: text(place.plot), lat: Number(place.lat), lon: Number(place.lon), name: typeof place.name === "string" ? place.name : text(place.plot) }))
-    .filter((place) => Number.isFinite(place.lat) && Number.isFinite(place.lon));
-  return { places, outline: toOutline(body?.outline), unsupportedSrs: typeof body?.unsupportedSrs === "string" && body.unsupportedSrs !== "" ? body.unsupportedSrs : null };
+  if (plots.length === 0) return { places: [], outline: { kind: "place" } };
+  return request("POST", `${p(projectId)}/quality/places`, { json: { plots } });
 }
 
 // --- the AI assistant -------------------------------------------------------------------
 
-export type AiRunKind = "report" | "follow_up" | "question";
-export type AiRunStatus = "running" | "done" | "failed" | "refused";
-export type FollowUpAction = "explain" | "draft_note" | "recheck";
-export type FindingCause = "unclear_question" | "overlapping_options" | "person_habit" | "number_typing" | "other";
-const CAUSES: FindingCause[] = ["unclear_question", "overlapping_options", "person_habit", "number_typing", "other"];
+export type {
+  AiAnswer,
+  AiFinding,
+  AiReport,
+  AiRunAnswer,
+  AiRunKind,
+  AiRunListed,
+  AiRunStatus,
+  AiStart,
+  AiUsageAnswer,
+  AiUsageCounts,
+  FindingCause,
+  FollowUpAction,
+} from "../../src/wire/ai";
 
 /** The assistant in a project: switched on here, and available on the server. */
 export type { ProjectAi } from "../../src/wire/projectSettings";
-
-/** A run as listed: who, when and what, never its result. */
-export interface AiRunSummary {
-  id: string;
-  kind: AiRunKind;
-  status: AiRunStatus;
-  startedAt: number | null;
-  finishedAt: number | null;
-  /** The username, null once the account is deleted. */
-  startedBy: string | null;
-  tokens: number;
-  parentRunId: string | null;
-  findingIndex: number | null;
-  action: FollowUpAction | null;
-  /** Why it failed (blocked, ai_timeout...) or off_topic for a refused question. */
-  errorCode: string | null;
-}
-
-/** A finding of a report, with real names and plot ids (the model's text, shown as plain text only). */
-export interface AiFinding {
-  title: string;
-  explanation: string;
-  cause: FindingCause;
-  /** Question keys, as in the quality figures. */
-  questions: string[];
-  persons: string[];
-  plots: string[];
-  suggestedNote: string | null;
-}
-
-export interface AiReport {
-  summary: string;
-  findings: AiFinding[];
-  recheckPlots: string[];
-  surveyChanges: { question: string; suggestion: string }[];
-}
-
-/** The answer of a follow-up or a question. */
-export interface AiAnswer {
-  text: string;
-  plots: string[];
-  note: string | null;
-}
-
-export interface AiRun extends AiRunSummary {
-  /** The free question asked (questions only). */
-  question: string | null;
-  /** The tools used so far, in order. */
-  tools: string[];
-  report: AiReport | null;
-  answer: AiAnswer | null;
-  /** The server's refusal text, in the run's language (refused runs). */
-  refusal: string | null;
-}
-
-export type AiStart =
-  | { kind: "report" }
-  | { kind: "follow_up"; parentRunId: string; findingIndex: number; action: FollowUpAction }
-  | { kind: "question"; parentRunId: string; question: string };
-
-const RUN_KINDS: AiRunKind[] = ["report", "follow_up", "question"];
-const RUN_STATUSES: AiRunStatus[] = ["running", "done", "failed", "refused"];
-const ACTIONS: FollowUpAction[] = ["explain", "draft_note", "recheck"];
-
-function toRunSummary(value: unknown): AiRunSummary {
-  const r = obj(value);
-  return {
-    id: text(r.id),
-    kind: RUN_KINDS.includes(r.kind as AiRunKind) ? (r.kind as AiRunKind) : "report",
-    status: RUN_STATUSES.includes(r.status as AiRunStatus) ? (r.status as AiRunStatus) : "failed",
-    startedAt: toMillis(r.startedAt),
-    finishedAt: toMillis(r.finishedAt),
-    startedBy: nullableText(r.startedBy),
-    tokens: toCount(r.tokens),
-    parentRunId: nullableText(r.parentRunId),
-    findingIndex: typeof r.findingIndex === "number" && Number.isInteger(r.findingIndex) ? r.findingIndex : null,
-    action: ACTIONS.includes(r.action as FollowUpAction) ? (r.action as FollowUpAction) : null,
-    errorCode: nullableText(r.errorCode),
-  };
-}
-
-function toFinding(value: unknown): AiFinding {
-  const f = obj(value);
-  return {
-    title: text(f.title),
-    explanation: text(f.explanation),
-    cause: CAUSES.includes(f.cause as FindingCause) ? (f.cause as FindingCause) : "other",
-    questions: strings(f.questions),
-    persons: strings(f.persons),
-    plots: strings(f.plots),
-    suggestedNote: nullableText(f.suggestedNote),
-  };
-}
-
-/** One run with its result: a report for a report, an answer for a follow-up or a question. */
-export function toAiRun(body: unknown): AiRun {
-  const b = obj(body);
-  const summary = toRunSummary(b);
-  const result = b.result && typeof b.result === "object" ? obj(b.result) : null;
-  const done = summary.status === "done" && result !== null;
-  return {
-    ...summary,
-    question: nullableText(b.question),
-    tools: strings(obj(b.progress).tools),
-    report:
-      done && summary.kind === "report"
-        ? {
-            summary: text(result.summary),
-            findings: list(result.findings).map(toFinding),
-            recheckPlots: strings(result.recheckPlots),
-            surveyChanges: list(result.surveyChanges).map((c) => ({ question: text(c.question), suggestion: text(c.suggestion) })),
-          }
-        : null,
-    answer: done && summary.kind !== "report" ? { text: text(result.text), plots: strings(result.plots), note: nullableText(result.note) } : null,
-    refusal: nullableText(b.refusal),
-  };
-}
 
 export function getProjectAi(projectId: string): Promise<ProjectAi> {
   return request("GET", `${p(projectId)}/ai`);
@@ -1899,163 +1609,34 @@ export function setProjectAi(projectId: string, enabled: boolean): Promise<Proje
  * ai_daily_limit / ai_monthly_limit with `resetsAt` (ms, or null for a limit of 0) in details.
  */
 export async function startAiRun(projectId: string, start: AiStart, language: string): Promise<string> {
-  const body = obj(await request<unknown>("POST", `${p(projectId)}/ai/runs`, { json: { ...start, language } }));
-  return text(body.runId);
+  const json: AiRunStartBody = { ...start, language };
+  return (await request<AiRunStarted>("POST", `${p(projectId)}/ai/runs`, { json })).runId;
 }
 
 /** The project's runs, newest first, without their results. */
-export async function listAiRuns(projectId: string): Promise<AiRunSummary[]> {
-  const body = obj(await request<unknown>("GET", `${p(projectId)}/ai/runs`));
-  return list(body.runs).map(toRunSummary);
+export async function listAiRuns(projectId: string): Promise<AiRunListed[]> {
+  return (await request<AiRunsAnswer>("GET", `${p(projectId)}/ai/runs`)).runs;
 }
 
-export async function getAiRun(projectId: string, runId: string): Promise<AiRun> {
-  return toAiRun(await request<unknown>("GET", `${p(projectId)}/ai/runs/${encodeURIComponent(runId)}`));
-}
-
-export interface AiUsageCounts {
-  runs: number;
-  reports: number;
-  followUps: number;
-  questions: number;
-  failed: number;
-  refused: number;
-  tokens: number;
+export function getAiRun(projectId: string, runId: string): Promise<AiRunAnswer> {
+  return request("GET", `${p(projectId)}/ai/runs/${encodeURIComponent(runId)}`);
 }
 
 /** The assistant's use this UTC month, per project id (never names or content). */
-export interface AiUsage {
-  month: string;
-  projects: (AiUsageCounts & { projectId: string })[];
-  totals: AiUsageCounts;
-}
-
-function toUsageCounts(value: unknown): AiUsageCounts {
-  const c = obj(value);
-  return {
-    runs: toCount(c.runs),
-    reports: toCount(c.reports),
-    followUps: toCount(c.followUps),
-    questions: toCount(c.questions),
-    failed: toCount(c.failed),
-    refused: toCount(c.refused),
-    tokens: toCount(c.tokens),
-  };
-}
-
-export async function getAiUsage(): Promise<AiUsage> {
-  const body = obj(await request<unknown>("GET", "/v1/admin/ai-usage"));
-  return {
-    month: text(body.month),
-    projects: list(body.projects).map((row) => ({ projectId: text(row.projectId), ...toUsageCounts(row) })),
-    totals: toUsageCounts(body.totals),
-  };
+export function getAiUsage(): Promise<AiUsageAnswer> {
+  return request("GET", "/v1/admin/ai-usage");
 }
 
 // --- the printable reports ----------------------------------------------------------------
 
-/** A guidance note as the reports show it (no author, no date). */
-export interface ReportNote {
-  id: string;
-  questionKey: string;
-  firstValue: string | null;
-  checkValue: string | null;
-  text: string;
+export type { MyQualityAnswer, ReportConfusion, ReportNote, ReportRate, TeamReportAnswer } from "../../src/wire/reports";
+
+export function getMyQuality(projectId: string): Promise<MyQualityAnswer> {
+  return request("GET", `${p(projectId)}/my-quality`);
 }
 
-/** A mix-up in a report: counts are checks; a few example plots and the notes about it. */
-export interface ReportConfusion {
-  key: string;
-  label: string;
-  first: string;
-  check: string;
-  checks: number;
-  plots: string[];
-  notes: ReportNote[];
-}
-
-/** A member's own figures (GET /my-quality): their plots checked by someone else, never who checked. */
-export interface MyQuality {
-  username: string;
-  minChecks: number;
-  asFirst: Rate;
-  confusions: ReportConfusion[];
-  /** The answer options of the questions of the mix-ups. */
-  options: AnswerOptions;
-  computedAt: number | null;
-  stale: boolean;
-}
-
-/** The team report for training (GET /quality/team-report): no names. */
-export interface TeamReport {
-  minChecks: number;
-  plotsChecked: number;
-  plotsDiffering: number;
-  questions: QuestionAgreement[];
-  confusions: ReportConfusion[];
-  notes: ReportNote[];
-  /** The answer options of the report's choice questions. */
-  options: AnswerOptions;
-  computedAt: number | null;
-  stale: boolean;
-}
-
-function toReportNote(value: unknown): ReportNote {
-  const n = obj(value);
-  return { id: text(n.id), questionKey: text(n.questionKey), firstValue: nullableText(n.firstValue), checkValue: nullableText(n.checkValue), text: text(n.text) };
-}
-
-/** A report's rate ({ checks, agreeing, rate }) as the dashboard's Rate. */
-function toReportRate(value: unknown): Rate {
-  const r = obj(value);
-  return { compared: toCount(r.checks), agreeing: toCount(r.agreeing), rate: typeof r.rate === "number" && Number.isFinite(r.rate) ? r.rate : null };
-}
-
-function toReportConfusion(value: unknown): ReportConfusion {
-  const c = obj(value);
-  return {
-    key: text(c.key),
-    label: text(c.label) || text(c.key),
-    first: text(c.first),
-    check: text(c.check),
-    checks: toCount(c.checks),
-    plots: strings(c.plots),
-    notes: list(c.notes).map(toReportNote),
-  };
-}
-
-export async function getMyQuality(projectId: string): Promise<MyQuality> {
-  const b = obj(await request<unknown>("GET", `${p(projectId)}/my-quality`));
-  return {
-    username: text(b.username),
-    minChecks: toCount(b.minChecks),
-    asFirst: toReportRate(b.asFirst),
-    confusions: list(b.confusions).map(toReportConfusion),
-    options: toOptions(b.options),
-    computedAt: toMillis(b.computedAt),
-    stale: b.stale === true,
-  };
-}
-
-export async function getTeamReport(projectId: string): Promise<TeamReport> {
-  const b = obj(await request<unknown>("GET", `${p(projectId)}/quality/team-report`));
-  return {
-    minChecks: toCount(b.minChecks),
-    plotsChecked: toCount(b.plotsChecked),
-    plotsDiffering: toCount(b.plotsDiffering),
-    questions: list(b.questions).map((q) => ({
-      ...toReportRate(q),
-      key: text(q.key),
-      label: text(q.label) || text(q.key),
-      kind: q.kind === "number" ? "number" : "choice",
-      margin: typeof q.margin === "number" && Number.isFinite(q.margin) ? q.margin : null,
-    })),
-    confusions: list(b.confusions).map(toReportConfusion),
-    notes: list(b.notes).map(toReportNote),
-    options: toOptions(b.options),
-    computedAt: toMillis(b.computedAt),
-    stale: b.stale === true,
-  };
+export function getTeamReport(projectId: string): Promise<TeamReportAnswer> {
+  return request("GET", `${p(projectId)}/quality/team-report`);
 }
 
 // --- data ------------------------------------------------------------------------------------
@@ -2942,6 +2523,8 @@ export async function getMyWork(projectId: string, timeZone: string): Promise<Pe
 
 // --- answers per person (the Quality tab's Answers section, Task 4) -------------------
 
+export type { AnswerColumnsAnswer, AnswerFlag, AnswersAnswer, ChoiceStats, CodeCount, NumberStats, Spread } from "../../src/wire/quality";
+
 /** Which first assessments the answers count; null or "" for no filter. */
 export interface AnswersFilter {
   person: string | null;
@@ -2955,128 +2538,6 @@ export interface AnswersFilter {
 }
 
 export const NO_ANSWERS_FILTER: AnswersFilter = { person: null, file: null, column: null, value: null, from: null, to: null };
-
-export interface AnswerCode {
-  code: string;
-  label: string;
-  count: number;
-}
-
-export interface ChoiceAnswers {
-  key: string;
-  label: string;
-  multiple: boolean;
-  answered: number;
-  blank: number;
-  codes: AnswerCode[];
-  /** counts in the order of codes. */
-  people: { username: string; answered: number; counts: number[] }[];
-  /** Flags on this question (all, not only those listed). */
-  flags: number;
-}
-
-export interface NumberSpread {
-  values: number;
-  nonNumeric: number;
-  median: number | null;
-  q1: number | null;
-  q3: number | null;
-}
-
-export interface NumberAnswers {
-  key: string;
-  label: string;
-  team: NumberSpread;
-  people: ({ username: string } & NumberSpread)[];
-}
-
-export interface AnswerFlag {
-  key: string;
-  label: string;
-  username: string;
-  code: string;
-  codeLabel: string;
-  plots: number;
-  count: number;
-  share: number;
-  others: { plots: number; count: number; share: number };
-  z: number;
-}
-
-export interface AnswersData {
-  plots: number;
-  person: string | null;
-  people: { username: string; plots: number }[];
-  choices: ChoiceAnswers[];
-  numbers: NumberAnswers[];
-  flags: AnswerFlag[];
-  flagsTotal: number;
-  /** Comparisons made, and about how many flags chance alone would give among them. */
-  tests: number;
-  chanceFlags: number;
-  computedAt: number | null;
-  stale: boolean;
-  timeZone: string;
-  filters: { people: string[]; files: { id: string; filename: string }[] };
-}
-
-const counts = (value: unknown): number[] => (Array.isArray(value) ? value.map(toCount) : []);
-
-function toSpread(value: unknown): NumberSpread {
-  const v = obj(value);
-  return { values: toCount(v.values), nonNumeric: toCount(v.nonNumeric), median: toNumberOrNull(v.median), q1: toNumberOrNull(v.q1), q3: toNumberOrNull(v.q3) };
-}
-
-export function toAnswersData(body: unknown): AnswersData {
-  const b = obj(body);
-  const filters = obj(b.filters);
-  return {
-    plots: toCount(b.plots),
-    person: nullableText(b.person),
-    people: list(b.people).map((p) => ({ username: text(p.username), plots: toCount(p.plots) })),
-    choices: list(b.choices).map((c) => ({
-      key: text(c.key),
-      label: text(c.label) || text(c.key),
-      multiple: c.multiple === true,
-      answered: toCount(c.answered),
-      blank: toCount(c.blank),
-      codes: list(c.codes).map((code) => ({ code: text(code.code), label: text(code.label) || text(code.code), count: toCount(code.count) })),
-      people: list(c.people).map((p) => ({ username: text(p.username), answered: toCount(p.answered), counts: counts(p.counts) })),
-      flags: toCount(c.flags),
-    })),
-    numbers: list(b.numbers).map((n) => ({
-      key: text(n.key),
-      label: text(n.label) || text(n.key),
-      team: toSpread(n.team),
-      people: list(n.people).map((p) => ({ username: text(p.username), ...toSpread(p) })),
-    })),
-    flags: list(b.flags).map((f) => {
-      const others = obj(f.others);
-      return {
-        key: text(f.key),
-        label: text(f.label) || text(f.key),
-        username: text(f.username),
-        code: text(f.code),
-        codeLabel: text(f.codeLabel) || text(f.code),
-        plots: toCount(f.plots),
-        count: toCount(f.count),
-        share: toNumberOrNull(f.share) ?? 0,
-        others: { plots: toCount(others.plots), count: toCount(others.count), share: toNumberOrNull(others.share) ?? 0 },
-        z: toNumberOrNull(f.z) ?? 0,
-      };
-    }),
-    flagsTotal: toCount(b.flagsTotal),
-    tests: toCount(b.tests),
-    chanceFlags: toNumberOrNull(b.chanceFlags) ?? 0,
-    computedAt: toMillis(b.computedAt),
-    stale: b.stale === true,
-    timeZone: text(b.timeZone) || "UTC",
-    filters: {
-      people: strings(filters.people),
-      files: list(filters.files).map((f) => ({ id: text(f.id), filename: text(f.filename) })),
-    },
-  };
-}
 
 /** The query of a filter: only what is set, a column only with its file and value. */
 export function answersQuery(filter: AnswersFilter, timeZone: string): URLSearchParams {
@@ -3096,66 +2557,21 @@ export function answersQuery(filter: AnswersFilter, timeZone: string): URLSearch
 }
 
 /** The first assessments' answers, by person (coordinators and reviewers). A 503 "busy" is thrown as ApiError code "busy". */
-export async function getAnswers(projectId: string, filter: AnswersFilter, timeZone: string): Promise<AnswersData> {
-  return toAnswersData(await request<unknown>("GET", `${p(projectId)}/quality/answers?${answersQuery(filter, timeZone)}`));
-}
-
-export interface AnswerColumn {
-  index: number;
-  name: string | null;
-  distinctCount: number;
-  values: { value: string; count: number }[] | null;
+export function getAnswers(projectId: string, filter: AnswersFilter, timeZone: string): Promise<AnswersAnswer> {
+  return request("GET", `${p(projectId)}/quality/answers?${answersQuery(filter, timeZone)}`);
 }
 
 /** A plot file's columns (not the id) and their values, to filter the answers by one. */
-export async function getAnswerColumns(projectId: string, fileId: string): Promise<AnswerColumn[]> {
-  const body = obj(await request<unknown>("GET", `${p(projectId)}/quality/answers/columns?${new URLSearchParams({ file: fileId })}`));
-  return list(body.columns).map((c) => ({
-    index: toCount(c.index),
-    name: typeof c.name === "string" ? c.name : null,
-    distinctCount: toCount(c.distinctCount),
-    values: Array.isArray(c.values) ? list(c.values).map((v) => ({ value: text(v.value), count: toCount(v.count) })) : null,
-  }));
+export async function getAnswerColumns(projectId: string, fileId: string): Promise<PlotColumn[]> {
+  return (await request<AnswerColumnsAnswer>("GET", `${p(projectId)}/quality/answers/columns?${new URLSearchParams({ file: fileId })}`)).columns;
 }
 
 // ---------------------------------------------------------------------------
 // Pattern flags (Task 5)
 
-export const FLAG_KINDS = ["very_fast", "same_as_before", "required_empty", "edited_after_decision", "two_main", "no_plot"] as const;
-export type FlagKind = (typeof FLAG_KINDS)[number];
-export type FlagCounts = Record<FlagKind, number>;
+export type { Flag as PatternFlag, FlagCounts, FlagDetails, FlagKind, FlagsAnswer } from "../../src/wire/quality";
 
-/** One plot worth a look (GET /quality/flags). Only `operator` names a person. */
-export interface PatternFlag {
-  kind: FlagKind;
-  plot: string;
-  operator: string;
-  at: number | null;
-  /** very_fast */
-  gapMs: number | null;
-  /** very_fast, same_as_before: the person's plot before it. */
-  previousPlot: string | null;
-  /** same_as_before */
-  runLength: number | null;
-  firstPlot: string | null;
-  /** required_empty */
-  questions: { key: string; label: string }[];
-  /** edited_after_decision */
-  decision: DecisionKind | null;
-  decidedAt: number | null;
-}
-
-export interface FlagsData {
-  fastSeconds: number;
-  plots: number;
-  counts: FlagCounts;
-  people: { username: string; counts: FlagCounts; total: number }[];
-  total: number;
-  flags: PatternFlag[];
-  requiredQuestions: number;
-  computedAt: number | null;
-  stale: boolean;
-}
+export const FLAG_KINDS: readonly FlagKind[] = ["very_fast", "same_as_before", "required_empty", "edited_after_decision", "two_main", "no_plot"];
 
 export interface FlagsFilter {
   person: string | null;
@@ -3164,58 +2580,23 @@ export interface FlagsFilter {
 
 export const NO_FLAGS_FILTER: FlagsFilter = { person: null, kind: null };
 
+// merge: the people, review queue and plot search sections still read their answers with these; drop when unused.
 export function toFlagCounts(value: unknown): FlagCounts {
   const v = obj(value);
   return Object.fromEntries(FLAG_KINDS.map((k) => [k, toCount(v[k])])) as FlagCounts;
 }
 
-const toFlagKind = (value: unknown): FlagKind | null => (FLAG_KINDS as readonly unknown[]).includes(value) ? (value as FlagKind) : null;
-
-/** A flag as sent, in a list of none (an unknown kind) or one. */
 function toPatternFlags(f: Record<string, unknown>): PatternFlag[] {
-  const kind = toFlagKind(f.kind);
-  if (kind === null) return [];
-  const d = obj(f.details);
-  const decision = d.decision === "first" || d.decision === "check" || d.decision === "recheck" ? d.decision : null;
-  return [
-    {
-      kind,
-      plot: text(f.plot),
-      operator: text(f.operator),
-      at: toMillis(f.at),
-      gapMs: toNumberOrNull(d.gapMs),
-      previousPlot: nullableText(d.previousPlot),
-      runLength: toNumberOrNull(d.runLength),
-      firstPlot: nullableText(d.firstPlot),
-      questions: list(d.questions).map((q) => ({ key: text(q.key), label: text(q.label) || text(q.key) })),
-      decision,
-      decidedAt: toMillis(d.decidedAt),
-    },
-  ];
-}
-
-export function toFlagsData(body: unknown): FlagsData {
-  const b = obj(body);
-  return {
-    fastSeconds: toFastSeconds(b.fastSeconds),
-    plots: toCount(b.plots),
-    counts: toFlagCounts(b.counts),
-    people: list(b.people).map((p) => ({ username: text(p.username), counts: toFlagCounts(p.counts), total: toCount(p.total) })),
-    total: toCount(b.total),
-    flags: list(b.flags).flatMap(toPatternFlags),
-    requiredQuestions: toCount(b.requiredQuestions),
-    computedAt: toMillis(b.computedAt),
-    stale: b.stale === true,
-  };
+  return (FLAG_KINDS as readonly unknown[]).includes(f.kind) ? [f as unknown as PatternFlag] : [];
 }
 
 /** Plots worth a look (coordinators and reviewers). A 503 "busy" is thrown as ApiError code "busy". */
-export async function getFlags(projectId: string, filter: FlagsFilter): Promise<FlagsData> {
+export function getFlags(projectId: string, filter: FlagsFilter): Promise<FlagsAnswer> {
   const query = new URLSearchParams();
   if (filter.person) query.set("person", filter.person);
   if (filter.kind) query.set("kind", filter.kind);
   const q = query.toString();
-  return toFlagsData(await request<unknown>("GET", `${p(projectId)}/quality/flags${q ? `?${q}` : ""}`));
+  return request("GET", `${p(projectId)}/quality/flags${q ? `?${q}` : ""}`);
 }
 
 // --- automatic checks (Task 13) --------------------------------------------------
