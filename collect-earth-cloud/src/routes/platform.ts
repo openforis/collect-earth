@@ -13,6 +13,7 @@ import { requireProjectMembership, requireSession } from '../plugins/projectAuth
 import type { Store } from '../store/store.js';
 import type { Role, RoundInfo } from '../types.js';
 import type { CepUploadAnswer, MembersAnswer, ProjectListAnswer, RoundAnswer } from '../wire/projects.js';
+import type { InvitesAnswer, JoinPreview, NewInvite } from '../wire/account.js';
 
 interface InviteBody {
   role?: Role;
@@ -224,7 +225,7 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
         role,
         maxUses,
         expiresAt,
-      });
+      } satisfies NewInvite);
     },
   );
 
@@ -237,7 +238,7 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
       const [invites, members] = await Promise.all([store.listInvites(projectId, Date.now()), store.listMembers(projectId)]);
       // A link made on a person's page (for the new project file) names whom it is for.
       const forOf = await invitesFor(store, projectId, invites, new Map(members.map((m) => [m.userId, m.username])));
-      return reply.send({ invites: invites.map((i) => ({ ...i, forUsername: forOf.get(i.id) ?? null })) });
+      return reply.send({ invites: invites.map((i) => ({ ...i, forUsername: forOf.get(i.id) ?? null })) } satisfies InvitesAnswer);
     },
   );
 
@@ -271,7 +272,7 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
       projectName: invite.projectName,
       role: invite.role,
       valid: !expired && !exhausted && !invite.revoked,
-    });
+    } satisfies JoinPreview);
   });
 
   // CEP upload (admin). Raw zip body (application/zip or octet-stream).

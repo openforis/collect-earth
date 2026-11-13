@@ -21,9 +21,8 @@ The dashboard and the server are built and shipped together (the Dockerfile buil
 `src/wire/`; local mode bundles both), so the dashboard never talks to an older server and needs no
 fallbacks for one.
 
-Moved here so far: progress, the bell, progress links, the Settings tab's project calls, the
-projects, plot files and the Data tab, the Quality tab's figures, decisions, notes, answers per
-person and pattern flags, the AI assistant's runs, the printable reports, the automatic checks,
-reference plots, survey health, the review queue, plot search and the map. The
-other areas of `web/src/api.ts` still have their own copies and clean-up functions; move them one
-area at a time.
+Moved here: every area of `web/src/api.ts`. `account.ts` (accounts, sign-in, the current user,
+two-step sign-in, digests, invites, server-info), `serverAdmin.ts` (the server page), `projects.ts`,
+`plotFiles.ts`, `data.ts`, `progress.ts`, `projectSettings.ts`, `quality.ts`, `ai.ts`, `reports.ts`,
+`checks.ts`, `review.ts`, `map.ts`, `people.ts`, `analysis.ts`, `activity.ts`, `training.ts`. A new
+route gets its answer's type here, in the file of its area, and api.ts uses the answer as it comes.

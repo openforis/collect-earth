@@ -3,6 +3,9 @@
 import { parseClientAgent } from './clientVersion.js';
 import type { AdminProject, ClientUse, ServerActivityEntry } from './types.js';
 import { PROJECT_STATUSES } from './types.js';
+import type { CollectEarthVersions, ProjectFilter, ProjectPage, ProjectQuery, ProjectSort, VersionRow } from './wire/serverAdmin.js';
+
+export type { ProjectFilter, ProjectQuery, ProjectSort, VersionRow } from './wire/serverAdmin.js';
 
 const DAY_MS = 24 * 3600 * 1000;
 /** A coordinator not active for this many days does not count as active (as accounts: INACTIVE_DAYS). */
@@ -12,20 +15,8 @@ export const VERSIONS_DAYS = 30;
 
 // --- Projects directory ---
 
-export const PROJECT_FILTERS = ['all', 'noCoordinator', ...PROJECT_STATUSES] as const;
-export type ProjectFilter = (typeof PROJECT_FILTERS)[number];
-export const PROJECT_SORTS = ['lastActivity', 'created', 'storage', 'people'] as const;
-export type ProjectSort = (typeof PROJECT_SORTS)[number];
-
-export interface ProjectQuery {
-  /** Part of a project id, any case */
-  q: string;
-  filter: ProjectFilter;
-  sort: ProjectSort;
-  desc: boolean;
-  page: number;
-  pageSize: number;
-}
+export const PROJECT_FILTERS: readonly ProjectFilter[] = ['all', 'noCoordinator', ...PROJECT_STATUSES];
+export const PROJECT_SORTS = ['lastActivity', 'created', 'storage', 'people'] as const satisfies readonly ProjectSort[];
 
 const word = <T extends string>(value: unknown, allowed: readonly T[], fallback: T): T =>
   typeof value === 'string' && (allowed as readonly string[]).includes(value) ? (value as T) : fallback;
@@ -60,7 +51,7 @@ function isOf(p: AdminProject, filter: ProjectFilter): boolean {
 }
 
 /** The projects searched, filtered, sorted (then by id) and in pages, with each filter's count of the search. */
-export function queryProjects(projects: readonly AdminProject[], query: ProjectQuery) {
+export function queryProjects(projects: readonly AdminProject[], query: ProjectQuery): ProjectPage {
   const searched = query.q === '' ? [...projects] : projects.filter((p) => p.projectId.toLowerCase().includes(query.q));
   const counts = Object.fromEntries(PROJECT_FILTERS.map((f) => [f, searched.filter((p) => isOf(p, f)).length])) as Record<ProjectFilter, number>;
   const kept = searched.filter((p) => isOf(p, query.filter));
@@ -93,22 +84,12 @@ export function compareVersions(a: string, b: string): number {
   return 0;
 }
 
-export interface VersionRow {
-  /** The version; null for the old releases that sent none, or a Collect Earth that could not read its own. */
-  version: string | null;
-  /** 'old': a release before Collect Earth sent its version (CollectEarth-cloud-sync). */
-  kind: 'version' | 'old' | 'unnamed';
-  accounts: number;
-  /** Older than the latest: those accounts should update. */
-  outdated: boolean;
-}
-
 /**
  * The Collect Earth each account used last (its latest call in any project, within `since`), counted by version, newest
  * first. The latest is `configured` (COLLECT_EARTH_LATEST_VERSION) when set, else the newest one in use; a version
  * below it, and the old releases that sent none, are outdated.
  */
-export function collectEarthVersions(uses: readonly ClientUse[], configured: string | null) {
+export function collectEarthVersions(uses: readonly ClientUse[], configured: string | null): CollectEarthVersions {
   const last = new Map<string, ClientUse>();
   for (const u of uses) {
     const kept = last.get(u.userId);

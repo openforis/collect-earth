@@ -120,6 +120,8 @@ describe('LOCAL_MODE server', () => {
   it('server-info says localMode and offers nothing about sign-up, setup or the AI', async () => {
     const info = (await app.inject({ method: 'GET', url: '/v1/server-info' })).json();
     expect(info).toMatchObject({ localMode: true, needsSetup: false, signupOpen: false, projectCreation: 'platform-admins', aiAvailable: false, termsUrl: null, selfServiceReset: false });
+    // The same fields as a cloud server's answer (ServerInfo, src/wire/account.ts)
+    expect(info).toMatchObject({ minPasswordLength: 8, signupDomains: null, telemetry: null });
   });
 
   it('every route about other people or the server answers 404, with or without the session', async () => {

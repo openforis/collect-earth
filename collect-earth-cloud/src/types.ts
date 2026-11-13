@@ -1,18 +1,31 @@
+import type { DigestKind, Role } from './wire/account.js';
 import type { ProgressSettings } from './wire/progress.js';
 import type { ProjectStatus } from './wire/projectSettings.js';
-import type { Role } from './wire/projects.js';
 import type { SamplingDraw, SamplingRule } from './wire/checks.js';
 import type { AiRunKind, AiRunStatus, FollowUpAction } from './wire/ai.js';
 import type { DecisionKind } from './wire/quality.js';
+import type { DayCount, ServerAction, ServerActionKind, ServerSettings } from './wire/serverAdmin.js';
 
+export type { DigestKind, InviteSummary, Membership, ProjectCreation, Role } from './wire/account.js';
 export type { ProgressSettings } from './wire/progress.js';
 export type { ProjectStatus, ShareLink } from './wire/projectSettings.js';
-/** Membership role within a single project (Role), and the project calls' types (src/wire/projects.ts). */
-export type { CepInfo, Member, Membership, RepeatSettings, Role } from './wire/projects.js';
+/** The project calls' types (src/wire/projects.ts); Role and Membership are in src/wire/account.ts. */
+export type { CepInfo, Member, RepeatSettings } from './wire/projects.js';
 export type { Assignment, AssignmentDetail, CsvFile, DivisionOrder, StoredDistribution } from './wire/plotFiles.js';
 export type { ReferenceChangeResult, SamplingCore, SamplingDraw, SamplingFileRule, SamplingRule } from './wire/checks.js';
 export type { DecisionKind, GuidanceNote, GuidanceNoteInput, QualitySettings } from './wire/quality.js';
 export type { AiRunKind, AiRunStatus } from './wire/ai.js';
+export type {
+  AdminProject,
+  DayCount,
+  ServerAction,
+  ServerActionKind,
+  ServerActivityEntry,
+  ServerSettings,
+  StoppedDigest,
+  StoredOwnerAlert,
+  UserSummary,
+} from './wire/serverAdmin.js';
 
 export interface User {
   id: string;
@@ -47,16 +60,6 @@ export interface Invite {
   revoked: boolean;
 }
 
-/** An open invite as the project admin sees it (the token itself is only shown at creation). */
-export interface InviteSummary {
-  id: string;
-  role: Role;
-  maxUses: number;
-  usedCount: number;
-  expiresAt: number | null;
-  createdAt: number;
-}
-
 /**
  * The quality figure a progress link shows (Decision 9): every check so far compared with its first
  * assessment, stored whenever the quality figures are worked out for the project, so the link reads
@@ -69,62 +72,6 @@ export interface PublicQuality {
   rate: number | null;
   /** When the inputs of the figures it comes from were read (ms). */
   computedAt: number;
-}
-
-/** Who may create projects with a session: every logged-in user, or platform admins only. */
-export type ProjectCreation = 'anyone' | 'platform-admins';
-
-/** Server-wide settings edited by the platform admin. */
-export interface ServerSettings {
-  signupOpen: boolean;
-  projectCreation: ProjectCreation;
-  /** Most projects one account may coordinate (be admin of); 0 = no limit. Platform admins are exempt. */
-  maxProjectsPerUser: number;
-  /** Most space one project may use, in MB (CEP + plot files + records); 0 = no limit. */
-  maxProjectStorageMb: number;
-  /** Terms of use (http/https). When set, sign-up asks people to accept them. */
-  termsUrl: string | null;
-  /** Shown on every page so people know whom to ask (forgotten password...). */
-  contactEmail: string | null;
-  /** Shown in the app bar instead of "Collect Earth Cloud". */
-  serverName: string | null;
-  /** The AI assistant may be used on this server (it also needs the AI_VERTEX_* configuration). */
-  aiEnabled: boolean;
-  /** AI reports per project per UTC day; 0 = none allowed. */
-  aiReportsPerDay: number;
-  /** AI follow-ups and questions per project per UTC day; 0 = none allowed. */
-  aiFollowUpsPerDay: number;
-  /**
-   * AI tokens (input + output) per project per calendar month (UTC); 0 = none allowed.
-   * Per project: the server's total can reach this times the number of projects.
-   */
-  aiMonthlyTokens: number;
-  /** A short plain-text message shown at the top of every dashboard page to everyone signed in; null: none. */
-  announcement: string | null;
-  /** When the announcement stops being shown (epoch ms); null: until it is cleared. */
-  announcementUntil: number | null;
-  /**
-   * Coordinators (project admins) and the server's administrators must use two-step sign-in (src/twoFactor.ts): until
-   * they set it up, their coordinator and administration pages are refused (two_factor_required).
-   */
-  twoFactorForCoordinators: boolean;
-  /** Owner alerts (src/ownerAlerts.ts): how many in one hour raise one, and a project's storage in percent of its limit. */
-  alertFailedLogins: number;
-  alertServerErrors: number;
-  alertSyncErrors: number;
-  alertStoragePercent: number;
-  /**
-   * A Slack or Microsoft Teams incoming webhook the alerts are posted to as well (src/alertWebhook.ts); null: none.
-   * A secret of sorts (whoever has it can post to the channel): never sent back, only whether one is set and its host.
-   */
-  alertWebhookUrl: string | null;
-  /** Open sign-up only with an email address of these domains (comma-separated, lower case); null: any address or none. */
-  signupDomains: string | null;
-  /** The shortest password accepted (sign-up, a change, a reset), from MIN_PASSWORD_LENGTH to 64. */
-  minPasswordLength: number;
-  /** An account is locked after this many failed sign-ins in a row (0: never), for loginLockMinutes. */
-  loginLockFailures: number;
-  loginLockMinutes: number;
 }
 
 /** The bounds of the settings above that are numbers (checked by PUT /v1/admin/settings). */
@@ -173,61 +120,6 @@ export const DEFAULT_SETTINGS: ServerSettings = {
   loginLockMinutes: 15,
 };
 
-/** One account in the platform admin's user list: a project COUNT only, never names (§4b). */
-export interface UserSummary {
-  userId: string;
-  username: string;
-  isPlatformAdmin: boolean;
-  /** Projects the account belongs to, in any role. */
-  projects: number;
-  /** Projects the account coordinates (admin role): what maxProjectsPerUser counts. */
-  coordinatedProjects: number;
-  /** When the account was disabled (epoch ms), or null. */
-  disabledAt: number | null;
-  /** Who disabled it (a username), or null (enabled, or that account was deleted since). */
-  disabledBy: string | null;
-  /** Two-step sign-in is on for the account. */
-  twoFactor: boolean;
-  /** When the account was made (epoch ms). */
-  createdAt: number;
-  /** When it last signed in or used a session, the dashboard or Collect Earth (epoch ms), or null: never since this was kept. */
-  lastActiveAt: number | null;
-  /** Its email address, and whether the person confirmed it. */
-  email: string | null;
-  emailConfirmed: boolean;
-  /** Locked after failed sign-ins until then (epoch ms), or null. */
-  lockedUntil: number | null;
-}
-
-/** One alert raised for the server's administrators, as kept (owner_alerts, migration 042). */
-export interface StoredOwnerAlert {
-  id: string;
-  /** failed_logins, server_errors, sync_errors, storage, two_factor_keys (src/ownerAlerts.ts) */
-  kind: string;
-  at: number;
-  count: number;
-  projectId: string | null;
-  seenAt: number | null;
-  /** Who marked it seen (a username), or null. */
-  seenBy: string | null;
-}
-
-/** One project in the server administrator's directory: by id only, never its name (§4b). */
-export interface AdminProject {
-  projectId: string;
-  status: ProjectStatus;
-  createdAt: number;
-  /** The latest of a member seen, a sync and a record stored (epoch ms); null when none yet. */
-  lastActivityAt: number | null;
-  storageBytes: number;
-  /** Its people, any role. */
-  people: number;
-  /** Its coordinators whose account is enabled. */
-  coordinators: number;
-  /** Of those, the ones active since the `activeSince` asked (users.last_active_at). */
-  activeCoordinators: number;
-}
-
 /** What the server activity log keeps: server administrators' actions (migration 041). */
 export const SERVER_ACTIONS = [
   'settings.changed',
@@ -249,11 +141,9 @@ export const SERVER_ACTIONS = [
   'message.sent',
   'alerts.seen',
   'account.unlocked',
-] as const;
-export type ServerAction = (typeof SERVER_ACTIONS)[number];
+] as const satisfies readonly ServerAction[];
 /** The kinds the log is filtered by: an action's first word ("accounts" counts as "account"). */
-export const SERVER_ACTION_KINDS = ['settings', 'account', 'project', 'mail', 'message', 'alerts'] as const;
-export type ServerActionKind = (typeof SERVER_ACTION_KINDS)[number];
+export const SERVER_ACTION_KINDS = ['settings', 'account', 'project', 'mail', 'message', 'alerts'] as const satisfies readonly ServerActionKind[];
 export const serverActionKind = (a: ServerAction): ServerActionKind =>
   (a.startsWith('accounts.') ? 'account' : a.slice(0, a.indexOf('.'))) as ServerActionKind;
 
@@ -270,19 +160,6 @@ export interface ServerActivityInput {
   details?: AuditDetails;
 }
 
-export interface ServerActivityEntry {
-  id: string;
-  at: number;
-  actorUserId: string | null;
-  /** The actor's username when it acted (kept when the account is deleted). */
-  actor: string | null;
-  action: ServerAction;
-  targetUserId: string | null;
-  target: string | null;
-  projectId: string | null;
-  details: AuditDetails;
-}
-
 export interface ServerActivityQuery {
   /** Only this actor's (by the username kept). */
   actor: string | null;
@@ -297,22 +174,6 @@ export interface ClientUse {
   agent: string;
   /** Its last sync, else when it was last seen (epoch ms). */
   at: number;
-}
-
-/** A weekly mail stopped after the mail server refused the address several weeks in a row. */
-export interface StoppedDigest {
-  userId: string;
-  username: string;
-  email: string | null;
-  kind: DigestKind;
-  failures: number;
-  stoppedAt: number;
-}
-
-/** A count for one UTC day (epoch ms of its midnight). */
-export interface DayCount {
-  day: number;
-  count: number;
 }
 
 /**
@@ -884,8 +745,6 @@ export interface AuditQuery {
 
 // --- Email digests (Task 19): account data, global as users ---
 
-/** 'coordinator': the weekly summary of the projects someone coordinates; 'collector': their own week. */
-export type DigestKind = 'coordinator' | 'collector';
 export const DIGEST_KINDS: readonly DigestKind[] = ['coordinator', 'collector'];
 
 /** The languages the dashboard and the mails are written in. */

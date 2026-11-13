@@ -23,6 +23,28 @@ import type {
   SigridCountries,
   SigridFacts,
 } from "../../src/wire/plotFiles";
+import type {
+  AccountDeletion,
+  AnonymizedAnswer,
+  DigestKind,
+  FormerMember,
+  FormerMembersAnswer,
+  InvitesAnswer,
+  JoinPreview,
+  LoginAnswer,
+  MapTiles,
+  Me,
+  Membership,
+  NewInvite,
+  Notifications,
+  OpenInvite,
+  RecoveryCodes,
+  ServerInfo,
+  Session,
+  SignupAnswer,
+  TwoFactorSetup,
+  UnsubscribeAnswer,
+} from "../../src/wire/account";
 import type { BellAnswer, ProgressAnswer, ProgressSettings, ProgressTotals, PublicProgress } from "../../src/wire/progress";
 import type {
   NewShareLinkAnswer,
@@ -45,7 +67,6 @@ import type {
   ImageryAnswer,
   Member,
   MembersAnswer,
-  Membership,
   NewProjectAnswer,
   Overview,
   PeriodHeaderAnswer,
@@ -96,6 +117,39 @@ import type {
 } from "../../src/wire/quality";
 import type { AiRunAnswer, AiRunListed, AiRunsAnswer, AiRunStartBody, AiRunStarted, AiStart, AiUsageAnswer } from "../../src/wire/ai";
 import type { MyQualityAnswer, TeamReportAnswer } from "../../src/wire/reports";
+import type {
+  AccountAnswer,
+  AccountDeletedAnswer,
+  AccountFilter,
+  AccountPage,
+  AccountQuery,
+  AccountSort,
+  AlertsMarkedAnswer,
+  CollectEarthVersions,
+  MadeAccount,
+  MadeAccountsAnswer,
+  MailCheck,
+  MessagePreview,
+  MessageSentAnswer,
+  OwnerAlertsPage,
+  ProjectArchivedAnswer,
+  ProjectFilter,
+  ProjectHandedAnswer,
+  ProjectPage,
+  ProjectQuery,
+  ProjectSort,
+  ResetLinkAnswer,
+  ServerActionKind,
+  ServerActivityPage,
+  ServerMessage,
+  ServerOverview,
+  SettingsChange,
+  ShownSettings,
+  TestMailAnswer,
+  UnlockAnswer,
+  UserSummary,
+  WebhookTestAnswer,
+} from "../../src/wire/serverAdmin";
 
 // Every call the dashboard makes to the Collect Earth Cloud server, in one place.
 //
@@ -107,77 +161,19 @@ import type { MyQualityAnswer, TeamReportAnswer } from "../../src/wire/reports";
 
 export type Role = "admin" | "reviewer" | "operator";
 export const ROLES: Role[] = ["operator", "reviewer", "admin"];
-export type ProjectCreation = "anyone" | "platform-admins";
+export type { ProjectCreation } from "../../src/wire/account";
 export type { ProjectStatus } from "../../src/wire/projectSettings";
 /** A project's lifecycle (the server's STATUS_MOVES): draft -> active -> closed (-> archived), closed -> active again. */
 export const STATUS_MOVES: Record<ProjectStatus, readonly ProjectStatus[]> = { draft: ["active"], active: ["closed"], closed: ["active", "archived"], archived: ["closed"] };
 
-export interface ServerInfo {
-  needsSetup: boolean;
-  signupOpen: boolean;
-  projectCreation: ProjectCreation;
-  version: string | null;
-  /** Terms of use: when set, sign-up asks people to accept them. */
-  termsUrl: string | null;
-  contactEmail: string | null;
-  /** Shown in the app bar instead of "Collect Earth Cloud". */
-  serverName: string | null;
-  /** The AI assistant can be switched on for a project (set up and switched on by the server owner). */
-  aiAvailable: boolean;
-  /** "Forgot your password?" mails a reset link to an account's confirmed address (the server sends email). */
-  selfServiceReset: boolean;
-  /** The shortest password the server accepts (8 when it does not say). */
-  minPasswordLength?: number;
-  /** Open sign-up only with an address of these email domains; null: any. */
-  signupDomains?: string[] | null;
-  /** The map of progress's base map (OpenStreetMap unless the server sets another). */
-  mapTiles: MapTiles;
-  /**
-   * The dashboard runs on the person's own computer, for one person working alone (the server's
-   * LOCAL_MODE): what is about other people or the server is hidden (src/localMode.ts).
-   */
-  localMode: boolean;
-  /** Error reports (Sentry) and usage events, when the server sends them (its TELEMETRY setting). */
-  telemetry?: DashboardTelemetry | null;
-}
-
-export interface DashboardTelemetry {
-  sentryDsn: string | null;
-  environment: string;
-  release: string;
-  /** The server forwards the dashboard's usage events (POST /telemetry). */
-  events: boolean;
-}
-
-/** The server's telemetry settings, or null when they are off or unreadable (a DSN must be https). */
-export function toTelemetry(value: unknown): DashboardTelemetry | null {
-  if (!value || typeof value !== "object") return null;
-  const v = value as Record<string, unknown>;
-  const dsn = typeof v.sentryDsn === "string" && /^https:\/\/[^\s]+$/.test(v.sentryDsn) ? v.sentryDsn : null;
-  const events = v.events === true;
-  if (!dsn && !events) return null;
-  return {
-    sentryDsn: dsn,
-    environment: typeof v.environment === "string" ? v.environment.slice(0, 64) : "production",
-    release: typeof v.release === "string" ? v.release.slice(0, 100) : "collect-earth-cloud",
-    events,
-  };
-}
+export type { Announcement, DashboardTelemetry, MapTiles, Me, Membership, ServerInfo, Session } from "../../src/wire/account";
 
 /** Tells the server of a use of the dashboard it cannot see (it forwards it to Google Analytics, when it does). */
 export function sendUsageEvent(projectId: string, name: "training_report_opened" | "training_report_printed", params: Record<string, string | number> = {}): void {
   request<unknown>("POST", `${p(projectId)}/telemetry`, { json: { name, params } }).catch(() => undefined);
 }
 
-/** A base map's tiles: a URL with {z}/{x}/{y}, the attribution the source asks for (plain text) and where it links. */
-export interface MapTiles {
-  url: string;
-  attribution: string;
-  attributionUrl: string | null;
-  maxZoom: number;
-}
-
-/** OpenStreetMap's tiles: what a server that says nothing else uses. */
+/** OpenStreetMap's tiles (the server's default base map). */
 export const OSM_TILES: MapTiles = {
   url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
   attribution: "© OpenStreetMap contributors",
@@ -185,47 +181,9 @@ export const OSM_TILES: MapTiles = {
   maxZoom: 19,
 };
 
-/** The server's tiles when they are usable (an http(s) URL with {z}, {x} and {y}, an attribution), else OpenStreetMap's. */
-export function toMapTiles(value: unknown): MapTiles {
-  const m = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
-  const url = safeUrl(m.url);
-  const attribution = optionalText(m.attribution);
-  if (!url || !attribution || !["{z}", "{x}", "{y}"].every((part) => url.includes(part))) return OSM_TILES;
-  const maxZoom = Number(m.maxZoom);
-  return {
-    url,
-    attribution,
-    attributionUrl: safeUrl(m.attributionUrl),
-    maxZoom: Number.isInteger(maxZoom) && maxZoom >= 1 && maxZoom <= 22 ? maxZoom : OSM_TILES.maxZoom,
-  };
-}
-
-export interface Session {
-  token: string;
-  userId: string;
-  username: string;
-}
-
-export type { Membership } from "../../src/wire/projects";
-
-/** The server owner's message to everyone signed in; `until`: when it ends (epoch ms), null: until cleared. */
-export interface Announcement {
-  text: string;
-  until: number | null;
-}
-
-export interface Me {
-  userId: string;
-  username: string;
-  memberships: Membership[];
-  isPlatformAdmin: boolean;
-  announcement: Announcement | null;
-  /** Two-step sign-in: on for the account; required of it by the server (it coordinates or administers). */
-  twoFactor: { enabled: boolean; required: boolean };
-}
-
 export type { CepInfo, OperatorProgress, Overview, ProjectInfo } from "../../src/wire/projects";
 
+/** An open invite as the People tab reads it (GET /people; the invites' own list is the server's OpenInvite). */
 export interface Invite {
   id: string;
   role: Role;
@@ -235,22 +193,7 @@ export interface Invite {
   createdAt: number | null;
 }
 
-export interface NewInvite {
-  inviteToken: string;
-  joinPath: string;
-  /** Always absolute: built from this page's address when the server does not know its own. */
-  joinUrl: string;
-  role: Role;
-  maxUses: number;
-  expiresAt: number | null;
-}
-
-export interface JoinPreview {
-  projectId: string;
-  projectName: string;
-  role: Role;
-  valid: boolean;
-}
+export type { JoinPreview, NewInvite, OpenInvite } from "../../src/wire/account";
 
 export type { Member } from "../../src/wire/projects";
 export type {
@@ -276,92 +219,8 @@ export interface Rate {
   rate: number | null;
 }
 
-export interface ServerSettings {
-  signupOpen: boolean;
-  projectCreation: ProjectCreation;
-  /** 0 = no limit. */
-  maxProjectsPerUser: number;
-  /** 0 = no limit. */
-  maxProjectStorageMb: number;
-  termsUrl: string | null;
-  contactEmail: string | null;
-  serverName: string | null;
-  /** The AI assistant may be used on this server (it also needs the server's AI configuration). */
-  aiEnabled: boolean;
-  /** AI reports per project per UTC day; 0 = none allowed. */
-  aiReportsPerDay: number;
-  /** AI follow-ups and questions per project per UTC day; 0 = none allowed. */
-  aiFollowUpsPerDay: number;
-  /** AI tokens per project per calendar month (UTC); 0 = none allowed. */
-  aiMonthlyTokens: number;
-  /** Read only: whether the server has its AI configuration (Vertex AI). */
-  aiConfigured: boolean;
-  /** The banner every signed-in person sees (plain text), and when it ends (epoch ms; null: until cleared). */
-  announcement: string | null;
-  announcementUntil: number | null;
-  /** Coordinators and the server's administrators must use two-step sign-in. */
-  twoFactorForCoordinators: boolean;
-  /** The owner alerts' thresholds: per hour, and a project's storage in percent of its limit. */
-  alertFailedLogins: number;
-  alertServerErrors: number;
-  alertSyncErrors: number;
-  alertStoragePercent: number;
-  /** The alerts' Slack or Teams webhook: read back only as its service and host; set by alertWebhookUrl. */
-  alertWebhook: { kind: "slack" | "teams"; host: string } | null;
-  /** Write only: a new webhook address, or null to remove it. */
-  alertWebhookUrl?: string | null;
-  /** Open sign-up only with these email domains (comma-separated); null: any. */
-  signupDomains: string | null;
-  minPasswordLength: number;
-  /** Failed sign-ins in a row that lock an account (0: never), and for how long. */
-  loginLockFailures: number;
-  loginLockMinutes: number;
-}
-
-export interface AdminUser {
-  userId: string;
-  username: string;
-  isPlatformAdmin: boolean;
-  projects: number;
-  /** Projects the person coordinates (what the per-account project limit counts). */
-  coordinatedProjects: number;
-  /** When a server administrator disabled the account, or null. */
-  disabledAt: number | null;
-  /** Who disabled it, or null. */
-  disabledBy: string | null;
-  /** Two-step sign-in is on for the account. */
-  twoFactor: boolean;
-  /** When the account was made, and when it last signed in or used a session (null: never since this was kept). */
-  createdAt: number | null;
-  lastActiveAt: number | null;
-  /** Its email address, and whether the person confirmed it. */
-  email: string | null;
-  emailConfirmed: boolean;
-  /** Locked after failed sign-ins until then, or null */
-  lockedUntil: number | null;
-}
-
-export interface ProjectRef {
-  projectId: string;
-  name: string;
-}
-
-/** What deleting one's own account would do. */
-export interface AccountDeletion {
-  /** Projects where the person is the only coordinator and others work: deleting is refused. */
-  soleCoordinator: ProjectRef[];
-  /** Projects with nobody else in them: deleted together with the account. */
-  deletedWithAccount: ProjectRef[];
-  /** The only server administrator cannot delete their account. */
-  lastPlatformAdmin: boolean;
-}
-
-export interface ResetLink {
-  /** null when the link was mailed to the account's confirmed address instead (mailed) */
-  resetUrl: string | null;
-  expiresAt: number | null;
-  mailed: boolean;
-}
+export type { AccountDeletion, ProjectRef } from "../../src/wire/account";
+export type { ResetLinkAnswer as ResetLink, SettingsChange, ShownSettings as ServerSettings, UserSummary as AdminUser } from "../../src/wire/serverAdmin";
 
 export type { CodeItem, NoteInfo, RoundInfo, RoundState } from "../../src/wire/projects";
 
@@ -642,10 +501,6 @@ export function safeUrl(value: unknown): string | null {
   return text && /^https?:\/\//i.test(text) ? text : null;
 }
 
-function asRole(value: unknown): Role {
-  return value === "admin" || value === "reviewer" ? value : "operator";
-}
-
 /** A server without statuses (older) has active projects only. */
 export function asStatus(value: unknown): ProjectStatus {
   return value === "draft" || value === "closed" || value === "archived" ? value : "active";
@@ -656,43 +511,9 @@ const p = (projectId: string) => `/v1/projects/${encodeURIComponent(projectId)}`
 // --- server & account --------------------------------------------------------------
 
 export async function getServerInfo(): Promise<ServerInfo> {
-  try {
-    const info = await request<Record<string, unknown>>("GET", "/v1/server-info", { noSessionEnd: true });
-    return {
-      needsSetup: info?.needsSetup === true,
-      signupOpen: info?.signupOpen === true,
-      projectCreation: info?.projectCreation === "anyone" ? "anyone" : "platform-admins",
-      version: typeof info?.version === "string" ? info.version : null,
-      termsUrl: safeUrl(info?.termsUrl),
-      contactEmail: optionalText(info?.contactEmail),
-      serverName: optionalText(info?.serverName),
-      aiAvailable: info?.aiAvailable === true,
-      selfServiceReset: info?.selfServiceReset === true,
-      minPasswordLength: typeof info?.minPasswordLength === "number" && info.minPasswordLength >= 8 ? info.minPasswordLength : 8,
-      signupDomains: Array.isArray(info?.signupDomains) ? (info.signupDomains as unknown[]).filter((d): d is string => typeof d === "string") : null,
-      mapTiles: toMapTiles(info?.mapTiles),
-      localMode: info?.localMode === true,
-      telemetry: toTelemetry(info?.telemetry),
-    };
-  } catch (error) {
-    // A server from before the dashboard existed: no setup, no sign-up.
-    if (error instanceof ApiError && error.status === 404) {
-      return {
-        needsSetup: false,
-        signupOpen: false,
-        projectCreation: "platform-admins",
-        version: null,
-        termsUrl: null,
-        contactEmail: null,
-        serverName: null,
-        aiAvailable: false,
-        selfServiceReset: false,
-        mapTiles: OSM_TILES,
-        localMode: false,
-      };
-    }
-    throw error;
-  }
+  const info = await request<ServerInfo>("GET", "/v1/server-info", { noSessionEnd: true });
+  // The terms link goes in an href: an http(s) address only.
+  return { ...info, termsUrl: safeUrl(info.termsUrl) };
 }
 
 export function setup(setupCode: string, username: string, password: string): Promise<Session> {
@@ -700,8 +521,8 @@ export function setup(setupCode: string, username: string, password: string): Pr
 }
 
 /** Logs in; with two-step sign-in, the server first answers second_step_required, then takes the code with the password. */
-export function login(username: string, password: string, code?: string): Promise<Session> {
-  return request<Session>("POST", "/v1/auth/login", { json: code ? { username, password, code } : { username, password }, noSessionEnd: true });
+export function login(username: string, password: string, code?: string): Promise<LoginAnswer> {
+  return request<LoginAnswer>("POST", "/v1/auth/login", { json: code ? { username, password, code } : { username, password }, noSessionEnd: true });
 }
 
 /** Creates an account; null when the server signs it in only once the mailed link is opened (sign-up limited to some domains). */
@@ -711,8 +532,8 @@ export async function signup(username: string, password: string, email?: string,
   // the confirmation mail of the address is written in the page's language
   if (email && language) json.language = language;
   if (acceptTerms) json.acceptTerms = true;
-  const session = await request<Session>("POST", "/v1/auth/signup", { json, noSessionEnd: true });
-  return session.token ? session : null;
+  const answer = await request<SignupAnswer>("POST", "/v1/auth/signup", { json, noSessionEnd: true });
+  return "token" in answer ? answer : null;
 }
 
 export async function logout(): Promise<void> {
@@ -724,99 +545,48 @@ export async function logoutOthers(): Promise<void> {
   await send("POST", "/v1/auth/logout-others");
 }
 
-export async function getMe(): Promise<Me> {
-  const me = await request<Partial<Me>>("GET", "/v1/me");
-  return {
-    userId: String(me?.userId ?? ""),
-    username: String(me?.username ?? ""),
-    memberships: Array.isArray(me?.memberships) ? me.memberships.map((m) => ({ ...m, role: asRole(m.role), status: asStatus(m.status) })) : [],
-    isPlatformAdmin: me?.isPlatformAdmin === true,
-    twoFactor: { enabled: me?.twoFactor?.enabled === true, required: me?.twoFactor?.required === true },
-    announcement: toAnnouncement((me as { announcement?: unknown } | undefined)?.announcement),
-  };
-}
-
-function toAnnouncement(value: unknown): Announcement | null {
-  const a = value && typeof value === "object" ? (value as Record<string, unknown>) : null;
-  if (!a || typeof a.text !== "string" || !a.text.trim()) return null;
-  return { text: a.text, until: typeof a.until === "number" && Number.isFinite(a.until) ? a.until : null };
+export function getMe(): Promise<Me> {
+  return request<Me>("GET", "/v1/me");
 }
 
 // --- the owner's alerts (the server's src/ownerAlerts.ts) ---------------------------------------
 
-export type OwnerAlertKind = "failed_logins" | "server_errors" | "sync_errors" | "storage" | "two_factor_keys";
-
-export interface OwnerAlert {
-  id?: string;
-  kind: OwnerAlertKind;
-  at: number;
-  count: number;
-  projectId?: string | null;
-  /** When it was marked seen and by whom; null: not seen */
-  seenAt?: number | null;
-  seenBy?: string | null;
-}
-
-export interface OwnerAlertsPage {
-  alerts: OwnerAlert[];
-  total: number;
-  /** Alerts not marked seen, of all kept */
-  unseen: number;
-  page: number;
-  pages: number;
-  thresholds: Record<string, number>;
-  webhook: { kind: "slack" | "teams"; host: string } | null;
-}
+export type { OwnerAlertKind, OwnerAlertsPage, StoredOwnerAlert as OwnerAlert } from "../../src/wire/serverAdmin";
 
 /** The alerts kept (newest first, in pages), how many are not seen, the thresholds and the webhook. */
-export async function getOwnerAlerts(page = 1): Promise<OwnerAlertsPage> {
-  const body = await request<Record<string, unknown>>("GET", `/v1/admin/alerts?page=${page}&pageSize=10`);
-  const alerts = Array.isArray(body?.alerts) ? (body.alerts as OwnerAlert[]) : [];
-  return {
-    alerts,
-    total: toCount(body?.total ?? alerts.length),
-    unseen: toCount(body?.unseen ?? alerts.filter((a) => !a.seenAt).length),
-    page: Math.max(1, toCount(body?.page ?? 1)),
-    pages: Math.max(1, toCount(body?.pages ?? 1)),
-    thresholds: (body?.thresholds as Record<string, number> | undefined) ?? {},
-    webhook: (body?.webhook as OwnerAlertsPage["webhook"] | undefined) ?? null,
-  };
+export function getOwnerAlerts(page = 1): Promise<OwnerAlertsPage> {
+  return request<OwnerAlertsPage>("GET", `/v1/admin/alerts?page=${page}&pageSize=10`);
 }
 
 /** Marks alerts seen (none given: every one not seen). */
-export const markAlertsSeen = (ids?: string[]) => request<{ marked: number }>("POST", "/v1/admin/alerts/seen", { json: ids ? { ids } : {} });
+export const markAlertsSeen = (ids?: string[]) => request<AlertsMarkedAnswer>("POST", "/v1/admin/alerts/seen", { json: ids ? { ids } : {} });
 
 /** A test post to a webhook (the address typed, or the one saved). */
-export const testAlertWebhook = (url?: string) => request<{ sent: true }>("POST", "/v1/admin/alerts/webhook-test", { json: url ? { url } : {} });
+export const testAlertWebhook = (url?: string) => request<WebhookTestAnswer>("POST", "/v1/admin/alerts/webhook-test", { json: url ? { url } : {} });
 
 // --- former members (the server's src/routes/formerMembers.ts) -----------------------------------
 
-export interface FormerMember {
-  /** Their name as on their records: a username, or former-member-N once anonymised. */
-  operator: string;
-  records: number;
-  anonymized: boolean;
-}
+export type { FormerMember } from "../../src/wire/account";
 
 export async function getFormerMembers(projectId: string): Promise<FormerMember[]> {
-  return (await request<{ formerMembers: FormerMember[] }>("GET", `${p(projectId)}/former-members`)).formerMembers;
+  return (await request<FormerMembersAnswer>("GET", `${p(projectId)}/former-members`)).formerMembers;
 }
 
 /** Renames a former member on everything they collected; gives the pseudonym and how many records. Cannot be undone. */
-export async function anonymizeFormerMember(projectId: string, operator: string): Promise<{ operator: string; records: number }> {
-  return request<{ operator: string; records: number }>("POST", `${p(projectId)}/former-members/anonymize`, { json: { operator } });
+export function anonymizeFormerMember(projectId: string, operator: string): Promise<AnonymizedAnswer> {
+  return request<AnonymizedAnswer>("POST", `${p(projectId)}/former-members/anonymize`, { json: { operator } });
 }
 
 // --- two-step sign-in (the server's src/routes/twoFactor.ts) ------------------------------------
 
 /** A new secret to put in an authenticator app: as text, and as the address its QR code holds. */
-export async function startTwoFactor(): Promise<{ secret: string; uri: string }> {
-  return request<{ secret: string; uri: string }>("POST", "/v1/me/two-factor/setup", { json: {} });
+export function startTwoFactor(): Promise<TwoFactorSetup> {
+  return request<TwoFactorSetup>("POST", "/v1/me/two-factor/setup", { json: {} });
 }
 
 /** Turns two-step sign-in on with the account password and the app's first code; gives the recovery codes, shown once. */
 export async function enableTwoFactor(code: string, password: string): Promise<string[]> {
-  return (await request<{ recoveryCodes: string[] }>("POST", "/v1/me/two-factor/enable", { json: { code, password } })).recoveryCodes;
+  return (await request<RecoveryCodes>("POST", "/v1/me/two-factor/enable", { json: { code, password } })).recoveryCodes;
 }
 
 export async function disableTwoFactor(password: string): Promise<void> {
@@ -824,7 +594,7 @@ export async function disableTwoFactor(password: string): Promise<void> {
 }
 
 export async function newRecoveryCodes(password: string): Promise<string[]> {
-  return (await request<{ recoveryCodes: string[] }>("POST", "/v1/me/two-factor/recovery-codes", { json: { password } })).recoveryCodes;
+  return (await request<RecoveryCodes>("POST", "/v1/me/two-factor/recovery-codes", { json: { password } })).recoveryCodes;
 }
 
 /** The server's administrator turns someone's two-step sign-in off (a lost phone): their sessions end. */
@@ -846,17 +616,8 @@ export async function changePassword(currentPassword: string, newPassword: strin
   }
 }
 
-export async function getAccountDeletion(): Promise<AccountDeletion> {
-  const body = await request<Record<string, unknown>>("GET", "/v1/me/deletion");
-  const refs = (value: unknown): ProjectRef[] =>
-    Array.isArray(value)
-      ? value.map((p: Record<string, unknown>) => ({ projectId: String(p?.projectId ?? ""), name: String(p?.name ?? "") }))
-      : [];
-  return {
-    soleCoordinator: refs(body?.soleCoordinator),
-    deletedWithAccount: refs(body?.deletedWithAccount),
-    lastPlatformAdmin: body?.lastPlatformAdmin === true,
-  };
+export function getAccountDeletion(): Promise<AccountDeletion> {
+  return request<AccountDeletion>("GET", "/v1/me/deletion");
 }
 
 /** Deletes the logged-in person's account (the password confirms it). */
@@ -872,64 +633,16 @@ export async function deleteAccount(password: string): Promise<void> {
 
 // --- email digests (Task 19) ----------------------------------------------------
 
-export type DigestKind = "coordinator" | "collector";
+export type { DigestKind, DigestView, Notifications } from "../../src/wire/account";
 
-export interface DigestView {
-  on: boolean;
-  /** Turned off by the server after the mail server refused the address several weeks in a row. */
-  stopped: boolean;
-  lastSentWeek: string | null;
-  /** The latest week a mail actually went for (YYYY-Www), and when. */
-  lastMailedWeek: string | null;
-  lastSentAt: number | null;
-}
-
-export interface Notifications {
-  email: string | null;
-  /** False: the stored address is not one email address (an older sign-up): it must be typed again. */
-  emailValid: boolean;
-  emailConfirmed: boolean;
-  /** The language and time zone the mails are written in (null: never chosen). */
-  language: string | null;
-  timeZone: string | null;
-  /** False: this server sends no email (no SMTP set up); the choices are kept. */
-  sends: boolean;
-  /** Which digests make sense: coordinating a project, collecting in one. */
-  roles: Record<DigestKind, boolean>;
-  digests: Record<DigestKind, DigestView>;
-}
-
-function toNotifications(body: unknown): Notifications {
-  const b = (body ?? {}) as Record<string, unknown>;
-  const roles = (b.roles ?? {}) as Record<string, unknown>;
-  const digests = (b.digests ?? {}) as Record<string, Record<string, unknown> | undefined>;
-  const digest = (kind: DigestKind): DigestView => ({
-    on: digests[kind]?.on === true,
-    stopped: digests[kind]?.stopped === true,
-    lastSentWeek: typeof digests[kind]?.lastSentWeek === "string" ? (digests[kind]!.lastSentWeek as string) : null,
-    lastMailedWeek: typeof digests[kind]?.lastMailedWeek === "string" ? (digests[kind]!.lastMailedWeek as string) : null,
-    lastSentAt: typeof digests[kind]?.lastSentAt === "number" ? (digests[kind]!.lastSentAt as number) : null,
-  });
-  return {
-    email: typeof b.email === "string" ? b.email : null,
-    emailValid: b.emailValid !== false,
-    emailConfirmed: b.emailConfirmed === true,
-    language: typeof b.language === "string" ? b.language : null,
-    timeZone: typeof b.timeZone === "string" ? b.timeZone : null,
-    sends: b.sends === true,
-    roles: { coordinator: roles.coordinator === true, collector: roles.collector === true },
-    digests: { coordinator: digest("coordinator"), collector: digest("collector") },
-  };
-}
-
-export async function getNotifications(): Promise<Notifications> {
-  return toNotifications(await request("GET", "/v1/me/notifications"));
+export function getNotifications(): Promise<Notifications> {
+  return request<Notifications>("GET", "/v1/me/notifications");
 }
 
 /** Turns digests on or off, in the language and time zone given (the dashboard's); no zone keeps the stored one. */
-export async function setNotifications(change: Partial<Record<DigestKind, boolean>> & { language: string; timeZone?: string | null }): Promise<Notifications> {
+export function setNotifications(change: Partial<Record<DigestKind, boolean>> & { language: string; timeZone?: string | null }): Promise<Notifications> {
   const { timeZone, ...rest } = change;
-  return toNotifications(await request("PUT", "/v1/me/notifications", { json: timeZone ? { ...rest, timeZone } : rest }));
+  return request<Notifications>("PUT", "/v1/me/notifications", { json: timeZone ? { ...rest, timeZone } : rest });
 }
 
 /**
@@ -938,7 +651,7 @@ export async function setNotifications(change: Partial<Record<DigestKind, boolea
  */
 export async function setEmail(email: string | null, language: string, currentPassword: string): Promise<Notifications> {
   try {
-    return toNotifications(await request("PUT", "/v1/me/email", { json: { email, language, currentPassword }, noSessionEnd: true }));
+    return await request<Notifications>("PUT", "/v1/me/email", { json: { email, language, currentPassword }, noSessionEnd: true });
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) throw new ApiError(401, "wrong_password", error.reason);
     throw error;
@@ -956,8 +669,7 @@ export async function confirmEmail(token: string): Promise<void> {
 
 /** The unsubscribe link's page (no login needed): turns that digest off. */
 export async function unsubscribe(token: string): Promise<DigestKind> {
-  const body = await request<{ kind?: unknown }>("POST", `/v1/unsubscribe/${encodeURIComponent(token)}`, { json: {}, anonymous: true, noSessionEnd: true });
-  return body?.kind === "coordinator" ? "coordinator" : "collector";
+  return (await request<UnsubscribeAnswer>("POST", `/v1/unsubscribe/${encodeURIComponent(token)}`, { json: {}, anonymous: true, noSessionEnd: true })).kind;
 }
 
 /**
@@ -1231,39 +943,19 @@ export async function downloadOriginalCep(projectId: string): Promise<Blob> {
 
 // --- invites ------------------------------------------------------------------------------
 
-export async function createInvite(
+export function createInvite(
   projectId: string,
   options: { role: Role; maxUses: number; expiresInDays: number | null; forUserId?: string },
 ): Promise<NewInvite> {
-  const json: Record<string, unknown> = { role: options.role, maxUses: options.maxUses };
+  const json: { role: Role; maxUses: number; expiresInDays?: number; forUserId?: string } = { role: options.role, maxUses: options.maxUses };
   if (options.expiresInDays) json.expiresInDays = options.expiresInDays;
   // A link for someone already in the project: the server makes it a one-person, one-week collector link.
   if (options.forUserId) json.forUserId = options.forUserId;
-  const body = await request<Record<string, unknown>>("POST", `${p(projectId)}/invites`, { json });
-  const inviteToken = String(body.inviteToken ?? "");
-  const joinPath = typeof body.joinPath === "string" && body.joinPath ? body.joinPath : `/join/${encodeURIComponent(inviteToken)}`;
-  return {
-    inviteToken,
-    joinPath,
-    joinUrl: absoluteUrl(typeof body.joinUrl === "string" ? body.joinUrl : null, joinPath),
-    role: asRole(body.role),
-    maxUses: toCount(body.maxUses),
-    expiresAt: toMillis(body.expiresAt),
-  };
+  return request<NewInvite>("POST", `${p(projectId)}/invites`, { json });
 }
 
-export async function listInvites(projectId: string): Promise<PeopleInvite[]> {
-  const body = await request<{ invites?: Record<string, unknown>[] } | Record<string, unknown>[]>("GET", `${p(projectId)}/invites`);
-  const raw = Array.isArray(body) ? body : (body?.invites ?? []);
-  return raw.map((i) => ({
-    id: String(i.id ?? ""),
-    role: asRole(i.role),
-    maxUses: toCount(i.maxUses),
-    usedCount: toCount(i.usedCount),
-    expiresAt: toMillis(i.expiresAt),
-    createdAt: toMillis(i.createdAt),
-    forUsername: typeof i.forUsername === "string" && i.forUsername !== "" ? i.forUsername : null,
-  }));
+export async function listInvites(projectId: string): Promise<OpenInvite[]> {
+  return (await request<InvitesAnswer>("GET", `${p(projectId)}/invites`)).invites;
 }
 
 export async function revokeInvite(projectId: string, inviteId: string): Promise<void> {
@@ -1714,135 +1406,26 @@ export async function getBackupLink(projectId: string, rounds: BackupRounds, for
 
 // --- platform admin ---------------------------------------------------------------------
 
-export const DEFAULT_SERVER_SETTINGS: ServerSettings = {
-  signupOpen: false,
-  projectCreation: "platform-admins",
-  maxProjectsPerUser: 0,
-  maxProjectStorageMb: 0,
-  termsUrl: null,
-  contactEmail: null,
-  serverName: null,
-  aiEnabled: false,
-  aiReportsPerDay: 5,
-  aiFollowUpsPerDay: 30,
-  aiMonthlyTokens: 2_000_000,
-  aiConfigured: false,
-  announcement: null,
-  announcementUntil: null,
-  twoFactorForCoordinators: false,
-  alertFailedLogins: 50,
-  alertServerErrors: 20,
-  alertSyncErrors: 50,
-  alertStoragePercent: 90,
-  alertWebhook: null,
-  signupDomains: null,
-  minPasswordLength: 8,
-  loginLockFailures: 0,
-  loginLockMinutes: 15,
-};
-
-/** Settings from a server answer, keeping `fallback` for anything missing (older servers). */
-export function toServerSettings(body: unknown, fallback: ServerSettings = DEFAULT_SERVER_SETTINGS): ServerSettings {
-  const b = body && typeof body === "object" ? (body as Record<string, unknown>) : {};
-  const limit = (value: unknown, old: number) => (typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : old);
-  const text = (key: string, old: string | null) => (key in b ? optionalText(b[key]) : old);
-  return {
-    signupOpen: typeof b.signupOpen === "boolean" ? b.signupOpen : fallback.signupOpen,
-    projectCreation: b.projectCreation === "anyone" || b.projectCreation === "platform-admins" ? b.projectCreation : fallback.projectCreation,
-    maxProjectsPerUser: limit(b.maxProjectsPerUser, fallback.maxProjectsPerUser),
-    maxProjectStorageMb: limit(b.maxProjectStorageMb, fallback.maxProjectStorageMb),
-    termsUrl: text("termsUrl", fallback.termsUrl),
-    contactEmail: text("contactEmail", fallback.contactEmail),
-    serverName: text("serverName", fallback.serverName),
-    aiEnabled: typeof b.aiEnabled === "boolean" ? b.aiEnabled : fallback.aiEnabled,
-    aiReportsPerDay: limit(b.aiReportsPerDay, fallback.aiReportsPerDay),
-    aiFollowUpsPerDay: limit(b.aiFollowUpsPerDay, fallback.aiFollowUpsPerDay),
-    aiMonthlyTokens: limit(b.aiMonthlyTokens, fallback.aiMonthlyTokens),
-    aiConfigured: typeof b.aiConfigured === "boolean" ? b.aiConfigured : fallback.aiConfigured,
-    announcement: text("announcement", fallback.announcement),
-    announcementUntil: "announcementUntil" in b ? toMillis(b.announcementUntil) : fallback.announcementUntil,
-    twoFactorForCoordinators: typeof b.twoFactorForCoordinators === "boolean" ? b.twoFactorForCoordinators : fallback.twoFactorForCoordinators,
-    alertFailedLogins: limit(b.alertFailedLogins, fallback.alertFailedLogins),
-    alertServerErrors: limit(b.alertServerErrors, fallback.alertServerErrors),
-    alertSyncErrors: limit(b.alertSyncErrors, fallback.alertSyncErrors),
-    alertStoragePercent: limit(b.alertStoragePercent, fallback.alertStoragePercent),
-    alertWebhook: "alertWebhook" in b
-      ? (b.alertWebhook && typeof b.alertWebhook === "object" && typeof (b.alertWebhook as { host?: unknown }).host === "string"
-        ? { kind: (b.alertWebhook as { kind?: unknown }).kind === "teams" ? "teams" : "slack", host: (b.alertWebhook as { host: string }).host }
-        : null)
-      : fallback.alertWebhook,
-    signupDomains: text("signupDomains", fallback.signupDomains),
-    minPasswordLength: limit(b.minPasswordLength, fallback.minPasswordLength),
-    loginLockFailures: limit(b.loginLockFailures, fallback.loginLockFailures),
-    loginLockMinutes: limit(b.loginLockMinutes, fallback.loginLockMinutes),
-  };
-}
-
-export async function getServerSettings(): Promise<ServerSettings> {
-  return toServerSettings(await request<unknown>("GET", "/v1/admin/settings"));
+export function getServerSettings(): Promise<ShownSettings> {
+  return request<ShownSettings>("GET", "/v1/admin/settings");
 }
 
 /** Saves some settings; returns all of them as the server now has them. */
-export async function saveServerSettings(current: ServerSettings, changes: Partial<ServerSettings>): Promise<ServerSettings> {
-  const body = await request<unknown>("PUT", "/v1/admin/settings", { json: changes });
-  return toServerSettings(body, { ...current, ...changes });
-}
-
-function toAdminUser(u: Record<string, unknown>): AdminUser {
-  return {
-    userId: String(u.userId ?? ""),
-    username: String(u.username ?? ""),
-    isPlatformAdmin: u.isPlatformAdmin === true,
-    projects: toCount(u.projects),
-    coordinatedProjects: toCount(u.coordinatedProjects),
-    disabledAt: toMillis(u.disabledAt),
-    disabledBy: typeof u.disabledBy === "string" ? u.disabledBy : null,
-    twoFactor: u.twoFactor === true,
-    createdAt: toMillis(u.createdAt),
-    lastActiveAt: toMillis(u.lastActiveAt),
-    email: typeof u.email === "string" && u.email !== "" ? u.email : null,
-    emailConfirmed: u.emailConfirmed === true,
-    lockedUntil: toMillis(u.lockedUntil),
-  };
+export function saveServerSettings(changes: SettingsChange): Promise<ShownSettings> {
+  return request<ShownSettings>("PUT", "/v1/admin/settings", { json: changes });
 }
 
 /** The server page's accounts list: what is searched, the filter, the order and the page. */
-export const ACCOUNT_FILTERS = ["all", "admins", "disabled", "locked", "twoFactor", "noTwoFactor", "inactive", "noEmail"] as const;
-export type AccountFilter = (typeof ACCOUNT_FILTERS)[number];
-export const ACCOUNT_SORTS = ["name", "created", "lastActive", "projects"] as const;
-export type AccountSort = (typeof ACCOUNT_SORTS)[number];
-export interface AccountQuery {
-  q: string;
-  filter: AccountFilter;
-  sort: AccountSort;
-  desc: boolean;
-  page: number;
-  pageSize: number;
-}
-export interface AccountPage {
-  users: AdminUser[];
-  total: number;
-  page: number;
-  pages: number;
-  pageSize: number;
-  /** The accounts of each filter, among those the search finds */
-  counts: Record<AccountFilter, number>;
-}
+export const ACCOUNT_FILTERS = ["all", "admins", "disabled", "locked", "twoFactor", "noTwoFactor", "inactive", "noEmail"] as const satisfies readonly AccountFilter[];
+export const ACCOUNT_SORTS = ["name", "created", "lastActive", "projects"] as const satisfies readonly AccountSort[];
+export type { AccountFilter, AccountPage, AccountQuery, AccountSort } from "../../src/wire/serverAdmin";
 
-const accountQueryString = (q: Partial<AccountQuery>) =>
+/** A list's query string (the accounts', the projects'): what is searched, the filter, the order and the page. */
+const accountQueryString = (q: Partial<AccountQuery> | ProjectQuery) =>
   new URLSearchParams(Object.entries(q).filter(([, v]) => v !== undefined && v !== "").map(([k, v]) => [k, String(v)])).toString();
 
-export async function listUsers(query: Partial<AccountQuery> = {}): Promise<AccountPage> {
-  const body = await request<Record<string, unknown>>("GET", `/v1/admin/users?${accountQueryString(query)}`);
-  const counts = (body?.counts ?? {}) as Record<string, unknown>;
-  return {
-    users: ((body?.users as Record<string, unknown>[] | undefined) ?? []).map(toAdminUser),
-    total: toCount(body?.total),
-    page: Math.max(1, toCount(body?.page)),
-    pages: Math.max(1, toCount(body?.pages)),
-    pageSize: Math.max(1, toCount(body?.pageSize)),
-    counts: Object.fromEntries(ACCOUNT_FILTERS.map((f) => [f, toCount(counts[f])])) as Record<AccountFilter, number>,
-  };
+export function listUsers(query: Partial<AccountQuery> = {}): Promise<AccountPage> {
+  return request<AccountPage>("GET", `/v1/admin/users?${accountQueryString(query)}`);
 }
 
 /** The accounts the search and filter find, every page, as CSV. */
@@ -1851,31 +1434,16 @@ export async function downloadUsersCsv(query: Partial<AccountQuery>): Promise<{ 
   return { blob: await response.blob(), filename: attachmentName(response, "accounts.csv") };
 }
 
-/** One account the administrator made: its link to choose its password, unless it was mailed. */
-export interface MadeAccount {
-  username: string;
-  status: "created" | "taken";
-  mailed: boolean;
-  setPasswordUrl: string | null;
-  expiresAt: number | null;
-}
+export type { MadeAccount } from "../../src/wire/serverAdmin";
 
 /** Makes accounts (also when sign-up is closed); `mail`: their links mailed to the addresses given, when the server sends mail. */
 export async function createAccounts(accounts: { username: string; email: string | null }[], mail: boolean, language: string): Promise<MadeAccount[]> {
-  const body = await request<{ results?: Record<string, unknown>[] }>("POST", "/v1/admin/users", { json: { accounts, mail, language } });
-  return (body?.results ?? []).map((r) => ({
-    username: String(r.username ?? ""),
-    status: r.status === "created" ? "created" : "taken",
-    mailed: r.mailed === true,
-    setPasswordUrl: typeof r.setPasswordUrl === "string" ? absoluteUrl(r.setPasswordUrl, "/") : null,
-    expiresAt: toMillis(r.expiresAt),
-  }));
+  return (await request<MadeAccountsAnswer>("POST", "/v1/admin/users", { json: { accounts, mail, language } })).results;
 }
 
 /** Makes an account a server administrator, or takes the role back; the account as it is now. */
-export async function setPlatformAdmin(userId: string, on: boolean): Promise<AdminUser> {
-  const body = await request<{ user?: Record<string, unknown> }>("POST", `/v1/admin/users/${encodeURIComponent(userId)}/platform-admin`, { json: { on } });
-  return toAdminUser(body?.user ?? {});
+export async function setPlatformAdmin(userId: string, on: boolean): Promise<UserSummary> {
+  return (await request<AccountAnswer>("POST", `/v1/admin/users/${encodeURIComponent(userId)}/platform-admin`, { json: { on } })).user;
 }
 
 /** Ends every session of an account, Collect Earth's included. */
@@ -1884,98 +1452,24 @@ export async function signOutUser(userId: string): Promise<void> {
 }
 
 /** Deletes an account, its username typed again to confirm; the projects only it was in go with it. */
-export async function deleteUserAccount(userId: string, confirm: string): Promise<{ projectsDeleted: number }> {
-  const body = await request<{ projectsDeleted?: unknown }>("DELETE", `/v1/admin/users/${encodeURIComponent(userId)}`, { json: { confirm } });
-  return { projectsDeleted: toCount(body?.projectsDeleted) };
+export function deleteUserAccount(userId: string, confirm: string): Promise<AccountDeletedAnswer> {
+  return request<AccountDeletedAnswer>("DELETE", `/v1/admin/users/${encodeURIComponent(userId)}`, { json: { confirm } });
 }
 
 /** Disables an account (it cannot log in; its sessions end) or enables it again; the account as it is now. */
-export async function setUserDisabled(userId: string, disabled: boolean): Promise<AdminUser> {
-  const body = await request<{ user?: Record<string, unknown> }>("POST", `/v1/admin/users/${encodeURIComponent(userId)}/${disabled ? "disable" : "enable"}`);
-  return toAdminUser(body?.user ?? {});
+export async function setUserDisabled(userId: string, disabled: boolean): Promise<UserSummary> {
+  return (await request<AccountAnswer>("POST", `/v1/admin/users/${encodeURIComponent(userId)}/${disabled ? "disable" : "enable"}`)).user;
 }
 
-/** The server owner's panel: totals only, projects by id (never names, people or answers). */
-export interface ServerOverview {
-  asOf: number;
-  users: { total: number; disabled: number; platformAdmins: number; active: number; signupsByWeek: { week: string; start: number; count: number }[] };
-  projects: { total: number; active: number; storageBytes: number; largest: { projectId: string; storageBytes: number }[] };
-  records: { received: number; receivedByDay: { day: number; count: number }[] };
-  database: {
-    backend: "memory" | "postgres";
-    sizeBytes: number | null;
-    version: string | null;
-    migrations: { applied: number; shipped: number; latest: string | null; newestAppliedAt: number | null; missing: string[] } | null;
-  };
-  server: { version: string; startedAt: number };
-  security: {
-    since: number;
-    totals: { failedLogins: number; rateLimited: number };
-    hours: { hour: number; failedLogins: number; rateLimited: number }[];
-    /** Automatic check draws worked out after their request's wait (stored nothing, tried again later), and the last one's time. */
-    lateDraws: number;
-    lastLateDrawAt: number | null;
-  };
+export type { ServerOverview } from "../../src/wire/serverAdmin";
+
+export function getServerOverview(): Promise<ServerOverview> {
+  return request<ServerOverview>("GET", "/v1/admin/overview");
 }
 
-const countOrNull = (value: unknown): number | null => (typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null);
-
-export async function getServerOverview(): Promise<ServerOverview> {
-  const b = obj(await request<unknown>("GET", "/v1/admin/overview"));
-  const users = obj(b.users);
-  const projects = obj(b.projects);
-  const records = obj(b.records);
-  const database = obj(b.database);
-  const server = obj(b.server);
-  const security = obj(b.security);
-  const totals = obj(security.totals);
-  const m = database.migrations && typeof database.migrations === "object" ? obj(database.migrations) : null;
-  return {
-    asOf: toMillis(b.asOf) ?? Date.now(),
-    users: {
-      total: toCount(users.total),
-      disabled: toCount(users.disabled),
-      platformAdmins: toCount(users.platformAdmins),
-      active: toCount(users.active),
-      signupsByWeek: list(users.signupsByWeek).map((w) => ({ week: text(w.week), start: toMillis(w.start) ?? 0, count: toCount(w.count) })),
-    },
-    projects: {
-      total: toCount(projects.total),
-      active: toCount(projects.active),
-      storageBytes: toCount(projects.storageBytes),
-      largest: list(projects.largest).map((p) => ({ projectId: text(p.projectId), storageBytes: toCount(p.storageBytes) })),
-    },
-    records: {
-      received: toCount(records.received),
-      receivedByDay: list(records.receivedByDay).map((d) => ({ day: toMillis(d.day) ?? 0, count: toCount(d.count) })),
-    },
-    database: {
-      backend: database.backend === "postgres" ? "postgres" : "memory",
-      sizeBytes: countOrNull(database.sizeBytes),
-      version: typeof database.version === "string" ? database.version : null,
-      migrations: m && {
-        applied: toCount(m.applied),
-        shipped: toCount(m.shipped),
-        latest: typeof m.latest === "string" ? m.latest : null,
-        newestAppliedAt: toMillis(m.newestAppliedAt),
-        missing: Array.isArray(m.missing) ? m.missing.filter((x): x is string => typeof x === "string") : [],
-      },
-    },
-    server: { version: text(server.version), startedAt: toMillis(server.startedAt) ?? 0 },
-    security: {
-      since: toMillis(security.since) ?? 0,
-      totals: { failedLogins: toCount(totals.failedLogins), rateLimited: toCount(totals.rateLimited) },
-      hours: list(security.hours).map((h) => ({ hour: toMillis(h.hour) ?? 0, failedLogins: toCount(h.failedLogins), rateLimited: toCount(h.rateLimited) })),
-      lateDraws: toCount(security.lateDraws),
-      lastLateDrawAt: toMillis(security.lastLateDrawAt),
-    },
-  };
-}
-
-export async function makeResetLink(userId: string): Promise<ResetLink> {
-  const body = await request<{ resetUrl?: string; expiresAt?: unknown; mailed?: unknown }>("POST", `/v1/admin/users/${encodeURIComponent(userId)}/password-reset`);
-  if (body?.mailed === true) return { resetUrl: null, expiresAt: null, mailed: true };
-  return { resetUrl: absoluteUrl(body?.resetUrl ?? null, "/"), expiresAt: toMillis(body?.expiresAt), mailed: false };
+/** A reset link for the account, or that it was mailed to the account's confirmed address. */
+export function makeResetLink(userId: string): Promise<ResetLinkAnswer> {
+  return request<ResetLinkAnswer>("POST", `/v1/admin/users/${encodeURIComponent(userId)}/password-reset`);
 }
 
 // --- progress (the Progress tab) -----------------------------------------------------
@@ -3616,95 +3110,24 @@ export function stepCeoShapes(projectId: string): Promise<CeoShapesProgress> {
 
 // --- The server page's projects and operations (stage C: routes/serverOps.ts, routes/mail.ts) ---
 
-/** One project in the directory, by id only (only its people know its name). */
-export interface AdminProject {
-  projectId: string;
-  status: ProjectStatus;
-  createdAt: number;
-  lastActivityAt: number | null;
-  storageBytes: number;
-  people: number;
-  /** Coordinators whose account is enabled, and of those the ones active in 90 days */
-  coordinators: number;
-  activeCoordinators: number;
-  /** Not archived, and no coordinator active in 90 days */
-  needsCoordinator: boolean;
-}
-export const PROJECT_FILTERS = ["all", "noCoordinator", "draft", "active", "closed", "archived"] as const;
-export type ProjectFilter = (typeof PROJECT_FILTERS)[number];
-export const PROJECT_SORTS = ["lastActivity", "created", "storage", "people"] as const;
-export type ProjectSort = (typeof PROJECT_SORTS)[number];
-export interface ProjectQuery {
-  q: string;
-  filter: ProjectFilter;
-  sort: ProjectSort;
-  desc: boolean;
-  page: number;
-  pageSize: number;
-}
-export interface ProjectPage {
-  projects: AdminProject[];
-  total: number;
-  page: number;
-  pages: number;
-  pageSize: number;
-  counts: Record<ProjectFilter, number>;
-}
+export type { AdminProjectRow as AdminProject, ProjectFilter, ProjectPage, ProjectQuery, ProjectSort } from "../../src/wire/serverAdmin";
+export const PROJECT_FILTERS = ["all", "noCoordinator", "draft", "active", "closed", "archived"] as const satisfies readonly ProjectFilter[];
+export const PROJECT_SORTS = ["lastActivity", "created", "storage", "people"] as const satisfies readonly ProjectSort[];
 
-const STATUSES: readonly ProjectStatus[] = ["draft", "active", "closed", "archived"];
-
-export async function listAdminProjects(query: ProjectQuery): Promise<ProjectPage> {
-  const body = await request<Record<string, unknown>>("GET", `/v1/admin/projects?${accountQueryString(query as unknown as Partial<AccountQuery>)}`);
-  const counts = (body?.counts ?? {}) as Record<string, unknown>;
-  return {
-    projects: ((body?.projects as Record<string, unknown>[] | undefined) ?? []).map((p) => ({
-      projectId: String(p.projectId ?? ""),
-      status: STATUSES.includes(p.status as ProjectStatus) ? (p.status as ProjectStatus) : "active",
-      createdAt: toCount(p.createdAt),
-      lastActivityAt: toNumberOrNull(p.lastActivityAt),
-      storageBytes: toCount(p.storageBytes),
-      people: toCount(p.people),
-      coordinators: toCount(p.coordinators),
-      activeCoordinators: toCount(p.activeCoordinators),
-      needsCoordinator: p.needsCoordinator === true,
-    })),
-    total: toCount(body?.total),
-    page: Math.max(1, toCount(body?.page)),
-    pages: Math.max(1, toCount(body?.pages)),
-    pageSize: Math.max(1, toCount(body?.pageSize)),
-    counts: Object.fromEntries(PROJECT_FILTERS.map((f) => [f, toCount(counts[f])])) as Record<ProjectFilter, number>,
-  };
+export function listAdminProjects(query: ProjectQuery): Promise<ProjectPage> {
+  return request<ProjectPage>("GET", `/v1/admin/projects?${accountQueryString(query)}`);
 }
 
 /** Archives a project, or restores an archived one as closed. */
 export const setProjectArchived = (projectId: string, archived: boolean) =>
-  request<{ projectId: string; status: ProjectStatus }>("POST", `/v1/admin/projects/${encodeURIComponent(projectId)}/archive`, { json: { archived } });
+  request<ProjectArchivedAnswer>("POST", `/v1/admin/projects/${encodeURIComponent(projectId)}/archive`, { json: { archived } });
 
 /** Makes an account (by its username) a coordinator of the project. */
 export const handProjectTo = (projectId: string, username: string) =>
-  request<{ projectId: string; userId: string; username: string; wasMember: boolean }>("POST", `/v1/admin/projects/${encodeURIComponent(projectId)}/coordinator`, { json: { username } });
+  request<ProjectHandedAnswer>("POST", `/v1/admin/projects/${encodeURIComponent(projectId)}/coordinator`, { json: { username } });
 
-export const SERVER_ACTION_KINDS = ["settings", "account", "project", "mail", "message", "alerts"] as const;
-export type ServerActionKind = (typeof SERVER_ACTION_KINDS)[number];
-/** One thing a server administrator did. */
-export interface ServerActivityEntry {
-  id: string;
-  at: number;
-  actor: string | null;
-  action: string;
-  target: string | null;
-  projectId: string | null;
-  details: Record<string, string | number | boolean | null>;
-}
-export interface ServerActivityPage {
-  entries: ServerActivityEntry[];
-  total: number;
-  page: number;
-  pages: number;
-  pageSize: number;
-  /** Who appears in the log, for its filter */
-  actors: string[];
-}
+export const SERVER_ACTION_KINDS = ["settings", "account", "project", "mail", "message", "alerts"] as const satisfies readonly ServerActionKind[];
+export type { ServerActionKind, ServerActivityEntry, ServerActivityPage } from "../../src/wire/serverAdmin";
 export interface ServerActivityQuery {
   actor: string;
   kind: ServerActionKind | "";
@@ -3715,24 +3138,8 @@ export interface ServerActivityQuery {
 const serverActivityQueryString = (q: Partial<ServerActivityQuery>) =>
   new URLSearchParams(Object.entries(q).filter(([, v]) => v !== undefined && v !== "").map(([k, v]) => [k, String(v)])).toString();
 
-export async function getServerActivity(query: ServerActivityQuery): Promise<ServerActivityPage> {
-  const body = await request<Record<string, unknown>>("GET", `/v1/admin/activity?${serverActivityQueryString(query)}`);
-  return {
-    entries: ((body?.entries as Record<string, unknown>[] | undefined) ?? []).map((e) => ({
-      id: String(e.id ?? ""),
-      at: toCount(e.at),
-      actor: typeof e.actor === "string" ? e.actor : null,
-      action: String(e.action ?? ""),
-      target: typeof e.target === "string" ? e.target : null,
-      projectId: typeof e.projectId === "string" ? e.projectId : null,
-      details: e.details && typeof e.details === "object" ? (e.details as ServerActivityEntry["details"]) : {},
-    })),
-    total: toCount(body?.total),
-    page: Math.max(1, toCount(body?.page)),
-    pages: Math.max(1, toCount(body?.pages)),
-    pageSize: Math.max(1, toCount(body?.pageSize)),
-    actors: Array.isArray(body?.actors) ? (body.actors as unknown[]).filter((a): a is string => typeof a === "string") : [],
-  };
+export function getServerActivity(query: ServerActivityQuery): Promise<ServerActivityPage> {
+  return request<ServerActivityPage>("GET", `/v1/admin/activity?${serverActivityQueryString(query)}`);
 }
 
 export async function downloadServerActivity(query: Pick<ServerActivityQuery, "actor" | "kind">): Promise<{ blob: Blob; filename: string }> {
@@ -3740,55 +3147,21 @@ export async function downloadServerActivity(query: Pick<ServerActivityQuery, "a
   return { blob: await response.blob(), filename: attachmentName(response, "server-activity.csv") };
 }
 
-/** The Collect Earth versions the accounts used in the last `days` days. */
-export interface CollectEarthVersions {
-  days: number;
-  latest: string | null;
-  latestConfigured: boolean;
-  accounts: number;
-  outdatedAccounts: number;
-  versions: { version: string | null; kind: "version" | "old" | "unnamed"; accounts: number; outdated: boolean }[];
-}
+export type { CollectEarthVersions, MailCheck } from "../../src/wire/serverAdmin";
 
 export const getCollectEarthVersions = () => request<CollectEarthVersions>("GET", "/v1/admin/versions");
-
-/** How the server sends mail, and the weekly mails stopped because the mail server refused the address. */
-export interface MailCheck {
-  delivers: boolean;
-  transport: "log" | "smtp" | "test";
-  from: string | null;
-  server: { host: string; port: number | null; secure: boolean } | null;
-  publicBaseUrl: string | null;
-  digestJob: boolean;
-  ownAddress: string | null;
-  ownAddressConfirmed: boolean;
-  stopped: { userId: string; username: string; email: string | null; kind: "coordinator" | "collector"; failures: number; stoppedAt: number }[];
-}
 
 export const getMailCheck = () => request<MailCheck>("GET", "/v1/admin/mail");
 
 /** Sends a test email to the administrator's own address. */
-export const sendTestMail = (language: string) => request<{ sent: true; to: string }>("POST", "/v1/admin/mail/test", { json: { language } });
+export const sendTestMail = (language: string) => request<TestMailAnswer>("POST", "/v1/admin/mail/test", { json: { language } });
 
 // --- The server page's safety and communication (stage D) ---
 
 /** Lifts the lock failed sign-ins set on an account. */
-export const unlockUser = (userId: string) => request<{ unlocked: boolean }>("POST", `/v1/admin/users/${encodeURIComponent(userId)}/unlock`);
+export const unlockUser = (userId: string) => request<UnlockAnswer>("POST", `/v1/admin/users/${encodeURIComponent(userId)}/unlock`);
 
-export type MessageAudience = "coordinators" | "everyone";
-export interface ServerMessage {
-  audience: MessageAudience;
-  subject: string;
-  text: string;
-}
-export interface MessagePreview {
-  recipients: number;
-  subject: string;
-  text: string;
-  delivers: boolean;
-  /** When the next message may go (one an hour), or null: now */
-  nextAllowedAt: number | null;
-}
+export type { MessageAudience, MessagePreview, ServerMessage } from "../../src/wire/serverAdmin";
 
 /** How the message will read and how many it reaches. */
 export const previewServerMessage = (m: ServerMessage, language: string) =>
@@ -3796,4 +3169,4 @@ export const previewServerMessage = (m: ServerMessage, language: string) =>
 
 /** Sends it; `recipients`: the count shown (a different one now is refused with the new count). */
 export const sendServerMessage = (m: ServerMessage, recipients: number) =>
-  request<{ recipients: number; sent: number; failed: number }>("POST", "/v1/admin/messages", { json: { ...m, recipients } });
+  request<MessageSentAnswer>("POST", "/v1/admin/messages", { json: { ...m, recipients } });

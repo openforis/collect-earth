@@ -2,6 +2,7 @@ import { telemetryConfigOf, type TelemetryConfig } from './telemetry.js';
 import { resolve } from 'node:path';
 import { isUuid } from './accountRules.js';
 import { isMailFrom, parseSmtpUrl } from './mail.js';
+import type { MapTiles } from './wire/account.js';
 
 export interface Config {
   port: number;
@@ -155,15 +156,7 @@ export const LOCAL_HOST = '127.0.0.1';
 /** The shortest DIGEST_SECRET accepted. */
 export const MIN_DIGEST_SECRET_LENGTH = 32;
 
-/** A base map's tiles, as Leaflet asks for them: `{z}/{x}/{y}` (and optionally `{s}`, `{r}`) in the URL. */
-export interface MapTiles {
-  url: string;
-  /** Shown on the map, as the tile source asks (plain text). */
-  attribution: string;
-  /** Where the attribution links to; null for none. */
-  attributionUrl: string | null;
-  maxZoom: number;
-}
+export type { MapTiles } from './wire/account.js';
 
 /**
  * OpenStreetMap's own tiles: no key, with the attribution its tile usage policy asks for

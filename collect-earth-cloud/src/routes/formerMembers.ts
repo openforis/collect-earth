@@ -4,6 +4,7 @@ import { isPseudonym, nextPseudonym } from '../anonymize.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import type { ProjectStateCache } from '../projectState.js';
 import type { Store } from '../store/store.js';
+import type { AnonymizedAnswer, FormerMember, FormerMembersAnswer } from '../wire/account.js';
 
 /**
  * The people who collected in a project and are no longer in it, and anonymising their work (src/anonymize.ts):
@@ -26,9 +27,9 @@ export async function registerFormerMemberRoutes(app: FastifyInstance, store: St
 
   app.get('/v1/projects/:pid/former-members', admin, async (request: FastifyRequest, reply: FastifyReply) => {
     const counts = await former(request.membership!.projectId, request.log);
-    const list = [...counts].map(([operator, records]) => ({ operator, records, anonymized: isPseudonym(operator) }));
+    const list: FormerMember[] = [...counts].map(([operator, records]) => ({ operator, records, anonymized: isPseudonym(operator) }));
     list.sort((a, b) => Number(a.anonymized) - Number(b.anonymized) || a.operator.localeCompare(b.operator));
-    return reply.header('cache-control', 'no-store').send({ formerMembers: list });
+    return reply.header('cache-control', 'no-store').send({ formerMembers: list } satisfies FormerMembersAnswer);
   });
 
   app.post('/v1/projects/:pid/former-members/anonymize', admin, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -47,6 +48,6 @@ export async function registerFormerMemberRoutes(app: FastifyInstance, store: St
     await audit(store, request, 'member.anonymized', { records });
     // The figures are worked out again without the name
     states.forget(projectId);
-    return reply.send({ operator: pseudonym, records });
+    return reply.send({ operator: pseudonym, records } satisfies AnonymizedAnswer);
   });
 }

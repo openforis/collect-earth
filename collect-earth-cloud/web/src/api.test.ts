@@ -23,7 +23,6 @@ import {
   addMapPage,
   getMapPlots,
   OSM_TILES,
-  toMapTiles,
   bulkDecisions,
   getFlags,
   getReviewQueue,
@@ -63,8 +62,6 @@ import {
   signup,
   toCount,
   toMillis,
-  toServerSettings,
-  DEFAULT_SERVER_SETTINGS,
   downloadOriginalCep,
   getBackupLink,
   getBackupSummary,
@@ -92,9 +89,62 @@ import {
   type MyQualityAnswer,
   type QualityAnswer,
   type TeamReportAnswer,
+  getMe,
+  getOwnerAlerts,
+  listInvites,
+  listUsers,
+  makeResetLink,
+  type ServerInfo,
+  type ServerSettings,
 } from "./api";
 import { CATALOGUES } from "./i18n";
 import { setToken } from "./storage";
+
+/** What a server answers to GET /v1/server-info (made-up). */
+const SERVER_INFO: ServerInfo = {
+  needsSetup: false,
+  signupOpen: false,
+  projectCreation: "platform-admins",
+  version: "1.0.0",
+  termsUrl: null,
+  contactEmail: null,
+  serverName: null,
+  aiAvailable: false,
+  selfServiceReset: false,
+  minPasswordLength: 8,
+  signupDomains: null,
+  mapTiles: OSM_TILES,
+  localMode: false,
+  telemetry: null,
+};
+
+/** What a server answers to GET /v1/admin/settings (made-up). */
+const SETTINGS: ServerSettings = {
+  signupOpen: false,
+  projectCreation: "platform-admins",
+  maxProjectsPerUser: 0,
+  maxProjectStorageMb: 0,
+  termsUrl: null,
+  contactEmail: null,
+  serverName: null,
+  aiEnabled: false,
+  aiReportsPerDay: 5,
+  aiFollowUpsPerDay: 30,
+  aiMonthlyTokens: 2_000_000,
+  aiConfigured: false,
+  announcement: null,
+  announcementUntil: null,
+  twoFactorForCoordinators: false,
+  alertFailedLogins: 50,
+  alertServerErrors: 20,
+  alertSyncErrors: 50,
+  alertStoragePercent: 90,
+  alertWebhook: null,
+  signupDomains: null,
+  minPasswordLength: 8,
+  loginLockFailures: 0,
+  loginLockMinutes: 15,
+};
 
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(body === undefined ? null : JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -206,13 +256,6 @@ describe("transport", () => {
     expect(JSON.parse(fetchMock.mock.calls[2][1]!.body as string)).toEqual({ token: "T", newPassword: "new-password", language: "pt" });
   });
 
-  it("server info says whether self-service reset is there", async () => {
-    fetchMock.mockResolvedValue(jsonResponse(200, { selfServiceReset: true }));
-    expect((await getServerInfo()).selfServiceReset).toBe(true);
-    fetchMock.mockResolvedValue(jsonResponse(200, { selfServiceReset: "yes" }));
-    expect((await getServerInfo()).selfServiceReset).toBe(false);
-  });
-
   it("a network failure is an ApiError with status 0", async () => {
     fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
     const error = await listProjects().catch((e: unknown) => e);
@@ -260,73 +303,29 @@ describe("transport", () => {
 });
 
 describe("normalising responses", () => {
-  it("server info from a server without the dashboard endpoints", async () => {
-    fetchMock.mockResolvedValue(jsonResponse(404, { error: "not_found" }));
-    expect(await getServerInfo()).toEqual({
-      needsSetup: false,
-      signupOpen: false,
-      projectCreation: "platform-admins",
-      version: null,
-      termsUrl: null,
-      contactEmail: null,
-      serverName: null,
-      aiAvailable: false,
-      selfServiceReset: false,
-      mapTiles: OSM_TILES,
-      localMode: false,
-    });
-  });
-
-  it("server info", async () => {
-    fetchMock.mockResolvedValue(jsonResponse(200, { needsSetup: true, signupOpen: true, projectCreation: "anyone", version: "0.2.0" }));
-    expect(await getServerInfo()).toEqual({
-      needsSetup: true,
-      signupOpen: true,
-      projectCreation: "anyone",
-      version: "0.2.0",
-      termsUrl: null,
-      contactEmail: null,
-      serverName: null,
-      aiAvailable: false,
-      selfServiceReset: false,
-      // an older server says neither: the defaults
-      minPasswordLength: 8,
-      signupDomains: null,
-      mapTiles: OSM_TILES,
-      localMode: false,
-      telemetry: null,
-    });
-  });
-
-  it("server info in the local mode (one person, on their own computer)", async () => {
-    fetchMock.mockResolvedValue(jsonResponse(200, { localMode: true, needsSetup: false, signupOpen: false, projectCreation: "platform-admins", version: "1.0.0" }));
-    expect(await getServerInfo()).toMatchObject({ localMode: true, needsSetup: false, signupOpen: false });
-    fetchMock.mockResolvedValue(jsonResponse(200, { localMode: "yes" }));
-    expect((await getServerInfo()).localMode).toBe(false);
+  it("server info, as the server sends it", async () => {
+    const info: ServerInfo = { ...SERVER_INFO, needsSetup: true, signupOpen: true, projectCreation: "anyone", selfServiceReset: true, signupDomains: ["fao.org"] };
+    fetchMock.mockResolvedValue(jsonResponse(200, info));
+    expect(await getServerInfo()).toEqual(info);
+    expect(fetchMock.mock.calls[0][0]).toBe("/v1/server-info");
   });
 
   it("server info with terms, contact and name; only http(s) terms links get through", async () => {
-    fetchMock.mockResolvedValue(
-      jsonResponse(200, { needsSetup: false, termsUrl: "https://e.org/terms", contactEmail: " help@e.org ", serverName: "FAO Cloud" }),
-    );
+    fetchMock.mockResolvedValue(jsonResponse(200, { ...SERVER_INFO, termsUrl: "https://e.org/terms", contactEmail: "help@e.org", serverName: "FAO Cloud" }));
     expect(await getServerInfo()).toMatchObject({ termsUrl: "https://e.org/terms", contactEmail: "help@e.org", serverName: "FAO Cloud" });
-    fetchMock.mockResolvedValue(jsonResponse(200, { termsUrl: "javascript:alert(1)", serverName: "" }));
-    expect(await getServerInfo()).toMatchObject({ termsUrl: null, serverName: null });
+    fetchMock.mockResolvedValue(jsonResponse(200, { ...SERVER_INFO, termsUrl: "javascript:alert(1)" }));
+    expect(await getServerInfo()).toMatchObject({ termsUrl: null });
     expect(safeUrl("http://a.org")).toBe("http://a.org");
     expect(safeUrl(42)).toBeNull();
   });
 
-  it("server settings keep what an older server does not send", () => {
-    expect(toServerSettings({ signupOpen: true, projectCreation: "anyone" })).toEqual({ ...DEFAULT_SERVER_SETTINGS, signupOpen: true, projectCreation: "anyone" });
-    const current = { ...DEFAULT_SERVER_SETTINGS, maxProjectsPerUser: 3, termsUrl: "https://e.org/t" };
-    expect(toServerSettings({ termsUrl: null, maxProjectsPerUser: -1 }, current)).toEqual({ ...current, termsUrl: null });
-  });
-
-  it("saving settings sends only the changes", async () => {
-    fetchMock.mockResolvedValue(jsonResponse(200, { ...DEFAULT_SERVER_SETTINGS, maxProjectStorageMb: 200 }));
-    const saved = await saveServerSettings(DEFAULT_SERVER_SETTINGS, { maxProjectStorageMb: 200 });
+  it("saving settings sends only the changes, and gives the settings the server now has", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(200, { ...SETTINGS, maxProjectStorageMb: 200 }));
+    const saved = await saveServerSettings({ maxProjectStorageMb: 200 });
+    expect(fetchMock.mock.calls[0][0]).toBe("/v1/admin/settings");
+    expect(fetchMock.mock.calls[0][1]!.method).toBe("PUT");
     expect(JSON.parse(fetchMock.mock.calls[0][1]!.body as string)).toEqual({ maxProjectStorageMb: 200 });
-    expect(saved.maxProjectStorageMb).toBe(200);
+    expect(saved).toEqual({ ...SETTINGS, maxProjectStorageMb: 200 });
   });
 
   it("sign-up sends acceptTerms only when accepted", async () => {
@@ -374,18 +373,52 @@ describe("normalising responses", () => {
     expect(await getAccountDeletion()).toEqual({ soleCoordinator: [], deletedWithAccount: [{ projectId: "p", name: "Mine" }], lastPlatformAdmin: false });
   });
 
-  it("builds the join link when the server does not know its address", async () => {
-    fetchMock.mockResolvedValue(jsonResponse(201, { inviteToken: "abc", joinPath: "/join/abc", joinUrl: null, role: "operator", maxUses: 5, expiresAt: 1_700_000_000_000 }));
+  it("makes an invitation link: an expiry only when one is chosen", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(201, { inviteToken: "abc", joinPath: "/join/abc", joinUrl: "https://cloud.org/join/abc", role: "operator", maxUses: 5, expiresAt: 1_700_000_000_000 }));
     const invite = await createInvite("p1", { role: "operator", maxUses: 5, expiresInDays: 7 });
-    expect(invite.joinUrl).toBe("https://ce.example.org/join/abc");
+    expect(invite.joinUrl).toBe("https://cloud.org/join/abc");
+    expect(fetchMock.mock.calls[0][0]).toBe("/v1/projects/p1/invites");
     expect(JSON.parse(fetchMock.mock.calls[0][1]!.body as string)).toEqual({ role: "operator", maxUses: 5, expiresInDays: 7 });
+    fetchMock.mockResolvedValue(jsonResponse(201, { inviteToken: "def", joinPath: "/join/def", joinUrl: "https://cloud.org/join/def", role: "admin", maxUses: 1, expiresAt: null }));
+    await createInvite("p1", { role: "admin", maxUses: 1, expiresInDays: null, forUserId: "u2" });
+    expect(JSON.parse(fetchMock.mock.calls[1][1]!.body as string)).toEqual({ role: "admin", maxUses: 1, forUserId: "u2" });
   });
 
-  it("keeps the server's absolute join link", async () => {
-    fetchMock.mockResolvedValue(jsonResponse(201, { inviteToken: "abc", joinPath: "/join/abc", joinUrl: "https://cloud.org/join/abc", role: "admin", maxUses: 1, expiresAt: null }));
-    const invite = await createInvite("p1", { role: "admin", maxUses: 1, expiresInDays: null });
-    expect(invite.joinUrl).toBe("https://cloud.org/join/abc");
-    expect(JSON.parse(fetchMock.mock.calls[0][1]!.body as string)).toEqual({ role: "admin", maxUses: 1 });
+  it("lists the open invitations, with whom one was made for", async () => {
+    const invites = [{ id: "i1", role: "operator", maxUses: 1, usedCount: 0, expiresAt: null, createdAt: 5, forUsername: "maria" }];
+    fetchMock.mockResolvedValue(jsonResponse(200, { invites }));
+    expect(await listInvites("p1")).toEqual(invites);
+    expect(fetchMock.mock.calls[0][0]).toBe("/v1/projects/p1/invites");
+  });
+
+  it("reads the current user as the server sends it", async () => {
+    const me = {
+      userId: "u1",
+      username: "maria",
+      isPlatformAdmin: false,
+      memberships: [{ projectId: "p1", projectName: "P", role: "reviewer", status: "closed" }],
+      twoFactor: { enabled: true, required: false },
+      announcement: { text: "Maintenance tonight", until: null },
+    };
+    fetchMock.mockResolvedValue(jsonResponse(200, me));
+    expect(await getMe()).toEqual(me);
+    expect(fetchMock.mock.calls[0][0]).toBe("/v1/me");
+  });
+
+  it("the server page: the accounts with their query, the alerts, and a reset link given or mailed", async () => {
+    const page = { users: [], total: 0, page: 1, pages: 1, pageSize: 50, counts: { all: 0, admins: 0, disabled: 0, locked: 0, twoFactor: 0, noTwoFactor: 0, inactive: 0, noEmail: 0 } };
+    fetchMock.mockResolvedValue(jsonResponse(200, page));
+    expect(await listUsers({ q: "ma", filter: "admins", sort: "created", desc: true, page: 2 })).toEqual(page);
+    expect(fetchMock.mock.calls[0][0]).toBe("/v1/admin/users?q=ma&filter=admins&sort=created&desc=true&page=2");
+    const alerts = { alerts: [{ id: "1", kind: "failed_logins", at: 5, count: 60, projectId: null, seenAt: null, seenBy: null }], total: 1, unseen: 1, page: 1, pages: 1, pageSize: 10, thresholds: { failedLogin: 50, serverError: 20, syncError: 50, storagePercent: 90 }, webhook: null };
+    fetchMock.mockResolvedValue(jsonResponse(200, alerts));
+    expect(await getOwnerAlerts(2)).toEqual(alerts);
+    expect(fetchMock.mock.calls[1][0]).toBe("/v1/admin/alerts?page=2&pageSize=10");
+    fetchMock.mockResolvedValue(jsonResponse(201, { resetUrl: "https://cloud.org/reset/t", expiresAt: 9 }));
+    expect(await makeResetLink("u 1")).toEqual({ resetUrl: "https://cloud.org/reset/t", expiresAt: 9 });
+    expect(fetchMock.mock.calls[2][0]).toBe("/v1/admin/users/u%201/password-reset");
+    fetchMock.mockResolvedValue(jsonResponse(202, { mailed: true }));
+    expect(await makeResetLink("u1")).toEqual({ mailed: true });
   });
 
   it("reads the overview", async () => {
@@ -622,15 +655,6 @@ describe("the quality figures", () => {
     // Nothing typed: nothing asked.
     expect(await searchPlots("p1", "  ")).toEqual({ plots: [], more: false });
     expect(fetchMock).toHaveBeenCalledTimes(3);
-  });
-
-  it("map tiles: the server's when usable, else OpenStreetMap's", () => {
-    const tiles = { url: "https://t.example.org/{z}/{x}/{y}.png", attribution: "© Example", attributionUrl: "https://example.org/a", maxZoom: 17 };
-    expect(toMapTiles(tiles)).toEqual(tiles);
-    expect(toMapTiles({ ...tiles, attributionUrl: "javascript:x", maxZoom: 99 })).toEqual({ ...tiles, attributionUrl: null, maxZoom: 19 });
-    for (const bad of [undefined, null, { ...tiles, url: "javascript:alert(1)/{z}/{x}/{y}" }, { ...tiles, url: "https://t.example.org/{z}/{x}.png" }, { ...tiles, attribution: " " }]) {
-      expect(toMapTiles(bad)).toEqual(OSM_TILES);
-    }
   });
 
   it("reads the map page by page into typed arrays, and again from the start when it changed", async () => {
@@ -914,14 +938,7 @@ describe("the AI assistant and the reports", () => {
     expect(call(1).url).toBe("/v1/projects/p1/ai/runs/r1");
   });
 
-  it("reads the server's AI settings and its use this month, by project id", async () => {
-    expect(toServerSettings({ aiEnabled: true, aiReportsPerDay: 0, aiMonthlyTokens: 9, aiConfigured: true })).toMatchObject({
-      aiEnabled: true,
-      aiReportsPerDay: 0,
-      aiFollowUpsPerDay: DEFAULT_SERVER_SETTINGS.aiFollowUpsPerDay,
-      aiMonthlyTokens: 9,
-      aiConfigured: true,
-    });
+  it("reads the server's AI use this month, by project id", async () => {
     fetchMock.mockResolvedValue(
       jsonResponse(200, {
         month: "2026-10",
@@ -959,28 +976,25 @@ describe("the AI assistant and the reports", () => {
       jsonResponse(200, {
         asOf: 5,
         users: { total: 3, disabled: 1, platformAdmins: 1, active: 2, signupsByWeek: [{ week: "2026-W45", start: 1, count: 2 }] },
-        projects: { total: 2, active: 1, storageBytes: 30, largest: [{ projectId: "p1", storageBytes: 20, name: "never shown" }] },
+        projects: { total: 2, active: 1, storageBytes: 30, largest: [{ projectId: "p1", storageBytes: 20 }] },
         records: { received: 4, receivedByDay: [{ day: 0, count: 4 }] },
         database: { backend: "postgres", sizeBytes: 9000, version: "16.4", migrations: { applied: 18, shipped: 18, latest: "018_platform.sql", newestAppliedAt: 7, missing: [] } },
         server: { version: "0.1.0", startedAt: 3 },
-        security: { since: 3, totals: { failedLogins: 2, rateLimited: 1 }, hours: [{ hour: 0, failedLogins: 2, rateLimited: 1 }] },
+        security: { since: 3, totals: { failedLogins: 2, rateLimited: 1 }, hours: [{ hour: 0, failedLogins: 2, rateLimited: 1 }], lateDraws: 0, lastLateDrawAt: null },
       }),
     );
     const o = await getServerOverview();
     expect(call().url).toBe("/v1/admin/overview");
-    expect(o.projects.largest).toEqual([{ projectId: "p1", storageBytes: 20 }]);
     expect(o.database).toEqual({ backend: "postgres", sizeBytes: 9000, version: "16.4", migrations: { applied: 18, shipped: 18, latest: "018_platform.sql", newestAppliedAt: 7, missing: [] } });
     expect(o.security.totals).toEqual({ failedLogins: 2, rateLimited: 1 });
-    // The memory store has no database figures.
-    fetchMock.mockResolvedValueOnce(jsonResponse(200, { database: { backend: "memory", sizeBytes: null, version: null, migrations: null } }));
-    expect((await getServerOverview()).database).toEqual({ backend: "memory", sizeBytes: null, version: null, migrations: null });
 
-    fetchMock.mockResolvedValueOnce(jsonResponse(200, { user: { userId: "u1", username: "maria", disabledAt: 100, disabledBy: "owner" } }));
-    expect(await setUserDisabled("u1", true)).toMatchObject({ userId: "u1", disabledAt: 100, disabledBy: "owner" });
-    expect(call(2)).toEqual({ url: "/v1/admin/users/u1/disable", method: "POST", body: undefined });
-    fetchMock.mockResolvedValueOnce(jsonResponse(200, { user: { userId: "u1", username: "maria", disabledAt: null, disabledBy: null } }));
+    const account = { userId: "u1", username: "maria", isPlatformAdmin: false, projects: 1, coordinatedProjects: 0, disabledAt: 100, disabledBy: "owner", twoFactor: false, createdAt: 1, lastActiveAt: null, email: null, emailConfirmed: false, lockedUntil: null };
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { user: account }));
+    expect(await setUserDisabled("u1", true)).toEqual(account);
+    expect(call(1)).toEqual({ url: "/v1/admin/users/u1/disable", method: "POST", body: undefined });
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { user: { ...account, disabledAt: null, disabledBy: null } }));
     expect(await setUserDisabled("u1", false)).toMatchObject({ disabledAt: null, disabledBy: null });
-    expect(call(3).url).toBe("/v1/admin/users/u1/enable");
+    expect(call(2).url).toBe("/v1/admin/users/u1/enable");
     for (const [code, key] of [["own_account", "error.ownAccount"], ["last_enabled_admin", "error.lastEnabledAdmin"], ["account_disabled", "error.accountDisabled"]]) {
       expect(errorMessageKey(new ApiError(409, code, null, {}))).toBe(key);
     }
@@ -1217,12 +1231,9 @@ describe("weekly emails (Task 19)", () => {
     fetchMock.mockResolvedValue(jsonResponse(200, body));
     expect(await getNotifications()).toEqual(body);
     expect(url()).toBe("/v1/me/notifications");
-    fetchMock.mockResolvedValue(jsonResponse(200, { digests: {} }));
-    expect(await setNotifications({ collector: false, language: "es", timeZone: "UTC" })).toMatchObject({
-      email: null,
-      sends: false,
-      digests: { coordinator: { on: false }, collector: { on: false } },
-    });
+    const off = { ...body, digests: { ...body.digests, collector: { ...body.digests.collector, on: false } } };
+    fetchMock.mockResolvedValue(jsonResponse(200, off));
+    expect(await setNotifications({ collector: false, language: "es", timeZone: "UTC" })).toEqual(off);
     expect(fetchMock.mock.calls[1][1]).toMatchObject({ method: "PUT", body: JSON.stringify({ collector: false, language: "es", timeZone: "UTC" }) });
     // A zone the browser cannot tell is not sent: the stored one stays.
     fetchMock.mockResolvedValue(jsonResponse(200, body));

@@ -10,6 +10,7 @@ import type { ServerCounters } from '../serverCounters.js';
 import { UsernameTakenError } from '../store/memory.js';
 import type { Store } from '../store/store.js';
 import type { AccountMailHooks } from './mail.js';
+import type { AccountDeletion, JoinedProject, LoginAnswer, Me, RegisterAnswer } from '../wire/account.js';
 
 interface RegisterBody {
   username?: string;
@@ -36,23 +37,9 @@ interface PasswordChangeBody {
   language?: string;
 }
 
-interface ProjectRef {
-  projectId: string;
-  name: string;
-}
-
 /** What deleting an account would do, worked out from its memberships. */
-interface AccountDeletionPlan {
-  /** Projects the user is the only coordinator of while others are in them, or that hold records: refusal. */
-  soleCoordinator: ProjectRef[];
-  /** Projects with no records where the user is the only member and coordinator: deleted with the account. */
-  deletedWithAccount: ProjectRef[];
-  /** The last platform admin cannot leave: the server would have no owner. */
-  lastPlatformAdmin: boolean;
-}
-
-export async function accountDeletionPlan(store: Store, userId: string, isPlatformAdmin: boolean): Promise<AccountDeletionPlan> {
-  const plan: AccountDeletionPlan = { soleCoordinator: [], deletedWithAccount: [], lastPlatformAdmin: false };
+export async function accountDeletionPlan(store: Store, userId: string, isPlatformAdmin: boolean): Promise<AccountDeletion> {
+  const plan: AccountDeletion = { soleCoordinator: [], deletedWithAccount: [], lastPlatformAdmin: false };
   for (const m of await store.listMemberships(userId)) {
     if (m.role !== 'admin') {
       // Not a coordinator: leaving takes nothing away from the project.
@@ -167,7 +154,7 @@ export async function registerAuthRoutes(
       projectId: invite.projectId,
       projectName: invite.projectName,
       role: invite.role,
-    });
+    } satisfies RegisterAnswer);
   });
 
   app.post('/v1/auth/login', { preHandler: limiter.guard('login') }, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -246,7 +233,7 @@ export async function registerAuthRoutes(
     // could sign in learns whether a link is good. A member already keeps their role, and the link is not used up
     // (a coordinator's link to bring a member the new project file).
     const inviteToken = typeof body.inviteToken === 'string' ? body.inviteToken.trim() : '';
-    let joined: { projectId: string; projectName: string; role: string } | null = null;
+    let joined: JoinedProject | null = null;
     if (inviteToken) {
       const invite = await store.getInvite(inviteToken);
       if (!invite || invite.revoked) return reply.code(400).send({ error: 'invalid_invite' });
@@ -260,7 +247,7 @@ export async function registerAuthRoutes(
     }
     await store.clearLoginFailures(user.id);
     const token = await store.createSession(user.id);
-    return reply.send({ token, userId: user.id, username: user.username, ...(joined ?? {}) });
+    return reply.send({ token, userId: user.id, username: user.username, ...(joined ?? {}) } satisfies LoginAnswer);
   });
 
   app.post(
@@ -310,7 +297,7 @@ export async function registerAuthRoutes(
         announcement: settings.announcement && (settings.announcementUntil === null || settings.announcementUntil > Date.now())
           ? { text: settings.announcement, until: settings.announcementUntil }
           : null,
-      });
+      } satisfies Me);
     },
   );
 

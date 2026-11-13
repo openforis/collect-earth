@@ -5,19 +5,12 @@
 // The Java desktop app reads GET /v1/projects, GET /v1/projects/:pid, the project file, plot-layout, imagery and
 // periods/plots/:plot: a change to their types is a change to the /v1 contract.
 
+import type { Membership, Role } from './account.js';
 import type { ChangeAreas } from './data.js';
 import type { ProjectStatus } from './projectSettings.js';
 
-/** Membership role within a single project. Authority derives only from these. */
-export type Role = 'admin' | 'reviewer' | 'operator';
-
-/** A user's membership of one project, with the project name for listings. */
-export interface Membership {
-  projectId: string;
-  projectName: string;
-  role: Role;
-  status: ProjectStatus;
-}
+/** Role and Membership (also in GET /v1/me) are in account.ts. */
+export type { Membership, Role } from './account.js';
 
 /** GET /v1/projects: the caller's own projects (there is no global listing). */
 export interface ProjectListAnswer {
