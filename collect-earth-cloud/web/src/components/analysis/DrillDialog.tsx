@@ -18,7 +18,8 @@ import Typography from "@mui/material/Typography";
 import Download from "@mui/icons-material/Download";
 import { useEffect, useState } from "react";
 import { drillCountSql, drillSql, whereSql, type Filter } from "../../analysisQuestion";
-import { csvField, type Cube } from "../../analysisView";
+import type { Cube } from "../../analysisView";
+import { csvBlob, recordsCsv } from "../../csv";
 import { formatNumber } from "../../format";
 import { useApp } from "../../appContext";
 import { useT } from "../../i18n";
@@ -28,13 +29,6 @@ import { ErrorAlert } from "../ErrorAlert";
 import { filterText } from "./FilterBar";
 
 export const DRILL_LIMIT = 200;
-
-/** Rows as CSV that Excel opens with its accents right (a byte order mark first). */
-export function csvBlob(columns: readonly string[], rows: readonly Record<string, unknown>[]): Blob {
-  const cell = (v: unknown) => (v === null || v === undefined ? "" : csvField(String(v)));
-  const text = [columns.map(cell).join(","), ...rows.map((r) => columns.map((c) => cell(r[c])).join(","))].join("\r\n") + "\r\n";
-  return new Blob(["﻿", text], { type: "text/csv;charset=utf-8" });
-}
 
 /**
  * The drill-through (Saiku's "drill through"): the plots behind a cell of the pivot, with the fields of the view and
@@ -86,7 +80,7 @@ export function DrillDialog({
   const download = async () => {
     setBusy(true);
     try {
-      saveBlob(csvBlob(columns, await query(drillSql(cube, filters, columns, null))), `${fileName}.csv`);
+      saveBlob(csvBlob(recordsCsv(columns, await query(drillSql(cube, filters, columns, null)), language)), `${fileName}.csv`);
     } catch (e) {
       setError(e);
     } finally {
