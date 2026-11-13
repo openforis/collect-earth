@@ -30,22 +30,26 @@ export function gapText(t: Translate, ms: number, language: string): string {
  */
 export function flagText(t: Translate, flag: PatternFlag, language: string, options: { local?: boolean } = {}): string {
   const local = options.local === true;
+  const d = flag.details;
   switch (flag.kind) {
     // A previous or first plot the viewer may not see (a reviewer's held copy, a reference plot) comes as null: not named.
-    case "very_fast":
+    case "very_fast": {
+      const previous = "previousPlot" in d ? d.previousPlot : null;
       return t(
-        flag.previousPlot === null
+        previous === null
           ? local
             ? "flags.text.very_fastUnnamedLocal"
             : "flags.text.very_fastUnnamed"
           : local
             ? "flags.text.very_fastLocal"
             : "flags.text.very_fast",
-        { gap: gapText(t, flag.gapMs ?? 0, language), previous: flag.previousPlot ?? "" },
+        { gap: gapText(t, "gapMs" in d ? d.gapMs : 0, language), previous: previous ?? "" },
       );
-    case "same_as_before":
+    }
+    case "same_as_before": {
+      const run = "runLength" in d ? d : null;
       return t(
-        flag.previousPlot === null || flag.firstPlot === null
+        run === null || run.previousPlot === null || run.firstPlot === null
           ? local
             ? "flags.text.same_as_beforeUnnamedLocal"
             : "flags.text.same_as_beforeUnnamed"
@@ -53,15 +57,18 @@ export function flagText(t: Translate, flag: PatternFlag, language: string, opti
             ? "flags.text.same_as_beforeLocal"
             : "flags.text.same_as_before",
         {
-          previous: flag.previousPlot ?? "",
-          n: formatNumber(flag.runLength ?? 0, language),
-          first: flag.firstPlot ?? "",
+          previous: run?.previousPlot ?? "",
+          n: formatNumber(run?.runLength ?? 0, language),
+          first: run?.firstPlot ?? "",
         },
       );
-    case "required_empty":
-      return t(flag.questions.length === 1 ? "flags.text.required_emptyOne" : "flags.text.required_empty", { questions: flag.questions.map((q) => q.label).join(", ") });
+    }
+    case "required_empty": {
+      const questions = "questions" in d ? d.questions : [];
+      return t(questions.length === 1 ? "flags.text.required_emptyOne" : "flags.text.required_empty", { questions: questions.map((q) => q.label).join(", ") });
+    }
     case "edited_after_decision":
-      return t("flags.text.edited_after_decision", { at: formatDate(flag.at, language), decidedAt: formatDate(flag.decidedAt, language) });
+      return t("flags.text.edited_after_decision", { at: formatDate(flag.at, language), decidedAt: formatDate("decidedAt" in d ? d.decidedAt : null, language) });
     case "two_main":
       return t("flags.text.two_main");
     case "no_plot":

@@ -11,6 +11,9 @@ import type { Config } from '../config.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import type { Store } from '../store/store.js';
 import type { AiRunRow, AiRunSummary } from '../types.js';
+import type { AiRunAnswer, AiRunListed, AiRunsAnswer, AiRunStarted } from '../wire/ai.js';
+import type { ProposedViewsAnswer } from '../wire/analysis.js';
+import type { ProjectAi } from '../wire/projectSettings.js';
 import { areasSource, modelOf } from './analysis.js';
 
 /** Runs listed by default, and at most. */
@@ -35,7 +38,7 @@ const NOT_ENABLED = {
 const bad = (reason: string) => ({ error: 'bad_request', reason });
 
 /** A run as listed: who, when, what, and its tokens; never a result, a question or tool arguments. */
-function summaryOf(r: AiRunSummary) {
+function summaryOf(r: AiRunSummary): AiRunListed {
   return {
     id: r.id,
     kind: r.kind,
@@ -54,13 +57,13 @@ function summaryOf(r: AiRunSummary) {
 }
 
 /** One run for the dashboard: its progress (the tools used so far), and its result with real names and plot ids. */
-function runOf(r: AiRunRow) {
+function runOf(r: AiRunRow): AiRunAnswer {
   return {
     ...summaryOf(r),
     // Stored with pseudonyms for the usernames in it: shown with the real names.
     question: r.question !== null && r.questionNames ? questionWithRealNames(r.question, r.questionNames) : r.question,
     progress: { tools: r.toolCalls.map((c) => c.name) },
-    result: r.status === 'done' && r.result !== null ? withRealNames(r.result as StoredResult<unknown>) : null,
+    result: r.status === 'done' && r.result !== null ? withRealNames(r.result as StoredResult<NonNullable<AiRunAnswer['result']>>) : null,
     error: r.status === 'failed' ? { code: r.errorCode ?? 'server_error', message: r.error ?? '' } : null,
     refusal: r.status === 'refused' ? r.error : null,
   };
@@ -89,14 +92,18 @@ export async function registerAiRoutes(app: FastifyInstance, store: Store, confi
     await runs.close();
   });
 
+  // Whether the assistant is on, and where what is sent is processed, for the coordinator deciding to switch it on (a
+  // region of "global" is not one place: Google may process it in any of its regions). Both GET and PUT answer it.
+  const aiState = (enabled: boolean, available: boolean): ProjectAi => ({
+    enabled,
+    available,
+    where: available ? { provider: 'Google Gemini (Vertex AI)', model: config.aiModel ?? DEFAULT_AI_MODEL, region: config.aiVertexRegion ?? DEFAULT_AI_REGION } : null,
+  });
+
   app.get('/v1/projects/:pid/ai', admin, async (request: FastifyRequest, reply: FastifyReply) => {
     const projectId = request.membership!.projectId;
     const [enabled, settings] = await Promise.all([store.isAiEnabled(projectId), store.getSettings()]);
-    const available = aiAvailable(config, settings);
-    // Where what is sent is processed, for the coordinator deciding to switch it on (a region of "global" is not one
-    // place: Google may process it in any of its regions)
-    const where = available ? { provider: 'Google Gemini (Vertex AI)', model: config.aiModel ?? DEFAULT_AI_MODEL, region: config.aiVertexRegion ?? DEFAULT_AI_REGION } : null;
-    return reply.send({ enabled, available, where });
+    return reply.send(aiState(enabled, aiAvailable(config, settings)));
   });
 
   app.put('/v1/projects/:pid/ai', admin, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -118,7 +125,7 @@ export async function registerAiRoutes(app: FastifyInstance, store: Store, confi
     }
     await store.setAiEnabled(projectId, enabled);
     await audit(store, request, 'settings.changed', { setting: 'ai', enabled });
-    return reply.send({ enabled, available });
+    return reply.send(aiState(enabled, available));
   });
 
   app.post('/v1/projects/:pid/ai/runs', admin, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -139,7 +146,7 @@ export async function registerAiRoutes(app: FastifyInstance, store: Store, confi
     }
     const started = await runs.start(projectId, userId, parsed, settings);
     if (started.ok) {
-      return reply.code(202).send({ runId: started.runId });
+      return reply.code(202).send({ runId: started.runId } satisfies AiRunStarted);
     }
     if (started.limit === 'busy') {
       return reply.code(409).send({ error: 'busy', reason: 'The assistant is already working for this project. Wait until it has finished.' });
@@ -208,7 +215,7 @@ export async function registerAiRoutes(app: FastifyInstance, store: Store, confi
     await runs.failStale(projectId);
     const out = await runs.proposeViews(projectId, userId, structure, language as AiLanguage, settings);
     if (out.ok) {
-      return reply.header('cache-control', 'no-store').send({ views: out.views });
+      return reply.header('cache-control', 'no-store').send({ views: out.views } satisfies ProposedViewsAnswer);
     }
     if ('failed' in out) {
       return reply.code(502).send({ error: 'ai_failed', code: out.failed, reason: FAILURE_MESSAGES[out.failed] });
@@ -249,7 +256,7 @@ export async function registerAiRoutes(app: FastifyInstance, store: Store, confi
     }
     await runs.failStale(projectId);
     // The views proposed for the analysis page are runs too (they count against the limits), but no part of the AI tab
-    return reply.send({ runs: (await store.listAiRuns(projectId, limit, { exceptViews: true })).map(summaryOf) });
+    return reply.send({ runs: (await store.listAiRuns(projectId, limit, { exceptViews: true })).map(summaryOf) } satisfies AiRunsAnswer);
   });
 
   app.get('/v1/projects/:pid/ai/runs/:id', admin, async (request: FastifyRequest, reply: FastifyReply) => {

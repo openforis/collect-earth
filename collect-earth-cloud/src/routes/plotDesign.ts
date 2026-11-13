@@ -16,6 +16,7 @@ import {
 } from '../plotDesign.js';
 import { fileKeyCount } from '../rounds.js';
 import type { Store } from '../store/store.js';
+import type { DesignFacts, DesignPlan } from '../wire/plotFiles.js';
 
 interface DesignBody {
   /** The area: a GeoJSON text, or a zipped shapefile in base64. */
@@ -107,7 +108,7 @@ export async function registerPlotDesignRoutes(app: FastifyInstance, store: Stor
       if (err instanceof DesignError) return refuse(err.code, err.message);
       throw err;
     }
-    const facts = {
+    const facts: DesignFacts = {
       features: area.features.length,
       fields: area.fields,
       areaKm2: area.features.reduce((s, f) => s + featureAreaM2(f), 0) / 1e6,
@@ -124,7 +125,7 @@ export async function registerPlotDesignRoutes(app: FastifyInstance, store: Stor
     }
 
     try {
-      if (body.generate !== true) return reply.send({ ...facts, ...planDesign(area, design, seed), seed });
+      if (body.generate !== true) return reply.send({ ...facts, ...planDesign(area, design, seed), seed } satisfies DesignPlan);
       const plots = designPlots(area, design, seed);
       return reply
         .header('content-type', 'text/csv; charset=utf-8')

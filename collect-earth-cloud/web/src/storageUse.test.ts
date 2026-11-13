@@ -1,10 +1,37 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_SERVER_SETTINGS } from "./api";
+import type { ServerSettings } from "./api";
 import { translator } from "./i18n";
 import { draftOf, parseLimit, readDraft } from "./settingsForm";
 import { storageLevel, storagePercent, storageText, storageWarningKey } from "./storageUse";
 
 const MB = 1024 * 1024;
+
+const SETTINGS: ServerSettings = {
+  signupOpen: false,
+  projectCreation: "platform-admins",
+  maxProjectsPerUser: 0,
+  maxProjectStorageMb: 0,
+  termsUrl: null,
+  contactEmail: null,
+  serverName: null,
+  aiEnabled: false,
+  aiReportsPerDay: 5,
+  aiFollowUpsPerDay: 30,
+  aiMonthlyTokens: 2_000_000,
+  aiConfigured: false,
+  announcement: null,
+  announcementUntil: null,
+  twoFactorForCoordinators: false,
+  alertFailedLogins: 50,
+  alertServerErrors: 20,
+  alertSyncErrors: 50,
+  alertStoragePercent: 90,
+  alertWebhook: null,
+  signupDomains: null,
+  minPasswordLength: 8,
+  loginLockFailures: 0,
+  loginLockMinutes: 15,
+};
 
 describe("space used by a project", () => {
   it("has levels: no limit, fine, nearly full from 90 %, over above 100 %", () => {
@@ -49,7 +76,7 @@ describe("server page limits and details", () => {
   });
 
   it("turns the boxes into settings, empty text clearing a setting", () => {
-    const draft = { ...draftOf(DEFAULT_SERVER_SETTINGS), maxProjectsPerUser: "3", serverName: "  FAO  ", termsUrl: "https://e.org/t" };
+    const draft = { ...draftOf(SETTINGS), maxProjectsPerUser: "3", serverName: "  FAO  ", termsUrl: "https://e.org/t" };
     expect(readDraft(draft)).toEqual({
       problems: {},
       changes: { maxProjectsPerUser: 3, maxProjectStorageMb: 0, serverName: "FAO", termsUrl: "https://e.org/t", contactEmail: null },

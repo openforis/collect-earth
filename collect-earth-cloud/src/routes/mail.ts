@@ -16,6 +16,8 @@ import { emailChangedMail, longMoment, passwordChangedMail, resetLinkMail,
   adminMessageMail, testMail, welcomeMail, SELF_RESET_TTL_MS, type MessageAudience, type SecurityContext } from '../securityMail.js';
 import type { Store } from '../store/store.js';
 import { DIGEST_KINDS, MAIL_LANGUAGES, type AccountMail, type DigestKind, type MailLanguage } from '../types.js';
+import type { DigestView, Notifications, UnsubscribeAnswer } from '../wire/account.js';
+import type { MailCheck, MessagePreview, MessageSentAnswer, TestMailAnswer } from '../wire/serverAdmin.js';
 
 export { MAX_EMAIL_LENGTH } from '../accountRules.js';
 
@@ -175,7 +177,7 @@ export async function registerMailRoutes(app: FastifyInstance, store: Store, con
   // Always on (also where the request limits are off): it is what keeps a mailbox from being flooded.
   const resetsPerAccount = new RateLimiter(RESET_MAILS_PER_ACCOUNT_HOUR, deps.now, { windowMs: HOUR_MS });
 
-  const view = async (userId: string, mail: AccountMail) => {
+  const view = async (userId: string, mail: AccountMail): Promise<Notifications> => {
     const memberships = await store.listMemberships(userId);
     // A collector somewhere, or a coordinator given plots in a project of theirs (My week tells them their own).
     const collects = await Promise.all(
@@ -187,7 +189,7 @@ export async function registerMailRoutes(app: FastifyInstance, store: Store, con
       ),
     );
     const digests = Object.fromEntries(
-      DIGEST_KINDS.map((kind) => {
+      DIGEST_KINDS.map((kind): [DigestKind, DigestView] => {
         const d = mail.digests.find((x) => x.kind === kind);
         return [
           kind,
@@ -201,7 +203,7 @@ export async function registerMailRoutes(app: FastifyInstance, store: Store, con
           },
         ];
       }),
-    );
+    ) as Record<DigestKind, DigestView>;
     return {
       email: mail.email,
       // False for an address stored before the rule (not one address): it must be typed again.
@@ -475,7 +477,7 @@ export async function registerMailRoutes(app: FastifyInstance, store: Store, con
       if (!allowed) return reply.code(429).header('retry-after', '60').send(RATE_LIMITED);
       if (!read) return reply.code(404).send({ error: 'not_found', reason: 'the link is not valid' });
       await store.setDigest(read.userId, read.kind, false, deps.now());
-      return reply.send({ unsubscribed: true, kind: read.kind });
+      return reply.send({ unsubscribed: true, kind: read.kind } satisfies UnsubscribeAnswer);
     });
     scope.get('/v1/unsubscribe/:token', async (request: FastifyRequest, reply: FastifyReply) => {
       // Opened in a browser: the dashboard's page asks before turning it off (link checkers only GET).
@@ -555,7 +557,7 @@ export async function registerMailRoutes(app: FastifyInstance, store: Store, con
       ownAddress: own?.email ?? null,
       ownAddressConfirmed: own?.emailConfirmedAt != null,
       stopped: await store.listStoppedDigests(),
-    });
+    } satisfies MailCheck);
   });
 
   // "Send me a test email": to the administrator's own address (confirmed or not), in their language; the mail
@@ -577,7 +579,7 @@ export async function registerMailRoutes(app: FastifyInstance, store: Store, con
       return reply.code(502).send({ error: 'mail_refused', ...summary, senderLimit: isSenderLimit(err) });
     }
     await logServerAction(store, request, { action: 'mail.test', details: { sent: true } });
-    return reply.send({ sent: true, to: own.email });
+    return reply.send({ sent: true, to: own.email } satisfies TestMailAnswer);
   });
 
   // --- A message from the server's administrators to every coordinator, or everyone (stage D) ---
@@ -612,7 +614,7 @@ export async function registerMailRoutes(app: FastifyInstance, store: Store, con
       text: mail.text,
       delivers: deps.mailer.delivers,
       nextAllowedAt: last !== null && deps.now() - last < MESSAGE_INTERVAL_MS ? last + MESSAGE_INTERVAL_MS : null,
-    });
+    } satisfies MessagePreview);
   });
 
   // Sends it: each person gets it in their language (the closing lines), within the request (Cloud Run throttles the CPU
@@ -653,6 +655,6 @@ export async function registerMailRoutes(app: FastifyInstance, store: Store, con
     } finally {
       sendingUntil = 0;
     }
-    return reply.send({ recipients: recipients.length, sent, failed });
+    return reply.send({ recipients: recipients.length, sent, failed } satisfies MessageSentAnswer);
   });
 }

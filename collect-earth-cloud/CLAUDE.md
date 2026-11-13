@@ -81,6 +81,13 @@ npm run smoke:pg:sampling -- 55481
   `scripts/build-local.mjs` swaps cloud-only modules (Postgres, migrations, Gemini, nodemailer,
   Sentry) for the stand-ins in `src/localBuild/`, so the bundle needs no node_modules: don't
   import those modules from code that local mode reaches except through the swapped paths.
+- **Wire types** (`src/wire/`, one file per area): the types of the JSON the server and the
+  dashboard send each other, written once. Routes build their answers against them (`satisfies` or
+  a typed return); `web/src/api.ts` imports them with `import type` and returns each answer as it
+  comes, with no clean-up function and no fallback for older servers (the two are always shipped
+  together; a page left open across an upgrade offers to reload: server-info's `dashboardBuild`,
+  `web/src/newVersion.ts`). Types only (`test/wire.test.ts`). A new route's answer gets its type
+  there, in its area's file (`src/wire/README.md`).
 - **Dashboard** (`web/src`): React 19 + MUI, `api.ts` for calls, `pages/` and `project/` for
   screens, view logic in `*View.ts` files with their tests beside them. All UI text goes through
   `i18n.ts`, which holds en, es, fr and pt catalogues (typed `Catalogue`, so a key missing in one

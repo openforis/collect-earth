@@ -17,7 +17,7 @@ import Typography from "@mui/material/Typography";
 import ArrowBack from "@mui/icons-material/ArrowBack";
 import Calculate from "@mui/icons-material/Calculate";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ApiError, getAnalysis, getProject, getProjectAi, proposeAnalysisViews, type AnalysisData, type ProposedView } from "../api";
+import { ApiError, getAnalysis, getProject, getProjectAi, proposeAnalysisViews, type AnalysisAnswer, type ProposedView } from "../api";
 import { useApp } from "../appContext";
 import { AppShell } from "../components/AppShell";
 import { EmptyState } from "../components/EmptyState";
@@ -149,7 +149,7 @@ function keepable(config: ViewConfig): ViewConfig {
  * The pivot and its bars. `standalone`: in the stand-alone file (src/standalone.tsx), with no server: no team views, no
  * links to share or to the plots' pages, and no stand-alone download of itself.
  */
-export function Pivot({ projectId, projectName, role, data, language, standalone = false }: { projectId: string; projectName: string; role: Role; data: AnalysisData; language: string; standalone?: boolean }) {
+export function Pivot({ projectId, projectName, role, data, language, standalone = false }: { projectId: string; projectName: string; role: Role; data: AnalysisAnswer; language: string; standalone?: boolean }) {
   const t = useT();
   const local = useLocalMode() || standalone;
   const coordinator = role === "admin";

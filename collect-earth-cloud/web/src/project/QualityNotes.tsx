@@ -15,7 +15,7 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import Add from "@mui/icons-material/Add";
 import { useState } from "react";
-import { createGuidanceNote, deleteGuidanceNote, updateGuidanceNote, type AnswerOptions, type GuidanceNote, type GuidanceNoteInput, type QualityData } from "../api";
+import { createGuidanceNote, deleteGuidanceNote, updateGuidanceNote, type AnswerOptions, type GuidanceNote, type GuidanceNoteInput, type QualityAnswer } from "../api";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Explain } from "../components/Explain";
 import { useT } from "../i18n";
@@ -53,7 +53,7 @@ export function NoteDialog({
   onSaved,
 }: {
   projectId: string;
-  data: QualityData;
+  data: QualityAnswer;
   draft: NoteDraft;
   onClose: () => void;
   onSaved: (note: GuidanceNote) => void;
@@ -213,7 +213,7 @@ export function QualityNotes({
   onDeleted,
 }: {
   projectId: string;
-  data: QualityData;
+  data: QualityAnswer;
   onEdit: (draft: NoteDraft) => void;
   onDeleted: (id: string) => void;
 }) {

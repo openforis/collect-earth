@@ -48,7 +48,7 @@ import { MovePlotsDialog } from "../components/MovePlotsDialog";
 import {
   createInvite,
   getPeople,
-  type PeopleData,
+  type PeopleAnswer,
   type PeopleInvite,
   type PersonRow,
   listInvites,
@@ -366,7 +366,7 @@ function MemberList({ projectId, members, onChanged }: { projectId: string; memb
 }
 
 /** This week: plots submitted each of the last 7 days, and who was the most and the least active. */
-function WeekSection({ projectId, data }: { projectId: string; data: PeopleData }) {
+function WeekSection({ projectId, data }: { projectId: string; data: PeopleAnswer }) {
   const t = useT();
   const { language } = useApp();
   const n = (v: number) => formatNumber(v, language);
@@ -445,7 +445,7 @@ const WORKLOAD_COLUMNS: { key: WorkloadSortKey; label: MessageKey; align?: "righ
  * The workload board: for each collector, the plots still to assess, done, their pace of the last 7 days and the day
  * they would finish at that pace (who would finish last first), and "Move plots…" to give some of theirs to someone.
  */
-function WorkloadSection({ projectId, data, onMoved }: { projectId: string; data: PeopleData; onMoved: () => void }) {
+function WorkloadSection({ projectId, data, onMoved }: { projectId: string; data: PeopleAnswer; onMoved: () => void }) {
   const t = useT();
   const { language } = useApp();
   const n = (v: number) => formatNumber(v, language);
@@ -618,7 +618,7 @@ const STATUS_FILTERS: { value: StatusFilter; label: MessageKey }[] = [
 ];
 
 /** The people table: one row per person (sortable, filterable, as CSV), then the links nobody has used yet. */
-function PeopleTableSection({ projectId, data }: { projectId: string; data: PeopleData }) {
+function PeopleTableSection({ projectId, data }: { projectId: string; data: PeopleAnswer }) {
   const t = useT();
   const { language, me } = useApp();
   const [sort, setSort] = useState<{ key: SortKey; direction: "asc" | "desc" }>({ key: "status", direction: "asc" });

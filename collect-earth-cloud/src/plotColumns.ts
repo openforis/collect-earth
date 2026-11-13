@@ -1,6 +1,9 @@
 // The columns of a plot file and the values in them: for dividing a file by a column
 // (the division routes) and for filtering the answers by one (the Quality tab, Task 4).
 import type { PlotFile } from './plots.js';
+import type { PlotColumn } from './wire/plotFiles.js';
+
+export type { PlotColumn } from './wire/plotFiles.js';
 
 /** Most distinct values a column may have for them to be listed. */
 export const MAX_LISTED_VALUES = 200;
@@ -14,15 +17,6 @@ export function columnValues(file: PlotFile, column: number): string[] {
     }
   }
   return file.plotIds.map((id) => valueOf.get(id) ?? '');
-}
-
-export interface PlotColumn {
-  index: number;
-  /** The header's name, null when the file has no header. */
-  name: string | null;
-  distinctCount: number;
-  /** Each value with its plots, by value (the empty value last); null for the id column and a column of over MAX_LISTED_VALUES values. */
-  values: { value: string; count: number }[] | null;
 }
 
 /** Every column of a plot file, with its values when there are few. */

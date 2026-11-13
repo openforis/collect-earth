@@ -1,31 +1,13 @@
+import type { CountersSnapshot, HourCounts } from './wire/serverAdmin.js';
+
+export type { CountersSnapshot, HourCounts } from './wire/serverAdmin.js';
+
 /** How many hours of counts are kept: the last 7 days. The totals go back to the start. */
 export const COUNTER_HOURS = 7 * 24;
 
 const HOUR_MS = 3_600_000;
 
 export type CounterKind = 'failedLogin' | 'rateLimited';
-
-export interface HourCounts {
-  /** The hour's start (epoch ms, UTC). */
-  hour: number;
-  failedLogins: number;
-  rateLimited: number;
-}
-
-export interface CountersSnapshot {
-  /** When this server process started counting (epoch ms). */
-  since: number;
-  totals: { failedLogins: number; rateLimited: number };
-  /** Hours with any count, oldest first, at most COUNTER_HOURS of the latest ones. */
-  hours: HourCounts[];
-  /**
-   * Automatic check draws worked out after their request had answered, so not stored then (Task 22
-   * review): a project whose draws are always this slow gets its checks only from "Draw now" or a
-   * later, quicker draw. Since the process started, and when the last one was.
-   */
-  lateDraws: number;
-  lastLateDrawAt: number | null;
-}
 
 /**
  * Failed logins and requests refused by the rate limiter, counted in memory by hour since

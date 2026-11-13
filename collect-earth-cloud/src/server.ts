@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -66,6 +67,7 @@ import { registerSamplingRoutes } from './routes/sampling.js';
 import { SamplingService } from './samplingService.js';
 import { disableLocalOffRoutes, registerLocalRoutes, type LocalSetup } from './local.js';
 import { InMemoryStore } from './store/memory.js';
+import type { AlertsMarkedAnswer, OwnerAlertsPage, WebhookTestAnswer } from './wire/serverAdmin.js';
 
 export interface BuildServerOptions {
   store: Store;
@@ -258,7 +260,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
       pageSize,
       thresholds: thresholdsOf(settings),
       webhook: webhook ? { kind: webhook.kind, host: webhook.host } : null,
-    });
+    } satisfies OwnerAlertsPage);
   });
   // Marks alerts seen ({ids}), or every one not seen yet (no ids): the health line stops naming them.
   app.post('/v1/admin/alerts/seen', { preHandler: requirePlatformAdmin(store) }, async (request, reply) => {
@@ -268,7 +270,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     }
     const marked = await store.markOwnerAlertsSeen((ids as string[] | undefined) ?? null, request.userId!, Date.now());
     if (marked > 0) await logServerAction(store, request, { action: 'alerts.seen', details: { count: marked } });
-    return reply.send({ marked });
+    return reply.send({ marked } satisfies AlertsMarkedAnswer);
   });
   // A test message to the webhook given ({url}, before it is saved) or the one set: whether the channel got it.
   app.post('/v1/admin/alerts/webhook-test', { preHandler: requirePlatformAdmin(store) }, async (request, reply) => {
@@ -280,7 +282,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     const { title } = alertForChannel({ kind: 'server_errors', count: 0 }, 'en', server);
     const posted = await postWebhook(url, title.replace(/:.*$/, ': a test of the alerts'), 'This is a test: the server\'s alerts will be posted here.', options.webhookFetch);
     if (!posted.sent) return reply.code(502).send({ error: 'webhook_refused', status: posted.status });
-    return reply.send({ sent: true });
+    return reply.send({ sent: true } satisfies WebhookTestAnswer);
   });
   const twoFactorKeyBuf = twoFactorKey(config);
   if (!local) {
@@ -310,6 +312,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   await registerAdminRoutes(app, store, config, limiter, {
     setupCode,
     version: VERSION,
+    dashboardBuild: dashboardBuildOf(webDir),
     now,
     counters,
     startedAt: STARTED_AT,
@@ -415,6 +418,19 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
  * /join/<token>, /setup, /reset/<token>, /projects/... work on a direct visit or
  * reload. Everything else that matches no route is a JSON 404, as before.
  */
+/**
+ * The served dashboard's build: a hash of its index.html, which names the build's files by their content's hash, so
+ * it changes with every build. Read once: a new build comes with a new server process.
+ */
+export function dashboardBuildOf(webDir: string | null): string | null {
+  if (webDir === null) return null;
+  try {
+    return createHash('sha256').update(readFileSync(join(webDir, 'index.html'))).digest('hex').slice(0, 16);
+  } catch {
+    return null;
+  }
+}
+
 async function registerDashboard(app: FastifyInstance, webDir: string | null): Promise<void> {
   const serveSpa = webDir !== null && existsSync(join(webDir, 'index.html'));
   if (serveSpa) {

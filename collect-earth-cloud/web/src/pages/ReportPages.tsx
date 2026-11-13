@@ -189,13 +189,13 @@ export function MyQualityPage({ projectId }: { projectId: string }) {
         <>
           <FiguresTime computedAt={data.computedAt} stale={data.stale} />
           <Block title={t("myQuality.checked")}>
-            {data.asFirst.compared === 0 ? (
+            {data.asFirst.checks === 0 ? (
               <Alert severity="info">{t("myQuality.none")}</Alert>
             ) : (
               <Typography sx={{ fontSize: "1.25rem", fontVariantNumeric: "tabular-nums" }}>{rateText(t, data.asFirst, language)}</Typography>
             )}
           </Block>
-          {data.asFirst.compared > 0 && (
+          {data.asFirst.checks > 0 && (
             <Block title={t("myQuality.confusionsTitle")}>
               {data.confusions.length === 0 && <Typography>{t("myQuality.confusionsNone")}</Typography>}
               {data.confusions.map((c) => (
@@ -331,7 +331,7 @@ export function TeamReportPage({ projectId }: { projectId: string }) {
                         <TableRow key={q.key} sx={{ verticalAlign: "top", breakInside: "avoid" }}>
                           <TableCell component="th" scope="row" sx={{ wordBreak: "break-word", minWidth: 140 }}>
                             {q.label}
-                            {q.kind === "number" && q.margin !== null && (
+                            {q.kind === "number" && q.margin !== undefined && (
                               <Typography variant="body2" color="text.secondary">
                                 {t("quality.withinMargin", { margin: q.margin })}
                               </Typography>

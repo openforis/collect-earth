@@ -274,7 +274,7 @@ function DrawStatus({ projectId, view, onDrawn }: { projectId: string; view: Sam
     setDone(null);
     try {
       const result = await drawSamplingNow(projectId);
-      setDone(result.drawn);
+      setDone(result.draw.drawn);
       onDrawn(result.view);
     } catch (err) {
       setFailure(err);

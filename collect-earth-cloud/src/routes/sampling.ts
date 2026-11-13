@@ -5,6 +5,7 @@ import { requireProjectMembership } from '../plugins/projectAuth.js';
 import { parseSamplingRule, samplingActive } from '../sampling.js';
 import type { SamplingService } from '../samplingService.js';
 import type { Store } from '../store/store.js';
+import type { SamplingDrawAnswer, SamplingView } from '../wire/checks.js';
 
 /**
  * The automatic check sampling (Task 13), coordinators only:
@@ -19,7 +20,7 @@ export async function registerSamplingRoutes(app: FastifyInstance, store: Store,
   const admin = { preHandler: requireProjectMembership(store, 'admin') };
 
   app.get('/v1/projects/:pid/sampling', admin, async (request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(await sampling.view(request.membership!.projectId, request.log));
+    return reply.send((await sampling.view(request.membership!.projectId, request.log)) satisfies SamplingView);
   });
 
   app.put('/v1/projects/:pid/sampling', admin, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -37,7 +38,7 @@ export async function registerSamplingRoutes(app: FastifyInstance, store: Store,
     const active = samplingActive(parsed);
     await store.setSamplingRule(projectId, parsed, active);
     await audit(store, request, 'settings.changed', { setting: 'sampling', active, firstN: parsed.firstN, percent: parsed.percent });
-    return reply.send(await sampling.view(projectId, request.log));
+    return reply.send((await sampling.view(projectId, request.log)) satisfies SamplingView);
   });
 
   app.post('/v1/projects/:pid/sampling/draw', admin, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -46,6 +47,6 @@ export async function registerSamplingRoutes(app: FastifyInstance, store: Store,
     if (!outcome) {
       return reply.code(409).send({ error: 'no_rule', reason: 'Turn on "the first plots of every person" or "a share of the plots" first: there is nothing to draw.' });
     }
-    return reply.send({ draw: outcome.draw, view: await sampling.view(projectId, request.log) });
+    return reply.send({ draw: outcome.draw, view: await sampling.view(projectId, request.log) } satisfies SamplingDrawAnswer);
   });
 }

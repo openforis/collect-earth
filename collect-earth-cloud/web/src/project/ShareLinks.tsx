@@ -8,7 +8,7 @@ import Typography from "@mui/material/Typography";
 import AddLink from "@mui/icons-material/AddLink";
 import LinkOff from "@mui/icons-material/LinkOff";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { createShareLink, listShareLinks, revokeShareLink, type NewShareLink, type ShareLink } from "../api";
+import { createShareLink, listShareLinks, revokeShareLink, type NewShareLinkAnswer, type ShareLink } from "../api";
 import { useApp } from "../appContext";
 import { CopyField } from "../components/CopyField";
 import { ErrorAlert } from "../components/ErrorAlert";
@@ -95,7 +95,7 @@ export function ShareLinksCard({ projectId }: { projectId: string }) {
   const t = useT();
   const links = useLoad(() => listShareLinks(projectId), [projectId]);
   const [label, setLabel] = useState("");
-  const [made, setMade] = useState<NewShareLink | null>(null);
+  const [made, setMade] = useState<NewShareLinkAnswer | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);

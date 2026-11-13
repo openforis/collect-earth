@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import type { AnalysisColumnModel, AnalysisData, AnalysisModelData } from "./api";
+import type { AnalysisColumn, AnalysisAnswer, AnalysisModel } from "./api";
 import { chartStyle, IPCC_COLOURS, LEGEND_WIDTH_PX, NO_ANSWER_COLOUR, paletteCss, seriesOfPaths, shade, takesOut, valueColour, withoutChartColours } from "./analysisColors";
 import { applyQuestion, measuresOf, type Question } from "./analysisQuestion";
 import { cubeOf } from "./analysisView";
 import { translator } from "./i18n";
 
-const col = (name: string, over: Partial<AnalysisColumnModel> = {}): AnalysisColumnModel => ({
+const col = (name: string, over: Partial<AnalysisColumn> = {}): AnalysisColumn => ({
   name,
   key: `collect_text_${name}`,
   labels: {},
@@ -14,10 +14,13 @@ const col = (name: string, over: Partial<AnalysisColumnModel> = {}): AnalysisCol
   calculated: false,
   multiple: false,
   fromPlotFile: false,
+  keyAttr: false,
+  parent: null,
+  relevantIf: null,
   ...over,
 });
 const item = (code: string, label: string, parent: string | null = null) => ({ code, labels: { en: label }, parent, level: parent ? 1 : 0 });
-const model: AnalysisModelData = {
+const model: AnalysisModel = {
   languages: ["en"],
   tables: [
     {
@@ -38,7 +41,7 @@ const model: AnalysisModelData = {
     disturbances: [item("fire", "Fire"), item("logging", "Logging"), item("mining", "Mining")],
   },
 };
-const data: AnalysisData = { model, scope: "project", areas: null, tables: [] };
+const data: AnalysisAnswer = { model, scope: "project", areas: null, tables: [] };
 const t = translator("en");
 const cube = cubeOf(data, "plot", "en", t);
 const measures = measuresOf(cube, t);

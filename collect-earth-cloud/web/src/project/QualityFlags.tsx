@@ -26,7 +26,7 @@ import {
   NO_FLAGS_FILTER,
   saveFastSeconds,
   type FlagKind,
-  type FlagsData,
+  type FlagsAnswer,
   type FlagsFilter,
 } from "../api";
 import { useApp, useLocalMode } from "../appContext";
@@ -62,7 +62,7 @@ function SelectField({ label, value, onChange, children }: { label: string; valu
 }
 
 /** The "very fast" threshold: coordinators change it, reviewers read it. */
-function Threshold({ projectId, data, canEdit, onSaved }: { projectId: string; data: FlagsData; canEdit: boolean; onSaved: () => void }) {
+function Threshold({ projectId, data, canEdit, onSaved }: { projectId: string; data: FlagsAnswer; canEdit: boolean; onSaved: () => void }) {
   const t = useT();
   const local = useLocalMode();
   const [text, setText] = useState(String(data.fastSeconds));
@@ -127,7 +127,7 @@ function Threshold({ projectId, data, canEdit, onSaved }: { projectId: string; d
   );
 }
 
-function PeopleCounts({ data, onPerson }: { data: FlagsData; onPerson: (username: string) => void }) {
+function PeopleCounts({ data, onPerson }: { data: FlagsAnswer; onPerson: (username: string) => void }) {
   const t = useT();
   const { language } = useApp();
   const kinds = FLAG_KINDS.filter((k) => data.people.some((p) => p.counts[k] > 0));

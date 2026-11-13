@@ -1,5 +1,33 @@
-/** Membership role within a single project. Authority derives only from these. */
-export type Role = 'admin' | 'reviewer' | 'operator';
+import type { DigestKind, Role } from './wire/account.js';
+import type { ProgressSettings } from './wire/progress.js';
+import type { ProjectStatus } from './wire/projectSettings.js';
+import type { SamplingDraw, SamplingRule } from './wire/checks.js';
+import type { AiRunKind, AiRunStatus, FollowUpAction } from './wire/ai.js';
+import type { DecisionKind } from './wire/quality.js';
+import type { DayCount, ServerAction, ServerActionKind, ServerSettings } from './wire/serverAdmin.js';
+import type { RecordChange } from './wire/activity.js';
+import type { TrainingKind } from './wire/training.js';
+
+export type { DigestKind, InviteSummary, Membership, ProjectCreation, Role } from './wire/account.js';
+export type { ProgressSettings } from './wire/progress.js';
+export type { ProjectStatus, ShareLink } from './wire/projectSettings.js';
+/** The project calls' types (src/wire/projects.ts); Role and Membership are in src/wire/account.ts. */
+export type { CepInfo, Member, RepeatSettings } from './wire/projects.js';
+export type { Assignment, AssignmentDetail, CsvFile, DivisionOrder, StoredDistribution } from './wire/plotFiles.js';
+export type { ReferenceChangeResult, SamplingCore, SamplingDraw, SamplingFileRule, SamplingRule } from './wire/checks.js';
+export type { DecisionKind, GuidanceNote, GuidanceNoteInput, QualitySettings } from './wire/quality.js';
+export type { AiRunKind, AiRunStatus } from './wire/ai.js';
+export type {
+  AdminProject,
+  DayCount,
+  ServerAction,
+  ServerActionKind,
+  ServerActivityEntry,
+  ServerSettings,
+  StoppedDigest,
+  StoredOwnerAlert,
+  UserSummary,
+} from './wire/serverAdmin.js';
 
 export interface User {
   id: string;
@@ -14,19 +42,6 @@ export interface User {
   disabledAt?: number | null;
 }
 
-/** A user's membership of one project, with the project name for listings. */
-export interface Membership {
-  projectId: string;
-  projectName: string;
-  role: Role;
-  status: ProjectStatus;
-}
-
-/**
- * A project's lifecycle: draft (being set up: collectors cannot sync yet), active, closed (read-only:
- * no syncs, no changes; reading and exports work) and archived (closed and out of the normal list).
- */
-export type ProjectStatus = 'draft' | 'active' | 'closed' | 'archived';
 export const PROJECT_STATUSES: readonly ProjectStatus[] = ['draft', 'active', 'closed', 'archived'];
 /** The moves a coordinator can make: publish, close, reopen, archive, restore. */
 export const STATUS_MOVES: Record<ProjectStatus, readonly ProjectStatus[]> = {
@@ -35,17 +50,6 @@ export const STATUS_MOVES: Record<ProjectStatus, readonly ProjectStatus[]> = {
   closed: ['active', 'archived'],
   archived: ['closed'],
 };
-
-/** One project member, for the admin members listing. */
-export interface Member {
-  userId: string;
-  username: string;
-  role: Role;
-  /** The server owner disabled the account (a flag only: not when or by whom). */
-  disabled?: boolean;
-  /** A coordinator left their records out of the results (the figures and the exports); absent otherwise. */
-  excluded?: { at: number; reason: string | null };
-}
 
 export interface Invite {
   projectId: string;
@@ -56,31 +60,6 @@ export interface Invite {
   expiresAt: number | null;
   /** A revoked invite answers like an unknown one on register, and previews as not valid. */
   revoked: boolean;
-}
-
-/** An open invite as the project admin sees it (the token itself is only shown at creation). */
-export interface InviteSummary {
-  id: string;
-  role: Role;
-  maxUses: number;
-  usedCount: number;
-  expiresAt: number | null;
-  createdAt: number;
-}
-
-/**
- * A read-only progress link of a project (Task 18), as coordinators list it. The token is shown
- * once, when it is made; only its sha256 is stored (share_links.token_hash).
- */
-export interface ShareLink {
-  id: string;
-  /** The coordinator's note to tell links apart ("For the donor"); may be empty. */
-  label: string;
-  createdAt: number;
-  /** The username of who made it; null for a project admin token or an account since deleted. */
-  createdBy: string | null;
-  /** When the page was last opened with it (kept to the minute); null when never. */
-  lastUsedAt: number | null;
 }
 
 /**
@@ -95,62 +74,6 @@ export interface PublicQuality {
   rate: number | null;
   /** When the inputs of the figures it comes from were read (ms). */
   computedAt: number;
-}
-
-/** Who may create projects with a session: every logged-in user, or platform admins only. */
-export type ProjectCreation = 'anyone' | 'platform-admins';
-
-/** Server-wide settings edited by the platform admin. */
-export interface ServerSettings {
-  signupOpen: boolean;
-  projectCreation: ProjectCreation;
-  /** Most projects one account may coordinate (be admin of); 0 = no limit. Platform admins are exempt. */
-  maxProjectsPerUser: number;
-  /** Most space one project may use, in MB (CEP + plot files + records); 0 = no limit. */
-  maxProjectStorageMb: number;
-  /** Terms of use (http/https). When set, sign-up asks people to accept them. */
-  termsUrl: string | null;
-  /** Shown on every page so people know whom to ask (forgotten password...). */
-  contactEmail: string | null;
-  /** Shown in the app bar instead of "Collect Earth Cloud". */
-  serverName: string | null;
-  /** The AI assistant may be used on this server (it also needs the AI_VERTEX_* configuration). */
-  aiEnabled: boolean;
-  /** AI reports per project per UTC day; 0 = none allowed. */
-  aiReportsPerDay: number;
-  /** AI follow-ups and questions per project per UTC day; 0 = none allowed. */
-  aiFollowUpsPerDay: number;
-  /**
-   * AI tokens (input + output) per project per calendar month (UTC); 0 = none allowed.
-   * Per project: the server's total can reach this times the number of projects.
-   */
-  aiMonthlyTokens: number;
-  /** A short plain-text message shown at the top of every dashboard page to everyone signed in; null: none. */
-  announcement: string | null;
-  /** When the announcement stops being shown (epoch ms); null: until it is cleared. */
-  announcementUntil: number | null;
-  /**
-   * Coordinators (project admins) and the server's administrators must use two-step sign-in (src/twoFactor.ts): until
-   * they set it up, their coordinator and administration pages are refused (two_factor_required).
-   */
-  twoFactorForCoordinators: boolean;
-  /** Owner alerts (src/ownerAlerts.ts): how many in one hour raise one, and a project's storage in percent of its limit. */
-  alertFailedLogins: number;
-  alertServerErrors: number;
-  alertSyncErrors: number;
-  alertStoragePercent: number;
-  /**
-   * A Slack or Microsoft Teams incoming webhook the alerts are posted to as well (src/alertWebhook.ts); null: none.
-   * A secret of sorts (whoever has it can post to the channel): never sent back, only whether one is set and its host.
-   */
-  alertWebhookUrl: string | null;
-  /** Open sign-up only with an email address of these domains (comma-separated, lower case); null: any address or none. */
-  signupDomains: string | null;
-  /** The shortest password accepted (sign-up, a change, a reset), from MIN_PASSWORD_LENGTH to 64. */
-  minPasswordLength: number;
-  /** An account is locked after this many failed sign-ins in a row (0: never), for loginLockMinutes. */
-  loginLockFailures: number;
-  loginLockMinutes: number;
 }
 
 /** The bounds of the settings above that are numbers (checked by PUT /v1/admin/settings). */
@@ -199,61 +122,6 @@ export const DEFAULT_SETTINGS: ServerSettings = {
   loginLockMinutes: 15,
 };
 
-/** One account in the platform admin's user list: a project COUNT only, never names (§4b). */
-export interface UserSummary {
-  userId: string;
-  username: string;
-  isPlatformAdmin: boolean;
-  /** Projects the account belongs to, in any role. */
-  projects: number;
-  /** Projects the account coordinates (admin role): what maxProjectsPerUser counts. */
-  coordinatedProjects: number;
-  /** When the account was disabled (epoch ms), or null. */
-  disabledAt: number | null;
-  /** Who disabled it (a username), or null (enabled, or that account was deleted since). */
-  disabledBy: string | null;
-  /** Two-step sign-in is on for the account. */
-  twoFactor: boolean;
-  /** When the account was made (epoch ms). */
-  createdAt: number;
-  /** When it last signed in or used a session, the dashboard or Collect Earth (epoch ms), or null: never since this was kept. */
-  lastActiveAt: number | null;
-  /** Its email address, and whether the person confirmed it. */
-  email: string | null;
-  emailConfirmed: boolean;
-  /** Locked after failed sign-ins until then (epoch ms), or null. */
-  lockedUntil: number | null;
-}
-
-/** One alert raised for the server's administrators, as kept (owner_alerts, migration 042). */
-export interface StoredOwnerAlert {
-  id: string;
-  /** failed_logins, server_errors, sync_errors, storage, two_factor_keys (src/ownerAlerts.ts) */
-  kind: string;
-  at: number;
-  count: number;
-  projectId: string | null;
-  seenAt: number | null;
-  /** Who marked it seen (a username), or null. */
-  seenBy: string | null;
-}
-
-/** One project in the server administrator's directory: by id only, never its name (§4b). */
-export interface AdminProject {
-  projectId: string;
-  status: ProjectStatus;
-  createdAt: number;
-  /** The latest of a member seen, a sync and a record stored (epoch ms); null when none yet. */
-  lastActivityAt: number | null;
-  storageBytes: number;
-  /** Its people, any role. */
-  people: number;
-  /** Its coordinators whose account is enabled. */
-  coordinators: number;
-  /** Of those, the ones active since the `activeSince` asked (users.last_active_at). */
-  activeCoordinators: number;
-}
-
 /** What the server activity log keeps: server administrators' actions (migration 041). */
 export const SERVER_ACTIONS = [
   'settings.changed',
@@ -275,11 +143,9 @@ export const SERVER_ACTIONS = [
   'message.sent',
   'alerts.seen',
   'account.unlocked',
-] as const;
-export type ServerAction = (typeof SERVER_ACTIONS)[number];
+] as const satisfies readonly ServerAction[];
 /** The kinds the log is filtered by: an action's first word ("accounts" counts as "account"). */
-export const SERVER_ACTION_KINDS = ['settings', 'account', 'project', 'mail', 'message', 'alerts'] as const;
-export type ServerActionKind = (typeof SERVER_ACTION_KINDS)[number];
+export const SERVER_ACTION_KINDS = ['settings', 'account', 'project', 'mail', 'message', 'alerts'] as const satisfies readonly ServerActionKind[];
 export const serverActionKind = (a: ServerAction): ServerActionKind =>
   (a.startsWith('accounts.') ? 'account' : a.slice(0, a.indexOf('.'))) as ServerActionKind;
 
@@ -296,19 +162,6 @@ export interface ServerActivityInput {
   details?: AuditDetails;
 }
 
-export interface ServerActivityEntry {
-  id: string;
-  at: number;
-  actorUserId: string | null;
-  /** The actor's username when it acted (kept when the account is deleted). */
-  actor: string | null;
-  action: ServerAction;
-  targetUserId: string | null;
-  target: string | null;
-  projectId: string | null;
-  details: AuditDetails;
-}
-
 export interface ServerActivityQuery {
   /** Only this actor's (by the username kept). */
   actor: string | null;
@@ -323,22 +176,6 @@ export interface ClientUse {
   agent: string;
   /** Its last sync, else when it was last seen (epoch ms). */
   at: number;
-}
-
-/** A weekly mail stopped after the mail server refused the address several weeks in a row. */
-export interface StoppedDigest {
-  userId: string;
-  username: string;
-  email: string | null;
-  kind: DigestKind;
-  failures: number;
-  stoppedAt: number;
-}
-
-/** A count for one UTC day (epoch ms of its midnight). */
-export interface DayCount {
-  day: number;
-  count: number;
 }
 
 /**
@@ -383,49 +220,7 @@ export function totalStorageBytes(s: ProjectStorage): number {
 }
 
 /** What the server did about the round key of a project's CEP (see src/cep.ts). */
-export type { RoundInfo } from './cep.js';
-
-/** Size and last upload time (epoch ms) of a project's CEP. */
-export interface CepInfo {
-  bytes: number;
-  updatedAt: number;
-}
-
-/** A plot CSV file belonging to a project (metadata; content fetched separately). */
-export interface CsvFile {
-  id: string;
-  filename: string;
-  checksum: string;
-  plotCount: number;
-  /** How its plots are divided between people; null (or absent) = whole file, the assignments grid applies. */
-  distribution?: StoredDistribution | null;
-}
-
-/**
- * The order plots are dealt in: the file's, 'mixed' (a seeded shuffle) or 'nearby' (along a
- * Hilbert curve over their latitude and longitude, Task 15: each share a compact area, and
- * the rows of each served file in that order too).
- */
-export type DivisionOrder = 'file' | 'mixed' | 'nearby';
-
-/**
- * A divided plot file's rule (csv_files.distribution), as last applied. `seed` is the
- * shuffle seed of order 'mixed'. 'manual' = changed by hand (move-unfinished); it keeps
- * `order: 'nearby'` when the division it changed had it, so the served files keep their
- * rows in that order.
- */
-export type StoredDistribution =
-  /** `percents`: each person's share of the plots (one per person, adding up to 100); absent = even shares. */
-  | { mode: 'even'; people: string[]; percents?: number[]; order: DivisionOrder; overlapPercent: number; seed?: number }
-  | {
-      mode: 'column';
-      column: number;
-      groups: { value: string; people: string[] }[];
-      order: DivisionOrder;
-      overlapPercent: number;
-      seed?: number;
-    }
-  | { mode: 'manual'; order?: 'nearby' };
+export type { RoundInfo } from './wire/projects.js';
 
 /** A plot's answers in the reference set a coordinator uploaded, by summary key. */
 /** One plot's answers in an earlier period of a repeat survey (migration 037). */
@@ -436,18 +231,6 @@ export interface PeriodAnswer {
   /** Summary key -> answer, as the record's summary */
   answers: Record<string, string>;
   savedAt: number;
-}
-
-/** A repeat survey's settings (docs/plans/2026-11-11-repeat-survey.md). */
-export interface RepeatSettings {
-  /** This project's period ("2025") */
-  label: string;
-  /** The earlier periods, oldest first */
-  earlier: { label: string; sourceProjectId: string; sourceName: string; plots: number; madeAt: number }[];
-  /** The summary keys of the questions the form's header shows of the earlier period (the plot's main characteristics) */
-  headerQuestions: string[];
-  /** The total area in hectares, for the areas of the changes when the project file has no areas file */
-  totalArea?: number;
 }
 
 export interface ReferenceAnswer {
@@ -466,42 +249,6 @@ export interface PlotAssignment {
   userId: string;
   overlap: boolean;
   sampledAt?: number;
-}
-
-/**
- * What the automatic check sampling does (Task 13), for the project or one divided file.
- * - `checkers`: the user ids who may receive checks; null = every collector (reviewers and
- *   coordinators only when chosen).
- * - `firstN`: check the first N plots each person submits; null = off.
- * - `percent`: check this share of each person's plots of each ISO week; null = off.
- */
-export interface SamplingCore {
-  checkers: string[] | null;
-  firstN: number | null;
-  percent: number | null;
-}
-
-/** One divided file's own rule: the project's (the default, not stored), none, or its own. */
-export type SamplingFileRule = { use: 'off' } | ({ use: 'own' } & SamplingCore);
-
-/** The project's rule; `seed` makes every draw repeatable; `files` only the files that do not use the project's rule. */
-export interface SamplingRule extends SamplingCore {
-  seed: number;
-  files: Record<string, SamplingFileRule>;
-}
-
-/** One draw, as kept for the Checks section (counts and ids only). */
-export interface SamplingDraw {
-  at: number;
-  /** Who pressed "Draw now"; null for an automatic draw. */
-  byUserId: string | null;
-  automatic: boolean;
-  /** Copies added, and of them for each rule. */
-  drawn: number;
-  firstN: number;
-  percent: number;
-  /** Plots due for a check that no checker could take (all of them assessed or hold it). */
-  noChecker: number;
 }
 
 /** The project's sampling state (sampling_rules). */
@@ -529,8 +276,8 @@ export interface SampledCopy {
  * A reference plot (Task 14, reference_plots): a plot of a divided file whose first assessment,
  * by its reference assessor (its main holder there), every collector checks blind (a copy each).
  */
-/** Calibration or learning plots (docs/plans/2026-11-04-calibration-and-learning-plots.md). */
-export type TrainingKind = 'calibration' | 'learning';
+/** Calibration or learning plots (docs/plans/2026-11-04-calibration-and-learning-plots.md; src/wire/training.ts). */
+export type { TrainingGolden, TrainingKind } from './wire/training.js';
 
 /** A training set: its own plot file, given whole to its participants, kept apart from production. */
 export interface TrainingSet {
@@ -553,14 +300,6 @@ export interface TrainingSet {
   memberIds: string[];
 }
 
-/** The golden interpretation of one plot of a set: question key -> answer, and the coordinator's explanation. */
-export interface TrainingGolden {
-  plotKey: string;
-  answers: Record<string, string>;
-  note: string | null;
-  updatedAt: number;
-  updatedBy: string | null;
-}
 
 /**
  * One attempt of one participant at a set. A record counts for the open attempt when it was
@@ -607,28 +346,6 @@ export interface ReferenceChange {
   addCopies: readonly PlotHoldingKey[];
   at: number;
   by: string | null;
-}
-
-/** What changeReferencePlots did. */
-export interface ReferenceChangeResult {
-  unmarked: number;
-  marked: number;
-  copiesAdded: number;
-  copiesDropped: number;
-}
-
-/** One csv-file ↔ user assignment. */
-export interface Assignment {
-  userId: string;
-  csvFileId: string;
-}
-
-/** An assignment enriched with names, for the admin listing. */
-export interface AssignmentDetail {
-  userId: string;
-  username: string;
-  csvFileId: string;
-  filename: string;
 }
 
 /**
@@ -704,41 +421,10 @@ export type RecordState = Pick<RecordRow, 'recordKey' | 'operator' | 'activelySa
 /** A record's stored XML (getRecordXml), as Collect Earth sent it. */
 export type RecordXml = Pick<RecordRow, 'recordKey' | 'operator' | 'step' | 'xml' | 'deleted'>;
 
-/** A project's quality-review settings: number margins (percent) by question key. */
-export interface QualitySettings {
-  margins: Record<string, number>;
-  /** The "very fast" flag's threshold in whole seconds (Task 5); absent: DEFAULT_FAST_SECONDS (15). */
-  fastSeconds?: number;
-}
-
-/**
- * A project's progress settings (the Progress tab): an optional deadline (a calendar
- * day, YYYY-MM-DD), an optional target in plots (null: every assigned plot), and after
- * how many days without a sync someone with plots left counts as quiet.
- */
-export interface ProgressSettings {
-  deadline: string | null;
-  targetPlots: number | null;
-  quietDays: number;
-}
-
 export const DEFAULT_PROGRESS_SETTINGS: ProgressSettings = { deadline: null, targetPlots: null, quietDays: 3 };
 
-/**
- * A view of the analysis page a coordinator shared with the project's team (web/src/analysisView.ts): the table, the
- * language its column names are in, and Perspective's configuration (kept as given: the page reads it).
- */
-export interface SharedAnalysisView {
-  name: string;
-  table: string;
-  language: string;
-  config: Record<string, unknown>;
-  savedBy: string;
-  savedAt: number;
-}
-
-/** Which answer of a differing plot is right: the first assessment, the check, or neither (look again). */
-export type DecisionKind = 'first' | 'check' | 'recheck';
+/** A view of the analysis page shared with the team (src/wire/analysis.ts). */
+export type { SharedAnalysisView } from './wire/analysis.js';
 
 /** The coordinator's decision on one plot unit (the plot as the quality figures pair it). */
 export interface QualityDecision {
@@ -758,27 +444,7 @@ export interface QualityDecision {
   batch?: string | null;
 }
 
-/** What a guidance note is about: a question and, for a mixed-up pair, both answers. */
-export interface GuidanceNoteInput {
-  questionKey: string;
-  firstValue: string | null;
-  checkValue: string | null;
-  text: string;
-}
-
-/** A note for collectors about a question (or one mix-up of its answers). */
-export interface GuidanceNote extends GuidanceNoteInput {
-  id: string;
-  /** Username of who last wrote it; null when made with a project token or the account is gone. */
-  updatedBy: string | null;
-  updatedAt: number;
-}
-
 // --- The AI assistant's runs (ai_runs, migration 011) ---
-
-/** `views`: the analysis page's views proposed from the survey's structure (src/ai/analysisViews.ts). */
-export type AiRunKind = 'report' | 'follow_up' | 'question' | 'views';
-export type AiRunStatus = 'running' | 'done' | 'failed' | 'refused';
 
 /** One tool call of a run as stored: our tool's name (or "unknown"), the arguments as validated (pseudonymous), and whether it worked. */
 export interface AiToolCall {
@@ -801,7 +467,7 @@ export interface AiRunSummary {
   outputTokens: number;
   parentRun: string | null;
   findingIndex: number | null;
-  action: string | null;
+  action: FollowUpAction | null;
   /** Why it failed (a FailureCode of src/ai/run.ts, or `interrupted`); `off_topic` when refused. */
   errorCode: string | null;
 }
@@ -825,7 +491,7 @@ export interface AiRunStart {
   model: string;
   parentRun?: string | null;
   findingIndex?: number | null;
-  action?: string | null;
+  action?: FollowUpAction | null;
   question?: string | null;
   questionNames?: Record<string, string> | null;
 }
@@ -907,17 +573,8 @@ export const AI_INTERRUPTED = { code: 'interrupted', message: 'The assistant sto
 
 // --- Activity data (record_events, member_activity, audit_log) ---
 
-/**
- * What one stored upload did to a record (recordChange, src/lww.ts), from the stored
- * row before it and whether the record (key, operator) was ever submitted:
- * - `submitted`: actively saved (Submit and validate), the record's first submission;
- * - `resubmitted`: actively saved again, after an earlier submission;
- * - `unsubmitted`: a draft save (an autosave) onto a submitted plot;
- * - `deleted`: a tombstone;
- * - `created`: a first (or revived) record, not submitted;
- * - `updated`: a draft saved again.
- */
-export type RecordChange = 'created' | 'updated' | 'submitted' | 'resubmitted' | 'unsubmitted' | 'deleted';
+/** What one stored upload did to a record (src/wire/activity.ts). */
+export type { RecordChange } from './wire/activity.js';
 
 /** One stored upload of a record (record_events). No XML; the answers only on a (re)submission. */
 export interface RecordEvent {
@@ -1063,8 +720,6 @@ export interface AuditQuery {
 
 // --- Email digests (Task 19): account data, global as users ---
 
-/** 'coordinator': the weekly summary of the projects someone coordinates; 'collector': their own week. */
-export type DigestKind = 'coordinator' | 'collector';
 export const DIGEST_KINDS: readonly DigestKind[] = ['coordinator', 'collector'];
 
 /** The languages the dashboard and the mails are written in. */

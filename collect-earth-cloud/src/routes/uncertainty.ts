@@ -4,6 +4,7 @@ import { requireProjectMembership } from '../plugins/projectAuth.js';
 import type { ProjectStateCache } from '../projectState.js';
 import { recordResolver } from '../quality.js';
 import type { Store } from '../store/store.js';
+import type { UncertaintyAnswer, UncertaintySettingsAnswer, UncertaintySetup } from '../wire/data.js';
 import { parseSettings, uncertainty } from '../uncertainty.js';
 import { areasSource, firstAssessments, modelOf, projectFactors, type Parsed } from './analysis.js';
 
@@ -37,7 +38,7 @@ export async function registerUncertaintyRoutes(app: FastifyInstance, store: Sto
     const parsed = await parsedOf(projectId, reply);
     if (!parsed) return reply;
     const columns = codeColumns(parsed);
-    const questions = parsed.model.tables[0].columns.filter((c) => columns.has(c.name)).map((c) => ({ name: c.name, labels: c.labels, list: c.list, parent: c.parent, fromPlotFile: c.fromPlotFile, calculated: c.calculated }));
+    const questions = parsed.model.tables[0].columns.flatMap((c) => (columns.has(c.name) && c.list ? [{ name: c.name, labels: c.labels, list: c.list, parent: c.parent, fromPlotFile: c.fromPlotFile, calculated: c.calculated }] : []));
     const lists = Object.fromEntries([...new Set(columns.values())].map((l) => [l, parsed.model.lists[l]]));
     return reply.header('cache-control', 'no-store').send({
       settings: await store.getUncertaintySettings(projectId),
@@ -47,7 +48,7 @@ export async function registerUncertaintyRoutes(app: FastifyInstance, store: Sto
       // the strata or total set on the dashboard, else the project file's areas file (the page's own total area: null)
       areas: await areasSource(store, projectId, parsed),
       canEdit: request.membership!.role === 'admin',
-    });
+    } satisfies UncertaintySetup);
   });
 
   app.put('/v1/projects/:pid/uncertainty/settings', coordinator, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -57,7 +58,7 @@ export async function registerUncertaintyRoutes(app: FastifyInstance, store: Sto
     const settings = parseSettings(request.body, codeColumns(parsed), parsed.model.lists);
     if (typeof settings === 'string') return reply.code(400).send({ error: 'invalid_settings', message: settings });
     await store.setUncertaintySettings(projectId, settings);
-    return reply.send({ settings });
+    return reply.send({ settings } satisfies UncertaintySettingsAnswer);
   });
 
   app.get('/v1/projects/:pid/uncertainty', reviewer, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -85,6 +86,6 @@ export async function registerUncertaintyRoutes(app: FastifyInstance, store: Sto
       return { initial: cell(initial, summary[initial.key]), final: cell(final, summary[final.key]), stratum: f && f.factor > 0 ? f.stratum : null };
     });
     const result = uncertainty(plots, strata, { codes: settings.codes, initialList: initial.list, finalList: final.list });
-    return reply.header('cache-control', 'no-store').send({ settings, areas: factors.source, ...result });
+    return reply.header('cache-control', 'no-store').send({ settings, areas: factors.source, ...result } satisfies UncertaintyAnswer);
   });
 }

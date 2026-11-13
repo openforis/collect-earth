@@ -46,30 +46,30 @@ function row(username: string, over: Partial<PersonRow> = {}): PersonRow {
     lastPlotsDownloadAt: null,
     lastSubmittedAt: NOW - DAY,
     agreement: null,
-    status: { kind: "working", days: null, level: null },
+    status: { kind: "working" },
     ...over,
   };
 }
 
 describe("status chips and the last sync", () => {
   it("words and colours, quiet amber then red", () => {
-    expect(statusChip(t, { kind: "working", days: null, level: null })).toEqual({ label: "Working", color: "primary" });
+    expect(statusChip(t, { kind: "working" })).toEqual({ label: "Working", color: "primary" });
     expect(statusChip(t, { kind: "quiet", days: 4, level: "amber" })).toEqual({ label: "Quiet for 4 days", color: "warning" });
     expect(statusChip(t, { kind: "quiet", days: 1, level: "amber" }).label).toBe("Quiet for 1 day");
     expect(statusChip(t, { kind: "quiet", days: 9, level: "red" }).color).toBe("error");
-    expect(statusChip(t, { kind: "finished", days: null, level: null }).color).toBe("success");
+    expect(statusChip(t, { kind: "finished" }).color).toBe("success");
   });
 
   it("a disabled account says so, with no sync warning", () => {
-    expect(statusChip(t, { kind: "disabled", days: null, level: null })).toEqual({ label: "Account disabled", color: "default" });
-    expect(statusSyncLevel({ kind: "disabled", days: null, level: null })).toBeNull();
+    expect(statusChip(t, { kind: "disabled" })).toEqual({ label: "Account disabled", color: "default" });
+    expect(statusSyncLevel({ kind: "disabled" })).toBeNull();
   });
 
   it("the last sync's warning follows the status: quiet amber, then red; never for finished people", () => {
     expect(statusSyncLevel({ kind: "quiet", days: 4, level: "amber" })).toBe("amber");
     expect(statusSyncLevel({ kind: "quiet", days: 7, level: "red" })).toBe("red");
-    expect(statusSyncLevel({ kind: "finished", days: null, level: null })).toBeNull();
-    expect(statusSyncLevel({ kind: "working", days: null, level: null })).toBeNull();
+    expect(statusSyncLevel({ kind: "finished" })).toBeNull();
+    expect(statusSyncLevel({ kind: "working" })).toBeNull();
   });
 
   it("how long ago", () => {
@@ -150,7 +150,7 @@ describe("the CSV", () => {
 describe("the CSV in other languages, and the remove dialog", () => {
   it("Spanish, French, Portuguese: a semicolon between cells and a decimal comma; My work rows have no checks", () => {
     const es = translator("es");
-    const csv = peopleCsv(es, [row("ana;b", { medianPerDay: 2.5, checks: null, plots: { assigned: 3, submitted: 1, started: 0, remaining: 2, done: 1 / 3 } })], () => "t", "es");
+    const csv = peopleCsv(es, [row("ana;b", { medianPerDay: 2.5, checks: undefined, plots: { assigned: 3, submitted: 1, started: 0, remaining: 2, done: 1 / 3 } })], () => "t", "es");
     const [head, line] = csv.trimEnd().split(/\r?\n/);
     expect(head.split(";")[0]).toBe("Nombre");
     expect(line.startsWith('"ana;b";Recolector;')).toBe(true);
@@ -160,7 +160,7 @@ describe("the CSV in other languages, and the remove dialog", () => {
   });
 
   it("what removing someone leaves, one or many, numbers in the person's language", () => {
-    expect(removalText(t, null, "en")).toEqual([]);
+    expect(removalText(t, undefined, "en")).toEqual([]);
     expect(removalText(t, { plots: 0, copies: 0 }, "en")).toEqual([]);
     const [plots, copies] = removalText(t, { plots: 1200, copies: 1 }, "en");
     expect(plots.startsWith("1,200 plots that only they hold")).toBe(true);
@@ -199,40 +199,6 @@ describe("speed words", () => {
     const buckets = [{ upToMs: 15_000 }, { upToMs: 30_000 }];
     expect(bucketLabel(t, buckets, 0)).toBe("under 15 s");
     expect(bucketLabel(t, buckets, 1)).toBe("15 s to 30 s");
-  });
-});
-
-describe("reading the server's answers", () => {
-  it("people: a status it does not know reads as working; quiet keeps its days and level", async () => {
-    const { toPeopleData, toPersonData } = await import("./api");
-    const data = toPeopleData({
-      today: "2026-11-01",
-      people: [
-        { userId: "u1", username: "ana", role: "operator", status: { kind: "quiet", days: 7, level: "red" }, agreement: null },
-        { userId: "u2", username: "bo", role: "boss", status: { kind: "dancing" }, agreement: { compared: 3, agreeing: 2, rate: null } },
-      ],
-      invites: [{ id: "i", role: "reviewer", maxUses: 2, usedCount: 1 }],
-    });
-    expect(data.people[0].status).toEqual({ kind: "quiet", days: 7, level: "red" });
-    expect(data.people[1]).toMatchObject({ role: "operator", status: { kind: "working", days: null, level: null }, agreement: { compared: 3, rate: null } });
-    expect(data.invites[0]).toMatchObject({ role: "reviewer", maxUses: 2, usedCount: 1 });
-    expect(data.week.days).toEqual([]);
-    const person = toPersonData({
-      hours: [1, 2],
-      quality: { available: true, asFirst: null, sentBack: [{ plot: "7", comment: "x", decidedAt: 5 }, { plot: "8", comment: null, decidedAt: 6, submittedAgain: false, file: "To check again – a.csv" }] },
-    });
-    expect(person.hours).toHaveLength(24);
-    expect(person.hours.slice(0, 3)).toEqual([1, 2, 0]);
-    expect(person.quality).toMatchObject({
-      available: true,
-      asFirst: null,
-      asChecker: null,
-      sentBack: [
-        { plot: "7", comment: "x", decidedAt: 5, decidedBy: null, submittedAgain: false, file: null },
-        { plot: "8", comment: null, decidedAt: 6, submittedAgain: false, file: "To check again – a.csv" },
-      ],
-    });
-    expect(person.sync.collectEarth).toBeNull();
   });
 });
 

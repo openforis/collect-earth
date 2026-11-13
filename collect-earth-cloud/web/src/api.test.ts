@@ -23,14 +23,12 @@ import {
   addMapPage,
   getMapPlots,
   OSM_TILES,
-  toMapTiles,
   bulkDecisions,
   getFlags,
   getReviewQueue,
   getPlotPage,
   searchPlots,
   saveFastSeconds,
-  absoluteUrl,
   ApiError,
   apiErrorFrom,
   changePassword,
@@ -43,7 +41,6 @@ import {
   getCsvColumns,
   getDistribution,
   getQuality,
-  toQualityData,
   saveQualityMargins,
   setQualityDecision,
   deleteQualityDecision,
@@ -62,16 +59,11 @@ import {
   saveServerSettings,
   setUnauthorizedHandler,
   signup,
-  toCount,
-  toMillis,
-  toServerSettings,
-  DEFAULT_SERVER_SETTINGS,
   downloadOriginalCep,
   getBackupLink,
   getBackupSummary,
   getRoundInfo,
   setReassessmentCode,
-  toRoundInfo,
   uploadCep,
   getProjectAi,
   setProjectAi,
@@ -82,14 +74,74 @@ import {
   getServerOverview,
   setUserDisabled,
   listMembers,
-  toPersonRow,
   setMemberExcluded,
   getMyQuality,
   getTeamReport,
   downloadExport,
+  type RoundInfo,
+  type MapPage,
+  type AiRunAnswer,
+  type AiRunListed,
+  type MyQualityAnswer,
+  type QualityAnswer,
+  type TeamReportAnswer,
+  getMe,
+  getOwnerAlerts,
+  listInvites,
+  listUsers,
+  makeResetLink,
+  type ServerInfo,
+  type ServerSettings,
 } from "./api";
 import { CATALOGUES } from "./i18n";
 import { setToken } from "./storage";
+
+/** What a server answers to GET /v1/server-info (made-up). */
+const SERVER_INFO: ServerInfo = {
+  needsSetup: false,
+  signupOpen: false,
+  projectCreation: "platform-admins",
+  version: "1.0.0",
+  termsUrl: null,
+  contactEmail: null,
+  serverName: null,
+  aiAvailable: false,
+  selfServiceReset: false,
+  minPasswordLength: 8,
+  signupDomains: null,
+  mapTiles: OSM_TILES,
+  localMode: false,
+  telemetry: null,
+  dashboardBuild: "0a1b2c3d4e5f6a7b",
+};
+
+/** What a server answers to GET /v1/admin/settings (made-up). */
+const SETTINGS: ServerSettings = {
+  signupOpen: false,
+  projectCreation: "platform-admins",
+  maxProjectsPerUser: 0,
+  maxProjectStorageMb: 0,
+  termsUrl: null,
+  contactEmail: null,
+  serverName: null,
+  aiEnabled: false,
+  aiReportsPerDay: 5,
+  aiFollowUpsPerDay: 30,
+  aiMonthlyTokens: 2_000_000,
+  aiConfigured: false,
+  announcement: null,
+  announcementUntil: null,
+  twoFactorForCoordinators: false,
+  alertFailedLogins: 50,
+  alertServerErrors: 20,
+  alertSyncErrors: 50,
+  alertStoragePercent: 90,
+  alertWebhook: null,
+  signupDomains: null,
+  minPasswordLength: 8,
+  loginLockFailures: 0,
+  loginLockMinutes: 15,
+};
 
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(body === undefined ? null : JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -141,7 +193,7 @@ describe("error messages", () => {
 
   it("reads what replacing a plot file would take away, from its refusal only", () => {
     const refusal = apiErrorFrom(409, { error: "replace_needs_confirm", removedPlots: 299, heldRemoved: 290, submittedRemoved: 133, keptPlots: 1, newPlots: 0, divided: true });
-    expect(replaceImpactOf(refusal)).toEqual({ removedPlots: 299, heldRemoved: 290, submittedRemoved: 133, keptPlots: 1, newPlots: 0, divided: true });
+    expect(replaceImpactOf(refusal)).toMatchObject({ removedPlots: 299, heldRemoved: 290, submittedRemoved: 133, keptPlots: 1, newPlots: 0, divided: true });
     expect(replaceImpactOf(apiErrorFrom(409, { error: "note_column_in_file" }))).toBeNull();
     expect(replaceImpactOf(new Error("x"))).toBeNull();
   });
@@ -201,13 +253,6 @@ describe("transport", () => {
     expect(JSON.parse(fetchMock.mock.calls[2][1]!.body as string)).toEqual({ token: "T", newPassword: "new-password", language: "pt" });
   });
 
-  it("server info says whether self-service reset is there", async () => {
-    fetchMock.mockResolvedValue(jsonResponse(200, { selfServiceReset: true }));
-    expect((await getServerInfo()).selfServiceReset).toBe(true);
-    fetchMock.mockResolvedValue(jsonResponse(200, { selfServiceReset: "yes" }));
-    expect((await getServerInfo()).selfServiceReset).toBe(false);
-  });
-
   it("a network failure is an ApiError with status 0", async () => {
     fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
     const error = await listProjects().catch((e: unknown) => e);
@@ -218,8 +263,7 @@ describe("transport", () => {
 
   it("sends the session as a bearer token", async () => {
     setToken("tok-1");
-    fetchMock.mockResolvedValue(jsonResponse(200, { projects: [{ projectId: "p", projectName: "P", role: "admin" }] }));
-    // A server without project statuses: every project is active.
+    fetchMock.mockResolvedValue(jsonResponse(200, { projects: [{ projectId: "p", projectName: "P", role: "admin", status: "active" }] }));
     expect(await listProjects()).toEqual([{ projectId: "p", projectName: "P", role: "admin", status: "active" }]);
     const init = fetchMock.mock.calls[0][1]!;
     expect((init.headers as Record<string, string>).authorization).toBe("Bearer tok-1");
@@ -256,82 +300,29 @@ describe("transport", () => {
 });
 
 describe("normalising responses", () => {
-  it("server info from a server without the dashboard endpoints", async () => {
-    fetchMock.mockResolvedValue(jsonResponse(404, { error: "not_found" }));
-    expect(await getServerInfo()).toEqual({
-      needsSetup: false,
-      signupOpen: false,
-      projectCreation: "platform-admins",
-      version: null,
-      termsUrl: null,
-      contactEmail: null,
-      serverName: null,
-      aiAvailable: false,
-      selfServiceReset: false,
-      mapTiles: OSM_TILES,
-      localMode: false,
-    });
-  });
-
-  it("server info", async () => {
-    fetchMock.mockResolvedValue(jsonResponse(200, { needsSetup: true, signupOpen: true, projectCreation: "anyone", version: "0.2.0" }));
-    expect(await getServerInfo()).toEqual({
-      needsSetup: true,
-      signupOpen: true,
-      projectCreation: "anyone",
-      version: "0.2.0",
-      termsUrl: null,
-      contactEmail: null,
-      serverName: null,
-      aiAvailable: false,
-      selfServiceReset: false,
-      // an older server says neither: the defaults
-      minPasswordLength: 8,
-      signupDomains: null,
-      mapTiles: OSM_TILES,
-      localMode: false,
-      telemetry: null,
-    });
-  });
-
-  it("server info in the local mode (one person, on their own computer)", async () => {
-    fetchMock.mockResolvedValue(jsonResponse(200, { localMode: true, needsSetup: false, signupOpen: false, projectCreation: "platform-admins", version: "1.0.0" }));
-    expect(await getServerInfo()).toMatchObject({ localMode: true, needsSetup: false, signupOpen: false });
-    fetchMock.mockResolvedValue(jsonResponse(200, { localMode: "yes" }));
-    expect((await getServerInfo()).localMode).toBe(false);
+  it("server info, as the server sends it", async () => {
+    const info: ServerInfo = { ...SERVER_INFO, needsSetup: true, signupOpen: true, projectCreation: "anyone", selfServiceReset: true, signupDomains: ["fao.org"] };
+    fetchMock.mockResolvedValue(jsonResponse(200, info));
+    expect(await getServerInfo()).toEqual(info);
+    expect(fetchMock.mock.calls[0][0]).toBe("/v1/server-info");
   });
 
   it("server info with terms, contact and name; only http(s) terms links get through", async () => {
-    fetchMock.mockResolvedValue(
-      jsonResponse(200, { needsSetup: false, termsUrl: "https://e.org/terms", contactEmail: " help@e.org ", serverName: "FAO Cloud" }),
-    );
+    fetchMock.mockResolvedValue(jsonResponse(200, { ...SERVER_INFO, termsUrl: "https://e.org/terms", contactEmail: "help@e.org", serverName: "FAO Cloud" }));
     expect(await getServerInfo()).toMatchObject({ termsUrl: "https://e.org/terms", contactEmail: "help@e.org", serverName: "FAO Cloud" });
-    fetchMock.mockResolvedValue(jsonResponse(200, { termsUrl: "javascript:alert(1)", serverName: "" }));
-    expect(await getServerInfo()).toMatchObject({ termsUrl: null, serverName: null });
+    fetchMock.mockResolvedValue(jsonResponse(200, { ...SERVER_INFO, termsUrl: "javascript:alert(1)" }));
+    expect(await getServerInfo()).toMatchObject({ termsUrl: null });
     expect(safeUrl("http://a.org")).toBe("http://a.org");
     expect(safeUrl(42)).toBeNull();
   });
 
-  it("overview storage, and none from older servers", async () => {
-    fetchMock.mockResolvedValue(jsonResponse(200, { name: "P", records: {}, storage: { usedBytes: 1200, limitBytes: null } }));
-    expect((await getOverview("p1")).storage).toEqual({ usedBytes: 1200, limitBytes: null });
-    fetchMock.mockResolvedValue(jsonResponse(200, { name: "P", records: {}, storage: { usedBytes: 5, limitBytes: 1048576 } }));
-    expect((await getOverview("p1")).storage).toEqual({ usedBytes: 5, limitBytes: 1048576 });
-    fetchMock.mockResolvedValue(jsonResponse(200, { name: "P", records: {} }));
-    expect((await getOverview("p1")).storage).toBeNull();
-  });
-
-  it("server settings keep what an older server does not send", () => {
-    expect(toServerSettings({ signupOpen: true, projectCreation: "anyone" })).toEqual({ ...DEFAULT_SERVER_SETTINGS, signupOpen: true, projectCreation: "anyone" });
-    const current = { ...DEFAULT_SERVER_SETTINGS, maxProjectsPerUser: 3, termsUrl: "https://e.org/t" };
-    expect(toServerSettings({ termsUrl: null, maxProjectsPerUser: -1 }, current)).toEqual({ ...current, termsUrl: null });
-  });
-
-  it("saving settings sends only the changes", async () => {
-    fetchMock.mockResolvedValue(jsonResponse(200, { ...DEFAULT_SERVER_SETTINGS, maxProjectStorageMb: 200 }));
-    const saved = await saveServerSettings(DEFAULT_SERVER_SETTINGS, { maxProjectStorageMb: 200 });
+  it("saving settings sends only the changes, and gives the settings the server now has", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(200, { ...SETTINGS, maxProjectStorageMb: 200 }));
+    const saved = await saveServerSettings({ maxProjectStorageMb: 200 });
+    expect(fetchMock.mock.calls[0][0]).toBe("/v1/admin/settings");
+    expect(fetchMock.mock.calls[0][1]!.method).toBe("PUT");
     expect(JSON.parse(fetchMock.mock.calls[0][1]!.body as string)).toEqual({ maxProjectStorageMb: 200 });
-    expect(saved.maxProjectStorageMb).toBe(200);
+    expect(saved).toEqual({ ...SETTINGS, maxProjectStorageMb: 200 });
   });
 
   it("sign-up sends acceptTerms only when accepted", async () => {
@@ -379,48 +370,69 @@ describe("normalising responses", () => {
     expect(await getAccountDeletion()).toEqual({ soleCoordinator: [], deletedWithAccount: [{ projectId: "p", name: "Mine" }], lastPlatformAdmin: false });
   });
 
-  it("builds the join link when the server does not know its address", async () => {
-    fetchMock.mockResolvedValue(jsonResponse(201, { inviteToken: "abc", joinPath: "/join/abc", joinUrl: null, role: "operator", maxUses: 5, expiresAt: 1_700_000_000_000 }));
+  it("makes an invitation link: an expiry only when one is chosen", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(201, { inviteToken: "abc", joinPath: "/join/abc", joinUrl: "https://cloud.org/join/abc", role: "operator", maxUses: 5, expiresAt: 1_700_000_000_000 }));
     const invite = await createInvite("p1", { role: "operator", maxUses: 5, expiresInDays: 7 });
-    expect(invite.joinUrl).toBe("https://ce.example.org/join/abc");
-    expect(JSON.parse(fetchMock.mock.calls[0][1]!.body as string)).toEqual({ role: "operator", maxUses: 5, expiresInDays: 7 });
-  });
-
-  it("keeps the server's absolute join link", async () => {
-    fetchMock.mockResolvedValue(jsonResponse(201, { inviteToken: "abc", joinPath: "/join/abc", joinUrl: "https://cloud.org/join/abc", role: "admin", maxUses: 1, expiresAt: null }));
-    const invite = await createInvite("p1", { role: "admin", maxUses: 1, expiresInDays: null });
     expect(invite.joinUrl).toBe("https://cloud.org/join/abc");
-    expect(JSON.parse(fetchMock.mock.calls[0][1]!.body as string)).toEqual({ role: "admin", maxUses: 1 });
+    expect(fetchMock.mock.calls[0][0]).toBe("/v1/projects/p1/invites");
+    expect(JSON.parse(fetchMock.mock.calls[0][1]!.body as string)).toEqual({ role: "operator", maxUses: 5, expiresInDays: 7 });
+    fetchMock.mockResolvedValue(jsonResponse(201, { inviteToken: "def", joinPath: "/join/def", joinUrl: "https://cloud.org/join/def", role: "admin", maxUses: 1, expiresAt: null }));
+    await createInvite("p1", { role: "admin", maxUses: 1, expiresInDays: null, forUserId: "u2" });
+    expect(JSON.parse(fetchMock.mock.calls[1][1]!.body as string)).toEqual({ role: "admin", maxUses: 1, forUserId: "u2" });
   });
 
-  it("overview with ISO dates and counts", async () => {
-    fetchMock.mockResolvedValue(
-      jsonResponse(200, {
-        name: "P",
-        cep: { bytes: 2048, updatedAt: "2026-10-01T10:00:00.000Z" },
-        members: 3,
-        csvFiles: 2,
-        plots: 150,
-        records: { total: 10, submitted: 7, byOperator: [{ operator: "maria", total: 10, submitted: 7, lastModifiedOn: "2026-10-02T00:00:00Z" }] },
-      }),
-    );
-    const overview = await getOverview("p1");
-    expect(overview.cep).toEqual({ bytes: 2048, updatedAt: Date.parse("2026-10-01T10:00:00.000Z") });
-    expect(overview.records.byOperator[0].lastModifiedOn).toBe(Date.parse("2026-10-02T00:00:00Z"));
-    expect(overview.members).toBe(3);
+  it("lists the open invitations, with whom one was made for", async () => {
+    const invites = [{ id: "i1", role: "operator", maxUses: 1, usedCount: 0, expiresAt: null, createdAt: 5, forUsername: "maria" }];
+    fetchMock.mockResolvedValue(jsonResponse(200, { invites }));
+    expect(await listInvites("p1")).toEqual(invites);
+    expect(fetchMock.mock.calls[0][0]).toBe("/v1/projects/p1/invites");
   });
 
-  it("toMillis / toCount / absoluteUrl", () => {
-    expect(toMillis(5)).toBe(5);
-    expect(toMillis("nonsense")).toBeNull();
-    expect(toMillis(null)).toBeNull();
-    expect(toCount([1, 2])).toBe(2);
-    expect(toCount("4")).toBe(4);
-    expect(toCount(undefined)).toBe(0);
-    expect(absoluteUrl("/reset/x", "/", "https://a.org/")).toBe("https://a.org/reset/x");
-    expect(absoluteUrl(null, "/join/y", "https://a.org")).toBe("https://a.org/join/y");
-    expect(absoluteUrl("http://b.org/r", "/", "https://a.org")).toBe("http://b.org/r");
+  it("reads the current user as the server sends it", async () => {
+    const me = {
+      userId: "u1",
+      username: "maria",
+      isPlatformAdmin: false,
+      memberships: [{ projectId: "p1", projectName: "P", role: "reviewer", status: "closed" }],
+      twoFactor: { enabled: true, required: false },
+      announcement: { text: "Maintenance tonight", until: null },
+    };
+    fetchMock.mockResolvedValue(jsonResponse(200, me));
+    expect(await getMe()).toEqual(me);
+    expect(fetchMock.mock.calls[0][0]).toBe("/v1/me");
   });
+
+  it("the server page: the accounts with their query, the alerts, and a reset link given or mailed", async () => {
+    const page = { users: [], total: 0, page: 1, pages: 1, pageSize: 50, counts: { all: 0, admins: 0, disabled: 0, locked: 0, twoFactor: 0, noTwoFactor: 0, inactive: 0, noEmail: 0 } };
+    fetchMock.mockResolvedValue(jsonResponse(200, page));
+    expect(await listUsers({ q: "ma", filter: "admins", sort: "created", desc: true, page: 2 })).toEqual(page);
+    expect(fetchMock.mock.calls[0][0]).toBe("/v1/admin/users?q=ma&filter=admins&sort=created&desc=true&page=2");
+    const alerts = { alerts: [{ id: "1", kind: "failed_logins", at: 5, count: 60, projectId: null, seenAt: null, seenBy: null }], total: 1, unseen: 1, page: 1, pages: 1, pageSize: 10, thresholds: { failedLogin: 50, serverError: 20, syncError: 50, storagePercent: 90 }, webhook: null };
+    fetchMock.mockResolvedValue(jsonResponse(200, alerts));
+    expect(await getOwnerAlerts(2)).toEqual(alerts);
+    expect(fetchMock.mock.calls[1][0]).toBe("/v1/admin/alerts?page=2&pageSize=10");
+    fetchMock.mockResolvedValue(jsonResponse(201, { resetUrl: "https://cloud.org/reset/t", expiresAt: 9 }));
+    expect(await makeResetLink("u 1")).toEqual({ resetUrl: "https://cloud.org/reset/t", expiresAt: 9 });
+    expect(fetchMock.mock.calls[2][0]).toBe("/v1/admin/users/u%201/password-reset");
+    fetchMock.mockResolvedValue(jsonResponse(202, { mailed: true }));
+    expect(await makeResetLink("u1")).toEqual({ mailed: true });
+  });
+
+  it("reads the overview", async () => {
+    const answer = {
+      name: "P",
+      cep: { bytes: 2048, updatedAt: 1_790_000_000_000 },
+      members: 3,
+      csvFiles: 2,
+      plots: 150,
+      records: { total: 10, submitted: 7, byOperator: [{ operator: "maria", total: 10, submitted: 7, lastModifiedOn: 1_790_000_100_000 }] },
+      storage: { usedBytes: 1200, limitBytes: null },
+    };
+    fetchMock.mockResolvedValue(jsonResponse(200, answer));
+    expect(await getOverview("p 1")).toEqual(answer);
+    expect(fetchMock.mock.calls[0][0]).toBe("/v1/projects/p%201/overview");
+  });
+
 });
 
 describe("dividing plots", () => {
@@ -438,21 +450,12 @@ describe("dividing plots", () => {
         separator: ";",
         columns: [
           { index: 0, name: "id", distinctCount: 120, values: null },
-          { index: 4, name: null, distinctCount: 1, values: [{ value: "Oruro", count: "40" }] },
+          { index: 4, name: null, distinctCount: 1, values: [{ value: "Oruro", count: 40 }] },
         ],
         nearby: { available: true, reason: null, withPlace: 118, withoutPlace: 2 },
       }),
     );
-    expect(await getCsvColumns("p 1", "f1")).toEqual({
-      plotCount: 120,
-      hasHeader: true,
-      separator: ";",
-      columns: [
-        { index: 0, name: "id", distinctCount: 120, values: null },
-        { index: 4, name: null, distinctCount: 1, values: [{ value: "Oruro", count: 40 }] },
-      ],
-      nearby: { available: true, reason: null, withPlace: 118, withoutPlace: 2, srid: null },
-    });
+    expect(await getCsvColumns("p 1", "f1")).toMatchObject({ plotCount: 120, nearby: { available: true, withPlace: 118 } });
     expect(call()).toEqual({ url: "/v1/projects/p%201/csv-files/f1/columns", method: "GET", body: undefined });
   });
 
@@ -477,12 +480,11 @@ describe("dividing plots", () => {
     const plan = { left: { u1: 9, u2: 1 }, target: { u1: 5, u2: 5 }, moves: [{ from: "u1", to: "u2", count: 4 }] };
     fetchMock.mockImplementation(async () => jsonResponse(200, { ...plan, saved: false }));
     const people = [{ userId: "u1", weight: 1 }, { userId: "u2", weight: 1 }];
-    expect(await rebalance("p1", "f1", people, true)).toMatchObject({ ...plan, saved: false, state: null });
+    expect(await rebalance("p1", "f1", people, true)).toEqual({ ...plan, saved: false });
     expect(call(0)).toEqual({ url: "/v1/projects/p1/csv-files/f1/rebalance", method: "POST", body: { people, dryRun: true } });
     fetchMock.mockImplementation(async () => jsonResponse(200, { ...state, ...plan, saved: true, moved: 4, notMoved: 0 }));
-    const applied = await rebalance("p1", "f1", people, false);
-    expect(applied).toMatchObject({ saved: true, moved: 4 });
-    expect(applied.state).toMatchObject({ plotCount: 3 });
+    expect(await rebalance("p1", "f1", people, false)).toMatchObject({ saved: true, moved: 4, plotCount: 3 });
+    expect(call(1).body).toEqual({ people, dryRun: false });
   });
 });
 
@@ -492,58 +494,41 @@ describe("the quality figures", () => {
     return { url, method: init?.method, body: init?.body ? JSON.parse(init.body as string) : undefined };
   };
 
-  it("reads the figures with decisions, notes, margins and whether they are stale", async () => {
-    fetchMock.mockResolvedValue(
-      jsonResponse(200, {
-        plotsChecked: 25,
-        plotsDiffering: 5,
-        questions: [
-          { key: "collect_integer_forest", label: "Forest %", kind: "number", compared: 25, agreeing: 25, rate: 1, margin: 10 },
-          { key: "collect_code_land_use", label: "", kind: "choice", compared: 12, agreeing: 10, rate: null },
-        ],
-        confusions: [{ key: "collect_code_land_use", first: "F", check: "G", count: 5, plots: ["21", 22] }],
-        people: [
-          {
-            username: "ana",
-            asFirst: { compared: 25, agreeing: 20, rate: 0.8 },
-            asChecker: { compared: 0, agreeing: 0, rate: null },
-            weakest: [{ key: "collect_code_land_use", rate: null, compared: 12, differing: 2 }],
-            personal: { asFirst: { compared: 1, agreeing: 1, rate: null }, confusions: [] },
-          },
-        ],
-        weeks: [{ week: "2026-W44", compared: 25, agreeing: 20 }],
-        differences: [{ plot: "21", first: { operator: "ana", recordKey: "21,1" }, check: { operator: "ben", recordKey: "21,2" }, fields: [{ key: "k", first: "F", check: null }] }],
-        problems: [{ kind: "two_main", plot: "3", recordKey: "3,1", operator: "ana" }],
-        problemsTotal: 1,
-        beyondOutline: { count: 0, keys: [] },
-        decisions: [{ plot: "21", decision: "check", comment: null, decidedBy: "boss", decidedAt: 1000 }],
-        notes: [{ id: "n1", questionKey: "collect_code_land_use", firstValue: "F", checkValue: null, text: "Look at the canopy", updatedBy: null, updatedAt: 2000 }],
-        settings: { margins: { "collect_entity_tree[*].real_height": 5, bad: "x" } },
-        computedAt: 3000,
-        stale: true,
-      }),
-    );
-    const data = await getQuality("p1");
+  it("reads the figures as the server sends them", async () => {
+    const figures: QualityAnswer = {
+      plotsChecked: 25,
+      plotsDiffering: 5,
+      questions: [
+        { key: "collect_integer_forest", label: "Forest %", kind: "number", compared: 25, agreeing: 25, rate: 1, margin: 10 },
+        { key: "collect_code_land_use", label: "Land use", kind: "choice", compared: 12, agreeing: 10, rate: null },
+      ],
+      confusions: [{ key: "collect_code_land_use", first: "F", check: "G", count: 5, plots: ["21", "22"] }],
+      people: [
+        {
+          username: "ana",
+          asFirst: { compared: 25, agreeing: 20, rate: 0.8 },
+          asChecker: { compared: 0, agreeing: 0, rate: null },
+          weakest: [{ key: "collect_code_land_use", rate: null, compared: 12, differing: 2 }],
+          personal: { asFirst: { compared: 1, agreeing: 1, rate: null }, confusions: [] },
+        },
+      ],
+      weeks: [{ week: "2026-W44", compared: 25, agreeing: 20 }],
+      differences: [{ plot: "21", first: { operator: "ana", recordKey: "21,1" }, check: { operator: "ben", recordKey: "21,2" }, fields: [{ key: "k", first: "F", check: "" }] }],
+      problems: [{ kind: "two_main", plot: "3", recordKey: "3,1", operator: "ana" }],
+      problemsTotal: 1,
+      problemsByPerson: [{ operator: "ana", kind: "two_main", count: 1 }],
+      beyondOutline: { count: 0, keys: [] },
+      decisions: [{ plot: "21", decision: "check", comment: null, decidedBy: "boss", decidedAt: 1000, batch: null, byAssessor: false }],
+      notes: [{ id: "n1", questionKey: "collect_code_land_use", firstValue: "F", checkValue: null, text: "Look at the canopy", updatedBy: null, updatedAt: 2000 }],
+      settings: { margins: { "collect_entity_tree[*].real_height": 5 }, fastSeconds: 15 },
+      options: { collect_code_land_use: [{ code: "F", label: "Forest" }] },
+      excluded: [{ username: "ben", reason: null }],
+      computedAt: 3000,
+      stale: true,
+    };
+    fetchMock.mockResolvedValue(jsonResponse(200, figures));
+    expect(await getQuality("p1")).toEqual(figures);
     expect(call().url).toBe("/v1/projects/p1/quality");
-    expect(data.questions[1]).toEqual({ key: "collect_code_land_use", label: "collect_code_land_use", kind: "choice", compared: 12, agreeing: 10, rate: null, margin: null });
-    expect(data.confusions[0].plots).toEqual(["21", "22"]);
-    expect(data.people[0]).toEqual({
-      username: "ana",
-      asFirst: { compared: 25, agreeing: 20, rate: 0.8 },
-      asChecker: { compared: 0, agreeing: 0, rate: null },
-      weakest: [{ key: "collect_code_land_use", rate: null, compared: 12, differing: 2 }],
-    });
-    expect(data.differences[0].fields).toEqual([{ key: "k", first: "F", check: "" }]);
-    // Without byAssessor (an older server): not said.
-    expect(data.decisions).toEqual([{ plot: "21", decision: "check", comment: null, decidedBy: "boss", decidedAt: 1000, byAssessor: false }]);
-    expect(data.notes[0]).toMatchObject({ id: "n1", firstValue: "F", checkValue: null, updatedAt: 2000 });
-    expect(data.margins).toEqual({ "collect_entity_tree[*].real_height": 5 });
-    expect(data).toMatchObject({ plotsChecked: 25, plotsDiffering: 5, problemsTotal: 1, computedAt: 3000, stale: true });
-  });
-
-  it("gives empty lists for a server that leaves them out", () => {
-    expect(toQualityData({})).toMatchObject({ questions: [], confusions: [], people: [], weeks: [], differences: [], problems: [], decisions: [], notes: [], margins: {}, options: {}, stale: false, computedAt: null });
-    expect(toQualityData({ options: { q: [{ code: "true", label: "Yes" }] } }).options).toEqual({ q: [{ code: "true", label: "Yes" }] });
   });
 
   it("says the figures are busy or failed in plain words", () => {
@@ -574,15 +559,14 @@ describe("the quality figures", () => {
           {
             plot: "7",
             section: "resubmitted",
-            people: ["ana", 5],
+            people: ["ana"],
             differences: [{ plot: "7", first: { operator: "ana", recordKey: "7,1" }, check: { operator: "ben", recordKey: "7,2" }, fields: [{ key: "q", first: "F", check: "G" }] }, { plot: "7", first: { operator: "ana", recordKey: "7,1" }, check: { operator: "cy", recordKey: "7,2" }, fields: [], changed: true }],
-            flags: [{ kind: "very_fast", plot: "7", operator: "ana", at: 5, details: { gapMs: 3000, previousPlot: "6" } }, { kind: "unknown", plot: "7" }],
+            flags: [{ kind: "very_fast", plot: "7", operator: "ana", at: 5, details: { gapMs: 3000, previousPlot: "6" } }],
             resubmitted: [{ plot: "7", operator: "ana", at: 9, decidedAt: 8 }],
-            waiting: ["ben", 3],
+            waiting: ["ben"],
             left: ["cy"],
             decision: { plot: "7", decision: "recheck", comment: null, decidedBy: "rita", decidedAt: 8, byAssessor: true },
           },
-          { plot: "8", section: "odd" },
         ],
         next: "flag:5:8",
         total: 2,
@@ -600,98 +584,76 @@ describe("the quality figures", () => {
     expect(call(0).url).toBe("/v1/projects/p1/quality/queue?person=ana+b&kind=very_fast&after=difference%3A%3A12");
     expect(queue.next).toBe("flag:5:8");
     expect(queue.items).toHaveLength(1);
+    // The answer as it comes, the flags as the pattern flags section reads them.
     expect(queue.items[0]).toMatchObject({
       plot: "7",
       section: "resubmitted",
       people: ["ana"],
-      flags: [{ kind: "very_fast", gapMs: 3000, previousPlot: "6" }],
+      flags: [{ kind: "very_fast", details: { gapMs: 3000, previousPlot: "6" } }],
       resubmitted: [{ operator: "ana", at: 9, decidedAt: 8 }],
       waiting: ["ben"],
       left: ["cy"],
-      decision: { decision: "recheck", decidedBy: "rita" },
+      decision: { decision: "recheck", decidedBy: "rita", byAssessor: true },
     });
-    expect(queue.items[0].differences[0].fields).toEqual([{ key: "q", first: "F", check: "G" }]);
     expect(queue.items[0].differences[1]).toMatchObject({ fields: [], changed: true });
-    expect(queue.items[0].differences[0].changed).toBe(false);
-    expect(queue.items[0].decision?.byAssessor).toBe(true);
     expect(queue).toMatchObject({ total: 2, counts: { resubmitted: 1 }, flagsCapped: true, excludedOwn: 2, labels: { q: "Land use" }, options: { q: [{ code: "F", label: "Forest" }] } });
     await getReviewQueue("p1", { person: null, kind: null }, null);
     expect(call(1).url).toBe("/v1/projects/p1/quality/queue");
-    expect(await bulkDecisions("p1", "first_by_reviewer", true)).toEqual({ decision: "first", count: 3, plots: ["1", "2", "3"], batch: null });
+    expect(await bulkDecisions("p1", "first_by_reviewer", true)).toEqual({ rule: "first_by_reviewer", decision: "first", count: 3, plots: ["1", "2", "3"], dryRun: true, batch: null });
     expect(call(2)).toEqual({ url: "/v1/projects/p1/quality/decisions:bulk?dryRun=1", method: "POST", body: { rule: "first_by_reviewer" } });
     expect((await bulkDecisions("p1", "first_by_reviewer", false)).batch).toBe("b-1");
     expect(call(3)).toEqual({ url: "/v1/projects/p1/quality/decisions:bulk", method: "POST", body: { rule: "first_by_reviewer" } });
   });
 
   it("searches plots and reads a plot's page", async () => {
+    const plotPage = {
+      plot: "1",
+      name: "1",
+      files: [{ id: "f1", filename: "a.csv", divided: true, main: ["ana"], copies: ["ben"] }],
+      records: [{ operator: "ana", recordKey: "1,1", round: "1", assessment: "main", submitted: true, deleted: false, modifiedOn: 5, receivedAt: 6, answers: { q: "F" } }],
+      questions: [{ key: "q", label: "Land use" }],
+      labels: { q: "Land use" },
+      options: { q: [{ code: "F", label: "Forest" }] },
+      decision: { plot: "1", decision: "check", comment: "G", decidedBy: "rita", decidedAt: 8, byAssessor: false },
+      ownPlot: true,
+      reference: null,
+      flags: [{ kind: "very_fast", plot: "1", operator: "ana", at: 5, details: { gapMs: 3000, previousPlot: "0" } }],
+      differences: [{ plot: "1", first: { operator: "ana", recordKey: "1,1" }, check: { operator: "ben", recordKey: "1,2" }, fields: [{ key: "q", first: "F", check: "G" }] }],
+      figures: { computedAt: 3, stale: true },
+      place: { lat: -10, lon: 20, name: "1" },
+      outline: { kind: "square", sideMeters: 70 },
+    };
     fetchMock.mockImplementation(async (_url) => {
       const url = String(_url);
-      if (url.includes("/plots/search")) return jsonResponse(200, { plots: [{ plot: "17,2025", name: "17", files: [{ id: "f1", filename: "a.csv" }, { id: 3 }] }, { name: "no plot" }], more: true });
-      return jsonResponse(200, {
-        plot: "1",
-        name: "1",
-        files: [{ id: "f1", filename: "a.csv", divided: true, main: ["ana"], copies: ["ben", 4] }, { id: "f2", filename: "b.csv", divided: false }],
-        records: [
-          { operator: "ana", recordKey: "1,1", round: "1", assessment: "main", submitted: true, deleted: false, modifiedOn: 5, receivedAt: 6, answers: { q: "F", n: 3 } },
-          { operator: "ben", recordKey: "1,2", round: "2", assessment: "odd", submitted: false, deleted: true, modifiedOn: "x" },
-        ],
-        questions: [{ key: "q", label: "Land use" }, { key: "n" }],
-        labels: { q: "Land use" },
-        options: { q: [{ code: "F", label: "Forest" }] },
-        decision: { plot: "1", decision: "check", comment: "G", decidedBy: "rita", decidedAt: 8, byAssessor: false },
-        ownPlot: true,
-        flags: [{ kind: "very_fast", plot: "1", operator: "ana", at: 5, details: { gapMs: 3000, previousPlot: "0" } }],
-        differences: [{ plot: "1", first: { operator: "ana", recordKey: "1,1" }, check: { operator: "ben", recordKey: "1,2" }, fields: [{ key: "q", first: "F", check: "G" }] }],
-        figures: { computedAt: 3, stale: true },
-        place: { lat: -10, lon: 20, name: "1" },
-        outline: { kind: "square", sideMeters: 70 },
-      });
+      if (url.includes("/plots/search")) return jsonResponse(200, { plots: [{ plot: "17,2025", name: "17", files: [{ id: "f1", filename: "a.csv" }] }], more: true });
+      return jsonResponse(200, plotPage);
     });
     const found = await searchPlots("p1", " 17 ");
     expect(call(0).url).toBe("/v1/projects/p1/plots/search?q=17");
     expect(found).toEqual({ plots: [{ plot: "17,2025", name: "17", files: [{ id: "f1", filename: "a.csv" }] }], more: true });
     const page = await getPlotPage("p1", "1,2025/x");
     expect(call(1).url).toBe("/v1/projects/p1/plots/1%2C2025%2Fx");
-    expect(page.files).toEqual([
-      { id: "f1", filename: "a.csv", divided: true, main: ["ana"], copies: ["ben"] },
-      // A reviewer's page names the files only.
-      { id: "f2", filename: "b.csv", divided: false, main: null, copies: null },
-    ]);
-    expect(page.records[0]).toEqual({ operator: "ana", recordKey: "1,1", round: "1", assessment: "main", submitted: true, deleted: false, modifiedOn: 5, receivedAt: 6, answers: { q: "F", n: "3" } });
-    expect(page.records[1]).toMatchObject({ assessment: "other", submitted: false, deleted: true, modifiedOn: null, answers: {} });
-    expect(page.questions).toEqual([{ key: "q", label: "Land use" }, { key: "n", label: "n" }]);
-    expect(page).toMatchObject({ plot: "1", name: "1", ownPlot: true, figures: { computedAt: 3, stale: true }, place: { lat: -10, lon: 20, name: "1" }, outline: { kind: "square", sideMeters: 70 }, unsupportedSrs: null });
-    expect(page.decision).toMatchObject({ decision: "check", decidedBy: "rita", comment: "G" });
-    expect(page.flags).toEqual([expect.objectContaining({ kind: "very_fast", gapMs: 3000 })]);
-    expect(page.differences?.[0]).toMatchObject({ changed: false, fields: [{ key: "q", first: "F", check: "G" }] });
-    expect(page.options).toEqual({ q: [{ code: "F", label: "Forest" }] });
+    // The answer as it comes, the flags as the server sends them.
+    expect(page).toEqual({ ...plotPage, flags: [expect.objectContaining({ kind: "very_fast", details: { gapMs: 3000, previousPlot: "0" } })] });
     // No figures at hand: no flags nor differences, rather than none.
-    fetchMock.mockImplementation(async () => jsonResponse(200, { plot: "2", flags: null, differences: null, figures: null, place: null }));
-    expect(await getPlotPage("p1", "2")).toMatchObject({ flags: null, differences: null, figures: null, place: null, decision: null, records: [], files: [] });
+    fetchMock.mockImplementation(async () => jsonResponse(200, { ...plotPage, flags: null, differences: null, figures: null }));
+    expect(await getPlotPage("p1", "2")).toMatchObject({ flags: null, differences: null, figures: null });
     // Nothing typed: nothing asked.
     expect(await searchPlots("p1", "  ")).toEqual({ plots: [], more: false });
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
-  it("map tiles: the server's when usable, else OpenStreetMap's", () => {
-    const tiles = { url: "https://t.example.org/{z}/{x}/{y}.png", attribution: "© Example", attributionUrl: "https://example.org/a", maxZoom: 17 };
-    expect(toMapTiles(tiles)).toEqual(tiles);
-    expect(toMapTiles({ ...tiles, attributionUrl: "javascript:x", maxZoom: 99 })).toEqual({ ...tiles, attributionUrl: null, maxZoom: 19 });
-    for (const bad of [undefined, null, { ...tiles, url: "javascript:alert(1)/{z}/{x}/{y}" }, { ...tiles, url: "https://t.example.org/{z}/{x}.png" }, { ...tiles, attribution: " " }]) {
-      expect(toMapTiles(bad)).toEqual(OSM_TILES);
-    }
-  });
-
   it("reads the map page by page into typed arrays, and again from the start when it changed", async () => {
-    const page = (offset: number, version = "v1") => ({
+    const page = (offset: number, version = "v1"): MapPage => ({
       version,
       offset,
       total: 3,
       next: offset === 0 ? 2 : null,
-      points: offset === 0 ? [[1.5, 2.5, 2, 0], [3, 4, 5, 9]] : [[-5, 6, 0, -1]],
+      points: offset === 0 ? [[1.5, 2.5, 2, 0], [3, 4, 5, -1]] : [[-5, 6, 0, -1]],
       plots: offset === 0 ? ["1", "2"] : ["3"],
-      statuses: ["notStarted", "started", "submitted", "accepted", "recheck", "differs"],
-      counts: [2, 0, 1, 0, 0, 1],
+      names: null,
+      statuses: ["notStarted", "started", "submitted", "accepted", "recheck", "differs", "resubmitted"],
+      counts: [2, 0, 1, 0, 0, 1, 0],
       notOnMap: 1,
       files: [{ id: "f", filename: "a.csv", plots: 5, onMap: 3 }],
       people: ["ana"],
@@ -713,33 +675,33 @@ describe("the quality figures", () => {
     expect([...map.lat]).toEqual([1.5, 3, -5]);
     expect([...map.lon]).toEqual([2.5, 4, 6]);
     expect([...map.status]).toEqual([2, 5, 0]);
-    // A holder index the answer does not have is nobody.
     expect([...map.holder]).toEqual([0, -1, -1]);
     expect(map.plots).toEqual(["1", "2", "3"]);
     expect(map.names).toBeNull();
     expect(map.counts).toEqual({ notStarted: 2, started: 0, submitted: 1, accepted: 0, recheck: 0, differs: 1, resubmitted: 0 });
-    expect(map).toMatchObject({ total: 3, notOnMap: 1, people: ["ana"], holders: [["ana"]], figures: null, asOf: null, unsupportedSrs: null });
-    expect(map.files).toEqual([{ id: "f", filename: "a.csv", plots: 5, onMap: 3, divided: false }]);
-    // Without `file` (an older server, or a reviewer): no plot file per plot, no reference plots.
+    expect(map).toMatchObject({ total: 3, notOnMap: 1, people: ["ana"], holders: [["ana"]], figures: null, asOf: null });
+    expect(map.unsupportedSrs).toBeUndefined();
+    expect(map.files).toEqual([{ id: "f", filename: "a.csv", plots: 5, onMap: 3 }]);
+    // Without `file` (a reviewer): no plot file per plot, no reference plots.
     expect(map.file).toBeNull();
     expect(map.reference).toBeNull();
     // A reviewer's map names nobody; status codes are read by their names.
-    const reviewer = addMapPage(null, { version: "x", offset: 0, total: 1, points: [[1, 2, 0, 0]], plots: ["9"], statuses: ["differs"], counts: [4], people: null, holders: null, unsupportedSrs: "EPSG:32633" });
+    const reviewer = addMapPage(null, { ...page(0), total: 1, next: null, points: [[1, 2, 0, -1]], plots: ["9"], statuses: ["differs"], counts: [4], people: null, holders: null, unsupportedSrs: "EPSG:32633" });
     expect(reviewer).toMatchObject({ people: null, holders: null, unsupportedSrs: "EPSG:32633" });
     expect([...reviewer.status]).toEqual([5]);
     expect([...reviewer.holder]).toEqual([-1]);
     expect(reviewer.counts.differs).toBe(4);
-    // Coordinators: each plot's plot file (an index the answer does not have is -1) and the reference plots, page by page.
+    // Coordinators: each plot's plot file (-1: several list it) and the reference plots, page by page.
     const first = addMapPage(null, {
-      version: "x", offset: 0, total: 3, points: [[1, 2, 0, 0], [1, 2, 0, 0]], plots: ["1", "2"], file: [0, 4], reference: [1, 2],
+      ...page(0), points: [[1, 2, 0, -1], [1, 2, 0, -1]], plots: ["1", "2"], file: [0, -1], reference: [1],
       files: [{ id: "f", filename: "a.csv", plots: 3, onMap: 3, divided: true }],
     });
-    const whole = addMapPage(first, { version: "x", offset: 2, points: [[1, 2, 0, 0]], plots: ["3"], file: [0], reference: [2, 0] });
+    const whole = addMapPage(first, { ...page(2), points: [[1, 2, 0, -1]], plots: ["3"], file: [0], reference: [2] });
     expect([...whole.file!]).toEqual([0, -1, 0]);
     expect([...whole.reference!]).toEqual([0, 1, 1]);
     expect(whole.files[0].divided).toBe(true);
     // The ids the collector sees, when the server sends them.
-    expect(addMapPage(null, { version: "x", offset: 0, total: 2, points: [[1, 2, 0, 0], [1, 2, 0, 0]], plots: ["1,2025", "2,2025"], names: ["1", 7] }).names).toEqual(["1", "2,2025"]);
+    expect(addMapPage(null, { ...page(0), total: 2, next: null, plots: ["1,2025", "2,2025"], names: ["1", "2"] }).names).toEqual(["1", "2"]);
   });
 
   it("never gives a map in part: when the map changes on every page, it says so", async () => {
@@ -747,7 +709,7 @@ describe("the quality figures", () => {
     fetchMock.mockImplementation(async (url) => {
       if (String(url).includes("version=")) return jsonResponse(409, { error: "map_changed", reason: "gone" });
       n += 1;
-      return jsonResponse(200, { version: `v${n}`, offset: 0, total: 3, next: 2, points: [[1, 2, 0, -1], [1, 2, 0, -1]], plots: ["1", "2"] });
+      return jsonResponse(200, { version: `v${n}`, offset: 0, total: 3, next: 2, points: [[1, 2, 0, -1], [1, 2, 0, -1]], plots: ["1", "2"], names: null, statuses: ["notStarted"], counts: [3], notOnMap: 0, files: [], people: null, holders: null, figures: null, asOf: null });
     });
     const error = await getMapPlots("p1", {}).catch((e: unknown) => e);
     expect(error).toBeInstanceOf(ApiError);
@@ -761,10 +723,10 @@ describe("the quality figures", () => {
     fetchMock.mockImplementation(async (_url, init) => {
       if (init?.method === "DELETE") return new Response(null, { status: 404 });
       const url = String(_url);
-      if (url.endsWith("/settings")) return jsonResponse(200, { margins: { a: 5 } });
-      if (url.includes("/decisions/")) return jsonResponse(200, { plot: "1,2", decision: "recheck", comment: "look", decidedBy: null, decidedAt: 5 });
-      if (url.endsWith("/places")) return jsonResponse(200, { places: [{ plot: "1", lat: -12.5, lon: 30, name: "1" }, { plot: "2", lat: "x", lon: 1 }], outline: { kind: "square", sideMeters: 70 } });
-      return jsonResponse(201, { id: "n2", questionKey: "q", firstValue: null, checkValue: null, text: "t" });
+      if (url.endsWith("/settings")) return jsonResponse(200, { margins: { a: 5 }, fastSeconds: 15 });
+      if (url.includes("/decisions/")) return jsonResponse(200, { plot: "1,2", decision: "recheck", comment: "look", decidedBy: null, decidedAt: 5, byAssessor: false });
+      if (url.endsWith("/places")) return jsonResponse(200, { places: [{ plot: "1", lat: -12.5, lon: 30, name: "1" }], outline: { kind: "square", sideMeters: 70 } });
+      return jsonResponse(201, { id: "n2", questionKey: "q", firstValue: null, checkValue: null, text: "t", updatedBy: null, updatedAt: 5 });
     });
     expect(await saveQualityMargins("p1", { a: 5 })).toEqual({ a: 5 });
     expect(call(0)).toEqual({ url: "/v1/projects/p1/quality/settings", method: "PUT", body: { margins: { a: 5 } } });
@@ -782,20 +744,20 @@ describe("the quality figures", () => {
     expect(call(5)).toMatchObject({ url: "/v1/projects/p1/quality/notes/n2", method: "PUT" });
     await deleteGuidanceNote("p1", "n2");
     expect(call(6)).toMatchObject({ url: "/v1/projects/p1/quality/notes/n2", method: "DELETE" });
-    expect(await getPlotPlaces("p1", ["1", "2"])).toEqual({ places: [{ plot: "1", lat: -12.5, lon: 30, name: "1" }], outline: { kind: "square", sideMeters: 70 }, unsupportedSrs: null });
+    expect(await getPlotPlaces("p1", ["1", "2"])).toEqual({ places: [{ plot: "1", lat: -12.5, lon: 30, name: "1" }], outline: { kind: "square", sideMeters: 70 } });
     expect(call(7)).toEqual({ url: "/v1/projects/p1/quality/places", method: "POST", body: { plots: ["1", "2"] } });
-    expect(await getPlotPlaces("p1", [])).toEqual({ places: [], outline: { kind: "place" }, unsupportedSrs: null });
+    expect(await getPlotPlaces("p1", [])).toEqual({ places: [], outline: { kind: "place" } });
     expect(fetchMock).toHaveBeenCalledTimes(8);
   });
 
   it("says when the survey's coordinates are not latitude and longitude", async () => {
-    fetchMock.mockImplementation(async () => jsonResponse(200, { places: [], unsupportedSrs: "EPSG:32633" }));
+    fetchMock.mockImplementation(async () => jsonResponse(200, { places: [], outline: { kind: "place" }, unsupportedSrs: "EPSG:32633" }));
     expect(await getPlotPlaces("p1", ["1"])).toEqual({ places: [], outline: { kind: "place" }, unsupportedSrs: "EPSG:32633" });
   });
 });
 
 describe("the project file and round", () => {
-  const added = { state: "added", refusal: null, keyCount: 2, roundIndex: 1, roundCodes: [{ code: "1", label: "First assessment" }, { code: "2", label: "Re-assessment" }], reassessmentCode: "2" };
+  const added: RoundInfo = { state: "added", refusal: null, keyCount: 2, roundIndex: 1, roundCodes: [{ code: "1", label: "First assessment" }, { code: "2", label: "Re-assessment" }], reassessmentCode: "2" };
 
   /** A minimal XMLHttpRequest that answers every upload with one status and body. */
   function fakeXhr(status: number, body: unknown) {
@@ -827,13 +789,8 @@ describe("the project file and round", () => {
 
   it("an upload returns what the server did about round", async () => {
     const sent = fakeXhr(200, { ok: true, bytes: 10, round: added });
-    expect(await uploadCep("p 1", new Blob(["zip"]))).toEqual({ ...added, note: null });
+    expect(await uploadCep("p 1", new Blob(["zip"]))).toEqual(added);
     expect(sent[0]).toMatchObject({ method: "PUT", url: "/v1/projects/p%201/cep", headers: { "content-type": "application/zip" } });
-  });
-
-  it("an older server's upload answer has no round", async () => {
-    fakeXhr(200, { ok: true, bytes: 10 });
-    expect(await uploadCep("p1", new Blob(["zip"]))).toBeNull();
   });
 
   it.each([
@@ -856,34 +813,16 @@ describe("the project file and round", () => {
 
   it("reads the round info, or null before any upload", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(200, added)).mockResolvedValueOnce(jsonResponse(200, null));
-    expect(await getRoundInfo("p1")).toEqual({ ...added, note: null });
+    expect(await getRoundInfo("p1")).toEqual(added);
     expect(await getRoundInfo("p1")).toBeNull();
     expect(fetchMock.mock.calls[0][0]).toBe("/v1/projects/p1/round");
   });
 
-  it("normalises a round info", () => {
-    expect(toRoundInfo({ state: "odd", roundCodes: [{ code: 2020 }, { label: "no code" }], keyCount: "2", roundIndex: 1 })).toEqual({
-      state: "none",
-      refusal: null,
-      keyCount: 2,
-      roundIndex: 1,
-      roundCodes: [{ code: "2020", label: "" }],
-      reassessmentCode: null,
-      note: null,
-    });
-    expect(toRoundInfo({ state: "none", refusal: "several_keys" })?.refusal).toBe("several_keys");
-    expect(toRoundInfo("nope")).toBeNull();
-    // The coordinator's note (Task 16): absent from older servers and older infos.
-    expect(toRoundInfo({ state: "added", note: { state: "added", refusal: null, column: 9 } })?.note).toEqual({ state: "added", refusal: null, column: 9 });
-    expect(toRoundInfo({ state: "added", note: { state: "odd", refusal: "records_exist", column: "9" } })?.note).toEqual({ state: "none", refusal: "records_exist", column: null });
-    expect(toRoundInfo({ state: "added", note: "nope" })?.note).toBeNull();
-  });
-
   it("saves the re-assessment code, or none", async () => {
-    const own = { ...added, state: "own", reassessmentCode: "3" };
+    const own: RoundInfo = { ...added, state: "own", reassessmentCode: "3" };
     fetchMock.mockResolvedValueOnce(jsonResponse(200, own)).mockResolvedValueOnce(jsonResponse(200, { ...own, reassessmentCode: null }));
-    expect((await setReassessmentCode("p1", "3"))?.reassessmentCode).toBe("3");
-    expect((await setReassessmentCode("p1", null))?.reassessmentCode).toBeNull();
+    expect((await setReassessmentCode("p1", "3")).reassessmentCode).toBe("3");
+    expect((await setReassessmentCode("p1", null)).reassessmentCode).toBeNull();
     const [url, init] = fetchMock.mock.calls[0];
     expect([url, init?.method, JSON.parse(init?.body as string)]).toEqual(["/v1/projects/p1/round", "PUT", { reassessmentCode: "3" }]);
     expect(JSON.parse(fetchMock.mock.calls[1][1]?.body as string)).toEqual({ reassessmentCode: null });
@@ -914,9 +853,9 @@ describe("the AI assistant and the reports", () => {
     const where = { provider: "Google Gemini (Vertex AI)", model: "gemini-x", region: "europe-west1" };
     fetchMock.mockResolvedValueOnce(jsonResponse(200, { enabled: false, available: true, where }));
     expect(await getProjectAi("p1")).toEqual({ enabled: false, available: true, where });
-    fetchMock.mockResolvedValueOnce(jsonResponse(200, { enabled: true, available: true }));
-    // an older server says nothing of where
-    expect(await setProjectAi("p1", true)).toEqual({ enabled: true, available: true, where: null });
+    // switching answers the same as reading, so the card keeps saying where it runs
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { enabled: true, available: true, where }));
+    expect(await setProjectAi("p1", true)).toEqual({ enabled: true, available: true, where });
     expect(call(1)).toEqual({ url: "/v1/projects/p1/ai", method: "PUT", body: { enabled: true } });
     fetchMock.mockResolvedValueOnce(jsonResponse(403, { error: "user_session_required", reason: "Sign in" }));
     const err = await setProjectAi("p1", true).catch((e: unknown) => e);
@@ -940,85 +879,57 @@ describe("the AI assistant and the reports", () => {
     expect((err as ApiError).details).toMatchObject({ limit: "reports", resetsAt: null });
   });
 
-  it("lists runs newest first as the server gives them", async () => {
-    fetchMock.mockResolvedValue(
-      jsonResponse(200, {
-        runs: [
-          { id: "r2", kind: "follow_up", status: "running", startedAt: 2000, finishedAt: null, startedBy: "boss", tokens: 5, parentRunId: "r1", findingIndex: 0, action: "explain", errorCode: null },
-          { id: "r1", kind: "report", status: "done", startedAt: "1970-01-01T00:00:01.000Z", startedBy: null, tokens: "12" },
-        ],
-      }),
-    );
-    const runs = await listAiRuns("p1");
-    expect(call().url).toBe("/v1/projects/p1/ai/runs");
-    expect(runs[0]).toEqual({
+  it("lists runs and reads one run as the server gives them", async () => {
+    const listed: AiRunListed = {
       id: "r2",
       kind: "follow_up",
       status: "running",
       startedAt: 2000,
       finishedAt: null,
       startedBy: "boss",
+      inputTokens: 3,
+      outputTokens: 2,
       tokens: 5,
       parentRunId: "r1",
       findingIndex: 0,
       action: "explain",
       errorCode: null,
-    });
-    expect(runs[1]).toMatchObject({ id: "r1", kind: "report", status: "done", startedAt: 1000, startedBy: null, tokens: 12, parentRunId: null, action: null });
+    };
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { runs: [listed] }));
+    expect(await listAiRuns("p1")).toEqual([listed]);
+    expect(call().url).toBe("/v1/projects/p1/ai/runs");
+
+    const run: AiRunAnswer = {
+      ...listed,
+      id: "r1",
+      kind: "report",
+      status: "done",
+      finishedAt: 3000,
+      parentRunId: null,
+      findingIndex: null,
+      action: null,
+      question: null,
+      progress: { tools: ["get_agreement"] },
+      result: {
+        summary: "Land use is mixed up.",
+        findings: [{ title: "T", explanation: "E", cause: "other", questions: ["q1"], persons: ["ana"], plots: ["21"], suggestedNote: null }],
+        recheckPlots: ["21"],
+        surveyChanges: [{ question: "q1", suggestion: "Reword" }],
+      },
+      error: null,
+      refusal: null,
+    };
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, run));
+    expect(await getAiRun("p1", "r1")).toEqual(run);
+    expect(call(1).url).toBe("/v1/projects/p1/ai/runs/r1");
   });
 
-  it("reads a report run, its progress and a failed or refused run", async () => {
-    fetchMock.mockResolvedValueOnce(
-      jsonResponse(200, {
-        id: "r1",
-        kind: "report",
-        status: "done",
-        startedAt: 1000,
-        progress: { tools: ["get_agreement", 7] },
-        result: {
-          summary: "Land use is mixed up.",
-          findings: [{ title: "T", explanation: "E", cause: "weird", questions: ["q1"], persons: ["ana"], plots: ["21"], suggestedNote: null }, "junk"],
-          recheckPlots: ["21"],
-          surveyChanges: [{ question: "q1", suggestion: "Reword" }],
-        },
-        error: null,
-        refusal: null,
-      }),
-    );
-    const run = await getAiRun("p1", "r1");
-    expect(call().url).toBe("/v1/projects/p1/ai/runs/r1");
-    expect(run.tools).toEqual(["get_agreement", "7"]);
-    expect(run.report).toEqual({
-      summary: "Land use is mixed up.",
-      findings: [{ title: "T", explanation: "E", cause: "other", questions: ["q1"], persons: ["ana"], plots: ["21"], suggestedNote: null }],
-      recheckPlots: ["21"],
-      surveyChanges: [{ question: "q1", suggestion: "Reword" }],
-    });
-    expect(run.answer).toBeNull();
-
-    fetchMock.mockResolvedValueOnce(
-      jsonResponse(200, { id: "r3", kind: "question", status: "done", question: "Why ana?", result: { text: "Because", plots: ["21"], note: "Look" } }),
-    );
-    const answer = await getAiRun("p1", "r3");
-    expect(answer).toMatchObject({ question: "Why ana?", report: null, answer: { text: "Because", plots: ["21"], note: "Look" } });
-
-    fetchMock.mockResolvedValueOnce(jsonResponse(200, { id: "r4", kind: "report", status: "failed", errorCode: "ai_timeout", error: { code: "ai_timeout", message: "x" } }));
-    expect(await getAiRun("p1", "r4")).toMatchObject({ status: "failed", errorCode: "ai_timeout", report: null });
-    fetchMock.mockResolvedValueOnce(jsonResponse(200, { id: "r5", kind: "question", status: "refused", errorCode: "off_topic", refusal: "Only quality" }));
-    expect(await getAiRun("p1", "r5")).toMatchObject({ status: "refused", errorCode: "off_topic", refusal: "Only quality" });
-  });
-
-  it("reads the server's AI settings and its use this month, by project id", async () => {
-    expect(toServerSettings({ aiEnabled: true, aiReportsPerDay: 0, aiMonthlyTokens: 9, aiConfigured: true })).toMatchObject({
-      aiEnabled: true,
-      aiReportsPerDay: 0,
-      aiFollowUpsPerDay: DEFAULT_SERVER_SETTINGS.aiFollowUpsPerDay,
-      aiMonthlyTokens: 9,
-      aiConfigured: true,
-    });
+  it("reads the server's AI use this month, by project id", async () => {
     fetchMock.mockResolvedValue(
       jsonResponse(200, {
         month: "2026-10",
+        from: 1,
+        until: 2,
         projects: [{ projectId: "p1", runs: 3, reports: 1, followUps: 1, questions: 1, failed: 0, refused: 1, inputTokens: 10, outputTokens: 5, tokens: 15 }],
         totals: { runs: 3, reports: 1, followUps: 1, questions: 1, failed: 0, refused: 1, inputTokens: 10, outputTokens: 5, tokens: 15 },
       }),
@@ -1026,22 +937,17 @@ describe("the AI assistant and the reports", () => {
     const usage = await getAiUsage();
     expect(call().url).toBe("/v1/admin/ai-usage");
     expect(usage.month).toBe("2026-10");
-    expect(usage.projects[0]).toEqual({ projectId: "p1", runs: 3, reports: 1, followUps: 1, questions: 1, failed: 0, refused: 1, tokens: 15 });
+    expect(usage.projects[0]).toEqual({ projectId: "p1", runs: 3, reports: 1, followUps: 1, questions: 1, failed: 0, refused: 1, inputTokens: 10, outputTokens: 5, tokens: 15 });
     expect(usage.totals.tokens).toBe(15);
   });
 
-  it("reads a member disabled by the server owner: a flag in the member list, a status on the People tab", async () => {
+  it("reads a member disabled by the server owner: a flag in the member list", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(200, { members: [{ userId: "u1", username: "maria", role: "operator", disabled: true }, { userId: "u2", username: "ana", role: "operator" }] }));
     const members = await listMembers("p1");
-    expect(members.map((m) => m.disabled)).toEqual([true, false]);
-    expect(toPersonRow({ userId: "u1", username: "maria", status: { kind: "disabled" } }).status).toEqual({ kind: "disabled", days: null, level: null });
+    expect(members.map((m) => m.disabled)).toEqual([true, undefined]);
   });
 
   it("reads who is left out of the results, and leaves someone out or puts them back", async () => {
-    expect(toPersonRow({ userId: "u1", excluded: { at: 5, reason: "protocol" } }).excluded).toEqual({ at: 5, reason: "protocol" });
-    expect(toPersonRow({ userId: "u1" }).excluded).toBeNull();
-    expect(toQualityData({ excluded: [{ username: "ben", reason: null }] }).excluded).toEqual([{ username: "ben", reason: null }]);
-    expect(toQualityData({}).excluded).toEqual([]);
     fetchMock.mockResolvedValueOnce(jsonResponse(200, { ok: true }));
     await setMemberExcluded("p1", "u1", true, "  protocol ");
     expect(call().url).toBe("/v1/projects/p1/members/u1/excluded");
@@ -1053,82 +959,61 @@ describe("the AI assistant and the reports", () => {
       jsonResponse(200, {
         asOf: 5,
         users: { total: 3, disabled: 1, platformAdmins: 1, active: 2, signupsByWeek: [{ week: "2026-W45", start: 1, count: 2 }] },
-        projects: { total: 2, active: 1, storageBytes: 30, largest: [{ projectId: "p1", storageBytes: 20, name: "never shown" }] },
+        projects: { total: 2, active: 1, storageBytes: 30, largest: [{ projectId: "p1", storageBytes: 20 }] },
         records: { received: 4, receivedByDay: [{ day: 0, count: 4 }] },
         database: { backend: "postgres", sizeBytes: 9000, version: "16.4", migrations: { applied: 18, shipped: 18, latest: "018_platform.sql", newestAppliedAt: 7, missing: [] } },
         server: { version: "0.1.0", startedAt: 3 },
-        security: { since: 3, totals: { failedLogins: 2, rateLimited: 1 }, hours: [{ hour: 0, failedLogins: 2, rateLimited: 1 }] },
+        security: { since: 3, totals: { failedLogins: 2, rateLimited: 1 }, hours: [{ hour: 0, failedLogins: 2, rateLimited: 1 }], lateDraws: 0, lastLateDrawAt: null },
       }),
     );
     const o = await getServerOverview();
     expect(call().url).toBe("/v1/admin/overview");
-    expect(o.projects.largest).toEqual([{ projectId: "p1", storageBytes: 20 }]);
     expect(o.database).toEqual({ backend: "postgres", sizeBytes: 9000, version: "16.4", migrations: { applied: 18, shipped: 18, latest: "018_platform.sql", newestAppliedAt: 7, missing: [] } });
     expect(o.security.totals).toEqual({ failedLogins: 2, rateLimited: 1 });
-    // The memory store has no database figures.
-    fetchMock.mockResolvedValueOnce(jsonResponse(200, { database: { backend: "memory", sizeBytes: null, version: null, migrations: null } }));
-    expect((await getServerOverview()).database).toEqual({ backend: "memory", sizeBytes: null, version: null, migrations: null });
 
-    fetchMock.mockResolvedValueOnce(jsonResponse(200, { user: { userId: "u1", username: "maria", disabledAt: 100, disabledBy: "owner" } }));
-    expect(await setUserDisabled("u1", true)).toMatchObject({ userId: "u1", disabledAt: 100, disabledBy: "owner" });
-    expect(call(2)).toEqual({ url: "/v1/admin/users/u1/disable", method: "POST", body: undefined });
-    fetchMock.mockResolvedValueOnce(jsonResponse(200, { user: { userId: "u1", username: "maria", disabledAt: null, disabledBy: null } }));
+    const account = { userId: "u1", username: "maria", isPlatformAdmin: false, projects: 1, coordinatedProjects: 0, disabledAt: 100, disabledBy: "owner", twoFactor: false, createdAt: 1, lastActiveAt: null, email: null, emailConfirmed: false, lockedUntil: null };
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { user: account }));
+    expect(await setUserDisabled("u1", true)).toEqual(account);
+    expect(call(1)).toEqual({ url: "/v1/admin/users/u1/disable", method: "POST", body: undefined });
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { user: { ...account, disabledAt: null, disabledBy: null } }));
     expect(await setUserDisabled("u1", false)).toMatchObject({ disabledAt: null, disabledBy: null });
-    expect(call(3).url).toBe("/v1/admin/users/u1/enable");
+    expect(call(2).url).toBe("/v1/admin/users/u1/enable");
     for (const [code, key] of [["own_account", "error.ownAccount"], ["last_enabled_admin", "error.lastEnabledAdmin"], ["account_disabled", "error.accountDisabled"]]) {
       expect(errorMessageKey(new ApiError(409, code, null, {}))).toBe(key);
     }
   });
 
   it("reads a member's own report and the team report", async () => {
-    fetchMock.mockResolvedValueOnce(
-      jsonResponse(200, {
-        username: "ana",
-        minChecks: 20,
-        asFirst: { checks: 30, agreeing: 24, rate: 0.8 },
-        confusions: [{ key: "q1", label: "Land use", first: "F", check: "G", checks: 3, plots: ["1", 2], notes: [{ id: "n1", questionKey: "q1", firstValue: "F", checkValue: null, text: "Look" }] }],
-        computedAt: 5000,
-        stale: false,
-        options: { q1: [{ code: "F", label: "Forest" }, { code: "G" }, "junk"], bad: "x" },
-      }),
-    );
-    const mine = await getMyQuality("p1");
-    // The answer options of the choice questions, to show labels instead of codes.
-    expect(mine.options).toEqual({ q1: [{ code: "F", label: "Forest" }, { code: "G", label: "" }] });
+    const mine: MyQualityAnswer = {
+      username: "ana",
+      minChecks: 20,
+      asFirst: { checks: 30, agreeing: 24, rate: 0.8 },
+      confusions: [{ key: "q1", label: "Land use", first: "F", check: "G", checks: 3, plots: ["1", "2"], notes: [{ id: "n1", questionKey: "q1", firstValue: "F", checkValue: null, text: "Look" }] }],
+      options: { q1: [{ code: "F", label: "Forest" }] },
+      computedAt: 5000,
+      stale: false,
+    };
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, mine));
+    expect(await getMyQuality("p1")).toEqual(mine);
     expect(call(0).url).toBe("/v1/projects/p1/my-quality");
-    expect(mine.asFirst).toEqual({ compared: 30, agreeing: 24, rate: 0.8 });
-    expect(mine.confusions[0]).toEqual({
-      key: "q1",
-      label: "Land use",
-      first: "F",
-      check: "G",
-      checks: 3,
-      plots: ["1", "2"],
-      notes: [{ id: "n1", questionKey: "q1", firstValue: "F", checkValue: null, text: "Look" }],
-    });
 
-    fetchMock.mockResolvedValueOnce(
-      jsonResponse(200, {
-        minChecks: 20,
-        plotsChecked: 40,
-        plotsDiffering: 6,
-        questions: [
-          { key: "q1", label: "Land use", kind: "choice", checks: 40, agreeing: 34, rate: 0.85 },
-          { key: "q2", label: "", kind: "number", checks: 3, agreeing: 3, rate: null, margin: 5 },
-        ],
-        confusions: [],
-        notes: [{ id: "n1", questionKey: "q1", firstValue: null, checkValue: null, text: "Look" }],
-        computedAt: 5000,
-        stale: true,
-        options: { q1: [{ code: "F", label: "Forest" }] },
-      }),
-    );
-    const team = await getTeamReport("p1");
-    expect(team.options).toEqual({ q1: [{ code: "F", label: "Forest" }] });
+    const team: TeamReportAnswer = {
+      minChecks: 20,
+      plotsChecked: 40,
+      plotsDiffering: 6,
+      questions: [
+        { key: "q1", label: "Land use", kind: "choice", checks: 40, agreeing: 34, rate: 0.85 },
+        { key: "q2", label: "Height", kind: "number", checks: 3, agreeing: 3, rate: null, margin: 5 },
+      ],
+      confusions: [],
+      notes: [{ id: "n1", questionKey: "q1", firstValue: null, checkValue: null, text: "Look" }],
+      options: { q1: [{ code: "F", label: "Forest" }] },
+      computedAt: 5000,
+      stale: true,
+    };
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, team));
+    expect(await getTeamReport("p1")).toEqual(team);
     expect(call(1).url).toBe("/v1/projects/p1/quality/team-report");
-    expect(team.questions[1]).toEqual({ key: "q2", label: "q2", kind: "number", compared: 3, agreeing: 3, rate: null, margin: 5 });
-    expect(team).toMatchObject({ plotsChecked: 40, plotsDiffering: 6, stale: true, computedAt: 5000 });
-    expect(team.notes).toHaveLength(1);
   });
 });
 
@@ -1154,23 +1039,12 @@ describe("the data download", () => {
 describe("the Collect Earth backup", () => {
   const url = (i = 0) => String(fetchMock.mock.calls[i][0]);
 
-  it("reads what each choice would hold; all rounds is null without the round key", async () => {
-    const counts = { records: 4, drafts: 1, otherRounds: 1, measurements: 3, sameKey: 2, sameKeyExamples: ["1,1", 7], noXml: 1, estimatedBytes: 7200 };
-    fetchMock.mockResolvedValue(jsonResponse(200, { projectFile: true, roundKey: true, roundState: "own", firstCodes: ["2025", 3], note: true, rounds: { "1": counts, all: { ...counts, records: "x" } } }));
-    const summary = await getBackupSummary("p 1");
+  it("reads what each choice would hold", async () => {
+    const counts = { records: 4, drafts: 1, otherRounds: 1, measurements: 3, sameKey: 2, sameKeyExamples: ["1,1"], noXml: 1, estimatedBytes: 7200 };
+    const answer = { projectFile: true, roundKey: true, roundState: "own", firstCodes: ["2025"], note: true, rounds: { "1": counts, all: { ...counts, records: 5 } } };
+    fetchMock.mockResolvedValue(jsonResponse(200, answer));
+    expect(await getBackupSummary("p 1")).toEqual(answer);
     expect(url()).toBe("/v1/projects/p%201/exports/collect-backup/summary");
-    expect(summary).toEqual({
-      projectFile: true,
-      roundKey: true,
-      firstCodes: ["2025"],
-      note: true,
-      first: { ...counts, sameKeyExamples: ["1,1"] },
-      all: { ...counts, records: 0, sameKeyExamples: ["1,1"] },
-    });
-    fetchMock.mockResolvedValue(jsonResponse(200, { projectFile: true, roundKey: false, firstCodes: null, rounds: { "1": counts, all: counts } }));
-    const none = await getBackupSummary("p1");
-    expect(none.all).toBeNull();
-    expect(none.firstCodes).toBeNull();
   });
 
   it("asks for a download link; refusals are told as such", async () => {
@@ -1193,70 +1067,79 @@ describe("the Collect Earth backup", () => {
 describe("activity: the log, the weekly summary, the downloads and the bell", () => {
   const url = (i = 0) => String(fetchMock.mock.calls[i][0]);
 
-  it("asks for a page of the log with its filters and cursor, and reads its rows", async () => {
-    fetchMock.mockResolvedValue(
-      jsonResponse(200, {
-        items: [
-          { type: "record", id: "r2", at: 2000, receivedAt: 2500, person: "maria", change: "submitted", plot: "17", name: "17", assessment: "check", round: "2" },
-          { type: "audit", id: "a1", at: 1000, person: null, action: "member.removed", details: { userId: "u1", nested: { no: 1 } }, plotName: null },
-          { type: "other" },
-        ],
-        next: "1000.1_e",
-        people: { u1: { name: "ben", removed: true } },
-        files: { f1: "north.csv", f2: null },
-        persons: ["maria", "owner"],
-      }),
-    );
+  it("asks for a page of the log with its filters and cursor", async () => {
+    const body = {
+      items: [
+        { type: "record", id: "r2", at: 2000, receivedAt: 2500, person: "maria", change: "submitted", plot: "17", name: "17", assessment: "check", round: "2" },
+        { type: "audit", id: "a1", at: 1000, person: null, action: "member.removed", details: { userId: "u1" } },
+      ],
+      next: "1000.1_e",
+      people: { u1: { name: "ben", removed: true } },
+      files: { f1: "north.csv", f2: null },
+      persons: ["maria", "owner"],
+    };
+    fetchMock.mockResolvedValue(jsonResponse(200, body));
     const page = await getActivity("p 1", { person: "maria", kind: "submitted", from: 10, to: 20.4, cursor: "s_s", limit: 50 });
     expect(url()).toBe("/v1/projects/p%201/activity?person=maria&kind=submitted&from=10&to=20&cursor=s_s&limit=50");
-    expect(page.items).toEqual([
-      { type: "record", id: "r2", at: 2000, receivedAt: 2500, person: "maria", change: "submitted", plot: "17", name: "17", assessment: "check", round: "2" },
-      { type: "audit", id: "a1", at: 1000, person: null, action: "member.removed", details: { userId: "u1" }, plotName: null },
-    ]);
-    expect(page).toMatchObject({ next: "1000.1_e", people: { u1: { name: "ben", removed: true } }, files: { f1: "north.csv", f2: null }, persons: ["maria", "owner"] });
-    fetchMock.mockResolvedValue(jsonResponse(200, { items: [], next: null }));
+    expect(page).toEqual(body);
+    fetchMock.mockResolvedValue(jsonResponse(200, { items: [], next: null, people: {}, files: {}, persons: [] }));
     await getActivity("p1", { kind: "all" });
     expect(url(1)).toBe("/v1/projects/p1/activity");
   });
 
   it("the weekly summary of a week, or of this week", async () => {
-    fetchMock.mockImplementation(async () =>
-      jsonResponse(200, {
-        week: "2026-W44",
-        timeZone: "Europe/Rome",
-        start: "2026-10-26",
-        end: "2026-11-01",
-        current: false,
-        asOf: null,
-        progress: { days: [{ date: "2026-10-26", submitted: 2, checks: 1 }], submitted: 2, checks: 1, before: 0, byEnd: 2, totals: { plots: 30, submitted: 2 } },
-        people: [{ userId: "u1", username: "maria", role: "operator", submitted: 2, checks: 0, status: { kind: "working" }, plots: { assigned: 30, submitted: 2, started: 0, remaining: 28, done: 0.07 } }],
-        quality: { available: true, computedAt: 5, stale: false, week: { compared: 1, agreeing: 0, rate: null }, overall: null, decided: { first: 1, check: 0, recheck: 0, total: 1 }, flags: { counts: { very_fast: 2 }, total: 2 } },
-      }),
-    );
+    const body = {
+      week: "2026-W44",
+      timeZone: "Europe/Rome",
+      start: "2026-10-26",
+      end: "2026-11-01",
+      current: false,
+      asOf: null,
+      progress: {
+        days: [{ date: "2026-10-26", submitted: 2, checks: 1 }],
+        submitted: 2,
+        checks: 1,
+        referenceMeasurements: 0,
+        before: 0,
+        byEnd: 2,
+        totals: { plots: 30, assigned: 30, notAssigned: 0, submitted: 2, started: 0, notStarted: 28 },
+      },
+      people: [{ userId: "u1", username: "maria", role: "operator", submitted: 2, checks: 0, referenceMeasurements: 0, status: { kind: "working" }, plots: { assigned: 30, submitted: 2, started: 0, remaining: 28, done: 0.07 } }],
+      quality: {
+        available: true,
+        computedAt: 5,
+        stale: false,
+        week: { compared: 1, agreeing: 0, rate: null },
+        overall: null,
+        decided: { first: 1, check: 0, recheck: 0, total: 1 },
+        flags: { counts: { very_fast: 2, same_as_before: 0, required_empty: 0, edited_after_decision: 0, two_main: 0, no_plot: 0 }, total: 2 },
+      },
+    };
+    fetchMock.mockImplementation(async () => jsonResponse(200, body));
     const w = await getWeekly("p1", "2026-W44", "Europe/Rome");
     expect(url()).toBe("/v1/projects/p1/weekly?tz=Europe%2FRome&week=2026-W44");
-    expect(w.progress).toMatchObject({ submitted: 2, checks: 1, byEnd: 2, totals: { plots: 30, submitted: 2, assigned: 0 } });
-    expect(w.people[0]).toMatchObject({ username: "maria", submitted: 2, status: { kind: "working" }, plots: { assigned: 30, remaining: 28 } });
-    expect(w.quality).toMatchObject({ available: true, week: { compared: 1, agreeing: 0, rate: null }, overall: null, decided: { total: 1 }, flags: { total: 2, counts: { very_fast: 2 } } });
+    expect(w).toEqual(body);
     await getWeekly("p1", null, "UTC");
     expect(url(1)).toBe("/v1/projects/p1/weekly?tz=UTC");
   });
 
   it("the rows of each download; the differences say when the figures are not at hand", async () => {
-    fetchMock.mockResolvedValue(jsonResponse(200, { kind: "daily", today: "2026-11-02", rows: [{ date: "2026-10-26", person: "maria", plots: 2, checks: "x", drafts: 3 }] }));
-    const daily = await getExport("p1", "daily", "UTC");
+    const daily = { kind: "daily", today: "2026-11-02", timeZone: "UTC", rows: [{ date: "2026-10-26", person: "maria", plots: 2, checks: 0, submittedAgain: 0, drafts: 3, reopened: 0, deleted: 0 }] };
+    fetchMock.mockResolvedValue(jsonResponse(200, daily));
+    expect(await getExport("p1", "daily", "UTC")).toEqual(daily);
     expect(url()).toBe("/v1/projects/p1/exports/daily?tz=UTC");
-    expect(daily).toEqual({ kind: "daily", today: "2026-11-02", rows: [{ date: "2026-10-26", person: "maria", plots: 2, checks: 0, submittedAgain: 0, drafts: 3, reopened: 0, deleted: 0 }] });
-    fetchMock.mockResolvedValue(jsonResponse(200, { today: "2026-11-02", rows: [{ plot: "1", name: "1", decision: "check", comment: null, decidedBy: "ana", decidedAt: 9, byAssessor: false, bulk: true }] }));
-    expect((await getExport("p1", "decisions", "UTC")).rows).toEqual([{ plot: "1", name: "1", decision: "check", comment: null, decidedBy: "ana", decidedAt: 9, byAssessor: false, bulk: true }]);
+    const decisions = { kind: "decisions", today: "2026-11-02", timeZone: "UTC", rows: [{ plot: "1", name: "1", decision: "check", comment: null, decidedBy: "ana", decidedAt: 9, byAssessor: false, bulk: true }], figures: null };
+    fetchMock.mockResolvedValue(jsonResponse(200, decisions));
+    expect(await getExport("p1", "decisions", "UTC")).toEqual(decisions);
     fetchMock.mockResolvedValue(jsonResponse(409, { error: "no_figures", reason: "open the Quality tab first" }));
     await expect(getExport("p1", "differences", "UTC")).rejects.toMatchObject({ status: 409, code: "no_figures" });
   });
 
   it("the bell: items with their read state; marking some or all read", async () => {
-    const body = { items: [{ key: "quiet:1", read: false, item: { kind: "quiet", count: 2, quietDays: 3, people: [{ username: "ana", lastSyncAt: 5 }] } }, { key: "x:1", read: false, item: { kind: "nope", count: 1 } }] };
+    const body = { items: [{ key: "quiet:1", read: false, item: { kind: "quiet", count: 2, quietDays: 3, people: [{ username: "ana", lastSyncAt: 5 }] } }], unread: 1 };
     fetchMock.mockImplementation(async () => jsonResponse(200, body));
     const bell = await getAttention("p1");
+    expect(url()).toBe("/v1/projects/p1/attention");
     expect(bell.unread).toBe(1);
     expect(bell.items[0]).toMatchObject({ key: "quiet:1", read: false, item: { kind: "quiet", count: 2, quietDays: 3, people: [{ username: "ana", lastSyncAt: 5 }] } });
     await markAttentionRead("p1", ["quiet:1"]);
@@ -1270,23 +1153,19 @@ describe("activity: the log, the weekly summary, the downloads and the bell", ()
 describe("progress links for funders", () => {
   const url = (i = 0) => String(fetchMock.mock.calls[i][0]);
 
-  it("makes, lists and revokes links; the address is the server's or this page's origin", async () => {
+  it("makes, lists and revokes links", async () => {
     const link = { id: "l1", label: "For the donor", createdAt: 1000, createdBy: "ana", lastUsedAt: null };
-    fetchMock.mockResolvedValue(jsonResponse(201, { token: "tok", path: "/p/tok", url: "https://ce.example.org/p/tok", link }));
-    expect(await createShareLink("p 1", "For the donor")).toEqual({ link, url: "https://ce.example.org/p/tok" });
+    const made = { token: "tok", path: "/p/tok", url: "https://ce.example.org/p/tok", link };
+    fetchMock.mockResolvedValue(jsonResponse(201, made));
+    expect(await createShareLink("p 1", "For the donor")).toEqual(made);
     expect(url()).toBe("/v1/projects/p%201/share-links");
     expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: "POST", body: JSON.stringify({ label: "For the donor" }) });
-    fetchMock.mockResolvedValue(jsonResponse(201, { token: "tok", path: "/p/tok", link }));
-    expect((await createShareLink("p1", "")).url).toBe("https://ce.example.org/p/tok");
-    fetchMock.mockResolvedValue(jsonResponse(200, { links: [{ ...link, lastUsedAt: 2000, extra: "x" }, { id: "l2" }] }));
-    expect(await listShareLinks("p1")).toEqual([
-      { ...link, lastUsedAt: 2000 },
-      { id: "l2", label: "", createdAt: null, createdBy: null, lastUsedAt: null },
-    ]);
+    fetchMock.mockResolvedValue(jsonResponse(200, { links: [link] }));
+    expect(await listShareLinks("p1")).toEqual([link]);
     fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
     await revokeShareLink("p1", "l/1");
-    expect(url(3)).toBe("/v1/projects/p1/share-links/l%2F1");
-    expect(fetchMock.mock.calls[3][1]).toMatchObject({ method: "DELETE" });
+    expect(url(2)).toBe("/v1/projects/p1/share-links/l%2F1");
+    expect(fetchMock.mock.calls[2][1]).toMatchObject({ method: "DELETE" });
     fetchMock.mockResolvedValue(jsonResponse(409, { error: "too_many_links" }));
     expect(errorMessageKey(await createShareLink("p1", "x").catch((e: unknown) => e))).toBe("shareLinks.tooMany");
   });
@@ -1310,10 +1189,8 @@ describe("progress links for funders", () => {
     const init = fetchMock.mock.calls[0][1] as RequestInit;
     expect((init.headers as Record<string, string>).authorization).toBeUndefined();
     expect(init).toMatchObject({ credentials: "omit", referrerPolicy: "no-referrer" });
-    expect(data).toMatchObject({ projectName: "Forest 2026", timeZone: "Europe/Rome", totals: { submitted: 3 }, quality: { available: true, agreement: { compared: 25, agreeing: 20, rate: 0.8 }, computedAt: 5000 } });
+    expect(data).toMatchObject({ project: { name: "Forest 2026" }, timeZone: "Europe/Rome", totals: { submitted: 3 }, quality: { available: true, agreement: { compared: 25, agreeing: 20, rate: 0.8 }, computedAt: 5000 } });
     expect(data.daily).toEqual([{ date: "2026-11-03", submitted: 1, cumulative: 3 }]);
-    fetchMock.mockResolvedValue(jsonResponse(200, { project: { name: "x" }, quality: { available: false, agreement: null, computedAt: null } }));
-    expect((await getPublicProgress("t", "UTC")).quality).toEqual({ available: false, agreement: null, computedAt: null });
     // A link that does not work: a 404, and the session is not ended by it.
     const ended = vi.fn();
     setUnauthorizedHandler(ended);
@@ -1345,12 +1222,9 @@ describe("weekly emails (Task 19)", () => {
     fetchMock.mockResolvedValue(jsonResponse(200, body));
     expect(await getNotifications()).toEqual(body);
     expect(url()).toBe("/v1/me/notifications");
-    fetchMock.mockResolvedValue(jsonResponse(200, { digests: {} }));
-    expect(await setNotifications({ collector: false, language: "es", timeZone: "UTC" })).toMatchObject({
-      email: null,
-      sends: false,
-      digests: { coordinator: { on: false }, collector: { on: false } },
-    });
+    const off = { ...body, digests: { ...body.digests, collector: { ...body.digests.collector, on: false } } };
+    fetchMock.mockResolvedValue(jsonResponse(200, off));
+    expect(await setNotifications({ collector: false, language: "es", timeZone: "UTC" })).toEqual(off);
     expect(fetchMock.mock.calls[1][1]).toMatchObject({ method: "PUT", body: JSON.stringify({ collector: false, language: "es", timeZone: "UTC" }) });
     // A zone the browser cannot tell is not sent: the stored one stays.
     fetchMock.mockResolvedValue(jsonResponse(200, body));

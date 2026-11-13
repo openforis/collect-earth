@@ -26,7 +26,7 @@ import {
   getReviewQueue,
   NO_QUEUE_FILTER,
   setQualityDecision,
-  type BulkResult,
+  type BulkDecisionAnswer,
   type BulkRule,
   type DecisionKind,
   type PlotOutline,
@@ -88,7 +88,7 @@ function Bulk({ projectId, onDone }: { projectId: string; onDone: (count: number
   const t = useT();
   const { language } = useApp();
   const [asking, setAsking] = useState<BulkRule | null>(null);
-  const [dry, setDry] = useState<{ rule: BulkRule; result: BulkResult } | null>(null);
+  const [dry, setDry] = useState<{ rule: BulkRule; result: BulkDecisionAnswer } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const ask = async (rule: BulkRule) => {
@@ -283,12 +283,12 @@ function QueueCard({
             {t("queue.resubmittedBy", { name: r.operator, time: formatDate(r.at, language), decided: formatDate(r.decidedAt, language) })}
           </Typography>
         ))}
-        {decision?.decision === "recheck" && item.waiting !== null && (item.resubmitted.length > 0 || item.waiting.length === 0) && (
+        {decision?.decision === "recheck" && item.waiting !== undefined && (item.resubmitted.length > 0 || item.waiting.length === 0) && (
           <Typography variant="body2">
             {item.waiting.length > 0 ? t("queue.waitingFor", { names: item.waiting.join(", ") }) : t("queue.allSubmittedAgain")}
           </Typography>
         )}
-        {decision?.decision === "recheck" && item.left.length > 0 && (
+        {decision?.decision === "recheck" && item.left !== undefined && item.left.length > 0 && (
           <Typography variant="body2" color="text.secondary">
             {t("queue.leftProject", { names: item.left.join(", ") })}
           </Typography>
@@ -463,7 +463,7 @@ export function ReviewQueue({
     getPlotPlaces(projectId, asked).then(
       (answer) => {
         if (cancelled) return;
-        if (answer.unsupportedSrs !== null) {
+        if (answer.unsupportedSrs !== undefined) {
           setUnsupportedSrs(answer.unsupportedSrs);
           return;
         }

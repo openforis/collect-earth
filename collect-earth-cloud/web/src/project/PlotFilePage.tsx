@@ -43,8 +43,8 @@ import {
   moveUnfinished,
   saveDistribution,
   type CsvColumns,
-  type Distribution,
-  type DistributionState,
+  type DivisionBody,
+  type DistributionSummary,
   type Member,
   type PersonShare,
 } from "../api";
@@ -91,7 +91,7 @@ async function loadFile(projectId: string, fileId: string) {
   return { file: files.find((f) => f.id === fileId) ?? null, members, current, columns };
 }
 
-const holders = (state: DistributionState) => state.people.filter((p) => p.plots > 0).map((p) => p.userId);
+const holders = (state: DistributionSummary) => state.people.filter((p) => p.plots > 0).map((p) => p.userId);
 
 /** Person → plots (copies) table, for the preview. */
 function SharesTable({ people }: { people: PersonShare[] }) {
@@ -235,15 +235,15 @@ function DivideForm({
   fileId: string;
   members: Member[];
   columns: CsvColumns;
-  current: DistributionState;
-  onApplied: (state: DistributionState) => void;
+  current: DistributionSummary;
+  onApplied: (state: DistributionSummary) => void;
 }) {
   const t = useT();
   const { language } = useApp();
   const people = useMemo(() => sortPeople(members), [members]);
   const [form, setForm] = useState<DivisionForm>(() => initialForm(current.distribution, holders(current), members));
   // The last preview, for the request it was made for (any change to the form drops it).
-  const [preview, setPreview] = useState<DistributionState | null>(null);
+  const [preview, setPreview] = useState<DistributionSummary | null>(null);
   const [problemShown, setProblemShown] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<unknown>(null);
@@ -269,7 +269,7 @@ function DivideForm({
     }
     setBusy(true);
     try {
-      const request: Distribution = dryRun ? toRequest(form, columns) : withSeed(toRequest(form, columns), preview?.distribution ?? null);
+      const request: DivisionBody = dryRun ? toRequest(form, columns) : withSeed(toRequest(form, columns), preview?.distribution ?? null);
       const result = await saveDistribution(projectId, fileId, request, dryRun);
       if (dryRun) {
         setPreview(result);
@@ -498,8 +498,8 @@ function CurrentDivision({
   projectId: string;
   fileId: string;
   members: Member[];
-  current: DistributionState;
-  onChanged: (state: DistributionState) => void;
+  current: DistributionSummary;
+  onChanged: (state: DistributionSummary) => void;
 }) {
   const t = useT();
   const { language } = useApp();
@@ -689,9 +689,9 @@ export function PlotFilePage({ projectId, fileId, onGo }: { projectId: string; f
   if (state.error || !state.data || !state.data.file) return <ErrorAlert error={state.error} onRetry={state.reload} />;
 
   const { file, members, current, columns } = state.data;
-  const setCurrent = (next: DistributionState) => state.setData({ ...state.data!, current: next });
+  const setCurrent = (next: DistributionSummary) => state.setData({ ...state.data!, current: next });
   // After a move or a new share of what is left: the new holders, and the divide form starts again from them.
-  const moved = (next: DistributionState) => {
+  const moved = (next: DistributionSummary) => {
     setCurrent(next);
     setMoves((n) => n + 1);
   };

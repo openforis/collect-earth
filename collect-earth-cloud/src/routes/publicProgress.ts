@@ -5,40 +5,17 @@ import { isShareToken } from '../auth.js';
 import type { Config } from '../config.js';
 import { isTimeZone } from '../days.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
-import { PACE_DAYS, progressReport, type Forecast, type ProgressDay, type ProgressTotals } from '../progress.js';
+import { PACE_DAYS, progressReport } from '../progress.js';
 import type { ProjectStateCache } from '../projectState.js';
-import type { Rate } from '../quality.js';
 import type { RateLimiter } from '../rateLimit.js';
 import type { Store } from '../store/store.js';
+import type { NewShareLinkAnswer, ShareLinksAnswer } from '../wire/projectSettings.js';
+import type { PublicProgress } from '../wire/progress.js';
 import { DEFAULT_DAYS, MAX_DAYS } from './progress.js';
 
 /** Links not revoked a project may have at once. */
 export const MAX_SHARE_LINKS = 20;
 export const MAX_LABEL_LENGTH = 100;
-
-/**
- * What a progress link shows (GET /v1/public/progress/:token). Built field by field from the
- * Progress tab's figures, so nothing else can slip in: the project's name, the plot totals, the
- * days, the forecast and one quality figure. Never a name, a username, an answer, a plot id, a
- * file name, a coordinate nor anyone's own counts.
- */
-export interface PublicProgress {
-  project: { name: string };
-  timeZone: string;
-  today: string;
-  totals: ProgressTotals;
-  daily: ProgressDay[];
-  forecast: Forecast;
-  quality: {
-    /** False until the quality figures were first worked out for the project (nobody opened the Quality tab yet). */
-    available: boolean;
-    /** Every check so far compared with its first assessment; rate null under MIN_PLOTS plots. */
-    agreement: Rate | null;
-    computedAt: number | null;
-  };
-  /** When the figures are older than the records (a newer state is being worked out). */
-  asOf: number | null;
-}
 
 /** The label of a POST body, or why it is refused. */
 function labelOf(body: unknown): string | { error: 'bad_request'; reason: string } {
@@ -80,7 +57,7 @@ export async function registerPublicProgressRoutes(
   const admin = { preHandler: requireProjectMembership(store, 'admin') };
 
   app.get('/v1/projects/:pid/share-links', admin, async (request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send({ links: await store.listShareLinks(request.membership!.projectId) });
+    return reply.send({ links: await store.listShareLinks(request.membership!.projectId) } satisfies ShareLinksAnswer);
   });
 
   app.post('/v1/projects/:pid/share-links', admin, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -97,7 +74,7 @@ export async function registerPublicProgressRoutes(
     const { token, link } = made;
     await audit(store, request, 'link.created', { linkId: link.id, label });
     const path = `/p/${token}`;
-    return reply.code(201).send({ token, path, url: `${publicBaseUrl(config, request)}${path}`, link });
+    return reply.code(201).send({ token, path, url: `${publicBaseUrl(config, request)}${path}`, link } satisfies NewShareLinkAnswer);
   });
 
   app.delete('/v1/projects/:pid/share-links/:id', admin, async (request: FastifyRequest, reply: FastifyReply) => {

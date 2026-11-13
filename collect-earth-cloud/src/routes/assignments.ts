@@ -16,6 +16,7 @@ import { fileKeyCount, keyShape, recordKeysOfUnit, unitOfRecord } from '../round
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import type { Store, UserPlots } from '../store/store.js';
 import type { Assignment, RecordRow, StoredDistribution } from '../types.js';
+import type { AssignmentsAnswer, AssignmentsSaved, CsvFilesAnswer, CsvFileWarnings, CsvUploadAnswer, ReplaceImpact } from '../wire/plotFiles.js';
 import { plotFileOf } from '../plotFileCache.js';
 import type { ProjectStateCache } from '../projectState.js';
 import type { SamplingService } from '../samplingService.js';
@@ -103,7 +104,7 @@ export async function registerAssignmentRoutes(
    * missing from the new content (and from every other file), how many of those people hold and
    * how many have submitted records. Null when no file has that name.
    */
-  const replaceImpact = async (projectId: string, filename: string, newIds: readonly string[], keyCount: number, info: RoundInfo | null) => {
+  const replaceImpact = async (projectId: string, filename: string, newIds: readonly string[], keyCount: number, info: RoundInfo | null): Promise<ReplaceImpact | null> => {
     const files = await store.listCsvFiles(projectId);
     const existing = files.find((f) => f.filename === filename);
     if (!existing) {
@@ -151,7 +152,7 @@ export async function registerAssignmentRoutes(
   };
 
   /** What may be wrong with an uploaded file that is still taken: ids on several rows, rows without usable coordinates. */
-  const fileWarnings = async (parsed: ReturnType<typeof parsePlotFile>, keyCount: number, projectId: string, log: FastifyRequest['log']) => {
+  const fileWarnings = async (parsed: ReturnType<typeof parsePlotFile>, keyCount: number, projectId: string, log: FastifyRequest['log']): Promise<CsvFileWarnings | null> => {
     const rowsOf = new Map<string, number>();
     for (const row of parsed.rows) rowsOf.set(row.id, (rowsOf.get(row.id) ?? 0) + 1);
     const duplicates = [...rowsOf].filter(([, n]) => n > 1).map(([id]) => id);
@@ -294,7 +295,7 @@ export async function registerAssignmentRoutes(
         assignment = { ...counts, unknown: counts.unknown.slice(0, 100) };
       }
       const warnings = await fileWarnings(parsed, keyCount, projectId, request.log);
-      return reply.code(201).send({ ...meta, ...(fromFile ? { divided: true, assignment } : {}), ...(warnings ? { warnings } : {}) });
+      return reply.code(201).send({ ...meta, ...(fromFile ? { divided: true as const, assignment } : {}), ...(warnings ? { warnings } : {}) } satisfies CsvUploadAnswer);
     },
   );
 
@@ -312,7 +313,7 @@ export async function registerAssignmentRoutes(
           divided: Boolean(f.distribution),
           dividedPeople: f.distribution ? holders.get(f.id) ?? 0 : 0,
         })),
-      });
+      } satisfies CsvFilesAnswer);
     },
   );
 
@@ -400,7 +401,7 @@ export async function registerAssignmentRoutes(
       }
       await store.setAssignments(projectId, assignments);
       await audit(store, request, 'assignments.set', { count: assignments.length });
-      return reply.send({ ok: true, count: assignments.length });
+      return reply.send({ ok: true, count: assignments.length } satisfies AssignmentsSaved);
     },
   );
 
@@ -409,7 +410,7 @@ export async function registerAssignmentRoutes(
     '/v1/projects/:pid/assignments',
     { preHandler: requireProjectMembership(store, 'admin') },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      return reply.send({ assignments: await store.listAssignments(request.membership!.projectId) });
+      return reply.send({ assignments: await store.listAssignments(request.membership!.projectId) } satisfies AssignmentsAnswer);
     },
   );
 

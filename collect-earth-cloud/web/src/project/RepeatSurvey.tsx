@@ -304,10 +304,10 @@ function RepeatDialog({ projectId, name, onClose }: { projectId: string; name: s
 }
 
 /** A repeat survey's periods and the questions its form's header shows, which the coordinator can change. */
-function PeriodsOfThisProject({ projectId, periods, onSaved }: { projectId: string; periods: Periods; onSaved: () => void }) {
+function PeriodsOfThisProject({ projectId, periods, onSaved }: { projectId: string; periods: Exclude<Periods, { settings: null }>; onSaved: () => void }) {
   const t = useT();
   const { language } = useApp();
-  const settings = periods.settings!;
+  const { settings } = periods;
   const [header, setHeader] = useState(settings.headerQuestions);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -345,7 +345,7 @@ function PeriodsOfThisProject({ projectId, periods, onSaved }: { projectId: stri
         {t("repeat.headerHelp", { label: settings.earlier[settings.earlier.length - 1]?.label ?? "…" })}
       </Typography>
       <QuestionPicker
-        questions={periods.candidates ?? periods.questions}
+        questions={periods.candidates}
         chosen={header}
         onChange={(next) => {
           setHeader(next);

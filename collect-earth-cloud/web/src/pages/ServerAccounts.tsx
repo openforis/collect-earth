@@ -538,16 +538,14 @@ export function AccountsSection({ onAccountChanged }: { onAccountChanged: () => 
             <DialogTitle>{t("server.resetTitle", { name: link.user.username })}</DialogTitle>
             <DialogContent>
               <Stack spacing={2} sx={{ pt: 1 }}>
-                {link.reset.mailed ? (
+                {"mailed" in link.reset ? (
                   <DialogContentText>{t("server.resetMailed", { name: link.user.username })}</DialogContentText>
                 ) : (
                   <>
                     <DialogContentText>
-                      {link.reset.expiresAt !== null
-                        ? t("server.resetText", { name: link.user.username, date: formatDate(link.reset.expiresAt, language) })
-                        : t("server.resetTextNoDate", { name: link.user.username })}
+                      {t("server.resetText", { name: link.user.username, date: formatDate(link.reset.expiresAt, language) })}
                     </DialogContentText>
-                    <CopyField value={link.reset.resetUrl ?? ""} label={t("server.resetLink")} />
+                    <CopyField value={link.reset.resetUrl} label={t("server.resetLink")} />
                   </>
                 )}
               </Stack>

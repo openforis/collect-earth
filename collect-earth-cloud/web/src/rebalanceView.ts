@@ -1,4 +1,4 @@
-import type { DistributionState, Member, PersonRow, RebalancePlan } from "./api";
+import type { DistributionSummary, Member, PersonRow, RebalancePlan } from "./api";
 import { collectors, sortPeople } from "./division";
 import { formatNumber } from "./format";
 import type { MessageKey, Translate } from "./i18n";
@@ -22,12 +22,12 @@ export const PACE_DAYS = 7;
 const MAX_WEIGHT = 1000;
 
 /** The people who hold plots of the file now. */
-export function holdersOf(state: DistributionState): string[] {
+export function holdersOf(state: DistributionSummary): string[] {
   return state.people.filter((p) => p.plots > 0).map((p) => p.userId);
 }
 
 /** The people listed: those who normally collect, and anyone who holds plots of the file (a coordinator too). */
-export function shareCandidates(members: Member[], state: DistributionState): Member[] {
+export function shareCandidates(members: Member[], state: DistributionSummary): Member[] {
   const holders = new Set(holdersOf(state));
   const ids = new Set(collectors(members).map((m) => m.userId));
   return sortPeople(members.filter((m) => ids.has(m.userId) || holders.has(m.userId)));
@@ -37,7 +37,7 @@ export function shareCandidates(members: Member[], state: DistributionState): Me
  * The form at the start: ticked are the people who still have plots to do (an account turned off is not), or, when
  * nobody has, the collectors.
  */
-export function initialShareForm(members: Member[], state: DistributionState): ShareForm {
+export function initialShareForm(members: Member[], state: DistributionSummary): ShareForm {
   const off = new Set(members.filter((m) => m.disabled).map((m) => m.userId));
   const known = new Set(members.map((m) => m.userId));
   const working = state.people.filter((p) => p.plots > p.submitted && known.has(p.userId) && !off.has(p.userId)).map((p) => p.userId);

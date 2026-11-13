@@ -30,7 +30,7 @@ const audit = (action: string, details: Record<string, string | number | boolean
   person,
   action,
   details,
-  plotName: typeof details.plot === "string" ? details.plot : null,
+  ...(typeof details.plot === "string" ? { plotName: details.plot } : {}),
 });
 
 describe("the log's sentences", () => {

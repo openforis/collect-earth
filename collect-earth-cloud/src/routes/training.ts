@@ -32,6 +32,22 @@ import {
   type LearningScore,
 } from '../training.js';
 import type { Member, TrainingAttempt, TrainingGolden, TrainingKind, TrainingSet } from '../types.js';
+import type {
+  AttemptsAnswer,
+  GoldenFromAnswer,
+  GoldenPruneAnswer,
+  MyTrainingAnswer,
+  MyTrainingSet,
+  TrainingAttemptPast,
+  TrainingFiguresAnswer,
+  TrainingFiguresSet,
+  TrainingList,
+  TrainingListItem,
+  TrainingPerson,
+  TrainingQuestion,
+  TrainingSetSummary,
+  TrainingSetView,
+} from '../wire/training.js';
 import { wholeFile } from './assignments.js';
 
 /**
@@ -134,7 +150,7 @@ const REASONS: Record<string, string> = {
 };
 
 /** The participants as people: user id, username (records go by it). */
-function participants(set: TrainingSet, members: readonly Member[]) {
+function participants(set: TrainingSet, members: readonly Member[]): TrainingPerson[] {
   const byId = new Map(members.map((m) => [m.userId, m]));
   return set.memberIds.flatMap((id) => {
     const m = byId.get(id);
@@ -198,7 +214,7 @@ function scoreOf(loaded: Loaded, username: string): LearningScore {
 }
 
 /** A closed attempt as listed: its number, dates and score figures (no answers). */
-function history(attempts: readonly TrainingAttempt[], userId: string) {
+function history(attempts: readonly TrainingAttempt[], userId: string): TrainingAttemptPast[] {
   return attempts
     .filter((a) => a.userId === userId && a.results !== null)
     .sort((a, b) => a.number - b.number)
@@ -219,14 +235,13 @@ function history(attempts: readonly TrainingAttempt[], userId: string) {
 }
 
 /** The questions a golden answer can be given for: those compared, with their options. */
-function goldenQuestions(outline: ReadonlyMap<string, Question> | null) {
+function goldenQuestions(outline: ReadonlyMap<string, Question> | null): TrainingQuestion[] {
   if (!outline) return [];
   return [...outline.values()]
-    .filter((q) => !q.excluded && !q.calculated && (q.kind === 'choice' || q.kind === 'number'))
-    .map((q) => ({ key: q.key, label: q.label, kind: q.kind, options: q.options ?? null, multiple: q.multiple }));
+    .flatMap((q) => (!q.excluded && !q.calculated && (q.kind === 'choice' || q.kind === 'number') ? [{ key: q.key, label: q.label, kind: q.kind, options: q.options ?? null, multiple: q.multiple }] : []));
 }
 
-function summaryOf(set: TrainingSet, people: ReturnType<typeof participants>) {
+function summaryOf(set: TrainingSet, people: TrainingPerson[]): TrainingSetSummary {
   return {
     id: set.id,
     kind: set.kind,
@@ -266,7 +281,7 @@ export async function registerTrainingRoutes(
     const projectId = request.membership!.projectId;
     const [sets, shared] = await Promise.all([store.listTrainingSets(projectId), loadShared(store, projectId, deps.outline, request.log)]);
     const members = shared.members;
-    const out = [];
+    const out: TrainingListItem[] = [];
     for (const meta of sets) {
       const loaded = await loadSet(store, projectId, meta.id, deps.outline, request.log, shared);
       if (!loaded) continue;
@@ -281,7 +296,7 @@ export async function registerTrainingRoutes(
         }),
       });
     }
-    return reply.send({ sets: out, members: members.filter((m) => !m.disabled).map((m) => ({ userId: m.userId, username: m.username, role: m.role })), max: MAX_TRAINING_SETS });
+    return reply.send({ sets: out, members: members.filter((m) => !m.disabled).map((m) => ({ userId: m.userId, username: m.username, role: m.role })), max: MAX_TRAINING_SETS } satisfies TrainingList);
   });
 
   // A new set: PUT the CSV with ?kind=&name=&passMark= (coordinators).
@@ -401,11 +416,11 @@ export async function registerTrainingRoutes(
       scores: loaded.people.map((p) => ({
         userId: p.userId,
         username: p.username,
-        attempt: loaded.startOf.get(p.username),
+        attempt: loaded.startOf.get(p.username)!,
         score: scoreOf(loaded, p.username),
         history: history(loaded.attempts, p.userId),
       })),
-    });
+    } satisfies TrainingSetView);
   });
 
   // The golden interpretation of one plot (coordinators): { answers, note }.
@@ -468,7 +483,7 @@ export async function registerTrainingRoutes(
     );
     await audit(store, request, 'training.changed', { setId: loaded.set.id, change: 'golden', name: loaded.set.name, plots: rows.length });
     telemetry.event('training_golden_set', { projectId, userId: request.userId }, { from: String(body.from), plots: rows.length });
-    return reply.send({ plots: rows.length });
+    return reply.send({ plots: rows.length } satisfies GoldenFromAnswer);
   });
 
   // Golden answers' questions the survey no longer has, taken out of every plot (coordinators).
@@ -482,7 +497,7 @@ export async function registerTrainingRoutes(
       .filter((g) => Object.keys(g.answers).some((k) => stale.has(k)))
       .map((g) => ({ ...g, answers: Object.fromEntries(Object.entries(g.answers).filter(([k]) => !stale.has(k))), updatedAt: at, updatedBy: request.userId ?? null }));
     await store.putTrainingGolden(projectId, loaded.set.id, rows);
-    return reply.send({ plots: rows.length, questions: stale.size });
+    return reply.send({ plots: rows.length, questions: stale.size } satisfies GoldenPruneAnswer);
   });
 
   // A set's results as CSV (coordinators): ?what=scores (each person's attempts) or answers (every answer scored).
@@ -518,14 +533,14 @@ export async function registerTrainingRoutes(
     );
     await audit(store, request, 'training.changed', { setId: loaded.set.id, change: 'attempts', name: loaded.set.name, people: people.length });
     telemetry.event('training_attempts_started', { projectId, userId: request.userId }, { people: people.length, scope: body.all === true ? 'all' : 'some' });
-    return reply.send({ started: people.length });
+    return reply.send({ started: people.length } satisfies AttemptsAnswer);
   });
 
   // The calibration figures of every set, without names (reviewers and coordinators). A set the
   // caller takes part in shows only once they submitted all its plots, so their answers stay their own.
   app.get('/v1/projects/:pid/training/figures', { preHandler: requireProjectMembership(store, 'reviewer') }, async (request, reply) => {
     const projectId = request.membership!.projectId;
-    const out = [];
+    const out: TrainingFiguresSet[] = [];
     const shared = await loadShared(store, projectId, deps.outline, request.log);
     for (const meta of await store.listTrainingSets(projectId)) {
       const loaded = await loadSet(store, projectId, meta.id, deps.outline, request.log, shared);
@@ -552,15 +567,15 @@ export async function registerTrainingRoutes(
     // The survey's questions and their answers' labels, for the figures.
     const outline = await deps.outline(projectId, request.log);
     telemetry.event('training_figures_viewed', { projectId, userId: request.userId }, { role: request.membership!.role, sets: out.length });
-    return reply.send({ sets: out, questions: goldenQuestions(outline) });
+    return reply.send({ sets: out, questions: goldenQuestions(outline) } satisfies TrainingFiguresAnswer);
   });
 
   // A participant's own sets: progress, and for learning sets their answers next to the golden ones.
   app.get('/v1/projects/:pid/training/mine', member, async (request, reply) => {
     const projectId = request.membership!.projectId;
     const userId = request.userId;
-    if (!userId) return reply.send({ sets: [] });
-    const out = [];
+    if (!userId) return reply.send({ sets: [] } satisfies MyTrainingAnswer);
+    const out: MyTrainingSet[] = [];
     const shared = await loadShared(store, projectId, deps.outline, request.log);
     for (const meta of await store.listTrainingSets(projectId)) {
       if (!meta.memberIds.includes(userId)) continue;
@@ -576,7 +591,7 @@ export async function registerTrainingRoutes(
         servedName: servedName(loaded.set),
         plotCount: loaded.set.plotCount,
         passMark: loaded.set.passMark,
-        attempt: loaded.startOf.get(me.username),
+        attempt: loaded.startOf.get(me.username)!,
         submitted,
       };
       if (loaded.set.kind !== 'learning') {
@@ -592,7 +607,7 @@ export async function registerTrainingRoutes(
       });
     }
     if (out.length > 0) telemetry.event('my_training_viewed', { projectId, userId: request.userId }, { sets: out.length, learning: out.filter((s) => s.kind === 'learning').length });
-    return reply.send({ sets: out });
+    return reply.send({ sets: out } satisfies MyTrainingAnswer);
   });
 
   // Feedback on one plot just submitted in Collect Earth (?key=<record key>): for a learning set the person

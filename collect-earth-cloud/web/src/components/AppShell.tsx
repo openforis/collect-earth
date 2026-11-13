@@ -18,15 +18,18 @@ import FolderOpen from "@mui/icons-material/FolderOpen";
 import Logout from "@mui/icons-material/Logout";
 import Person from "@mui/icons-material/Person";
 import Translate from "@mui/icons-material/Translate";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { collectEarthAppBar } from "../shared/collectEarthTheme";
 import logo from "../shared/collect-earth-logo.png";
 import openForisLogo from "../shared/collect-earth-openforis-logo.png";
 import { announcementKey, shownAnnouncement } from "../announcement";
+import { getServerInfo } from "../api";
 import { useApp, useLocalMode } from "../appContext";
 import { getDismissedAnnouncement, storeDismissedAnnouncement } from "../storage";
 import { LANGUAGES, LANGUAGE_NAMES, useT, type Language } from "../i18n";
+import { BUILD_CHECK_MS, newBuildFound, onNewBuild, watchBuild } from "../newVersion";
 import { linkProps, navigate } from "../router";
+import { onceVisibleAfter } from "../visibility";
 import { ServerAdminChip } from "./Roles";
 
 export function LanguageMenu() {
@@ -142,6 +145,37 @@ function AnnouncementBanner() {
   );
 }
 
+/**
+ * A page left open across an upgrade (src/newVersion.ts): the page asks every BUILD_CHECK_MS while it is visible
+ * which build the server serves, and when that is another one this offers to reload.
+ */
+function NewVersionBanner() {
+  const t = useT();
+  const { info } = useApp();
+  const available = useSyncExternalStore(onNewBuild, newBuildFound);
+  useEffect(() => {
+    watchBuild(
+      info.dashboardBuild,
+      async () => (await getServerInfo()).dashboardBuild,
+      (action) => void onceVisibleAfter(BUILD_CHECK_MS, document, action),
+    );
+  }, [info.dashboardBuild]);
+  if (!available) return null;
+  return (
+    <Alert
+      severity="info"
+      square
+      action={
+        <Button color="inherit" size="small" onClick={() => window.location.reload()}>
+          {t("newVersion.reload")}
+        </Button>
+      }
+    >
+      {t("newVersion.text")}
+    </Alert>
+  );
+}
+
 /** Collect Earth's Open Foris logo, then the terms of use and the contact address when the server administrator set them. */
 function Footer() {
   const t = useT();
@@ -223,6 +257,7 @@ export function AppShell({ children, narrow, bare, wide, hero }: { children: Rea
         </Toolbar>
       </AppBar>
       {!bare && <AnnouncementBanner />}
+      <NewVersionBanner />
       {hero ? (
         <Box component="main" sx={{ flex: 1, display: "flex", flexDirection: "column" }}>
           {children}

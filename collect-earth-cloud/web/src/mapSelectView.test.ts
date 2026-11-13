@@ -28,13 +28,19 @@ function map(): MapPlots {
     plots: ["1", "2", "3", "4", "5", "6", "7", "8", "9"],
     file: [0, 0, 0, 0, 0, 1, -1, 0, 0],
     reference: [4],
-    counts: [6, 2, 0, 1],
+    next: null,
+    names: null,
+    statuses: MAP_STATUSES,
+    counts: [6, 2, 0, 1, 0, 0, 0],
+    notOnMap: 0,
     files: [
       { id: "d", filename: "divided.csv", plots: 8, onMap: 8, divided: true },
       { id: "w", filename: "whole.csv", plots: 1, onMap: 1, divided: false },
     ],
     people: ["ana", "ben"],
     holders: [["ana"], ["ben"], ["ana", "ben"]],
+    figures: null,
+    asOf: null,
   });
 }
 

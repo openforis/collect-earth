@@ -141,7 +141,7 @@ describe('quality routes', () => {
 
     expect((await send('PUT', '/quality/settings', { margins: { [FOREST]: 5 } })).statusCode).toBe(200);
     const third = await fresh();
-    expect(third.settings).toEqual({ margins: { [FOREST]: 5 } });
+    expect(third.settings).toEqual({ margins: { [FOREST]: 5 }, fastSeconds: 15 });
     expect(third.questions.find((q: { key: string }) => q.key === FOREST)).toMatchObject({ agreeing: 19, margin: 5 });
     expect(third.plotsDiffering).toBe(2);
 
@@ -155,7 +155,7 @@ describe('quality routes', () => {
   it('PUT /quality/settings: margins 0-100, only for number questions of the served survey', async () => {
     const ok = await send('PUT', '/quality/settings', { margins: { [FOREST]: 0, collect_integer_cropland_percentage: 100 } });
     expect(ok.statusCode, ok.body).toBe(200);
-    expect(ok.json()).toEqual({ margins: { [FOREST]: 0, collect_integer_cropland_percentage: 100 } });
+    expect(ok.json()).toEqual({ margins: { [FOREST]: 0, collect_integer_cropland_percentage: 100 }, fastSeconds: 15 });
     for (const payload of [
       {},
       { margins: [] },
@@ -174,7 +174,7 @@ describe('quality routes', () => {
       expect(res.json().error).toBe('bad_request');
     }
     // Nothing refused was stored.
-    expect((await get('/quality')).json().settings).toEqual({ margins: { [FOREST]: 0, collect_integer_cropland_percentage: 100 } });
+    expect((await get('/quality')).json().settings).toEqual({ margins: { [FOREST]: 0, collect_integer_cropland_percentage: 100 }, fastSeconds: 15 });
   });
 
   it('decisions: set, replace, list, delete, by plot unit', async () => {

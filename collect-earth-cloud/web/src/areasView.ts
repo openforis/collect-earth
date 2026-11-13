@@ -1,6 +1,6 @@
 // The view logic of Strata and areas (project/StrataAreas.tsx, docs/plans/2026-11-11-strata-areas.md): the areas typed,
 // the setting they make, and the areas a plot design knows.
-import type { AreaSettings, AreasData, DesignFacts, DesignPlan } from "./api";
+import type { AreaSettings, AreasAnswer, DesignFacts, DesignPlan } from "./api";
 
 /** A stratum's key: its values. */
 export const stratumKey = (values: readonly string[]) => values.join("\u0000");
@@ -44,7 +44,7 @@ export function shownArea(area: number, language: string): string {
 }
 
 /** Each stratum's area: the one typed (by key), else the saved one. */
-export function areasOf(strata: AreasData["strata"], typed: Readonly<Record<string, string>>, language: string): (number | null)[] {
+export function areasOf(strata: AreasAnswer["strata"], typed: Readonly<Record<string, string>>, language: string): (number | null)[] {
   return strata.map((s) => {
     const text = typed[stratumKey(s.values)];
     return text === undefined ? s.area : typedArea(text, language);
@@ -52,7 +52,7 @@ export function areasOf(strata: AreasData["strata"], typed: Readonly<Record<stri
 }
 
 /** The strata setting of the columns and the areas: the strata with an area (a stratum left empty stands for none). */
-export function strataSettings(columns: readonly string[], strata: AreasData["strata"], areas: readonly (number | null)[]): Extract<AreaSettings, { mode: "strata" }> {
+export function strataSettings(columns: readonly string[], strata: AreasAnswer["strata"], areas: readonly (number | null)[]): Extract<AreaSettings, { mode: "strata" }> {
   return {
     mode: "strata",
     columns: [...columns],

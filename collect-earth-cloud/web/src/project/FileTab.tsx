@@ -49,7 +49,7 @@ function ReassessmentChoice({ projectId, info, onSaved }: { projectId: string; i
     setSaved(false);
     try {
       const result = await setReassessmentCode(projectId, code === NO_CODE ? null : code);
-      onSaved(result ?? { ...info, reassessmentCode: code === NO_CODE ? null : code });
+      onSaved(result);
       setSaved(true);
     } catch (err) {
       setError(err);
@@ -245,8 +245,7 @@ export function FileTab({ projectId }: { projectId: string }) {
       setUploaded(true);
       setUploads((n) => n + 1);
       overview.reload();
-      if (info) round.setData(info);
-      else round.reload();
+      round.setData(info);
       await addGridFiles(file);
     } catch (err) {
       setError(err);

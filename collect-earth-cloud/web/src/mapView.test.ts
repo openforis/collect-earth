@@ -14,7 +14,10 @@ function map(): MapPlots {
       [0, 0, 2, 0],
     ],
     plots: ["1", "2", "3", "4"],
-    counts: [1, 0, 2, 0, 0, 1],
+    next: null,
+    names: null,
+    statuses: MAP_STATUSES,
+    counts: [1, 0, 2, 0, 0, 1, 0],
     notOnMap: 2,
     files: [
       { id: "a", filename: "a.csv", plots: 4, onMap: 4 },
@@ -22,6 +25,8 @@ function map(): MapPlots {
     ],
     people: ["ana", "ben"],
     holders: [["ana"], ["ana", "ben"]],
+    figures: null,
+    asOf: null,
   });
 }
 
@@ -72,7 +77,7 @@ describe("map of progress", () => {
   });
 
   it("lists the files with plots off the map", () => {
-    expect(filesOffMap(map())).toEqual([{ id: "b", filename: "b.csv", plots: 2, onMap: 0, divided: false }]);
+    expect(filesOffMap(map())).toEqual([{ id: "b", filename: "b.csv", plots: 2, onMap: 0 }]);
   });
 
   it("writes the attribution as the tile source asks, escaped", () => {

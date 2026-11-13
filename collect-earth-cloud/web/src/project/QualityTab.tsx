@@ -22,7 +22,7 @@ import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Typography from "@mui/material/Typography";
 import ExpandMore from "@mui/icons-material/ExpandMore";
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from "react";
-import { ApiError, getQuality, saveQualityMargins, type AnswerOptions, type GuidanceNote, type QualityData, type Rate } from "../api";
+import { ApiError, getQuality, saveQualityMargins, type AnswerOptions, type GuidanceNote, type QualityAnswer, type Rate } from "../api";
 import { useApp, useLocalMode } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Explain, MoreInfo } from "../components/Explain";
@@ -120,7 +120,7 @@ function Figure({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Counts({ data, stillWorking }: { data: QualityData; stillWorking: boolean }) {
+function Counts({ data, stillWorking }: { data: QualityAnswer; stillWorking: boolean }) {
   const t = useT();
   const { language } = useApp();
   return (
@@ -151,9 +151,9 @@ function Counts({ data, stillWorking }: { data: QualityData; stillWorking: boole
   );
 }
 
-function Margins({ projectId, data, onSaved }: { projectId: string; data: QualityData; onSaved: (margins: Record<string, number>) => void }) {
+function Margins({ projectId, data, onSaved }: { projectId: string; data: QualityAnswer; onSaved: (margins: Record<string, number>) => void }) {
   const t = useT();
-  const rows = useMemo(() => marginRows(data.questions, data.margins), [data.questions, data.margins]);
+  const rows = useMemo(() => marginRows(data.questions, data.settings.margins), [data.questions, data.settings.margins]);
   const [texts, setTexts] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -171,7 +171,7 @@ function Margins({ projectId, data, onSaved }: { projectId: string; data: Qualit
     try {
       // The server replaces the whole set: the saved margins are sent too, those shown over them.
       const shown = Object.fromEntries(parsed.map((p) => [p.row.key, p.value as number]));
-      onSaved(await saveQualityMargins(projectId, marginsToSave(data.margins, shown)));
+      onSaved(await saveQualityMargins(projectId, marginsToSave(data.settings.margins, shown)));
       setTexts({});
       setSaved(true);
     } catch (err) {
@@ -230,7 +230,7 @@ function Margins({ projectId, data, onSaved }: { projectId: string; data: Qualit
   );
 }
 
-function Questions({ projectId, data, onMargins }: { projectId: string; data: QualityData; onMargins: (m: Record<string, number>) => void }) {
+function Questions({ projectId, data, onMargins }: { projectId: string; data: QualityAnswer; onMargins: (m: Record<string, number>) => void }) {
   const t = useT();
   return (
     <Section title={t("quality.questionsTitle")} explain={t("quality.questionsExplain.short")} more={t("quality.questionsExplain")}>
@@ -250,7 +250,7 @@ function Questions({ projectId, data, onMargins }: { projectId: string; data: Qu
                 <TableRow key={q.key} sx={{ verticalAlign: "top" }}>
                   <TableCell component="th" scope="row" sx={{ wordBreak: "break-word", minWidth: 140 }}>
                     {q.label}
-                    {q.kind === "number" && q.margin !== null && (
+                    {q.kind === "number" && q.margin !== undefined && (
                       <Typography variant="body2" color="text.secondary">
                         {t("quality.withinMargin", { margin: q.margin })}
                       </Typography>
@@ -282,7 +282,7 @@ function Answer({ questionKey, value, options }: { questionKey: string; value: s
   );
 }
 
-function Confusions({ data, onWriteNote }: { data: QualityData; onWriteNote: (draft: NoteDraft) => void }) {
+function Confusions({ data, onWriteNote }: { data: QualityAnswer; onWriteNote: (draft: NoteDraft) => void }) {
   const t = useT();
   const { language } = useApp();
   const label = labelMap(data.questions);
@@ -389,7 +389,7 @@ const stickyFirst = {
   minWidth: 96,
 } as const;
 
-function People({ data }: { data: QualityData }) {
+function People({ data }: { data: QualityAnswer }) {
   const t = useT();
   const label = labelMap(data.questions);
   return (
@@ -454,7 +454,7 @@ function useWidth<T extends HTMLElement>(): [RefObject<T | null>, number] {
 
 const CHART_HEIGHT = 200;
 
-function WeekLineChart({ data }: { data: QualityData }) {
+function WeekLineChart({ data }: { data: QualityAnswer }) {
   const t = useT();
   const { language } = useApp();
   const [ref, width] = useWidth<HTMLDivElement>();
@@ -573,7 +573,7 @@ function WeekLineChart({ data }: { data: QualityData }) {
     </Box>
   );
 }
-function Weeks({ data }: { data: QualityData }) {
+function Weeks({ data }: { data: QualityAnswer }) {
   const t = useT();
   const { language } = useApp();
   const [view, setView] = useState<"chart" | "table">("chart");
@@ -620,7 +620,7 @@ function Weeks({ data }: { data: QualityData }) {
   );
 }
 
-function Problems({ data }: { data: QualityData }) {
+function Problems({ data }: { data: QualityAnswer }) {
   const t = useT();
   const { language } = useApp();
   const count = data.problemsTotal;
@@ -771,7 +771,7 @@ function TeamQualityTab({ projectId, view }: { projectId: string; view: ProjectV
 
   // Changes made here apply to the data as it is when they land (not as it was when they
   // started), so a load or another change in between is not undone.
-  const update = (change: (prev: QualityData) => Partial<QualityData>) => setData((prev) => ({ ...prev, ...change(prev) }));
+  const update = (change: (prev: QualityAnswer) => Partial<QualityAnswer>) => setData((prev) => ({ ...prev, ...change(prev) }));
   const savedNote = (saved: GuidanceNote) => update((prev) => ({ notes: withNote(prev.notes, saved) }));
 
   const onDecision = (plot: string, decision: Parameters<typeof withDecision>[2]) => update((prev) => ({ decisions: withDecision(prev.decisions, plot, decision) }));
@@ -816,7 +816,7 @@ function TeamQualityTab({ projectId, view }: { projectId: string; view: ProjectV
           <Counts data={data} stillWorking={busy} />
           {data.plotsChecked > 0 && (
             <>
-              <Questions projectId={projectId} data={data} onMargins={(margins) => (update(() => ({ margins })), reload())} />
+              <Questions projectId={projectId} data={data} onMargins={(margins) => (update((prev) => ({ settings: { ...prev.settings, margins } })), reload())} />
               <Confusions data={data} onWriteNote={setNote} />
               <People data={data} />
               <Weeks data={data} />

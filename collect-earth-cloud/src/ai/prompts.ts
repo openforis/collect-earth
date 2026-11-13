@@ -1,6 +1,9 @@
 // The texts the AI assistant is given (Task 14): its system instruction, the turn that
 // starts each kind of run, the topic check of a free question, and the refusal shown
 // for an off-topic one. English to the model, plus "Answer in <language>".
+import type { FollowUpAction } from '../wire/ai.js';
+
+export type { FollowUpAction } from '../wire/ai.js';
 
 /** The dashboard's languages; the assistant answers in the one the coordinator uses. */
 export type AiLanguage = 'en' | 'es' | 'fr' | 'pt' | 'tr';
@@ -49,7 +52,6 @@ export function reportFinalPrompt(lang: AiLanguage): string {
   ].join('\n');
 }
 
-export type FollowUpAction = 'explain' | 'draft_note' | 'recheck';
 export const FOLLOW_UP_ACTIONS: readonly FollowUpAction[] = ['explain', 'draft_note', 'recheck'];
 
 const FOLLOW_UP_ASKS: Record<FollowUpAction, string> = {

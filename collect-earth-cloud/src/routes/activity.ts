@@ -24,9 +24,9 @@ import type { ProjectStateCache, ServedState } from '../projectState.js';
 import { pairAt, pairFields, recordResolver } from '../quality.js';
 import { answerOptions } from '../qualityReports.js';
 import type { QualityService, ServedReport } from '../qualityService.js';
-import type { Assessment } from '../rounds.js';
 import { InvalidCursorError, isStoredTime, MAX_STORED_TIME, type Store } from '../store/store.js';
-import type { AuditAction, RecordChange } from '../types.js';
+import type { ActivityPage, DailyRow, DecisionRow, DifferenceRow, ExportAnswer, ExportKind, LogItem, WeeklyAnswer } from '../wire/activity.js';
+import type { BellAnswer } from '../wire/progress.js';
 import { isIsoWeek, weekOfDate, weeklySummary, type WeeklySummary } from '../weekly.js';
 import { loadPeople, loadPeopleFor } from './people.js';
 import type { PlotPlaceReader } from './plotPlaces.js';
@@ -45,8 +45,8 @@ import { MAX_NAME, publicDecision } from './quality.js';
  *   tab's cards) with what this coordinator has read (attention_reads).
  */
 
-export const EXPORT_KINDS = ['people', 'daily', 'decisions', 'differences'] as const;
-export type ExportKind = (typeof EXPORT_KINDS)[number];
+export const EXPORT_KINDS = ['people', 'daily', 'decisions', 'differences'] as const satisfies readonly ExportKind[];
+export type { DailyRow, DifferenceRow, ExportKind, LogItem } from '../wire/activity.js';
 /** The latest time a log's window may end (the largest time a JS Date holds). */
 const END_OF_TIME = MAX_STORED_TIME;
 /** At most this many keys are marked read in one request. */
@@ -54,36 +54,6 @@ const MAX_READ_KEYS = 50;
 
 type BadRequest = { error: 'bad_request'; reason: string };
 const bad = (reason: string): BadRequest => ({ error: 'bad_request', reason });
-
-/** One row of the log as the dashboard gets it. */
-export type LogItem =
-  | {
-      type: 'record';
-      id: string;
-      /** When Collect Earth saved it (modifiedOn, the collector's clock). */
-      at: number;
-      receivedAt: number;
-      person: string;
-      change: RecordChange;
-      /** The plot unit (the plot page's id), or null for a record of a plot in no plot file. */
-      plot: string | null;
-      /** The plot as the collector sees it (the keys hidden from the record list left out). */
-      name: string;
-      /** Coordinators see whether it is a first assessment or a check (the log is theirs only). */
-      assessment: Assessment;
-      round: string;
-    }
-  | {
-      type: 'audit';
-      id: string;
-      at: number;
-      /** Who did it; null for a project key, or someone since removed or whose account is gone. */
-      person: string | null;
-      action: AuditAction;
-      details: Record<string, string | number | boolean | null>;
-      /** For a decision: the plot as the collector sees it. */
-      plotName?: string;
-    };
 
 function timeZoneOf(request: FastifyRequest): string {
   const tz = ((request.query ?? {}) as { tz?: string }).tz;
@@ -229,7 +199,7 @@ export async function registerActivityRoutes(
       people,
       files: fileOut,
       persons: members.map((m) => m.username).sort(),
-    });
+    } satisfies ActivityPage);
   });
 
   // --- the weekly summary --------------------------------------------------------------------
@@ -247,7 +217,7 @@ export async function registerActivityRoutes(
     const week = typeof asked === 'string' && asked !== '' ? asked : weekOfDate(localDate(at, timeZone));
     const served = await states.get(projectId, request.log);
     const summary = await weeklyOf(store, quality, served, { projectId, timeZone, log: request.log }, week, at);
-    return reply.send({ ...summary, asOf: served.stale ? served.state.builtAt : null });
+    return reply.send({ ...summary, asOf: served.stale ? served.state.builtAt : null } satisfies WeeklyAnswer);
   });
 
   // --- downloads -----------------------------------------------------------------------------
@@ -259,20 +229,17 @@ export async function registerActivityRoutes(
     const at = now();
     const timeZone = timeZoneOf(request);
     const served = await states.get(projectId, request.log);
-    let body: Record<string, unknown>;
-    let rows: number;
+    let answer: ExportAnswer;
     if (kind === 'people') {
       const table = peopleTable(await loadPeople(store, quality, served, request, at, { invites: false }));
-      body = { today: table.today, timeZone, rows: table.people };
-      rows = table.people.length;
+      answer = { kind, today: table.today, timeZone, rows: table.people };
     } else if (kind === 'daily') {
       const list = await dailyRows(store, projectId, served.state.units.byOperator, timeZone);
-      body = { today: localDate(at, timeZone), timeZone, rows: list };
-      rows = list.length;
+      answer = { kind, today: localDate(at, timeZone), timeZone, rows: list };
     } else if (kind === 'decisions') {
       const [decisions, figures, facts] = await Promise.all([store.listQualityDecisions(projectId), peekFigures(quality, projectId, request), places.surveyFacts(projectId, request.log)]);
       const list = decisions
-        .map((d) => {
+        .map((d): DecisionRow => {
           const p = publicDecision(d, figures?.flags ?? null);
           return {
             plot: d.plot,
@@ -287,24 +254,23 @@ export async function registerActivityRoutes(
           };
         })
         .sort((a, b) => b.decidedAt - a.decidedAt || (a.plot < b.plot ? -1 : a.plot > b.plot ? 1 : 0));
-      body = { today: localDate(at, timeZone), timeZone, rows: list, figures: figures ? { computedAt: figures.computedAt, stale: figures.stale } : null };
-      rows = list.length;
+      answer = { kind, today: localDate(at, timeZone), timeZone, rows: list, figures: figures ? { computedAt: figures.computedAt, stale: figures.stale } : null };
     } else {
       const figures = await peekFigures(quality, projectId, request);
       if (!figures) {
         return reply.code(409).send({ error: 'no_figures', reason: 'The differences come from the quality figures: open the Quality tab first, then download them.' });
       }
       const out = await differenceRows(store, quality, projectId, figures, request, places);
-      body = { today: localDate(at, timeZone), timeZone, ...out, figures: { computedAt: figures.computedAt, stale: figures.stale } };
-      rows = out.rows.length;
+      answer = { kind, today: localDate(at, timeZone), timeZone, ...out, figures: { computedAt: figures.computedAt, stale: figures.stale } };
     }
+    const rows = answer.rows.length;
     await audit(store, request, 'export.downloaded', { kind, rows });
-    return reply.send({ kind, ...body });
+    return reply.send(answer);
   });
 
   // --- the bell ------------------------------------------------------------------------------
 
-  async function bell(request: FastifyRequest, add: readonly string[] | 'all' | null) {
+  async function bell(request: FastifyRequest, add: readonly string[] | 'all' | null): Promise<BellAnswer> {
     const { projectId, userId } = request.membership!;
     const at = now();
     const [served, settings] = await Promise.all([states.get(projectId, request.log), store.getProgressSettings(projectId)]);
@@ -388,23 +354,6 @@ export async function weeklyOf(
   return summary;
 }
 
-/** The daily activity download: per local day and person, what Collect Earth stored. */
-export interface DailyRow {
-  date: string;
-  person: string;
-  /** Plots (first assessments) first submitted that day, as the Progress tab counts them. */
-  plots: number;
-  /** Checks first submitted that day. */
-  checks: number;
-  /** Plots submitted again after being taken back to edit (record events). */
-  submittedAgain: number;
-  /** Saves not submitted: a draft saved, first or again (record events, autosaves included). */
-  drafts: number;
-  /** Submitted plots opened again and changed (not submitted now). */
-  reopened: number;
-  deleted: number;
-}
-
 async function dailyRows(store: Store, projectId: string, byOperator: ReadonlyMap<string, { mainSubmitted: ReadonlyMap<string, number>; checkSubmitted: ReadonlyMap<string, number> }>, timeZone: string): Promise<DailyRow[]> {
   const dayOf = dayInZone(timeZone);
   const rows = new Map<string, DailyRow>();
@@ -478,19 +427,4 @@ async function differenceRows(store: Store, quality: QualityService, projectId: 
   // Number questions: their answers are written as numbers in the CSV.
   const numbers = [...keys].filter((key) => outline?.get(key)?.kind === 'number');
   return { rows, labels, options: answerOptions(outline, keys), numbers };
-}
-
-/** One row of the differences download: a differing question of a pair, or a pair changed or gone since the figures. */
-export interface DifferenceRow {
-  plot: string;
-  name: string;
-  first: string;
-  check: string;
-  latest: boolean;
-  decision: string | null;
-  key: string | null;
-  firstAnswer: string | null;
-  checkAnswer: string | null;
-  /** differs: the answers differ as the figures found; changed: they no longer differ; gone: a record of the pair was deleted. */
-  status: 'differs' | 'changed' | 'gone';
 }

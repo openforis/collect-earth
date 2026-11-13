@@ -3,7 +3,7 @@ import LinearProgress from "@mui/material/LinearProgress";
 import Typography from "@mui/material/Typography";
 import type * as Leaflet from "leaflet";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { getMapPlots, type AnalysisModelData, type MapPlots } from "../../api";
+import { getMapPlots, type AnalysisModel, type MapPlots } from "../../api";
 import { mapPlotsSql } from "../../analysisInsights";
 import type { Filter } from "../../analysisQuestion";
 import { valueColour } from "../../analysisColors";
@@ -34,7 +34,7 @@ export function AnalysisMap({
   plotLinks,
 }: {
   projectId: string;
-  model: AnalysisModelData;
+  model: AnalysisModel;
   cube: Cube;
   filters: Filter[];
   colour: string | null;

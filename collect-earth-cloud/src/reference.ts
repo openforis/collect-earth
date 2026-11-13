@@ -16,42 +16,14 @@ import type { Question } from './surveyOutline.js';
 import { priority } from './sampling.js';
 import type { RoundInfo } from './cep.js';
 import type { Member, PlotAssignment, PlotHoldingKey, ReferencePlot } from './types.js';
+import type { ExternalReferenceFigures, ReferenceFigures, ReferencePerson } from './wire/checks.js';
+
+export type { ExternalReferenceFigures, ReferenceFigures, ReferencePerson, ReferenceQuestion } from './wire/checks.js';
 
 /** At most this many reference plots per project (each is a copy for every collector). */
 export const MAX_REFERENCE_PLOTS = 500;
 /** At most this many plots named in one request (mark or unmark). */
 export const MAX_PLOTS_PER_REQUEST = 500;
-
-/** A question's accuracy: of the checks answering it (or the reference), how many match the reference. */
-export interface ReferenceQuestion extends Rate {
-  key: string;
-  label: string;
-  kind: 'choice' | 'number';
-}
-
-export interface ReferencePerson {
-  username: string;
-  /** Reference plots they checked (one check per plot, their latest); agreeing = every compared answer matches. */
-  plots: Rate;
-  /** Per question, in the survey's order: their answers compared with the reference's. */
-  questions: { key: string; label: string; compared: number; agreeing: number; rate: number | null }[];
-}
-
-export interface ReferenceFigures {
-  /** Reference plots, and of them those whose reference assessment is submitted (only those are measured). */
-  plots: number;
-  assessed: number;
-  /** Checks measured: one per person and plot, with at least one question compared. */
-  checks: number;
-  /** Per question, everyone's checks together, in the survey's order. */
-  questions: ReferenceQuestion[];
-  /** Everyone with a check measured, by name. */
-  people: ReferencePerson[];
-  /** Each reference plot (plot order): its assessor, whether the reference is submitted, and how many checks of it are. */
-  byPlot: { plot: string; assessor: string; assessed: boolean; checks: number }[];
-  /** Against the reference answers a coordinator uploaded (externalReferenceFigures); absent without them. */
-  external?: ExternalReferenceFigures;
-}
 
 export const NO_REFERENCE: ReferenceFigures = { plots: 0, assessed: 0, checks: 0, questions: [], people: [], byPlot: [] };
 
@@ -336,20 +308,6 @@ export function parsePlotList(value: unknown): string[] | null {
 export const MAX_REFERENCE_ANSWERS = 100_000;
 /** At most this many unmatched values and unknown plots are reported back. */
 const MAX_REPORTED = 50;
-
-export interface ExternalReferenceFigures {
-  /** Plots with reference answers, and of them those someone's record was compared on. */
-  plots: number;
-  assessed: number;
-  /** Records compared: each person's latest submitted record of each plot (first assessment or check). */
-  checks: number;
-  /** Per question, everyone's answers together, in the survey's order: agreeing = the same as the reference. */
-  questions: ReferenceQuestion[];
-  /** Per person, by name: `answers` every compared answer (its share differing is their disagreement), `plots` all agreeing. */
-  people: (ReferencePerson & { answers: Rate })[];
-  /** Per plot (plot order): records compared, and their answers compared and agreeing. */
-  byPlot: { plot: string; records: number; compared: number; agreeing: number }[];
-}
 
 export interface ParsedReferenceAnswers {
   rows: { plotKey: string; answers: Record<string, string> }[];

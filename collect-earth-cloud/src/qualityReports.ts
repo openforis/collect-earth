@@ -6,78 +6,18 @@ import { marginKey, MIN_PLOTS, type Confusion, type QualityReport } from './qual
 import { withQuestionLabels } from './questionLabels.js';
 import type { Question } from './surveyOutline.js';
 import type { GuidanceNote } from './types.js';
+import type { AnswerOptions } from './wire/quality.js';
+import type { PersonalReport, ReportConfusion, ReportNote, TeamReport } from './wire/reports.js';
+
+export type { AnswerOption, AnswerOptions } from './wire/quality.js';
+export type { PersonalReport, ReportConfusion, ReportNote, ReportRate, TeamReport } from './wire/reports.js';
 
 /** The served survey's outline, or null without one. */
 type Outline = ReadonlyMap<string, Question> | null;
 
-/** A choice question's answer: its code and its label in the survey. */
-export interface AnswerOption {
-  code: string;
-  label: string;
-}
-
-/**
- * The answer options of choice questions, by question key, so answers are shown by their
- * label ("Forest"), not their code ("F"). Survey texts only: no names, no answers.
- */
-export type AnswerOptions = Record<string, AnswerOption[]>;
-
 /** The team report's confusions, and the example plots of each. */
 export const TEAM_CONFUSIONS = 10;
 export const TEAM_CONFUSION_PLOTS = 5;
-
-/** A guidance note as the reports show it: who wrote it and when are left out. */
-export interface ReportNote {
-  id: string;
-  questionKey: string;
-  firstValue: string | null;
-  checkValue: string | null;
-  text: string;
-}
-
-/** A mix-up between a first assessment and a check of it; checks is how many checks. */
-export interface ReportConfusion {
-  key: string;
-  label: string;
-  first: string;
-  check: string;
-  checks: number;
-  plots: string[];
-  /** The notes about this mix-up: of its question with no answers given, or with these answers. */
-  notes: ReportNote[];
-}
-
-/** Checks counted, those agreeing on every compared question, and the share (null below minChecks). */
-export interface ReportRate {
-  checks: number;
-  agreeing: number;
-  rate: number | null;
-}
-
-/** GET /my-quality: the caller's own figures as first assessor. */
-export interface PersonalReport {
-  username: string;
-  /** Below this many checks a rate is null ("too few checks to judge"). */
-  minChecks: number;
-  /** The checks of plots the caller assessed first. */
-  asFirst: ReportRate;
-  /** Up to 3 of their mix-ups as first assessor, with up to 10 plots each. */
-  confusions: ReportConfusion[];
-  /** The options of the choice questions of the mix-ups and their notes. */
-  options: AnswerOptions;
-}
-
-/** GET /quality/team-report: no names at all. */
-export interface TeamReport {
-  minChecks: number;
-  plotsChecked: number;
-  plotsDiffering: number;
-  questions: { key: string; label: string; kind: 'choice' | 'number'; checks: number; agreeing: number; rate: number | null; margin?: number }[];
-  confusions: ReportConfusion[];
-  notes: ReportNote[];
-  /** The options of the choice questions of the report. */
-  options: AnswerOptions;
-}
 
 /**
  * The options of the choice questions among `keys` that the outline lists with options

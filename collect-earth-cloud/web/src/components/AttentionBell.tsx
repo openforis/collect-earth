@@ -9,7 +9,7 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import NotificationsNone from "@mui/icons-material/NotificationsNone";
 import { useEffect, useId, useState } from "react";
-import { getAttention, markAttentionRead, type BellData, type BellItem } from "../api";
+import { getAttention, markAttentionRead, type BellAnswer } from "../api";
 import { useApp } from "../appContext";
 import { useT } from "../i18n";
 import { attentionAction, attentionText } from "../progressView";
@@ -21,7 +21,7 @@ import { MoreInfo } from "./Explain";
 /** The bell is asked again this long after each load, while the page is visible. */
 const BELL_REFRESH_MS = 120_000;
 
-function BellRow({ projectId, entry, onRead, onClose }: { projectId: string; entry: BellItem; onRead: (key: string) => void; onClose: () => void }) {
+function BellRow({ projectId, entry, onRead, onClose }: { projectId: string; entry: BellAnswer["items"][number]; onRead: (key: string) => void; onClose: () => void }) {
   const t = useT();
   const { language } = useApp();
   const { title, text, more } = attentionText(t, entry.item, language);
@@ -69,7 +69,7 @@ export function AttentionBell({ projectId }: { projectId: string }) {
   const t = useT();
   const id = useId();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
-  const [data, setData] = useState<BellData | null>(null);
+  const [data, setData] = useState<BellAnswer | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [tick, setTick] = useState(0);
 

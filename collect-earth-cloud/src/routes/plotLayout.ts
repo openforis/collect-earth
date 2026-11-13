@@ -6,22 +6,27 @@ import { checkUploadFits } from '../limits.js';
 import { checkPlotLayout, plotLayoutOf, rewriteProperties } from '../plotLayout.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import type { Store } from '../store/store.js';
+import type { ImageryAnswer, PlotLayoutAnswer, PlotLayoutChangeAnswer, PropertiesValues } from '../wire/projects.js';
 import type { PlotPlaceReader } from './plotPlaces.js';
 
 type Values = Record<string, string | undefined>;
+
+/** The keys a setting has, with their values (a key the properties lack is left out, as JSON leaves it). */
+const present = (values: Values): PropertiesValues =>
+  Object.fromEntries(Object.entries(values).filter((entry): entry is [string, string] => entry[1] !== undefined));
 
 /** Settings of Collect Earth the coordinator keeps in the project file's project_definition.properties. */
 interface ProjectSettings {
   /** The route under /v1/projects/:pid/ */
   path: string;
-  /** The field of the answers that holds the values */
-  field: string;
   /** Its name in the activity log (settings.changed) */
   setting: string;
   of(properties: ReadonlyMap<string, string>): Values;
   check(body: unknown, current: Values): { changes: Values } | { reason: string };
-  /** More for the GET */
-  extra?(projectId: string): Promise<Record<string, unknown>>;
+  /** The GET's answer */
+  read(values: PropertiesValues, projectId: string): Promise<object>;
+  /** The PUT's answer: the values as they are now */
+  written(values: PropertiesValues): object;
 }
 
 /**
@@ -33,13 +38,20 @@ interface ProjectSettings {
 export async function registerPlotLayoutRoutes(app: FastifyInstance, store: Store, places: PlotPlaceReader): Promise<void> {
   registerProjectSettings(app, store, places, {
     path: 'plot-layout',
-    field: 'layout',
     setting: 'plotLayout',
     of: plotLayoutOf,
     check: checkPlotLayout,
-    extra: async (projectId) => ({ recordsExist: await store.hasRecords(projectId) }),
+    read: async (layout, projectId) => ({ layout, recordsExist: await store.hasRecords(projectId) }) satisfies PlotLayoutAnswer,
+    written: (layout) => ({ layout }) satisfies PlotLayoutChangeAnswer,
   });
-  registerProjectSettings(app, store, places, { path: 'imagery', field: 'imagery', setting: 'imagery', of: imageryOf, check: (body, current) => checkImagery(body, current) });
+  registerProjectSettings(app, store, places, {
+    path: 'imagery',
+    setting: 'imagery',
+    of: imageryOf,
+    check: (body, current) => checkImagery(body, current),
+    read: async (imagery) => ({ imagery }) satisfies ImageryAnswer,
+    written: (imagery) => ({ imagery }) satisfies ImageryAnswer,
+  });
 }
 
 function registerProjectSettings(app: FastifyInstance, store: Store, places: PlotPlaceReader, settings: ProjectSettings): void {
@@ -49,7 +61,7 @@ function registerProjectSettings(app: FastifyInstance, store: Store, places: Plo
     // Read from the facts kept per project file (Collect Earth asks every few minutes)
     const { properties } = await places.surveyFacts(projectId, request.log);
     if (!properties) return reply.code(404).send({ error: 'not_found' });
-    return reply.send({ [settings.field]: settings.of(properties), ...(await settings.extra?.(projectId)) });
+    return reply.send(await settings.read(present(settings.of(properties)), projectId));
   });
 
   // Rewrites the keys of project_definition.properties in the served project file (and the one as uploaded, so that
@@ -69,7 +81,7 @@ function registerProjectSettings(app: FastifyInstance, store: Store, places: Plo
     if ('reason' in checked) return reply.code(400).send({ error: 'bad_request', reason: checked.reason });
     const { changes } = checked;
     const changed = Object.entries(changes).some(([k, v]) => current[k] !== v);
-    if (!changed) return reply.send({ [settings.field]: current });
+    if (!changed) return reply.send(settings.written(present(current)));
 
     const date = new Date();
     const rewrite = (zip: Buffer) => withProperties(zip, (data) => rewriteProperties(data, changes), date);
@@ -91,6 +103,6 @@ function registerProjectSettings(app: FastifyInstance, store: Store, places: Plo
       }
     }
     await audit(store, request, 'settings.changed', { setting: settings.setting });
-    return reply.send({ [settings.field]: { ...current, ...changes } });
+    return reply.send(settings.written(present({ ...current, ...changes })));
   });
 }

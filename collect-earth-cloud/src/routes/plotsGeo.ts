@@ -11,6 +11,7 @@ import type { Store } from '../store/store.js';
 import type { CsvFile, DecisionKind } from '../types.js';
 import { isWgs84, placesOfPlotFile, type PlotPlaceReader } from './plotPlaces.js';
 import { MAX_NAME } from './quality.js';
+import type { MapExtras, MapPage } from '../wire/map.js';
 
 /**
  * The map of progress (Task 9, monitoring Phase 5), for coordinators and reviewers
@@ -58,7 +59,7 @@ interface Build {
   key: string;
   map: GeoMap;
   at: number;
-  extras: Record<string, unknown>;
+  extras: MapExtras;
 }
 
 interface PlaceEntry {
@@ -267,7 +268,7 @@ export async function registerPlotsGeoRoutes(
     return reply.send(answer(id, build, offset, size));
   });
 
-  function answer(version: string, build: Build, offset: number, size: number) {
+  function answer(version: string, build: Build, offset: number, size: number): MapPage {
     const { map } = build;
     const page = geoPage(map, offset, size);
     return {

@@ -1,85 +1,208 @@
 import { unzipSync } from "fflate";
 import type { MessageKey } from "./i18n";
 import { getToken } from "./storage";
+import type { BackupFormat, BackupLinkAnswer, BackupRounds, BackupSummary, ExportChoices } from "../../src/wire/data";
+import type {
+  Assignment,
+  AssignmentDetail,
+  AssignmentsAnswer,
+  CsvColumns,
+  CsvFilesAnswer,
+  CsvUploadAnswer,
+  DesignArea,
+  DesignFacts,
+  DesignPlan,
+  DistributionSummary,
+  DivisionBody,
+  ListedCsvFile,
+  MoveUnfinishedAnswer,
+  PlotColumn,
+  PlotDesign,
+  RebalanceAnswer,
+  ReplaceImpact,
+  SigridCountries,
+  SigridFacts,
+} from "../../src/wire/plotFiles";
+import type {
+  AccountDeletion,
+  AnonymizedAnswer,
+  DigestKind,
+  FormerMember,
+  FormerMembersAnswer,
+  InvitesAnswer,
+  JoinPreview,
+  LoginAnswer,
+  MapTiles,
+  Me,
+  Membership,
+  NewInvite,
+  Notifications,
+  OpenInvite,
+  RecoveryCodes,
+  ServerInfo,
+  Session,
+  SignupAnswer,
+  TwoFactorSetup,
+  UnsubscribeAnswer,
+} from "../../src/wire/account";
+import type { BellAnswer, ProgressAnswer, ProgressSettings, PublicProgress } from "../../src/wire/progress";
+import type {
+  NewShareLinkAnswer,
+  ProjectAi,
+  ProjectCopyAnswer,
+  ProjectStatus,
+  ProjectStatusAnswer,
+  ShareLink,
+  ShareLinksAnswer,
+} from "../../src/wire/projectSettings";
+import type {
+  BackupImportAnswer,
+  BackupImportPreview,
+  CeoFetchAnswer,
+  CeoImportAnswer,
+  CeoImportPreview,
+  CepUploadAnswer,
+  CollectImportPreview,
+  CollectImportResult,
+  ImageryAnswer,
+  Member,
+  MembersAnswer,
+  NewProjectAnswer,
+  Overview,
+  PeriodHeaderAnswer,
+  Periods,
+  PlotLayout,
+  PlotLayoutAnswer,
+  PlotLayoutChangeAnswer,
+  PlotPeriodsAnswer,
+  ProjectInfo,
+  ProjectListAnswer,
+  PropertiesValues,
+  RepeatAnswer,
+  RepeatAreaAnswer,
+  RepeatChange,
+  RepeatPreview,
+  RoundAnswer,
+  RoundInfo,
+} from "../../src/wire/projects";
+import type {
+  HealthReason,
+  ReferenceAnswer,
+  ReferenceAnswersReport,
+  ReferenceChangeAnswer,
+  ReferenceMarkBody,
+  SamplingDrawAnswer,
+  SamplingRuleInput,
+  SamplingView,
+  SurveyHealthAnswer,
+} from "../../src/wire/checks";
+import type { BulkDecisionAnswer, BulkRule, PlotPageAnswer, PlotSearchAnswer, ReviewQueueAnswer, ReviewQueueItem } from "../../src/wire/review";
+import type { MapFile, MapPage, MapStatus } from "../../src/wire/map";
+import type {
+  AnswerColumnsAnswer,
+  AnswersAnswer,
+  DecisionKind,
+  FlagKind,
+  FlagsAnswer,
+  GuidanceNote,
+  GuidanceNoteInput,
+  PlotPlaces,
+  PublicDecision as QualityDecision,
+  QualityAnswer,
+  QualitySettingsAnswer,
+} from "../../src/wire/quality";
+import type { AiRunAnswer, AiRunListed, AiRunsAnswer, AiRunStartBody, AiRunStarted, AiStart, AiUsageAnswer } from "../../src/wire/ai";
+import type { MyQualityAnswer, TeamReportAnswer } from "../../src/wire/reports";
+import type {
+  AccountAnswer,
+  AccountDeletedAnswer,
+  AccountFilter,
+  AccountPage,
+  AccountQuery,
+  AccountSort,
+  AlertsMarkedAnswer,
+  CollectEarthVersions,
+  MadeAccount,
+  MadeAccountsAnswer,
+  MailCheck,
+  MessagePreview,
+  MessageSentAnswer,
+  OwnerAlertsPage,
+  ProjectArchivedAnswer,
+  ProjectFilter,
+  ProjectHandedAnswer,
+  ProjectPage,
+  ProjectQuery,
+  ProjectSort,
+  ResetLinkAnswer,
+  ServerActionKind,
+  ServerActivityPage,
+  ServerMessage,
+  ServerOverview,
+  SettingsChange,
+  ShownSettings,
+  TestMailAnswer,
+  UnlockAnswer,
+  UserSummary,
+  WebhookTestAnswer,
+} from "../../src/wire/serverAdmin";
+import type { PeopleAnswer, PersonAnswer, TimeSpent } from "../../src/wire/people";
+import type { ActivityPage, ExportAnswer, ExportKind, WeeklyAnswer } from "../../src/wire/activity";
+import type {
+  AnalysisAnswer,
+  AreaSettings,
+  AreaSettingsAnswer,
+  AreasAnswer,
+  IpccCategory,
+  IpccExports,
+  ListItem,
+  ProposedView,
+  ProposedViewsAnswer,
+  SharedAnalysisView,
+  SharedAnalysisViewInput,
+  SharedAnalysisViewsAnswer,
+  UncertaintyAnswer,
+  UncertaintySettings,
+  UncertaintySettingsAnswer,
+  UncertaintySetup,
+} from "../../src/wire/analysis";
+import type {
+  AttemptsAnswer,
+  GoldenFromAnswer,
+  GoldenPruneAnswer,
+  MyTrainingAnswer,
+  MyTrainingSet,
+  TrainingFiguresAnswer,
+  TrainingGolden,
+  TrainingKind,
+  TrainingList,
+  TrainingSetSummary,
+  TrainingSetView,
+} from "../../src/wire/training";
 
-// Every call the dashboard makes to the Collect Earth Cloud server, in one place, with
-// the response shapes it expects. Responses are normalised here (timestamps to epoch
-// ms, counts to numbers, relative links to absolute ones) so the pages do not have to
-// care about small differences between server versions.
+// Every call the dashboard makes to the Collect Earth Cloud server, in one place.
+//
+// The dashboard is built and shipped with the server, so it never talks to another version of it.
+// Where the answer's type is in the server's src/wire/ folder, it is imported from there and the
+// answer is used as it comes: a field the server renames fails the typecheck. The other areas
+// still have their own copy of the types and a clean-up function per answer (to be moved to
+// src/wire/ one area at a time; see its README.md).
 
 export type Role = "admin" | "reviewer" | "operator";
 export const ROLES: Role[] = ["operator", "reviewer", "admin"];
-export type ProjectCreation = "anyone" | "platform-admins";
+export type { ProjectCreation } from "../../src/wire/account";
+export type { ProjectStatus } from "../../src/wire/projectSettings";
 /** A project's lifecycle (the server's STATUS_MOVES): draft -> active -> closed (-> archived), closed -> active again. */
-export type ProjectStatus = "draft" | "active" | "closed" | "archived";
 export const STATUS_MOVES: Record<ProjectStatus, readonly ProjectStatus[]> = { draft: ["active"], active: ["closed"], closed: ["active", "archived"], archived: ["closed"] };
 
-export interface ServerInfo {
-  needsSetup: boolean;
-  signupOpen: boolean;
-  projectCreation: ProjectCreation;
-  version: string | null;
-  /** Terms of use: when set, sign-up asks people to accept them. */
-  termsUrl: string | null;
-  contactEmail: string | null;
-  /** Shown in the app bar instead of "Collect Earth Cloud". */
-  serverName: string | null;
-  /** The AI assistant can be switched on for a project (set up and switched on by the server owner). */
-  aiAvailable: boolean;
-  /** "Forgot your password?" mails a reset link to an account's confirmed address (the server sends email). */
-  selfServiceReset: boolean;
-  /** The shortest password the server accepts (8 when it does not say). */
-  minPasswordLength?: number;
-  /** Open sign-up only with an address of these email domains; null: any. */
-  signupDomains?: string[] | null;
-  /** The map of progress's base map (OpenStreetMap unless the server sets another). */
-  mapTiles: MapTiles;
-  /**
-   * The dashboard runs on the person's own computer, for one person working alone (the server's
-   * LOCAL_MODE): what is about other people or the server is hidden (src/localMode.ts).
-   */
-  localMode: boolean;
-  /** Error reports (Sentry) and usage events, when the server sends them (its TELEMETRY setting). */
-  telemetry?: DashboardTelemetry | null;
-}
-
-export interface DashboardTelemetry {
-  sentryDsn: string | null;
-  environment: string;
-  release: string;
-  /** The server forwards the dashboard's usage events (POST /telemetry). */
-  events: boolean;
-}
-
-/** The server's telemetry settings, or null when they are off or unreadable (a DSN must be https). */
-export function toTelemetry(value: unknown): DashboardTelemetry | null {
-  if (!value || typeof value !== "object") return null;
-  const v = value as Record<string, unknown>;
-  const dsn = typeof v.sentryDsn === "string" && /^https:\/\/[^\s]+$/.test(v.sentryDsn) ? v.sentryDsn : null;
-  const events = v.events === true;
-  if (!dsn && !events) return null;
-  return {
-    sentryDsn: dsn,
-    environment: typeof v.environment === "string" ? v.environment.slice(0, 64) : "production",
-    release: typeof v.release === "string" ? v.release.slice(0, 100) : "collect-earth-cloud",
-    events,
-  };
-}
+export type { Announcement, DashboardTelemetry, MapTiles, Me, Membership, ServerInfo, Session } from "../../src/wire/account";
 
 /** Tells the server of a use of the dashboard it cannot see (it forwards it to Google Analytics, when it does). */
 export function sendUsageEvent(projectId: string, name: "training_report_opened" | "training_report_printed", params: Record<string, string | number> = {}): void {
   request<unknown>("POST", `${p(projectId)}/telemetry`, { json: { name, params } }).catch(() => undefined);
 }
 
-/** A base map's tiles: a URL with {z}/{x}/{y}, the attribution the source asks for (plain text) and where it links. */
-export interface MapTiles {
-  url: string;
-  attribution: string;
-  attributionUrl: string | null;
-  maxZoom: number;
-}
-
-/** OpenStreetMap's tiles: what a server that says nothing else uses. */
+/** OpenStreetMap's tiles (the server's default base map). */
 export const OSM_TILES: MapTiles = {
   url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
   attribution: "© OpenStreetMap contributors",
@@ -87,75 +210,9 @@ export const OSM_TILES: MapTiles = {
   maxZoom: 19,
 };
 
-/** The server's tiles when they are usable (an http(s) URL with {z}, {x} and {y}, an attribution), else OpenStreetMap's. */
-export function toMapTiles(value: unknown): MapTiles {
-  const m = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
-  const url = safeUrl(m.url);
-  const attribution = optionalText(m.attribution);
-  if (!url || !attribution || !["{z}", "{x}", "{y}"].every((part) => url.includes(part))) return OSM_TILES;
-  const maxZoom = Number(m.maxZoom);
-  return {
-    url,
-    attribution,
-    attributionUrl: safeUrl(m.attributionUrl),
-    maxZoom: Number.isInteger(maxZoom) && maxZoom >= 1 && maxZoom <= 22 ? maxZoom : OSM_TILES.maxZoom,
-  };
-}
+export type { CepInfo, OperatorProgress, Overview, ProjectInfo } from "../../src/wire/projects";
 
-export interface Session {
-  token: string;
-  userId: string;
-  username: string;
-}
-
-export interface Membership {
-  projectId: string;
-  projectName: string;
-  role: Role;
-  status: ProjectStatus;
-}
-
-/** The server owner's message to everyone signed in; `until`: when it ends (epoch ms), null: until cleared. */
-export interface Announcement {
-  text: string;
-  until: number | null;
-}
-
-export interface Me {
-  userId: string;
-  username: string;
-  memberships: Membership[];
-  isPlatformAdmin: boolean;
-  announcement: Announcement | null;
-  /** Two-step sign-in: on for the account; required of it by the server (it coordinates or administers). */
-  twoFactor: { enabled: boolean; required: boolean };
-}
-
-export interface ProjectInfo {
-  projectId: string;
-  name: string;
-  role: Role;
-  status: ProjectStatus;
-}
-
-export interface OperatorProgress {
-  operator: string;
-  total: number;
-  submitted: number;
-  lastModifiedOn: number | null;
-}
-
-export interface Overview {
-  name: string;
-  cep: { bytes: number; updatedAt: number | null } | null;
-  members: number;
-  csvFiles: number;
-  plots: number;
-  records: { total: number; submitted: number; byOperator: OperatorProgress[] };
-  /** Space the project uses; limitBytes null = no limit. Null from servers that do not report it. */
-  storage: { usedBytes: number; limitBytes: number | null } | null;
-}
-
+/** An open invite as the People tab reads it (GET /people; the invites' own list is the server's OpenInvite). */
 export interface Invite {
   id: string;
   role: Role;
@@ -165,132 +222,24 @@ export interface Invite {
   createdAt: number | null;
 }
 
-export interface NewInvite {
-  inviteToken: string;
-  joinPath: string;
-  /** Always absolute: built from this page's address when the server does not know its own. */
-  joinUrl: string;
-  role: Role;
-  maxUses: number;
-  expiresAt: number | null;
-}
+export type { JoinPreview, NewInvite, OpenInvite } from "../../src/wire/account";
 
-export interface JoinPreview {
-  projectId: string;
-  projectName: string;
-  role: Role;
-  valid: boolean;
-}
-
-export interface Member {
-  userId: string;
-  username: string;
-  role: Role;
-  /** The server administrator disabled the account: it cannot log in or sync. */
-  disabled?: boolean;
-  /** A coordinator left their records out of the results (figures and exports). */
-  excluded?: { at: number; reason: string | null };
-}
-
-export interface CsvFile {
-  id: string;
-  filename: string;
-  checksum: string;
-  plotCount: number;
-  /** Its plots are divided between people (see the file's distribution). */
-  divided?: boolean;
-  /** People holding at least one of its plots; 0 for a whole file. */
-  dividedPeople?: number;
-  /** Given on upload of a file with a user column: how its plots were given out (the plots of unknown names were not). */
-  assignment?: { assigned: number; checks: number; notAssigned: number; unknown: string[] };
-  /** Given on upload: what may be wrong with the file, which was still taken. */
-  warnings?: {
-    /** Ids the survey's number keys cannot take. */
-    badIds?: number;
-    badIdExamples?: string[];
-    duplicateIds: number;
-    duplicateExamples: string[];
-    badCoordinates: number;
-    badCoordinateExamples: string[];
-  };
-}
-
-export interface Assignment {
-  userId: string;
-  csvFileId: string;
-}
-
-/** One column of a plot file, for dividing its plots by the column's values. */
-export interface CsvColumn {
-  /** 0-based. */
-  index: number;
-  /** From the header row; null when the file has none. */
-  name: string | null;
-  distinctCount: number;
-  /** Sorted by value; null when the column has too many different values (more than 200). */
-  values: { value: string; count: number }[] | null;
-}
-
-export interface CsvColumns {
-  plotCount: number;
-  hasHeader: boolean;
-  separator: string;
-  columns: CsvColumn[];
-  /** Whether the plots can be divided by place (order "nearby"), and why not. */
-  nearby: NearbyInfo;
-}
-
-/**
- * Order "nearby" needs latitude and longitude: the survey's coordinates must be in latitude
- * and longitude ("other_srs" otherwise, with its `srid`) and some plots must have them
- * ("no_places"). `withoutPlace` plots are shared out last. "unknown": the server did not say.
- */
-export interface NearbyInfo {
-  available: boolean;
-  reason: "other_srs" | "no_places" | "unknown" | null;
-  withPlace: number;
-  withoutPlace: number;
-  srid: string | null;
-}
-
-export type DivisionOrder = "file" | "mixed" | "nearby";
-
-/** How a plot file's plots are divided between people (what the server stores and applies). */
-export type Distribution =
-  | { mode: "whole" }
-  | { mode: "manual"; order?: "nearby" }
-  | { mode: "even"; people: string[]; percents?: number[]; order: DivisionOrder; overlapPercent?: number; seed?: number }
-  | {
-      mode: "column";
-      column: number;
-      groups: { value: string; people: string[] }[];
-      order: DivisionOrder;
-      overlapPercent?: number;
-      seed?: number;
-    };
-
-export interface PersonShare {
-  userId: string;
-  username: string;
-  /** Includes the quality-check copies. */
-  plots: number;
-  /** Quality-check copies: plots someone else also has. */
-  overlap: number;
-  /** Of the copies, those drawn by the automatic checks (the others came with the division). */
-  sampled: number;
-  /** Of the copies, those of reference plots (Task 14). */
-  reference: number;
-  /** Plots this person has submitted, among the ones they hold. */
-  submitted: number;
-}
-
-/** Who holds a file's plots. distribution null = the whole file goes to the people ticked in the grid. */
-export interface DistributionState {
-  distribution: Distribution | null;
-  plotCount: number;
-  unassigned: number;
-  people: PersonShare[];
-}
+export type { Member } from "../../src/wire/projects";
+export type {
+  Assignment,
+  AssignmentDetail,
+  CsvColumns,
+  CsvFile,
+  CsvFileWarnings,
+  DistributionSummary,
+  DivisionBody,
+  DivisionOrder,
+  ListedCsvFile,
+  NearbyAvailability,
+  PersonShare,
+  PlotColumn,
+  StoredDistribution,
+} from "../../src/wire/plotFiles";
 
 /** Agreement over some checks; rate (0..1) is null when there are too few checks to judge. */
 export interface Rate {
@@ -299,260 +248,10 @@ export interface Rate {
   rate: number | null;
 }
 
-export interface QuestionAgreement extends Rate {
-  key: string;
-  label: string;
-  kind: "choice" | "number";
-  /** The margin used (percent), for a number question. */
-  margin: number | null;
-}
+export type { AccountDeletion, ProjectRef } from "../../src/wire/account";
+export type { ResetLinkAnswer as ResetLink, SettingsChange, ShownSettings as ServerSettings, UserSummary as AdminUser } from "../../src/wire/serverAdmin";
 
-/** How often a first answer was met by another answer in the check. */
-export interface Confusion {
-  key: string;
-  first: string;
-  check: string;
-  count: number;
-  plots: string[];
-}
-
-export interface PersonQuality {
-  username: string;
-  asFirst: Rate;
-  asChecker: Rate;
-  weakest: { key: string; rate: number | null; compared: number; differing: number }[];
-}
-
-export interface WeekAgreement {
-  /** ISO week, yyyy-Www. */
-  week: string;
-  compared: number;
-  agreeing: number;
-}
-
-/** One check of a plot whose answers differ from the first assessment. */
-export interface Difference {
-  plot: string;
-  first: { operator: string; recordKey: string };
-  check: { operator: string; recordKey: string };
-  fields: { key: string; first: string; check: string }[];
-}
-
-export type DataProblemKind = "no_plot" | "unknown_round" | "two_main" | "extra_key_parts";
-
-export interface DataProblem {
-  kind: DataProblemKind | string;
-  plot: string;
-  recordKey: string;
-  operator: string;
-}
-
-export type DecisionKind = "first" | "check" | "recheck";
-
-export interface QualityDecision {
-  plot: string;
-  decision: DecisionKind;
-  comment: string | null;
-  decidedBy: string | null;
-  decidedAt: number | null;
-  /** Whoever decided has a record of the plot (a coordinator may decide their own plot). */
-  byAssessor: boolean;
-}
-
-export interface GuidanceNoteInput {
-  questionKey: string;
-  firstValue: string | null;
-  checkValue: string | null;
-  text: string;
-}
-
-export interface GuidanceNote extends GuidanceNoteInput {
-  id: string;
-  updatedBy: string | null;
-  updatedAt: number | null;
-}
-
-/**
- * The answer options of choice questions, by question key, from the survey: to show an
- * answer by its label ("Forest") instead of its code ("F").
- */
-export type AnswerOptions = Record<string, { code: string; label: string }[]>;
-
-/** The Quality tab's figures (GET /quality). Counts are checks, except plotsChecked and plotsDiffering. */
-export interface QualityData {
-  plotsChecked: number;
-  plotsDiffering: number;
-  questions: QuestionAgreement[];
-  confusions: Confusion[];
-  people: PersonQuality[];
-  weeks: WeekAgreement[];
-  differences: Difference[];
-  problems: DataProblem[];
-  problemsTotal: number;
-  beyondOutline: { count: number; keys: string[] };
-  decisions: QualityDecision[];
-  notes: GuidanceNote[];
-  /** Number margins in percent, by margin key (an indexed entity's question as [*]). */
-  margins: Record<string, number>;
-  /** The "very fast" flag's threshold, in seconds (Task 5). */
-  fastSeconds: number;
-  /** The answer options of the choice questions shown. */
-  options: AnswerOptions;
-  /** When the figures' records were read (ms). */
-  computedAt: number | null;
-  /** Older figures, given while newer ones are worked out. */
-  stale: boolean;
-  /** People a coordinator left out of these figures, with why. */
-  excluded: { username: string; reason: string | null }[];
-}
-
-/** Where a plot is, from the plot files. */
-export interface PlotPlace {
-  plot: string;
-  lat: number;
-  lon: number;
-  /** The plot id as the collector sees it (keys hidden from the record list left out). */
-  name: string;
-}
-
-/** The outline Collect Earth draws around a plot (from the project file), or only its place. */
-export type PlotOutline = { kind: "square"; sideMeters: number } | { kind: "circle"; radiusMeters: number; vertices: number } | { kind: "place" };
-
-/** The places asked for; none, with the system's id, when the survey's coordinates are not latitude and longitude. */
-export interface PlotPlaces {
-  places: PlotPlace[];
-  outline: PlotOutline;
-  unsupportedSrs: string | null;
-}
-
-function toOutline(value: unknown): PlotOutline {
-  const o = obj(value);
-  const positive = (n: unknown): n is number => typeof n === "number" && Number.isFinite(n) && n > 0;
-  if (o.kind === "square" && positive(o.sideMeters)) return { kind: "square", sideMeters: o.sideMeters };
-  if (o.kind === "circle" && positive(o.radiusMeters) && positive(o.vertices) && Number.isInteger(o.vertices) && o.vertices >= 3 && o.vertices <= 400) {
-    return { kind: "circle", radiusMeters: o.radiusMeters, vertices: o.vertices };
-  }
-  return { kind: "place" };
-}
-
-export interface ServerSettings {
-  signupOpen: boolean;
-  projectCreation: ProjectCreation;
-  /** 0 = no limit. */
-  maxProjectsPerUser: number;
-  /** 0 = no limit. */
-  maxProjectStorageMb: number;
-  termsUrl: string | null;
-  contactEmail: string | null;
-  serverName: string | null;
-  /** The AI assistant may be used on this server (it also needs the server's AI configuration). */
-  aiEnabled: boolean;
-  /** AI reports per project per UTC day; 0 = none allowed. */
-  aiReportsPerDay: number;
-  /** AI follow-ups and questions per project per UTC day; 0 = none allowed. */
-  aiFollowUpsPerDay: number;
-  /** AI tokens per project per calendar month (UTC); 0 = none allowed. */
-  aiMonthlyTokens: number;
-  /** Read only: whether the server has its AI configuration (Vertex AI). */
-  aiConfigured: boolean;
-  /** The banner every signed-in person sees (plain text), and when it ends (epoch ms; null: until cleared). */
-  announcement: string | null;
-  announcementUntil: number | null;
-  /** Coordinators and the server's administrators must use two-step sign-in. */
-  twoFactorForCoordinators: boolean;
-  /** The owner alerts' thresholds: per hour, and a project's storage in percent of its limit. */
-  alertFailedLogins: number;
-  alertServerErrors: number;
-  alertSyncErrors: number;
-  alertStoragePercent: number;
-  /** The alerts' Slack or Teams webhook: read back only as its service and host; set by alertWebhookUrl. */
-  alertWebhook: { kind: "slack" | "teams"; host: string } | null;
-  /** Write only: a new webhook address, or null to remove it. */
-  alertWebhookUrl?: string | null;
-  /** Open sign-up only with these email domains (comma-separated); null: any. */
-  signupDomains: string | null;
-  minPasswordLength: number;
-  /** Failed sign-ins in a row that lock an account (0: never), and for how long. */
-  loginLockFailures: number;
-  loginLockMinutes: number;
-}
-
-export interface AdminUser {
-  userId: string;
-  username: string;
-  isPlatformAdmin: boolean;
-  projects: number;
-  /** Projects the person coordinates (what the per-account project limit counts). */
-  coordinatedProjects: number;
-  /** When a server administrator disabled the account, or null. */
-  disabledAt: number | null;
-  /** Who disabled it, or null. */
-  disabledBy: string | null;
-  /** Two-step sign-in is on for the account. */
-  twoFactor: boolean;
-  /** When the account was made, and when it last signed in or used a session (null: never since this was kept). */
-  createdAt: number | null;
-  lastActiveAt: number | null;
-  /** Its email address, and whether the person confirmed it. */
-  email: string | null;
-  emailConfirmed: boolean;
-  /** Locked after failed sign-ins until then, or null */
-  lockedUntil: number | null;
-}
-
-export interface ProjectRef {
-  projectId: string;
-  name: string;
-}
-
-/** What deleting one's own account would do. */
-export interface AccountDeletion {
-  /** Projects where the person is the only coordinator and others work: deleting is refused. */
-  soleCoordinator: ProjectRef[];
-  /** Projects with nobody else in them: deleted together with the account. */
-  deletedWithAccount: ProjectRef[];
-  /** The only server administrator cannot delete their account. */
-  lastPlatformAdmin: boolean;
-}
-
-export interface ResetLink {
-  /** null when the link was mailed to the account's confirmed address instead (mailed) */
-  resetUrl: string | null;
-  expiresAt: number | null;
-  mailed: boolean;
-}
-
-/** added: the server added a hidden round key; own: the survey has one; none: no round. */
-export type RoundState = "added" | "own" | "none";
-
-/** A code of the round key's list, with its label in the survey's default language. */
-export interface RoundCode {
-  code: string;
-  label: string;
-}
-
-/** What the server did about the round key of the project file (GET /round). */
-export interface RoundInfo {
-  state: RoundState;
-  /** Why the server did not add round (state none before collection), e.g. "several_keys". */
-  refusal: string | null;
-  keyCount: number;
-  roundIndex: number | null;
-  roundCodes: RoundCode[];
-  /** The code that marks re-assessments; null for none (or not chosen yet). */
-  reassessmentCode: string | null;
-  /** The coordinator's note in Collect Earth (Task 16); null from older servers and older files. */
-  note: NoteInfo | null;
-}
-
-/** Whether the served project file carries the coordinator's note to Collect Earth, else why not. */
-export interface NoteInfo {
-  state: "added" | "none";
-  /** Why the server did not add it, e.g. "records_exist". */
-  refusal: string | null;
-  /** The plot file column it is read from (added). */
-  column: number | null;
-}
+export type { CodeItem, NoteInfo, RoundInfo, RoundState } from "../../src/wire/projects";
 
 /** A failed call. status 0 means the server could not be reached at all. */
 export class ApiError extends Error {
@@ -791,29 +490,6 @@ function upload<T>(method: string, path: string, body: Blob, contentType: string
 
 // --- normalisers -----------------------------------------------------------------
 
-/** Epoch ms from a number (ms) or an ISO 8601 string; null when absent or unreadable. */
-export function toMillis(value: unknown): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string" && value) {
-    const parsed = Date.parse(value);
-    return Number.isNaN(parsed) ? null : parsed;
-  }
-  return null;
-}
-
-/** A count from a number or a list (its length). */
-export function toCount(value: unknown): number {
-  if (Array.isArray(value)) return value.length;
-  const n = Number(value);
-  return Number.isFinite(n) ? n : 0;
-}
-
-/** An absolute URL for a server link that may be relative or missing. */
-export function absoluteUrl(url: string | null | undefined, fallbackPath: string, origin = window.location.origin): string {
-  if (url && /^https?:\/\//i.test(url)) return url;
-  const path = url || fallbackPath;
-  return `${origin.replace(/\/+$/, "")}${path.startsWith("/") ? "" : "/"}${path}`;
-}
 
 /** Optional text from the server: null when missing or empty. */
 function optionalText(value: unknown): string | null {
@@ -826,11 +502,7 @@ export function safeUrl(value: unknown): string | null {
   return text && /^https?:\/\//i.test(text) ? text : null;
 }
 
-function asRole(value: unknown): Role {
-  return value === "admin" || value === "reviewer" ? value : "operator";
-}
-
-/** A server without statuses (older) has active projects only. */
+/** A status read from free-form data (an audit entry's details); anything else reads as active. */
 export function asStatus(value: unknown): ProjectStatus {
   return value === "draft" || value === "closed" || value === "archived" ? value : "active";
 }
@@ -840,43 +512,9 @@ const p = (projectId: string) => `/v1/projects/${encodeURIComponent(projectId)}`
 // --- server & account --------------------------------------------------------------
 
 export async function getServerInfo(): Promise<ServerInfo> {
-  try {
-    const info = await request<Record<string, unknown>>("GET", "/v1/server-info", { noSessionEnd: true });
-    return {
-      needsSetup: info?.needsSetup === true,
-      signupOpen: info?.signupOpen === true,
-      projectCreation: info?.projectCreation === "anyone" ? "anyone" : "platform-admins",
-      version: typeof info?.version === "string" ? info.version : null,
-      termsUrl: safeUrl(info?.termsUrl),
-      contactEmail: optionalText(info?.contactEmail),
-      serverName: optionalText(info?.serverName),
-      aiAvailable: info?.aiAvailable === true,
-      selfServiceReset: info?.selfServiceReset === true,
-      minPasswordLength: typeof info?.minPasswordLength === "number" && info.minPasswordLength >= 8 ? info.minPasswordLength : 8,
-      signupDomains: Array.isArray(info?.signupDomains) ? (info.signupDomains as unknown[]).filter((d): d is string => typeof d === "string") : null,
-      mapTiles: toMapTiles(info?.mapTiles),
-      localMode: info?.localMode === true,
-      telemetry: toTelemetry(info?.telemetry),
-    };
-  } catch (error) {
-    // A server from before the dashboard existed: no setup, no sign-up.
-    if (error instanceof ApiError && error.status === 404) {
-      return {
-        needsSetup: false,
-        signupOpen: false,
-        projectCreation: "platform-admins",
-        version: null,
-        termsUrl: null,
-        contactEmail: null,
-        serverName: null,
-        aiAvailable: false,
-        selfServiceReset: false,
-        mapTiles: OSM_TILES,
-        localMode: false,
-      };
-    }
-    throw error;
-  }
+  const info = await request<ServerInfo>("GET", "/v1/server-info", { noSessionEnd: true });
+  // The terms link goes in an href: an http(s) address only.
+  return { ...info, termsUrl: safeUrl(info.termsUrl) };
 }
 
 export function setup(setupCode: string, username: string, password: string): Promise<Session> {
@@ -884,8 +522,8 @@ export function setup(setupCode: string, username: string, password: string): Pr
 }
 
 /** Logs in; with two-step sign-in, the server first answers second_step_required, then takes the code with the password. */
-export function login(username: string, password: string, code?: string): Promise<Session> {
-  return request<Session>("POST", "/v1/auth/login", { json: code ? { username, password, code } : { username, password }, noSessionEnd: true });
+export function login(username: string, password: string, code?: string): Promise<LoginAnswer> {
+  return request<LoginAnswer>("POST", "/v1/auth/login", { json: code ? { username, password, code } : { username, password }, noSessionEnd: true });
 }
 
 /** Creates an account; null when the server signs it in only once the mailed link is opened (sign-up limited to some domains). */
@@ -895,8 +533,8 @@ export async function signup(username: string, password: string, email?: string,
   // the confirmation mail of the address is written in the page's language
   if (email && language) json.language = language;
   if (acceptTerms) json.acceptTerms = true;
-  const session = await request<Session>("POST", "/v1/auth/signup", { json, noSessionEnd: true });
-  return session.token ? session : null;
+  const answer = await request<SignupAnswer>("POST", "/v1/auth/signup", { json, noSessionEnd: true });
+  return "token" in answer ? answer : null;
 }
 
 export async function logout(): Promise<void> {
@@ -908,99 +546,48 @@ export async function logoutOthers(): Promise<void> {
   await send("POST", "/v1/auth/logout-others");
 }
 
-export async function getMe(): Promise<Me> {
-  const me = await request<Partial<Me>>("GET", "/v1/me");
-  return {
-    userId: String(me?.userId ?? ""),
-    username: String(me?.username ?? ""),
-    memberships: Array.isArray(me?.memberships) ? me.memberships.map((m) => ({ ...m, role: asRole(m.role), status: asStatus(m.status) })) : [],
-    isPlatformAdmin: me?.isPlatformAdmin === true,
-    twoFactor: { enabled: me?.twoFactor?.enabled === true, required: me?.twoFactor?.required === true },
-    announcement: toAnnouncement((me as { announcement?: unknown } | undefined)?.announcement),
-  };
-}
-
-function toAnnouncement(value: unknown): Announcement | null {
-  const a = value && typeof value === "object" ? (value as Record<string, unknown>) : null;
-  if (!a || typeof a.text !== "string" || !a.text.trim()) return null;
-  return { text: a.text, until: typeof a.until === "number" && Number.isFinite(a.until) ? a.until : null };
+export function getMe(): Promise<Me> {
+  return request<Me>("GET", "/v1/me");
 }
 
 // --- the owner's alerts (the server's src/ownerAlerts.ts) ---------------------------------------
 
-export type OwnerAlertKind = "failed_logins" | "server_errors" | "sync_errors" | "storage" | "two_factor_keys";
-
-export interface OwnerAlert {
-  id?: string;
-  kind: OwnerAlertKind;
-  at: number;
-  count: number;
-  projectId?: string | null;
-  /** When it was marked seen and by whom; null: not seen */
-  seenAt?: number | null;
-  seenBy?: string | null;
-}
-
-export interface OwnerAlertsPage {
-  alerts: OwnerAlert[];
-  total: number;
-  /** Alerts not marked seen, of all kept */
-  unseen: number;
-  page: number;
-  pages: number;
-  thresholds: Record<string, number>;
-  webhook: { kind: "slack" | "teams"; host: string } | null;
-}
+export type { OwnerAlertKind, OwnerAlertsPage, StoredOwnerAlert as OwnerAlert } from "../../src/wire/serverAdmin";
 
 /** The alerts kept (newest first, in pages), how many are not seen, the thresholds and the webhook. */
-export async function getOwnerAlerts(page = 1): Promise<OwnerAlertsPage> {
-  const body = await request<Record<string, unknown>>("GET", `/v1/admin/alerts?page=${page}&pageSize=10`);
-  const alerts = Array.isArray(body?.alerts) ? (body.alerts as OwnerAlert[]) : [];
-  return {
-    alerts,
-    total: toCount(body?.total ?? alerts.length),
-    unseen: toCount(body?.unseen ?? alerts.filter((a) => !a.seenAt).length),
-    page: Math.max(1, toCount(body?.page ?? 1)),
-    pages: Math.max(1, toCount(body?.pages ?? 1)),
-    thresholds: (body?.thresholds as Record<string, number> | undefined) ?? {},
-    webhook: (body?.webhook as OwnerAlertsPage["webhook"] | undefined) ?? null,
-  };
+export function getOwnerAlerts(page = 1): Promise<OwnerAlertsPage> {
+  return request<OwnerAlertsPage>("GET", `/v1/admin/alerts?page=${page}&pageSize=10`);
 }
 
 /** Marks alerts seen (none given: every one not seen). */
-export const markAlertsSeen = (ids?: string[]) => request<{ marked: number }>("POST", "/v1/admin/alerts/seen", { json: ids ? { ids } : {} });
+export const markAlertsSeen = (ids?: string[]) => request<AlertsMarkedAnswer>("POST", "/v1/admin/alerts/seen", { json: ids ? { ids } : {} });
 
 /** A test post to a webhook (the address typed, or the one saved). */
-export const testAlertWebhook = (url?: string) => request<{ sent: true }>("POST", "/v1/admin/alerts/webhook-test", { json: url ? { url } : {} });
+export const testAlertWebhook = (url?: string) => request<WebhookTestAnswer>("POST", "/v1/admin/alerts/webhook-test", { json: url ? { url } : {} });
 
 // --- former members (the server's src/routes/formerMembers.ts) -----------------------------------
 
-export interface FormerMember {
-  /** Their name as on their records: a username, or former-member-N once anonymised. */
-  operator: string;
-  records: number;
-  anonymized: boolean;
-}
+export type { FormerMember } from "../../src/wire/account";
 
 export async function getFormerMembers(projectId: string): Promise<FormerMember[]> {
-  return (await request<{ formerMembers: FormerMember[] }>("GET", `${p(projectId)}/former-members`)).formerMembers;
+  return (await request<FormerMembersAnswer>("GET", `${p(projectId)}/former-members`)).formerMembers;
 }
 
 /** Renames a former member on everything they collected; gives the pseudonym and how many records. Cannot be undone. */
-export async function anonymizeFormerMember(projectId: string, operator: string): Promise<{ operator: string; records: number }> {
-  return request<{ operator: string; records: number }>("POST", `${p(projectId)}/former-members/anonymize`, { json: { operator } });
+export function anonymizeFormerMember(projectId: string, operator: string): Promise<AnonymizedAnswer> {
+  return request<AnonymizedAnswer>("POST", `${p(projectId)}/former-members/anonymize`, { json: { operator } });
 }
 
 // --- two-step sign-in (the server's src/routes/twoFactor.ts) ------------------------------------
 
 /** A new secret to put in an authenticator app: as text, and as the address its QR code holds. */
-export async function startTwoFactor(): Promise<{ secret: string; uri: string }> {
-  return request<{ secret: string; uri: string }>("POST", "/v1/me/two-factor/setup", { json: {} });
+export function startTwoFactor(): Promise<TwoFactorSetup> {
+  return request<TwoFactorSetup>("POST", "/v1/me/two-factor/setup", { json: {} });
 }
 
 /** Turns two-step sign-in on with the account password and the app's first code; gives the recovery codes, shown once. */
 export async function enableTwoFactor(code: string, password: string): Promise<string[]> {
-  return (await request<{ recoveryCodes: string[] }>("POST", "/v1/me/two-factor/enable", { json: { code, password } })).recoveryCodes;
+  return (await request<RecoveryCodes>("POST", "/v1/me/two-factor/enable", { json: { code, password } })).recoveryCodes;
 }
 
 export async function disableTwoFactor(password: string): Promise<void> {
@@ -1008,7 +595,7 @@ export async function disableTwoFactor(password: string): Promise<void> {
 }
 
 export async function newRecoveryCodes(password: string): Promise<string[]> {
-  return (await request<{ recoveryCodes: string[] }>("POST", "/v1/me/two-factor/recovery-codes", { json: { password } })).recoveryCodes;
+  return (await request<RecoveryCodes>("POST", "/v1/me/two-factor/recovery-codes", { json: { password } })).recoveryCodes;
 }
 
 /** The server's administrator turns someone's two-step sign-in off (a lost phone): their sessions end. */
@@ -1030,17 +617,8 @@ export async function changePassword(currentPassword: string, newPassword: strin
   }
 }
 
-export async function getAccountDeletion(): Promise<AccountDeletion> {
-  const body = await request<Record<string, unknown>>("GET", "/v1/me/deletion");
-  const refs = (value: unknown): ProjectRef[] =>
-    Array.isArray(value)
-      ? value.map((p: Record<string, unknown>) => ({ projectId: String(p?.projectId ?? ""), name: String(p?.name ?? "") }))
-      : [];
-  return {
-    soleCoordinator: refs(body?.soleCoordinator),
-    deletedWithAccount: refs(body?.deletedWithAccount),
-    lastPlatformAdmin: body?.lastPlatformAdmin === true,
-  };
+export function getAccountDeletion(): Promise<AccountDeletion> {
+  return request<AccountDeletion>("GET", "/v1/me/deletion");
 }
 
 /** Deletes the logged-in person's account (the password confirms it). */
@@ -1056,64 +634,16 @@ export async function deleteAccount(password: string): Promise<void> {
 
 // --- email digests (Task 19) ----------------------------------------------------
 
-export type DigestKind = "coordinator" | "collector";
+export type { DigestKind, DigestView, Notifications } from "../../src/wire/account";
 
-export interface DigestView {
-  on: boolean;
-  /** Turned off by the server after the mail server refused the address several weeks in a row. */
-  stopped: boolean;
-  lastSentWeek: string | null;
-  /** The latest week a mail actually went for (YYYY-Www), and when. */
-  lastMailedWeek: string | null;
-  lastSentAt: number | null;
-}
-
-export interface Notifications {
-  email: string | null;
-  /** False: the stored address is not one email address (an older sign-up): it must be typed again. */
-  emailValid: boolean;
-  emailConfirmed: boolean;
-  /** The language and time zone the mails are written in (null: never chosen). */
-  language: string | null;
-  timeZone: string | null;
-  /** False: this server sends no email (no SMTP set up); the choices are kept. */
-  sends: boolean;
-  /** Which digests make sense: coordinating a project, collecting in one. */
-  roles: Record<DigestKind, boolean>;
-  digests: Record<DigestKind, DigestView>;
-}
-
-function toNotifications(body: unknown): Notifications {
-  const b = (body ?? {}) as Record<string, unknown>;
-  const roles = (b.roles ?? {}) as Record<string, unknown>;
-  const digests = (b.digests ?? {}) as Record<string, Record<string, unknown> | undefined>;
-  const digest = (kind: DigestKind): DigestView => ({
-    on: digests[kind]?.on === true,
-    stopped: digests[kind]?.stopped === true,
-    lastSentWeek: typeof digests[kind]?.lastSentWeek === "string" ? (digests[kind]!.lastSentWeek as string) : null,
-    lastMailedWeek: typeof digests[kind]?.lastMailedWeek === "string" ? (digests[kind]!.lastMailedWeek as string) : null,
-    lastSentAt: typeof digests[kind]?.lastSentAt === "number" ? (digests[kind]!.lastSentAt as number) : null,
-  });
-  return {
-    email: typeof b.email === "string" ? b.email : null,
-    emailValid: b.emailValid !== false,
-    emailConfirmed: b.emailConfirmed === true,
-    language: typeof b.language === "string" ? b.language : null,
-    timeZone: typeof b.timeZone === "string" ? b.timeZone : null,
-    sends: b.sends === true,
-    roles: { coordinator: roles.coordinator === true, collector: roles.collector === true },
-    digests: { coordinator: digest("coordinator"), collector: digest("collector") },
-  };
-}
-
-export async function getNotifications(): Promise<Notifications> {
-  return toNotifications(await request("GET", "/v1/me/notifications"));
+export function getNotifications(): Promise<Notifications> {
+  return request<Notifications>("GET", "/v1/me/notifications");
 }
 
 /** Turns digests on or off, in the language and time zone given (the dashboard's); no zone keeps the stored one. */
-export async function setNotifications(change: Partial<Record<DigestKind, boolean>> & { language: string; timeZone?: string | null }): Promise<Notifications> {
+export function setNotifications(change: Partial<Record<DigestKind, boolean>> & { language: string; timeZone?: string | null }): Promise<Notifications> {
   const { timeZone, ...rest } = change;
-  return toNotifications(await request("PUT", "/v1/me/notifications", { json: timeZone ? { ...rest, timeZone } : rest }));
+  return request<Notifications>("PUT", "/v1/me/notifications", { json: timeZone ? { ...rest, timeZone } : rest });
 }
 
 /**
@@ -1122,7 +652,7 @@ export async function setNotifications(change: Partial<Record<DigestKind, boolea
  */
 export async function setEmail(email: string | null, language: string, currentPassword: string): Promise<Notifications> {
   try {
-    return toNotifications(await request("PUT", "/v1/me/email", { json: { email, language, currentPassword }, noSessionEnd: true }));
+    return await request<Notifications>("PUT", "/v1/me/email", { json: { email, language, currentPassword }, noSessionEnd: true });
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) throw new ApiError(401, "wrong_password", error.reason);
     throw error;
@@ -1140,8 +670,7 @@ export async function confirmEmail(token: string): Promise<void> {
 
 /** The unsubscribe link's page (no login needed): turns that digest off. */
 export async function unsubscribe(token: string): Promise<DigestKind> {
-  const body = await request<{ kind?: unknown }>("POST", `/v1/unsubscribe/${encodeURIComponent(token)}`, { json: {}, anonymous: true, noSessionEnd: true });
-  return body?.kind === "coordinator" ? "coordinator" : "collector";
+  return (await request<UnsubscribeAnswer>("POST", `/v1/unsubscribe/${encodeURIComponent(token)}`, { json: {}, anonymous: true, noSessionEnd: true })).kind;
 }
 
 /**
@@ -1173,35 +702,14 @@ export async function forgotPassword(login: string, language: string): Promise<v
 // --- projects --------------------------------------------------------------------------
 
 export async function listProjects(): Promise<Membership[]> {
-  const body = await request<{ projects?: Membership[] }>("GET", "/v1/projects");
-  return (body?.projects ?? []).map((m) => ({ ...m, role: asRole(m.role), status: asStatus(m.status) }));
+  return (await request<ProjectListAnswer>("GET", "/v1/projects")).projects;
 }
 
-export function createProject(name: string): Promise<{ projectId: string; name: string }> {
+export function createProject(name: string): Promise<NewProjectAnswer> {
   return request("POST", "/v1/projects", { json: { name } });
 }
 
-/** One line of a Collect Earth Online import's report (src/ceo/report.ts); its subject and message are the server's, in English. */
-export interface CeoReportEntry {
-  area: "project" | "question" | "rule" | "plots";
-  subject: string;
-  outcome: "imported" | "changed" | "skipped" | "info";
-  message: string;
-}
-
-export interface CeoImportPreview {
-  name: string;
-  ceoProjectId: number | null;
-  /** plots: null without CEO's plot list */
-  counts: { questions: number; questionsChanged: number; questionsSkipped: number; rules: number; rulesSkipped: number; plots: number | null };
-  /** the points of the questions' table when answered per sample point; null: once for the plot */
-  perPoint: number | null;
-  /** the points a plot could be answered per (a square grid of several); null: per plot only */
-  samplePoints: number | null;
-  /** null without CEO's sample data; the collectors by email, for the coordinator to map (the server keeps no email) */
-  answers: { plots: number; flagged: number; collectors: { email: string; plots: number }[] } | null;
-  report: CeoReportEntry[];
-}
+export type { CeoImportAnswer, CeoImportPreview, CeoImportSummary, CeoReportEntry, ImportedPlotFile } from "../../src/wire/projects";
 
 /** CEO's files, as saved: the project (required), its plot list, its sample data (CSV); null when not given. */
 export interface CeoFiles {
@@ -1220,7 +728,7 @@ const ceoBody = (files: CeoFiles) => ({
 });
 
 /** A CEO project and its plot list, as text, read by the server from Collect Earth Online by the project's number. */
-export function fetchCeoProject(ceoProjectId: string): Promise<{ project: string; plots: string }> {
+export function fetchCeoProject(ceoProjectId: string): Promise<CeoFetchAnswer> {
   return request("POST", "/v1/projects/from-ceo/fetch", { json: { ceoProjectId } });
 }
 
@@ -1238,44 +746,11 @@ export function importCeoProject(
   name: string,
   /** CEO collector's email -> the username of their account here (the others get a pseudonym) */
   collectors: Record<string, string>,
-): Promise<CeoImportPreview & { projectId: string; round: string; reportText: string; records: number; plotFile: { csvFileId: string; filename: string; plots: number } | null }> {
+): Promise<CeoImportAnswer> {
   return request("POST", "/v1/projects/from-ceo", { json: { ...ceoBody(files), name, collectors } });
 }
 
-/** A plot layout of a project file: the shape, its sample points and their spacing, in metres. */
-export interface PlotLayout {
-  shape: "SQUARE" | "CIRCLE";
-  points: number;
-  /** a square's spacing between points; a circle's radius */
-  distance: number;
-  /** a square's distance from the outer points to its edge */
-  boundary: number;
-  pointSide: number;
-}
-
-/** What a Collect Earth backup (its "Export data to XML (ZIP)") would become; nothing is stored. */
-export interface BackupImportPreview {
-  name: string;
-  surveyName: string;
-  records: { total: number; submitted: number; drafts: number; steps: { entry: number; cleansing: number; analysis: number }; unreadable: number; unreadableExamples: string[] };
-  /** the names typed in Collect Earth, with their records */
-  collectors: { name: string; records: number }[];
-  plots: {
-    withRecords: number;
-    done: number;
-    withoutPlace: number;
-    withoutPlaceExamples: string[];
-    /** null: no plot file given */
-    inFile: number | null;
-    toDo: number;
-    notInFile: number | null;
-  };
-  /** the strata with an area in the backup's areas_per_attribute.csv (a .collect's), null without one */
-  strata: number | null;
-  /** the layout the survey suggests (its plot area and points) */
-  layout: PlotLayout;
-  survey: { plotAreaHa: number | null; samplePoints: number | null; plotColumns: string[] };
-}
+export type { BackupImportAnswer, BackupImportPreview, PlotLayout } from "../../src/wire/projects";
 
 /** A backup and the project's original plot file, as sent: the zip in base64, the plot file as text. */
 export interface BackupFiles {
@@ -1308,37 +783,20 @@ export function importBackup(
   layout: PlotLayout,
   /** a name typed in Collect Earth -> the username of their account here (the others keep the name) */
   collectors: Record<string, string>,
-): Promise<{ projectId: string; name: string; records: number }> {
+): Promise<BackupImportAnswer> {
   return request("POST", "/v1/projects/from-backup", { json: { ...backupBody(files), name, layout, collectors } });
 }
 
-export async function getProject(projectId: string): Promise<ProjectInfo> {
-  const body = await request<{ projectId: string; name: string; role: string; status?: string }>("GET", p(projectId));
-  return { projectId: body.projectId, name: body.name, role: asRole(body.role), status: asStatus(body.status) };
+export function getProject(projectId: string): Promise<ProjectInfo> {
+  return request("GET", p(projectId));
 }
 
 /** A new project (a draft) from this one: its survey, plot files and settings; with `members`, its people and who does which plots. */
-export function copyProject(projectId: string, name: string, members: boolean): Promise<{ projectId: string; name: string }> {
+export function copyProject(projectId: string, name: string, members: boolean): Promise<ProjectCopyAnswer> {
   return request("POST", `${p(projectId)}/copy`, { json: { name, members } });
 }
 
-/** What a repeat survey would bring (docs/plans/2026-11-11-repeat-survey.md); nothing is stored. */
-export interface RepeatPreview {
-  /** the plots with an earlier answer (a submitted first assessment, or the coordinator's final one) */
-  plots: number;
-  /** the plots of the plot files: all of them can be collected again, or only those collected (`plots`) */
-  filePlots: number;
-  /** the proposed labels: this project's period, and the new one's */
-  earlierLabel: string;
-  label: string;
-  /** the periods before this one, when this project repeats another */
-  periods: { label: string; plots: number }[];
-  /** the questions the form's header can show, and the ones proposed */
-  questions: { key: string; label: string; kind: string }[];
-  headerQuestions: string[];
-  /** what a newer survey no longer asks, and answers it no longer offers */
-  report: { questionsLeftOut: { key: string; plots: number }[]; unknownAnswers: { key: string; code: string; plots: number }[] };
-}
+export type { HeaderQuestion, MatchReport, RepeatAnswer, RepeatPreview } from "../../src/wire/projects";
 
 export function previewRepeat(projectId: string, projectFile: string | null): Promise<RepeatPreview> {
   return request("POST", `${p(projectId)}/repeat/preview`, { json: projectFile ? { projectFile } : {} });
@@ -1348,88 +806,23 @@ export function previewRepeat(projectId: string, projectFile: string | null): Pr
 export function repeatSurvey(
   projectId: string,
   body: { name: string; label: string; earlierLabel: string; members: boolean; headerQuestions: string[]; plots: "all" | "collected"; projectFile: string | null },
-): Promise<{ projectId: string; name: string }> {
+): Promise<RepeatAnswer> {
   const { projectFile, ...rest } = body;
   return request("POST", `${p(projectId)}/repeat`, { json: { ...rest, ...(projectFile ? { projectFile } : {}) } });
 }
 
-/** A repeat survey's periods and the questions its form's header shows (settings null: it repeats none). */
-export interface Periods {
-  settings: { label: string; earlier: { label: string; sourceProjectId: string; sourceName: string; plots: number; madeAt: number }[]; headerQuestions: string[] } | null;
-  periods: { label: string; plots: number }[];
-  questions: { key: string; label: string }[];
-  candidates?: { key: string; label: string; kind: string }[];
-}
+export type { Periods, RepeatSettings } from "../../src/wire/projects";
 
 export function getPeriods(projectId: string): Promise<Periods> {
   return request("GET", `${p(projectId)}/periods`);
 }
 
-export function setPeriodHeader(projectId: string, headerQuestions: string[]): Promise<{ headerQuestions: string[] }> {
+export function setPeriodHeader(projectId: string, headerQuestions: string[]): Promise<PeriodHeaderAnswer> {
   return request("PUT", `${p(projectId)}/periods/header`, { json: { headerQuestions } });
 }
 
-/** How a plot compares between an earlier period and this one, for one question (docs/plans/2026-11-11-repeat-survey.md). */
-export type ChangeOutcome = "unchanged" | "changed" | "corrected" | "new" | "pending";
-
-export interface ChangeRow {
-  plot: string;
-  earlier: string | null;
-  now: string | null;
-  status: "same" | "changed" | "corrected" | null;
-  outcome: ChangeOutcome;
-  mismatch: "sameButDiffers" | "changedButSame" | null;
-}
-
-/** One question compared between an earlier period and this one: its counts, its transition matrix, every plot. */
-export interface RepeatChange {
-  period: string;
-  label: string;
-  periods: string[];
-  question: { key: string; label: string };
-  questions: { key: string; label: string }[];
-  options: { code: string; label: string }[];
-  counts: Record<ChangeOutcome, number> & { mismatches: number };
-  matrix: { from: string; to: string; plots: number }[];
-  corrections: { from: string; to: string; plots: number }[];
-  rows: ChangeRow[];
-  /** the areas of the changes, with their uncertainty (stage 4) */
-  areas: ChangeAreas;
-  /** a coordinator: may save the total area */
-  canEdit: boolean;
-}
-
-/** An area estimated from the plots: hectares, or shares of 1 when the area is not known. */
-export interface AreaEstimate {
-  plots: number;
-  area: number;
-  /** of the total area, 0–1 */
-  share: number;
-  se: number;
-  /** half the 95% confidence interval */
-  ci: number;
-  /** ci / |area| · 100, null when the area is 0 */
-  uncertainty: number | null;
-}
-
-export interface ChangeAreas {
-  /** the areas file of the project file the strata come from; null: none */
-  source: string | null;
-  /** false: no areas file and no total area, the areas are shares of the whole */
-  areaKnown: boolean;
-  /** the total area saved by the coordinator, null when none */
-  savedArea: number | null;
-  estimator: "simple" | "stratified";
-  totalArea: number;
-  plots: number;
-  strata: { key: string; area: number; plots: number }[];
-  notEstimable: { key: string; area: number; plots: number }[];
-  skipped: { notCompared: number; noArea: number };
-  outcomes: Record<"unchanged" | "changed" | "corrected", AreaEstimate>;
-  matrix: { from: string; to: string; estimate: AreaEstimate }[];
-  corrections: { from: string; to: string; estimate: AreaEstimate }[];
-  classes: { code: string; then: AreaEstimate; now: AreaEstimate; net: AreaEstimate }[];
-}
+export type { ChangeOutcome, ChangeRow, PeriodStatusAnswer, RepeatChange } from "../../src/wire/projects";
+export type { AreaEstimate, ChangeAreas } from "../../src/wire/data";
 
 const changeQuery = (question: string | null, period: string | null) =>
   [question ? `question=${encodeURIComponent(question)}` : "", period ? `period=${encodeURIComponent(period)}` : ""].filter(Boolean).join("&");
@@ -1460,26 +853,19 @@ export async function downloadPeriodsExport(projectId: string): Promise<{ blob: 
 }
 
 /** The total area in hectares of a repeat survey whose project file has no areas file; null clears it. */
-export function setRepeatArea(projectId: string, totalArea: number | null): Promise<{ totalArea: number | null }> {
+export function setRepeatArea(projectId: string, totalArea: number | null): Promise<RepeatAreaAnswer> {
   return request("PUT", `${p(projectId)}/periods/area`, { json: { totalArea } });
 }
 
-/** One plot's answers in the earlier periods, oldest first (who collected them: for coordinators and reviewers). */
-export interface PlotPeriod {
-  label: string;
-  savedAt: number;
-  answers: Record<string, string>;
-  operator?: string;
-}
+export type { PlotPeriod, PlotPeriodsAnswer } from "../../src/wire/projects";
 
 /** One plot's answers in the earlier periods, with the questions' labels and the answers' names (from the survey). */
-export function getPlotPeriods(projectId: string, plot: string): Promise<{ periods: PlotPeriod[]; labels: Record<string, string>; options: AnswerOptions }> {
+export function getPlotPeriods(projectId: string, plot: string): Promise<PlotPeriodsAnswer> {
   return request("GET", `${p(projectId)}/periods/plots/${encodeURIComponent(plot)}`);
 }
 
 export async function setProjectStatus(projectId: string, status: ProjectStatus): Promise<ProjectStatus> {
-  const body = await request<{ status?: string }>("PUT", `${p(projectId)}/status`, { json: { status } });
-  return asStatus(body?.status);
+  return (await request<ProjectStatusAnswer>("PUT", `${p(projectId)}/status`, { json: { status } })).status;
 }
 
 export async function renameProject(projectId: string, name: string): Promise<void> {
@@ -1491,92 +877,16 @@ export async function deleteProject(projectId: string, confirmName: string): Pro
   await send("DELETE", p(projectId), { json: { confirmName } });
 }
 
-export async function getOverview(projectId: string): Promise<Overview> {
-  const body = await request<Record<string, unknown>>("GET", `${p(projectId)}/overview`);
-  const cep = body?.cep as Record<string, unknown> | null | undefined;
-  const records = (body?.records ?? {}) as Record<string, unknown>;
-  const byOperator = Array.isArray(records.byOperator) ? (records.byOperator as Record<string, unknown>[]) : [];
-  const storage = body?.storage as Record<string, unknown> | null | undefined;
-  return {
-    name: String(body?.name ?? ""),
-    cep: cep ? { bytes: toCount(cep.bytes), updatedAt: toMillis(cep.updatedAt) } : null,
-    members: toCount(body?.members),
-    csvFiles: toCount(body?.csvFiles),
-    plots: toCount(body?.plots),
-    records: {
-      total: toCount(records.total),
-      submitted: toCount(records.submitted),
-      byOperator: byOperator.map((o) => ({
-        operator: String(o.operator ?? ""),
-        total: toCount(o.total),
-        submitted: toCount(o.submitted),
-        // 0 = the client sent no modification time
-        lastModifiedOn: toMillis(o.lastModifiedOn) || null,
-      })),
-    },
-    storage: storage
-      ? { usedBytes: toCount(storage.usedBytes), limitBytes: storage.limitBytes == null ? null : toCount(storage.limitBytes) || null }
-      : null,
-  };
+export function getOverview(projectId: string): Promise<Overview> {
+  return request("GET", `${p(projectId)}/overview`);
 }
 
-/** What the server did about round, from a server answer; null when absent or not an object. */
-export function toRoundInfo(body: unknown): RoundInfo | null {
-  if (!body || typeof body !== "object") return null;
-  const record = body as Record<string, unknown>;
-  const state: RoundState = record.state === "added" || record.state === "own" ? record.state : "none";
-  const codes = Array.isArray(record.roundCodes) ? (record.roundCodes as Record<string, unknown>[]) : [];
-  return {
-    state,
-    refusal: typeof record.refusal === "string" && record.refusal ? record.refusal : null,
-    keyCount: toCount(record.keyCount),
-    roundIndex: typeof record.roundIndex === "number" ? record.roundIndex : null,
-    roundCodes: codes
-      .filter((c) => c && (typeof c.code === "string" || typeof c.code === "number"))
-      .map((c) => ({ code: String(c.code), label: typeof c.label === "string" ? c.label : "" })),
-    reassessmentCode: typeof record.reassessmentCode === "string" ? record.reassessmentCode : null,
-    note: toNoteInfo(record.note),
-  };
+/** Uploads the project file; answers what the server did about round. */
+export async function uploadCep(projectId: string, file: Blob, onProgress?: Progress): Promise<RoundInfo> {
+  return (await upload<CepUploadAnswer>("PUT", `${p(projectId)}/cep`, file, "application/zip", onProgress)).round;
 }
 
-function toNoteInfo(body: unknown): NoteInfo | null {
-  if (!body || typeof body !== "object") return null;
-  const record = body as Record<string, unknown>;
-  const state = record.state === "added" ? "added" : "none";
-  return {
-    state,
-    refusal: typeof record.refusal === "string" && record.refusal ? record.refusal : null,
-    column: state === "added" && typeof record.column === "number" ? record.column : null,
-  };
-}
-
-/** Uploads the project file; returns what the server did about round (null from older servers). */
-export async function uploadCep(projectId: string, file: Blob, onProgress?: Progress): Promise<RoundInfo | null> {
-  const body = await upload<Record<string, unknown> | null>("PUT", `${p(projectId)}/cep`, file, "application/zip", onProgress);
-  return toRoundInfo(body?.round);
-}
-
-/** A Collect Earth backup's records against the project (POST .../records/import/preview): nothing stored. */
-export interface CollectImportPreview {
-  records: number;
-  submitted: number;
-  drafts: number;
-  newRecords: number;
-  /** In the project already, newer there: left as they are. */
-  newerThere: number;
-  /** In the project already, older there: replaced. */
-  olderThere: number;
-  /** Who collected them: the name Collect Earth wrote, the username they are kept under, whether a member. */
-  operators: { name: string; username: string; records: number; member: boolean }[];
-  /** Up to 20 files that could not be read, and how many in all. */
-  problems: string[];
-  problemCount: number;
-}
-
-export interface CollectImportResult extends CollectImportPreview {
-  stored: number;
-  kept: number;
-}
+export type { CollectImportPreview, CollectImportResult } from "../../src/wire/projects";
 
 /** `query`: collectImportQuery, the accounts the coordinator named for the operators. */
 export function previewCollectImport(projectId: string, file: Blob, query: string, onProgress?: Progress): Promise<CollectImportPreview> {
@@ -1588,38 +898,35 @@ export function importCollectData(projectId: string, file: Blob, query: string, 
 }
 
 /** What the server did about round in the current project file; null before any upload. */
-export async function getRoundInfo(projectId: string): Promise<RoundInfo | null> {
-  return toRoundInfo(await request<unknown>("GET", `${p(projectId)}/round`));
+export function getRoundInfo(projectId: string): Promise<RoundAnswer> {
+  return request("GET", `${p(projectId)}/round`);
 }
+
+export type { ImageryAnswer, PlotLayoutAnswer, PlotLayoutChangeAnswer, PropertiesValues } from "../../src/wire/projects";
 
 /** The plot layout keys the project file has (Collect Earth's Settings > Plot), and whether records exist. */
-export interface ProjectPlotLayout {
-  layout: Record<string, string>;
-  recordsExist: boolean;
-}
-
-export function getPlotLayout(projectId: string): Promise<ProjectPlotLayout> {
-  return request<ProjectPlotLayout>("GET", `${p(projectId)}/plot-layout`);
+export function getPlotLayout(projectId: string): Promise<PlotLayoutAnswer> {
+  return request("GET", `${p(projectId)}/plot-layout`);
 }
 
 /** Writes the changed plot layout settings into the project file; answers the layout as it is now. */
-export function setPlotLayout(projectId: string, changes: Record<string, string>): Promise<{ layout: Record<string, string> }> {
-  return request<{ layout: Record<string, string> }>("PUT", `${p(projectId)}/plot-layout`, { json: changes });
+export function setPlotLayout(projectId: string, changes: PropertiesValues): Promise<PlotLayoutChangeAnswer> {
+  return request("PUT", `${p(projectId)}/plot-layout`, { json: changes });
 }
 
 /** The imagery window keys the project file has (Collect Earth's Settings > Imagery, without the Planet key). */
-export function getImagery(projectId: string): Promise<{ imagery: Record<string, string> }> {
-  return request<{ imagery: Record<string, string> }>("GET", `${p(projectId)}/imagery`);
+export function getImagery(projectId: string): Promise<ImageryAnswer> {
+  return request("GET", `${p(projectId)}/imagery`);
 }
 
 /** Writes the changed imagery window settings into the project file; answers them as they are now. */
-export function setImagery(projectId: string, changes: Record<string, string>): Promise<{ imagery: Record<string, string> }> {
-  return request<{ imagery: Record<string, string> }>("PUT", `${p(projectId)}/imagery`, { json: changes });
+export function setImagery(projectId: string, changes: PropertiesValues): Promise<ImageryAnswer> {
+  return request("PUT", `${p(projectId)}/imagery`, { json: changes });
 }
 
 /** Which code of the survey's own round marks re-assessments (null: none). */
-export async function setReassessmentCode(projectId: string, reassessmentCode: string | null): Promise<RoundInfo | null> {
-  return toRoundInfo(await request<unknown>("PUT", `${p(projectId)}/round`, { json: { reassessmentCode } }));
+export function setReassessmentCode(projectId: string, reassessmentCode: string | null): Promise<RoundInfo> {
+  return request("PUT", `${p(projectId)}/round`, { json: { reassessmentCode } });
 }
 
 /**
@@ -1637,39 +944,19 @@ export async function downloadOriginalCep(projectId: string): Promise<Blob> {
 
 // --- invites ------------------------------------------------------------------------------
 
-export async function createInvite(
+export function createInvite(
   projectId: string,
   options: { role: Role; maxUses: number; expiresInDays: number | null; forUserId?: string },
 ): Promise<NewInvite> {
-  const json: Record<string, unknown> = { role: options.role, maxUses: options.maxUses };
+  const json: { role: Role; maxUses: number; expiresInDays?: number; forUserId?: string } = { role: options.role, maxUses: options.maxUses };
   if (options.expiresInDays) json.expiresInDays = options.expiresInDays;
   // A link for someone already in the project: the server makes it a one-person, one-week collector link.
   if (options.forUserId) json.forUserId = options.forUserId;
-  const body = await request<Record<string, unknown>>("POST", `${p(projectId)}/invites`, { json });
-  const inviteToken = String(body.inviteToken ?? "");
-  const joinPath = typeof body.joinPath === "string" && body.joinPath ? body.joinPath : `/join/${encodeURIComponent(inviteToken)}`;
-  return {
-    inviteToken,
-    joinPath,
-    joinUrl: absoluteUrl(typeof body.joinUrl === "string" ? body.joinUrl : null, joinPath),
-    role: asRole(body.role),
-    maxUses: toCount(body.maxUses),
-    expiresAt: toMillis(body.expiresAt),
-  };
+  return request<NewInvite>("POST", `${p(projectId)}/invites`, { json });
 }
 
-export async function listInvites(projectId: string): Promise<PeopleInvite[]> {
-  const body = await request<{ invites?: Record<string, unknown>[] } | Record<string, unknown>[]>("GET", `${p(projectId)}/invites`);
-  const raw = Array.isArray(body) ? body : (body?.invites ?? []);
-  return raw.map((i) => ({
-    id: String(i.id ?? ""),
-    role: asRole(i.role),
-    maxUses: toCount(i.maxUses),
-    usedCount: toCount(i.usedCount),
-    expiresAt: toMillis(i.expiresAt),
-    createdAt: toMillis(i.createdAt),
-    forUsername: typeof i.forUsername === "string" && i.forUsername !== "" ? i.forUsername : null,
-  }));
+export async function listInvites(projectId: string): Promise<OpenInvite[]> {
+  return (await request<InvitesAnswer>("GET", `${p(projectId)}/invites`)).invites;
 }
 
 export async function revokeInvite(projectId: string, inviteId: string): Promise<void> {
@@ -1683,8 +970,7 @@ export function previewInvite(token: string): Promise<JoinPreview> {
 // --- people -----------------------------------------------------------------------------------
 
 export async function listMembers(projectId: string): Promise<Member[]> {
-  const body = await request<{ members?: Member[] }>("GET", `${p(projectId)}/members`);
-  return (body?.members ?? []).map((m) => ({ ...m, role: asRole(m.role), disabled: m.disabled === true }));
+  return (await request<MembersAnswer>("GET", `${p(projectId)}/members`)).members;
 }
 
 export async function setMemberRole(projectId: string, userId: string, role: Role): Promise<void> {
@@ -1708,18 +994,17 @@ export async function removeMember(projectId: string, userId: string): Promise<v
 
 // --- plot files and assignments ----------------------------------------------------------
 
-export async function listCsvFiles(projectId: string): Promise<CsvFile[]> {
-  const body = await request<{ csvFiles?: CsvFile[] }>("GET", `${p(projectId)}/csv-files`);
-  return body?.csvFiles ?? [];
+export async function listCsvFiles(projectId: string): Promise<ListedCsvFile[]> {
+  return (await request<CsvFilesAnswer>("GET", `${p(projectId)}/csv-files`)).csvFiles;
 }
 
 /**
  * Uploads (or replaces) a plot file. A replacement that drops plots people hold or submitted
  * is refused with code "replace_needs_confirm" (its details: ReplaceImpact) unless `confirmReplace`.
  */
-export function uploadCsvFile(projectId: string, file: File, onProgress?: Progress, confirmReplace = false): Promise<CsvFile> {
+export function uploadCsvFile(projectId: string, file: File, onProgress?: Progress, confirmReplace = false): Promise<CsvUploadAnswer> {
   const query = confirmReplace ? "?confirm=replace" : "";
-  return upload<CsvFile>("PUT", `${p(projectId)}/csv-files/${encodeURIComponent(file.name)}${query}`, file, "text/csv", onProgress);
+  return upload<CsvUploadAnswer>("PUT", `${p(projectId)}/csv-files/${encodeURIComponent(file.name)}${query}`, file, "text/csv", onProgress);
 }
 
 /** The plot files a project file brings in its grid folder (grid/*.csv, sub-folders left out). */
@@ -1765,31 +1050,7 @@ export async function mergeGridFiles(files: File[], name: string): Promise<{ mer
   return { merged: new File(chunks, name, { type: "text/csv" }), separate };
 }
 
-/** How plot design lays out the plots over the area of interest. */
-export type PlotDesign =
-  | { method: "random"; count: number }
-  | { method: "grid"; spacingMeters: number; randomOffset: boolean }
-  | { method: "stratified"; field: string; allocation: "equal" | "proportional"; count: number };
-
-/** The area of interest as sent: a GeoJSON text, or a zipped shapefile in base64. */
-export type DesignArea = { geojson: string } | { shapefile: string };
-
-/** The area as the server read it. */
-export interface DesignFacts {
-  features: number;
-  fields: string[];
-  areaKm2: number;
-  /** Most plots a design may make. */
-  max: number;
-}
-
-/** How many plots a design makes, laid out with `seed`. */
-export interface DesignPlan extends DesignFacts {
-  plots: number;
-  tooMany: boolean;
-  strata: { value: string; areaKm2: number; plots: number }[] | null;
-  seed: number;
-}
+export type { CsvUploadAnswer, DesignArea, DesignFacts, DesignPlan, DesignStratum, PlotDesign } from "../../src/wire/plotFiles";
 
 const designPath = (projectId: string) => `${p(projectId)}/plot-design`;
 
@@ -1804,11 +1065,7 @@ export async function generatePlotDesign(projectId: string, area: DesignArea, de
   return response.text();
 }
 
-/** A SIGRID country package: its name, and its file name's stem (Cote_d_Ivoire). */
-export interface SigridCountry {
-  name: string;
-  file: string;
-}
+export type { SigridCountries, SigridCountry, SigridFacts } from "../../src/wire/plotFiles";
 
 /** What a SIGRID choice is: the country, its provinces and districts (none: all of it), an area to clip to. */
 export type SigridChoice = {
@@ -1818,22 +1075,10 @@ export type SigridChoice = {
   districts: { province: string; district: string }[];
 } & ({ geojson: string } | { shapefile: string } | object);
 
-/** A SIGRID country as the server read it: plots per spacing (as `spacings`) by province and district, and for the choice. */
-export interface SigridFacts {
-  country: string;
-  spacings: number[];
-  provinces: { name: string; plots: number[]; districts: { name: string; plots: number[] }[] }[];
-  /** The plots per spacing of the provinces and districts chosen, before any clip. */
-  selected: number[];
-  max: number;
-  /** With a spacing: the plots of the whole choice (clip too). */
-  plots?: number;
-  tooMany?: boolean;
-}
 
 const sigridPath = (projectId: string) => `${p(projectId)}/sigrid`;
 
-export const listSigridCountries = (projectId: string) => request<{ countries: SigridCountry[]; spacings: number[]; max: number }>("GET", `${sigridPath(projectId)}/countries`);
+export const listSigridCountries = (projectId: string) => request<SigridCountries>("GET", `${sigridPath(projectId)}/countries`);
 
 export const planSigrid = (projectId: string, choice: SigridChoice) => request<SigridFacts>("POST", sigridPath(projectId), { json: choice });
 
@@ -1843,33 +1088,15 @@ export async function generateSigrid(projectId: string, choice: SigridChoice): P
   return response.text();
 }
 
-/** What replacing a plot file would take out of the project (the "replace_needs_confirm" error's details). */
-export interface ReplaceImpact {
-  removedPlots: number;
-  heldRemoved: number;
-  submittedRemoved: number;
-  keptPlots: number;
-  newPlots: number;
-  divided: boolean;
-}
+export type { ReplaceImpact } from "../../src/wire/plotFiles";
 
+/** What replacing a plot file would take out of the project: the details of the 409 "replace_needs_confirm" error. */
 export function replaceImpactOf(error: unknown): ReplaceImpact | null {
-  if (!(error instanceof ApiError) || error.code !== "replace_needs_confirm") return null;
-  const d = error.details;
-  const n = (key: string) => (typeof d[key] === "number" ? (d[key] as number) : 0);
-  return {
-    removedPlots: n("removedPlots"),
-    heldRemoved: n("heldRemoved"),
-    submittedRemoved: n("submittedRemoved"),
-    keptPlots: n("keptPlots"),
-    newPlots: n("newPlots"),
-    divided: d.divided === true,
-  };
+  return error instanceof ApiError && error.code === "replace_needs_confirm" ? (error.details as unknown as ReplaceImpact) : null;
 }
 
-export async function listAssignments(projectId: string): Promise<Assignment[]> {
-  const body = await request<{ assignments?: Assignment[] }>("GET", `${p(projectId)}/assignments`);
-  return (body?.assignments ?? []).map((a) => ({ userId: a.userId, csvFileId: a.csvFileId }));
+export async function listAssignments(projectId: string): Promise<AssignmentDetail[]> {
+  return (await request<AssignmentsAnswer>("GET", `${p(projectId)}/assignments`)).assignments;
 }
 
 export async function saveAssignments(projectId: string, assignments: Assignment[]): Promise<void> {
@@ -1880,259 +1107,76 @@ export async function saveAssignments(projectId: string, assignments: Assignment
 
 const f = (projectId: string, csvFileId: string) => `${p(projectId)}/csv-files/${encodeURIComponent(csvFileId)}`;
 
-const strings = (value: unknown): string[] => (Array.isArray(value) ? value.map((v) => String(v ?? "")) : []);
-
-/** A stored division from the server; null for a whole file (or anything unreadable). */
-export function toDistribution(value: unknown): Distribution | null {
-  if (!value || typeof value !== "object") return null;
-  const d = value as Record<string, unknown>;
-  const order: DivisionOrder = d.order === "mixed" || d.order === "nearby" ? d.order : "file";
-  const extra: { overlapPercent?: number; seed?: number } = {};
-  if (typeof d.overlapPercent === "number" && d.overlapPercent > 0) extra.overlapPercent = d.overlapPercent;
-  if (typeof d.seed === "number") extra.seed = d.seed;
-  switch (d.mode) {
-    case "manual":
-      return d.order === "nearby" ? { mode: "manual", order: "nearby" } : { mode: "manual" };
-    case "even": {
-      const people = strings(d.people);
-      const percents = Array.isArray(d.percents) && d.percents.length === people.length ? d.percents.map((p) => toCount(p)) : null;
-      return { mode: "even", people, ...(percents ? { percents } : {}), order, ...extra };
-    }
-    case "column":
-      return {
-        mode: "column",
-        column: toCount(d.column),
-        groups: Array.isArray(d.groups)
-          ? d.groups.map((g: Record<string, unknown>) => ({ value: String(g?.value ?? ""), people: strings(g?.people) }))
-          : [],
-        order,
-        ...extra,
-      };
-  }
-  return null;
+export function getCsvColumns(projectId: string, csvFileId: string): Promise<CsvColumns> {
+  return request("GET", `${f(projectId, csvFileId)}/columns`);
 }
 
-export function toDistributionState(body: unknown): DistributionState {
-  const b = body && typeof body === "object" ? (body as Record<string, unknown>) : {};
-  const people = Array.isArray(b.people) ? (b.people as Record<string, unknown>[]) : [];
-  return {
-    distribution: toDistribution(b.distribution),
-    plotCount: toCount(b.plotCount),
-    unassigned: toCount(b.unassigned),
-    people: people.map((person) => ({
-      userId: String(person.userId ?? ""),
-      username: String(person.username ?? ""),
-      plots: toCount(person.plots),
-      overlap: toCount(person.overlap),
-      sampled: toCount(person.sampled),
-      reference: toCount(person.reference),
-      submitted: toCount(person.submitted),
-    })),
-  };
-}
-
-export async function getCsvColumns(projectId: string, csvFileId: string): Promise<CsvColumns> {
-  const body = await request<Record<string, unknown>>("GET", `${f(projectId, csvFileId)}/columns`);
-  const columns = Array.isArray(body?.columns) ? (body.columns as Record<string, unknown>[]) : [];
-  return {
-    plotCount: toCount(body?.plotCount),
-    hasHeader: body?.hasHeader === true,
-    separator: typeof body?.separator === "string" ? body.separator : ",",
-    columns: columns.map((c) => ({
-      index: toCount(c.index),
-      name: typeof c.name === "string" ? c.name : null,
-      distinctCount: toCount(c.distinctCount),
-      values: Array.isArray(c.values)
-        ? c.values.map((v: Record<string, unknown>) => ({ value: String(v?.value ?? ""), count: toCount(v?.count) }))
-        : null,
-    })),
-    nearby: toNearbyInfo(body?.nearby, toCount(body?.plotCount)),
-  };
-}
-
-/**
- * The server's answer on order "nearby". A server that does not say (or gives no reason) does
- * not offer it, and the reason is "unknown": nothing is claimed about the file's places.
- */
-export function toNearbyInfo(value: unknown, plotCount: number): NearbyInfo {
-  const v = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
-  const reason = v.reason === "other_srs" || v.reason === "no_places" ? v.reason : null;
-  if (v.available === true) {
-    return { available: true, reason: null, withPlace: toCount(v.withPlace), withoutPlace: toCount(v.withoutPlace), srid: null };
-  }
-  if (reason === null) return { available: false, reason: "unknown", withPlace: 0, withoutPlace: 0, srid: null };
-  return {
-    available: false,
-    reason,
-    withPlace: 0,
-    withoutPlace: v.withoutPlace === undefined ? plotCount : toCount(v.withoutPlace),
-    srid: typeof v.srid === "string" ? v.srid : null,
-  };
-}
-
-export async function getDistribution(projectId: string, csvFileId: string): Promise<DistributionState> {
-  return toDistributionState(await request<unknown>("GET", `${f(projectId, csvFileId)}/distribution`));
+export function getDistribution(projectId: string, csvFileId: string): Promise<DistributionSummary> {
+  return request("GET", `${f(projectId, csvFileId)}/distribution`);
 }
 
 /** Divides the file's plots (or, with dryRun, only says what the result would be). */
-export async function saveDistribution(projectId: string, csvFileId: string, distribution: Distribution, dryRun = false): Promise<DistributionState> {
-  const json = dryRun ? { ...distribution, dryRun: true } : distribution;
-  return toDistributionState(await request<unknown>("PUT", `${f(projectId, csvFileId)}/distribution`, { json }));
+export function saveDistribution(projectId: string, csvFileId: string, distribution: DivisionBody, dryRun = false): Promise<DistributionSummary> {
+  const json: DivisionBody = dryRun ? { ...distribution, dryRun: true } : distribution;
+  return request("PUT", `${f(projectId, csvFileId)}/distribution`, { json });
 }
 
 /**
  * Gives the plots `fromUserId` has not submitted to `toUserId`: all of them, or (`which`) `count` of the plots
  * they have to assess (the last of their list), or only `plots` (picked on the map).
  */
-export async function moveUnfinished(
+export function moveUnfinished(
   projectId: string,
   csvFileId: string,
   fromUserId: string,
   toUserId: string,
   which: { count?: number; plots?: string[] } = {},
-): Promise<DistributionState & { moved: number; notMoved: number; droppedChecks: number }> {
-  const body = await request<Record<string, unknown>>("POST", `${f(projectId, csvFileId)}/move-unfinished`, { json: { fromUserId, toUserId, ...which } });
-  // notMoved: kept with `from` (`to` assessed or checked them); droppedChecks: copies to compare of plots `to` collects.
-  return { ...toDistributionState(body), moved: toCount(body?.moved), notMoved: toCount(body?.notMoved), droppedChecks: toCount(body?.droppedChecks) };
+): Promise<MoveUnfinishedAnswer> {
+  return request("POST", `${f(projectId, csvFileId)}/move-unfinished`, { json: { fromUserId, toUserId, ...which } });
 }
 
-/** A rebalance's plan: each person's plots still to assess before (`left`) and after (`target`), and the moves. */
-export interface RebalancePlan {
-  left: Record<string, number>;
-  target: Record<string, number>;
-  moves: { from: string; to: string; count: number }[];
-}
+export type { MoveUnfinishedAnswer, RebalanceAnswer, RebalanceMove, RebalancePlan } from "../../src/wire/plotFiles";
 
 /**
  * Shares again the plots still to assess of `people` by their weights (1 and 1: equally; 0: gives all away); what is
  * submitted stays. `dryRun`: the plan only, nothing saved. A file given whole has nothing to share (ApiError 409).
  */
-export async function rebalance(
+export function rebalance(
   projectId: string,
   csvFileId: string,
   people: { userId: string; weight: number }[],
   dryRun: boolean,
-): Promise<RebalancePlan & { saved: boolean; moved: number; notMoved: number; state: DistributionState | null }> {
-  const body = await request<Record<string, unknown>>("POST", `${f(projectId, csvFileId)}/rebalance`, { json: { people, dryRun } });
-  const counts = (v: unknown): Record<string, number> =>
-    Object.fromEntries(Object.entries(obj(v)).map(([k, n]) => [k, toCount(n)]));
-  const moves = list(body?.moves).map((m) => ({ from: text(m.from), to: text(m.to), count: toCount(m.count) }));
-  const saved = body?.saved === true;
-  return {
-    left: counts(body?.left),
-    target: counts(body?.target),
-    moves,
-    saved,
-    moved: toCount(body?.moved),
-    notMoved: toCount(body?.notMoved),
-    state: saved ? toDistributionState(body) : null,
-  };
+): Promise<RebalanceAnswer> {
+  return request("POST", `${f(projectId, csvFileId)}/rebalance`, { json: { people, dryRun } });
 }
 
 // --- quality ---------------------------------------------------------------------------------
 
-const text = (value: unknown): string => (value == null ? "" : String(value));
-const nullableText = (value: unknown): string | null => (typeof value === "string" && value !== "" ? value : null);
-const list = (value: unknown): Record<string, unknown>[] =>
-  Array.isArray(value) ? value.filter((v): v is Record<string, unknown> => !!v && typeof v === "object") : [];
-const obj = (value: unknown): Record<string, unknown> => (value && typeof value === "object" ? (value as Record<string, unknown>) : {});
 
-function toRate(value: unknown): Rate {
-  const r = obj(value);
-  return { compared: toCount(r.compared), agreeing: toCount(r.agreeing), rate: typeof r.rate === "number" && Number.isFinite(r.rate) ? r.rate : null };
-}
+export type {
+  AnswerOptions,
+  Confusion,
+  DataProblem,
+  DataProblemKind,
+  DecisionKind,
+  Difference,
+  GuidanceNote,
+  GuidanceNoteInput,
+  PersonQuality,
+  PlotOutline,
+  PlotPlace,
+  PlotPlaces,
+  PublicDecision as QualityDecision,
+  QualityAnswer,
+  QualitySettingsAnswer,
+  QuestionAgreement,
+  WeekAgreement,
+} from "../../src/wire/quality";
 
-export function toDecision(value: unknown): QualityDecision {
-  const d = obj(value);
-  const decision = d.decision === "check" || d.decision === "recheck" ? d.decision : "first";
-  return { plot: text(d.plot), decision, comment: nullableText(d.comment), decidedBy: nullableText(d.decidedBy), decidedAt: toMillis(d.decidedAt), byAssessor: d.byAssessor === true };
-}
-
-export function toNote(value: unknown): GuidanceNote {
-  const n = obj(value);
-  return {
-    id: text(n.id),
-    questionKey: text(n.questionKey),
-    firstValue: nullableText(n.firstValue),
-    checkValue: nullableText(n.checkValue),
-    text: text(n.text),
-    updatedBy: nullableText(n.updatedBy),
-    updatedAt: toMillis(n.updatedAt),
-  };
-}
-
-function toMargins(value: unknown): Record<string, number> {
-  const margins: Record<string, number> = {};
-  for (const [key, v] of Object.entries(obj(value))) {
-    if (typeof v === "number" && Number.isFinite(v)) margins[key] = v;
-  }
-  return margins;
-}
-
-/** The Quality tab's figures from the server's answer, with every list present. */
-/** Answer options as sent (a list of { code, label } per key); anything else is left out. */
-function toOptions(value: unknown): AnswerOptions {
-  const out: AnswerOptions = {};
-  for (const [key, options] of Object.entries(obj(value))) {
-    if (!Array.isArray(options)) continue;
-    out[key] = options.filter((o) => o && typeof o === "object" && typeof (o as { code?: unknown }).code === "string").map((o) => ({ code: text(o.code), label: text(o.label) }));
-  }
-  return out;
-}
-
-export function toQualityData(body: unknown): QualityData {
-  const b = obj(body);
-  const beyond = obj(b.beyondOutline);
-  return {
-    plotsChecked: toCount(b.plotsChecked),
-    plotsDiffering: toCount(b.plotsDiffering),
-    questions: list(b.questions).map((q) => ({
-      ...toRate(q),
-      key: text(q.key),
-      label: text(q.label) || text(q.key),
-      kind: q.kind === "number" ? "number" : "choice",
-      margin: typeof q.margin === "number" && Number.isFinite(q.margin) ? q.margin : null,
-    })),
-    confusions: list(b.confusions).map((c) => ({ key: text(c.key), first: text(c.first), check: text(c.check), count: toCount(c.count), plots: strings(c.plots) })),
-    people: list(b.people).map((person) => ({
-      username: text(person.username),
-      asFirst: toRate(person.asFirst),
-      asChecker: toRate(person.asChecker),
-      weakest: list(person.weakest).map((w) => ({
-        key: text(w.key),
-        rate: typeof w.rate === "number" && Number.isFinite(w.rate) ? w.rate : null,
-        compared: toCount(w.compared),
-        differing: toCount(w.differing),
-      })),
-    })),
-    weeks: list(b.weeks).map((w) => ({ week: text(w.week), compared: toCount(w.compared), agreeing: toCount(w.agreeing) })),
-    differences: list(b.differences).map((d) => {
-      const first = obj(d.first);
-      const check = obj(d.check);
-      return {
-        plot: text(d.plot),
-        first: { operator: text(first.operator), recordKey: text(first.recordKey) },
-        check: { operator: text(check.operator), recordKey: text(check.recordKey) },
-        fields: list(d.fields).map((f) => ({ key: text(f.key), first: text(f.first), check: text(f.check) })),
-      };
-    }),
-    problems: list(b.problems).map((pr) => ({ kind: text(pr.kind), plot: text(pr.plot), recordKey: text(pr.recordKey), operator: text(pr.operator) })),
-    problemsTotal: toCount(b.problemsTotal ?? b.problems),
-    beyondOutline: { count: toCount(beyond.count), keys: strings(beyond.keys) },
-    decisions: list(b.decisions).map(toDecision),
-    notes: list(b.notes).map(toNote),
-    margins: toMargins(obj(b.settings).margins),
-    fastSeconds: toFastSeconds(obj(b.settings).fastSeconds),
-    options: toOptions(b.options),
-    computedAt: toMillis(b.computedAt),
-    stale: b.stale === true,
-    excluded: list(b.excluded).map((x) => ({ username: text(x.username), reason: typeof x.reason === "string" ? x.reason : null })),
-  };
-}
 
 /** The quality figures. A 503 "busy" (other projects' figures being worked out) is thrown as ApiError code "busy". */
-export async function getQuality(projectId: string): Promise<QualityData> {
-  return toQualityData(await request<unknown>("GET", `${p(projectId)}/quality`));
+export function getQuality(projectId: string): Promise<QualityAnswer> {
+  return request("GET", `${p(projectId)}/quality`);
 }
 
 /** The "very fast" threshold of a project that has not set one, and the range it may take (as the server's). */
@@ -2140,20 +1184,15 @@ export const DEFAULT_FAST_SECONDS = 15;
 export const MIN_FAST_SECONDS = 1;
 export const MAX_FAST_SECONDS = 120;
 
-export function toFastSeconds(value: unknown): number {
-  return typeof value === "number" && Number.isInteger(value) && value >= MIN_FAST_SECONDS && value <= MAX_FAST_SECONDS ? value : DEFAULT_FAST_SECONDS;
-}
 
 /** Sets the "very fast" flag's threshold (whole seconds); returns it as saved. The margins stay as they are. */
 export async function saveFastSeconds(projectId: string, fastSeconds: number): Promise<number> {
-  const body = await request<{ fastSeconds?: unknown }>("PUT", `${p(projectId)}/quality/settings`, { json: { fastSeconds } });
-  return toFastSeconds(body?.fastSeconds);
+  return (await request<QualitySettingsAnswer>("PUT", `${p(projectId)}/quality/settings`, { json: { fastSeconds } })).fastSeconds;
 }
 
 /** Replaces the number margins (percent, by margin key); returns them as saved. */
 export async function saveQualityMargins(projectId: string, margins: Record<string, number>): Promise<Record<string, number>> {
-  const body = await request<{ margins?: unknown }>("PUT", `${p(projectId)}/quality/settings`, { json: { margins } });
-  return toMargins(body?.margins);
+  return (await request<QualitySettingsAnswer>("PUT", `${p(projectId)}/quality/settings`, { json: { margins } })).margins;
 }
 
 const decisionPath = (projectId: string, plot: string) => `${p(projectId)}/quality/decisions/${encodeURIComponent(plot)}`;
@@ -2161,7 +1200,7 @@ const decisionPath = (projectId: string, plot: string) => `${p(projectId)}/quali
 export async function setQualityDecision(projectId: string, plot: string, decision: DecisionKind, comment: string): Promise<QualityDecision> {
   const json = comment.trim() ? { decision, comment: comment.trim() } : { decision };
   try {
-    return toDecision(await request<unknown>("PUT", decisionPath(projectId, plot), { json }));
+    return await request<QualityDecision>("PUT", decisionPath(projectId, plot), { json });
   } catch (error) {
     // A plot in no plot file and without records (or one a reviewer may not see) is a 404: say so plainly.
     if (error instanceof ApiError && error.status === 404) throw new ApiError(404, NO_SUCH_PLOT, error.reason, error.details);
@@ -2183,12 +1222,12 @@ export async function deleteQualityDecision(projectId: string, plot: string): Pr
 
 const notesPath = (projectId: string) => `${p(projectId)}/quality/notes`;
 
-export async function createGuidanceNote(projectId: string, note: GuidanceNoteInput): Promise<GuidanceNote> {
-  return toNote(await request<unknown>("POST", notesPath(projectId), { json: note }));
+export function createGuidanceNote(projectId: string, note: GuidanceNoteInput): Promise<GuidanceNote> {
+  return request("POST", notesPath(projectId), { json: note });
 }
 
-export async function updateGuidanceNote(projectId: string, id: string, note: GuidanceNoteInput): Promise<GuidanceNote> {
-  return toNote(await request<unknown>("PUT", `${notesPath(projectId)}/${encodeURIComponent(id)}`, { json: note }));
+export function updateGuidanceNote(projectId: string, id: string, note: GuidanceNoteInput): Promise<GuidanceNote> {
+  return request("PUT", `${notesPath(projectId)}/${encodeURIComponent(id)}`, { json: note });
 }
 
 /** Deletes a note (one already gone counts as deleted). */
@@ -2202,161 +1241,37 @@ export async function deleteGuidanceNote(projectId: string, id: string): Promise
 
 /** Where some plots are (the ones in no plot file are left out). */
 export async function getPlotPlaces(projectId: string, plots: string[]): Promise<PlotPlaces> {
-  if (plots.length === 0) return { places: [], outline: { kind: "place" }, unsupportedSrs: null };
-  const body = await request<{ places?: unknown; outline?: unknown; unsupportedSrs?: unknown }>("POST", `${p(projectId)}/quality/places`, { json: { plots } });
-  const places = list(body?.places)
-    .map((place) => ({ plot: text(place.plot), lat: Number(place.lat), lon: Number(place.lon), name: typeof place.name === "string" ? place.name : text(place.plot) }))
-    .filter((place) => Number.isFinite(place.lat) && Number.isFinite(place.lon));
-  return { places, outline: toOutline(body?.outline), unsupportedSrs: typeof body?.unsupportedSrs === "string" && body.unsupportedSrs !== "" ? body.unsupportedSrs : null };
+  if (plots.length === 0) return { places: [], outline: { kind: "place" } };
+  return request("POST", `${p(projectId)}/quality/places`, { json: { plots } });
 }
 
 // --- the AI assistant -------------------------------------------------------------------
 
-export type AiRunKind = "report" | "follow_up" | "question";
-export type AiRunStatus = "running" | "done" | "failed" | "refused";
-export type FollowUpAction = "explain" | "draft_note" | "recheck";
-export type FindingCause = "unclear_question" | "overlapping_options" | "person_habit" | "number_typing" | "other";
-const CAUSES: FindingCause[] = ["unclear_question", "overlapping_options", "person_habit", "number_typing", "other"];
+export type {
+  AiAnswer,
+  AiFinding,
+  AiReport,
+  AiRunAnswer,
+  AiRunKind,
+  AiRunListed,
+  AiRunStatus,
+  AiStart,
+  AiUsageAnswer,
+  AiUsageCounts,
+  FindingCause,
+  FollowUpAction,
+} from "../../src/wire/ai";
 
 /** The assistant in a project: switched on here, and available on the server. */
-export interface ProjectAi {
-  enabled: boolean;
-  available: boolean;
-  /** Who processes what is sent, and where (region "global": any of the provider's regions); null while unavailable. */
-  where: { provider: string; model: string; region: string } | null;
-}
+export type { ProjectAi } from "../../src/wire/projectSettings";
 
-function toWhere(v: unknown): ProjectAi["where"] {
-  const w = v && typeof v === "object" ? (v as Record<string, unknown>) : null;
-  return w && typeof w.provider === "string" ? { provider: w.provider, model: String(w.model ?? ""), region: String(w.region ?? "") } : null;
-}
-
-/** A run as listed: who, when and what, never its result. */
-export interface AiRunSummary {
-  id: string;
-  kind: AiRunKind;
-  status: AiRunStatus;
-  startedAt: number | null;
-  finishedAt: number | null;
-  /** The username, null once the account is deleted. */
-  startedBy: string | null;
-  tokens: number;
-  parentRunId: string | null;
-  findingIndex: number | null;
-  action: FollowUpAction | null;
-  /** Why it failed (blocked, ai_timeout...) or off_topic for a refused question. */
-  errorCode: string | null;
-}
-
-/** A finding of a report, with real names and plot ids (the model's text, shown as plain text only). */
-export interface AiFinding {
-  title: string;
-  explanation: string;
-  cause: FindingCause;
-  /** Question keys, as in the quality figures. */
-  questions: string[];
-  persons: string[];
-  plots: string[];
-  suggestedNote: string | null;
-}
-
-export interface AiReport {
-  summary: string;
-  findings: AiFinding[];
-  recheckPlots: string[];
-  surveyChanges: { question: string; suggestion: string }[];
-}
-
-/** The answer of a follow-up or a question. */
-export interface AiAnswer {
-  text: string;
-  plots: string[];
-  note: string | null;
-}
-
-export interface AiRun extends AiRunSummary {
-  /** The free question asked (questions only). */
-  question: string | null;
-  /** The tools used so far, in order. */
-  tools: string[];
-  report: AiReport | null;
-  answer: AiAnswer | null;
-  /** The server's refusal text, in the run's language (refused runs). */
-  refusal: string | null;
-}
-
-export type AiStart =
-  | { kind: "report" }
-  | { kind: "follow_up"; parentRunId: string; findingIndex: number; action: FollowUpAction }
-  | { kind: "question"; parentRunId: string; question: string };
-
-const RUN_KINDS: AiRunKind[] = ["report", "follow_up", "question"];
-const RUN_STATUSES: AiRunStatus[] = ["running", "done", "failed", "refused"];
-const ACTIONS: FollowUpAction[] = ["explain", "draft_note", "recheck"];
-
-function toRunSummary(value: unknown): AiRunSummary {
-  const r = obj(value);
-  return {
-    id: text(r.id),
-    kind: RUN_KINDS.includes(r.kind as AiRunKind) ? (r.kind as AiRunKind) : "report",
-    status: RUN_STATUSES.includes(r.status as AiRunStatus) ? (r.status as AiRunStatus) : "failed",
-    startedAt: toMillis(r.startedAt),
-    finishedAt: toMillis(r.finishedAt),
-    startedBy: nullableText(r.startedBy),
-    tokens: toCount(r.tokens),
-    parentRunId: nullableText(r.parentRunId),
-    findingIndex: typeof r.findingIndex === "number" && Number.isInteger(r.findingIndex) ? r.findingIndex : null,
-    action: ACTIONS.includes(r.action as FollowUpAction) ? (r.action as FollowUpAction) : null,
-    errorCode: nullableText(r.errorCode),
-  };
-}
-
-function toFinding(value: unknown): AiFinding {
-  const f = obj(value);
-  return {
-    title: text(f.title),
-    explanation: text(f.explanation),
-    cause: CAUSES.includes(f.cause as FindingCause) ? (f.cause as FindingCause) : "other",
-    questions: strings(f.questions),
-    persons: strings(f.persons),
-    plots: strings(f.plots),
-    suggestedNote: nullableText(f.suggestedNote),
-  };
-}
-
-/** One run with its result: a report for a report, an answer for a follow-up or a question. */
-export function toAiRun(body: unknown): AiRun {
-  const b = obj(body);
-  const summary = toRunSummary(b);
-  const result = b.result && typeof b.result === "object" ? obj(b.result) : null;
-  const done = summary.status === "done" && result !== null;
-  return {
-    ...summary,
-    question: nullableText(b.question),
-    tools: strings(obj(b.progress).tools),
-    report:
-      done && summary.kind === "report"
-        ? {
-            summary: text(result.summary),
-            findings: list(result.findings).map(toFinding),
-            recheckPlots: strings(result.recheckPlots),
-            surveyChanges: list(result.surveyChanges).map((c) => ({ question: text(c.question), suggestion: text(c.suggestion) })),
-          }
-        : null,
-    answer: done && summary.kind !== "report" ? { text: text(result.text), plots: strings(result.plots), note: nullableText(result.note) } : null,
-    refusal: nullableText(b.refusal),
-  };
-}
-
-export async function getProjectAi(projectId: string): Promise<ProjectAi> {
-  const body = obj(await request<unknown>("GET", `${p(projectId)}/ai`));
-  return { enabled: body.enabled === true, available: body.available === true, where: toWhere(body.where) };
+export function getProjectAi(projectId: string): Promise<ProjectAi> {
+  return request("GET", `${p(projectId)}/ai`);
 }
 
 /** Switches the assistant on or off for a project (a person's session only: a project key gets 403 user_session_required). */
-export async function setProjectAi(projectId: string, enabled: boolean): Promise<ProjectAi> {
-  const body = obj(await request<unknown>("PUT", `${p(projectId)}/ai`, { json: { enabled } }));
-  return { enabled: body.enabled === true, available: body.available === true, where: toWhere(body.where) };
+export function setProjectAi(projectId: string, enabled: boolean): Promise<ProjectAi> {
+  return request("PUT", `${p(projectId)}/ai`, { json: { enabled } });
 }
 
 /**
@@ -2364,163 +1279,34 @@ export async function setProjectAi(projectId: string, enabled: boolean): Promise
  * ai_daily_limit / ai_monthly_limit with `resetsAt` (ms, or null for a limit of 0) in details.
  */
 export async function startAiRun(projectId: string, start: AiStart, language: string): Promise<string> {
-  const body = obj(await request<unknown>("POST", `${p(projectId)}/ai/runs`, { json: { ...start, language } }));
-  return text(body.runId);
+  const json: AiRunStartBody = { ...start, language };
+  return (await request<AiRunStarted>("POST", `${p(projectId)}/ai/runs`, { json })).runId;
 }
 
 /** The project's runs, newest first, without their results. */
-export async function listAiRuns(projectId: string): Promise<AiRunSummary[]> {
-  const body = obj(await request<unknown>("GET", `${p(projectId)}/ai/runs`));
-  return list(body.runs).map(toRunSummary);
+export async function listAiRuns(projectId: string): Promise<AiRunListed[]> {
+  return (await request<AiRunsAnswer>("GET", `${p(projectId)}/ai/runs`)).runs;
 }
 
-export async function getAiRun(projectId: string, runId: string): Promise<AiRun> {
-  return toAiRun(await request<unknown>("GET", `${p(projectId)}/ai/runs/${encodeURIComponent(runId)}`));
-}
-
-export interface AiUsageCounts {
-  runs: number;
-  reports: number;
-  followUps: number;
-  questions: number;
-  failed: number;
-  refused: number;
-  tokens: number;
+export function getAiRun(projectId: string, runId: string): Promise<AiRunAnswer> {
+  return request("GET", `${p(projectId)}/ai/runs/${encodeURIComponent(runId)}`);
 }
 
 /** The assistant's use this UTC month, per project id (never names or content). */
-export interface AiUsage {
-  month: string;
-  projects: (AiUsageCounts & { projectId: string })[];
-  totals: AiUsageCounts;
-}
-
-function toUsageCounts(value: unknown): AiUsageCounts {
-  const c = obj(value);
-  return {
-    runs: toCount(c.runs),
-    reports: toCount(c.reports),
-    followUps: toCount(c.followUps),
-    questions: toCount(c.questions),
-    failed: toCount(c.failed),
-    refused: toCount(c.refused),
-    tokens: toCount(c.tokens),
-  };
-}
-
-export async function getAiUsage(): Promise<AiUsage> {
-  const body = obj(await request<unknown>("GET", "/v1/admin/ai-usage"));
-  return {
-    month: text(body.month),
-    projects: list(body.projects).map((row) => ({ projectId: text(row.projectId), ...toUsageCounts(row) })),
-    totals: toUsageCounts(body.totals),
-  };
+export function getAiUsage(): Promise<AiUsageAnswer> {
+  return request("GET", "/v1/admin/ai-usage");
 }
 
 // --- the printable reports ----------------------------------------------------------------
 
-/** A guidance note as the reports show it (no author, no date). */
-export interface ReportNote {
-  id: string;
-  questionKey: string;
-  firstValue: string | null;
-  checkValue: string | null;
-  text: string;
+export type { MyQualityAnswer, ReportConfusion, ReportNote, ReportRate, TeamReportAnswer } from "../../src/wire/reports";
+
+export function getMyQuality(projectId: string): Promise<MyQualityAnswer> {
+  return request("GET", `${p(projectId)}/my-quality`);
 }
 
-/** A mix-up in a report: counts are checks; a few example plots and the notes about it. */
-export interface ReportConfusion {
-  key: string;
-  label: string;
-  first: string;
-  check: string;
-  checks: number;
-  plots: string[];
-  notes: ReportNote[];
-}
-
-/** A member's own figures (GET /my-quality): their plots checked by someone else, never who checked. */
-export interface MyQuality {
-  username: string;
-  minChecks: number;
-  asFirst: Rate;
-  confusions: ReportConfusion[];
-  /** The answer options of the questions of the mix-ups. */
-  options: AnswerOptions;
-  computedAt: number | null;
-  stale: boolean;
-}
-
-/** The team report for training (GET /quality/team-report): no names. */
-export interface TeamReport {
-  minChecks: number;
-  plotsChecked: number;
-  plotsDiffering: number;
-  questions: QuestionAgreement[];
-  confusions: ReportConfusion[];
-  notes: ReportNote[];
-  /** The answer options of the report's choice questions. */
-  options: AnswerOptions;
-  computedAt: number | null;
-  stale: boolean;
-}
-
-function toReportNote(value: unknown): ReportNote {
-  const n = obj(value);
-  return { id: text(n.id), questionKey: text(n.questionKey), firstValue: nullableText(n.firstValue), checkValue: nullableText(n.checkValue), text: text(n.text) };
-}
-
-/** A report's rate ({ checks, agreeing, rate }) as the dashboard's Rate. */
-function toReportRate(value: unknown): Rate {
-  const r = obj(value);
-  return { compared: toCount(r.checks), agreeing: toCount(r.agreeing), rate: typeof r.rate === "number" && Number.isFinite(r.rate) ? r.rate : null };
-}
-
-function toReportConfusion(value: unknown): ReportConfusion {
-  const c = obj(value);
-  return {
-    key: text(c.key),
-    label: text(c.label) || text(c.key),
-    first: text(c.first),
-    check: text(c.check),
-    checks: toCount(c.checks),
-    plots: strings(c.plots),
-    notes: list(c.notes).map(toReportNote),
-  };
-}
-
-export async function getMyQuality(projectId: string): Promise<MyQuality> {
-  const b = obj(await request<unknown>("GET", `${p(projectId)}/my-quality`));
-  return {
-    username: text(b.username),
-    minChecks: toCount(b.minChecks),
-    asFirst: toReportRate(b.asFirst),
-    confusions: list(b.confusions).map(toReportConfusion),
-    options: toOptions(b.options),
-    computedAt: toMillis(b.computedAt),
-    stale: b.stale === true,
-  };
-}
-
-export async function getTeamReport(projectId: string): Promise<TeamReport> {
-  const b = obj(await request<unknown>("GET", `${p(projectId)}/quality/team-report`));
-  return {
-    minChecks: toCount(b.minChecks),
-    plotsChecked: toCount(b.plotsChecked),
-    plotsDiffering: toCount(b.plotsDiffering),
-    questions: list(b.questions).map((q) => ({
-      ...toReportRate(q),
-      key: text(q.key),
-      label: text(q.label) || text(q.key),
-      kind: q.kind === "number" ? "number" : "choice",
-      margin: typeof q.margin === "number" && Number.isFinite(q.margin) ? q.margin : null,
-    })),
-    confusions: list(b.confusions).map(toReportConfusion),
-    notes: list(b.notes).map(toReportNote),
-    options: toOptions(b.options),
-    computedAt: toMillis(b.computedAt),
-    stale: b.stale === true,
-  };
+export function getTeamReport(projectId: string): Promise<TeamReportAnswer> {
+  return request("GET", `${p(projectId)}/quality/team-report`);
 }
 
 // --- data ------------------------------------------------------------------------------------
@@ -2561,13 +1347,7 @@ export async function downloadExport(projectId: string, format: ExportFormat, op
   return { blob: await response.blob(), filename: attachmentName(response, `collect-earth-data.${format}`) };
 }
 
-/** What "Records to download" offers: when you last downloaded the data (ms, or null), and the survey's plot questions with the code lists of the code ones. */
-export interface ExportChoices {
-  lastDownload: number | null;
-  languages: string[];
-  questions: { key: string; name: string; labels: Record<string, string>; list: string | null }[];
-  lists: Record<string, AnalysisListItem[]>;
-}
+export type { ExportChoices } from "../../src/wire/data";
 
 export const getExportChoices = (projectId: string) => request<ExportChoices>("GET", `${p(projectId)}/export/choices`);
 
@@ -2583,77 +1363,11 @@ function attachmentName(response: Response, fallback: string): string {
   }
 }
 
-/** Which records a Collect Earth backup holds: the first assessments (round 1), or every round. */
-export type BackupRounds = "1" | "all";
-
-/** Which file: the zip Collect Earth imports, or OpenForis Collect's own backup (.collect-backup). */
-export type BackupFormat = "zip" | "collect";
-
-/** What a Collect Earth backup would hold with one choice. */
-export interface BackupCounts {
-  /** Records in the backup (one per plot and round). */
-  records: number;
-  /** Of them, not submitted. */
-  drafts: number;
-  /** Records of other rounds left out (the checks, with the first assessments only). */
-  otherRounds: number;
-  /** The collectors' measurements of reference plots, left out in every choice. */
-  measurements: number;
-  /** Records left out because another record has the same plot and round (Collect Earth keeps one). */
-  sameKey: number;
-  /** Some of the plots and rounds that had more than one record ("17,1"). */
-  sameKeyExamples: string[];
-  /** Records left out because the server has no XML for them. */
-  noXml: number;
-  /** About how large the file is, in bytes. */
-  estimatedBytes: number;
-}
-
-export interface BackupSummary {
-  /** A project file was uploaded (the backup carries its survey). */
-  projectFile: boolean;
-  /** The survey has the round key, so every round can go in the backup. */
-  roundKey: boolean;
-  /** The round codes of the first assessments ("1"; a survey's own codes), or null when they are told apart by who holds the plots. */
-  firstCodes: string[] | null;
-  /** The project file carries the coordinator's note (Task 16). */
-  note: boolean;
-  first: BackupCounts;
-  /** Null without the round key. */
-  all: BackupCounts | null;
-}
-
-function toBackupCounts(value: unknown): BackupCounts {
-  const v = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
-  return {
-    records: toCount(v.records),
-    drafts: toCount(v.drafts),
-    otherRounds: toCount(v.otherRounds),
-    measurements: toCount(v.measurements),
-    sameKey: toCount(v.sameKey),
-    sameKeyExamples: Array.isArray(v.sameKeyExamples) ? v.sameKeyExamples.filter((k): k is string => typeof k === "string") : [],
-    noXml: toCount(v.noXml),
-    estimatedBytes: toCount(v.estimatedBytes),
-  };
-}
-
-export function toBackupSummary(value: unknown): BackupSummary {
-  const v = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
-  const rounds = v.rounds && typeof v.rounds === "object" ? (v.rounds as Record<string, unknown>) : {};
-  const roundKey = v.roundKey === true;
-  return {
-    projectFile: v.projectFile === true,
-    roundKey,
-    firstCodes: Array.isArray(v.firstCodes) ? v.firstCodes.filter((c): c is string => typeof c === "string") : null,
-    note: v.note === true,
-    first: toBackupCounts(rounds["1"]),
-    all: roundKey && rounds.all ? toBackupCounts(rounds.all) : null,
-  };
-}
+export type { BackupCounts, BackupFormat, BackupLinkAnswer, BackupRounds, BackupSummary } from "../../src/wire/data";
 
 /** What the Collect Earth backup would hold with each choice. */
-export async function getBackupSummary(projectId: string): Promise<BackupSummary> {
-  return toBackupSummary(await request<unknown>("GET", `${p(projectId)}/exports/collect-backup/summary`));
+export function getBackupSummary(projectId: string): Promise<BackupSummary> {
+  return request("GET", `${p(projectId)}/exports/collect-backup/summary`);
 }
 
 /**
@@ -2661,143 +1375,35 @@ export async function getBackupSummary(projectId: string): Promise<BackupSummary
  * from ZIP", or OpenForis Collect's own backup): used once within a minute, by the browser itself,
  * which saves the file to disk as it comes and shows its progress (the page holds none of it).
  */
-export async function getBackupLink(projectId: string, rounds: BackupRounds, format: BackupFormat): Promise<{ url: string; expiresAt: number }> {
-  const body = await request<{ url?: unknown; expiresAt?: unknown }>("POST", `${p(projectId)}/exports/collect-backup/link`, { json: { rounds, format } });
-  if (typeof body?.url !== "string" || !body.url.startsWith("/v1/collect-backup/")) throw new ApiError(500, "http_500");
-  return { url: body.url, expiresAt: toMillis(body.expiresAt) ?? 0 };
+export async function getBackupLink(projectId: string, rounds: BackupRounds, format: BackupFormat): Promise<BackupLinkAnswer> {
+  const link = await request<BackupLinkAnswer>("POST", `${p(projectId)}/exports/collect-backup/link`, { json: { rounds, format } });
+  // The browser is sent to it: only a link of this server's backup is followed.
+  if (!link.url.startsWith("/v1/collect-backup/")) throw new ApiError(500, "http_500");
+  return link;
 }
 
 // --- platform admin ---------------------------------------------------------------------
 
-export const DEFAULT_SERVER_SETTINGS: ServerSettings = {
-  signupOpen: false,
-  projectCreation: "platform-admins",
-  maxProjectsPerUser: 0,
-  maxProjectStorageMb: 0,
-  termsUrl: null,
-  contactEmail: null,
-  serverName: null,
-  aiEnabled: false,
-  aiReportsPerDay: 5,
-  aiFollowUpsPerDay: 30,
-  aiMonthlyTokens: 2_000_000,
-  aiConfigured: false,
-  announcement: null,
-  announcementUntil: null,
-  twoFactorForCoordinators: false,
-  alertFailedLogins: 50,
-  alertServerErrors: 20,
-  alertSyncErrors: 50,
-  alertStoragePercent: 90,
-  alertWebhook: null,
-  signupDomains: null,
-  minPasswordLength: 8,
-  loginLockFailures: 0,
-  loginLockMinutes: 15,
-};
-
-/** Settings from a server answer, keeping `fallback` for anything missing (older servers). */
-export function toServerSettings(body: unknown, fallback: ServerSettings = DEFAULT_SERVER_SETTINGS): ServerSettings {
-  const b = body && typeof body === "object" ? (body as Record<string, unknown>) : {};
-  const limit = (value: unknown, old: number) => (typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : old);
-  const text = (key: string, old: string | null) => (key in b ? optionalText(b[key]) : old);
-  return {
-    signupOpen: typeof b.signupOpen === "boolean" ? b.signupOpen : fallback.signupOpen,
-    projectCreation: b.projectCreation === "anyone" || b.projectCreation === "platform-admins" ? b.projectCreation : fallback.projectCreation,
-    maxProjectsPerUser: limit(b.maxProjectsPerUser, fallback.maxProjectsPerUser),
-    maxProjectStorageMb: limit(b.maxProjectStorageMb, fallback.maxProjectStorageMb),
-    termsUrl: text("termsUrl", fallback.termsUrl),
-    contactEmail: text("contactEmail", fallback.contactEmail),
-    serverName: text("serverName", fallback.serverName),
-    aiEnabled: typeof b.aiEnabled === "boolean" ? b.aiEnabled : fallback.aiEnabled,
-    aiReportsPerDay: limit(b.aiReportsPerDay, fallback.aiReportsPerDay),
-    aiFollowUpsPerDay: limit(b.aiFollowUpsPerDay, fallback.aiFollowUpsPerDay),
-    aiMonthlyTokens: limit(b.aiMonthlyTokens, fallback.aiMonthlyTokens),
-    aiConfigured: typeof b.aiConfigured === "boolean" ? b.aiConfigured : fallback.aiConfigured,
-    announcement: text("announcement", fallback.announcement),
-    announcementUntil: "announcementUntil" in b ? toMillis(b.announcementUntil) : fallback.announcementUntil,
-    twoFactorForCoordinators: typeof b.twoFactorForCoordinators === "boolean" ? b.twoFactorForCoordinators : fallback.twoFactorForCoordinators,
-    alertFailedLogins: limit(b.alertFailedLogins, fallback.alertFailedLogins),
-    alertServerErrors: limit(b.alertServerErrors, fallback.alertServerErrors),
-    alertSyncErrors: limit(b.alertSyncErrors, fallback.alertSyncErrors),
-    alertStoragePercent: limit(b.alertStoragePercent, fallback.alertStoragePercent),
-    alertWebhook: "alertWebhook" in b
-      ? (b.alertWebhook && typeof b.alertWebhook === "object" && typeof (b.alertWebhook as { host?: unknown }).host === "string"
-        ? { kind: (b.alertWebhook as { kind?: unknown }).kind === "teams" ? "teams" : "slack", host: (b.alertWebhook as { host: string }).host }
-        : null)
-      : fallback.alertWebhook,
-    signupDomains: text("signupDomains", fallback.signupDomains),
-    minPasswordLength: limit(b.minPasswordLength, fallback.minPasswordLength),
-    loginLockFailures: limit(b.loginLockFailures, fallback.loginLockFailures),
-    loginLockMinutes: limit(b.loginLockMinutes, fallback.loginLockMinutes),
-  };
-}
-
-export async function getServerSettings(): Promise<ServerSettings> {
-  return toServerSettings(await request<unknown>("GET", "/v1/admin/settings"));
+export function getServerSettings(): Promise<ShownSettings> {
+  return request<ShownSettings>("GET", "/v1/admin/settings");
 }
 
 /** Saves some settings; returns all of them as the server now has them. */
-export async function saveServerSettings(current: ServerSettings, changes: Partial<ServerSettings>): Promise<ServerSettings> {
-  const body = await request<unknown>("PUT", "/v1/admin/settings", { json: changes });
-  return toServerSettings(body, { ...current, ...changes });
-}
-
-function toAdminUser(u: Record<string, unknown>): AdminUser {
-  return {
-    userId: String(u.userId ?? ""),
-    username: String(u.username ?? ""),
-    isPlatformAdmin: u.isPlatformAdmin === true,
-    projects: toCount(u.projects),
-    coordinatedProjects: toCount(u.coordinatedProjects),
-    disabledAt: toMillis(u.disabledAt),
-    disabledBy: typeof u.disabledBy === "string" ? u.disabledBy : null,
-    twoFactor: u.twoFactor === true,
-    createdAt: toMillis(u.createdAt),
-    lastActiveAt: toMillis(u.lastActiveAt),
-    email: typeof u.email === "string" && u.email !== "" ? u.email : null,
-    emailConfirmed: u.emailConfirmed === true,
-    lockedUntil: toMillis(u.lockedUntil),
-  };
+export function saveServerSettings(changes: SettingsChange): Promise<ShownSettings> {
+  return request<ShownSettings>("PUT", "/v1/admin/settings", { json: changes });
 }
 
 /** The server page's accounts list: what is searched, the filter, the order and the page. */
-export const ACCOUNT_FILTERS = ["all", "admins", "disabled", "locked", "twoFactor", "noTwoFactor", "inactive", "noEmail"] as const;
-export type AccountFilter = (typeof ACCOUNT_FILTERS)[number];
-export const ACCOUNT_SORTS = ["name", "created", "lastActive", "projects"] as const;
-export type AccountSort = (typeof ACCOUNT_SORTS)[number];
-export interface AccountQuery {
-  q: string;
-  filter: AccountFilter;
-  sort: AccountSort;
-  desc: boolean;
-  page: number;
-  pageSize: number;
-}
-export interface AccountPage {
-  users: AdminUser[];
-  total: number;
-  page: number;
-  pages: number;
-  pageSize: number;
-  /** The accounts of each filter, among those the search finds */
-  counts: Record<AccountFilter, number>;
-}
+export const ACCOUNT_FILTERS = ["all", "admins", "disabled", "locked", "twoFactor", "noTwoFactor", "inactive", "noEmail"] as const satisfies readonly AccountFilter[];
+export const ACCOUNT_SORTS = ["name", "created", "lastActive", "projects"] as const satisfies readonly AccountSort[];
+export type { AccountFilter, AccountPage, AccountQuery, AccountSort } from "../../src/wire/serverAdmin";
 
-const accountQueryString = (q: Partial<AccountQuery>) =>
+/** A list's query string (the accounts', the projects'): what is searched, the filter, the order and the page. */
+const accountQueryString = (q: Partial<AccountQuery> | ProjectQuery) =>
   new URLSearchParams(Object.entries(q).filter(([, v]) => v !== undefined && v !== "").map(([k, v]) => [k, String(v)])).toString();
 
-export async function listUsers(query: Partial<AccountQuery> = {}): Promise<AccountPage> {
-  const body = await request<Record<string, unknown>>("GET", `/v1/admin/users?${accountQueryString(query)}`);
-  const counts = (body?.counts ?? {}) as Record<string, unknown>;
-  return {
-    users: ((body?.users as Record<string, unknown>[] | undefined) ?? []).map(toAdminUser),
-    total: toCount(body?.total),
-    page: Math.max(1, toCount(body?.page)),
-    pages: Math.max(1, toCount(body?.pages)),
-    pageSize: Math.max(1, toCount(body?.pageSize)),
-    counts: Object.fromEntries(ACCOUNT_FILTERS.map((f) => [f, toCount(counts[f])])) as Record<AccountFilter, number>,
-  };
+export function listUsers(query: Partial<AccountQuery> = {}): Promise<AccountPage> {
+  return request<AccountPage>("GET", `/v1/admin/users?${accountQueryString(query)}`);
 }
 
 /** The accounts the search and filter find, every page, as CSV. */
@@ -2806,31 +1412,16 @@ export async function downloadUsersCsv(query: Partial<AccountQuery>): Promise<{ 
   return { blob: await response.blob(), filename: attachmentName(response, "accounts.csv") };
 }
 
-/** One account the administrator made: its link to choose its password, unless it was mailed. */
-export interface MadeAccount {
-  username: string;
-  status: "created" | "taken";
-  mailed: boolean;
-  setPasswordUrl: string | null;
-  expiresAt: number | null;
-}
+export type { MadeAccount } from "../../src/wire/serverAdmin";
 
 /** Makes accounts (also when sign-up is closed); `mail`: their links mailed to the addresses given, when the server sends mail. */
 export async function createAccounts(accounts: { username: string; email: string | null }[], mail: boolean, language: string): Promise<MadeAccount[]> {
-  const body = await request<{ results?: Record<string, unknown>[] }>("POST", "/v1/admin/users", { json: { accounts, mail, language } });
-  return (body?.results ?? []).map((r) => ({
-    username: String(r.username ?? ""),
-    status: r.status === "created" ? "created" : "taken",
-    mailed: r.mailed === true,
-    setPasswordUrl: typeof r.setPasswordUrl === "string" ? absoluteUrl(r.setPasswordUrl, "/") : null,
-    expiresAt: toMillis(r.expiresAt),
-  }));
+  return (await request<MadeAccountsAnswer>("POST", "/v1/admin/users", { json: { accounts, mail, language } })).results;
 }
 
 /** Makes an account a server administrator, or takes the role back; the account as it is now. */
-export async function setPlatformAdmin(userId: string, on: boolean): Promise<AdminUser> {
-  const body = await request<{ user?: Record<string, unknown> }>("POST", `/v1/admin/users/${encodeURIComponent(userId)}/platform-admin`, { json: { on } });
-  return toAdminUser(body?.user ?? {});
+export async function setPlatformAdmin(userId: string, on: boolean): Promise<UserSummary> {
+  return (await request<AccountAnswer>("POST", `/v1/admin/users/${encodeURIComponent(userId)}/platform-admin`, { json: { on } })).user;
 }
 
 /** Ends every session of an account, Collect Earth's included. */
@@ -2839,793 +1430,145 @@ export async function signOutUser(userId: string): Promise<void> {
 }
 
 /** Deletes an account, its username typed again to confirm; the projects only it was in go with it. */
-export async function deleteUserAccount(userId: string, confirm: string): Promise<{ projectsDeleted: number }> {
-  const body = await request<{ projectsDeleted?: unknown }>("DELETE", `/v1/admin/users/${encodeURIComponent(userId)}`, { json: { confirm } });
-  return { projectsDeleted: toCount(body?.projectsDeleted) };
+export function deleteUserAccount(userId: string, confirm: string): Promise<AccountDeletedAnswer> {
+  return request<AccountDeletedAnswer>("DELETE", `/v1/admin/users/${encodeURIComponent(userId)}`, { json: { confirm } });
 }
 
 /** Disables an account (it cannot log in; its sessions end) or enables it again; the account as it is now. */
-export async function setUserDisabled(userId: string, disabled: boolean): Promise<AdminUser> {
-  const body = await request<{ user?: Record<string, unknown> }>("POST", `/v1/admin/users/${encodeURIComponent(userId)}/${disabled ? "disable" : "enable"}`);
-  return toAdminUser(body?.user ?? {});
+export async function setUserDisabled(userId: string, disabled: boolean): Promise<UserSummary> {
+  return (await request<AccountAnswer>("POST", `/v1/admin/users/${encodeURIComponent(userId)}/${disabled ? "disable" : "enable"}`)).user;
 }
 
-/** The server owner's panel: totals only, projects by id (never names, people or answers). */
-export interface ServerOverview {
-  asOf: number;
-  users: { total: number; disabled: number; platformAdmins: number; active: number; signupsByWeek: { week: string; start: number; count: number }[] };
-  projects: { total: number; active: number; storageBytes: number; largest: { projectId: string; storageBytes: number }[] };
-  records: { received: number; receivedByDay: { day: number; count: number }[] };
-  database: {
-    backend: "memory" | "postgres";
-    sizeBytes: number | null;
-    version: string | null;
-    migrations: { applied: number; shipped: number; latest: string | null; newestAppliedAt: number | null; missing: string[] } | null;
-  };
-  server: { version: string; startedAt: number };
-  security: {
-    since: number;
-    totals: { failedLogins: number; rateLimited: number };
-    hours: { hour: number; failedLogins: number; rateLimited: number }[];
-    /** Automatic check draws worked out after their request's wait (stored nothing, tried again later), and the last one's time. */
-    lateDraws: number;
-    lastLateDrawAt: number | null;
-  };
+export type { ServerOverview } from "../../src/wire/serverAdmin";
+
+export function getServerOverview(): Promise<ServerOverview> {
+  return request<ServerOverview>("GET", "/v1/admin/overview");
 }
 
-const countOrNull = (value: unknown): number | null => (typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null);
-
-export async function getServerOverview(): Promise<ServerOverview> {
-  const b = obj(await request<unknown>("GET", "/v1/admin/overview"));
-  const users = obj(b.users);
-  const projects = obj(b.projects);
-  const records = obj(b.records);
-  const database = obj(b.database);
-  const server = obj(b.server);
-  const security = obj(b.security);
-  const totals = obj(security.totals);
-  const m = database.migrations && typeof database.migrations === "object" ? obj(database.migrations) : null;
-  return {
-    asOf: toMillis(b.asOf) ?? Date.now(),
-    users: {
-      total: toCount(users.total),
-      disabled: toCount(users.disabled),
-      platformAdmins: toCount(users.platformAdmins),
-      active: toCount(users.active),
-      signupsByWeek: list(users.signupsByWeek).map((w) => ({ week: text(w.week), start: toMillis(w.start) ?? 0, count: toCount(w.count) })),
-    },
-    projects: {
-      total: toCount(projects.total),
-      active: toCount(projects.active),
-      storageBytes: toCount(projects.storageBytes),
-      largest: list(projects.largest).map((p) => ({ projectId: text(p.projectId), storageBytes: toCount(p.storageBytes) })),
-    },
-    records: {
-      received: toCount(records.received),
-      receivedByDay: list(records.receivedByDay).map((d) => ({ day: toMillis(d.day) ?? 0, count: toCount(d.count) })),
-    },
-    database: {
-      backend: database.backend === "postgres" ? "postgres" : "memory",
-      sizeBytes: countOrNull(database.sizeBytes),
-      version: typeof database.version === "string" ? database.version : null,
-      migrations: m && {
-        applied: toCount(m.applied),
-        shipped: toCount(m.shipped),
-        latest: typeof m.latest === "string" ? m.latest : null,
-        newestAppliedAt: toMillis(m.newestAppliedAt),
-        missing: Array.isArray(m.missing) ? m.missing.filter((x): x is string => typeof x === "string") : [],
-      },
-    },
-    server: { version: text(server.version), startedAt: toMillis(server.startedAt) ?? 0 },
-    security: {
-      since: toMillis(security.since) ?? 0,
-      totals: { failedLogins: toCount(totals.failedLogins), rateLimited: toCount(totals.rateLimited) },
-      hours: list(security.hours).map((h) => ({ hour: toMillis(h.hour) ?? 0, failedLogins: toCount(h.failedLogins), rateLimited: toCount(h.rateLimited) })),
-      lateDraws: toCount(security.lateDraws),
-      lastLateDrawAt: toMillis(security.lastLateDrawAt),
-    },
-  };
-}
-
-export async function makeResetLink(userId: string): Promise<ResetLink> {
-  const body = await request<{ resetUrl?: string; expiresAt?: unknown; mailed?: unknown }>("POST", `/v1/admin/users/${encodeURIComponent(userId)}/password-reset`);
-  if (body?.mailed === true) return { resetUrl: null, expiresAt: null, mailed: true };
-  return { resetUrl: absoluteUrl(body?.resetUrl ?? null, "/"), expiresAt: toMillis(body?.expiresAt), mailed: false };
+/** A reset link for the account, or that it was mailed to the account's confirmed address. */
+export function makeResetLink(userId: string): Promise<ResetLinkAnswer> {
+  return request<ResetLinkAnswer>("POST", `/v1/admin/users/${encodeURIComponent(userId)}/password-reset`);
 }
 
 // --- progress (the Progress tab) -----------------------------------------------------
 
-export interface ProgressSettings {
-  /** YYYY-MM-DD, or null. */
-  deadline: string | null;
-  /** null: every assigned plot. */
-  targetPlots: number | null;
-  quietDays: number;
-}
-
-export interface ProgressTotals {
-  plots: number;
-  assigned: number;
-  notAssigned: number;
-  submitted: number;
-  started: number;
-  notStarted: number;
-}
-
-export interface ProgressDay {
-  date: string;
-  /** Plots (submitted now) first submitted that day; checks are not counted. */
-  submitted: number;
-  /** Plots submitted by the end of the day, as things are now. */
-  cumulative: number;
-}
-
-export interface Forecast {
-  target: number;
-  targetFrom: "setting" | "assigned";
-  remaining: number;
-  pacePerDay: number;
-  paceDays: number;
-  daysLeft: number | null;
-  endDate: string | null;
-  deadline: string | null;
-  daysToDeadline: number | null;
-  daysOver: number | null;
-  neededPerDay: number | null;
-}
-
-export interface AttentionPerson {
-  username: string;
-  lastSyncAt: number | null;
-  lastPlotsDownloadAt: number | null;
-  medianDelayMs: number | null;
-  /** trainingFinished: the learning set, and whether they passed (null: no pass mark). */
-  set?: string | null;
-  passed?: boolean | null;
-}
-
-export type AttentionKind =
-  | "quiet"
-  | "neverDownloaded"
-  | "notAssigned"
-  | "oldUnsentWork"
-  | "differencesWaiting"
-  | "storage"
-  | "oldProjectFile"
-  | "oldCollectEarth"
-  | "trainingFinished";
-
-export const ATTENTION_KINDS: readonly AttentionKind[] = [
-  "quiet",
-  "neverDownloaded",
-  "notAssigned",
-  "oldUnsentWork",
-  "differencesWaiting",
-  "storage",
-  "oldProjectFile",
-  "oldCollectEarth",
-  "trainingFinished",
-];
-
-export interface AttentionItem {
-  kind: AttentionKind;
-  count: number;
-  people: AttentionPerson[];
-  /** quiet */
-  quietDays: number | null;
-  /** oldCollectEarth: people whose Collect Earth could not be told. */
-  unknownVersion: number;
-  /** storage */
-  level: "nearlyFull" | "over" | null;
-  usedBytes: number | null;
-  limitBytes: number | null;
-}
-
-export interface ProgressData {
-  timeZone: string;
-  today: string;
-  /** When the figures are older than the records: the time they are from (newer ones are being worked out). */
-  asOf: number | null;
-  totals: ProgressTotals;
-  daily: ProgressDay[];
-  forecast: Forecast;
-  /** Null for a reviewer. */
-  attention: AttentionItem[] | null;
-  settings: ProgressSettings;
-}
-
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const toDate = (value: unknown): string | null => (typeof value === "string" && DATE_RE.test(value) ? value : null);
-const toNumberOrNull = (value: unknown): number | null => (typeof value === "number" && Number.isFinite(value) ? value : null);
-
-export function toProgressSettings(value: unknown): ProgressSettings {
-  const s = (value ?? {}) as Record<string, unknown>;
-  const target = toNumberOrNull(s.targetPlots);
-  const quiet = toNumberOrNull(s.quietDays);
-  return { deadline: toDate(s.deadline), targetPlots: target !== null && target > 0 ? target : null, quietDays: quiet !== null && quiet > 0 ? quiet : 3 };
-}
-
-/** One "needs attention" item (the Progress tab's cards, the bell). */
-export function toAttentionItem(a: Record<string, unknown>): AttentionItem {
-  return {
-    kind: a.kind as AttentionKind,
-    count: toCount(a.count),
-    people: (Array.isArray(a.people) ? (a.people as Record<string, unknown>[]) : []).map((person) => ({
-      username: String(person.username ?? ""),
-      lastSyncAt: toMillis(person.lastSyncAt),
-      lastPlotsDownloadAt: toMillis(person.lastPlotsDownloadAt),
-      medianDelayMs: toNumberOrNull(person.medianDelayMs),
-      ...(typeof person.set === "string" ? { set: person.set, passed: typeof person.passed === "boolean" ? person.passed : null } : {}),
-    })),
-    quietDays: toNumberOrNull(a.quietDays),
-    unknownVersion: toCount(a.unknownVersion),
-    level: a.level === "over" || a.level === "nearlyFull" ? a.level : null,
-    usedBytes: toNumberOrNull(a.usedBytes),
-    limitBytes: toNumberOrNull(a.limitBytes),
-  };
-}
-
-export function toProgressData(body: unknown): ProgressData {
-  const b = (body ?? {}) as Record<string, unknown>;
-  const t = (b.totals ?? {}) as Record<string, unknown>;
-  const f = (b.forecast ?? {}) as Record<string, unknown>;
-  const daily = Array.isArray(b.daily) ? (b.daily as Record<string, unknown>[]) : [];
-  const attention = Array.isArray(b.attention) ? (b.attention as Record<string, unknown>[]) : null;
-  return {
-    timeZone: typeof b.timeZone === "string" ? b.timeZone : "UTC",
-    today: toDate(b.today) ?? new Date().toISOString().slice(0, 10),
-    asOf: toMillis(b.asOf),
-    totals: {
-      plots: toCount(t.plots),
-      assigned: toCount(t.assigned),
-      notAssigned: toCount(t.notAssigned),
-      submitted: toCount(t.submitted),
-      started: toCount(t.started),
-      notStarted: toCount(t.notStarted),
-    },
-    daily: daily
-      .filter((d) => toDate(d.date) !== null)
-      .map((d) => ({ date: String(d.date), submitted: toCount(d.submitted), cumulative: toCount(d.cumulative) })),
-    forecast: {
-      target: toCount(f.target),
-      targetFrom: f.targetFrom === "setting" ? "setting" : "assigned",
-      remaining: toCount(f.remaining),
-      pacePerDay: toNumberOrNull(f.pacePerDay) ?? 0,
-      paceDays: toCount(f.paceDays) || 7,
-      daysLeft: toNumberOrNull(f.daysLeft),
-      endDate: toDate(f.endDate),
-      deadline: toDate(f.deadline),
-      daysToDeadline: toNumberOrNull(f.daysToDeadline),
-      daysOver: toNumberOrNull(f.daysOver),
-      neededPerDay: toNumberOrNull(f.neededPerDay),
-    },
-    attention:
-      attention === null
-        ? null
-        : attention.filter((a) => ATTENTION_KINDS.includes(a.kind as AttentionKind)).map(toAttentionItem),
-    settings: toProgressSettings(b.settings),
-  };
-}
+// The types are the server's own (src/wire/progress.ts): the answers are used as they come.
+export type {
+  AttentionItem,
+  AttentionKind,
+  AttentionPerson,
+  BellAnswer,
+  Forecast,
+  ProgressAnswer,
+  ProgressDay,
+  ProgressSettings,
+  ProgressTotals,
+  PublicProgress,
+} from "../../src/wire/progress";
 
 /** The Progress tab's figures, with the days in the browser's time zone. */
-export async function getProgress(projectId: string, timeZone: string, days = 90): Promise<ProgressData> {
+export function getProgress(projectId: string, timeZone: string, days = 90): Promise<ProgressAnswer> {
   const query = new URLSearchParams({ days: String(days), tz: timeZone });
-  return toProgressData(await request<unknown>("GET", `${p(projectId)}/progress?${query}`));
+  return request("GET", `${p(projectId)}/progress?${query}`);
 }
 
-export async function getProgressSettings(projectId: string): Promise<ProgressSettings> {
-  return toProgressSettings(await request<unknown>("GET", `${p(projectId)}/progress/settings`));
+export function getProgressSettings(projectId: string): Promise<ProgressSettings> {
+  return request("GET", `${p(projectId)}/progress/settings`);
 }
 
-export async function saveProgressSettings(projectId: string, settings: ProgressSettings): Promise<ProgressSettings> {
-  return toProgressSettings(await request<unknown>("PUT", `${p(projectId)}/progress/settings`, { json: settings }));
+export function saveProgressSettings(projectId: string, settings: ProgressSettings): Promise<ProgressSettings> {
+  return request("PUT", `${p(projectId)}/progress/settings`, { json: settings });
 }
 
 // --- progress links for funders (Task 18) -------------------------------------------
 
-/** A read-only progress link as coordinators list it (its token is shown only when it is made). */
-export interface ShareLink {
-  id: string;
-  label: string;
-  createdAt: number | null;
-  /** The username of who made it; null for a project key or an account since deleted. */
-  createdBy: string | null;
-  lastUsedAt: number | null;
-}
-
-export interface NewShareLink {
-  link: ShareLink;
-  /** The whole address to give out (shown once). */
-  url: string;
-}
-
-function toShareLink(value: unknown): ShareLink {
-  const l = (value ?? {}) as Record<string, unknown>;
-  return {
-    id: String(l.id ?? ""),
-    label: typeof l.label === "string" ? l.label : "",
-    createdAt: toMillis(l.createdAt),
-    createdBy: typeof l.createdBy === "string" ? l.createdBy : null,
-    lastUsedAt: toMillis(l.lastUsedAt),
-  };
-}
+export type { NewShareLinkAnswer, ShareLink } from "../../src/wire/projectSettings";
 
 export async function listShareLinks(projectId: string): Promise<ShareLink[]> {
-  const body = await request<{ links?: unknown[] }>("GET", `${p(projectId)}/share-links`);
-  return (Array.isArray(body?.links) ? body.links : []).map(toShareLink);
+  return (await request<ShareLinksAnswer>("GET", `${p(projectId)}/share-links`)).links;
 }
 
-export async function createShareLink(projectId: string, label: string): Promise<NewShareLink> {
-  const body = await request<Record<string, unknown>>("POST", `${p(projectId)}/share-links`, { json: { label } });
-  const path = typeof body.path === "string" && body.path.startsWith("/p/") ? body.path : `/p/${encodeURIComponent(String(body.token ?? ""))}`;
-  return { link: toShareLink(body.link), url: absoluteUrl(typeof body.url === "string" ? body.url : null, path) };
+/** A new link; its token and address are shown this once. */
+export function createShareLink(projectId: string, label: string): Promise<NewShareLinkAnswer> {
+  return request("POST", `${p(projectId)}/share-links`, { json: { label } });
 }
 
 export async function revokeShareLink(projectId: string, linkId: string): Promise<void> {
   await send("DELETE", `${p(projectId)}/share-links/${encodeURIComponent(linkId)}`);
 }
 
-/** What a progress link shows: the project's name and the Progress tab's figures, never a name or an answer. */
-export interface PublicProgressData {
-  projectName: string;
-  timeZone: string;
-  today: string;
-  asOf: number | null;
-  totals: ProgressTotals;
-  daily: ProgressDay[];
-  forecast: Forecast;
-  quality: {
-    /** False when the server has no quality figures at hand yet. */
-    available: boolean;
-    /** Checked plots compared with their first assessment; rate null when too few to say. */
-    agreement: { compared: number; agreeing: number; rate: number | null } | null;
-    computedAt: number | null;
-  };
-}
-
-export function toPublicProgress(body: unknown): PublicProgressData {
-  const b = (body ?? {}) as Record<string, unknown>;
-  const progress = toProgressData(b);
-  const q = (b.quality ?? {}) as Record<string, unknown>;
-  const a = q.agreement as Record<string, unknown> | null | undefined;
-  return {
-    projectName: String(((b.project ?? {}) as Record<string, unknown>).name ?? ""),
-    timeZone: progress.timeZone,
-    today: progress.today,
-    asOf: progress.asOf,
-    totals: progress.totals,
-    daily: progress.daily,
-    forecast: progress.forecast,
-    quality: {
-      available: q.available === true,
-      agreement: a && typeof a === "object" ? { compared: toCount(a.compared), agreeing: toCount(a.agreeing), rate: toNumberOrNull(a.rate) } : null,
-      computedAt: toMillis(q.computedAt),
-    },
-  };
-}
-
 /** A progress link's figures, asked without the session (the page is public; nobody needs to be logged in). */
-export async function getPublicProgress(token: string, timeZone: string): Promise<PublicProgressData> {
+export function getPublicProgress(token: string, timeZone: string): Promise<PublicProgress> {
   const query = new URLSearchParams({ tz: timeZone });
-  return toPublicProgress(await request<unknown>("GET", `/v1/public/progress/${encodeURIComponent(token)}?${query}`, { anonymous: true, noSessionEnd: true }));
+  return request("GET", `/v1/public/progress/${encodeURIComponent(token)}?${query}`, { anonymous: true, noSessionEnd: true });
 }
 
 // --- people (the People tab, a person's page, My work) ------------------------------
 
-export type PersonStatusKind = "noPlots" | "finished" | "neverStarted" | "quiet" | "working" | "disabled";
+export type {
+  InviteRow,
+  PeopleAnswer,
+  PersonAnswer,
+  PersonDetail,
+  PersonFile,
+  PersonRow,
+  PersonStatus,
+  PersonTime,
+  PlotStatus,
+  QualityAtHand,
+  QuickPlot,
+  SentBack,
+  Speed,
+  SyncHealth,
+  TimeSpent,
+  WeekSummary,
+} from "../../src/wire/people";
 
-export interface PersonStatus {
-  kind: PersonStatusKind;
-  /** quiet: whole days since their last sync or plot download. */
-  days: number | null;
-  /** quiet: amber from the project's quiet days on, red from twice that. */
-  level: "amber" | "red" | null;
-}
-
-export interface PersonRow {
-  userId: string;
-  username: string;
-  role: Role;
-  plots: { assigned: number; submitted: number; started: number; remaining: number; done: number | null };
-  /** Null on My work: checks are blind there (copies are counted as plots). */
-  checks: { assigned: number; submitted: number; remaining: number } | null;
-  submittedLast7: number;
-  medianPerDay: number | null;
-  lastSyncAt: number | null;
-  lastPlotsDownloadAt: number | null;
-  lastSubmittedAt: number | null;
-  /** Null when the quality figures are not at hand. */
-  agreement: Rate | null;
-  status: PersonStatus;
-  /** Left out of the results by a coordinator (their records are in no figure nor export); null otherwise. */
-  excluded?: { at: number; reason: string | null } | null;
-}
-
-export interface QualityAtHand {
-  available: boolean;
-  computedAt: number | null;
-  stale: boolean;
-}
-
-export interface WeekPerson {
-  userId: string;
-  username: string;
-  submitted: number;
-}
-
-/** An open invitation link; `forUsername`: made for someone already in the project, to get the new project file. */
+/** An open invitation link as listInvites gives it; `forUsername`: made for someone already in the project, to get the new project file. */
 export interface PeopleInvite extends Invite {
   forUsername: string | null;
 }
 
-export interface PeopleData {
-  timeZone: string;
-  today: string;
-  quietDays: number;
-  /** When the figures are older than the records: the time they are from (newer ones are being worked out). */
-  asOf: number | null;
-  quality: QualityAtHand;
-  people: PersonRow[];
-  invites: PeopleInvite[];
-  week: { days: { date: string; submitted: number }[]; mostActive: WeekPerson[]; leastActive: WeekPerson[] };
-}
-
-export type PlotStatus = "submitted" | "doneByOther" | "started" | "notStarted";
-
-export interface PersonFile {
-  csvFileId: string;
-  filename: string;
-  divided: boolean;
-  plots: { total: number; submitted: number; doneByOther: number; started: number; notStarted: number };
-  /** Null on My work (copies are counted as plots there). */
-  checks: { total: number; submitted: number; started: number; notStarted: number } | null;
-  /** `kind` null on My work. */
-  list: { plot: string; kind: "main" | "check" | null; status: PlotStatus }[];
-  truncated: boolean;
-}
-
-export interface Speed {
-  submissions: number;
-  sessions: number;
-  gaps: number;
-  medianGapMs: number | null;
-  veryFast: number;
-  /** The project's "very fast" threshold (fastSeconds) the count used. */
-  veryFastSeconds: number;
-  buckets: { upToMs: number; count: number }[];
-}
-
-export interface SyncHealth {
-  lastSeenAt: number | null;
-  lastSyncAt: number | null;
-  lastPlotsDownloadAt: number | null;
-  lastCepDownloadAt: number | null;
-  syncsCount: number;
-  recordsReceived: number;
-  cepUpdatedAt: number | null;
-  oldProjectFile: boolean;
-  collectEarth: { kind: "collect-earth" | "old-collect-earth" | "unknown"; version: string | null } | null;
-}
-
-export interface SentBack {
-  plot: string;
-  comment: string | null;
-  decidedAt: number | null;
-  decidedBy: string | null;
-  /** Submitted again since: it has left their "To check again" plot file. */
-  submittedAgain: boolean;
-  /** The "To check again" plot file it is in for them in Collect Earth, while waiting. */
-  file: string | null;
-}
-
-export interface PersonData {
-  timeZone: string;
-  today: string;
-  quietDays: number;
-  asOf: number | null;
-  person: PersonRow;
-  /** `checks` 0 on My work (`plots` counts both there). */
-  calendar: { date: string; plots: number; checks: number }[];
-  /** What removing them leaves behind (coordinators); null on My work. */
-  removal: { plots: number; copies: number } | null;
-  hours: number[];
-  files: PersonFile[];
-  speed: Speed;
-  sync: SyncHealth;
-  /** `flags`: their pattern flags by kind (coordinators' page, from the figures at hand); null on My work or without figures. */
-  quality: QualityAtHand & { asFirst: Rate | null; asChecker: Rate | null; sentBack: SentBack[]; flags: FlagCounts | null; reference?: ReferencePerson | null };
-}
-
-const STATUS_KINDS: readonly PersonStatusKind[] = ["noPlots", "finished", "neverStarted", "quiet", "working", "disabled"];
-const PLOT_STATUSES: readonly PlotStatus[] = ["submitted", "doneByOther", "started", "notStarted"];
-const toRole = (value: unknown): Role => (value === "admin" || value === "reviewer" ? value : "operator");
-const toRateOrNull = (value: unknown): Rate | null => (value && typeof value === "object" ? toRate(value) : null);
-
-function toQualityAtHand(value: unknown): QualityAtHand {
-  const q = obj(value);
-  return { available: q.available === true, computedAt: toMillis(q.computedAt), stale: q.stale === true };
-}
-
-export function toPersonRow(value: unknown): PersonRow {
-  const r = obj(value);
-  const plots = obj(r.plots);
-  const checks = obj(r.checks);
-  const status = obj(r.status);
-  const kind = STATUS_KINDS.includes(status.kind as PersonStatusKind) ? (status.kind as PersonStatusKind) : "working";
-  return {
-    userId: text(r.userId),
-    username: text(r.username),
-    role: toRole(r.role),
-    plots: {
-      assigned: toCount(plots.assigned),
-      submitted: toCount(plots.submitted),
-      started: toCount(plots.started),
-      remaining: toCount(plots.remaining),
-      done: toNumberOrNull(plots.done),
-    },
-    checks:
-      r.checks && typeof r.checks === "object"
-        ? { assigned: toCount(checks.assigned), submitted: toCount(checks.submitted), remaining: toCount(checks.remaining) }
-        : null,
-    submittedLast7: toCount(r.submittedLast7),
-    medianPerDay: toNumberOrNull(r.medianPerDay),
-    lastSyncAt: toMillis(r.lastSyncAt),
-    lastPlotsDownloadAt: toMillis(r.lastPlotsDownloadAt),
-    lastSubmittedAt: toMillis(r.lastSubmittedAt),
-    agreement: toRateOrNull(r.agreement),
-    excluded: r.excluded && typeof r.excluded === "object" ? { at: toCount(obj(r.excluded).at), reason: typeof obj(r.excluded).reason === "string" ? text(obj(r.excluded).reason) : null } : null,
-    status: {
-      kind,
-      days: kind === "quiet" ? toNumberOrNull(status.days) : null,
-      level: kind === "quiet" ? (status.level === "red" ? "red" : "amber") : null,
-    },
-  };
-}
-
-const toWeekPerson = (value: unknown): WeekPerson => {
-  const w = obj(value);
-  return { userId: text(w.userId), username: text(w.username), submitted: toCount(w.submitted) };
-};
-
-export function toPeopleData(body: unknown): PeopleData {
-  const b = obj(body);
-  const week = obj(b.week);
-  return {
-    timeZone: typeof b.timeZone === "string" ? b.timeZone : "UTC",
-    today: toDate(b.today) ?? new Date().toISOString().slice(0, 10),
-    quietDays: toCount(b.quietDays) || 3,
-    asOf: toMillis(b.asOf),
-    quality: toQualityAtHand(b.quality),
-    people: list(b.people).map(toPersonRow),
-    invites: list(b.invites).map((i) => ({
-      id: text(i.id),
-      role: toRole(i.role),
-      maxUses: toCount(i.maxUses),
-      usedCount: toCount(i.usedCount),
-      expiresAt: toMillis(i.expiresAt),
-      createdAt: toMillis(i.createdAt),
-      forUsername: nullableText(i.forUsername),
-    })),
-    week: {
-      days: list(week.days)
-        .filter((d) => toDate(d.date) !== null)
-        .map((d) => ({ date: String(d.date), submitted: toCount(d.submitted) })),
-      mostActive: list(week.mostActive).map(toWeekPerson),
-      leastActive: list(week.leastActive).map(toWeekPerson),
-    },
-  };
-}
-
-export function toPersonData(body: unknown): PersonData {
-  const b = obj(body);
-  const sync = obj(b.sync);
-  const speed = obj(b.speed);
-  const quality = obj(b.quality);
-  const ce = sync.collectEarth && typeof sync.collectEarth === "object" ? obj(sync.collectEarth) : null;
-  const hours = Array.isArray(b.hours) ? b.hours.map(toCount) : [];
-  return {
-    timeZone: typeof b.timeZone === "string" ? b.timeZone : "UTC",
-    today: toDate(b.today) ?? new Date().toISOString().slice(0, 10),
-    quietDays: toCount(b.quietDays) || 3,
-    asOf: toMillis(b.asOf),
-    person: toPersonRow(b.person),
-    calendar: list(b.calendar)
-      .filter((d) => toDate(d.date) !== null)
-      .map((d) => ({ date: String(d.date), plots: toCount(d.plots), checks: toCount(d.checks) })),
-    removal: b.removal && typeof b.removal === "object" ? { plots: toCount(obj(b.removal).plots), copies: toCount(obj(b.removal).copies) } : null,
-    hours: Array.from({ length: 24 }, (_, i) => hours[i] ?? 0),
-    files: list(b.files).map((f) => {
-      const plots = obj(f.plots);
-      const checks = obj(f.checks);
-      return {
-        csvFileId: text(f.csvFileId),
-        filename: text(f.filename),
-        divided: f.divided === true,
-        plots: {
-          total: toCount(plots.total),
-          submitted: toCount(plots.submitted),
-          doneByOther: toCount(plots.doneByOther),
-          started: toCount(plots.started),
-          notStarted: toCount(plots.notStarted),
-        },
-        checks:
-          f.checks && typeof f.checks === "object"
-            ? { total: toCount(checks.total), submitted: toCount(checks.submitted), started: toCount(checks.started), notStarted: toCount(checks.notStarted) }
-            : null,
-        list: list(f.list).map((x) => ({
-          plot: text(x.plot),
-          kind: x.kind === "check" ? "check" : x.kind === "main" ? "main" : null,
-          status: PLOT_STATUSES.includes(x.status as PlotStatus) ? (x.status as PlotStatus) : "notStarted",
-        })),
-        truncated: f.truncated === true,
-      };
-    }),
-    speed: {
-      submissions: toCount(speed.submissions),
-      sessions: toCount(speed.sessions),
-      gaps: toCount(speed.gaps),
-      medianGapMs: toNumberOrNull(speed.medianGapMs),
-      veryFast: toCount(speed.veryFast),
-      veryFastSeconds: toFastSeconds(speed.veryFastSeconds),
-      buckets: list(speed.buckets).map((x) => ({ upToMs: toCount(x.upToMs), count: toCount(x.count) })),
-    },
-    sync: {
-      lastSeenAt: toMillis(sync.lastSeenAt),
-      lastSyncAt: toMillis(sync.lastSyncAt),
-      lastPlotsDownloadAt: toMillis(sync.lastPlotsDownloadAt),
-      lastCepDownloadAt: toMillis(sync.lastCepDownloadAt),
-      syncsCount: toCount(sync.syncsCount),
-      recordsReceived: toCount(sync.recordsReceived),
-      cepUpdatedAt: toMillis(sync.cepUpdatedAt),
-      oldProjectFile: sync.oldProjectFile === true,
-      collectEarth:
-        ce === null
-          ? null
-          : {
-              kind: ce.kind === "collect-earth" || ce.kind === "old-collect-earth" ? ce.kind : "unknown",
-              version: nullableText(ce.version),
-            },
-    },
-    quality: {
-      ...toQualityAtHand(quality),
-      asFirst: toRateOrNull(quality.asFirst),
-      asChecker: toRateOrNull(quality.asChecker),
-      sentBack: list(quality.sentBack).map((s) => ({ plot: text(s.plot), comment: nullableText(s.comment), decidedAt: toMillis(s.decidedAt), decidedBy: nullableText(s.decidedBy), submittedAgain: s.submittedAgain === true, file: nullableText(s.file) })),
-      flags: quality.flags && typeof quality.flags === "object" ? toFlagCounts(quality.flags) : null,
-      // Absent: the project has no reference plot (the line is not shown); null: none of theirs measured yet.
-      ...(quality.reference === undefined ? {} : { reference: quality.reference && typeof quality.reference === "object" ? toReferencePerson(quality.reference) : null }),
-    },
-  };
-}
-
 /** The People tab's table (coordinators), with the days in the browser's time zone. */
-export async function getPeople(projectId: string, timeZone: string): Promise<PeopleData> {
-  return toPeopleData(await request<unknown>("GET", `${p(projectId)}/people?${new URLSearchParams({ tz: timeZone })}`));
+export function getPeople(projectId: string, timeZone: string): Promise<PeopleAnswer> {
+  return request("GET", `${p(projectId)}/people?${new URLSearchParams({ tz: timeZone })}`);
 }
 
 /** One person's page (coordinators). */
-export async function getPerson(projectId: string, userId: string, timeZone: string): Promise<PersonData> {
-  return toPersonData(await request<unknown>("GET", `${p(projectId)}/people/${encodeURIComponent(userId)}?${new URLSearchParams({ tz: timeZone })}`));
-}
-
-/** One person's time per plot (GET /time-spent): Collect Earth's active time on their submitted plots. */
-export interface PersonTime {
-  username: string;
-  timed: number;
-  untimed: number;
-  medianSeconds: number | null;
-  q1Seconds: number | null;
-  q3Seconds: number | null;
-  totalSeconds: number;
-  quick: number;
-  /** Their timed plots in each band of `bandLimits` (one more: the last band is open). */
-  bands: number[];
-}
-
-/** A plot done much quicker than the team usually takes. */
-export interface QuickPlot {
-  plot: string;
-  operator: string;
-  seconds: number;
-  submittedAt: number;
-}
-
-/** The time spent on each plot (coordinators only). */
-export interface TimeSpentData {
-  timed: number;
-  untimed: number;
-  medianSeconds: number | null;
-  q1Seconds: number | null;
-  q3Seconds: number | null;
-  /** Plots under this many seconds are quick; null while fewer than `minTimed` plots are timed. */
-  quickBelowSeconds: number | null;
-  quickShare: number;
-  minTimed: number;
-  bands: number[];
-  bandLimits: number[];
-  people: PersonTime[];
-  quickCount: number;
-  quick: QuickPlot[];
+export function getPerson(projectId: string, userId: string, timeZone: string): Promise<PersonAnswer> {
+  return request("GET", `${p(projectId)}/people/${encodeURIComponent(userId)}?${new URLSearchParams({ tz: timeZone })}`);
 }
 
 /** How long the interpreters take per plot, and the plots done much quicker than the team usually takes (coordinators). */
-export async function getTimeSpent(projectId: string, person?: string): Promise<TimeSpentData> {
+export function getTimeSpent(projectId: string, person?: string): Promise<TimeSpent> {
   const query = person === undefined ? "" : `?${new URLSearchParams({ person })}`;
-  return request<TimeSpentData>("GET", `${p(projectId)}/time-spent${query}`);
+  return request("GET", `${p(projectId)}/time-spent${query}`);
 }
 
 // --- the analysis page (what replaces Saiku; the server's src/analysis.ts) -----------
 
-export type AnalysisColumnType = "code" | "boolean" | "integer" | "real" | "text" | "date" | "time";
+export type {
+  AnalysisAnswer,
+  AnalysisColumn,
+  AnalysisModel,
+  AnalysisTable,
+  AreasSource,
+  ColumnType,
+  ListItem,
+  ProposedFilter,
+  ProposedView,
+  SharedAnalysisView,
+  SharedAnalysisViewInput,
+  StandaloneAnalysis,
+  TableData,
+} from "../../src/wire/analysis";
 
-export interface AnalysisColumnModel {
-  name: string;
-  key: string;
-  labels: Record<string, string>;
-  type: AnalysisColumnType;
-  list: string | null;
-  calculated: boolean;
-  multiple: boolean;
-  fromPlotFile: boolean;
-  /** A key attribute of the survey (the plot's id, the assessment round). Absent from an older server. */
-  keyAttr?: boolean;
-  /** For a code: the column of the code it refines (a land use's subdivision), else null. */
-  parent?: string | null;
-  /** The yes/no column the question is asked after (the year of a change, after "Any change?"), else null. */
-  relevantIf?: string | null;
-  /** A repeat survey's earlier period the column holds the answers of ("2020"); absent for this period's columns */
-  period?: string;
-}
-
-export interface AnalysisTableModel {
-  name: string;
-  labels: Record<string, string>;
-  keyColumn: string | null;
-  columns: AnalysisColumnModel[];
-}
-
-export interface AnalysisListItem {
-  code: string;
-  labels: Record<string, string>;
-  parent: string | null;
-  level: number;
-}
-
-export interface AnalysisModelData {
-  languages: string[];
-  tables: AnalysisTableModel[];
-  lists: Record<string, AnalysisListItem[]>;
-}
-
-export interface AnalysisTableData {
-  name: string;
-  /** Each column's name and DuckDB type, in the CSV's order. */
-  columns: [string, string][];
-  rows: number;
-  csv: string;
-}
-
-export interface AnalysisData {
-  model: AnalysisModelData;
-  /** "project": every record (coordinators, reviewers); "own": the person's own, without rounds (collectors). */
-  scope: "project" | "own";
-  /**
-   * Where the areas come from (the project file's region_areas.csv or areas_per_attribute.csv), or null: no areas.
-   * `unknownColumns`: the file's columns that are no question of the survey; `noStratum`: plots in no line of the file.
-   */
-  areas: {
-    source: string;
-    plots: number;
-    unmatched: number;
-    unknownColumns?: string[];
-    noStratum?: { plots: number; examples: { stratum: string; plots: number }[] };
-  } | null;
-  tables: AnalysisTableData[];
-}
+/** A code list's item; the name ExportChoices (the data section) still uses. */
+export type AnalysisListItem = ListItem;
 
 /** The survey's model and the rows of its tables, for the analysis page (any member). */
-export async function getAnalysis(projectId: string): Promise<AnalysisData> {
-  return request<AnalysisData>("GET", `${p(projectId)}/analysis`);
+export function getAnalysis(projectId: string): Promise<AnalysisAnswer> {
+  return request("GET", `${p(projectId)}/analysis`);
 }
 
 /** The analysis as one HTML file that opens with no server (fetched with the session, then saved by the page). */
@@ -3634,52 +1577,13 @@ export async function downloadAnalysisStandalone(projectId: string, withoutPosit
   return { blob: await response.blob(), filename: attachmentName(response, "analysis.html") };
 }
 
-/** What the stand-alone file holds besides the page's data: its project, and when it was made. */
-export interface StandaloneAnalysisData extends AnalysisData {
-  project: { id: string; name: string };
-  /** ISO 8601. */
-  made: string;
-  /** The plots' locations were left out (?coordinates=none). */
-  withoutPositions?: boolean;
-}
-
-/** A view a coordinator shared with the team (the analysis page). */
-export interface SharedAnalysisView {
-  name: string;
-  table: string;
-  language: string;
-  config: Record<string, unknown>;
-  savedBy: string;
-  savedAt: number;
-}
-
 export async function getSharedAnalysisViews(projectId: string): Promise<SharedAnalysisView[]> {
-  return (await request<{ views: SharedAnalysisView[] }>("GET", `${p(projectId)}/analysis/views`)).views;
+  return (await request<SharedAnalysisViewsAnswer>("GET", `${p(projectId)}/analysis/views`)).views;
 }
 
 /** Shares a view with the team (coordinators), replacing one of the same name and table; gives them all. */
-export async function shareAnalysisView(projectId: string, view: { name: string; table: string; language: string; config: Record<string, unknown> }): Promise<SharedAnalysisView[]> {
-  return (await request<{ views: SharedAnalysisView[] }>("PUT", `${p(projectId)}/analysis/views`, { json: view })).views;
-}
-
-/** A filter of a view proposed by the AI assistant, on codes (the server's src/ai/analysisViews.ts). */
-export interface ProposedFilter {
-  column: string;
-  op: "is" | "isNot" | "yes" | "no" | "answered" | "notAnswered" | "atLeast" | "atMost";
-  codes?: string[];
-  value?: number | string;
-}
-
-/** A view of the analysis page proposed by the AI assistant from the survey's structure, by the cube's column ids. */
-export interface ProposedView {
-  title: string;
-  why: string;
-  rows: string[];
-  columns: string[];
-  measures: string[];
-  chart: "table" | "bars" | "hbars" | "stacked" | "lines" | "areas" | "heatmap" | "treemap" | "sunburst";
-  filters: ProposedFilter[];
-  order: "largest" | "smallest" | "name";
+export async function shareAnalysisView(projectId: string, view: SharedAnalysisViewInput): Promise<SharedAnalysisView[]> {
+  return (await request<SharedAnalysisViewsAnswer>("PUT", `${p(projectId)}/analysis/views`, { json: view })).views;
 }
 
 /**
@@ -3687,20 +1591,21 @@ export interface ProposedView {
  * the server sends the model the survey's structure only, never the data. Counted against the project's AI limits.
  */
 export async function proposeAnalysisViews(projectId: string, table: string, language: string): Promise<ProposedView[]> {
-  const body = obj(await request<unknown>("POST", `${p(projectId)}/analysis/proposals`, { json: { table, language } }));
-  return Array.isArray(body.views) ? (body.views as ProposedView[]) : [];
+  return (await request<ProposedViewsAnswer>("POST", `${p(projectId)}/analysis/proposals`, { json: { table, language } })).views;
 }
 
 export async function deleteSharedAnalysisView(projectId: string, name: string, table: string): Promise<SharedAnalysisView[]> {
-  return (await request<{ views: SharedAnalysisView[] }>("DELETE", `${p(projectId)}/analysis/views?${new URLSearchParams({ name, table })}`)).views;
+  return (await request<SharedAnalysisViewsAnswer>("DELETE", `${p(projectId)}/analysis/views?${new URLSearchParams({ name, table })}`)).views;
 }
 
 /** The signed-in person's own page ("My work", any member). */
-export async function getMyWork(projectId: string, timeZone: string): Promise<PersonData> {
-  return toPersonData(await request<unknown>("GET", `${p(projectId)}/my-work?${new URLSearchParams({ tz: timeZone })}`));
+export function getMyWork(projectId: string, timeZone: string): Promise<PersonAnswer> {
+  return request("GET", `${p(projectId)}/my-work?${new URLSearchParams({ tz: timeZone })}`);
 }
 
 // --- answers per person (the Quality tab's Answers section, Task 4) -------------------
+
+export type { AnswerColumnsAnswer, AnswerFlag, AnswersAnswer, ChoiceStats, CodeCount, NumberStats, Spread } from "../../src/wire/quality";
 
 /** Which first assessments the answers count; null or "" for no filter. */
 export interface AnswersFilter {
@@ -3715,128 +1620,6 @@ export interface AnswersFilter {
 }
 
 export const NO_ANSWERS_FILTER: AnswersFilter = { person: null, file: null, column: null, value: null, from: null, to: null };
-
-export interface AnswerCode {
-  code: string;
-  label: string;
-  count: number;
-}
-
-export interface ChoiceAnswers {
-  key: string;
-  label: string;
-  multiple: boolean;
-  answered: number;
-  blank: number;
-  codes: AnswerCode[];
-  /** counts in the order of codes. */
-  people: { username: string; answered: number; counts: number[] }[];
-  /** Flags on this question (all, not only those listed). */
-  flags: number;
-}
-
-export interface NumberSpread {
-  values: number;
-  nonNumeric: number;
-  median: number | null;
-  q1: number | null;
-  q3: number | null;
-}
-
-export interface NumberAnswers {
-  key: string;
-  label: string;
-  team: NumberSpread;
-  people: ({ username: string } & NumberSpread)[];
-}
-
-export interface AnswerFlag {
-  key: string;
-  label: string;
-  username: string;
-  code: string;
-  codeLabel: string;
-  plots: number;
-  count: number;
-  share: number;
-  others: { plots: number; count: number; share: number };
-  z: number;
-}
-
-export interface AnswersData {
-  plots: number;
-  person: string | null;
-  people: { username: string; plots: number }[];
-  choices: ChoiceAnswers[];
-  numbers: NumberAnswers[];
-  flags: AnswerFlag[];
-  flagsTotal: number;
-  /** Comparisons made, and about how many flags chance alone would give among them. */
-  tests: number;
-  chanceFlags: number;
-  computedAt: number | null;
-  stale: boolean;
-  timeZone: string;
-  filters: { people: string[]; files: { id: string; filename: string }[] };
-}
-
-const counts = (value: unknown): number[] => (Array.isArray(value) ? value.map(toCount) : []);
-
-function toSpread(value: unknown): NumberSpread {
-  const v = obj(value);
-  return { values: toCount(v.values), nonNumeric: toCount(v.nonNumeric), median: toNumberOrNull(v.median), q1: toNumberOrNull(v.q1), q3: toNumberOrNull(v.q3) };
-}
-
-export function toAnswersData(body: unknown): AnswersData {
-  const b = obj(body);
-  const filters = obj(b.filters);
-  return {
-    plots: toCount(b.plots),
-    person: nullableText(b.person),
-    people: list(b.people).map((p) => ({ username: text(p.username), plots: toCount(p.plots) })),
-    choices: list(b.choices).map((c) => ({
-      key: text(c.key),
-      label: text(c.label) || text(c.key),
-      multiple: c.multiple === true,
-      answered: toCount(c.answered),
-      blank: toCount(c.blank),
-      codes: list(c.codes).map((code) => ({ code: text(code.code), label: text(code.label) || text(code.code), count: toCount(code.count) })),
-      people: list(c.people).map((p) => ({ username: text(p.username), answered: toCount(p.answered), counts: counts(p.counts) })),
-      flags: toCount(c.flags),
-    })),
-    numbers: list(b.numbers).map((n) => ({
-      key: text(n.key),
-      label: text(n.label) || text(n.key),
-      team: toSpread(n.team),
-      people: list(n.people).map((p) => ({ username: text(p.username), ...toSpread(p) })),
-    })),
-    flags: list(b.flags).map((f) => {
-      const others = obj(f.others);
-      return {
-        key: text(f.key),
-        label: text(f.label) || text(f.key),
-        username: text(f.username),
-        code: text(f.code),
-        codeLabel: text(f.codeLabel) || text(f.code),
-        plots: toCount(f.plots),
-        count: toCount(f.count),
-        share: toNumberOrNull(f.share) ?? 0,
-        others: { plots: toCount(others.plots), count: toCount(others.count), share: toNumberOrNull(others.share) ?? 0 },
-        z: toNumberOrNull(f.z) ?? 0,
-      };
-    }),
-    flagsTotal: toCount(b.flagsTotal),
-    tests: toCount(b.tests),
-    chanceFlags: toNumberOrNull(b.chanceFlags) ?? 0,
-    computedAt: toMillis(b.computedAt),
-    stale: b.stale === true,
-    timeZone: text(b.timeZone) || "UTC",
-    filters: {
-      people: strings(filters.people),
-      files: list(filters.files).map((f) => ({ id: text(f.id), filename: text(f.filename) })),
-    },
-  };
-}
 
 /** The query of a filter: only what is set, a column only with its file and value. */
 export function answersQuery(filter: AnswersFilter, timeZone: string): URLSearchParams {
@@ -3856,66 +1639,21 @@ export function answersQuery(filter: AnswersFilter, timeZone: string): URLSearch
 }
 
 /** The first assessments' answers, by person (coordinators and reviewers). A 503 "busy" is thrown as ApiError code "busy". */
-export async function getAnswers(projectId: string, filter: AnswersFilter, timeZone: string): Promise<AnswersData> {
-  return toAnswersData(await request<unknown>("GET", `${p(projectId)}/quality/answers?${answersQuery(filter, timeZone)}`));
-}
-
-export interface AnswerColumn {
-  index: number;
-  name: string | null;
-  distinctCount: number;
-  values: { value: string; count: number }[] | null;
+export function getAnswers(projectId: string, filter: AnswersFilter, timeZone: string): Promise<AnswersAnswer> {
+  return request("GET", `${p(projectId)}/quality/answers?${answersQuery(filter, timeZone)}`);
 }
 
 /** A plot file's columns (not the id) and their values, to filter the answers by one. */
-export async function getAnswerColumns(projectId: string, fileId: string): Promise<AnswerColumn[]> {
-  const body = obj(await request<unknown>("GET", `${p(projectId)}/quality/answers/columns?${new URLSearchParams({ file: fileId })}`));
-  return list(body.columns).map((c) => ({
-    index: toCount(c.index),
-    name: typeof c.name === "string" ? c.name : null,
-    distinctCount: toCount(c.distinctCount),
-    values: Array.isArray(c.values) ? list(c.values).map((v) => ({ value: text(v.value), count: toCount(v.count) })) : null,
-  }));
+export async function getAnswerColumns(projectId: string, fileId: string): Promise<PlotColumn[]> {
+  return (await request<AnswerColumnsAnswer>("GET", `${p(projectId)}/quality/answers/columns?${new URLSearchParams({ file: fileId })}`)).columns;
 }
 
 // ---------------------------------------------------------------------------
 // Pattern flags (Task 5)
 
-export const FLAG_KINDS = ["very_fast", "same_as_before", "required_empty", "edited_after_decision", "two_main", "no_plot"] as const;
-export type FlagKind = (typeof FLAG_KINDS)[number];
-export type FlagCounts = Record<FlagKind, number>;
+export type { Flag as PatternFlag, FlagCounts, FlagDetails, FlagKind, FlagsAnswer } from "../../src/wire/quality";
 
-/** One plot worth a look (GET /quality/flags). Only `operator` names a person. */
-export interface PatternFlag {
-  kind: FlagKind;
-  plot: string;
-  operator: string;
-  at: number | null;
-  /** very_fast */
-  gapMs: number | null;
-  /** very_fast, same_as_before: the person's plot before it. */
-  previousPlot: string | null;
-  /** same_as_before */
-  runLength: number | null;
-  firstPlot: string | null;
-  /** required_empty */
-  questions: { key: string; label: string }[];
-  /** edited_after_decision */
-  decision: DecisionKind | null;
-  decidedAt: number | null;
-}
-
-export interface FlagsData {
-  fastSeconds: number;
-  plots: number;
-  counts: FlagCounts;
-  people: { username: string; counts: FlagCounts; total: number }[];
-  total: number;
-  flags: PatternFlag[];
-  requiredQuestions: number;
-  computedAt: number | null;
-  stale: boolean;
-}
+export const FLAG_KINDS: readonly FlagKind[] = ["very_fast", "same_as_before", "required_empty", "edited_after_decision", "two_main", "no_plot"];
 
 export interface FlagsFilter {
   person: string | null;
@@ -3924,441 +1662,94 @@ export interface FlagsFilter {
 
 export const NO_FLAGS_FILTER: FlagsFilter = { person: null, kind: null };
 
-export function toFlagCounts(value: unknown): FlagCounts {
-  const v = obj(value);
-  return Object.fromEntries(FLAG_KINDS.map((k) => [k, toCount(v[k])])) as FlagCounts;
-}
-
-const toFlagKind = (value: unknown): FlagKind | null => (FLAG_KINDS as readonly unknown[]).includes(value) ? (value as FlagKind) : null;
-
-/** A flag as sent, in a list of none (an unknown kind) or one. */
-function toPatternFlags(f: Record<string, unknown>): PatternFlag[] {
-  const kind = toFlagKind(f.kind);
-  if (kind === null) return [];
-  const d = obj(f.details);
-  const decision = d.decision === "first" || d.decision === "check" || d.decision === "recheck" ? d.decision : null;
-  return [
-    {
-      kind,
-      plot: text(f.plot),
-      operator: text(f.operator),
-      at: toMillis(f.at),
-      gapMs: toNumberOrNull(d.gapMs),
-      previousPlot: nullableText(d.previousPlot),
-      runLength: toNumberOrNull(d.runLength),
-      firstPlot: nullableText(d.firstPlot),
-      questions: list(d.questions).map((q) => ({ key: text(q.key), label: text(q.label) || text(q.key) })),
-      decision,
-      decidedAt: toMillis(d.decidedAt),
-    },
-  ];
-}
-
-export function toFlagsData(body: unknown): FlagsData {
-  const b = obj(body);
-  return {
-    fastSeconds: toFastSeconds(b.fastSeconds),
-    plots: toCount(b.plots),
-    counts: toFlagCounts(b.counts),
-    people: list(b.people).map((p) => ({ username: text(p.username), counts: toFlagCounts(p.counts), total: toCount(p.total) })),
-    total: toCount(b.total),
-    flags: list(b.flags).flatMap(toPatternFlags),
-    requiredQuestions: toCount(b.requiredQuestions),
-    computedAt: toMillis(b.computedAt),
-    stale: b.stale === true,
-  };
-}
 
 /** Plots worth a look (coordinators and reviewers). A 503 "busy" is thrown as ApiError code "busy". */
-export async function getFlags(projectId: string, filter: FlagsFilter): Promise<FlagsData> {
+export function getFlags(projectId: string, filter: FlagsFilter): Promise<FlagsAnswer> {
   const query = new URLSearchParams();
   if (filter.person) query.set("person", filter.person);
   if (filter.kind) query.set("kind", filter.kind);
   const q = query.toString();
-  return toFlagsData(await request<unknown>("GET", `${p(projectId)}/quality/flags${q ? `?${q}` : ""}`));
+  return request("GET", `${p(projectId)}/quality/flags${q ? `?${q}` : ""}`);
 }
 
 // --- automatic checks (Task 13) --------------------------------------------------
 
-/** What a sampling rule asks: who may check (null = every collector; reviewers and coordinators only when chosen), the first N plots, X % a week (null = off). */
-export interface SamplingCoreRule {
-  checkers: string[] | null;
-  firstN: number | null;
-  percent: number | null;
+export type {
+  SamplingChecker,
+  SamplingCore,
+  SamplingDraw,
+  SamplingDrawAnswer,
+  SamplingFile,
+  SamplingFileRule,
+  SamplingRule,
+  SamplingRuleInput,
+  SamplingView,
+} from "../../src/wire/checks";
+
+export function getSampling(projectId: string): Promise<SamplingView> {
+  return request("GET", `${p(projectId)}/sampling`);
 }
 
-export type SamplingFileRule = { use: "off" } | ({ use: "own" } & SamplingCoreRule);
-
-/** The rule as saved (PUT /sampling): the project's, and the divided files that do not follow it. */
-export interface SamplingRuleInput extends SamplingCoreRule {
-  files: Record<string, SamplingFileRule>;
-}
-
-export interface SamplingDraw {
-  at: number;
-  /** Who pressed "Draw now"; null for an automatic draw (or one made with a project token). */
-  by: string | null;
-  automatic: boolean;
-  drawn: number;
-  firstN: number;
-  percent: number;
-  noChecker: number;
-}
-
-export interface SamplingFile {
-  csvFileId: string;
-  filename: string;
-  use: "project" | "off" | "own";
-  own: SamplingCoreRule | null;
-  plots: number;
-  submitted: number;
-  sampledCopies: number;
-  divisionCopies: number;
-  /** Copies of reference plots (every collector has one of each). */
-  referenceCopies: number;
-  pending: number;
-}
-
-export interface SamplingChecker {
-  userId: string;
-  username: string;
-  role: Role;
-  eligible: boolean;
-  disabled: boolean;
-  open: number;
-  done: number;
-  sampled: number;
-}
-
-export interface SamplingView {
-  rule: (SamplingRuleInput & { seed: number }) | null;
-  active: boolean;
-  intervalMinutes: number;
-  due: boolean;
-  nextAutomaticAt: number | null;
-  lastDraw: SamplingDraw | null;
-  /** When a draw last looked for plots to check (an empty one included). */
-  lastCheckedAt: number | null;
-  pending: { drawn: number; firstN: number; percent: number; noChecker: number };
-  files: SamplingFile[];
-  wholeFiles: { csvFileId: string; filename: string }[];
-  checkers: SamplingChecker[];
-  members: { userId: string; username: string; role: Role; disabled: boolean }[];
-  noCheckers: boolean;
-  /**
-   * The reviewers and coordinators the rule (or a file's own rule) chooses as checkers: they can read the
-   * first assessments on the dashboard, so their checks may not be blind (warning checkers_not_blind).
-   */
-  notBlindCheckers: string[];
-}
-
-const toLimit = (value: unknown): number | null => (typeof value === "number" && Number.isInteger(value) && value > 0 ? value : null);
-
-function toCoreRule(value: unknown): SamplingCoreRule {
-  const r = obj(value);
-  return { checkers: Array.isArray(r.checkers) ? strings(r.checkers) : null, firstN: toLimit(r.firstN), percent: toLimit(r.percent) };
-}
-
-export function toSamplingView(body: unknown): SamplingView {
-  const b = obj(body);
-  let rule: SamplingView["rule"] = null;
-  if (b.rule && typeof b.rule === "object") {
-    const r = obj(b.rule);
-    const files: Record<string, SamplingFileRule> = {};
-    for (const [id, f] of Object.entries(obj(r.files))) {
-      const use = obj(f).use;
-      if (use === "off") files[id] = { use: "off" };
-      else if (use === "own") files[id] = { use: "own", ...toCoreRule(f) };
-    }
-    rule = { ...toCoreRule(r), seed: typeof r.seed === "number" ? r.seed : 0, files };
-  }
-  const draw = b.lastDraw && typeof b.lastDraw === "object" ? obj(b.lastDraw) : null;
-  const pending = obj(b.pending);
-  const list = (value: unknown) => (Array.isArray(value) ? value.map(obj) : []);
-  return {
-    rule,
-    active: b.active === true,
-    intervalMinutes: toCount(b.intervalMinutes) || 10,
-    due: b.due === true,
-    nextAutomaticAt: toMillis(b.nextAutomaticAt),
-    lastDraw: draw
-      ? {
-          at: toMillis(draw.at) ?? 0,
-          by: typeof draw.by === "string" ? draw.by : null,
-          automatic: draw.automatic === true,
-          drawn: toCount(draw.drawn),
-          firstN: toCount(draw.firstN),
-          percent: toCount(draw.percent),
-          noChecker: toCount(draw.noChecker),
-        }
-      : null,
-    lastCheckedAt: toMillis(b.lastCheckedAt),
-    pending: { drawn: toCount(pending.drawn), firstN: toCount(pending.firstN), percent: toCount(pending.percent), noChecker: toCount(pending.noChecker) },
-    files: list(b.files).map((f) => ({
-      csvFileId: String(f.csvFileId ?? ""),
-      filename: String(f.filename ?? ""),
-      use: f.use === "off" || f.use === "own" ? f.use : "project",
-      own: f.own && typeof f.own === "object" ? toCoreRule(f.own) : null,
-      plots: toCount(f.plots),
-      submitted: toCount(f.submitted),
-      sampledCopies: toCount(f.sampledCopies),
-      divisionCopies: toCount(f.divisionCopies),
-      referenceCopies: toCount(f.referenceCopies),
-      pending: toCount(f.pending),
-    })),
-    wholeFiles: list(b.wholeFiles).map((f) => ({ csvFileId: String(f.csvFileId ?? ""), filename: String(f.filename ?? "") })),
-    checkers: list(b.checkers).map((c) => ({
-      userId: String(c.userId ?? ""),
-      username: String(c.username ?? ""),
-      role: toRole(c.role),
-      eligible: c.eligible === true,
-      disabled: c.disabled === true,
-      open: toCount(c.open),
-      done: toCount(c.done),
-      sampled: toCount(c.sampled),
-    })),
-    members: list(b.members).map((m) => ({ userId: String(m.userId ?? ""), username: String(m.username ?? ""), role: toRole(m.role), disabled: m.disabled === true })),
-    noCheckers: b.noCheckers === true,
-    notBlindCheckers: obj(b.warning).code === "checkers_not_blind" ? strings(obj(b.warning).usernames) : [],
-  };
-}
-
-export async function getSampling(projectId: string): Promise<SamplingView> {
-  return toSamplingView(await request<unknown>("GET", `${p(projectId)}/sampling`));
-}
-
-export async function saveSampling(projectId: string, rule: SamplingRuleInput): Promise<SamplingView> {
-  return toSamplingView(await request<unknown>("PUT", `${p(projectId)}/sampling`, { json: rule }));
+export function saveSampling(projectId: string, rule: SamplingRuleInput): Promise<SamplingView> {
+  return request("PUT", `${p(projectId)}/sampling`, { json: rule });
 }
 
 /** "Draw now": the draw's counts and the section as it is after it. */
-export async function drawSamplingNow(projectId: string): Promise<{ drawn: number; view: SamplingView }> {
-  const body = obj(await request<unknown>("POST", `${p(projectId)}/sampling/draw`));
-  return { drawn: toCount(obj(body.draw).drawn), view: toSamplingView(body.view) };
+export function drawSamplingNow(projectId: string): Promise<SamplingDrawAnswer> {
+  return request("POST", `${p(projectId)}/sampling/draw`);
 }
 
 // --- reference plots (Task 14) ----------------------------------------------------
 
-/** One person's accuracy against the reference: plots where every answer matched, and per question. */
-export interface ReferencePerson {
-  username: string;
-  plots: Rate;
-  questions: { key: string; label: string; compared: number; agreeing: number; rate: number | null }[];
-}
+export type {
+  ExternalReferenceFigures,
+  ReferenceAnswer,
+  ReferenceAnswersReport,
+  ReferenceChangeAnswer,
+  ReferenceChangeResult,
+  ReferenceFiguresAnswer,
+  ReferenceMarkBody,
+  ReferencePerson,
+  ReferencePlotRow,
+  ReferenceQuestion,
+  ReferenceSet,
+} from "../../src/wire/checks";
 
-export interface ReferenceFiguresView {
-  /** Reference plots, those whose reference assessment is submitted, and the checks measured. */
-  plots: number;
-  assessed: number;
-  checks: number;
-  questions: (Rate & { key: string; label: string; kind: "choice" | "number" })[];
-  people: ReferencePerson[];
-  computedAt: number | null;
-  stale: boolean;
-  /** Against the reference answers uploaded from a file; null without them. Reviewers get no people nor plots. */
-  external: ExternalReferenceView | null;
-}
-
-/** Everyone's latest records of the plots of an uploaded reference set, compared with its answers. */
-export interface ExternalReferenceView {
-  plots: number;
-  assessed: number;
-  checks: number;
-  questions: (Rate & { key: string; label: string; kind: "choice" | "number" })[];
-  /** `answers`: every answer of theirs compared (its share differing is their disagreement). */
-  people: (ReferencePerson & { answers: Rate })[];
-  byPlot: { plot: string; records: number; compared: number; agreeing: number }[];
-}
-
-/** What an upload of reference answers took, and what did not match. */
-export interface ReferenceAnswersReport {
-  plots: number;
-  columns: { column: string; key: string }[];
-  unmatchedColumns: string[];
-  unmatchedValues: { column: string; value: string; count: number }[];
-  unknownPlots: string[];
-  unknownPlotCount: number;
-}
-
-export interface ReferencePlotRow {
-  csvFileId: string;
-  filename: string;
-  plot: string;
-  assessor: string;
-  assessorUserId: string;
-  /** The assessor is still a member of the project. */
-  assessorInProject: boolean;
-  addedAt: number | null;
-  /** The reference assessment is submitted. */
-  assessed: boolean;
-  /** Collectors holding a copy, and of them those who submitted their check. */
-  copies: number;
-  checked: number;
-}
-
-/** What GET /reference answers: the figures; for coordinators also the reference set and what it can be built from. */
-export interface ReferenceView {
-  coordinator: boolean;
-  count: number;
-  figures: ReferenceFiguresView | null;
-  max: number;
-  plots: ReferencePlotRow[];
-  files: { csvFileId: string; filename: string; plots: number; reference: number }[];
-  wholeFiles: { csvFileId: string; filename: string }[];
-  assessors: { userId: string; username: string; role: Role }[];
-  collectors: number;
-  people: { userId: string; username: string; copies: number; checked: number }[];
-  /** The reference answers uploaded: how many plots, and when (coordinators). */
-  external: { count: number; uploadedAt: number | null };
-}
-
-export function toReferencePerson(value: unknown): ReferencePerson {
-  const p = obj(value);
-  return {
-    username: text(p.username),
-    plots: toRate(p.plots),
-    questions: list(p.questions).map((q) => ({ key: text(q.key), label: text(q.label) || text(q.key), ...toRate(q) })),
-  };
-}
-
-export function toReferenceView(body: unknown): ReferenceView {
-  const b = obj(body);
-  const f = b.figures && typeof b.figures === "object" ? obj(b.figures) : null;
-  return {
-    coordinator: b.coordinator === true,
-    count: toCount(b.count),
-    figures: f
-      ? {
-          plots: toCount(f.plots),
-          assessed: toCount(f.assessed),
-          checks: toCount(f.checks),
-          questions: list(f.questions).map((q) => ({ key: text(q.key), label: text(q.label) || text(q.key), kind: q.kind === "number" ? "number" : "choice", ...toRate(q) })),
-          people: list(f.people).map(toReferencePerson),
-          computedAt: toMillis(f.computedAt),
-          stale: f.stale === true,
-          external: f.external && typeof f.external === "object" ? toExternalReference(f.external) : null,
-        }
-      : null,
-    external: { count: toCount(obj(b.external).count), uploadedAt: toMillis(obj(b.external).uploadedAt) },
-    max: toCount(b.max) || 500,
-    plots: list(b.plots).map((r) => ({
-      csvFileId: text(r.csvFileId),
-      filename: text(r.filename),
-      plot: text(r.plot),
-      assessor: text(r.assessor),
-      assessorUserId: text(r.assessorUserId),
-      assessorInProject: r.assessorInProject !== false,
-      addedAt: toMillis(r.addedAt),
-      assessed: r.assessed === true,
-      copies: toCount(r.copies),
-      checked: toCount(r.checked),
-    })),
-    files: list(b.files).map((x) => ({ csvFileId: text(x.csvFileId), filename: text(x.filename), plots: toCount(x.plots), reference: toCount(x.reference) })),
-    wholeFiles: list(b.wholeFiles).map((x) => ({ csvFileId: text(x.csvFileId), filename: text(x.filename) })),
-    assessors: list(b.assessors).map((a) => ({ userId: text(a.userId), username: text(a.username), role: toRole(a.role) })),
-    collectors: toCount(b.collectors),
-    people: list(b.people).map((x) => ({ userId: text(x.userId), username: text(x.username), copies: toCount(x.copies), checked: toCount(x.checked) })),
-  };
-}
-
-function toExternalReference(value: unknown): ExternalReferenceView {
-  const e = obj(value);
-  return {
-    plots: toCount(e.plots),
-    assessed: toCount(e.assessed),
-    checks: toCount(e.checks),
-    questions: list(e.questions).map((q) => ({ key: text(q.key), label: text(q.label) || text(q.key), kind: q.kind === "number" ? "number" : "choice", ...toRate(q) })),
-    people: list(e.people).map((p) => ({ ...toReferencePerson(p), answers: toRate(p.answers) })),
-    byPlot: list(e.byPlot).map((p) => ({ plot: text(p.plot), records: toCount(p.records), compared: toCount(p.compared), agreeing: toCount(p.agreeing) })),
-  };
-}
 
 /** Uploads a reference set (a CSV, or a JSON array for a .json file); it replaces the one the project had. */
-export async function uploadReferenceAnswers(projectId: string, file: File): Promise<ReferenceAnswersReport> {
+export function uploadReferenceAnswers(projectId: string, file: File): Promise<ReferenceAnswersReport> {
   const json = file.name.toLowerCase().endsWith(".json");
-  const b = obj(await upload<unknown>("PUT", `${p(projectId)}/reference/answers`, file, json ? "application/json" : "text/csv"));
-  return {
-    plots: toCount(b.plots),
-    columns: list(b.columns).map((c) => ({ column: text(c.column), key: text(c.key) })),
-    unmatchedColumns: strings(b.unmatchedColumns),
-    unmatchedValues: list(b.unmatchedValues).map((v) => ({ column: text(v.column), value: text(v.value), count: toCount(v.count) })),
-    unknownPlots: strings(b.unknownPlots),
-    unknownPlotCount: toCount(b.unknownPlotCount),
-  };
+  return upload("PUT", `${p(projectId)}/reference/answers`, file, json ? "application/json" : "text/csv");
 }
 
 export async function deleteReferenceAnswers(projectId: string): Promise<void> {
   await send("DELETE", `${p(projectId)}/reference/answers`);
 }
 
-export async function getReference(projectId: string): Promise<ReferenceView> {
-  return toReferenceView(await request<unknown>("GET", `${p(projectId)}/reference`));
+export function getReference(projectId: string): Promise<ReferenceAnswer> {
+  return request("GET", `${p(projectId)}/reference`);
 }
 
 /** Marks plots of a divided file as reference plots: the ids given, or `random` plots nobody has assessed. */
-export async function markReference(
-  projectId: string,
-  body: { csvFileId: string; assessorUserId: string; plots: string[] } | { csvFileId: string; assessorUserId: string; random: number },
-): Promise<{ marked: number; view: ReferenceView }> {
-  const res = obj(await request<unknown>("POST", `${p(projectId)}/reference/plots`, { json: body }));
-  return { marked: toCount(obj(res.result).marked), view: toReferenceView({ ...res, coordinator: true }) };
+export function markReference(projectId: string, body: ReferenceMarkBody): Promise<ReferenceChangeAnswer> {
+  return request("POST", `${p(projectId)}/reference/plots`, { json: body });
 }
 
 /** No longer reference plots: the copies of those who did not check them go. */
-export async function unmarkReference(projectId: string, plots: { csvFileId: string; plot: string }[] | "all"): Promise<{ unmarked: number; view: ReferenceView }> {
-  const res = obj(await request<unknown>("POST", `${p(projectId)}/reference/remove`, { json: plots === "all" ? { all: true } : { plots } }));
-  return { unmarked: toCount(obj(res.result).unmarked), view: toReferenceView({ ...res, coordinator: true }) };
+export function unmarkReference(projectId: string, plots: { csvFileId: string; plot: string }[] | "all"): Promise<ReferenceChangeAnswer> {
+  return request("POST", `${p(projectId)}/reference/remove`, { json: plots === "all" ? { all: true } : { plots } });
 }
 
 // --- the review queue (Task 7) ----------------------------------------------------
 
-export type QueueSection = "difference" | "flag" | "resubmitted";
+export type { BulkDecisionAnswer, BulkRule, PlotDecision, QueueSection, Resubmission, ReviewQueueAnswer, ReviewQueueItem } from "../../src/wire/review";
 /** What the queue can be filtered by: a part, or a kind of flag (as the server's QUEUE_KINDS). */
 export const QUEUE_KINDS = ["difference", ...FLAG_KINDS, "resubmitted"] as const;
 export type QueueKind = (typeof QUEUE_KINDS)[number];
 
-/** A plot decided "both need another look" that someone submitted again. */
-export interface Resubmission {
-  operator: string;
-  at: number | null;
-  decidedAt: number | null;
-}
-
 /** One plot of the review queue, with everything known about it. */
-export interface QueueItem {
-  plot: string;
-  section: QueueSection;
-  /** Everyone whose record is shown. */
-  people: string[];
-  /** Its checks that differ from the first assessment, with the answers; `changed`: the records changed since the figures (their answers no longer differ, or one is gone). */
-  differences: (Difference & { changed: boolean })[];
-  flags: PatternFlag[];
-  resubmitted: Resubmission[];
-  /** Decided "Both need another look": who it went back to and has not submitted it again yet, still in the project (null for other decisions). */
-  waiting: string[] | null;
-  /** Those of them no longer in the project or disabled: named apart, waited for by nobody. */
-  left: string[];
-  decision: QualityDecision | null;
-}
-
-export interface ReviewQueueData {
-  items: QueueItem[];
-  /** The cursor of the next page (null: none after these). */
-  next: string | null;
-  /** Plots in the queue (with the filters), listed or not. */
-  total: number;
-  counts: Record<QueueSection, number>;
-  /** Everyone named in the queue, for the person filter. */
-  people: string[];
-  /** Only the newest flags (500) were looked at. */
-  flagsCapped: boolean;
-  /** A reviewer's own plots left out of the queue (someone else decides them); 0 for a coordinator. */
-  excludedOwn: number;
-  labels: Record<string, string>;
-  options: AnswerOptions;
-  computedAt: number | null;
-  stale: boolean;
-}
+export type QueueItem = ReviewQueueItem;
+export type ReviewQueueData = ReviewQueueAnswer;
 
 export interface QueueFilter {
   person: string | null;
@@ -4367,56 +1758,6 @@ export interface QueueFilter {
 
 export const NO_QUEUE_FILTER: QueueFilter = { person: null, kind: null };
 
-const QUEUE_SECTIONS: readonly QueueSection[] = ["difference", "flag", "resubmitted"];
-
-function toDifference(value: unknown): Difference {
-  const d = obj(value);
-  const first = obj(d.first);
-  const check = obj(d.check);
-  return {
-    plot: text(d.plot),
-    first: { operator: text(first.operator), recordKey: text(first.recordKey) },
-    check: { operator: text(check.operator), recordKey: text(check.recordKey) },
-    fields: list(d.fields).map((f) => ({ key: text(f.key), first: text(f.first), check: text(f.check) })),
-  };
-}
-
-export function toReviewQueue(body: unknown): ReviewQueueData {
-  const b = obj(body);
-  const counts = obj(b.counts);
-  const labels: Record<string, string> = {};
-  for (const [key, label] of Object.entries(obj(b.labels))) if (typeof label === "string") labels[key] = label;
-  return {
-    items: list(b.items).flatMap((i): QueueItem[] => {
-      const section = QUEUE_SECTIONS.find((s) => s === i.section);
-      if (!section) return [];
-      return [
-        {
-          plot: text(i.plot),
-          section,
-          people: Array.isArray(i.people) ? i.people.filter((v): v is string => typeof v === "string") : [],
-          differences: list(i.differences).map((d) => ({ ...toDifference(d), changed: d.changed === true })),
-          flags: list(i.flags).flatMap(toPatternFlags),
-          resubmitted: list(i.resubmitted).map((r) => ({ operator: text(r.operator), at: toMillis(r.at), decidedAt: toMillis(r.decidedAt) })),
-          waiting: Array.isArray(i.waiting) ? i.waiting.filter((v): v is string => typeof v === "string") : null,
-          left: Array.isArray(i.left) ? i.left.filter((v): v is string => typeof v === "string") : [],
-          decision: i.decision && typeof i.decision === "object" ? toDecision(i.decision) : null,
-        },
-      ];
-    }),
-    next: typeof b.next === "string" && b.next !== "" ? b.next : null,
-    total: toCount(b.total),
-    counts: { difference: toCount(counts.difference), flag: toCount(counts.flag), resubmitted: toCount(counts.resubmitted) },
-    people: strings(b.people),
-    flagsCapped: b.flagsCapped === true,
-    excludedOwn: toCount(b.excludedOwn),
-    labels,
-    options: toOptions(b.options),
-    computedAt: toMillis(b.computedAt),
-    stale: b.stale === true,
-  };
-}
-
 /** The review queue (coordinators and reviewers), after the cursor `after` (a page's `next`). A 503 "busy" is thrown as ApiError code "busy". */
 export async function getReviewQueue(projectId: string, filter: QueueFilter, after: string | null): Promise<ReviewQueueData> {
   const query = new URLSearchParams();
@@ -4424,289 +1765,48 @@ export async function getReviewQueue(projectId: string, filter: QueueFilter, aft
   if (filter.kind) query.set("kind", filter.kind);
   if (after) query.set("after", after);
   const q = query.toString();
-  return toReviewQueue(await request<unknown>("GET", `${p(projectId)}/quality/queue${q ? `?${q}` : ""}`));
-}
-
-export type BulkRule = "first_by_reviewer" | "check_by_reviewer";
-
-export interface BulkResult {
-  decision: DecisionKind;
-  /** Plots decided (or, in a dry run, that would be). */
-  count: number;
-  /** The first of them (up to 20). */
-  plots: string[];
-  /** The run's id, kept with its decisions and in its audit entry (null for a dry run or nothing decided). */
-  batch: string | null;
+  return request<ReviewQueueAnswer>("GET", `${p(projectId)}/quality/queue${q ? `?${q}` : ""}`);
 }
 
 /** Bulk decisions (coordinators): `dryRun` only counts the plots the rule would decide. */
-export async function bulkDecisions(projectId: string, rule: BulkRule, dryRun: boolean): Promise<BulkResult> {
-  const body = obj(await request<unknown>("POST", `${p(projectId)}/quality/decisions:bulk${dryRun ? "?dryRun=1" : ""}`, { json: { rule } }));
-  return { decision: toDecision({ decision: body.decision }).decision, count: toCount(body.count), plots: strings(body.plots), batch: typeof body.batch === "string" ? body.batch : null };
+export function bulkDecisions(projectId: string, rule: BulkRule, dryRun: boolean): Promise<BulkDecisionAnswer> {
+  return request("POST", `${p(projectId)}/quality/decisions:bulk${dryRun ? "?dryRun=1" : ""}`, { json: { rule } });
 }
 
 // --- survey health (Task 6) -----------------------------------------------------
 
-export type HealthReason = "low_agreement" | "often_other" | "often_empty" | "often_changed";
+export type { HealthCodes, HealthReason, HealthRow, SurveyHealthAnswer } from "../../src/wire/checks";
 export const HEALTH_REASONS: readonly HealthReason[] = ["low_agreement", "often_other", "often_empty", "often_changed"];
 
-export interface HealthCodes {
-  count: number;
-  share: number | null;
-  answers: { code: string; label: string; count: number }[];
-}
-
-/** One question of the survey, as survey health counts it (first assessments, except agreement and decisions). */
-export interface HealthRow {
-  key: string;
-  label: string;
-  kind: "choice" | "number";
-  calculated: boolean;
-  required: boolean;
-  /** Shown only for some answers: its empty share is information, never a reason. */
-  conditional: boolean;
-  /** Inside a group of questions: whether it was left empty is never known. */
-  inGroup: boolean;
-  answered: number;
-  blank: number;
-  nonNumeric: number;
-  /** The first assessments that say whether it was left empty, and of them those left empty; notKnown the others. */
-  emptyBase: number;
-  emptyBlank: number;
-  notKnown: number;
-  /** emptyBlank / emptyBase; null in a group or under minPlots (emptyWhy). */
-  emptyShare: number | null;
-  emptyWhy: "group" | "few_records" | null;
-  other: HealthCodes | null;
-  /** "None" alone: an answer of its own, for information (Decision 6). */
-  none: HealthCodes | null;
-  agreement: { compared: number; agreeing: number; rate: number | null } | null;
-  decisions: { changed: number; share: number | null };
-  reasons: HealthReason[];
-}
-
-export interface SurveyHealthData {
-  plots: number;
-  plotsChecked: number;
-  decidedForCheck: number;
-  questions: HealthRow[];
-  questionsTotal: number;
-  thresholds: { minPlots: number; lowAgreement: number; oftenOther: number; oftenEmpty: number; minChanged: number; oftenChanged: number };
-  computedAt: number | null;
-  stale: boolean;
-}
-
-const toShare = (value: unknown): number | null => (typeof value === "number" && Number.isFinite(value) ? value : null);
-
-const toHealthCodes = (value: unknown): HealthCodes | null => {
-  if (!value || typeof value !== "object") return null;
-  const o = obj(value);
-  return {
-    count: toCount(o.count),
-    share: toShare(o.share),
-    answers: list(o.answers).map((a) => ({ code: text(a.code), label: text(a.label) || text(a.code), count: toCount(a.count) })),
-  };
-};
-
-export function toSurveyHealth(body: unknown): SurveyHealthData {
-  const b = obj(body);
-  const th = obj(b.thresholds);
-  const threshold = (value: unknown, fallback: number) => toShare(value) ?? fallback;
-  return {
-    plots: toCount(b.plots),
-    plotsChecked: toCount(b.plotsChecked),
-    decidedForCheck: toCount(b.decidedForCheck),
-    questions: list(b.questions).map((q): HealthRow => {
-      const agreement = q.agreement && typeof q.agreement === "object" ? obj(q.agreement) : null;
-      const decisions = obj(q.decisions);
-      return {
-        key: text(q.key),
-        label: text(q.label) || text(q.key),
-        kind: q.kind === "number" ? "number" : "choice",
-        calculated: q.calculated === true,
-        required: q.required === true,
-        conditional: q.conditional === true,
-        inGroup: q.inGroup === true,
-        answered: toCount(q.answered),
-        blank: toCount(q.blank),
-        nonNumeric: toCount(q.nonNumeric),
-        emptyBase: toCount(q.emptyBase),
-        emptyBlank: toCount(q.emptyBlank),
-        notKnown: toCount(q.notKnown),
-        emptyShare: toShare(q.emptyShare),
-        emptyWhy: q.emptyWhy === "group" || q.emptyWhy === "few_records" ? q.emptyWhy : null,
-        other: toHealthCodes(q.other),
-        none: toHealthCodes(q.none),
-        agreement: agreement ? { compared: toCount(agreement.compared), agreeing: toCount(agreement.agreeing), rate: toShare(agreement.rate) } : null,
-        decisions: { changed: toCount(decisions.changed), share: toShare(decisions.share) },
-        reasons: (Array.isArray(q.reasons) ? q.reasons : []).filter((r): r is HealthReason => (HEALTH_REASONS as readonly unknown[]).includes(r)),
-      };
-    }),
-    questionsTotal: toCount(b.questionsTotal),
-    thresholds: {
-      minPlots: threshold(th.minPlots, 20),
-      lowAgreement: threshold(th.lowAgreement, 0.8),
-      oftenOther: threshold(th.oftenOther, 0.1),
-      oftenEmpty: threshold(th.oftenEmpty, 0.2),
-      minChanged: threshold(th.minChanged, 5),
-      oftenChanged: threshold(th.oftenChanged, 0.25),
-    },
-    computedAt: toMillis(b.computedAt),
-    stale: b.stale === true,
-  };
-}
-
 /** Survey health (coordinators and reviewers). A 503 "busy" is thrown as ApiError code "busy". */
-export async function getSurveyHealth(projectId: string): Promise<SurveyHealthData> {
-  return toSurveyHealth(await request<unknown>("GET", `${p(projectId)}/quality/survey-health`));
+export function getSurveyHealth(projectId: string): Promise<SurveyHealthAnswer> {
+  return request("GET", `${p(projectId)}/quality/survey-health`);
 }
 
 // --- plot search (Task 8) ---------------------------------------------------------
 
-/** A plot found by its id (GET /plots/search). */
-export interface PlotMatch {
-  /** The plot unit, as the review queue and the decisions name it. */
-  plot: string;
-  /** The id the collector sees. */
-  name: string;
-  /** The plot files holding it. */
-  files: { id: string; filename: string }[];
-}
-
-export interface PlotSearchResult {
-  plots: PlotMatch[];
-  /** Other plots match too: typing more narrows them. */
-  more: boolean;
-}
-
-const toFileRef = (value: unknown): { id: string; filename: string }[] => {
-  const f = obj(value);
-  return typeof f.id === "string" && f.id !== "" ? [{ id: f.id, filename: text(f.filename) }] : [];
-};
-
-const onlyStrings = (value: unknown): string[] => (Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : []);
-
-export function toPlotSearch(body: unknown): PlotSearchResult {
-  const b = obj(body);
-  return {
-    plots: list(b.plots).flatMap((m) => (typeof m.plot === "string" && m.plot !== "" ? [{ plot: m.plot, name: text(m.name) || m.plot, files: list(m.files).flatMap(toFileRef) }] : [])),
-    more: b.more === true,
-  };
-}
+export type { Assessment, PlotMatch, PlotPageAnswer, PlotPageFile, PlotPageRecord, PlotSearchAnswer } from "../../src/wire/review";
 
 /** Plots whose id starts with `query` (coordinators and reviewers); nothing is asked for an empty one. */
-export async function searchPlots(projectId: string, query: string): Promise<PlotSearchResult> {
+export async function searchPlots(projectId: string, query: string): Promise<PlotSearchAnswer> {
   const q = query.trim();
   if (q === "") return { plots: [], more: false };
-  return toPlotSearch(await request<unknown>("GET", `${p(projectId)}/plots/search?${new URLSearchParams({ q }).toString()}`));
-}
-
-export type Assessment = "main" | "check" | "other";
-
-/** One record of a plot: whose, which round, submitted or not, and its answers. */
-export interface PlotRecordView {
-  operator: string;
-  recordKey: string;
-  round: string;
-  assessment: Assessment;
-  submitted: boolean;
-  deleted: boolean;
-  modifiedOn: number | null;
-  receivedAt: number | null;
-  answers: Record<string, string>;
+  return request("GET", `${p(projectId)}/plots/search?${new URLSearchParams({ q }).toString()}`);
 }
 
 /** One plot's page (GET /plots/:plot). */
-export interface PlotPageData {
-  plot: string;
-  name: string;
-  /** Each plot file holding it, with who holds it there (main and quality-check copies; null for a reviewer: the files only). */
-  files: { id: string; filename: string; divided: boolean; main: string[] | null; copies: string[] | null }[];
-  records: PlotRecordView[];
-  /** The questions answered, in the survey's order. */
-  questions: { key: string; label: string }[];
-  labels: Record<string, string>;
-  options: AnswerOptions;
-  decision: QualityDecision | null;
-  /** The reviewer asking made a record of it: someone else decides it. */
-  ownPlot: boolean;
-  /** A reference plot (its checks are measured against it, never compared as differences); the assessor for coordinators. */
-  reference: { assessor: string | null } | null;
-  /** From the quality figures at hand; null when there are none (the Quality tab works them out). */
-  flags: PatternFlag[] | null;
-  differences: (Difference & { changed: boolean })[] | null;
-  figures: { computedAt: number | null; stale: boolean } | null;
-  place: { lat: number; lon: number; name: string } | null;
-  outline: PlotOutline;
-  unsupportedSrs: string | null;
-}
-
-const ASSESSMENTS: readonly Assessment[] = ["main", "check", "other"];
-
-export function toPlotPage(body: unknown): PlotPageData {
-  const b = obj(body);
-  const labels: Record<string, string> = {};
-  for (const [key, label] of Object.entries(obj(b.labels))) if (typeof label === "string") labels[key] = label;
-  const place = obj(b.place);
-  const lat = Number(place.lat);
-  const lon = Number(place.lon);
-  const figures = b.figures && typeof b.figures === "object" ? obj(b.figures) : null;
-  return {
-    plot: text(b.plot),
-    name: text(b.name) || text(b.plot),
-    files: list(b.files).flatMap((f) =>
-      toFileRef(f).map((ref) => ({ ...ref, divided: f.divided === true, main: Array.isArray(f.main) ? onlyStrings(f.main) : null, copies: Array.isArray(f.copies) ? onlyStrings(f.copies) : null })),
-    ),
-    records: list(b.records).map((r) => {
-      const answers: Record<string, string> = {};
-      for (const [key, value] of Object.entries(obj(r.answers))) if (value !== null && value !== undefined) answers[key] = String(value);
-      return {
-        operator: text(r.operator),
-        recordKey: text(r.recordKey),
-        round: text(r.round),
-        assessment: ASSESSMENTS.find((a) => a === r.assessment) ?? "other",
-        submitted: r.submitted === true,
-        deleted: r.deleted === true,
-        modifiedOn: toMillis(r.modifiedOn),
-        receivedAt: toMillis(r.receivedAt),
-        answers,
-      };
-    }),
-    questions: list(b.questions).map((q) => ({ key: text(q.key), label: text(q.label) || text(q.key) })),
-    labels,
-    options: toOptions(b.options),
-    decision: b.decision && typeof b.decision === "object" ? toDecision(b.decision) : null,
-    ownPlot: b.ownPlot === true,
-    reference: b.reference && typeof b.reference === "object" ? { assessor: nullableText(obj(b.reference).assessor) } : null,
-    flags: Array.isArray(b.flags) ? list(b.flags).flatMap(toPatternFlags) : null,
-    differences: Array.isArray(b.differences) ? list(b.differences).map((d) => ({ ...toDifference(d), changed: d.changed === true })) : null,
-    figures: figures ? { computedAt: toMillis(figures.computedAt), stale: figures.stale === true } : null,
-    place: b.place && Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon, name: text(place.name) || text(b.plot) } : null,
-    outline: toOutline(b.outline),
-    unsupportedSrs: typeof b.unsupportedSrs === "string" && b.unsupportedSrs !== "" ? b.unsupportedSrs : null,
-  };
-}
+export type PlotPageData = PlotPageAnswer;
 
 /** One plot (coordinators and reviewers); a 404 for a plot in no plot file. */
 export async function getPlotPage(projectId: string, plot: string): Promise<PlotPageData> {
-  return toPlotPage(await request<unknown>("GET", `${p(projectId)}/plots/${encodeURIComponent(plot)}`));
+  return request<PlotPageAnswer>("GET", `${p(projectId)}/plots/${encodeURIComponent(plot)}`);
 }
 
 // --- map of progress (Task 9) -------------------------------------------------------
 
-/** A plot's status on the map, in the server's order of status codes. */
-export const MAP_STATUSES = ["notStarted", "started", "submitted", "accepted", "recheck", "differs", "resubmitted"] as const;
-export type MapStatus = (typeof MAP_STATUSES)[number];
-
-export interface MapFile {
-  id: string;
-  filename: string;
-  /** Its plots, and how many of them have a latitude and longitude. */
-  plots: number;
-  onMap: number;
-  /** Coordinators: its plots are divided between people (a whole file's plots are not moved one by one); false for a reviewer. */
-  divided: boolean;
-}
+export type { MapFile, MapPage, MapStatus } from "../../src/wire/map";
+/** A plot's status on the map, in the server's order of status codes (its GEO_STATUSES). */
+export const MAP_STATUSES = ["notStarted", "started", "submitted", "accepted", "recheck", "differs", "resubmitted"] as const satisfies readonly MapStatus[];
 
 /** Every plot on the map, in typed arrays (a large project has 100,000 or more). */
 export interface MapPlots {
@@ -4734,11 +1834,11 @@ export interface MapPlots {
   people: string[] | null;
   holders: string[][] | null;
   /** The quality figures the disagreements come from; null when none are at hand. */
-  figures: { computedAt: number | null; stale: boolean } | null;
+  figures: MapPage["figures"];
   /** Set when the plots' state is older than the records (newer figures are being worked out). */
   asOf: number | null;
   /** The survey's coordinate system when it is not latitude and longitude: no plot is on the map. */
-  unsupportedSrs: string | null;
+  unsupportedSrs?: string;
 }
 
 export interface MapFilters {
@@ -4750,68 +1850,51 @@ export interface MapFilters {
 const MAP_RESTARTS = 3;
 
 /** One page of GET /map/plots, added to the map being read (made on the first page). */
-export function addMapPage(map: MapPlots | null, body: unknown): MapPlots {
-  const b = obj(body);
-  // The server's status names, so a code is read by its name whatever their order.
-  const names: unknown[] = Array.isArray(b.statuses) ? b.statuses : [...MAP_STATUSES];
-  const codeOf = names.map((name) => Math.max(0, MAP_STATUSES.indexOf(name as MapStatus)));
+export function addMapPage(map: MapPlots | null, page: MapPage): MapPlots {
+  // A point's status is an index in the page's `statuses`: read by its name.
+  const codeOf = page.statuses.map((name) => MAP_STATUSES.indexOf(name));
   if (map === null) {
-    const total = Math.max(0, Math.floor(Number(b.total) || 0));
+    const total = page.total;
     const counts = Object.fromEntries(MAP_STATUSES.map((s) => [s, 0])) as Record<MapStatus, number>;
-    (Array.isArray(b.counts) ? b.counts : []).forEach((n: unknown, i: number) => {
-      counts[MAP_STATUSES[codeOf[i] ?? 0]] += Number(n) || 0;
+    page.counts.forEach((n, i) => {
+      counts[page.statuses[i]] += n;
     });
-    const figures = b.figures && typeof b.figures === "object" ? obj(b.figures) : null;
+    const coordinator = page.file !== undefined;
     map = {
-      version: text(b.version),
+      version: page.version,
       total,
       lat: new Float64Array(total),
       lon: new Float64Array(total),
       status: new Uint8Array(total),
       holder: new Int32Array(total).fill(-1),
       plots: new Array<string>(total).fill(""),
-      names: Array.isArray(b.names) ? new Array<string>(total).fill("") : null,
-      file: Array.isArray(b.file) ? new Int32Array(total).fill(-1) : null,
-      reference: Array.isArray(b.file) ? new Uint8Array(total) : null,
+      names: page.names ? new Array<string>(total).fill("") : null,
+      file: coordinator ? new Int32Array(total).fill(-1) : null,
+      reference: coordinator ? new Uint8Array(total) : null,
       counts,
-      notOnMap: Number(b.notOnMap) || 0,
-      files: list(b.files).map((f) => ({ id: text(f.id), filename: text(f.filename), plots: Number(f.plots) || 0, onMap: Number(f.onMap) || 0, divided: f.divided === true })),
-      people: Array.isArray(b.people) ? onlyStrings(b.people) : null,
-      holders: Array.isArray(b.holders) ? b.holders.map((h: unknown) => (Array.isArray(h) ? onlyStrings(h) : [])) : null,
-      figures: figures ? { computedAt: toMillis(figures.computedAt), stale: figures.stale === true } : null,
-      asOf: toMillis(b.asOf),
-      unsupportedSrs: typeof b.unsupportedSrs === "string" && b.unsupportedSrs !== "" ? b.unsupportedSrs : null,
+      notOnMap: page.notOnMap,
+      files: page.files,
+      people: page.people,
+      holders: page.holders,
+      figures: page.figures,
+      asOf: page.asOf,
+      ...(page.unsupportedSrs !== undefined ? { unsupportedSrs: page.unsupportedSrs } : {}),
     };
   }
-  const offset = Math.max(0, Math.floor(Number(b.offset) || 0));
-  const points: unknown[] = Array.isArray(b.points) ? b.points : [];
-  const plots: unknown[] = Array.isArray(b.plots) ? b.plots : [];
-  const visible: unknown[] | null = Array.isArray(b.names) ? b.names : null;
-  const holders = map.holders?.length ?? 0;
-  const fileOf: unknown[] | null = Array.isArray(b.file) ? b.file : null;
-  const files = map.files.length;
+  const { offset, points } = page;
   for (let i = 0; i < points.length && offset + i < map.total; i++) {
-    const point = Array.isArray(points[i]) ? (points[i] as unknown[]) : [];
+    const [lat, lon, status, holder] = points[i];
     const at = offset + i;
-    map.lat[at] = Number(point[0]);
-    map.lon[at] = Number(point[1]);
-    map.status[at] = codeOf[Number(point[2])] ?? 0;
-    const holder = Number(point[3]);
-    map.holder[at] = Number.isInteger(holder) && holder >= 0 && holder < holders ? holder : -1;
-    map.plots[at] = typeof plots[i] === "string" ? (plots[i] as string) : "";
-    if (map.names) map.names[at] = visible && typeof visible[i] === "string" ? (visible[i] as string) : map.plots[at];
-    if (map.file && fileOf) {
-      const f = Number(fileOf[i]);
-      map.file[at] = Number.isInteger(f) && f >= 0 && f < files ? f : -1;
-    }
+    map.lat[at] = lat;
+    map.lon[at] = lon;
+    map.status[at] = codeOf[status];
+    map.holder[at] = holder;
+    map.plots[at] = page.plots[i];
+    if (map.names) map.names[at] = page.names?.[i] ?? map.plots[at];
+    if (map.file && page.file) map.file[at] = page.file[i];
   }
   // The reference plots of this page, by their index in the whole map.
-  if (map.reference && Array.isArray(b.reference)) {
-    for (const r of b.reference as unknown[]) {
-      const at = Number(r);
-      if (Number.isInteger(at) && at >= offset && at < Math.min(map.total, offset + points.length)) map.reference[at] = 1;
-    }
-  }
+  if (map.reference) for (const at of page.reference ?? []) map.reference[at] = 1;
   return map;
 }
 
@@ -4838,23 +1921,16 @@ export async function getMapPlots(
       if (filters.file) query.set("file", filters.file);
       if (filters.person) query.set("person", filters.person);
       if (map !== null) query.set("version", map.version);
-      let body: Record<string, unknown>;
+      let page: MapPage;
       try {
-        body = obj(await request<unknown>("GET", `${p(projectId)}/map/plots?${query.toString()}`));
+        page = await request<MapPage>("GET", `${p(projectId)}/map/plots?${query.toString()}`);
       } catch (error) {
         if (!(error instanceof ApiError && error.code === "map_changed") || attempt >= MAP_RESTARTS) throw error;
         changed = true;
         break;
       }
-      if (map !== null && text(body.version) !== map.version) {
-        // A server that does not know versions: a map that changed is read again.
-        if (attempt >= MAP_RESTARTS) throw new ApiError(409, "map_changed");
-        changed = true;
-        break;
-      }
-      map = addMapPage(map, body);
-      const next = Number(body.next);
-      offset = body.next === null || body.next === undefined || !Number.isInteger(next) || next <= offset ? null : next;
+      map = addMapPage(map, page);
+      offset = page.next;
       onProgress?.(offset ?? map.total, map.total);
       if (stopped()) return map;
     }
@@ -4864,50 +1940,24 @@ export async function getMapPlots(
 
 // --- activity: the log, the weekly summary, the downloads and the bell (coordinators) ----
 
-export type RecordChange = "created" | "updated" | "submitted" | "resubmitted" | "unsubmitted" | "deleted";
-const RECORD_CHANGES: readonly RecordChange[] = ["created", "updated", "submitted", "resubmitted", "unsubmitted", "deleted"];
+export type {
+  ActivityPage,
+  DailyRow,
+  DecisionRow,
+  DifferenceRow,
+  ExportAnswer,
+  ExportFigures,
+  ExportKind,
+  LogItem,
+  RecordChange,
+  WeeklyAnswer,
+  WeeklyPerson,
+  WeeklySummary,
+} from "../../src/wire/activity";
 
 /** What the log can be filtered by (the server's LOG_KINDS). */
 export const LOG_KINDS = ["all", "records", "submitted", "resubmitted", "draft", "unsubmitted", "deleted", "coordinators", "decisions", "people", "files", "settings", "downloads"] as const;
 export type LogKind = (typeof LOG_KINDS)[number];
-
-export type LogItem =
-  | {
-      type: "record";
-      id: string;
-      /** When Collect Earth saved it (the collector's clock). */
-      at: number;
-      receivedAt: number | null;
-      person: string;
-      change: RecordChange;
-      /** The plot's page id, or null for a plot in no plot file. */
-      plot: string | null;
-      /** The plot as the collector sees it. */
-      name: string;
-      assessment: "main" | "check" | "other";
-      round: string;
-    }
-  | {
-      type: "audit";
-      id: string;
-      at: number;
-      /** Null: a project key, or someone no longer in the project. */
-      person: string | null;
-      action: string;
-      details: Record<string, string | number | boolean | null>;
-      plotName: string | null;
-    };
-
-export interface ActivityPage {
-  items: LogItem[];
-  next: string | null;
-  /** user id -> their name now (null: the account is gone) and whether they left the project. */
-  people: Record<string, { name: string | null; removed: boolean }>;
-  /** plot file id -> its name, or null when it is gone. */
-  files: Record<string, string | null>;
-  /** The people the log can be filtered by. */
-  persons: string[];
-}
 
 export interface ActivityQuery {
   person?: string | null;
@@ -4919,57 +1969,8 @@ export interface ActivityQuery {
   limit?: number;
 }
 
-function toDetails(value: unknown): Record<string, string | number | boolean | null> {
-  const out: Record<string, string | number | boolean | null> = {};
-  for (const [k, v] of Object.entries(obj(value))) {
-    if (typeof v === "string" || typeof v === "number" || typeof v === "boolean" || v === null) out[k] = v;
-  }
-  return out;
-}
-
-export function toActivityPage(body: unknown): ActivityPage {
-  const b = obj(body);
-  const items: LogItem[] = [];
-  for (const i of list(b.items)) {
-    if (i.type === "record") {
-      const change = RECORD_CHANGES.includes(i.change as RecordChange) ? (i.change as RecordChange) : "updated";
-      const assessment = i.assessment === "check" || i.assessment === "other" ? i.assessment : "main";
-      items.push({
-        type: "record",
-        id: text(i.id),
-        at: toMillis(i.at) ?? 0,
-        receivedAt: toMillis(i.receivedAt),
-        person: text(i.person),
-        change,
-        plot: typeof i.plot === "string" ? i.plot : null,
-        name: text(i.name),
-        assessment,
-        round: text(i.round),
-      });
-    } else if (i.type === "audit") {
-      items.push({
-        type: "audit",
-        id: text(i.id),
-        at: toMillis(i.at) ?? 0,
-        person: typeof i.person === "string" ? i.person : null,
-        action: text(i.action),
-        details: toDetails(i.details),
-        plotName: typeof i.plotName === "string" ? i.plotName : null,
-      });
-    }
-  }
-  const people: ActivityPage["people"] = {};
-  for (const [id, v] of Object.entries(obj(b.people))) {
-    const r = obj(v);
-    people[id] = { name: typeof r.name === "string" ? r.name : null, removed: r.removed === true };
-  }
-  const files: ActivityPage["files"] = {};
-  for (const [id, v] of Object.entries(obj(b.files))) files[id] = typeof v === "string" ? v : null;
-  return { items, next: typeof b.next === "string" && b.next ? b.next : null, people, files, persons: strings(b.persons) };
-}
-
 /** One page of the activity log (coordinators). */
-export async function getActivity(projectId: string, q: ActivityQuery = {}): Promise<ActivityPage> {
+export function getActivity(projectId: string, q: ActivityQuery = {}): Promise<ActivityPage> {
   const query = new URLSearchParams();
   if (q.person) query.set("person", q.person);
   if (q.kind && q.kind !== "all") query.set("kind", q.kind);
@@ -4978,388 +1979,64 @@ export async function getActivity(projectId: string, q: ActivityQuery = {}): Pro
   if (q.cursor) query.set("cursor", q.cursor);
   if (q.limit) query.set("limit", String(q.limit));
   const qs = query.toString();
-  return toActivityPage(await request<unknown>("GET", `${p(projectId)}/activity${qs ? `?${qs}` : ""}`));
-}
-
-export interface WeeklyPerson {
-  userId: string;
-  username: string;
-  role: Role;
-  submitted: number;
-  checks: number;
-  status: PersonStatus;
-  plots: PersonRow["plots"];
-}
-
-export interface WeeklyData {
-  week: string;
-  timeZone: string;
-  start: string;
-  end: string;
-  current: boolean;
-  asOf: number | null;
-  progress: {
-    days: { date: string; submitted: number; checks: number }[];
-    submitted: number;
-    checks: number;
-    /** Collectors' records of reference plots submitted that week: measurements, counted apart from the checks. */
-    referenceMeasurements: number;
-    before: number;
-    byEnd: number;
-    totals: ProgressTotals;
-  };
-  people: WeeklyPerson[];
-  quality: {
-    available: boolean;
-    computedAt: number | null;
-    stale: boolean;
-    week: Rate | null;
-    overall: Rate | null;
-    decided: { first: number; check: number; recheck: number; total: number };
-    flags: { counts: Record<string, number>; total: number } | null;
-  };
-}
-
-export function toWeeklyData(body: unknown): WeeklyData {
-  const b = obj(body);
-  const pr = obj(b.progress);
-  const t = obj(pr.totals);
-  const q = obj(b.quality);
-  const d = obj(q.decided);
-  const flags = q.flags && typeof q.flags === "object" ? obj(q.flags) : null;
-  const counts: Record<string, number> = {};
-  for (const [k, v] of Object.entries(obj(flags?.counts))) counts[k] = toCount(v);
-  return {
-    week: text(b.week),
-    timeZone: typeof b.timeZone === "string" ? b.timeZone : "UTC",
-    start: toDate(b.start) ?? "",
-    end: toDate(b.end) ?? "",
-    current: b.current === true,
-    asOf: toMillis(b.asOf),
-    progress: {
-      days: list(pr.days)
-        .filter((x) => toDate(x.date) !== null)
-        .map((x) => ({ date: String(x.date), submitted: toCount(x.submitted), checks: toCount(x.checks) })),
-      submitted: toCount(pr.submitted),
-      checks: toCount(pr.checks),
-      referenceMeasurements: toCount(pr.referenceMeasurements),
-      before: toCount(pr.before),
-      byEnd: toCount(pr.byEnd),
-      totals: {
-        plots: toCount(t.plots),
-        assigned: toCount(t.assigned),
-        notAssigned: toCount(t.notAssigned),
-        submitted: toCount(t.submitted),
-        started: toCount(t.started),
-        notStarted: toCount(t.notStarted),
-      },
-    },
-    people: list(b.people).map((x) => {
-      const row = toPersonRow({ ...x, submittedLast7: 0 });
-      return { userId: row.userId, username: row.username, role: row.role, submitted: toCount(x.submitted), checks: toCount(x.checks), status: row.status, plots: row.plots };
-    }),
-    quality: {
-      available: q.available === true,
-      computedAt: toMillis(q.computedAt),
-      stale: q.stale === true,
-      week: q.week ? toRate(q.week) : null,
-      overall: q.overall ? toRate(q.overall) : null,
-      decided: { first: toCount(d.first), check: toCount(d.check), recheck: toCount(d.recheck), total: toCount(d.total) },
-      flags: flags ? { counts, total: toCount(flags.total) } : null,
-    },
-  };
+  return request("GET", `${p(projectId)}/activity${qs ? `?${qs}` : ""}`);
 }
 
 /** One ISO week's summary (null: the viewer's current week), its days in the browser's time zone. */
-export async function getWeekly(projectId: string, week: string | null, timeZone: string): Promise<WeeklyData> {
+export function getWeekly(projectId: string, week: string | null, timeZone: string): Promise<WeeklyAnswer> {
   const query = new URLSearchParams({ tz: timeZone });
   if (week) query.set("week", week);
-  return toWeeklyData(await request<unknown>("GET", `${p(projectId)}/weekly?${query}`));
-}
-
-export type ExportKind = "people" | "daily" | "decisions" | "differences";
-
-export interface DailyRow {
-  date: string;
-  person: string;
-  plots: number;
-  checks: number;
-  submittedAgain: number;
-  drafts: number;
-  reopened: number;
-  deleted: number;
-}
-
-export interface DecisionRow {
-  plot: string;
-  name: string;
-  decision: DecisionKind;
-  comment: string | null;
-  decidedBy: string | null;
-  decidedAt: number;
-  /** Null when the figures were not at hand to tell. */
-  byAssessor: boolean | null;
-  bulk: boolean;
-}
-
-export interface DifferenceRow {
-  plot: string;
-  name: string;
-  first: string;
-  check: string;
-  latest: boolean;
-  decision: DecisionKind | null;
-  /** Null for a pair changed or gone since the figures. */
-  key: string | null;
-  firstAnswer: string | null;
-  checkAnswer: string | null;
-  /** differs; changed: its answers no longer differ; gone: one of its records was deleted (both since the figures). */
-  status: "differs" | "changed" | "gone";
-}
-
-export type ExportData =
-  | { kind: "people"; today: string; rows: PersonRow[] }
-  | { kind: "daily"; today: string; rows: DailyRow[] }
-  | { kind: "decisions"; today: string; rows: DecisionRow[] }
-  | { kind: "differences"; today: string; rows: DifferenceRow[]; labels: Record<string, string>; options: AnswerOptions; numbers: string[] };
-
-const asDecision = (v: unknown): DecisionKind | null => (v === "first" || v === "check" || v === "recheck" ? v : null);
-
-export function toExportData(kind: ExportKind, body: unknown): ExportData {
-  const b = obj(body);
-  const today = toDate(b.today) ?? new Date().toISOString().slice(0, 10);
-  const rows = list(b.rows);
-  switch (kind) {
-    case "people":
-      return { kind, today, rows: rows.map(toPersonRow) };
-    case "daily":
-      return {
-        kind,
-        today,
-        rows: rows.map((r) => ({
-          date: text(r.date),
-          person: text(r.person),
-          plots: toCount(r.plots),
-          checks: toCount(r.checks),
-          submittedAgain: toCount(r.submittedAgain),
-          drafts: toCount(r.drafts),
-          reopened: toCount(r.reopened),
-          deleted: toCount(r.deleted),
-        })),
-      };
-    case "decisions":
-      return {
-        kind,
-        today,
-        rows: rows.map((r) => ({
-          plot: text(r.plot),
-          name: text(r.name),
-          decision: asDecision(r.decision) ?? "recheck",
-          comment: typeof r.comment === "string" ? r.comment : null,
-          decidedBy: typeof r.decidedBy === "string" ? r.decidedBy : null,
-          decidedAt: toMillis(r.decidedAt) ?? 0,
-          byAssessor: typeof r.byAssessor === "boolean" ? r.byAssessor : null,
-          bulk: r.bulk === true,
-        })),
-      };
-    case "differences": {
-      const labels: Record<string, string> = {};
-      for (const [k, v] of Object.entries(obj(b.labels))) labels[k] = text(v);
-      return {
-        kind,
-        today,
-        labels,
-        options: toOptions(b.options),
-        numbers: strings(b.numbers),
-        rows: rows.map((r) => ({
-          plot: text(r.plot),
-          name: text(r.name),
-          first: text(r.first),
-          check: text(r.check),
-          latest: r.latest === true,
-          decision: asDecision(r.decision),
-          key: typeof r.key === "string" ? r.key : null,
-          firstAnswer: typeof r.firstAnswer === "string" ? r.firstAnswer : null,
-          checkAnswer: typeof r.checkAnswer === "string" ? r.checkAnswer : null,
-          status: r.status === "changed" || r.status === "gone" ? r.status : "differs",
-        })),
-      };
-    }
-  }
+  return request("GET", `${p(projectId)}/weekly?${query}`);
 }
 
 /** The rows of a download (the server notes who downloaded what). */
-export async function getExport(projectId: string, kind: ExportKind, timeZone: string): Promise<ExportData> {
+export function getExport<K extends ExportKind>(projectId: string, kind: K, timeZone: string): Promise<Extract<ExportAnswer, { kind: K }>> {
   const query = new URLSearchParams({ tz: timeZone });
-  return toExportData(kind, await request<unknown>("GET", `${p(projectId)}/exports/${kind}?${query}`));
-}
-
-export interface BellItem {
-  key: string;
-  read: boolean;
-  item: AttentionItem;
-}
-
-export interface BellData {
-  items: BellItem[];
-  unread: number;
-}
-
-export function toBellData(body: unknown): BellData {
-  const b = obj(body);
-  const items = list(b.items)
-    .filter((x) => ATTENTION_KINDS.includes(obj(x.item).kind as AttentionKind))
-    .map((x) => ({ key: text(x.key), read: x.read === true, item: toAttentionItem(obj(x.item)) }));
-  return { items, unread: items.filter((x) => !x.read).length };
+  return request("GET", `${p(projectId)}/exports/${kind}?${query}`);
 }
 
 /** The bell's "needs attention" items, with what this coordinator has read. */
-export async function getAttention(projectId: string): Promise<BellData> {
-  return toBellData(await request<unknown>("GET", `${p(projectId)}/attention`));
+export function getAttention(projectId: string): Promise<BellAnswer> {
+  return request("GET", `${p(projectId)}/attention`);
 }
 
 /** Marks items read (by key), or all of them. */
-export async function markAttentionRead(projectId: string, keys: string[] | "all"): Promise<BellData> {
-  return toBellData(await request<unknown>("POST", `${p(projectId)}/attention/read`, { json: keys === "all" ? { all: true } : { keys } }));
+export function markAttentionRead(projectId: string, keys: string[] | "all"): Promise<BellAnswer> {
+  return request("POST", `${p(projectId)}/attention/read`, { json: keys === "all" ? { all: true } : { keys } });
 }
 
 // --- Training: calibration and learning plots -----------------------------------------
 
-export type TrainingKind = "calibration" | "learning";
+export type {
+  AnonymousCalibration,
+  AnswerCount,
+  CalibrationCell,
+  CalibrationFigures,
+  CalibrationPerson,
+  CalibrationPlot,
+  CalibrationQuestion,
+  LearningScore,
+  MyScoredPlot,
+  MyTrainingSet,
+  ScoredAnswer,
+  ScoredPlot,
+  Share,
+  TrainingAttemptPast,
+  TrainingAttemptStart,
+  TrainingFiguresAnswer,
+  TrainingFiguresSet,
+  TrainingGolden,
+  TrainingKind,
+  TrainingList,
+  TrainingListItem,
+  TrainingPerson,
+  TrainingQuestion,
+  TrainingSetSummary,
+  TrainingSetView,
+} from "../../src/wire/training";
 
-/** Agreement as counts and their share (null with nothing compared). */
-export interface TrainingShare {
-  compared: number;
-  agreeing: number;
-  rate: number | null;
-}
-
-export interface TrainingPerson {
-  userId: string;
-  username: string;
-  role: Role;
-}
-
-export interface TrainingSetSummary {
-  id: string;
-  kind: TrainingKind;
-  name: string;
-  filename: string;
-  /** The file's name in Collect Earth ("Learning – plots.csv"). */
-  servedName: string;
-  plotCount: number;
-  passMark: number | null;
-  createdAt: number;
-  participants: TrainingPerson[];
-}
-
-export interface TrainingListItem extends TrainingSetSummary {
-  /** Plots with a golden interpretation. */
-  golden: number;
-  progress: { userId: string; attempt: number; submitted: number; accuracy: number | null; passed: boolean | null }[];
-}
-
-export interface TrainingList {
-  sets: TrainingListItem[];
-  members: TrainingPerson[];
-  max: number;
-}
-
-export interface TrainingAnswerCount {
-  value: string;
-  count: number;
-  people: string[];
-}
-
-export interface CalibrationCell {
-  key: string;
-  answers: TrainingAnswerCount[];
-  pairs: TrainingShare;
-  consensus: string | null;
-}
-
-export interface CalibrationFigures {
-  participants: string[];
-  plots: { plot: string; people: string[]; questions: CalibrationCell[] }[];
-  questions: { key: string; label: string; kind: "choice" | "number"; pairs: TrainingShare; kappa: number | null }[];
-  people: { username: string; plots: number; withConsensus: TrainingShare; byQuestion: Record<string, TrainingShare> }[];
-  overall: TrainingShare;
-}
-
-export interface TrainingGolden {
-  plotKey: string;
-  answers: Record<string, string>;
-  note: string | null;
-  updatedAt: number;
-  updatedBy: string | null;
-}
-
-export interface TrainingQuestion {
-  key: string;
-  label: string;
-  kind: "choice" | "number";
-  options: { code: string; label: string }[] | null;
-  multiple: boolean;
-}
-
-export interface ScoredPlot {
-  plot: string;
-  submittedAt: number;
-  answers: TrainingShare;
-  right: boolean;
-  questions: { key: string; label: string; golden: string; given: string; right: boolean }[];
-  /** The coordinator's explanation (My work only). */
-  note?: string | null;
-}
-
-export interface LearningScore {
-  plots: number;
-  submitted: number;
-  answers: TrainingShare;
-  plotsRight: number;
-  byQuestion: Record<string, TrainingShare>;
-  passed: boolean | null;
-  byPlot: ScoredPlot[];
-}
-
-export interface TrainingAttemptPast {
-  number: number;
-  startedAt: number;
-  closedAt: number | null;
-  plots: number;
-  submitted: number;
-  answers: TrainingShare;
-  plotsRight: number;
-  passed: boolean | null;
-}
-
-export interface TrainingSetView {
-  set: TrainingSetSummary;
-  plots: string[];
-  calibration: CalibrationFigures;
-  golden: TrainingGolden[];
-  questions: TrainingQuestion[];
-  /** Golden answers' questions the survey no longer has (not scored). */
-  staleQuestions?: string[];
-  scores: { userId: string; username: string; attempt: { number: number; startedAt: number }; score: LearningScore; history: TrainingAttemptPast[] }[];
-}
-
-export interface MyTrainingSet {
-  id: string;
-  kind: TrainingKind;
-  name: string;
-  servedName: string;
-  plotCount: number;
-  passMark: number | null;
-  attempt: { number: number; startedAt: number };
-  submitted: number;
-  /** Learning sets only. */
-  score?: LearningScore;
-  history?: TrainingAttemptPast[];
-}
-
-export async function getTraining(projectId: string): Promise<TrainingList> {
-  return request<TrainingList>("GET", `${p(projectId)}/training`);
+export function getTraining(projectId: string): Promise<TrainingList> {
+  return request("GET", `${p(projectId)}/training`);
 }
 
 /** A new set from a CSV file. */
@@ -5374,30 +2051,29 @@ export function createTrainingSet(
   return upload<TrainingSetSummary>("PUT", `${p(projectId)}/training-sets/${encodeURIComponent(file.name)}?${q}`, file, "text/csv", onProgress);
 }
 
-export async function updateTrainingSet(projectId: string, setId: string, change: { name?: string; kind?: TrainingKind; passMark?: number | null }): Promise<TrainingSetSummary> {
-  return request<TrainingSetSummary>("PATCH", `${p(projectId)}/training/${encodeURIComponent(setId)}`, { json: change });
+export function updateTrainingSet(projectId: string, setId: string, change: { name?: string; kind?: TrainingKind; passMark?: number | null }): Promise<TrainingSetSummary> {
+  return request("PATCH", `${p(projectId)}/training/${encodeURIComponent(setId)}`, { json: change });
 }
 
 export async function deleteTrainingSet(projectId: string, setId: string): Promise<void> {
-  await request<unknown>("DELETE", `${p(projectId)}/training/${encodeURIComponent(setId)}`);
+  await send("DELETE", `${p(projectId)}/training/${encodeURIComponent(setId)}`);
 }
 
 export async function setTrainingMembers(projectId: string, setId: string, userIds: string[]): Promise<void> {
-  await request<unknown>("PUT", `${p(projectId)}/training/${encodeURIComponent(setId)}/members`, { json: { userIds } });
+  await send("PUT", `${p(projectId)}/training/${encodeURIComponent(setId)}/members`, { json: { userIds } });
 }
 
-export async function getTrainingSet(projectId: string, setId: string): Promise<TrainingSetView> {
-  return request<TrainingSetView>("GET", `${p(projectId)}/training/${encodeURIComponent(setId)}`);
+export function getTrainingSet(projectId: string, setId: string): Promise<TrainingSetView> {
+  return request("GET", `${p(projectId)}/training/${encodeURIComponent(setId)}`);
 }
 
-export async function putTrainingGolden(projectId: string, setId: string, plot: string, answers: Record<string, string>, note: string | null): Promise<TrainingGolden> {
-  return request<TrainingGolden>("PUT", `${p(projectId)}/training/${encodeURIComponent(setId)}/golden/${encodeURIComponent(plot)}`, { json: { answers, note } });
+export function putTrainingGolden(projectId: string, setId: string, plot: string, answers: Record<string, string>, note: string | null): Promise<TrainingGolden> {
+  return request("PUT", `${p(projectId)}/training/${encodeURIComponent(setId)}/golden/${encodeURIComponent(plot)}`, { json: { answers, note } });
 }
 
 /** Golden answers for every plot: the calibration's agreed answers, or one person's records. */
 export async function goldenFrom(projectId: string, setId: string, from: { from: "consensus" } | { from: "person"; userId: string }): Promise<number> {
-  const res = await request<{ plots?: number }>("POST", `${p(projectId)}/training/${encodeURIComponent(setId)}/golden`, { json: from });
-  return typeof res.plots === "number" ? res.plots : 0;
+  return (await request<GoldenFromAnswer>("POST", `${p(projectId)}/training/${encodeURIComponent(setId)}/golden`, { json: from })).plots;
 }
 
 /** A training set's results as CSV: each person's attempts, or every answer scored. */
@@ -5406,148 +2082,61 @@ export async function downloadTrainingExport(projectId: string, setId: string, w
   return { blob: await response.blob(), filename: attachmentName(response, `training-${what}.csv`) };
 }
 
-/** Takes the questions the survey no longer has out of every golden answer of a set. */
+/** Takes the questions the survey no longer has out of every golden answer of a set; gives the plots changed. */
 export async function pruneTrainingGolden(projectId: string, setId: string): Promise<number> {
-  const res = await request<{ plots?: number }>("POST", `${p(projectId)}/training/${encodeURIComponent(setId)}/golden/prune`);
-  return typeof res.plots === "number" ? res.plots : 0;
+  return (await request<GoldenPruneAnswer>("POST", `${p(projectId)}/training/${encodeURIComponent(setId)}/golden/prune`)).plots;
 }
 
 export async function startTrainingAttempts(projectId: string, setId: string, who: { userIds: string[] } | { all: true }): Promise<number> {
-  const res = await request<{ started?: number }>("POST", `${p(projectId)}/training/${encodeURIComponent(setId)}/attempts`, { json: who });
-  return typeof res.started === "number" ? res.started : 0;
+  return (await request<AttemptsAnswer>("POST", `${p(projectId)}/training/${encodeURIComponent(setId)}/attempts`, { json: who })).started;
 }
 
 export async function getMyTraining(projectId: string): Promise<MyTrainingSet[]> {
-  const res = await request<{ sets?: MyTrainingSet[] }>("GET", `${p(projectId)}/training/mine`);
-  return Array.isArray(res.sets) ? res.sets : [];
+  return (await request<MyTrainingAnswer>("GET", `${p(projectId)}/training/mine`)).sets;
 }
 
-/** Calibration figures without anyone's name (reviewers). */
-export interface AnonymousCalibration {
-  participants: number;
-  plots: { plot: string; people: number; questions: { key: string; answers: { value: string; count: number }[]; pairs: TrainingShare; consensus: string | null }[] }[];
-  questions: CalibrationFigures["questions"];
-  overall: TrainingShare;
+/** Calibration figures without anyone's name (reviewers), and the survey's questions for them. */
+export function getTrainingFigures(projectId: string): Promise<TrainingFiguresAnswer> {
+  return request("GET", `${p(projectId)}/training/figures`);
 }
 
-export interface TrainingFiguresSet {
-  id: string;
-  kind: TrainingKind;
-  name: string;
-  plotCount: number;
-  /** The caller takes part and has not submitted every plot yet: no figures. */
-  takingPart?: { submitted: number };
-  calibration?: AnonymousCalibration;
-}
-
-export async function getTrainingFigures(projectId: string): Promise<{ sets: TrainingFiguresSet[]; questions: TrainingQuestion[] }> {
-  const res = await request<{ sets?: TrainingFiguresSet[]; questions?: TrainingQuestion[] }>("GET", `${p(projectId)}/training/figures`);
-  return { sets: Array.isArray(res.sets) ? res.sets : [], questions: Array.isArray(res.questions) ? res.questions : [] };
-}
+export type {
+  AreaSettings,
+  AreaSettingsAnswer,
+  AreasAnswer,
+  Estimate,
+  ForestRow,
+  IpccCategory,
+  IpccExports,
+  StrataAreas,
+  UncertaintyAnswer,
+  UncertaintyQuestion,
+  UncertaintyResult,
+  UncertaintySettings,
+  UncertaintySettingsAnswer,
+  UncertaintySetup,
+} from "../../src/wire/analysis";
 
 /** The six IPCC land categories (the server's src/uncertainty.ts). */
-export const IPCC_CATEGORIES = ["forest", "cropland", "grassland", "wetland", "settlement", "other"] as const;
-export type IpccCategory = (typeof IPCC_CATEGORIES)[number];
+export const IPCC_CATEGORIES = ["forest", "cropland", "grassland", "wetland", "settlement", "other"] as const satisfies readonly IpccCategory[];
 
-/** The uncertainty analysis's setup: the two land use questions, their years, each code's category (null: left out), the area. */
-export interface UncertaintySettings {
-  initial: string;
-  final: string;
-  initialYear: string;
-  finalYear: string;
-  codes: Record<string, Record<string, IpccCategory | null>>;
-  totalArea: number | null;
-}
-
-export interface UncertaintyQuestion {
-  name: string;
-  labels: Record<string, string>;
-  list: string;
-  parent: string | null;
-  fromPlotFile: boolean;
-  calculated: boolean;
-}
-
-export interface UncertaintySetup {
-  settings: UncertaintySettings | null;
-  languages: string[];
-  questions: UncertaintyQuestion[];
-  lists: Record<string, AnalysisListItem[]>;
-  areas: "strata" | "total" | "region_areas.csv" | "areas_per_attribute.csv" | null;
-  canEdit: boolean;
-}
-
-export interface UncertaintyEstimate {
-  plots: number;
-  proportion: number;
-  area: number;
-  se: number;
-  ci: number;
-  uncertainty: number | null;
-}
-
-export type ForestRow = "forestStable" | "nonForestToForest" | "forestToNonForest" | "nonForestStable" | "initiallyForest" | "initiallyNonForest" | "currentlyForest" | "currentlyNonForest";
-
-/** The tables of the uncertainty analysis (the server's UncertaintyResult). */
-export interface UncertaintyData {
-  settings: UncertaintySettings;
-  areas: string | null;
-  estimator: "simple" | "stratified";
-  totalArea: number;
-  plots: number;
-  strata: { key: string; area: number; plots: number }[];
-  notEstimable: { key: string; area: number; plots: number }[];
-  skipped: { missing: number; unmapped: number; noArea: number };
-  /** The plots of a code left out (no data), each year: in their stratum's count, in no category. */
-  noData: { initial: UncertaintyEstimate; final: UncertaintyEstimate };
-  unmapped: { which: "initial" | "final"; code: string; plots: number }[];
-  categories: { category: IpccCategory; initial: UncertaintyEstimate; final: UncertaintyEstimate }[];
-  total: UncertaintyEstimate;
-  forest: { row: ForestRow; estimate: UncertaintyEstimate }[];
-  transitions: { from: IpccCategory; to: IpccCategory; estimate: UncertaintyEstimate }[];
-  matrix: { cells: number[][]; rowTotals: number[]; columnTotals: number[]; total: number; rowPercent: (number | null)[][] };
-}
-
-export async function getUncertaintySetup(projectId: string): Promise<UncertaintySetup> {
-  return request<UncertaintySetup>("GET", `${p(projectId)}/uncertainty/settings`);
+export function getUncertaintySetup(projectId: string): Promise<UncertaintySetup> {
+  return request("GET", `${p(projectId)}/uncertainty/settings`);
 }
 
 export async function saveUncertaintySettings(projectId: string, settings: UncertaintySettings): Promise<UncertaintySettings> {
-  return (await request<{ settings: UncertaintySettings }>("PUT", `${p(projectId)}/uncertainty/settings`, { json: settings })).settings;
-}
-
-/** The strata and their areas, or one total area (the server's src/areas.ts AreaSettings). */
-export type AreaSettings = { mode: "strata"; columns: string[]; strata: { values: string[]; area: number }[] } | { mode: "total"; area: number };
-
-/** What the plots' areas come from, and the strata with their plots (src/routes/areas.ts). */
-export interface AreasData {
-  /** "strata" | "total": set on the dashboard; a file of the project file; "uncertainty": the Uncertainty page's total; null: none. */
-  source: "strata" | "total" | "areas_per_attribute.csv" | "region_areas.csv" | "uncertainty" | null;
-  settings: AreaSettings | null;
-  /** Lines of the project file's areas file whose area cannot be read. */
-  unreadable: number;
-  /** The columns that can make strata: the survey's questions filled from the plot file, then the plot files' columns. */
-  columns: string[];
-  /** Each stratum: its area (null: none yet), its plots in the plot files (null: a column only in the answers), assessed, ha per plot. */
-  strata: { values: string[]; area: number | null; plots: number | null; assessed: number; haPerPlot: number | null }[];
-  /** Plots of values not listed (a column of many values). */
-  more: number;
-  assessed: number;
-  withArea: number;
-  unknownColumns: string[];
-  noStratum: { plots: number; examples: { stratum: string; plots: number }[] };
-  canEdit: boolean;
+  return (await request<UncertaintySettingsAnswer>("PUT", `${p(projectId)}/uncertainty/settings`, { json: settings })).settings;
 }
 
 /** The project's strata and areas; with `columns`, the strata those columns would make (nothing saved). */
 export const getAreas = (projectId: string, columns?: string[]) =>
-  request<AreasData>("GET", `${p(projectId)}/areas${columns ? `?columns=${encodeURIComponent(columns.join(","))}` : ""}`);
+  request<AreasAnswer>("GET", `${p(projectId)}/areas${columns ? `?columns=${encodeURIComponent(columns.join(","))}` : ""}`);
 
 /** Saves the strata and areas, or one total area; null: back to the project file's areas file. */
-export const saveAreas = (projectId: string, settings: AreaSettings | null) => request<{ settings: AreaSettings | null }>("PUT", `${p(projectId)}/areas`, { json: { settings } });
+export const saveAreas = (projectId: string, settings: AreaSettings | null) => request<AreaSettingsAnswer>("PUT", `${p(projectId)}/areas`, { json: { settings } });
 
 /** Saves the strata of an areas_per_attribute.csv (Collect Earth's: the columns, then area). */
-export const uploadAreasFile = (projectId: string, file: string) => request<{ settings: AreaSettings }>("PUT", `${p(projectId)}/areas`, { json: { file } });
+export const uploadAreasFile = (projectId: string, file: string) => request<AreaSettingsAnswer>("PUT", `${p(projectId)}/areas`, { json: { file } });
 
 /** The strata as areas_per_attribute.csv. */
 export async function downloadAreasFile(projectId: string): Promise<{ blob: Blob; filename: string }> {
@@ -5555,22 +2144,6 @@ export async function downloadAreasFile(projectId: string): Promise<{ blob: Blob
   return { blob: await response.blob(), filename: attachmentName(response, "areas_per_attribute.csv") };
 }
 
-/** Collect Earth's IPCC exports (src/routes/ipcc.ts): what the survey lacks, the plots, and what the form offers. */
-export interface IpccExports {
-  /** Questions or lists the survey lacks for them: none when they can be made. */
-  missing: string[];
-  /** Plots with a submitted first assessment. */
-  plots: number;
-  /** Where the plots' areas come from, null when the project has none. */
-  areas: string | null;
-  /** The IPCC Inventory Software's countries: code and name. */
-  countries: [string, string][];
-  /** The questions that can hold the region, and the one to choose first. */
-  regions: string[];
-  region: string | null;
-  /** The land use subdivisions and their default management type. */
-  subdivisions: { category: string; code: string; name: string; management: string }[];
-}
 export type IpccFile = "matrix" | "matrix-strata" | "plots" | "land-units" | "timeseries";
 export const IPCC_FILES: readonly IpccFile[] = ["matrix", "matrix-strata", "plots", "land-units", "timeseries"];
 /** The management types of each IPCC category (the server's MANAGEMENT_TYPES). */
@@ -5596,8 +2169,8 @@ export async function downloadIpccGhgi(projectId: string, choices: { country: st
   return { blob: await response.blob(), filename: attachmentName(response, "GHGi_tool_data.xml") };
 }
 
-export async function getUncertainty(projectId: string): Promise<UncertaintyData> {
-  return request<UncertaintyData>("GET", `${p(projectId)}/uncertainty`);
+export function getUncertainty(projectId: string): Promise<UncertaintyAnswer> {
+  return request("GET", `${p(projectId)}/uncertainty`);
 }
 
 /** The copy of a CEO project's plot and sample shapes into the project (src/routes/ceoShapes.ts). */
@@ -5616,95 +2189,24 @@ export function stepCeoShapes(projectId: string): Promise<CeoShapesProgress> {
 
 // --- The server page's projects and operations (stage C: routes/serverOps.ts, routes/mail.ts) ---
 
-/** One project in the directory, by id only (only its people know its name). */
-export interface AdminProject {
-  projectId: string;
-  status: ProjectStatus;
-  createdAt: number;
-  lastActivityAt: number | null;
-  storageBytes: number;
-  people: number;
-  /** Coordinators whose account is enabled, and of those the ones active in 90 days */
-  coordinators: number;
-  activeCoordinators: number;
-  /** Not archived, and no coordinator active in 90 days */
-  needsCoordinator: boolean;
-}
-export const PROJECT_FILTERS = ["all", "noCoordinator", "draft", "active", "closed", "archived"] as const;
-export type ProjectFilter = (typeof PROJECT_FILTERS)[number];
-export const PROJECT_SORTS = ["lastActivity", "created", "storage", "people"] as const;
-export type ProjectSort = (typeof PROJECT_SORTS)[number];
-export interface ProjectQuery {
-  q: string;
-  filter: ProjectFilter;
-  sort: ProjectSort;
-  desc: boolean;
-  page: number;
-  pageSize: number;
-}
-export interface ProjectPage {
-  projects: AdminProject[];
-  total: number;
-  page: number;
-  pages: number;
-  pageSize: number;
-  counts: Record<ProjectFilter, number>;
-}
+export type { AdminProjectRow as AdminProject, ProjectFilter, ProjectPage, ProjectQuery, ProjectSort } from "../../src/wire/serverAdmin";
+export const PROJECT_FILTERS = ["all", "noCoordinator", "draft", "active", "closed", "archived"] as const satisfies readonly ProjectFilter[];
+export const PROJECT_SORTS = ["lastActivity", "created", "storage", "people"] as const satisfies readonly ProjectSort[];
 
-const STATUSES: readonly ProjectStatus[] = ["draft", "active", "closed", "archived"];
-
-export async function listAdminProjects(query: ProjectQuery): Promise<ProjectPage> {
-  const body = await request<Record<string, unknown>>("GET", `/v1/admin/projects?${accountQueryString(query as unknown as Partial<AccountQuery>)}`);
-  const counts = (body?.counts ?? {}) as Record<string, unknown>;
-  return {
-    projects: ((body?.projects as Record<string, unknown>[] | undefined) ?? []).map((p) => ({
-      projectId: String(p.projectId ?? ""),
-      status: STATUSES.includes(p.status as ProjectStatus) ? (p.status as ProjectStatus) : "active",
-      createdAt: toCount(p.createdAt),
-      lastActivityAt: toNumberOrNull(p.lastActivityAt),
-      storageBytes: toCount(p.storageBytes),
-      people: toCount(p.people),
-      coordinators: toCount(p.coordinators),
-      activeCoordinators: toCount(p.activeCoordinators),
-      needsCoordinator: p.needsCoordinator === true,
-    })),
-    total: toCount(body?.total),
-    page: Math.max(1, toCount(body?.page)),
-    pages: Math.max(1, toCount(body?.pages)),
-    pageSize: Math.max(1, toCount(body?.pageSize)),
-    counts: Object.fromEntries(PROJECT_FILTERS.map((f) => [f, toCount(counts[f])])) as Record<ProjectFilter, number>,
-  };
+export function listAdminProjects(query: ProjectQuery): Promise<ProjectPage> {
+  return request<ProjectPage>("GET", `/v1/admin/projects?${accountQueryString(query)}`);
 }
 
 /** Archives a project, or restores an archived one as closed. */
 export const setProjectArchived = (projectId: string, archived: boolean) =>
-  request<{ projectId: string; status: ProjectStatus }>("POST", `/v1/admin/projects/${encodeURIComponent(projectId)}/archive`, { json: { archived } });
+  request<ProjectArchivedAnswer>("POST", `/v1/admin/projects/${encodeURIComponent(projectId)}/archive`, { json: { archived } });
 
 /** Makes an account (by its username) a coordinator of the project. */
 export const handProjectTo = (projectId: string, username: string) =>
-  request<{ projectId: string; userId: string; username: string; wasMember: boolean }>("POST", `/v1/admin/projects/${encodeURIComponent(projectId)}/coordinator`, { json: { username } });
+  request<ProjectHandedAnswer>("POST", `/v1/admin/projects/${encodeURIComponent(projectId)}/coordinator`, { json: { username } });
 
-export const SERVER_ACTION_KINDS = ["settings", "account", "project", "mail", "message", "alerts"] as const;
-export type ServerActionKind = (typeof SERVER_ACTION_KINDS)[number];
-/** One thing a server administrator did. */
-export interface ServerActivityEntry {
-  id: string;
-  at: number;
-  actor: string | null;
-  action: string;
-  target: string | null;
-  projectId: string | null;
-  details: Record<string, string | number | boolean | null>;
-}
-export interface ServerActivityPage {
-  entries: ServerActivityEntry[];
-  total: number;
-  page: number;
-  pages: number;
-  pageSize: number;
-  /** Who appears in the log, for its filter */
-  actors: string[];
-}
+export const SERVER_ACTION_KINDS = ["settings", "account", "project", "mail", "message", "alerts"] as const satisfies readonly ServerActionKind[];
+export type { ServerActionKind, ServerActivityEntry, ServerActivityPage } from "../../src/wire/serverAdmin";
 export interface ServerActivityQuery {
   actor: string;
   kind: ServerActionKind | "";
@@ -5715,24 +2217,8 @@ export interface ServerActivityQuery {
 const serverActivityQueryString = (q: Partial<ServerActivityQuery>) =>
   new URLSearchParams(Object.entries(q).filter(([, v]) => v !== undefined && v !== "").map(([k, v]) => [k, String(v)])).toString();
 
-export async function getServerActivity(query: ServerActivityQuery): Promise<ServerActivityPage> {
-  const body = await request<Record<string, unknown>>("GET", `/v1/admin/activity?${serverActivityQueryString(query)}`);
-  return {
-    entries: ((body?.entries as Record<string, unknown>[] | undefined) ?? []).map((e) => ({
-      id: String(e.id ?? ""),
-      at: toCount(e.at),
-      actor: typeof e.actor === "string" ? e.actor : null,
-      action: String(e.action ?? ""),
-      target: typeof e.target === "string" ? e.target : null,
-      projectId: typeof e.projectId === "string" ? e.projectId : null,
-      details: e.details && typeof e.details === "object" ? (e.details as ServerActivityEntry["details"]) : {},
-    })),
-    total: toCount(body?.total),
-    page: Math.max(1, toCount(body?.page)),
-    pages: Math.max(1, toCount(body?.pages)),
-    pageSize: Math.max(1, toCount(body?.pageSize)),
-    actors: Array.isArray(body?.actors) ? (body.actors as unknown[]).filter((a): a is string => typeof a === "string") : [],
-  };
+export function getServerActivity(query: ServerActivityQuery): Promise<ServerActivityPage> {
+  return request<ServerActivityPage>("GET", `/v1/admin/activity?${serverActivityQueryString(query)}`);
 }
 
 export async function downloadServerActivity(query: Pick<ServerActivityQuery, "actor" | "kind">): Promise<{ blob: Blob; filename: string }> {
@@ -5740,55 +2226,21 @@ export async function downloadServerActivity(query: Pick<ServerActivityQuery, "a
   return { blob: await response.blob(), filename: attachmentName(response, "server-activity.csv") };
 }
 
-/** The Collect Earth versions the accounts used in the last `days` days. */
-export interface CollectEarthVersions {
-  days: number;
-  latest: string | null;
-  latestConfigured: boolean;
-  accounts: number;
-  outdatedAccounts: number;
-  versions: { version: string | null; kind: "version" | "old" | "unnamed"; accounts: number; outdated: boolean }[];
-}
+export type { CollectEarthVersions, MailCheck } from "../../src/wire/serverAdmin";
 
 export const getCollectEarthVersions = () => request<CollectEarthVersions>("GET", "/v1/admin/versions");
-
-/** How the server sends mail, and the weekly mails stopped because the mail server refused the address. */
-export interface MailCheck {
-  delivers: boolean;
-  transport: "log" | "smtp" | "test";
-  from: string | null;
-  server: { host: string; port: number | null; secure: boolean } | null;
-  publicBaseUrl: string | null;
-  digestJob: boolean;
-  ownAddress: string | null;
-  ownAddressConfirmed: boolean;
-  stopped: { userId: string; username: string; email: string | null; kind: "coordinator" | "collector"; failures: number; stoppedAt: number }[];
-}
 
 export const getMailCheck = () => request<MailCheck>("GET", "/v1/admin/mail");
 
 /** Sends a test email to the administrator's own address. */
-export const sendTestMail = (language: string) => request<{ sent: true; to: string }>("POST", "/v1/admin/mail/test", { json: { language } });
+export const sendTestMail = (language: string) => request<TestMailAnswer>("POST", "/v1/admin/mail/test", { json: { language } });
 
 // --- The server page's safety and communication (stage D) ---
 
 /** Lifts the lock failed sign-ins set on an account. */
-export const unlockUser = (userId: string) => request<{ unlocked: boolean }>("POST", `/v1/admin/users/${encodeURIComponent(userId)}/unlock`);
+export const unlockUser = (userId: string) => request<UnlockAnswer>("POST", `/v1/admin/users/${encodeURIComponent(userId)}/unlock`);
 
-export type MessageAudience = "coordinators" | "everyone";
-export interface ServerMessage {
-  audience: MessageAudience;
-  subject: string;
-  text: string;
-}
-export interface MessagePreview {
-  recipients: number;
-  subject: string;
-  text: string;
-  delivers: boolean;
-  /** When the next message may go (one an hour), or null: now */
-  nextAllowedAt: number | null;
-}
+export type { MessageAudience, MessagePreview, ServerMessage } from "../../src/wire/serverAdmin";
 
 /** How the message will read and how many it reaches. */
 export const previewServerMessage = (m: ServerMessage, language: string) =>
@@ -5796,4 +2248,4 @@ export const previewServerMessage = (m: ServerMessage, language: string) =>
 
 /** Sends it; `recipients`: the count shown (a different one now is refused with the new count). */
 export const sendServerMessage = (m: ServerMessage, recipients: number) =>
-  request<{ recipients: number; sent: number; failed: number }>("POST", "/v1/admin/messages", { json: { ...m, recipients } });
+  request<MessageSentAnswer>("POST", "/v1/admin/messages", { json: { ...m, recipients } });
