@@ -1644,6 +1644,8 @@ export class PostgresStore implements Store {
   }
 
   async getMembership(projectId: string, userId: string): Promise<TokenMembership | null> {
+    // A user id from the path (member routes): not a uuid is no member, not a cast error (500)
+    if (!isUuid(projectId) || !isUuid(userId)) return null;
     const res = await this.pool.query(
       'SELECT role FROM project_members WHERE project_id = $1 AND user_id = $2',
       [projectId, userId],
