@@ -70,6 +70,9 @@ export async function accountDeletionPlan(store: Store, userId: string, isPlatfo
   return plan;
 }
 
+/** Wrong second-step codes in a row that lock the account when the server's own lock (loginLockFailures) is off. */
+const SECOND_STEP_LOCK_FAILURES = 10;
+
 /** What a disabled account's login answers (403), shown as it is by Collect Earth's login dialog. */
 export const ACCOUNT_DISABLED = {
   error: 'account_disabled',
@@ -183,19 +186,21 @@ export async function registerAuthRoutes(
     // holds on every instance, and said before the password is checked (a guess during the lock tells nothing)
     const lock = user ? (await store.getSettings()) : null;
     const lockMax = lock?.loginLockFailures ?? 0;
-    if (user && lockMax > 0) {
+    const lockMs = (lock?.loginLockMinutes ?? 15) * 60_000;
+    // Checked whatever the setting: wrong second-step codes lock the account even with it off (below)
+    if (user) {
       const until = await store.loginLockedUntil(user.id, Date.now());
       if (until !== null) {
         const retryAfter = Math.max(1, Math.ceil((until - Date.now()) / 1000));
         return reply.code(429).header('retry-after', String(retryAfter)).send({ error: 'account_locked', reason: 'too many failed sign-ins: try again later, or reset the password', retryAfter });
       }
     }
-    const failed = async () => {
+    const failed = async (max = lockMax) => {
       loginFailures.hit(failureKey);
       accountFailures?.hit(accountKey);
       counters?.count('failedLogin');
-      if (user && lockMax > 0) {
-        const lockedUntil = await store.noteLoginFailure(user.id, Date.now(), lockMax, (lock?.loginLockMinutes ?? 15) * 60_000);
+      if (user && max > 0) {
+        const lockedUntil = await store.noteLoginFailure(user.id, Date.now(), max, lockMs);
         if (lockedUntil !== null) request.log.warn({ action: 'account.locked', userId: user.id, lockedUntil }, 'account locked after failed sign-ins');
       }
     };
@@ -214,7 +219,8 @@ export async function registerAuthRoutes(
       if (!code.trim()) return reply.code(401).send({ error: 'second_step_required' });
       const check = await checkSecondStep(store, twoFactorKeyBuf, user.id, code);
       if (check !== 'ok') {
-        await failed();
+        // Whoever gets here knows the password: wrong codes lock the account on every instance, the setting off or not
+        await failed(lockMax > 0 ? lockMax : SECOND_STEP_LOCK_FAILURES);
         return reply.code(401).send({ error: check === 'unreadable' ? 'second_step_unreadable' : 'invalid_second_step' });
       }
     }

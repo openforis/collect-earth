@@ -197,6 +197,15 @@ describe('signing in with two steps', () => {
     void secret;
   });
 
+  it('locks the account after ten wrong codes, with the server lock off (kept in the store, so on every instance)', async () => {
+    const { secret } = await setUp();
+    expect((await ctx.store.getSettings()).loginLockFailures).toBe(0);
+    for (let i = 0; i < 10; i++) expect((await login({ username: 'owner', password: 'owner-password', code: '000000' })).json().error).toBe('invalid_second_step');
+    const locked = await login({ username: 'owner', password: 'owner-password', code: codeAt(secret, stepOf(Date.now())) });
+    expect(locked.statusCode).toBe(429);
+    expect(locked.json().error).toBe('account_locked');
+  });
+
   it("is reset by the server's administrator for a lost phone: the person's sessions end", async () => {
     const pid = (await createProject(ctx.app, 'Lost')).projectId;
     await ctx.store.addMembership(pid, owner.userId, 'admin');
