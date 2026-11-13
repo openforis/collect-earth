@@ -44,7 +44,8 @@ public class UpdateService {
 		}
 	}
 
-	static final String INSTALLER_URL = "https://ossrh-staging-api.central.sonatype.com/service/local/artifact/maven/redirect?r=releases&g=org.openforis.collect.earth&a=collect-earth-installer&v=LATEST&c=osx&e=dmg";
+	// The installers are assets of the GitHub release (the autoupdate manifest points there too)
+	static final String INSTALLER_URL = "https://github.com/openforis/collect-earth/releases/latest";
 
 	private final Logger logger = LoggerFactory.getLogger(UpdateService.class);
 	private final NoticeService notices;

@@ -63,7 +63,7 @@ public class UpdateServiceTest {
 		assertEquals("download", options(notice).get(1).get("id"));
 		notices.answer((String) notice.get("id"), "download");
 		assertEquals(1, opened.size());
-		assertTrue(opened.get(0).toString().endsWith("e=dmg"));
+		assertEquals(UpdateService.INSTALLER_URL, opened.get(0).toString());
 		verifyNoInteractions(properties);
 	}
 
