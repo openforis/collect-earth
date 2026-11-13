@@ -38,6 +38,7 @@ import { formatDate, formatNumber } from "../format";
 import { useT } from "../i18n";
 import { linkProps, pathFor } from "../router";
 import { useLoad } from "../useLoad";
+import { onceVisibleAfter } from "../visibility";
 
 /** The select value for "everyone" / "all kinds" (an empty value would leave the field looking blank). */
 const ALL = "__all__";
@@ -192,8 +193,7 @@ export function QualityFlags({ projectId, canEdit }: { projectId: string; canEdi
   // Newer figures are being worked out (or the server is busy): ask again in a while.
   useEffect(() => {
     if (loading || !(data?.stale || busy)) return;
-    const id = window.setTimeout(reload, busy ? 15_000 : 20_000);
-    return () => window.clearTimeout(id);
+    return onceVisibleAfter(busy ? 15_000 : 20_000, document, reload);
   }, [loading, data?.stale, busy, reload]);
 
   const filtered = filter.person !== null || filter.kind !== null;
