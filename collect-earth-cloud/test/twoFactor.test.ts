@@ -102,13 +102,15 @@ describe('signing in with two steps', () => {
   const post = (url: string, token: string, payload: Record<string, unknown> = {}) => ctx.app.inject({ method: 'POST', url, headers: bearer(token), payload });
 
   /** Sets two-step sign-in up for the owner; gives the secret and the recovery codes. */
-  const setUp = async (token = owner.token) => {
+  const setUp = async (token = owner.token, password = 'owner-password') => {
     const setup = await post('/v1/me/two-factor/setup', token);
     expect(setup.statusCode).toBe(200);
     const { secret, uri } = setup.json();
     expect(uri).toMatch(/^otpauth:\/\/totp\//);
-    expect((await post('/v1/me/two-factor/enable', token, { code: '000000' })).statusCode).toBe(400);
-    const enabled = await post('/v1/me/two-factor/enable', token, { code: codeAt(secret, stepOf(Date.now())) });
+    expect((await post('/v1/me/two-factor/enable', token, { code: '000000', password })).statusCode).toBe(400);
+    // a session alone (a borrowed or stolen one) cannot turn it on: the password is asked too
+    expect((await post('/v1/me/two-factor/enable', token, { code: codeAt(secret, stepOf(Date.now())), password: 'not-it' })).json().error).toBe('wrong_password');
+    const enabled = await post('/v1/me/two-factor/enable', token, { code: codeAt(secret, stepOf(Date.now())), password });
     expect(enabled.statusCode, enabled.body).toBe(200);
     return { secret: secret as string, recoveryCodes: enabled.json().recoveryCodes as string[] };
   };
@@ -186,7 +188,7 @@ describe('signing in with two steps', () => {
     expect((await people(coordinator)).json().error).toBe('two_factor_required');
     expect((await ctx.app.inject({ method: 'GET', url: `/v1/projects/${pid}/my-assignment`, headers: bearer(collector) })).statusCode).not.toBe(403);
     // and they cannot turn it off while it is required
-    const { secret } = await setUp(coordinator);
+    const { secret } = await setUp(coordinator, 'password12');
     expect((await people(coordinator)).statusCode).toBe(200);
     expect((await post('/v1/me/two-factor/disable', coordinator, { password: 'password12' })).json().error).toBe('two_factor_required');
     void secret;
@@ -197,7 +199,7 @@ describe('signing in with two steps', () => {
     await ctx.store.addMembership(pid, owner.userId, 'admin');
     const inv = await ctx.app.inject({ method: 'POST', url: `/v1/projects/${pid}/invites`, headers: bearer(owner.token), payload: { role: 'operator', maxUses: 1 } });
     const ana = (await ctx.app.inject({ method: 'POST', url: '/v1/auth/register', payload: { username: 'ana', password: 'password12', inviteToken: inv.json().inviteToken } })).json();
-    await setUp(ana.token);
+    await setUp(ana.token, 'password12');
     expect((await login({ username: 'ana', password: 'password12' })).json().error).toBe('second_step_required');
     expect((await post(`/v1/admin/users/${ana.userId}/two-factor/reset`, ana.token)).statusCode).toBe(403);
     expect((await post(`/v1/admin/users/${ana.userId}/two-factor/reset`, owner.token)).statusCode).toBe(204);

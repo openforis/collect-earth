@@ -995,9 +995,9 @@ export async function startTwoFactor(): Promise<{ secret: string; uri: string }>
   return request<{ secret: string; uri: string }>("POST", "/v1/me/two-factor/setup", { json: {} });
 }
 
-/** Turns two-step sign-in on with the app's first code; gives the recovery codes, shown once. */
-export async function enableTwoFactor(code: string): Promise<string[]> {
-  return (await request<{ recoveryCodes: string[] }>("POST", "/v1/me/two-factor/enable", { json: { code } })).recoveryCodes;
+/** Turns two-step sign-in on with the account password and the app's first code; gives the recovery codes, shown once. */
+export async function enableTwoFactor(code: string, password: string): Promise<string[]> {
+  return (await request<{ recoveryCodes: string[] }>("POST", "/v1/me/two-factor/enable", { json: { code, password } })).recoveryCodes;
 }
 
 export async function disableTwoFactor(password: string): Promise<void> {
