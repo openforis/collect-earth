@@ -83,8 +83,9 @@ export function holds(condition: Condition | undefined, values: Values): boolean
   const value = valueOf(values, condition.key);
   if ("in" in condition) return condition.in.includes(value);
   if ("min" in condition) {
-    const n = /^\s*-?\d+\s*$/.test(value) ? parseInt(value, 10) : NaN;
-    return !Number.isNaN(n) && n >= condition.min;
+    // What Java's Integer.parseInt takes (Condition.AtLeast): a sign, and nothing past the int range
+    const n = /^\s*[+-]?\d+\s*$/.test(value) ? parseInt(value, 10) : NaN;
+    return !Number.isNaN(n) && n >= -2147483648 && n <= 2147483647 && n >= condition.min;
   }
   return value.trim() !== "";
 }

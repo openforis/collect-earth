@@ -31,6 +31,11 @@ describe("conditions", () => {
     expect(holds(points, { n: "" })).toBe(false);
     expect(holds(points, { n: "x" })).toBe(false);
     expect(holds(points, {})).toBe(false);
+    // as Java's Integer.parseInt: a plus sign is fine, past the int range is not a number
+    expect(holds(points, { n: "+5" })).toBe(true);
+    expect(holds(points, { n: "2147483647" })).toBe(true);
+    expect(holds(points, { n: "2147483648" })).toBe(false);
+    expect(holds(points, { n: "+-5" })).toBe(false);
   });
   it("notBlank holds for a value with something in it", () => {
     expect(holds({ key: "k", notBlank: true }, { k: "abc" })).toBe(true);

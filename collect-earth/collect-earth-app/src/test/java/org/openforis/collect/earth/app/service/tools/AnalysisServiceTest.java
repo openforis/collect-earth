@@ -164,7 +164,15 @@ public class AnalysisServiceTest {
 		assertEquals("ipcc.subdivision", assertThrows(InvalidToolRequestException.class, () -> service.ipccOutputs(missing)).getCode());
 		IpccAnswers wrongType = answers("ES", "province", "x.zip");
 		wrongType.subdivisions.get(2).managementType = "PERENNIAL";
+		wrongType.subdivisions.get(0).managementType = "UNMANAGED";
+		wrongType.subdivisions.get(0).type = "LARCH";
 		assertEquals("ipcc.subdivision", assertThrows(InvalidToolRequestException.class, () -> service.ipccOutputs(wrongType)).getCode());
+		// Refused whole: the forest, answered before the wrong wetland, keeps what the answers of the path's check gave it
+		assertEquals(ManagementTypeEnum.MANAGED, forest.getManagementType());
+		assertEquals(ForestTypeEnum.PINUS, forest.getForestType());
+		IpccAnswers noForestType = answers("ES", "province", "x.zip");
+		noForestType.subdivisions.get(0).type = null;
+		assertEquals("ipcc.subdivision", assertThrows(InvalidToolRequestException.class, () -> service.ipccOutputs(noForestType)).getCode());
 		verify(ipcc, never()).produceOutputs(any(), any(), any(), any());
 		// A cropland without a perennial type takes all of them, as the wizard's combo started on ALL
 		IpccAnswers noCropType = answers("ES", "province", "x.zip");
