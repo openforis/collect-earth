@@ -1475,6 +1475,9 @@ export class InMemoryStore implements Store {
       }
       InMemoryStore.dropPlotAssignments(entry, userId);
       InMemoryStore.dropActivity(entry, userId);
+      // As deleteUser does: records left behind here keep the name retired once the account goes
+      const username = this.users.get(userId)?.username;
+      if (username !== undefined && [...entry.records.values()].some((r) => r.operator === username)) this.retiredUsernames.add(username);
     }
     return 'ok';
   }
