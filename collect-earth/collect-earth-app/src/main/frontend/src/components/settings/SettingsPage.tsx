@@ -43,6 +43,9 @@ import { RestartingOverlay } from "./RestartingOverlay";
 import { SampleFileCard } from "./SampleFileCard";
 import { SettingField } from "./SettingField";
 
+/** The fields shown two by two, a from and a to (the other fields go across) */
+const SIDE_BY_SIDE = new Set(["geeapp_date_from", "geeapp_date_to", "planet_tfo_date_from", "planet_tfo_date_to"]);
+
 /** How long after the last keystroke the values are sent for validation, and the plots file for its check */
 const VALIDATE_AFTER_MILLIS = 300;
 const CHECK_FILE_AFTER_MILLIS = 500;
@@ -206,16 +209,7 @@ export function SettingsPage({ texts, compact, width, onClose, onApplied }: Prop
     const visible = section.fields.filter((f) => isVisible(f, values));
     return (
       <Stack key={section.id} spacing={2} data-testid={"section-" + section.id}>
-        <Stack direction="row" spacing={1} sx={{ alignItems: "center", justifyContent: "space-between" }}>
-          {withTitle ? <Typography variant="h6" component="h2">{s(section.label)}</Typography> : <Box />}
-          {!searching && !(plotDesignLocked && section.id === PLOT_SECTION) && (
-            <Button size="small" onClick={() => {
-              for (const [k, v] of Object.entries(defaultsOf(section, values, lockedFields(section, data?.info, values)))) change(k, v);
-            }}>
-              {s("SettingsPage.restoreDefaults")}
-            </Button>
-          )}
-        </Stack>
+        {withTitle && <Typography variant="h6" component="h2">{s(section.label)}</Typography>}
         {section.hint && !searching && <Typography variant="body2" color="text.secondary">{s(section.hint)}</Typography>}
         {plotDesignLocked && section.id === PLOT_SECTION && (
           <Alert severity="info" data-testid="plot-design-locked">{s("SettingsPage.plot.cloudLocked")}</Alert>
@@ -233,7 +227,12 @@ export function SettingsPage({ texts, compact, width, onClose, onApplied }: Prop
               <PlotPreview values={values} plot={validation?.plot ?? null} texts={texts} />
             </Box>
           </Stack>
-        ) : visible.map(renderField)}
+        ) : (
+          // A pair of dates (from, to) side by side; every other field across
+          <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: width >= breakpoints.sm ? "repeat(2, minmax(0, 1fr))" : "1fr" }}>
+            {visible.map((f) => <Box key={f.key} sx={{ gridColumn: SIDE_BY_SIDE.has(f.key) ? undefined : "1 / -1" }}>{renderField(f)}</Box>)}
+          </Box>
+        )}
         {!searching && <SectionExtras section={section} values={values} data={data} texts={texts} onChange={change}
           onRestarting={() => setRestarting(true)} onMessage={setNotice} />}
       </Stack>
@@ -243,11 +242,22 @@ export function SettingsPage({ texts, compact, width, onClose, onApplied }: Prop
   if (restarting) return <RestartingOverlay text={s("SettingsPage.restarting")} />;
 
   // The sections as tabs over the fields, as in the Swing properties dialog; scrolled when they do not all fit
+  // Restore defaults of the open section at the end of the tabs' row, rather than on a row of its own over the fields
+  const openSection = sections.find((sec) => sec.id === sectionId);
   const nav = (
-    <Tabs value={sectionId} onChange={(_, id: string) => setSectionId(id)} variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile
-      aria-label={s("SettingsPage.title")} sx={{ borderBottom: 1, borderColor: "divider", px: 1, flexShrink: 0 }}>
-      {sections.map((sec) => <Tab key={sec.id} value={sec.id} label={s(sec.label)} sx={{ textTransform: "none", minWidth: 0 }} />)}
-    </Tabs>
+    <Stack direction="row" sx={{ alignItems: "center", borderBottom: 1, borderColor: "divider", px: 1, flexShrink: 0 }}>
+      <Tabs value={sectionId} onChange={(_, id: string) => setSectionId(id)} variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile
+        aria-label={s("SettingsPage.title")} sx={{ flex: 1, minWidth: 0 }}>
+        {sections.map((sec) => <Tab key={sec.id} value={sec.id} label={s(sec.label)} sx={{ textTransform: "none", minWidth: 0 }} />)}
+      </Tabs>
+      {openSection && !(plotDesignLocked && openSection.id === PLOT_SECTION) && (
+        <Button size="small" sx={{ flexShrink: 0, mr: 1 }} onClick={() => {
+          for (const [k, v] of Object.entries(defaultsOf(openSection, values, lockedFields(openSection, data?.info, values)))) change(k, v);
+        }}>
+          {s("SettingsPage.restoreDefaults")}
+        </Button>
+      )}
+    </Stack>
   );
   // A dialog over the page, its backdrop around it; the whole window only when too small to leave a margin
   const fullScreen = width < breakpoints.sm;
@@ -334,12 +344,13 @@ function SectionExtras({ section, values, data, texts, onChange, onRestarting, o
     const cloud = values.db_driver === "CLOUD";
     return (
       <Stack spacing={2.5}>
-        <Typography variant="body2" color="text.secondary">{s("OptionWizard.4")} {data?.info.computerIp}</Typography>
         {postgres && (
           <ConnectionTestButton label={s("OptionWizard.135")} testing={s("SettingsPage.testing")} test={() => testDatabase({
             host: values.db_host ?? "", port: values.db_port ?? "", name: values.db_name ?? "", username: values.db_username ?? "", password: values.db_password ?? "",
           })} />
         )}
+        {/* What the other computers type as the host of a PostgreSQL database on this one: nothing to do with the other choices */}
+        {postgres && <Typography variant="body2" color="text.secondary">{s("OptionWizard.4")} {data?.info.computerIp}</Typography>}
         {cloud && (
           <Stack spacing={1.5}>
             <CloudTokenLogin url={values.cloud_sync_url ?? ""} texts={texts} onToken={(token) => onChange("cloud_sync_token", token)} />
