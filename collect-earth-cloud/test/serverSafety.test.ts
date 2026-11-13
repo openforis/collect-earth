@@ -171,8 +171,7 @@ describe('the server page: safety and communication', () => {
     expect((await call('POST', '/v1/admin/messages/preview', { ...message, subject: '' })).statusCode).toBe(400);
 
     expect((await call('POST', '/v1/admin/messages', { ...message, recipients: 5 })).json()).toEqual({ error: 'recipients_changed', recipients: 1 });
-    expect((await call('POST', '/v1/admin/messages', { ...message, recipients: 1 })).json()).toEqual({ recipients: 1 });
-    await ctx.app.mailWork!.idle();
+    expect((await call('POST', '/v1/admin/messages', { ...message, recipients: 1 })).json()).toEqual({ recipients: 1, sent: 1, failed: 0 });
     const sent = mailer.sent.filter((m) => m.tag === 'server.message.coordinators');
     expect(sent.map((m) => m.to)).toEqual(['ana@example.org']);
     // her language for the closing lines
@@ -183,7 +182,7 @@ describe('the server page: safety and communication', () => {
     expect(again.statusCode).toBe(429);
     expect(again.json().nextAllowedAt).toBeGreaterThan(Date.now() + 59 * 60_000);
     expect((await call('POST', '/v1/admin/messages/preview', message)).json().nextAllowedAt).toBeGreaterThan(Date.now());
-    expect((await call('GET', '/v1/admin/activity?kind=message')).json().entries[0].details).toEqual({ audience: 'coordinators', recipients: 1, subject: 'Maintenance on Saturday' });
+    expect((await call('GET', '/v1/admin/activity?kind=message')).json().entries[0].details).toEqual({ audience: 'coordinators', recipients: 1, sent: 1, failed: 0, subject: 'Maintenance on Saturday' });
     expect((await call('POST', '/v1/admin/messages', message, await ctx.store.createSession(ana))).statusCode).toBe(403);
   });
 });

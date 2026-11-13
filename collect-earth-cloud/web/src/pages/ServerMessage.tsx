@@ -39,7 +39,7 @@ export function MessageDialog({ open, onClose }: { open: boolean; onClose: () =>
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [sent, setSent] = useState<number | null>(null);
+  const [sent, setSent] = useState<{ sent: number; failed: number } | null>(null);
   const n = (v: number) => formatNumber(v, language);
   const time = (ms: number) => new Intl.DateTimeFormat(language, { timeStyle: "short" }).format(ms);
   const ready = subject.trim() !== "" && text.trim() !== "";
@@ -76,8 +76,7 @@ export function MessageDialog({ open, onClose }: { open: boolean; onClose: () =>
     setBusy(true);
     setError(null);
     try {
-      const { recipients } = await sendServerMessage({ audience, subject, text }, preview.recipients);
-      setSent(recipients);
+      setSent(await sendServerMessage({ audience, subject, text }, preview.recipients));
       setPreview(null);
     } catch (err) {
       if (err instanceof ApiError && err.code === "recipients_changed") {
@@ -99,7 +98,10 @@ export function MessageDialog({ open, onClose }: { open: boolean; onClose: () =>
       <DialogTitle id="server-message-title">{t("message.title")}</DialogTitle>
       <DialogContent>
         {sent !== null ? (
-          <Alert severity="success" role="status">{t("message.sent", { count: n(sent) })}</Alert>
+          <Stack spacing={1} role="status">
+            <Alert severity="success">{t("message.sent", { count: n(sent.sent) })}</Alert>
+            {sent.failed > 0 && <Alert severity="warning">{t("message.failed", { count: n(sent.failed) })}</Alert>}
+          </Stack>
         ) : preview ? (
           <Stack spacing={2}>
             {!preview.delivers && <Alert severity="warning">{t("message.notReady")}</Alert>}

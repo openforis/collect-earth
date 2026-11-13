@@ -19,6 +19,7 @@ describe("the server activity log in words", () => {
     expect(activitySentence(t, entry("account.signed_out", { actor: null }), "en")).toBe("An administrator signed ana out everywhere");
     expect(activitySentence(t, entry("something.new"), "en")).toBe("owner: something.new");
     expect(activitySentence(t, entry("message.sent", { target: null, details: { audience: "coordinators", recipients: 12, subject: "Maintenance" } }), "en")).toBe("owner sent the message “Maintenance” to 12 people");
+    expect(activitySentence(t, entry("message.sent", { target: null, details: { audience: "everyone", recipients: 12, sent: 10, failed: 2, subject: "Maintenance" } }), "en")).toBe("owner sent the message “Maintenance” to 10 people");
     expect(activitySentence(t, entry("alerts.seen", { target: null, details: { count: 3 } }), "en")).toBe("owner marked 3 alerts as seen");
     expect(activitySentence(t, entry("account.unlocked"), "en")).toBe("owner unlocked ana");
   });

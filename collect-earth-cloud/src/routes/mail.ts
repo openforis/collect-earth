@@ -623,8 +623,10 @@ export async function registerMailRoutes(app: FastifyInstance, store: Store, con
     });
   });
 
-  // Sends it: each person gets it in their language (the closing lines), in the background. `recipients` is the count the
-  // administrator was shown: a different one now (an account changed) asks again. At most one an hour.
+  // Sends it: each person gets it in their language (the closing lines), within the request (Cloud Run throttles the CPU
+  // once the answer is out). `recipients` is the count the administrator was shown: a different one now (an account
+  // changed) asks again. At most one an hour.
+  let sendingUntil = 0;
   app.post('/v1/admin/messages', { preHandler: requirePlatformAdmin(store) }, async (request: FastifyRequest, reply: FastifyReply) => {
     if (!deps.mailer.delivers) return reply.code(409).send({ error: 'mail_not_set_up', reason: 'set SMTP_URL and MAIL_FROM to send mail' });
     const m = readMessage(request.body);
@@ -633,14 +635,16 @@ export async function registerMailRoutes(app: FastifyInstance, store: Store, con
     if (last !== null && deps.now() - last < MESSAGE_INTERVAL_MS) {
       return reply.code(429).send({ error: 'message_too_soon', reason: 'one message an hour', nextAllowedAt: last + MESSAGE_INTERVAL_MS });
     }
+    // The log entry is written once the loop ends: until then this instance refuses a second message itself.
+    if (sendingUntil > deps.now()) return reply.code(429).send({ error: 'message_too_soon', reason: 'one message an hour', nextAllowedAt: sendingUntil });
     const recipients = await recipientsOf(m.audience);
     const shown = ((request.body ?? {}) as { recipients?: unknown }).recipients;
     if (shown !== recipients.length) return reply.code(409).send({ error: 'recipients_changed', recipients: recipients.length });
     if (recipients.length === 0) return reply.code(409).send({ error: 'no_recipients' });
-    await logServerAction(store, request, { action: 'message.sent', details: { audience: m.audience, recipients: recipients.length, subject: m.subject.slice(0, 100) } });
-    work.run(request, `server.message.${m.audience}`, async () => {
-      let sent = 0;
-      let failed = 0;
+    sendingUntil = deps.now() + MESSAGE_INTERVAL_MS;
+    let sent = 0;
+    let failed = 0;
+    try {
       for (const r of recipients) {
         try {
           const mail = await store.getAccountMail(r.userId);
@@ -653,8 +657,10 @@ export async function registerMailRoutes(app: FastifyInstance, store: Store, con
           request.log.warn({ err: errorSummary(err), userId: r.userId }, 'server message: one could not be sent');
         }
       }
-      request.log.info({ action: 'message.delivered', audience: m.audience, sent, failed }, 'server message: sent');
-    });
-    return reply.code(202).send({ recipients: recipients.length });
+      await logServerAction(store, request, { action: 'message.sent', details: { audience: m.audience, recipients: recipients.length, sent, failed, subject: m.subject.slice(0, 100) } });
+    } finally {
+      sendingUntil = 0;
+    }
+    return reply.send({ recipients: recipients.length, sent, failed });
   });
 }
