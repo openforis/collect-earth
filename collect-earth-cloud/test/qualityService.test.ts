@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { RoundInfo } from '../src/cep.js';
 import { qualityFigures } from '../src/answerStats.js';
 import { qualityReport, type QualityRecord } from '../src/quality.js';
@@ -16,6 +16,7 @@ import {
 import type { WorkerJob } from '../src/qualityWorker.js';
 import { InMemoryStore } from '../src/store/memory.js';
 import type { Question } from '../src/surveyOutline.js';
+import { demoCep } from './fixtures/cep.js';
 
 const added: RoundInfo = {
   state: 'added',
@@ -610,5 +611,22 @@ describe('QualityService', () => {
     };
     const service = new QualityService(store, runner, { now: () => t });
     expect((await service.report(projectId, { warn() {}, error() {} })).computedAt).toBe(1000);
+  });
+
+  it('outline: reads the project file only when its size or time changed', async () => {
+    const store = new InMemoryStore();
+    const { projectId } = await store.createProject({ name: 'p' });
+    await store.putCep(projectId, demoCep(), added, null);
+    const service = new QualityService(store, null);
+    const log = { warn() {}, error() {} };
+    const getCep = vi.spyOn(store, 'getCep');
+    const first = await service.outline(projectId, log);
+    expect(first?.size).toBeGreaterThan(0);
+    expect(await service.outline(projectId, log)).toBe(first);
+    expect(getCep).toHaveBeenCalledTimes(1);
+    // the same file again (same size): a new upload, read again
+    await store.putCep(projectId, demoCep(), added, null);
+    expect(await service.outline(projectId, log)).not.toBe(first);
+    expect(getCep).toHaveBeenCalledTimes(2);
   });
 });

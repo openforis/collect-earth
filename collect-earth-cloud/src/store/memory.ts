@@ -557,7 +557,8 @@ export class InMemoryStore implements Store {
     entry.cep = Buffer.from(served);
     entry.cepOriginal = original === null ? null : Buffer.from(original);
     entry.roundInfo = structuredClone(info);
-    entry.cepUpdatedAt = Date.now();
+    // Always later than the last one (two uploads in one millisecond): caches key on it.
+    entry.cepUpdatedAt = Math.max(Date.now(), (entry.cepUpdatedAt ?? 0) + 1);
   }
 
   async getOriginalCep(projectId: string): Promise<Buffer | null> {
