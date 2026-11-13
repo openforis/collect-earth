@@ -76,6 +76,24 @@ public class OwnPagesOnlyFilterTest {
 	}
 
 	@Test
+	public void googleEarthProsBalloonsAreLetThroughWhereAllowed() {
+		// A balloon's Origin is no web address, and its browser sends no Sec-Fetch-Site
+		assertTrue(OwnPagesOnlyFilter.isFromOwnPage(null, "null", "http", "127.0.0.1:8028", CONFIGURED, true));
+		assertTrue(OwnPagesOnlyFilter.isFromOwnPage(null, "file://", "http", "127.0.0.1:8028", CONFIGURED, true));
+		assertTrue(OwnPagesOnlyFilter.isFromOwnPage(null, null, "http", "127.0.0.1:8028", CONFIGURED, true));
+		assertTrue(OwnPagesOnlyFilter.isFromOwnPage("same-origin", "http://127.0.0.1:8028", "http", "127.0.0.1:8028",
+				CONFIGURED, true));
+		// Other sites stay refused: a form posted from one, a sandboxed frame in a browser that says so, a rebound name
+		assertFalse(OwnPagesOnlyFilter.isFromOwnPage(null, "https://example.com", "http", "127.0.0.1:8028", CONFIGURED, true));
+		assertFalse(OwnPagesOnlyFilter.isFromOwnPage("cross-site", "https://example.com", "http", "127.0.0.1:8028",
+				CONFIGURED, true));
+		assertFalse(OwnPagesOnlyFilter.isFromOwnPage("cross-site", "null", "http", "127.0.0.1:8028", CONFIGURED, true));
+		assertFalse(OwnPagesOnlyFilter.isFromOwnPage("same-site", "http://localhost:9000", "http", "127.0.0.1:8028",
+				CONFIGURED, true));
+		assertFalse(OwnPagesOnlyFilter.isFromOwnPage(null, "null", "http", "evil.example:8028", CONFIGURED, true));
+	}
+
+	@Test
 	public void theNameOfAHostIsWithoutItsPort() {
 		assertEquals("localhost", OwnPagesOnlyFilter.hostname("LocalHost:8028"));
 		assertEquals("127.0.0.1", OwnPagesOnlyFilter.hostname("127.0.0.1"));

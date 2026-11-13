@@ -36,8 +36,10 @@ public class PlacemarkPlanetImagery extends JsonPocessorServlet {
 	@Autowired
 	LocalPropertiesService localPropertiesService;
 
-	// 2015-07-17T10:50:18.650Z
-	private SimpleDateFormat planetDateFormat = new SimpleDateFormat("yyyy-MM-dd");
+	// A format per request: SimpleDateFormat is not thread-safe, and requests come in parallel
+	private static Date parseDate(String date) throws ParseException {
+		return new SimpleDateFormat("yyyy-MM-dd").parse(date);
+	}
 
 	@CrossOrigin(origins = "*")
 	@PostMapping(value = "/planetTileUrl")
@@ -54,7 +56,7 @@ public class PlacemarkPlanetImagery extends JsonPocessorServlet {
 	}
 
 	private PlanetRequestParameters getRequestParameters(HttpServletRequest request) throws ParseException {
-		Date startDate = planetDateFormat.parse(request.getParameter("start"));
+		Date startDate = parseDate(request.getParameter("start"));
 		Date endDate = getEndDate(request, startDate);
 
 		double[][][] coords = getCoordinates(request);
@@ -80,7 +82,7 @@ public class PlacemarkPlanetImagery extends JsonPocessorServlet {
 		String endDateString = request.getParameter("end");
 		Date endDate = null;
 		if (StringUtils.isNotBlank(endDateString)) {
-			endDate = planetDateFormat.parse(endDateString);
+			endDate = parseDate(endDateString);
 		} else {
 			LocalDateTime localDateTime = DateUtils.asLocalDateTime(startDate);
 			endDate = DateUtils.asDate(localDateTime.plusDays(30));
