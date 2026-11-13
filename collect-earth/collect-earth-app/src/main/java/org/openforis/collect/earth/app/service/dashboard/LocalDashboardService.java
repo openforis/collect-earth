@@ -9,6 +9,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.MessageFormat;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -630,9 +631,12 @@ public class LocalDashboardService implements ApplicationListener<ContextRefresh
 			return;
 		}
 		try {
-			long pid = Long.parseLong(new String(Files.readAllBytes(pidFile.toPath()), StandardCharsets.US_ASCII).trim());
+			// "pid startMillis"; a file of an older Collect Earth has the pid only
+			String[] written = new String(Files.readAllBytes(pidFile.toPath()), StandardCharsets.US_ASCII).trim().split("\\s+"); //$NON-NLS-1$
+			long pid = Long.parseLong(written[0]);
+			Instant started = written.length > 1 ? Instant.ofEpochMilli(Long.parseLong(written[1])) : null;
 			Optional<ProcessHandle> handle = ProcessHandle.of(pid);
-			if (handle.isPresent() && handle.get().isAlive() && isDashboard(handle.get().info())) {
+			if (handle.isPresent() && handle.get().isAlive() && isDashboard(handle.get().info(), started)) {
 				logger.info("Ending the dashboard left running by an earlier Collect Earth (pid {})", pid); //$NON-NLS-1$
 				handle.get().destroy();
 			}
@@ -642,15 +646,21 @@ public class LocalDashboardService implements ApplicationListener<ContextRefresh
 		pidFile.delete();
 	}
 
-	/** Whether a process is a Node running server.mjs (the arguments are not known on every system). */
-	static boolean isDashboard(ProcessHandle.Info info) {
+	/**
+	 * Whether a process is a Node running server.mjs, started when the pid file says (null: not written). The arguments
+	 * are not known on every system (never on Windows): a pid reused by another Node is then told apart by its start.
+	 */
+	static boolean isDashboard(ProcessHandle.Info info, Instant started) {
 		String command = info.command().orElse("").toLowerCase(Locale.ROOT); //$NON-NLS-1$
 		if (!(command.endsWith("node") || command.endsWith("node.exe"))) { //$NON-NLS-1$ //$NON-NLS-2$
 			return false;
 		}
+		if (started != null && !info.startInstant().map(at -> at.toEpochMilli() == started.toEpochMilli()).orElse(false)) {
+			return false;
+		}
 		Optional<String[]> arguments = info.arguments();
 		if (!arguments.isPresent()) {
-			return true;
+			return started != null;
 		}
 		for (String argument : arguments.get()) {
 			if (argument.endsWith(SERVER_SCRIPT)) {
@@ -665,7 +675,9 @@ public class LocalDashboardService implements ApplicationListener<ContextRefresh
 			return;
 		}
 		try {
-			Files.write(pidFile().toPath(), Long.toString(pid).getBytes(StandardCharsets.US_ASCII));
+			String start = ProcessHandle.of(pid).flatMap(handle -> handle.info().startInstant())
+					.map(at -> " " + at.toEpochMilli()).orElse(""); //$NON-NLS-1$ //$NON-NLS-2$
+			Files.write(pidFile().toPath(), (pid + start).getBytes(StandardCharsets.US_ASCII));
 		} catch (IOException e) {
 			logger.debug("Dashboard pid file not written: {}", e.getMessage()); //$NON-NLS-1$
 		}

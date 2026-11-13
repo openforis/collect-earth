@@ -5,6 +5,7 @@ package org.openforis.collect.earth.ipcc;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
@@ -170,6 +171,8 @@ public class IPCCGenerator {
 					return;
 
 				progressListener.updateProgress(currentStep++, STEPS, "Compressing files into selected destination");
+				// A file the user chose again keeps its old entries otherwise (a stale SamplingUncertainty.xlsx)
+				Files.deleteIfExists(destinationZip.toPath());
 				CollectEarthUtils.addFileToZip(destinationZip, timeseriesXMLFile, "LU_Timeseries.xml");
 				CollectEarthUtils.addFileToZip(destinationZip, matrixXLSFile, "LU_Matrixes.xls");
 				CollectEarthUtils.addFileToZip(destinationZip, matrixXLSExtendedFile, "LU_Matrixes_stratified.xls");

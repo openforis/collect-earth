@@ -44,6 +44,9 @@ final class BrowserWindowIcon {
 	private static final Logger logger = LoggerFactory.getLogger(BrowserWindowIcon.class);
 
 	private static final int WM_SETICON = 0x0080;
+	private static final int SMTO_BLOCK = 0x0001;
+	private static final int SMTO_ABORTIFHUNG = 0x0002;
+	private static final int SEND_TIMEOUT_MILLIS = 1000;
 	private static final int ICON_SMALL = 0;
 	private static final int ICON_BIG = 1;
 	private static final int IMAGE_ICON = 1;
@@ -136,8 +139,11 @@ final class BrowserWindowIcon {
 			if (processes.contains((long) pid.getValue()) && User32.INSTANCE.IsWindowVisible(window)
 					&& User32.INSTANCE.GetWindow(window, GW_OWNER) == null) {
 				Pointer[] icon = titled != null && titleOf(window).contains(titleMark) ? titled : plain;
-				User32.INSTANCE.SendMessageW(window, WM_SETICON, new Pointer(ICON_BIG), icon[0]);
-				User32.INSTANCE.SendMessageW(window, WM_SETICON, new Pointer(ICON_SMALL), icon[1]);
+				// A hung window would block SendMessage forever, and with it the locks held by the caller
+				User32.INSTANCE.SendMessageTimeoutW(window, WM_SETICON, new Pointer(ICON_BIG), icon[0],
+						SMTO_ABORTIFHUNG | SMTO_BLOCK, SEND_TIMEOUT_MILLIS, null);
+				User32.INSTANCE.SendMessageTimeoutW(window, WM_SETICON, new Pointer(ICON_SMALL), icon[1],
+						SMTO_ABORTIFHUNG | SMTO_BLOCK, SEND_TIMEOUT_MILLIS, null);
 				count[0]++;
 			}
 			return true;
@@ -206,7 +212,8 @@ final class BrowserWindowIcon {
 
 		int GetWindowTextW(Pointer window, char[] text, int maxCount);
 
-		Pointer SendMessageW(Pointer window, int message, Pointer wParam, Pointer lParam);
+		Pointer SendMessageTimeoutW(Pointer window, int message, Pointer wParam, Pointer lParam, int flags, int timeout,
+				Pointer result);
 
 		Pointer LoadImageW(Pointer instance, WString name, int type, int width, int height, int load);
 
