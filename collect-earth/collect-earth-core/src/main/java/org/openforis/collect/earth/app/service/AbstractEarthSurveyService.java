@@ -79,9 +79,10 @@ import org.openforis.idm.model.TextValue;
 import org.openforis.idm.model.Value;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.annotation.Autowired;
 
-public abstract class AbstractEarthSurveyService {
+public abstract class AbstractEarthSurveyService implements DisposableBean {
 
 	private static final String COLLECT_CODE_CROWN_COVER = "collect_code_crown_cover";
 
@@ -153,6 +154,8 @@ public abstract class AbstractEarthSurveyService {
 		private boolean dirty;
 		private long lastChangeAtMs;
 		private String sessionId;
+		/** The failure of its last save was logged: the background flusher retries it every poll */
+		private boolean failureLogged;
 
 		WorkingRecord(CollectRecord record) {
 			this.record = record;
@@ -247,7 +250,7 @@ public abstract class AbstractEarthSurveyService {
 	 * explicit "submit &amp; validate", the record is only marked dirty and a background
 	 * flush is scheduled; otherwise it is saved synchronously right away.
 	 */
-	private void persistOrDefer(String key, CollectRecord record, String sessionId, boolean saveNow) {
+	private void persistOrDefer(String key, CollectRecord record, String sessionId, boolean saveNow) throws RecordPersistenceException {
 		WorkingRecord wr = workingRecords.get(key);
 		if (wr == null) {
 			wr = new WorkingRecord(record);
@@ -257,23 +260,33 @@ public abstract class AbstractEarthSurveyService {
 		wr.dirty = true;
 		wr.lastChangeAtMs = System.currentTimeMillis();
 		if (saveNow || !isDeferredSaveEnabled()) {
-			flush(wr);
+			// the request reports a failed save: a submit must not look saved
+			save(wr);
 		} else {
 			scheduleBackgroundFlusher();
 		}
 	}
 
 	/** Save a single dirty record to the database. Callers must hold this service's monitor. */
-	private void flush(WorkingRecord wr) {
+	private void save(WorkingRecord wr) throws RecordPersistenceException {
 		if (wr == null || !wr.dirty) {
 			return;
 		}
+		recordManager.save(wr.record, wr.sessionId);
+		wr.dirty = false;
+		wr.failureLogged = false;
+		notifyRecordSaved(wr.record);
+	}
+
+	/** {@link #save(WorkingRecord)} in the background: a failure is logged once per record, not at every retry. */
+	private void flush(WorkingRecord wr) {
 		try {
-			recordManager.save(wr.record, wr.sessionId);
-			wr.dirty = false;
-			notifyRecordSaved(wr.record);
+			save(wr);
 		} catch (Exception e) {
-			logger.error("Error flushing record to the database", e); //$NON-NLS-1$
+			if (!wr.failureLogged) {
+				wr.failureLogged = true;
+				logger.error("Error flushing record to the database", e); //$NON-NLS-1$
+			}
 		}
 	}
 
@@ -300,7 +313,30 @@ public abstract class AbstractEarthSurveyService {
 	/** Persist all pending (dirty) records. Called on shutdown and on survey/project change. */
 	public synchronized void flushAll() {
 		for (WorkingRecord wr : workingRecords.values()) {
-			flush(wr);
+			try {
+				save(wr);
+			} catch (Exception e) {
+				logger.error("Error flushing record to the database", e); //$NON-NLS-1$
+			}
+		}
+	}
+
+	/**
+	 * Saves the pending changes and forgets the records kept in memory: called around the jobs that write the database
+	 * without this service (imports, deletions), so an open plot is read again rather than written back over them.
+	 */
+	public synchronized void flushAndForgetWorkingRecords() {
+		flushAll();
+		workingRecords.clear();
+	}
+
+	/** On the close of the context, before the database it depends on: the last changes are saved. */
+	@Override
+	public synchronized void destroy() {
+		flushAll();
+		if (flushExecutor != null) {
+			flushExecutor.shutdownNow();
+			flushExecutor = null;
 		}
 	}
 
@@ -463,6 +499,7 @@ public abstract class AbstractEarthSurveyService {
 	 * @return how many records were deleted
 	 */
 	public synchronized int deleteRecordsSavedBefore(List<String[]> keys, Date before) {
+		flushAndForgetWorkingRecords();
 		int deleted = 0;
 		for (String[] key : keys) {
 			RecordFilter rf = new RecordFilter(getCollectSurvey(), ROOT_ENTITY_NAME);
@@ -696,8 +733,7 @@ public abstract class AbstractEarthSurveyService {
 	public synchronized void setCollectSurvey(CollectSurvey collectSurvey) {
 		// Persist any pending changes and drop cached records: they belong to the
 		// previous survey/project and must not leak into the new one.
-		flushAll();
-		workingRecords.clear();
+		flushAndForgetWorkingRecords();
 		this.collectSurvey = collectSurvey;
 		this.collectSurvey.setSurveyContext(createCollectEarthSurveyContext(collectSurvey.getContext()));
 	}

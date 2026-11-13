@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.firebase/
+*.log
+functions/.secret.local
+functions/keys/
+.env*
+!.env.example
+# Holds only the public function URL, no secrets; the production build bakes it in.
+!web/.env.production

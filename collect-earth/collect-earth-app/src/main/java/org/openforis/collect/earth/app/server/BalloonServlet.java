@@ -81,12 +81,22 @@ public class BalloonServlet extends DataAccessingServlet {
 		openBrowser.start();
 	}
 
-	private String replaceGoalsWithParameters(String htmlWithGoals, Map<String, String[]> parameterMap) {
+	static String replaceGoalsWithParameters(String htmlWithGoals, Map<String, String[]> parameterMap) {
 		final Set<Entry<String, String[]>> entrySet = parameterMap.entrySet();
 		for (final Entry<String, String[]> entry : entrySet) {
-			htmlWithGoals = htmlWithGoals.replaceAll("\\$\\[" + Pattern.quote( entry.getKey() ) + "\\]", Matcher.quoteReplacement( entry.getValue()[0] )); //$NON-NLS-1$ //$NON-NLS-2$
+			htmlWithGoals = htmlWithGoals.replaceAll("\\$\\[" + Pattern.quote( entry.getKey() ) + "\\]", Matcher.quoteReplacement( escape( entry.getValue()[0] ) )); //$NON-NLS-1$ //$NON-NLS-2$
 		}
 		return htmlWithGoals;
+	}
+
+	/**
+	 * The values come from the request: escaped for the HTML, in text and in quoted attributes. The balloons use them
+	 * in JavaScript strings too ({@code var PLACEMARK_ID = "$[id]";}), where an entity is not decoded but cannot end
+	 * the string or the script either: no quote, backslash or {@code <} is left.
+	 */
+	static String escape(String value) {
+		return StringUtils.replaceEach(value, new String[] { "&", "<", ">", "\"", "'", "\\" },
+				new String[] { "&amp;", "&lt;", "&gt;", "&quot;", "&#39;", "&#92;" });
 	}
 
 	@GetMapping("/"+BALLOON_EXTERNAL_URL)

@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.InputStream;
+import java.io.StringReader;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
@@ -19,6 +20,7 @@ import org.openforis.collect.model.CollectSurveyContext;
 import org.openforis.collect.model.RecordUpdater;
 import org.openforis.collect.model.validation.CollectValidator;
 import org.openforis.collect.persistence.xml.CollectSurveyIdmlBinder;
+import org.openforis.collect.persistence.xml.DataUnmarshaller;
 import org.openforis.idm.metamodel.AttributeDefinition;
 import org.openforis.idm.metamodel.CodeAttributeDefinition;
 import org.openforis.idm.metamodel.CodeList;
@@ -110,7 +112,7 @@ public class CloudRecordSerializerTest {
 		CloudRecordSerializer serializer = new CloudRecordSerializer();
 
 		RecordEnvelope envelope = serializer.serialize(original, "42", survey.getUri());
-		CollectRecord parsed = serializer.deserialize(envelope.getXml(), survey);
+		CollectRecord parsed = new DataUnmarshaller(survey).parse(new StringReader(envelope.getXml())).getRecord();
 
 		assertEquals(original.getRootEntityKeyValues(), parsed.getRootEntityKeyValues());
 		TextAttribute parsedOperator = (TextAttribute) parsed.findNodeByPath("plot/operator");

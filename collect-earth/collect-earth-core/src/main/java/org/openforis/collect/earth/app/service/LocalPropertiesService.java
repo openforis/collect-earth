@@ -461,11 +461,15 @@ public class LocalPropertiesService extends Observable {
 		return CLOUD_TOKEN.equals(key) || key.startsWith(CLOUD_TOKEN + " ");
 	}
 
+	/** The prefixes of WindowsDpapiProtector, MacKeychainProtector and LinuxKeyringProtector (collect-earth-app). */
+	static final List<String> PROTECTOR_PREFIXES = List.of("dpapi:", "keychain:", "keyring:");
+
 	/** The plain value of a secret as stored: protected by this computer, or plain text from before. */
 	private static String revealed(String key, String stored) {
 		SecretProtector protector = SECRET_PROTECTOR.get();
 		if (protector == null || stored.isEmpty() || !stored.startsWith(protector.prefix())) {
-			return stored;
+			// A reference kept by a protector this computer does not have is no token: the login is asked for again
+			return PROTECTOR_PREFIXES.stream().anyMatch(stored::startsWith) ? "" : stored;
 		}
 		String plain = protector.reveal(key, stored);
 		// Copied from another computer or user: no token, so the login is asked for again
@@ -513,7 +517,9 @@ public class LocalPropertiesService extends Observable {
 				continue;
 			}
 			String value = properties.getProperty(key);
-			if (value != null && !value.isEmpty() && !value.startsWith(protector.prefix())) {
+			// a reference of another protector is not a token to protect
+			if (value != null && !value.isEmpty() && !value.startsWith(protector.prefix())
+					&& PROTECTOR_PREFIXES.stream().noneMatch(value::startsWith)) {
 				String protectedValue = stored(key, value);
 				if (!protectedValue.equals(value)) {
 					properties.setProperty(key, protectedValue);
@@ -1018,8 +1024,9 @@ public class LocalPropertiesService extends Observable {
 
 	}
 
-	public void setLastExportedDate(String surveyName) {
-		setValue(getExportedSurveyName(surveyName), Long.toString(System.currentTimeMillis()));
+	/** @param exportedAt when the export started: a record saved while it ran goes in the next one */
+	public void setLastExportedDate(String surveyName, Date exportedAt) {
+		setValue(getExportedSurveyName(surveyName), Long.toString(exportedAt.getTime()));
 	}
 
 	public void setModelVersionName(String modelVersionName) {
@@ -1074,12 +1081,31 @@ public class LocalPropertiesService extends Observable {
 		}
 
 		File propertiesFile = new File(PROPERTIES_FILE_PATH);
-		try(FileWriter fw = new FileWriter(propertiesFile) ) {
-			properties.store(fw, null);
+		// written aside then moved over: a crash mid-write must not leave a truncated file, read as a new install
+		File temp = new File(propertiesFile.getAbsoluteFile().getParentFile(), propertiesFile.getName() + ".tmp");
+		try {
+			// private before the secrets are written into it
+			temp.delete();
+			temp.createNewFile();
+			ownerOnly(temp.toPath());
+			try (FileWriter fw = new FileWriter(temp)) {
+				properties.store(fw, null);
+			}
+			replace(temp.toPath(), propertiesFile.toPath());
 		} catch (final IOException e) {
 			logger.error("The properties could not be saved", e);
+			temp.delete();
 		}
 		ownerOnly(propertiesFile.toPath());
+	}
+
+	static void replace(java.nio.file.Path source, java.nio.file.Path target) throws IOException {
+		try {
+			java.nio.file.Files.move(source, target, java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+					java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+		} catch (java.nio.file.AtomicMoveNotSupportedException e) {
+			java.nio.file.Files.move(source, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+		}
 	}
 
 	private static final java.util.Set<java.nio.file.attribute.PosixFilePermission> OWNER_ONLY =
@@ -1092,7 +1118,7 @@ public class LocalPropertiesService extends Observable {
 	 *
 	 * @return whether the permissions are owner-only now (false on a file system without POSIX permissions)
 	 */
-	static boolean ownerOnly(java.nio.file.Path file) {
+	public static boolean ownerOnly(java.nio.file.Path file) {
 		try {
 			if (!java.nio.file.Files.exists(file)
 					|| !file.getFileSystem().supportedFileAttributeViews().contains("posix")) {

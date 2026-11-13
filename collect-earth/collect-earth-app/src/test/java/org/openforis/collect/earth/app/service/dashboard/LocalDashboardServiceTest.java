@@ -24,6 +24,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -32,6 +33,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
@@ -328,6 +330,28 @@ public class LocalDashboardServiceTest {
 		assertFalse(process.isAlive());
 		assertFalse(process.onExit().get(5, TimeUnit.SECONDS).isAlive());
 		assertThrows(IllegalStateException.class, () -> process.start(settings), "one run per instance");
+	}
+
+	/** A pid reused by the user's own Node (Windows tells no arguments) is not taken for the dashboard left running. */
+	@Test
+	public void aLeftoverIsTheDashboardOnlyWhenItStartedWhenThePidFileSays() {
+		Instant start = Instant.ofEpochMilli(1_700_000_000_000L);
+		ProcessHandle.Info windowsNode = info("C:\\node\\node.exe", start, null);
+		assertTrue(LocalDashboardService.isDashboard(windowsNode, start));
+		assertFalse(LocalDashboardService.isDashboard(windowsNode, start.plusSeconds(5)), "another Node with the pid");
+		assertFalse(LocalDashboardService.isDashboard(windowsNode, null), "a pid file of no start: not killed blindly");
+		assertFalse(LocalDashboardService.isDashboard(info("/usr/bin/java", start, null), start));
+		// Where the arguments are known they tell it, as before
+		assertTrue(LocalDashboardService.isDashboard(info("/usr/bin/node", start, new String[] { "/d/server.mjs" }), null));
+		assertFalse(LocalDashboardService.isDashboard(info("/usr/bin/node", start, new String[] { "other.js" }), start));
+	}
+
+	private static ProcessHandle.Info info(String command, Instant start, String[] arguments) {
+		ProcessHandle.Info info = mock(ProcessHandle.Info.class);
+		when(info.command()).thenReturn(Optional.of(command));
+		when(info.startInstant()).thenReturn(Optional.ofNullable(start));
+		when(info.arguments()).thenReturn(Optional.ofNullable(arguments));
+		return info;
 	}
 
 	@Test

@@ -63,7 +63,7 @@ public class UpdateServiceTest {
 		assertEquals("download", options(notice).get(1).get("id"));
 		notices.answer((String) notice.get("id"), "download");
 		assertEquals(1, opened.size());
-		assertTrue(opened.get(0).toString().endsWith("e=dmg"));
+		assertEquals(UpdateService.INSTALLER_URL, opened.get(0).toString());
 		verifyNoInteractions(properties);
 	}
 
@@ -82,5 +82,11 @@ public class UpdateServiceTest {
 		UpdateService service = new UpdateService(notices, properties, check, false, opened::add);
 		UpdateService.UpdaterMissingException e = org.junit.jupiter.api.Assertions.assertThrows(UpdateService.UpdaterMissingException.class, () -> service.runUpdater(folder));
 		assertTrue(e.getMessage().contains("autoupdate"));
+	}
+
+	@Test
+	public void onAMacCheckForUpdatesOpensTheInstallerPage() throws Exception {
+		new UpdateService(notices, properties, check, true, opened::add).runUpdater(folder);
+		assertEquals(List.of(URI.create(UpdateService.INSTALLER_URL)), opened);
 	}
 }

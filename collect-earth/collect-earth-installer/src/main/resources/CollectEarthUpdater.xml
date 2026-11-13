@@ -236,8 +236,9 @@
         </actionGroup>
     </installationAbortedActionList>
     <compressionAlgorithm>lzma</compressionAlgorithm>
-    <defaultUnixDirectoryPermissions>777</defaultUnixDirectoryPermissions>
-    <defaultUnixFilePermissions>777</defaultUnixFilePermissions>
+    <!-- As in CollectEarth.xml: writable by the owner only, executables made so by name -->
+    <defaultUnixDirectoryPermissions>755</defaultUnixDirectoryPermissions>
+    <defaultUnixFilePermissions>644</defaultUnixFilePermissions>
     <enableRollback>0</enableRollback>
     <enableTimestamp>1</enableTimestamp>
     <installationType>upgrade</installationType>

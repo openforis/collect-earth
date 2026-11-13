@@ -72,8 +72,10 @@
 		</actionGroup>
 	</installationAbortedActionList>
 	<compressionAlgorithm>lzma</compressionAlgorithm>
-	<defaultUnixDirectoryPermissions>777</defaultUnixDirectoryPermissions>
-	<defaultUnixFilePermissions>777</defaultUnixFilePermissions>
+	<!-- Writable by the owner only (another user could otherwise replace the program); what has to run is made executable
+	     by name: java.xml, node.xml, CollectEarthMain.xml -->
+	<defaultUnixDirectoryPermissions>755</defaultUnixDirectoryPermissions>
+	<defaultUnixFilePermissions>644</defaultUnixFilePermissions>
 	<defaultUnixOwner>${system_username}</defaultUnixOwner>
 	<enableDebugger>1</enableDebugger>
 	<enableRollback>0</enableRollback>

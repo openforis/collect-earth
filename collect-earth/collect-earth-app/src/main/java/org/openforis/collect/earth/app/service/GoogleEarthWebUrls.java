@@ -220,7 +220,12 @@ public final class GoogleEarthWebUrls {
 	public static boolean isCameraAt(String url, double latitude, double longitude) {
 		double[] camera = cameraPosition(url);
 		return camera != null && Math.abs(camera[0] - latitude) < TOLERANCE_DEGREES
-				&& Math.abs(camera[1] - longitude) < TOLERANCE_DEGREES / Math.max(0.1, Math.cos(Math.toRadians(latitude)));
+				&& Math.abs(wrapLongitude(camera[1] - longitude)) < TOLERANCE_DEGREES / Math.max(0.1, Math.cos(Math.toRadians(latitude)));
+	}
+
+	/** A difference of longitudes the short way round, in [-180, 180]: 180 and -180 are the same meridian. */
+	static double wrapLongitude(double degrees) {
+		return degrees - 360 * Math.rint(degrees / 360);
 	}
 
 	/**

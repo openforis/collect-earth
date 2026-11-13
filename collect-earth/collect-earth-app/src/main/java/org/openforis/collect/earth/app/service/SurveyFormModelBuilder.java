@@ -359,8 +359,13 @@ public class SurveyFormModelBuilder {
 	private static final Pattern SUM = Pattern.compile("sum\\s*\\(([^()\\[\\]]*+(?:\\(\\)[^()\\[\\]]*+)*+)\\)");
 	private static final String OPERATOR = "(>=|<=|!=|==|=|>|<)";
 	private static final String NUMBER = "(-?\\d+(?:\\.\\d+)?)";
-	private static final Pattern AFTER = Pattern.compile("^\\s*" + OPERATOR + "\\s*" + NUMBER + "(?![\\w.])");
-	private static final Pattern BEFORE = Pattern.compile("(?<![\\w.])" + NUMBER + "\\s*" + OPERATOR + "\\s*$");
+	// Only a whole comparison: 100 - sum(...) >= 10 or sum(...) >= 90 - 5 is no rule on the sum
+	private static final String OPENS = "(?:^|\\band|\\()\\s*";
+	private static final String CLOSES = "(?=\\s*(?:$|and\\b|\\)))";
+	private static final Pattern AFTER = Pattern.compile("^\\s*" + OPERATOR + "\\s*" + NUMBER + CLOSES);
+	private static final Pattern BEFORE = Pattern.compile(OPENS + NUMBER + "\\s*" + OPERATOR + "\\s*$");
+	private static final Pattern OPENED = Pattern.compile(OPENS + "$");
+	private static final Pattern CLOSED = Pattern.compile("^" + CLOSES);
 	private static final Pattern EITHER = Pattern.compile("\\bor\\b|\\bnot\\s*\\(");
 
 	/**
@@ -381,11 +386,13 @@ public class SurveyFormModelBuilder {
 			if (!inner.equals(path) && !inner.endsWith("/" + path)) {
 				continue;
 			}
-			Matcher after = AFTER.matcher(expression.substring(sum.end()));
-			Matcher before = BEFORE.matcher(expression.substring(0, sum.start()));
-			if (after.find()) {
+			String rest = expression.substring(sum.end());
+			String start = expression.substring(0, sum.start());
+			Matcher after = AFTER.matcher(rest);
+			Matcher before = BEFORE.matcher(start);
+			if (after.find() && OPENED.matcher(start).find()) {
 				rules.add(rule(after.group(1), after.group(2)));
-			} else if (before.find()) {
+			} else if (before.find() && CLOSED.matcher(rest).find()) {
 				// 90 <= sum(...) is sum(...) >= 90
 				rules.add(rule(flip(before.group(2)), before.group(1)));
 			}

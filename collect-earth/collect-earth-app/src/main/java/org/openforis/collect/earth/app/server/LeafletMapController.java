@@ -166,7 +166,7 @@ public class LeafletMapController {
 		} catch (Exception e) {
 			logger.error("Error generating plots GeoJSON", e);
 			response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-			body = "{\"error\":\"" + e.getMessage() + "\"}";
+			body = json.writeValueAsString(Collections.singletonMap("error", String.valueOf(e.getMessage())));
 		}
 		try {
 			response.getOutputStream().write(body.getBytes("UTF-8"));

@@ -39,9 +39,12 @@ import org.springframework.web.context.support.WebApplicationContextUtils;
  * A request with neither Sec-Fetch-Site nor Origin is let through if its Host is right: it is not from a page a browser
  * shows (or from a browser too old to say).
  * <p>
- * Not applied to the endpoints Google Earth Pro's balloons call (/openAuxiliaryWindows, /ancillaryWindows, the save and
- * update endpoints): their callers are not browsers Collect Earth controls, and what they send is not known. Mapped
- * before the other filters in web.xml, as GoogleEarthHeaderFilter answers "*" for a missing Origin.
+ * The endpoints Google Earth Pro's balloons call too (the plot data, /openInBrowser) get it with the init-param
+ * {@code allowGoogleEarthPro}: a balloon is no page of this server, and may send an Origin that is no web address
+ * ("null", file://), which is let through there; a web address of another site and the Sec-Fetch-Site of a browser's
+ * cross-site request are refused all the same. /openAuxiliaryWindows and /ancillaryWindows are not guarded: what
+ * their callers send is not known. Mapped before the other filters in web.xml, as GoogleEarthHeaderFilter answers "*"
+ * for a missing Origin.
  * <p>
  * The configured host comes from the LocalPropertiesService bean of the root application context, which the
  * ContextLoaderListener of web.xml starts before the filters: a filter that Jetty makes from web.xml is not a Spring
@@ -54,9 +57,11 @@ public class OwnPagesOnlyFilter implements Filter {
 	private static final String HOST = "Host";
 	private static final List<String> SEC_FETCH_SITES_ALLOWED = Arrays.asList("same-origin", "none");
 	private static final List<String> THIS_COMPUTER = Arrays.asList("localhost", "127.0.0.1", "[::1]");
+	static final String ALLOW_GOOGLE_EARTH_PRO = "allowGoogleEarthPro";
 
 	private final Logger logger = LoggerFactory.getLogger(OwnPagesOnlyFilter.class);
 	private volatile LocalPropertiesService localPropertiesService;
+	private boolean allowGoogleEarthPro;
 
 	/**
 	 * Whether a request with these headers may come from one of this server's own pages.
@@ -68,6 +73,12 @@ public class OwnPagesOnlyFilter implements Filter {
 	 * @param configuredHost the host Collect Earth is configured with, or null
 	 */
 	static boolean isFromOwnPage(String secFetchSite, String origin, String scheme, String host, String configuredHost) {
+		return isFromOwnPage(secFetchSite, origin, scheme, host, configuredHost, false);
+	}
+
+	/** @param allowGoogleEarthPro also let through an Origin that is not a web address, as Google Earth Pro's balloons may send */
+	static boolean isFromOwnPage(String secFetchSite, String origin, String scheme, String host, String configuredHost,
+			boolean allowGoogleEarthPro) {
 		if (host == null || !isOwnHost(hostname(host), configuredHost)) {
 			return false;
 		}
@@ -75,7 +86,13 @@ public class OwnPagesOnlyFilter implements Filter {
 			return false;
 		}
 		// "null" (a sandboxed frame, a file) is no origin of ours either
-		return origin == null || origin.trim().equalsIgnoreCase(scheme + "://" + host.trim());
+		return origin == null || origin.trim().equalsIgnoreCase(scheme + "://" + host.trim())
+				|| allowGoogleEarthPro && !isWebAddress(origin);
+	}
+
+	private static boolean isWebAddress(String origin) {
+		String o = origin.trim().toLowerCase(Locale.ROOT);
+		return o.startsWith("http://") || o.startsWith("https://");
 	}
 
 	/** The name in a Host header, without its port: "localhost", "127.0.0.1", "[::1]". */
@@ -96,6 +113,7 @@ public class OwnPagesOnlyFilter implements Filter {
 
 	@Override
 	public void init(FilterConfig filterConfig) {
+		allowGoogleEarthPro = Boolean.parseBoolean(filterConfig.getInitParameter(ALLOW_GOOGLE_EARTH_PRO));
 		try {
 			WebApplicationContext context = WebApplicationContextUtils
 					.getWebApplicationContext(filterConfig.getServletContext());
@@ -114,7 +132,7 @@ public class OwnPagesOnlyFilter implements Filter {
 		LocalPropertiesService properties = localPropertiesService;
 		String configuredHost = properties == null ? null : properties.getHost();
 		if (!isFromOwnPage(http.getHeader(SEC_FETCH_SITE), http.getHeader(ORIGIN), http.getScheme(), http.getHeader(HOST),
-				configuredHost)) {
+				configuredHost, allowGoogleEarthPro)) {
 			logger.warn("Refused {} from another site (Sec-Fetch-Site {}, Origin {}, Host {})", http.getRequestURI(),
 					http.getHeader(SEC_FETCH_SITE), http.getHeader(ORIGIN), http.getHeader(HOST));
 			((HttpServletResponse) response).sendError(HttpServletResponse.SC_FORBIDDEN);

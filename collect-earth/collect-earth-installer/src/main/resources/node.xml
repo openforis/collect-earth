@@ -87,9 +87,10 @@
         <stringParameter name="node_osx_arch" value="x64" ask="0" />
     </parameterList>
 
-    <readyToInstallActionList>
+    <preInstallationActionList>
         <!-- Apple silicon or Intel. hw.optional.arm64 is 1 on Apple silicon even when the installer runs under Rosetta
-             (uname -m would then say x86_64), and does not exist on Intel Macs, where sysctl fails. -->
+             (uname -m would then say x86_64), and does not exist on Intel Macs, where sysctl fails. At the start, so it is
+             set before java.xml and this file pick their folders. -->
         <runProgram>
             <program>sysctl</program>
             <programArguments>-n hw.optional.arm64</programArguments>
@@ -105,7 +106,9 @@
                 <compareText text="${program_stdout}" logic="contains" value="1"/>
             </ruleList>
         </setInstallerVariable>
+    </preInstallationActionList>
 
+    <readyToInstallActionList>
         <!-- The old Node is set aside right before the files are copied, as java.xml does with the JRE: a rename fails
              as a whole while node.exe runs (a dashboard left running by a Collect Earth that crashed), so the
              installation stops with the old one intact, and installationAbortedActionList puts it back if it stops

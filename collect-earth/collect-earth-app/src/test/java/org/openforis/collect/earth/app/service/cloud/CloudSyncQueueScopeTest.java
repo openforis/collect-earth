@@ -220,6 +220,68 @@ public class CloudSyncQueueScopeTest {
 		verify(api, org.mockito.Mockito.times(2)).getProject(any());
 	}
 
+	/** Joined with "Later" to sending the records of before: reconcile does not send them anyway */
+	@Test
+	public void theFirstReconcileTakesTheRecordsSavedSinceTheStartOnly() throws Exception {
+		open("uri:kenya", "p-kenya");
+		org.openforis.collect.model.CollectRecordSummary saved = mock(org.openforis.collect.model.CollectRecordSummary.class);
+		when(saved.getRootEntityKeyValues()).thenReturn(Collections.singletonList("5"));
+		when(saved.getModifiedDate()).thenReturn(new Date());
+		org.mockito.ArgumentCaptor<Date> since = org.mockito.ArgumentCaptor.forClass(Date.class);
+		when(surveys.getRecordSummariesSavedSince(since.capture())).thenReturn(Collections.singletonList(saved));
+		sync.reconcile();
+		assertTrue(since.getValue().getTime() > System.currentTimeMillis() - 60_000L, "not the records of before the start");
+		assertEquals("PENDING", queue.getRecordStatus("5", "uri:kenya", "p-kenya"));
+		sync.reconcile();
+		assertTrue(!since.getAllValues().get(1).before(since.getAllValues().get(0)), "then from the last reconcile");
+	}
+
+	/** Reconcile finds again a record the save already queued and sent: it is not sent twice */
+	@Test
+	public void aVersionAlreadySentIsNotQueuedAgain() throws Exception {
+		Date saved = new Date(1_000_000L);
+		queue.enqueue("1", "uri:kenya", "p-kenya", "ana", saved, false);
+		queue.markSynced(queue.takeDue(10, new Date(), "uri:kenya", "p-kenya").get(0), new Date());
+		queue.enqueue("1", "uri:kenya", "p-kenya", "ana", saved, false);
+		assertEquals("SYNCED", queue.getRecordStatus("1", "uri:kenya", "p-kenya"));
+		queue.enqueue("1", "uri:kenya", "p-kenya", "ana", new Date(2_000_000L), false);
+		assertEquals("PENDING", queue.getRecordStatus("1", "uri:kenya", "p-kenya"));
+	}
+
+	/** Saved again while being sent: the answer for the version sent leaves the newer one queued */
+	@Test
+	public void aSaveDuringTheUploadStaysQueued() throws Exception {
+		queue.enqueue("1", "uri:kenya", "p-kenya", "ana", new Date(1_000_000L), false);
+		CloudSyncQueueDao.QueueItem sending = queue.takeDue(10, new Date(), "uri:kenya", "p-kenya").get(0);
+		queue.enqueue("1", "uri:kenya", "p-kenya", "ana", new Date(2_000_000L), false);
+		queue.markSynced(sending, new Date());
+		assertEquals("PENDING", queue.getRecordStatus("1", "uri:kenya", "p-kenya"));
+		queue.markFailed(sending, "HTTP 503", new Date(Long.MAX_VALUE / 2));
+		queue.markConflict(sending, "conflict");
+		assertEquals("PENDING", queue.getRecordStatus("1", "uri:kenya", "p-kenya"));
+		CloudSyncQueueDao.QueueItem newer = queue.takeDue(10, new Date(), "uri:kenya", "p-kenya").get(0);
+		queue.markSynced(newer, new Date());
+		assertEquals("SYNCED", queue.getRecordStatus("1", "uri:kenya", "p-kenya"));
+	}
+
+	/** A refused sign-in is no refused survey: the survey is uploaded once logged in again; a 403 is not retried */
+	@Test
+	public void theSurveyIsUploadedAfterTheLoginAgain() throws Exception {
+		open("uri:kenya", "p-kenya");
+		File idml = new File(folder, "survey.idml");
+		java.nio.file.Files.write(idml.toPath(), new byte[] { 1 });
+		when(properties.getImdFile()).thenReturn(idml.getAbsolutePath());
+		org.mockito.Mockito.doThrow(new CloudApiException("uploadSurveyDefinition failed with HTTP 401", 401, null)).when(api)
+				.uploadSurveyDefinition(any(), eq("uri:kenya"));
+		sync.syncCycle();
+		verify(properties).saveCloudSyncToken("");
+		org.mockito.Mockito.doThrow(new CloudApiException("uploadSurveyDefinition failed with HTTP 403", 403, null)).when(api)
+				.uploadSurveyDefinition(any(), eq("uri:kenya"));
+		sync.syncCycle();
+		sync.syncCycle();
+		verify(api, org.mockito.Mockito.times(2)).uploadSurveyDefinition(any(), eq("uri:kenya"));
+	}
+
 	@Test
 	public void theQueueOfBeforeGivesItsItemsToTheCloudProjectOfBefore() throws Exception {
 		JdbcTemplate jdbc = new JdbcTemplate(dataSource);

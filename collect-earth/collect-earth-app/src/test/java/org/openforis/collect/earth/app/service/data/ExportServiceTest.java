@@ -124,7 +124,7 @@ public class ExportServiceTest {
 	public void theFileNameIsTheSwingOne() throws Exception {
 		assertEquals("AlvaroS_collectedData_nfi_2026_on_301026_153000_ZIP_WITH_XML.zip", service.fileName(request(Format.XML, Records.ALL, null)));
 		assertEquals("AlvaroS_collectedData_nfi_2026_on_301026_153000_CSV.csv", service.fileName(request(Format.CSV, Records.ALL, null)));
-		assertEquals("AlvaroS_collectedData_nfi_2026_on_301026_153000_COLLECT_BACKUP.collect-data", service.fileName(request(Format.BACKUP, Records.ALL, null)));
+		assertEquals("AlvaroS_collectedData_nfi_2026_on_301026_153000_COLLECT_CSV.csv", service.fileName(request(Format.BACKUP, Records.ALL, null)));
 		assertEquals("AlvaroS_collectedData_nfi_2026_on_301026_153000_KML_FILE.kml", service.fileName(request(Format.KML, Records.ALL, null)));
 		ExportRequest fromDate = request(Format.XML, Records.FROM_DATE, null);
 		fromDate.fromDate = "2026-10-01";
@@ -145,7 +145,8 @@ public class ExportServiceTest {
 		assertEquals("export.path", refused(request(Format.XML, Records.ALL, " ")));
 		assertEquals("export.records", refused(request(Format.KML, Records.FROM_DATE, "/tmp/x.kml")));
 		assertEquals("export.records", refused(request(Format.CSV, Records.BY_ATTRIBUTE, "/tmp/x.csv")));
-		ExportRequest badDate = request(Format.BACKUP, Records.FROM_DATE, "/tmp/x.collect-data");
+		assertEquals("export.records", refused(request(Format.BACKUP, Records.FROM_DATE, "/tmp/x.csv")));
+		ExportRequest badDate = request(Format.XML, Records.FROM_DATE, "/tmp/x.zip");
 		badDate.fromDate = "yesterday";
 		assertEquals("export.date", refused(badDate));
 		ExportRequest noValue = request(Format.XML, Records.BY_ATTRIBUTE, "/tmp/x.zip");
@@ -195,7 +196,7 @@ public class ExportServiceTest {
 		assertEquals(12L, result.get("records"));
 		assertEquals("100 " + org.openforis.collect.earth.app.view.Messages.getString("ExportDialogProcessMonitor.4") + " 12/12",
 				context.progress.get(context.progress.size() - 1));
-		verify(properties, never()).setLastExportedDate(any());
+		verify(properties, never()).setLastExportedDate(any(), any());
 	}
 
 	@Test
@@ -205,7 +206,11 @@ public class ExportServiceTest {
 		when(properties.getLastExportedDate("nfi_2026")).thenReturn(new Date(1700000000000L));
 		when(data.exportSurveyAsZipWithXml(any(File.class), eq(new Date(1700000000000L)), isNull(), isNull())).thenReturn(process);
 		service.export(request(Format.XML, Records.SINCE_LAST_EXPORT, "/tmp/export.zip")).run(new RecordingContext());
-		verify(properties).setLastExportedDate("nfi_2026");
+		// the pending saves first, and the time the export started: a record saved while it runs goes in the next
+		org.mockito.InOrder order = org.mockito.Mockito.inOrder(surveys, data);
+		order.verify(surveys).flushAll();
+		order.verify(data).exportSurveyAsZipWithXml(any(File.class), any(), any(), any());
+		verify(properties).setLastExportedDate("nfi_2026", now);
 	}
 
 	@Test
@@ -221,7 +226,7 @@ public class ExportServiceTest {
 		request.attribute = "KEY:0";
 		service.export(request).run(new RecordingContext());
 		verify(data).exportSurveyAsZipWithXml(any(File.class), isNull(), eq(Collections.singletonList("AB*")), isNull());
-		verify(properties, never()).setLastExportedDate(any());
+		verify(properties, never()).setLastExportedDate(any(), any());
 	}
 
 	/** The KML service, mocked, runs the CSV phase it is given with this process, as the real one does */

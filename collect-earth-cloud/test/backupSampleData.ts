@@ -14,7 +14,7 @@ ${items.map(([code, label, qualifiable], i) => `        <item id="${1000 + name.
     </list>`;
 
 export const SAMPLE_SURVEY = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<survey lastId="100" collectearth:plotarea="1.0" collectearth:samplepoints="25" xmlns="http://www.openforis.org/idml/3.0" xmlns:collect="http://www.openforis.org/collect/3.0/collect" xmlns:ui="http://www.openforis.org/collect/3.0/ui" xmlns:collectearth="http://www.openforis.org/collect/3.0/collectearth">
+<survey lastId="100" collect:target="CE" collectearth:plotarea="1.0" collectearth:samplepoints="25" xmlns="http://www.openforis.org/idml/3.0" xmlns:collect="http://www.openforis.org/collect/3.0/collect" xmlns:ui="http://www.openforis.org/collect/3.0/ui" xmlns:collectearth="http://www.openforis.org/collect/3.0/collectearth">
   <project xml:lang="es">Muestra de copia de seguridad</project>
   <project>Backup sample</project>
   <uri>http://www.openforis.org/idm/backup_sample</uri>

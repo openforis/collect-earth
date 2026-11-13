@@ -11,7 +11,9 @@ import MenuItem from "@mui/material/MenuItem";
 import Stack from "@mui/material/Stack";
 import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import { choiceLabel, fieldLabel, type Field, type Values } from "../../settings";
@@ -36,8 +38,9 @@ export interface SettingFieldProps {
 
 /**
  * One setting as a field of its type: text, a password with its eye, a number within its range, a switch, a choice,
- * a path with Browse, or a date. Under it the tooltip, or the error or the warning of the last validation in its
- * place; a setting only a new server reads carries a Restart chip, as applying it restarts Collect Earth.
+ * a path with Browse, or a date. Its explanation is behind an (i) next to the label, which keeps the page short; under
+ * the field only the error or the warning of the last validation. A setting only a new server reads carries a Restart
+ * chip, as applying it restarts Collect Earth.
  */
 export function SettingField({ field, value, values, texts, error, warning, changed, onChange, pickFile = chooseFile, readOnly = false }: SettingFieldProps) {
   const s = (key: string) => serverText(texts, key);
@@ -45,18 +48,25 @@ export function SettingField({ field, value, values, texts, error, warning, chan
   const label = s(fieldLabel(field, values));
   const tooltip = field.tooltip ? s(field.tooltip) : "";
   const hint = field.type === "date" ? [tooltip, s("SettingsPage.date.hint")].filter(Boolean).join(". ") : tooltip;
-  const message = error ?? warning ?? hint;
-  const helper = (
+  const message = error ?? warning;
+  // The explanation stays what screen readers read with the field, hidden from sight while the (i) shows it
+  const helper = message ? (
     <FormHelperText component="div" error={!!error} sx={{ mx: 0, color: !error && warning ? "warning.main" : undefined, whiteSpace: "pre-line" }}>
       {message}
     </FormHelperText>
-  );
+  ) : hint ? <Box component="span" sx={HIDDEN}>{hint}</Box> : null;
+  const info = hint ? (
+    <Tooltip title={<Box sx={{ whiteSpace: "pre-line" }}>{hint}</Box>} enterTouchDelay={0} placement="top-start">
+      <InfoOutlinedIcon data-testid={"hint-" + field.key} aria-hidden sx={{ fontSize: 16, color: "text.secondary", cursor: "help" }} />
+    </Tooltip>
+  ) : null;
   const chip = field.restart ? <Chip label={s("SettingsPage.restartBadge")} size="small" variant="outlined" color="warning" /> : null;
   const fieldLabelNode = (
     <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 0.5 }}>
       <Typography variant="body2" component="label" htmlFor={"setting-" + field.key} sx={{ fontWeight: changed ? 700 : 500 }}>
         {label}{field.required && " *"}
       </Typography>
+      {info}
       {chip}
     </Stack>
   );
@@ -73,8 +83,8 @@ export function SettingField({ field, value, values, texts, error, warning, chan
       return (
         <FormControl component="fieldset" data-testid={"field-" + field.key} data-changed={changed || undefined}>
           <FormControlLabel disabled={readOnly} control={<Switch id={id} checked={value === "true"} onChange={(e) => onChange(e.target.checked ? "true" : "false")} />}
-            label={<Stack direction="row" spacing={1} sx={{ alignItems: "center" }}><span style={{ fontWeight: changed ? 700 : 500 }}>{label}</span>{chip}</Stack>} />
-          {helper}
+            label={<Stack direction="row" spacing={1} sx={{ alignItems: "center" }}><span style={{ fontWeight: changed ? 700 : 500 }}>{label}</span>{info}{chip}</Stack>} />
+          <Box id={id + "-help"}>{helper}</Box>
         </FormControl>
       );
     case "password":
@@ -132,3 +142,6 @@ export function SettingField({ field, value, values, texts, error, warning, chan
     </Box>
   );
 }
+
+/** Out of sight, read by screen readers */
+const HIDDEN = { position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap" } as const;

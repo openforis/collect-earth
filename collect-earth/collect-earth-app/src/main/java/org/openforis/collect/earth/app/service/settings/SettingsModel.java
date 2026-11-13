@@ -33,8 +33,6 @@ public final class SettingsModel {
 	public static final String PLOT = "plot";
 	public static final String IMAGERY = "imagery";
 	public static final String STORAGE = "storage";
-	public static final String COLLABORATION = "collaboration";
-	public static final String ADVANCED = "advanced";
 
 	/** The plot shapes laid out as a square, with a grid of points inside a margin */
 	static final Condition SQUARE_PLOT = in(EarthProperty.SAMPLE_SHAPE, SAMPLE_SHAPE.SQUARE, SAMPLE_SHAPE.SQUARE_WITH_LARGE_CENTRAL_PLOT);
@@ -62,7 +60,7 @@ public final class SettingsModel {
 	}
 
 	public SettingsModel(LocalDate today) {
-		sections = Collections.unmodifiableList(Arrays.asList(project(), plot(), imagery(today), storage(), collaboration(), advanced()));
+		sections = Collections.unmodifiableList(Arrays.asList(project(), plot(), imagery(today), storage()));
 		for (Section section : sections) {
 			for (Setting setting : section.getSettings()) {
 				byKey.put(setting.key(), setting);
@@ -120,6 +118,13 @@ public final class SettingsModel {
 
 	private static Section project() {
 		return new Section(PROJECT, "SettingsPage.section.project",
+				// Blank, as in a new installation, is no choice: BrowserService tries the installed browsers in its own order.
+				// First, above the plots file and its preview: it was the only setting of a section of its own (Advanced)
+				Setting.choice(EarthProperty.BROWSER_TO_USE, "OptionWizard.1").tooltip("SettingsPage.browser.tooltip").restart()
+						.option("", "SettingsPage.browser.automatic")
+						.option(EarthConstants.FIREFOX_BROWSER, "SettingsPage.browser.firefox")
+						.option(EarthConstants.CHROME_BROWSER, "SettingsPage.browser.chrome")
+						.option(EarthConstants.EDGE_BROWSER, "SettingsPage.browser.edge"),
 				Setting.file(EarthProperty.SAMPLE_FILE, "OptionWizard.49", "csv", "ced").tooltip("SettingsPage.sampleFile.tooltip"),
 				// Its choices are the versions of the survey loaded, given with the settings (SettingsController); a survey
 				// with one version or none does not show it. The records and the form of a version differ: restart
@@ -215,27 +220,14 @@ public final class SettingsModel {
 						.visibleWhen(POSTGRESQL),
 				Setting.text(EarthProperty.DB_NAME, "OptionWizard.9").tooltip("OptionWizard.1034").required().restart().visibleWhen(POSTGRESQL),
 				Setting.text(EarthProperty.DB_USERNAME, "OptionWizard.7").tooltip("OptionWizard.1032").required().restart().visibleWhen(POSTGRESQL),
-				Setting.password(EarthProperty.DB_PASSWORD, "OptionWizard.8").tooltip("OptionWizard.1033").restart().visibleWhen(POSTGRESQL));
-	}
-
-	private static Section collaboration() {
-		return new Section(COLLABORATION, "SettingsPage.section.collaboration", "SettingsPage.collaboration.hint",
+				Setting.password(EarthProperty.DB_PASSWORD, "OptionWizard.8").tooltip("OptionWizard.1033").restart().visibleWhen(POSTGRESQL),
+				// The cloud project the records are synchronised with, under the choice that stores them there (it was a
+				// section of its own, Collaboration, empty but for a cloud project)
 				Setting.text(EarthProperty.CLOUD_SYNC_URL, "DatabaseServerPanel.cloudUrlLabel").tooltip("DatabaseServerPanel.cloudUrlTooltip")
 						.visibleWhen(CLOUD_PROJECT),
 				Setting.text(EarthProperty.CLOUD_PROJECT_ID, "DatabaseServerPanel.cloudProjectLabel").tooltip("DatabaseServerPanel.cloudProjectTooltip")
 						.visibleWhen(CLOUD_PROJECT),
 				Setting.password(EarthProperty.CLOUD_SYNC_TOKEN, "DatabaseServerPanel.cloudTokenLabel").tooltip("DatabaseServerPanel.cloudTokenTooltip")
 						.visibleWhen(CLOUD_PROJECT));
-	}
-
-	/** The port and the form (web_form=balloon) are left to earth.properties: the page cannot fix a port in use, as it is served on it */
-	private static Section advanced() {
-		return new Section(ADVANCED, "SettingsPage.section.advanced",
-				// Blank, as in a new installation, is no choice: BrowserService tries the installed browsers in its own order
-				Setting.choice(EarthProperty.BROWSER_TO_USE, "OptionWizard.1").tooltip("SettingsPage.browser.tooltip").restart()
-						.option("", "SettingsPage.browser.automatic")
-						.option(EarthConstants.FIREFOX_BROWSER, "SettingsPage.browser.firefox")
-						.option(EarthConstants.CHROME_BROWSER, "SettingsPage.browser.chrome")
-						.option(EarthConstants.EDGE_BROWSER, "SettingsPage.browser.edge"));
 	}
 }

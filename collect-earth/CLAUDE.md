@@ -552,7 +552,6 @@ below the version Collect (`collect-core`, `collect-rdb`) or another library ask
 - **Server**: Embedded Jetty 10.0.26
 - **Context Path**: `/`
 - **Key Endpoints**:
-  - `/saveData` - Save placemark data (POST)
   - `/updateData` - Update existing placemark (POST)
   - Static resources served from webapp directory
 

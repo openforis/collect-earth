@@ -1,5 +1,6 @@
 package org.openforis.collect.earth.app.service;
 
+import java.awt.Desktop;
 import java.awt.Dialog;
 import java.awt.GraphicsEnvironment;
 import java.io.File;
@@ -121,6 +122,10 @@ public class SwingNativeFileChooser implements NativeFileChooser {
 			// Windows hands the focus to a window of a process that is not in front only when asked
 			parent.toFront();
 			parent.requestFocus();
+			// macOS brings the dialog of a process that is not in front only after the app is
+			if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.APP_REQUEST_FOREGROUND)) {
+				Desktop.getDesktop().requestForeground(true);
+			}
 
 			JFileChooser chooser = mode == Mode.SAVE ? new OverwriteAwareChooser(extensions) : new JFileChooser();
 			File start = start(suggested, localPropertiesService.getValue(EarthProperty.LAST_USED_FOLDER),

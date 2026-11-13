@@ -187,6 +187,10 @@ public class SurveyFormModelBuilderTest {
 		assertTrue(SurveyFormModelBuilder.sumRules("sum(cover/pct) = 100 or skip = true()", "cover", "pct").isEmpty());
 		assertTrue(SurveyFormModelBuilder.sumRules("sum(cover/pct) >= 90.5x", "cover", "pct").isEmpty());
 		assertTrue(SurveyFormModelBuilder.sumRules("sum(cover/pct) = total", "cover", "pct").isEmpty());
+		// a sum inside arithmetic, or compared to arithmetic: not a limit on the sum itself
+		assertTrue(SurveyFormModelBuilder.sumRules("100 - sum(cover/pct) >= 10", "cover", "pct").isEmpty());
+		assertTrue(SurveyFormModelBuilder.sumRules("sum(cover/pct) >= 90 - 5", "cover", "pct").isEmpty());
+		assertEquals(1, SurveyFormModelBuilder.sumRules("(sum(cover/pct) <= 100) and x = 1", "cover", "pct").size());
 		assertTrue(SurveyFormModelBuilder.sumRules(null, "cover", "pct").isEmpty());
 	}
 

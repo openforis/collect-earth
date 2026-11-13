@@ -5,6 +5,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -232,12 +234,16 @@ public class CloudSyncQueueDao {
 	/**
 	 * Adds or refreshes a queue entry for a locally saved (or deleted) record of a cloud project. If a
 	 * row already exists it is reset to PENDING with a new modification time so the
-	 * next sync cycle picks it up again.
+	 * next sync cycle picks it up again, unless that very version was already sent.
 	 */
 	public synchronized void enqueue(String recordKey, String surveyUri, String cloudProjectId, String operator, Date localModifiedOn,
 			boolean deleted) {
 		Timestamp modifiedOn = toTimestamp(localModifiedOn);
 		String project = StringUtils.trimToEmpty(cloudProjectId);
+		if (modifiedOn != null && !jdbc().queryForList("SELECT 1 FROM " + TABLE + " WHERE record_key = ?" + SCOPE //$NON-NLS-1$ //$NON-NLS-2$
+				+ " AND sync_status = ? AND local_modified_on = ?", recordKey, surveyUri, project, STATUS_SYNCED, modifiedOn).isEmpty()) { //$NON-NLS-1$
+			return; // reconcile finds again the records saved since its last run, which the save already queued and sent
+		}
 		int updated = jdbc().update(
 				"UPDATE " + TABLE //$NON-NLS-1$
 						+ " SET sync_status = ?, operator = ?, local_modified_on = ?, deleted = ?, attempts = 0, next_attempt_on = NULL, last_error = NULL" //$NON-NLS-1$
@@ -264,22 +270,28 @@ public class CloudSyncQueueDao {
 	}
 
 	public synchronized void markSynced(QueueItem item, Date syncedOn) {
-		jdbc().update(
-				"UPDATE " + TABLE + " SET sync_status = ?, synced_on = ?, last_error = NULL WHERE record_key = ?" + SCOPE, //$NON-NLS-1$ //$NON-NLS-2$
-				STATUS_SYNCED, toTimestamp(syncedOn), item.getRecordKey(), item.getSurveyUri(), item.getCloudProjectId());
+		mark(item, "sync_status = ?, synced_on = ?, last_error = NULL", STATUS_SYNCED, toTimestamp(syncedOn)); //$NON-NLS-1$
 	}
 
 	public synchronized void markFailed(QueueItem item, String error, Date nextAttemptOn) {
-		jdbc().update(
-				"UPDATE " + TABLE //$NON-NLS-1$
-						+ " SET sync_status = ?, attempts = attempts + 1, next_attempt_on = ?, last_error = ? WHERE record_key = ?" + SCOPE, //$NON-NLS-1$
-				STATUS_FAILED, toTimestamp(nextAttemptOn), abbreviate(error), item.getRecordKey(), item.getSurveyUri(), item.getCloudProjectId());
+		mark(item, "sync_status = ?, attempts = attempts + 1, next_attempt_on = ?, last_error = ?", STATUS_FAILED, //$NON-NLS-1$
+				toTimestamp(nextAttemptOn), abbreviate(error));
 	}
 
 	public synchronized void markConflict(QueueItem item, String error) {
-		jdbc().update(
-				"UPDATE " + TABLE + " SET sync_status = ?, last_error = ? WHERE record_key = ?" + SCOPE, //$NON-NLS-1$ //$NON-NLS-2$
-				STATUS_CONFLICT, abbreviate(error), item.getRecordKey(), item.getSurveyUri(), item.getCloudProjectId());
+		mark(item, "sync_status = ?, last_error = ?", STATUS_CONFLICT, abbreviate(error)); //$NON-NLS-1$
+	}
+
+	/** Marks the item's version only: a save made while it was being sent queued a newer one, which must still go. */
+	private void mark(QueueItem item, String set, Object... values) {
+		List<Object> args = new ArrayList<>(Arrays.asList(values));
+		args.addAll(Arrays.asList(item.getRecordKey(), item.getSurveyUri(), item.getCloudProjectId()));
+		String version = " AND local_modified_on IS NULL"; //$NON-NLS-1$
+		if (item.getLocalModifiedOn() != null) {
+			version = " AND local_modified_on = ?"; //$NON-NLS-1$
+			args.add(toTimestamp(item.getLocalModifiedOn()));
+		}
+		jdbc().update("UPDATE " + TABLE + " SET " + set + " WHERE record_key = ?" + SCOPE + version, args.toArray()); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 	}
 
 	/** The last time the reconciliation scan ran for the survey and cloud project, or null if never. */
