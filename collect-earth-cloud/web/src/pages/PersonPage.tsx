@@ -40,7 +40,7 @@ import {
   setMemberRole,
   type Member,
   type NewInvite,
-  type PersonData,
+  type PersonAnswer,
   type PersonFile,
   type PlotStatus,
   type Role,
@@ -95,7 +95,7 @@ function Figure({ label, value, help }: { label: string; value: string; help?: s
 }
 
 /** The headline numbers: plots given, submitted, started, left; checks; the last 7 days; the pace. */
-export function PersonNumbers({ data, self = false }: { data: PersonData; self?: boolean }) {
+export function PersonNumbers({ data, self = false }: { data: PersonAnswer; self?: boolean }) {
   const t = useT();
   const { language } = useApp();
   const n = (v: number) => formatNumber(v, language);
@@ -143,7 +143,7 @@ export function PersonNumbers({ data, self = false }: { data: PersonData; self?:
 const plural = (t: Translate, count: number, one: Parameters<Translate>[0], many: Parameters<Translate>[0], language: string) => t(count === 1 ? one : many, { n: formatNumber(count, language) });
 
 /** The activity calendar and the hours of the day. */
-export function ActivitySection({ data, self = false }: { data: PersonData; self?: boolean }) {
+export function ActivitySection({ data, self = false }: { data: PersonAnswer; self?: boolean }) {
   const t = useT();
   const { language } = useApp();
   const n = (v: number) => formatNumber(v, language);
@@ -176,7 +176,7 @@ export function ActivitySection({ data, self = false }: { data: PersonData; self
                       <TableRow>
                         <TableCell>{t("progress.dayColumn")}</TableCell>
                         <TableCell align="right">{t("person.plotsColumn")}</TableCell>
-                        <TableCell align="right">{t("person.checksColumn")}</TableCell>
+                        {!self && <TableCell align="right">{t("person.checksColumn")}</TableCell>}
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -186,7 +186,7 @@ export function ActivitySection({ data, self = false }: { data: PersonData; self
                             {dayText(d.date, language)}
                           </TableCell>
                           <TableCell align="right">{n(d.plots)}</TableCell>
-                          <TableCell align="right">{n(d.checks)}</TableCell>
+                          {!self && <TableCell align="right">{n(d.checks ?? 0)}</TableCell>}
                         </TableRow>
                       ))}
                     </TableBody>
@@ -227,7 +227,7 @@ export function ActivitySection({ data, self = false }: { data: PersonData; self
 }
 
 /** The speed estimate: the time between consecutive submissions in a working session. */
-export function SpeedSection({ data }: { data: PersonData }) {
+export function SpeedSection({ data }: { data: PersonAnswer }) {
   const t = useT();
   const { language } = useApp();
   const s = data.speed;
@@ -286,7 +286,7 @@ function Line({ label, children }: { label: string; children: ReactNode }) {
 }
 
 /** When they last synced and downloaded, whether their project file is old, their Collect Earth. */
-export function SyncSection({ data, self }: { data: PersonData; self: boolean }) {
+export function SyncSection({ data, self }: { data: PersonAnswer; self: boolean }) {
   const t = useT();
   const { language } = useApp();
   const s = data.sync;
@@ -344,7 +344,7 @@ export function SyncSection({ data, self }: { data: PersonData; self: boolean })
 }
 
 /** Their agreement in the quality checks, and the plots the coordinator asked them to look at again. */
-export function QualitySection({ data, self, projectId }: { data: PersonData; self: boolean; projectId: string }) {
+export function QualitySection({ data, self, projectId }: { data: PersonAnswer; self: boolean; projectId: string }) {
   const t = useT();
   const { language } = useApp();
   const q = data.quality;
@@ -450,7 +450,7 @@ function FilePlots({ file }: { file: PersonFile }) {
   const t = useT();
   const [open, setOpen] = useState(false);
   // My work never says which plots are checks (the server leaves the kind out there).
-  const showKind = file.list.some((p) => p.kind !== null);
+  const showKind = file.list.some((p) => p.kind !== undefined);
   return (
     <Box>
       <Button size="small" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
@@ -498,7 +498,7 @@ export function FilesSection({
   members,
   onMoved,
 }: {
-  data: PersonData;
+  data: PersonAnswer;
   projectId: string;
   /** The project's people, to move plots to (coordinators); absent on My work. */
   members?: Member[];
@@ -600,7 +600,7 @@ export function FilesSection({
 }
 
 /** Change their role, remove them, or make them a new invitation link (to join again with the new project file). */
-function PersonActions({ projectId, data, onChanged }: { projectId: string; data: PersonData; onChanged: () => void }) {
+function PersonActions({ projectId, data, onChanged }: { projectId: string; data: PersonAnswer; onChanged: () => void }) {
   const t = useT();
   const { me, language } = useApp();
   const person = data.person;
@@ -755,7 +755,7 @@ function PersonActions({ projectId, data, onChanged }: { projectId: string; data
 }
 
 /** The status chip and the role, under the name. */
-export function PersonHeading({ data, title }: { data: PersonData; title?: string }) {
+export function PersonHeading({ data, title }: { data: PersonAnswer; title?: string }) {
   const t = useT();
   const chip = statusChip(t, data.person.status);
   return (

@@ -11,6 +11,7 @@ import type { Config } from '../config.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import type { Store } from '../store/store.js';
 import type { AiRunRow, AiRunSummary } from '../types.js';
+import type { ProposedViewsAnswer } from '../wire/analysis.js';
 import type { ProjectAi } from '../wire/projectSettings.js';
 import { areasSource, modelOf } from './analysis.js';
 
@@ -213,7 +214,7 @@ export async function registerAiRoutes(app: FastifyInstance, store: Store, confi
     await runs.failStale(projectId);
     const out = await runs.proposeViews(projectId, userId, structure, language as AiLanguage, settings);
     if (out.ok) {
-      return reply.header('cache-control', 'no-store').send({ views: out.views });
+      return reply.header('cache-control', 'no-store').send({ views: out.views } satisfies ProposedViewsAnswer);
     }
     if ('failed' in out) {
       return reply.code(502).send({ error: 'ai_failed', code: out.failed, reason: FAILURE_MESSAGES[out.failed] });

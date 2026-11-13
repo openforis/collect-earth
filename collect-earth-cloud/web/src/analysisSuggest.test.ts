@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import type { AnalysisColumnModel, AnalysisData, AnalysisModelData, ProposedView } from "./api";
+import type { AnalysisColumn, AnalysisAnswer, AnalysisModel, ProposedView } from "./api";
 import { applyQuestion, measuresOf } from "./analysisQuestion";
 import { mainQuestion, surveyRoles, templatesOf, viewOfProposal, viewTitle } from "./analysisSuggest";
 import { cubeOf } from "./analysisView";
 import { translator } from "./i18n";
 
-const col = (name: string, over: Partial<AnalysisColumnModel> = {}): AnalysisColumnModel => ({
+const col = (name: string, over: Partial<AnalysisColumn> = {}): AnalysisColumn => ({
   name,
   key: `collect_text_${name}`,
   labels: {},
@@ -22,7 +22,7 @@ const col = (name: string, over: Partial<AnalysisColumnModel> = {}): AnalysisCol
 const item = (code: string, label: string, parent: string | null = null) => ({ code, labels: { en: label }, parent, level: parent ? 1 : 0 });
 
 /** A land use survey as Collect Earth's templates make them (the one the page was tried with). */
-const model: AnalysisModelData = {
+const model: AnalysisModel = {
   languages: ["en"],
   tables: [
     {
@@ -72,7 +72,7 @@ const model: AnalysisModelData = {
     climates: [item("1", "WTM")],
   },
 };
-const data = (over: Partial<AnalysisData> = {}): AnalysisData => ({ model, scope: "project", areas: null, tables: [], ...over });
+const data = (over: Partial<AnalysisAnswer> = {}): AnalysisAnswer => ({ model, scope: "project", areas: null, tables: [], ...over });
 const t = translator("en");
 const cube = cubeOf(data(), "plot", "en", t);
 const measures = measuresOf(cube, t);
@@ -118,7 +118,7 @@ describe("the ready-made views", () => {
   it("open on the main question: the number of plots, as horizontal bars, largest first, first assessments only", () => {
     expect(tpls[0].question).toEqual({ rows: ["Land use"], columns: [], measures: ["plots"], extra: [], filters: [["Assessment", "==", "First assessment"]], chart: "X Bar", order: "desc" });
     // with the areas of the project file: the area
-    const withAreas = data({ areas: { source: "region_areas.csv", plots: 30, unmatched: 0 } });
+    const withAreas = data({ areas: { source: "region_areas.csv", unknownColumns: [], noStratum: { plots: 0, examples: [] }, plots: 30, unmatched: 0 } });
     const c = cubeOf(withAreas, "plot", "en", t);
     expect(templatesOf(withAreas, c, measuresOf(c, t), t)[0]).toMatchObject({ label: "Area by Land use", question: { measures: ["area"] } });
   });
@@ -162,7 +162,7 @@ describe("the ready-made views", () => {
   });
 
   it("without a code question: all the plots", () => {
-    const bare: AnalysisModelData = { ...model, tables: [{ ...model.tables[0], columns: [col("id", { keyAttr: true })] }] };
+    const bare: AnalysisModel = { ...model, tables: [{ ...model.tables[0], columns: [col("id", { keyAttr: true })] }] };
     const d = data({ model: bare });
     const c = cubeOf(d, "plot", "en", t);
     expect(templatesOf(d, c, measuresOf(c, t), t)[0]).toMatchObject({ id: "default", label: "All plots" });

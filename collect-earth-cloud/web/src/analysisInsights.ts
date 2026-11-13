@@ -1,4 +1,4 @@
-import type { AnalysisModelData } from "./api";
+import type { AnalysisModel } from "./api";
 import { whereSql, type Filter, type Question } from "./analysisQuestion";
 import { REGION, surveyRoles } from "./analysisSuggest";
 import { quoteIdent, quoteString, type Cube, type CubeColumn } from "./analysisView";
@@ -15,7 +15,7 @@ function plotColumn(cube: Cube, name: string | undefined): CubeColumn | undefine
 }
 
 /** The fields offered as one-click filters: the main question, the year of its change, the region and the collector. */
-export function quickFilterFields(model: AnalysisModelData, cube: Cube): string[] {
+export function quickFilterFields(model: AnalysisModel, cube: Cube): string[] {
   const roles = surveyRoles(model);
   const picks = [
     plotColumn(cube, roles.main?.name),
@@ -30,7 +30,7 @@ export function quickFilterFields(model: AnalysisModelData, cube: Cube): string[
  * The field one step below another: the next level of a code's hierarchy ("Land use (level 1)" → its level 2, the last
  * level → the code's own label), else the question that refines it (a land use → its subdivision). Undefined at the bottom.
  */
-export function childField(model: AnalysisModelData, cube: Cube, name: string): CubeColumn | undefined {
+export function childField(model: AnalysisModel, cube: Cube, name: string): CubeColumn | undefined {
   const col = cube.columns.find((c) => c.name === name);
   if (!col) return undefined;
   const byId = (id: string) => cube.columns.find((c) => c.id === id);
@@ -47,7 +47,7 @@ export function childField(model: AnalysisModelData, cube: Cube, name: string): 
  * The question after a click on a bar or a row: the deepest row field the click names, filtered to the value clicked
  * and replaced by the field one step below it. Null when there is no step down (the page lists the plots instead).
  */
-export function drillDown(model: AnalysisModelData, cube: Cube, q: Question, clicked: readonly Filter[]): { question: Question; field: string; value: unknown } | null {
+export function drillDown(model: AnalysisModel, cube: Cube, q: Question, clicked: readonly Filter[]): { question: Question; field: string; value: unknown } | null {
   for (let i = q.rows.length - 1; i >= 0; i--) {
     const field = q.rows[i];
     const hit = clicked.find(([c, op, v]) => c === field && op === "==" && v !== null && v !== undefined);
@@ -64,14 +64,14 @@ export function drillDown(model: AnalysisModelData, cube: Cube, q: Question, cli
 // --- land use change flows ------------------------------------------------------------------------------------------
 
 /** The fields a change can be drawn between: the labels of the questions on the main question's list (the land uses). */
-export function changeFields(model: AnalysisModelData, cube: Cube): CubeColumn[] {
+export function changeFields(model: AnalysisModel, cube: Cube): CubeColumn[] {
   const list = surveyRoles(model).main?.list;
   if (!list) return [];
   return cube.columns.filter((c) => c.list === list && c.kind === "text" && !c.id.includes("#") && (cube.table === "plot" || c.id.startsWith("plot.")));
 }
 
 /** The change drawn first: the land use before (the change matrix's) to the main question, else the first two fields. */
-export function defaultChange(model: AnalysisModelData, cube: Cube): { from: string; to: string } | null {
+export function defaultChange(model: AnalysisModel, cube: Cube): { from: string; to: string } | null {
   const fields = changeFields(model, cube);
   const roles = surveyRoles(model);
   const from = plotColumn(cube, roles.from?.name) ?? fields.find((c) => c.source !== roles.main?.name);

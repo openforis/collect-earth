@@ -8,6 +8,7 @@ import type { ProjectStateCache } from '../projectState.js';
 import { recordResolver } from '../quality.js';
 import type { Store } from '../store/store.js';
 import { firstAssessments, modelOf, plotFilesOf, plotFileValues, projectFactors, questionOf, strataValues, type Parsed } from './analysis.js';
+import type { AreasAnswer, AreaSettingsAnswer } from '../wire/analysis.js';
 
 /** The strata found in the plots and listed on the page, beyond those with an area (a column of many values). */
 const MAX_LISTED = 500;
@@ -31,9 +32,9 @@ export async function registerAreaRoutes(app: FastifyInstance, store: Store, sta
   const coordinator = { preHandler: requireProjectMembership(store, 'admin') };
 
   /** The areas in use, as a setting: the dashboard's, else the project file's areas_per_attribute.csv, else the Uncertainty page's total. */
-  const shownOf = async (projectId: string, parsed: NonNullable<Parsed>) => {
+  const shownOf = async (projectId: string, parsed: NonNullable<Parsed>): Promise<{ source: AreasAnswer['source']; areas: AreaSettings | null; unreadable: number }> => {
     const settings = await store.getAreaSettings(projectId);
-    if (settings) return { source: settings.mode as string, areas: settings as AreaSettings, unreadable: 0 };
+    if (settings) return { source: settings.mode, areas: settings, unreadable: 0 };
     if (parsed.regionAreas) return { source: 'region_areas.csv', areas: null, unreadable: 0 };
     const file = parsed.attributeAreas ? strataOfFile(parsed.attributeAreas) : null;
     if (file) return { source: 'areas_per_attribute.csv', areas: { mode: 'strata', ...file.areas } as AreaSettings, unreadable: file.unreadable };
@@ -105,7 +106,7 @@ export async function registerAreaRoutes(app: FastifyInstance, store: Store, sta
       unknownColumns: factors?.unknownColumns ?? [],
       noStratum: factors?.noStratum ?? { plots: 0, examples: [] },
       canEdit: request.membership!.role === 'admin',
-    });
+    } satisfies AreasAnswer);
   });
 
   app.put('/v1/projects/:pid/areas', coordinator, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -128,7 +129,7 @@ export async function registerAreaRoutes(app: FastifyInstance, store: Store, sta
     }
     await store.setAreaSettings(projectId, settings);
     await audit(store, request, 'settings.changed', { setting: 'areas', mode: settings?.mode ?? null, strata: settings?.mode === 'strata' ? settings.strata.length : null });
-    return reply.send({ settings });
+    return reply.send({ settings } satisfies AreaSettingsAnswer);
   });
 
   app.get('/v1/projects/:pid/areas/file', reviewer, async (request: FastifyRequest, reply: FastifyReply) => {

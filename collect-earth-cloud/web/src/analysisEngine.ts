@@ -14,7 +14,7 @@ import viewerFr from "@perspective-dev/viewer/dist/css/intl/fr.css?inline";
 import viewerPt from "@perspective-dev/viewer/dist/css/intl/pt.css?inline";
 import { tableFromIPC } from "apache-arrow";
 import { analysisAssets } from "./analysisAssets";
-import type { AnalysisData } from "./api";
+import type { AnalysisAnswer } from "./api";
 import { codesCsv, pivotCsv, readCsvSql, type Cube, type ViewConfig } from "./analysisView";
 
 type PerspectiveClient = Awaited<ReturnType<typeof perspective.worker>>;
@@ -71,7 +71,7 @@ export class AnalysisEngine {
   private table: PerspectiveTable | null = null;
 
   /** Starts DuckDB and Perspective and loads the tables (the code tables with labels in the language). */
-  static async open(data: AnalysisData, language: string, onStep: (step: Step) => void = () => {}): Promise<AnalysisEngine> {
+  static async open(data: AnalysisAnswer, language: string, onStep: (step: Step) => void = () => {}): Promise<AnalysisEngine> {
     onStep("database");
     const perspectiveReady = startPerspective();
     const worker = new Worker(await analysisAssets.duckdbWorker());
@@ -92,7 +92,7 @@ export class AnalysisEngine {
   }
 
   /** The code tables' labels in another language. */
-  async setLanguage(data: AnalysisData, language: string): Promise<void> {
+  async setLanguage(data: AnalysisAnswer, language: string): Promise<void> {
     const codes = codesCsv(data.model, language);
     await this.db.registerFileText("_codes.csv", codes.csv);
     await this.conn.query(readCsvSql("_codes", "_codes.csv", codes.columns));

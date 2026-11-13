@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { toPersonData, toPlotPage, toReferenceView, toSamplingView } from "./api";
+import { toPlotPage, toReferenceView, toSamplingView } from "./api";
 import { CATALOGUES, translator } from "./i18n";
 import { accuracyText, parsePlotIds, refusalKey, sortedPeople, weakestQuestions } from "./referenceView";
 
@@ -63,16 +63,10 @@ describe("the Reference plots section", () => {
     expect(toReferenceView({ coordinator: false, count: 2, figures: null })).toMatchObject({ coordinator: false, count: 2, plots: [], files: [], figures: null });
   });
 
-  it("reads the person page's accuracy, the plot page's reference and the reference copies of the Checks section", () => {
+  it("reads the plot page's reference and the reference copies of the Checks section", () => {
     expect(toPlotPage({ plot: "1", reference: { assessor: "coord" } }).reference).toEqual({ assessor: "coord" });
     expect(toPlotPage({ plot: "1", reference: {} }).reference).toEqual({ assessor: null });
     expect(toPlotPage({ plot: "1", reference: null }).reference).toBeNull();
     expect(toSamplingView({ files: [{ csvFileId: "f", referenceCopies: 6 }] }).files[0].referenceCopies).toBe(6);
-    const person = toPersonData({ person: { userId: "u" }, quality: { reference: { username: "ana", plots: { compared: 3, agreeing: 2, rate: null }, questions: [] } } });
-    expect(person.quality.reference).toEqual({ username: "ana", plots: { compared: 3, agreeing: 2, rate: null }, questions: [] });
-    expect(toPersonData({ person: { userId: "u" }, quality: { reference: null } }).quality.reference).toBeNull();
-    // No reference plot in the project: no line at all.
-    expect(toPersonData({ person: { userId: "u" }, quality: {} }).quality.reference).toBeUndefined();
-    expect(toPersonData({ person: { userId: "u" }, plots: [] }).quality).toBeDefined();
   });
 });

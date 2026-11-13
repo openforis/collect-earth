@@ -6,7 +6,7 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import ArrowForward from "@mui/icons-material/ArrowForward";
 import { useEffect, useId, useMemo, useState } from "react";
-import type { AnalysisModelData } from "../../api";
+import type { AnalysisModel } from "../../api";
 import { changeChoiceSql, changeFields, defaultChange, flowsSql, pickChange, sankeyLayout, type Flow } from "../../analysisInsights";
 import type { Filter } from "../../analysisQuestion";
 import { valueColour } from "../../analysisColors";
@@ -35,7 +35,7 @@ export function ChangeFlows({
   query,
   onPick,
 }: {
-  model: AnalysisModelData;
+  model: AnalysisModel;
   cube: Cube;
   filters: Filter[];
   /** The area's column, to add up the area; null counts the plots. */

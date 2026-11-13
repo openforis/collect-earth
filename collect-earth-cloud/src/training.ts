@@ -3,6 +3,21 @@ import { choiceText, compareAnswers, isBlankAnswer, keyRule, plotOrder, shownTex
 import { unitOfRecord } from './rounds.js';
 import type { Question } from './surveyOutline.js';
 import type { RecordRow, TrainingAttempt, TrainingGolden } from './types.js';
+import type { AnonymousCalibration, AnswerCount, CalibrationCell, CalibrationFigures, CalibrationPlot, LearningScore, ScoredAnswer, ScoredPlot, Share } from './wire/training.js';
+
+export type {
+  AnonymousCalibration,
+  AnswerCount,
+  CalibrationCell,
+  CalibrationFigures,
+  CalibrationPerson,
+  CalibrationPlot,
+  CalibrationQuestion,
+  LearningScore,
+  ScoredAnswer,
+  ScoredPlot,
+  Share,
+} from './wire/training.js';
 
 /**
  * Calibration and learning plots (docs/plans/2026-11-04-calibration-and-learning-plots.md): the
@@ -91,68 +106,11 @@ function comparedQuestions(
   return [...seen.values()].sort((a, b) => (position.get(a.key) ?? Infinity) - (position.get(b.key) ?? Infinity) || plotOrder(a.key, b.key));
 }
 
-/** Agreement as counts and their share (null with nothing compared). */
-export interface Share {
-  compared: number;
-  agreeing: number;
-  rate: number | null;
-}
-
 function share(compared: number, agreeing: number): Share {
   return { compared, agreeing, rate: compared > 0 ? agreeing / compared : null };
 }
 
 // --- calibration -----------------------------------------------------------------
-
-export interface AnswerCount {
-  /** The answer as shown (its values, qualifiers kept). */
-  value: string;
-  count: number;
-  people: string[];
-}
-
-export interface CalibrationCell {
-  key: string;
-  /** Different answers given, most given first. */
-  answers: AnswerCount[];
-  /** Pairs of people whose answers agree, of all pairs who answered. */
-  pairs: Share;
-  /** The proposed agreed answer: the most given (choice) or the median (number); null on a tie or with no answer. */
-  consensus: string | null;
-}
-
-export interface CalibrationPlot {
-  plot: string;
-  /** People with a submitted record of it. */
-  people: string[];
-  questions: CalibrationCell[];
-}
-
-export interface CalibrationQuestion {
-  key: string;
-  label: string;
-  kind: Kind;
-  pairs: Share;
-  /** Fleiss' kappa (choice questions with two people or more on a plot); null when it cannot be worked out. */
-  kappa: number | null;
-}
-
-export interface CalibrationPerson {
-  username: string;
-  plots: number;
-  /** Their answers that agree with the proposed agreed answer. */
-  withConsensus: Share;
-  byQuestion: Record<string, Share>;
-}
-
-export interface CalibrationFigures {
-  participants: string[];
-  plots: CalibrationPlot[];
-  questions: CalibrationQuestion[];
-  people: CalibrationPerson[];
-  /** All pairs of answers, every question. */
-  overall: Share;
-}
 
 /** The median of number answers, as written by one of them (the lower middle one for an even count). */
 function medianOf(values: readonly string[]): string | null {
@@ -288,14 +246,6 @@ export function calibrationFigures(input: {
   };
 }
 
-/** Calibration figures without anyone's name: for reviewers (no one's agreement by name, as for reference plots). */
-export interface AnonymousCalibration {
-  participants: number;
-  plots: { plot: string; people: number; questions: { key: string; answers: { value: string; count: number }[]; pairs: Share; consensus: string | null }[] }[];
-  questions: CalibrationQuestion[];
-  overall: Share;
-}
-
 export function anonymousCalibration(figures: CalibrationFigures): AnonymousCalibration {
   return {
     participants: figures.participants.length,
@@ -333,40 +283,6 @@ export function labelled(outline: ReadonlyMap<string, Question> | null, key: str
       return option && option.label.trim() && option.label !== code ? `${option.label} (${code})` : code;
     })
     .join(', ');
-}
-
-/** One question of one plot: the person's answer next to the golden one. */
-export interface ScoredAnswer {
-  key: string;
-  label: string;
-  golden: string;
-  given: string;
-  right: boolean;
-}
-
-export interface ScoredPlot {
-  plot: string;
-  submittedAt: number;
-  answers: Share;
-  /** Every compared answer right. */
-  right: boolean;
-  questions: ScoredAnswer[];
-}
-
-/** One person's score on a set in one attempt. */
-export interface LearningScore {
-  /** Plots with a golden interpretation (what is scored). */
-  plots: number;
-  /** Of those, the ones they submitted in the attempt. */
-  submitted: number;
-  /** Answers that match the golden ones (accuracy). */
-  answers: Share;
-  /** Plots with every answer right. */
-  plotsRight: number;
-  byQuestion: Record<string, Share>;
-  /** Every plot submitted and accuracy at least the pass mark; null without a pass mark or before the end. */
-  passed: boolean | null;
-  byPlot: ScoredPlot[];
 }
 
 /** A person's answers on a set's plots compared with the golden ones. */

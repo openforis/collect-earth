@@ -6,6 +6,7 @@ import { recordResolver } from '../quality.js';
 import type { Store } from '../store/store.js';
 import { timeSpent, type TimedRecord } from '../timeSpent.js';
 import type { RecordState } from '../types.js';
+import type { TimeSpent } from '../wire/people.js';
 
 /**
  * The submitted first assessments of the files' plots (as progress counts them: no checks, no plot in no file), with
@@ -38,6 +39,6 @@ export async function registerTimeSpentRoutes(app: FastifyInstance, store: Store
     const [served, records] = await Promise.all([states.get(projectId, request.log), store.listRecordStates(projectId)]);
     const { context } = served.state;
     const timed = timedRecords(records, { info: context.info, units: context.units, copyHolders: context.copyHolders });
-    return reply.send(timeSpent(timed, { person }));
+    return reply.send(timeSpent(timed, { person }) satisfies TimeSpent);
   });
 }

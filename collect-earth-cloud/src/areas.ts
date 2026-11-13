@@ -5,13 +5,9 @@
 // with a submitted first assessment, as Collect Earth's RegionCalculationUtils works it out.
 import { areaOf, csvSeparatorOf, parseCsv, type Factors } from './analysis.js';
 
-export interface StrataAreas {
-  /** The columns whose values make a stratum: questions of the survey or columns of the plot files. */
-  columns: string[];
-  strata: { values: string[]; area: number }[];
-}
+import type { AreaSettings, StrataAreas } from './wire/analysis.js';
 
-export type AreaSettings = ({ mode: 'strata' } & StrataAreas) | { mode: 'total'; area: number };
+export type { AreaSettings, StrataAreas } from './wire/analysis.js';
 
 /** What a setting may hold. */
 export const AREA_LIMITS = { columns: 5, strata: 20_000, valueChars: 500, area: 1e12 };

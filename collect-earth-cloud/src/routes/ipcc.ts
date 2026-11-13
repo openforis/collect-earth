@@ -24,6 +24,7 @@ import { recordResolver } from '../quality.js';
 import type { Store } from '../store/store.js';
 import { xlsxOf } from '../xlsx.js';
 import { firstAssessments, modelOf, projectFactors } from './analysis.js';
+import type { IpccExports } from '../wire/analysis.js';
 
 const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 const CSV = 'text/csv; charset=utf-8';
@@ -107,7 +108,7 @@ export async function registerIpccRoutes(app: FastifyInstance, store: Store, sta
       regions,
       region: DEFAULT_REGIONS.find((r) => regions.includes(r)) ?? regions[0] ?? null,
       subdivisions: loaded.survey.subdivisions.map(({ category, code, name, management }) => ({ category, code, name, management })),
-    });
+    } satisfies IpccExports);
   });
 
   app.get('/v1/projects/:pid/exports/ipcc/:file', coordinator, async (request: FastifyRequest, reply: FastifyReply) => {
