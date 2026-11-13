@@ -18,7 +18,7 @@ import FolderOpen from "@mui/icons-material/FolderOpen";
 import Logout from "@mui/icons-material/Logout";
 import Person from "@mui/icons-material/Person";
 import Translate from "@mui/icons-material/Translate";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { collectEarthAppBar } from "../shared/collectEarthTheme";
 import logo from "../shared/collect-earth-logo.png";
 import openForisLogo from "../shared/collect-earth-openforis-logo.png";
@@ -27,7 +27,7 @@ import { getServerInfo } from "../api";
 import { useApp, useLocalMode } from "../appContext";
 import { getDismissedAnnouncement, storeDismissedAnnouncement } from "../storage";
 import { LANGUAGES, LANGUAGE_NAMES, useT, type Language } from "../i18n";
-import { BUILD_CHECK_MS, newBuildAvailable } from "../newVersion";
+import { BUILD_CHECK_MS, newBuildFound, onNewBuild, watchBuild } from "../newVersion";
 import { linkProps, navigate } from "../router";
 import { onceVisibleAfter } from "../visibility";
 import { ServerAdminChip } from "./Roles";
@@ -145,33 +145,21 @@ function AnnouncementBanner() {
   );
 }
 
-/** The build this page was loaded with: the first server-info's (the page keeps running it until it is reloaded). */
-let loadedBuild: string | null | undefined;
-
 /**
- * A page left open across an upgrade (src/newVersion.ts): every BUILD_CHECK_MS while the page is visible, it asks
- * which build the server serves, and when that is another one it offers to reload.
+ * A page left open across an upgrade (src/newVersion.ts): the page asks every BUILD_CHECK_MS while it is visible
+ * which build the server serves, and when that is another one this offers to reload.
  */
 function NewVersionBanner() {
   const t = useT();
   const { info } = useApp();
-  if (loadedBuild === undefined) loadedBuild = info.dashboardBuild;
-  const [available, setAvailable] = useState(false);
+  const available = useSyncExternalStore(onNewBuild, newBuildFound);
   useEffect(() => {
-    if (available || loadedBuild == null) return;
-    let cancel = () => {};
-    const check = () => {
-      getServerInfo()
-        .then((served) => (newBuildAvailable(loadedBuild ?? null, served.dashboardBuild) ? setAvailable(true) : schedule()))
-        // Offline or the server restarting: ask again later
-        .catch(schedule);
-    };
-    const schedule = () => {
-      cancel = onceVisibleAfter(BUILD_CHECK_MS, document, check);
-    };
-    schedule();
-    return () => cancel();
-  }, [available]);
+    watchBuild(
+      info.dashboardBuild,
+      async () => (await getServerInfo()).dashboardBuild,
+      (action) => void onceVisibleAfter(BUILD_CHECK_MS, document, action),
+    );
+  }, [info.dashboardBuild]);
   if (!available) return null;
   return (
     <Alert
