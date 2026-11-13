@@ -10,6 +10,9 @@ import type { AnswerTable, CodeCount } from './answerStats.js';
 import { MIN_PLOTS, type QualityReport } from './quality.js';
 import type { Question } from './surveyOutline.js';
 import type { DecisionKind } from './types.js';
+import type { HealthReason, HealthRow, SurveyHealth } from './wire/checks.js';
+
+export type { HealthReason, HealthRow, SurveyHealth } from './wire/checks.js';
 
 // ---------------------------------------------------------------------------
 // "Other", "unknown", "none", "no data"
@@ -275,65 +278,6 @@ export const MIN_CHANGED = 5;
 export const OFTEN_CHANGED = 0.25;
 /** Rows sent at most (an entity of many items can give hundreds of questions). */
 export const MAX_HEALTH_ROWS = 1000;
-
-export type HealthReason = 'low_agreement' | 'often_other' | 'often_empty' | 'often_changed';
-
-export interface HealthRow {
-  key: string;
-  label: string;
-  kind: 'choice' | 'number';
-  calculated: boolean;
-  required: boolean;
-  /** Shown or required only under a condition: its empty share is information, never a reason. */
-  conditional: boolean;
-  /** Inside a group of questions: whether it was left empty is never known. */
-  inGroup: boolean;
-  /** First assessments answering it; holding it blank; holding a non-number in a number question. */
-  answered: number;
-  blank: number;
-  nonNumeric: number;
-  /**
-   * The first assessments that say whether it was left empty (they keep their empty
-   * answers, see keepsBlanks, and hold the question): emptyBase; of them left empty:
-   * emptyBlank. notKnown: the others (plots - emptyBase).
-   */
-  emptyBase: number;
-  emptyBlank: number;
-  notKnown: number;
-  /** emptyBlank / emptyBase; null in a group, or under MIN_PLOTS of emptyBase (emptyWhy says which). */
-  emptyShare: number | null;
-  emptyWhy: 'group' | 'few_records' | null;
-  /** For a choice: the plots answering "none" alone (Decision 6), for information: never a reason. */
-  none: { count: number; share: number | null; answers: CodeCount[] } | null;
-  /** For a choice: the plots answering with an other-like option, its share of those answering (null under MIN_PLOTS), and the options. */
-  other: { count: number; share: number | null; answers: CodeCount[] } | null;
-  /** From the quality report: checks compared on it, agreeing, the rate (null under MIN_PLOTS); null when never compared. */
-  agreement: { compared: number; agreeing: number; rate: number | null } | null;
-  /** Plots decided for the check where its answer differs between the first assessment and that check, and the share of decidedForCheck. */
-  decisions: { changed: number; share: number | null };
-  /** Why it is worth rewording, the strongest first; empty when nothing stands out. */
-  reasons: HealthReason[];
-}
-
-export interface SurveyHealth {
-  /** First assessments looked at. */
-  plots: number;
-  /** Plots with a first assessment and a check (the report's). */
-  plotsChecked: number;
-  /** Checked plots whose decision is "the check" (the check's answers were taken). */
-  decidedForCheck: number;
-  /** Worth rewording first (see sortRows), then the others in the survey's order; up to MAX_HEALTH_ROWS. */
-  questions: HealthRow[];
-  questionsTotal: number;
-  thresholds: {
-    minPlots: number;
-    lowAgreement: number;
-    oftenOther: number;
-    oftenEmpty: number;
-    minChanged: number;
-    oftenChanged: number;
-  };
-}
 
 const groupIndexes = new WeakMap<CheckedPlots, Map<string, number>>();
 

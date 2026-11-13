@@ -1,4 +1,4 @@
-import type { Assessment, PlotMatch, PlotRecordView, PlotSearchResult } from "./api";
+import type { Assessment, PlotMatch, PlotPageRecord, PlotSearchAnswer } from "./api";
 import type { MessageKey } from "./i18n";
 
 /** How long the search box waits after the last key before asking (ms). */
@@ -7,14 +7,14 @@ export const SEARCH_DELAY_MS = 250;
 /** A search's answer, with what it was asked for. */
 export interface SearchAnswer {
   query: string;
-  result: PlotSearchResult;
+  result: PlotSearchAnswer;
 }
 
 /**
  * The matches to offer for what is typed now: an answer for another text (an older search, or
  * one still on its way) offers none, so Enter never opens a plot of an earlier search.
  */
-export function shownMatches(answer: SearchAnswer | null, typed: string): PlotSearchResult {
+export function shownMatches(answer: SearchAnswer | null, typed: string): PlotSearchAnswer {
   return answer !== null && answer.query === typed.trim() ? answer.result : { plots: [], more: false };
 }
 
@@ -42,7 +42,7 @@ export function recordKindKey(assessment: Assessment): MessageKey {
 }
 
 /** A record's state: submitted, not submitted (a draft), or deleted. */
-export function recordStateKey(record: Pick<PlotRecordView, "submitted" | "deleted">): MessageKey {
+export function recordStateKey(record: Pick<PlotPageRecord, "submitted" | "deleted">): MessageKey {
   return record.deleted ? "plot.deleted" : record.submitted ? "plot.submitted" : "plot.draft";
 }
 
@@ -59,7 +59,7 @@ export interface AnswerRow {
  * The answers as a table: one row per question (those no record answers left out), one value
  * per record. Deleted records show no answers.
  */
-export function answerRows(questions: readonly { key: string; label: string }[], records: readonly Pick<PlotRecordView, "deleted" | "answers" | "assessment">[]): AnswerRow[] {
+export function answerRows(questions: readonly { key: string; label: string }[], records: readonly Pick<PlotPageRecord, "deleted" | "answers" | "assessment">[]): AnswerRow[] {
   return questions.flatMap((q) => {
     const values = records.map((r) => (!r.deleted && Object.hasOwn(r.answers, q.key) ? r.answers[q.key] : null));
     const given = values.filter((v): v is string => v !== null);
@@ -70,6 +70,6 @@ export function answerRows(questions: readonly { key: string; label: string }[],
 }
 
 /** "Check is right" needs a submitted check that is not deleted. */
-export function hasCheck(records: readonly Pick<PlotRecordView, "assessment" | "submitted" | "deleted">[]): boolean {
+export function hasCheck(records: readonly Pick<PlotPageRecord, "assessment" | "submitted" | "deleted">[]): boolean {
   return records.some((r) => r.assessment === "check" && r.submitted && !r.deleted);
 }

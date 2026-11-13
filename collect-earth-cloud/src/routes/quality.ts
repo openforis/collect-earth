@@ -19,6 +19,8 @@ import { surveyHealth } from '../surveyHealth.js';
 import { MAX_CACHED_ANSWER_FILTERS, QualityService, remember, WorkerBusyError, WorkerRestartedError, type ServedReport } from '../qualityService.js';
 import type { Store } from '../store/store.js';
 import type { DecisionKind, GuidanceNoteInput, QualityDecision, QualitySettings } from '../types.js';
+import type { SurveyHealthAnswer } from '../wire/checks.js';
+import type { BulkDecisionAnswer, ReviewQueueAnswer } from '../wire/review.js';
 
 /** Longest decision comment and guidance note, in characters (the tables check it too). */
 export const MAX_TEXT = 2000;
@@ -339,7 +341,7 @@ export async function registerQualityRoutes(
     if (!figures) {
       return reply;
     }
-    return reply.send({ ...surveyHealth(figures, decisions), computedAt: figures.computedAt, stale: figures.stale });
+    return reply.send({ ...surveyHealth(figures, decisions), computedAt: figures.computedAt, stale: figures.stale } satisfies SurveyHealthAnswer);
   });
 
   // The review queue (Task 7), for coordinators and reviewers (never collectors): differences
@@ -455,7 +457,7 @@ export async function registerQualityRoutes(
       options: answerOptions(outline, keys),
       computedAt: figures.computedAt,
       stale: figures.stale,
-    });
+    } satisfies ReviewQueueAnswer);
   });
 
   // Bulk decisions (Task 7, coordinators): every differing plot without a decision where
@@ -487,7 +489,7 @@ export async function registerQualityRoutes(
     const plots = bulkPlots(figures.report.pairs, new Map(decisions.map((d) => [d.plot, d.decision])), trusted, rule as BulkRule).filter((p) => !reference.has(p.plot));
     const decision: DecisionKind = rule === 'first_by_reviewer' ? 'first' : 'check';
     if (dryRun) {
-      return reply.send({ rule, decision, count: plots.length, plots: plots.slice(0, MAX_BULK_LISTED).map((p) => p.plot), dryRun: true, batch: null });
+      return reply.send({ rule: rule as BulkRule, decision, count: plots.length, plots: plots.slice(0, MAX_BULK_LISTED).map((p) => p.plot), dryRun: true, batch: null } satisfies BulkDecisionAnswer);
     }
     const batch = randomUUID();
     const added = await store.addQualityDecisions(
@@ -500,7 +502,7 @@ export async function registerQualityRoutes(
     if (added.length > 0) {
       await audit(store, request, 'decision.bulk', { rule, decision, count: added.length, batch });
     }
-    return reply.send({ rule, decision, count: added.length, plots: added.slice(0, MAX_BULK_LISTED), dryRun: false, batch: added.length > 0 ? batch : null });
+    return reply.send({ rule: rule as BulkRule, decision, count: added.length, plots: added.slice(0, MAX_BULK_LISTED), dryRun: false, batch: added.length > 0 ? batch : null } satisfies BulkDecisionAnswer);
   });
 
   // The columns of a plot file and their values, to filter the answers by one (reviewers too).

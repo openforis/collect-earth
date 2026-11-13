@@ -149,7 +149,9 @@ describe('reference plots: marking, copies for every collector, accuracy against
     }
     // The reviewer reads the figures, not which plots are reference plots.
     const forRita = await reference(people.rita.token);
-    expect(forRita).toMatchObject({ coordinator: false, count: 2 });
+    // With the most a project may have, for the count's "at most" (the reference set's other parts are the coordinators').
+    expect(forRita).toMatchObject({ coordinator: false, count: 2, max: 500 });
+    expect(Object.keys(forRita).sort()).toEqual(['coordinator', 'count', 'figures', 'max']);
     expect(forRita.plots).toBeUndefined();
     expect(forRita.figures.byPlot).toBeUndefined();
     // Decision 3: the figures per question only, no one's accuracy by name.

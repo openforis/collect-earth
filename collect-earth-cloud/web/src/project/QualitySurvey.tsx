@@ -11,7 +11,7 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import { useEffect, useState } from "react";
-import { ApiError, getSurveyHealth, type HealthRow, type SurveyHealthData } from "../api";
+import { ApiError, getSurveyHealth, type HealthRow, type SurveyHealthAnswer } from "../api";
 import { useApp, useLocalMode } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Explain } from "../components/Explain";
@@ -26,7 +26,7 @@ import { onceVisibleAfter } from "../visibility";
 const tableFrame = { border: 1, borderColor: "divider", borderRadius: 1, overflowX: "auto", maxHeight: 560 } as const;
 
 /** `checks`: the columns about quality checks and decisions (none in the local mode). */
-function Row({ row, data, showNone, checks }: { row: HealthRow; data: SurveyHealthData; showNone: boolean; checks: boolean }) {
+function Row({ row, data, showNone, checks }: { row: HealthRow; data: SurveyHealthAnswer; showNone: boolean; checks: boolean }) {
   const t = useT();
   const { language } = useApp();
   return (

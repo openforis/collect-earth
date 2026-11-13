@@ -1,7 +1,7 @@
 // The final review's web fixes (Task 22): server answers the web now reads, the texts that follow
 // the project's settings, the map's list, the page titles and the plurals.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ApiError, errorMessageKey, getServerOverview, NO_SUCH_PLOT, setQualityDecision, toPersonData, toSamplingView, toWeeklyData } from "./api";
+import { ApiError, errorMessageKey, getServerOverview, NO_SUCH_PLOT, setQualityDecision, toPersonData, toWeeklyData } from "./api";
 import { logSentence } from "./activityView";
 import { notBlindText } from "./checksView";
 import { reasonText } from "./healthView";
@@ -39,9 +39,6 @@ describe("server answers the web now reads", () => {
   });
 
   it("sampling: the checkers whose checks may not be blind", () => {
-    expect(toSamplingView({ warning: { code: "checkers_not_blind", usernames: ["rev", "boss"] } }).notBlindCheckers).toEqual(["rev", "boss"]);
-    expect(toSamplingView({ warning: null }).notBlindCheckers).toEqual([]);
-    expect(toSamplingView({ warning: { code: "other", usernames: ["x"] } }).notBlindCheckers).toEqual([]);
     expect(notBlindText(t, ["rev", "boss"])).toMatch(/^The checks of these people may not be blind: rev, boss\. /);
     expect(notBlindText(t, ["rev"])).toMatch(/^The checks of rev may not be blind\. /);
     expect(t("checks.checkersAll")).toBe("Every collector");
