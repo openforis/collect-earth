@@ -414,7 +414,7 @@ function AlertsCard({ onSeen }: { onSeen: () => void }) {
       setError(err);
     }
   };
-  const th = a?.thresholds ?? {};
+  const th = a?.thresholds;
   return (
     <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section" aria-labelledby="server-alerts">
       <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ justifyContent: "space-between", alignItems: { sm: "center" }, mb: 1 }}>
@@ -425,7 +425,7 @@ function AlertsCard({ onSeen }: { onSeen: () => void }) {
         {a && a.unseen > 0 && <Button variant="outlined" startIcon={<DoneAll />} onClick={() => void seen()}>{t("server.alertsMarkAll")}</Button>}
       </Stack>
       <Explain variant="body2" sx={{ mb: 1 }} text={t("server.alertsExplain.short")}
-        more={t("server.alertsExplain", { failedLogins: n(th.failedLogin ?? 50), serverErrors: n(th.serverError ?? 20), syncErrors: n(th.syncError ?? 50), storage: n(th.storagePercent ?? 90) })} />
+        more={t("server.alertsExplain", { failedLogins: n(th?.failedLogin ?? 50), serverErrors: n(th?.serverError ?? 20), syncErrors: n(th?.syncError ?? 50), storage: n(th?.storagePercent ?? 90) })} />
       {a?.webhook && <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>{t("server.alertsWebhook", { kind: a.webhook.kind === "slack" ? "Slack" : "Microsoft Teams", host: a.webhook.host })}</Typography>}
       <ErrorAlert error={error} />
       {alerts.loading && !a ? (

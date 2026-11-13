@@ -17,6 +17,7 @@ import {
   readSecret,
   type TwoFactorKeys,
 } from '../twoFactor.js';
+import type { RecoveryCodes, TwoFactorSetup } from '../wire/account.js';
 
 /**
  * Checks the second step of a sign-in: an authenticator app's code (each used once) or one of the account's recovery
@@ -65,7 +66,7 @@ export async function registerTwoFactorRoutes(app: FastifyInstance, store: Store
     if (await twoFactorEnabled(store, user.id)) return reply.code(409).send({ error: 'already_enabled' });
     const secret = newSecret();
     await store.setTwoFactorPending(user.id, encryptSecret(secret, key));
-    return reply.header('cache-control', 'no-store').send({ secret, uri: otpauthUri(await issuerOf(), user.username, secret) });
+    return reply.header('cache-control', 'no-store').send({ secret, uri: otpauthUri(await issuerOf(), user.username, secret) } satisfies TwoFactorSetup);
   });
 
   const withPassword = async (request: FastifyRequest, reply: FastifyReply) => {
@@ -91,7 +92,7 @@ export async function registerTwoFactorRoutes(app: FastifyInstance, store: Store
     await store.claimTwoFactorStep(request.userId!, step);
     // The other sessions were opened without the second step: they are signed out (this one stays)
     await store.deleteUserSessionsExcept(request.userId!, bearerToken(request.headers.authorization) ?? '');
-    return reply.header('cache-control', 'no-store').send({ recoveryCodes: codes });
+    return reply.header('cache-control', 'no-store').send({ recoveryCodes: codes } satisfies RecoveryCodes);
   });
 
   app.post('/v1/me/two-factor/disable', { preHandler: [limiter.guard('two-factor'), requireSession(store)] }, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -110,7 +111,7 @@ export async function registerTwoFactorRoutes(app: FastifyInstance, store: Store
     if (!(await twoFactorEnabled(store, user.id))) return reply.code(409).send({ error: 'not_enabled' });
     const codes = newRecoveryCodes();
     await store.setRecoveryHashes(user.id, codes.map(hashRecoveryCode));
-    return reply.header('cache-control', 'no-store').send({ recoveryCodes: codes });
+    return reply.header('cache-control', 'no-store').send({ recoveryCodes: codes } satisfies RecoveryCodes);
   });
 
   // A lost phone and lost recovery codes: the server's administrator turns two-step sign-in off; the account's sessions

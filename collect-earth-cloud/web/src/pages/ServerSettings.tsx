@@ -14,7 +14,7 @@ import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { useState, type FormEvent, type ReactNode } from "react";
-import { getServerSettings, saveServerSettings, testAlertWebhook, type ProjectCreation, type ServerSettings } from "../api";
+import { getServerSettings, saveServerSettings, testAlertWebhook, type ProjectCreation, type ServerSettings, type SettingsChange } from "../api";
 import { isWebhookUrl, signupDomainsOf, wholeIn } from "../serverSafetyView";
 import { AI_LIMIT_MAX, parseLimit as parseAiLimit } from "../aiView";
 import { fromLocalInput, toLocalInput } from "../announcement";
@@ -28,7 +28,7 @@ import { draftOf, readDraft, type SettingsDraft } from "../settingsForm";
 import { useUnsaved } from "../unsavedChanges";
 import { useLoad } from "../useLoad";
 
-type Save = (changes: Partial<ServerSettings>) => Promise<void>;
+type Save = (changes: SettingsChange) => Promise<void>;
 
 /**
  * One group of the server's settings: its title, what it affects, its fields, and its own Save and Discard, so that
@@ -149,7 +149,7 @@ function DraftFields({ settings, keys, fields, group, title, intro, affects, onS
   const invalid = keys.some((k) => problems[k] !== undefined);
   return (
     <SettingsGroup id={group} title={title} intro={intro} affects={affects} unsaved={unsaved} invalid={invalid}
-      onSave={async () => { await onSave(Object.fromEntries(keys.map((k) => [k, changes[k as keyof typeof changes]])) as Partial<ServerSettings>); setDraft(null); }}
+      onSave={async () => { await onSave(Object.fromEntries(keys.map((k) => [k, changes[k as keyof typeof changes]])) as SettingsChange); setDraft(null); }}
       onDiscard={() => setDraft(null)}>
       {fields.map(({ key, label, help, more, type, numeric }) => (
         <Stack key={key} spacing={0.75}>
@@ -183,7 +183,7 @@ function AnnouncementGroup({ settings, onSave }: { settings: ServerSettings; onS
   const end = fromLocalInput(until);
   const past = text.trim() !== "" && end !== null && end <= Date.now();
   const unsaved = text !== initialText || until !== initialUntil;
-  const save = async (changes: Partial<ServerSettings>) => {
+  const save = async (changes: SettingsChange) => {
     await onSave(changes);
     await refreshMe();
   };
@@ -237,7 +237,7 @@ function AiGroup({ settings, onSave }: { settings: ServerSettings; onSave: Save 
   return (
     <SettingsGroup id="ai" title={t("server.aiTitle")} intro={t("server.aiIntro.short")} more={t("server.aiIntro")} affects={t("server.affects.ai")}
       unsaved={unsaved} invalid={invalid}
-      onSave={async () => { await onSave({ aiEnabled: draft.aiEnabled, ...(Object.fromEntries(AI_LIMIT_FIELDS.map(({ key }) => [key, values[key]])) as Partial<ServerSettings>) }); setDraft(null); }}
+      onSave={async () => { await onSave({ aiEnabled: draft.aiEnabled, ...(Object.fromEntries(AI_LIMIT_FIELDS.map(({ key }) => [key, values[key]])) as SettingsChange) }); setDraft(null); }}
       onDiscard={() => setDraft(null)}>
       <FormControl>
         <FormControlLabel
@@ -329,7 +329,7 @@ function AlertsGroup({ settings, onSave }: { settings: ServerSettings; onSave: S
       unsaved={unsaved} invalid={numbers.invalid || badWebhook}
       onSave={async () => {
         await onSave({
-          ...(Object.fromEntries(keys.map((k) => [k, numbers.values[k]])) as Partial<ServerSettings>),
+          ...(Object.fromEntries(keys.map((k) => [k, numbers.values[k]])) as SettingsChange),
           ...(webhook.trim() !== "" ? { alertWebhookUrl: webhook.trim() } : removing ? { alertWebhookUrl: null } : {}),
         });
         numbers.reset();
@@ -374,7 +374,7 @@ function SignupRulesGroup({ settings, onSave }: { settings: ServerSettings; onSa
     <SettingsGroup id="signup-rules" title={t("server.group.signupRules")} intro={t("server.signupRulesIntro")} affects={t("server.affects.signupRules")}
       unsaved={unsaved} invalid={numbers.invalid || parsed === undefined}
       onSave={async () => {
-        await onSave({ ...(Object.fromEntries(keys.map((k) => [k, numbers.values[k]])) as Partial<ServerSettings>), signupDomains: parsed ?? null });
+        await onSave({ ...(Object.fromEntries(keys.map((k) => [k, numbers.values[k]])) as SettingsChange), signupDomains: parsed ?? null });
         numbers.reset();
         setDomains(null);
       }}
@@ -403,7 +403,7 @@ export function ServerSettingsSection() {
   if (settings.error || !settings.data) return <ErrorAlert error={settings.error} onRetry={settings.reload} />;
   const current = settings.data;
   const save: Save = async (changes) => {
-    const next = await saveServerSettings(current, changes);
+    const next = await saveServerSettings(changes);
     settings.setData(next);
     void refreshInfo();
   };

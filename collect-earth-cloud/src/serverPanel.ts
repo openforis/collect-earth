@@ -1,5 +1,8 @@
 import type { CountersSnapshot } from './serverCounters.js';
-import type { DatabaseHealth, DayCount, PlatformStats } from './types.js';
+import type { DatabaseHealth, PlatformStats } from './types.js';
+import type { ServerOverview } from './wire/serverAdmin.js';
+
+export type { ServerOverview } from './wire/serverAdmin.js';
 
 const DAY_MS = 86_400_000;
 const WEEK_MS = 7 * DAY_MS;
@@ -41,42 +44,6 @@ export function statsWindow(now: number): { activeSince: number; signupsFrom: nu
     signupsFrom: isoWeekStart(now) - (SIGNUP_WEEKS - 1) * WEEK_MS,
     receivedFrom: utcDay(now) - (RECEIVED_DAYS - 1) * DAY_MS,
   };
-}
-
-export interface ServerOverview {
-  asOf: number;
-  users: {
-    total: number;
-    disabled: number;
-    platformAdmins: number;
-    /** Seen in a project or logged in within ACTIVE_DAYS. */
-    active: number;
-    /** Accounts made per ISO week (UTC), oldest first, SIGNUP_WEEKS of them, empty weeks included. */
-    signupsByWeek: { week: string; start: number; count: number }[];
-  };
-  projects: {
-    total: number;
-    /** With a member seen or a record received within ACTIVE_DAYS. */
-    active: number;
-    storageBytes: number;
-    /** The largest projects by id (no names: §4b), largest first. */
-    largest: { projectId: string; storageBytes: number }[];
-  };
-  records: {
-    /** Records stored in the RECEIVED_DAYS days shown. */
-    received: number;
-    receivedByDay: DayCount[];
-  };
-  database: {
-    backend: 'memory' | 'postgres';
-    sizeBytes: number | null;
-    version: string | null;
-    /** null on the memory store. `missing`: files this server ships that are not recorded as run. */
-    migrations: { applied: number; shipped: number; latest: string | null; newestAppliedAt: number | null; missing: string[] } | null;
-  };
-  server: { version: string; startedAt: number };
-  /** Failed logins and refused requests by hour, counted in memory by this instance since it started. */
-  security: CountersSnapshot;
 }
 
 /** Puts the store's figures together for GET /v1/admin/overview. Totals and project ids only. */

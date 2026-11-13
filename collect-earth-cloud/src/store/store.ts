@@ -76,6 +76,7 @@ import type {
   ServerActivityQuery,
   StoppedDigest,
 } from '../types.js';
+import type { OwnerAlertKind } from '../wire/serverAdmin.js';
 import type { UncertaintySettings } from '../uncertainty.js';
 import type { AreaSettings } from '../areas.js';
 import type { CeoShapesJob } from '../ceo/shapes.js';
@@ -307,7 +308,7 @@ export interface Store {
   /** The weekly mails stopped because the mail server refused the address, newest first. */
   listStoppedDigests(): Promise<StoppedDigest[]>;
   /** Keeps an alert raised for the server's administrators; its id. */
-  appendOwnerAlert(alert: { kind: string; at: number; count: number; projectId: string | null }): Promise<string>;
+  appendOwnerAlert(alert: { kind: OwnerAlertKind; at: number; count: number; projectId: string | null }): Promise<string>;
   /** The alerts kept, newest first, with how many there are and how many are not seen. */
   listOwnerAlerts(q: { offset: number; limit: number }): Promise<{ alerts: StoredOwnerAlert[]; total: number; unseen: number }>;
   /** Marks these alerts (null: every one not seen) seen by `userId` at `at`; how many were marked. */

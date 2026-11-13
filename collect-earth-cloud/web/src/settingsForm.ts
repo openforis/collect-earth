@@ -1,4 +1,4 @@
-import type { ServerSettings } from "./api";
+import type { ServerSettings, SettingsChange } from "./api";
 import type { MessageKey } from "./i18n";
 
 // The server page's limits and "about this server" boxes: text in, settings out, with
@@ -46,7 +46,7 @@ export function isWebAddress(text: string): boolean {
 }
 
 /** The settings to save, or the problems to show next to each box. */
-export function readDraft(draft: SettingsDraft): { changes: Partial<ServerSettings>; problems: DraftProblems } {
+export function readDraft(draft: SettingsDraft): { changes: SettingsChange; problems: DraftProblems } {
   const problems: DraftProblems = {};
   const maxProjectsPerUser = parseLimit(draft.maxProjectsPerUser);
   const maxProjectStorageMb = parseLimit(draft.maxProjectStorageMb);

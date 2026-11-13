@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { redactUrlsIn } from './logRedact.js';
+import type { DashboardTelemetry } from './wire/account.js';
 
 /**
  * Error reports (Sentry) and usage events (Google Analytics 4, Measurement Protocol, from the
@@ -148,7 +149,7 @@ export class Telemetry {
   }
 
   /** The dashboard's Sentry settings (no secret), when error reports are on. */
-  dashboardConfig(): { sentryDsn: string | null; environment: string; release: string; events: boolean } | null {
+  dashboardConfig(): DashboardTelemetry | null {
     const events = Boolean(this.config.gaMeasurementId && this.config.gaApiSecret);
     if (!this.config.sentryDsn && !events) return null;
     return { sentryDsn: this.config.sentryDsn, environment: this.config.environment, release: `collect-earth-cloud@${this.version}`, events };

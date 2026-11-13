@@ -21,6 +21,8 @@ The dashboard and the server are built and shipped together (the Dockerfile buil
 `src/wire/`; local mode bundles both), so the dashboard never talks to an older server and needs no
 fallbacks for one.
 
-Moved here so far: progress, the bell, progress links and the Settings tab's project calls. The
-other areas of `web/src/api.ts` still have their own copies and clean-up functions; move them one
+Moved here so far: progress, the bell, progress links and the Settings tab's project calls
+(`progress.ts`, `projectSettings.ts`); accounts, sign-in and sign-up, the current user, two-step
+sign-in, email digests, invites, former members and server-info (`account.ts`); the server page
+(`serverAdmin.ts`). The other areas of `web/src/api.ts` still have their own copies and clean-up functions; move them one
 area at a time.

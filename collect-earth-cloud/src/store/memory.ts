@@ -89,6 +89,7 @@ import {
   TrainingGolden,
   TrainingSet,
 } from '../types.js';
+import type { OwnerAlertKind } from '../wire/serverAdmin.js';
 import {
   checkCursor,
   type CreateInviteInput,
@@ -1242,7 +1243,7 @@ export class InMemoryStore implements Store {
     return { entries: kept.slice(q.offset, q.offset + q.limit), total: kept.length };
   }
 
-  async appendOwnerAlert(alert: { kind: string; at: number; count: number; projectId: string | null }): Promise<string> {
+  async appendOwnerAlert(alert: { kind: OwnerAlertKind; at: number; count: number; projectId: string | null }): Promise<string> {
     const id = String(this.ownerAlerts.length + 1);
     this.ownerAlerts.push({ id, ...alert, seenAt: null, seenByUserId: null });
     return id;

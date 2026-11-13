@@ -93,6 +93,7 @@ import {
   TrainingKind,
   TrainingSet,
 } from '../types.js';
+import type { OwnerAlertKind } from '../wire/serverAdmin.js';
 import {
   checkCursor,
   type CreateInviteInput,
@@ -1325,7 +1326,7 @@ export class PostgresStore implements Store {
     };
   }
 
-  async appendOwnerAlert(alert: { kind: string; at: number; count: number; projectId: string | null }): Promise<string> {
+  async appendOwnerAlert(alert: { kind: OwnerAlertKind; at: number; count: number; projectId: string | null }): Promise<string> {
     const res = await this.pool.query('INSERT INTO owner_alerts (at, kind, count, project_id) VALUES ($1, $2, $3, $4) RETURNING id', [
       new Date(alert.at),
       alert.kind,
@@ -1349,7 +1350,7 @@ export class PostgresStore implements Store {
       alerts: rows.rows.map((r) => ({
         id: String(r.id),
         at: (r.at as Date).getTime(),
-        kind: r.kind as string,
+        kind: r.kind as OwnerAlertKind,
         count: Number(r.count),
         projectId: (r.project_id as string | null) ?? null,
         seenAt: r.seen_at ? (r.seen_at as Date).getTime() : null,

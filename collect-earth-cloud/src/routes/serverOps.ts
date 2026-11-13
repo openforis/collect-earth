@@ -17,6 +17,7 @@ import {
   versionsSince,
 } from '../serverOps.js';
 import type { Store } from '../store/store.js';
+import type { ProjectArchivedAnswer, ProjectHandedAnswer, ServerActivityPage } from '../wire/serverAdmin.js';
 import { SERVER_ACTION_KINDS, type ServerActionKind } from '../types.js';
 
 /** The activity log's largest page; its CSV takes at most this many entries. */
@@ -43,11 +44,11 @@ export async function registerServerOpsRoutes(app: FastifyInstance, store: Store
     const from = isUuid(projectId) ? await store.getProjectStatus(projectId) : null;
     if (!from) return reply.code(404).send({ error: 'not_found' });
     const to = archived ? 'archived' : 'closed';
-    if (archived === (from === 'archived')) return reply.send({ projectId, status: from });
+    if (archived === (from === 'archived')) return reply.send({ projectId, status: from } satisfies ProjectArchivedAnswer);
     await store.setProjectStatus(projectId, to);
     await store.appendAudit(projectId, { actorUserId: request.userId ?? null, action: 'settings.changed', details: { setting: 'status', from, status: to, byServerAdmin: true } });
     await logServerAction(store, request, { action: archived ? 'project.archived' : 'project.restored', projectId, details: { from } });
-    return reply.send({ projectId, status: to });
+    return reply.send({ projectId, status: to } satisfies ProjectArchivedAnswer);
   });
 
   // Hands a project to a coordinator the administrator names (an enabled account): made a member as coordinator, or a
@@ -67,7 +68,7 @@ export async function registerServerOpsRoutes(app: FastifyInstance, store: Store
     await store.appendAudit(projectId, { actorUserId: request.userId ?? null, action: 'member.role', details: { userId: user.id, role: 'admin', byServerAdmin: true } });
     await request.server.referenceSync?.(projectId, request.log);
     await logServerAction(store, request, { action: 'project.coordinator', projectId, targetUserId: user.id, targetName: user.username, details: { wasMember: member !== null } });
-    return reply.send({ projectId, userId: user.id, username: user.username, wasMember: member !== null });
+    return reply.send({ projectId, userId: user.id, username: user.username, wasMember: member !== null } satisfies ProjectHandedAnswer);
   });
 
   const activityQuery = (query: unknown) => {
@@ -86,7 +87,7 @@ export async function registerServerOpsRoutes(app: FastifyInstance, store: Store
     // A page past the end (entries filtered away meanwhile): the last one
     const page = Math.min(q.page, pages);
     const { entries, total } = page === q.page ? first : await store.listServerActivity({ actor: q.actor, kind: q.kind, offset: (page - 1) * q.pageSize, limit: q.pageSize });
-    return reply.header('cache-control', 'no-store').send({ entries, total, page, pages, pageSize: q.pageSize, actors: await store.listServerActivityActors() });
+    return reply.header('cache-control', 'no-store').send({ entries, total, page, pages, pageSize: q.pageSize, actors: await store.listServerActivityActors() } satisfies ServerActivityPage);
   });
 
   app.get('/v1/admin/activity.csv', admin, async (request: FastifyRequest, reply: FastifyReply) => {

@@ -55,8 +55,6 @@ describe("server answers the web now reads", () => {
     expect(toPersonData({ speed: { veryFast: 2 } }).speed.veryFastSeconds).toBe(15);
     fetchMock.mockResolvedValue(jsonResponse(200, { security: { lateDraws: 2, lastLateDrawAt: 1_700_000_000_000 } }));
     expect((await getServerOverview()).security).toMatchObject({ lateDraws: 2, lastLateDrawAt: 1_700_000_000_000 });
-    fetchMock.mockResolvedValue(jsonResponse(200, { security: {} }));
-    expect((await getServerOverview()).security).toMatchObject({ lateDraws: 0, lastLateDrawAt: null });
   });
 });
 

@@ -7,6 +7,9 @@ import { fill, oneLine, renderHtml, renderText, type MailLine } from './digestTe
 import { isTimeZone } from './days.js';
 import type { MailMessage } from './mail.js';
 import type { MailLanguage } from './types.js';
+import type { MessageAudience } from './wire/serverAdmin.js';
+
+export type { MessageAudience } from './wire/serverAdmin.js';
 
 /** How long a reset link mailed by "Forgot your password?" works (an administrator's works 7 days). */
 export const SELF_RESET_TTL_MS = 60 * 60 * 1000;
@@ -245,9 +248,6 @@ export function testMail(ctx: SecurityContext, to: string): MailMessage {
   const p = params(ctx);
   return message(ctx, to, w('testSubject', p), [{ kind: 'para', text: w('testBody', p) }], 'server.test');
 }
-
-/** Who a server administrator's message goes to. */
-export type MessageAudience = 'coordinators' | 'everyone';
 
 /**
  * A message from the server's administrators (the server page): their subject and text, as typed (paragraphs between blank

@@ -2,28 +2,18 @@
 // same list as a CSV, and the accounts a server administrator makes. Pure: the route gives every account (listUsers).
 import { isEmailAddress, isValidUsername } from './accountRules.js';
 import type { UserSummary } from './types.js';
+import type { AccountFilter, AccountPage, AccountQuery, AccountSort } from './wire/serverAdmin.js';
+
+export type { AccountFilter, AccountQuery, AccountSort } from './wire/serverAdmin.js';
 
 /** An account not active for this many days counts as inactive. */
 export const INACTIVE_DAYS = 90;
 const DAY_MS = 24 * 3600 * 1000;
-export const ACCOUNT_FILTERS = ['all', 'admins', 'disabled', 'locked', 'twoFactor', 'noTwoFactor', 'inactive', 'noEmail'] as const;
-export type AccountFilter = (typeof ACCOUNT_FILTERS)[number];
-export const ACCOUNT_SORTS = ['name', 'created', 'lastActive', 'projects'] as const;
-export type AccountSort = (typeof ACCOUNT_SORTS)[number];
+export const ACCOUNT_FILTERS = ['all', 'admins', 'disabled', 'locked', 'twoFactor', 'noTwoFactor', 'inactive', 'noEmail'] as const satisfies readonly AccountFilter[];
+export const ACCOUNT_SORTS = ['name', 'created', 'lastActive', 'projects'] as const satisfies readonly AccountSort[];
 export const MAX_PAGE_SIZE = 200;
 /** Most accounts made in one request. */
 export const MAX_NEW_ACCOUNTS = 100;
-
-export interface AccountQuery {
-  /** Searched in the name and the address, any case */
-  q: string;
-  filter: AccountFilter;
-  sort: AccountSort;
-  desc: boolean;
-  /** From 1 */
-  page: number;
-  pageSize: number;
-}
 
 const word = <T extends string>(value: unknown, allowed: readonly T[], fallback: T): T =>
   typeof value === 'string' && (allowed as readonly string[]).includes(value) ? (value as T) : fallback;
@@ -70,7 +60,7 @@ export function isOfFilter(u: UserSummary, filter: AccountFilter, now: number): 
 const plain = (a: string, b: string) => a.localeCompare(b, 'en', { sensitivity: 'base', numeric: true });
 
 /** The accounts searched, filtered, sorted (then by name) and cut into the page asked; with each filter's count of the search. */
-export function queryAccounts(users: readonly UserSummary[], query: AccountQuery, now: number) {
+export function queryAccounts(users: readonly UserSummary[], query: AccountQuery, now: number): AccountPage {
   const needle = query.q.toLowerCase();
   const searched = needle === '' ? [...users] : users.filter((u) => u.username.toLowerCase().includes(needle) || (u.email ?? '').toLowerCase().includes(needle));
   const counts = Object.fromEntries(ACCOUNT_FILTERS.map((f) => [f, searched.filter((u) => isOfFilter(u, f, now)).length])) as Record<AccountFilter, number>;

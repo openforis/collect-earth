@@ -54,6 +54,12 @@ describe('first-run setup and server info', () => {
     expect(typeof res.json().version).toBe('string');
     // The map's base map: OpenStreetMap unless the server sets another (MAP_TILE_URL).
     expect(res.json().mapTiles).toEqual(OSM_TILES);
+    // Every field of the dashboard's ServerInfo (src/wire/account.ts), localMode included
+    expect(Object.keys(res.json()).sort()).toEqual([
+      'aiAvailable', 'contactEmail', 'localMode', 'mapTiles', 'minPasswordLength', 'needsSetup', 'projectCreation',
+      'selfServiceReset', 'serverName', 'signupDomains', 'signupOpen', 'telemetry', 'termsUrl', 'version',
+    ]);
+    expect(res.json().localMode).toBe(false);
   });
 
   it('gives the map tiles the server sets', async () => {
