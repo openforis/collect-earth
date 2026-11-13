@@ -1,11 +1,12 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { attr, cepProperties, childrenOf, elements, hiddenKeys, parseSurvey, readCep, surveyInfo } from '../cep.js';
-import { hasPolygonColumn, plotOutline, visibleId, type PlotOutline } from '../plotShape.js';
+import { hasPolygonColumn, plotOutline, visibleId } from '../plotShape.js';
 import { plotFileOf } from '../plotFileCache.js';
 import { isNumber } from '../plots.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import { fileKeyCount } from '../rounds.js';
 import type { Store } from '../store/store.js';
+import type { PlotPlace, PlotPlaces } from '../wire/map.js';
 
 /** Most plots one call may ask for (a page of the Quality tab's differences). */
 export const MAX_PLACES = 200;
@@ -27,25 +28,7 @@ export interface SurveyFacts {
 /** Served project files whose facts are kept. */
 const MAX_CACHED_SRS = 16;
 
-export interface PlotPlace {
-  plot: string;
-  lat: number;
-  lon: number;
-  /** The plot id as the collector sees it (keys hidden from the record list left out). */
-  name: string;
-}
-
-export interface PlotPlaces {
-  places: PlotPlace[];
-  /** The outline Collect Earth draws around each plot, or only the place (plotShape.ts). */
-  outline: PlotOutline;
-  /**
-   * Set when the survey's coordinates are not latitude and longitude (its first spatial
-   * reference system, e.g. "EPSG:32633"): Collect Earth transforms them, this server does
-   * not, so no place is given.
-   */
-  unsupportedSrs?: string;
-}
+export type { PlotPlace, PlotPlaces } from '../wire/map.js';
 
 /**
  * A coordinate field as Collect Earth reads it (KmlGenerator.getPlotObject): a decimal
@@ -258,6 +241,6 @@ export async function registerPlotPlaceRoutes(app: FastifyInstance, store: Store
       const reference = new Set((await store.listReferencePlots(projectId)).map((r) => r.plotKey));
       if (reference.size > 0) asked = plots.filter((p) => !reference.has(p));
     }
-    return reply.send(await reader.places(projectId, asked, request.log));
+    return reply.send((await reader.places(projectId, asked, request.log)) satisfies PlotPlaces);
   });
 }

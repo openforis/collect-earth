@@ -11,8 +11,10 @@
 import { FLAG_KINDS, type Flag, type FlagKind, type Resubmitted } from './flags.js';
 import { plotOrder, type DifferingPairs } from './quality.js';
 import type { DecisionKind } from './types.js';
+import type { BulkRule, QueueSection } from './wire/review.js';
 
-export type QueueSection = 'difference' | 'flag' | 'resubmitted';
+export type { BulkRule, QueueSection } from './wire/review.js';
+
 const SECTIONS: readonly QueueSection[] = ['difference', 'flag', 'resubmitted'];
 /** What the queue can be filtered by: a part, or a kind of flag. */
 export const QUEUE_KINDS = ['difference', ...FLAG_KINDS, 'resubmitted'] as const;
@@ -198,8 +200,7 @@ export function itemsAfter(items: readonly QueueItem[], cursor: QueueKey): Queue
 }
 
 /** The bulk decisions a coordinator can make (Task 7). */
-export const BULK_RULES = ['first_by_reviewer', 'check_by_reviewer'] as const;
-export type BulkRule = (typeof BULK_RULES)[number];
+export const BULK_RULES: readonly BulkRule[] = ['first_by_reviewer', 'check_by_reviewer'];
 
 /**
  * The plots a bulk rule decides, among the differing plots without a decision, in plot order.

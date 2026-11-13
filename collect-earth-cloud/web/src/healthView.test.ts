@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { toSurveyHealth, type HealthRow, type SurveyHealthData } from "./api";
+import type { HealthRow, SurveyHealthAnswer } from "./api";
 import { agreementText, changedText, emptyText, noneText, orderText, otherText, reasonText } from "./healthView";
 import { CATALOGUES, translator } from "./i18n";
 
@@ -29,7 +29,7 @@ const row = (extra: Partial<HealthRow> = {}): HealthRow => ({
   ...extra,
 });
 
-const data = (extra: Partial<SurveyHealthData> = {}): SurveyHealthData => ({
+const data = (extra: Partial<SurveyHealthAnswer> = {}): SurveyHealthAnswer => ({
   plots: 40,
   plotsChecked: 25,
   decidedForCheck: 4,
@@ -81,25 +81,5 @@ describe("healthView", () => {
       expect(text, language).not.toMatch(/\{\w+\}/);
       for (const r of row().reasons) expect(reasonText(translator(language), r, row(), data(), language), language).not.toMatch(/\{\w+\}/);
     }
-  });
-
-  it("reads the server's answer, leaving out what it does not know", () => {
-    const d = toSurveyHealth({
-      plots: 40,
-      plotsChecked: 25,
-      decidedForCheck: 4,
-      questionsTotal: 2,
-      questions: [
-        { ...row(), reasons: ["low_agreement", "made_up"], emptyWhy: "other", conditional: true },
-        { key: "collect_real_canopy", label: "", kind: "number", answered: 39, blank: 0, notKnown: 0, nonNumeric: 1, emptyShare: 0, other: null, agreement: null, decisions: { changed: 0, share: null }, reasons: [] },
-      ],
-      thresholds: { minPlots: 20, lowAgreement: 0.8, oftenOther: 0.1, oftenEmpty: 0.2, minChanged: 5, oftenChanged: 0.25 },
-      computedAt: 5,
-      stale: true,
-    });
-    expect(d.questions[0]).toMatchObject({ reasons: ["low_agreement"], emptyWhy: null, conditional: true, none: null });
-    expect(d.questions[1]).toMatchObject({ label: "collect_real_canopy", kind: "number", other: null, agreement: null, calculated: false });
-    expect(d).toMatchObject({ plots: 40, decidedForCheck: 4, computedAt: 5, stale: true });
-    expect(toSurveyHealth({}).thresholds.lowAgreement).toBe(0.8);
   });
 });

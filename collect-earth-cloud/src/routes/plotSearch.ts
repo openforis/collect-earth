@@ -15,6 +15,7 @@ import type { Store } from '../store/store.js';
 import type { RecordRow, ReferencePlot } from '../types.js';
 import { PlotPlaceReader } from './plotPlaces.js';
 import { copiesHeld, MAX_NAME, publicDecision, unnamedFlag } from './quality.js';
+import type { PlotPageAnswer, PlotPageRecord, PlotSearchAnswer } from '../wire/review.js';
 
 /**
  * Plot search (Task 8), for coordinators and reviewers (never collectors: a collector must not
@@ -104,21 +105,7 @@ export class PlotIndexCache {
 type BadRequest = { error: 'bad_request'; reason: string };
 const bad = (reason: string): BadRequest => ({ error: 'bad_request', reason });
 
-/** One record of the plot as the page shows it. */
-export interface PlotPageRecord {
-  operator: string;
-  recordKey: string;
-  /** The round as the figures read it ("1", "2", a year...). */
-  round: string;
-  assessment: Assessment;
-  submitted: boolean;
-  deleted: boolean;
-  modifiedOn: number;
-  /** Coordinators only. */
-  receivedAt?: number;
-  /** Its answers to the questions listed (`questions`), as stored. */
-  answers: Record<string, string>;
-}
+export type { PlotPageRecord } from '../wire/review.js';
 
 const ORDER: Record<Assessment, number> = { main: 0, check: 1, other: 2 };
 
@@ -137,7 +124,7 @@ export async function registerPlotSearchRoutes(
     const { index } = await indexes.get(projectId, request.log);
     // Reviewers never find a reference plot (Task 14): which plots they are is the coordinators'.
     const hidden = role === 'admin' ? null : new Set((await store.listReferencePlots(projectId)).map((r) => r.plotKey));
-    return reply.send(searchPlots(index, q, undefined, hidden && hidden.size > 0 ? (plot) => hidden.has(plot) : undefined));
+    return reply.send(searchPlots(index, q, undefined, hidden && hidden.size > 0 ? (plot) => hidden.has(plot) : undefined) satisfies PlotSearchAnswer);
   }
 
   async function page(request: FastifyRequest, reply: FastifyReply, plot: string) {
@@ -296,7 +283,7 @@ export async function registerPlotSearchRoutes(
       place: place ? { lat: place.lat, lon: place.lon, name: place.name } : null,
       outline: outlineOf,
       ...(where.unsupportedSrs ? { unsupportedSrs: where.unsupportedSrs } : {}),
-    });
+    } satisfies PlotPageAnswer);
   }
 
   /** Whether the plot is a reference plot (null: no), with its assessor (only coordinators see a reference plot's page). */

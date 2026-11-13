@@ -1,12 +1,14 @@
 import type { ProgressSettings } from './wire/progress.js';
 import type { ProjectStatus } from './wire/projectSettings.js';
 import type { Role } from './wire/projects.js';
+import type { SamplingDraw, SamplingRule } from './wire/checks.js';
 
 export type { ProgressSettings } from './wire/progress.js';
 export type { ProjectStatus, ShareLink } from './wire/projectSettings.js';
 /** Membership role within a single project (Role), and the project calls' types (src/wire/projects.ts). */
 export type { CepInfo, Member, Membership, RepeatSettings, Role } from './wire/projects.js';
 export type { Assignment, AssignmentDetail, CsvFile, DivisionOrder, StoredDistribution } from './wire/plotFiles.js';
+export type { ReferenceChangeResult, SamplingCore, SamplingDraw, SamplingFileRule, SamplingRule } from './wire/checks.js';
 
 export interface User {
   id: string;
@@ -382,42 +384,6 @@ export interface PlotAssignment {
   sampledAt?: number;
 }
 
-/**
- * What the automatic check sampling does (Task 13), for the project or one divided file.
- * - `checkers`: the user ids who may receive checks; null = every collector (reviewers and
- *   coordinators only when chosen).
- * - `firstN`: check the first N plots each person submits; null = off.
- * - `percent`: check this share of each person's plots of each ISO week; null = off.
- */
-export interface SamplingCore {
-  checkers: string[] | null;
-  firstN: number | null;
-  percent: number | null;
-}
-
-/** One divided file's own rule: the project's (the default, not stored), none, or its own. */
-export type SamplingFileRule = { use: 'off' } | ({ use: 'own' } & SamplingCore);
-
-/** The project's rule; `seed` makes every draw repeatable; `files` only the files that do not use the project's rule. */
-export interface SamplingRule extends SamplingCore {
-  seed: number;
-  files: Record<string, SamplingFileRule>;
-}
-
-/** One draw, as kept for the Checks section (counts and ids only). */
-export interface SamplingDraw {
-  at: number;
-  /** Who pressed "Draw now"; null for an automatic draw. */
-  byUserId: string | null;
-  automatic: boolean;
-  /** Copies added, and of them for each rule. */
-  drawn: number;
-  firstN: number;
-  percent: number;
-  /** Plots due for a check that no checker could take (all of them assessed or hold it). */
-  noChecker: number;
-}
-
 /** The project's sampling state (sampling_rules). */
 export interface SamplingState {
   rule: SamplingRule | null;
@@ -521,14 +487,6 @@ export interface ReferenceChange {
   addCopies: readonly PlotHoldingKey[];
   at: number;
   by: string | null;
-}
-
-/** What changeReferencePlots did. */
-export interface ReferenceChangeResult {
-  unmarked: number;
-  marked: number;
-  copiesAdded: number;
-  copiesDropped: number;
 }
 
 /**

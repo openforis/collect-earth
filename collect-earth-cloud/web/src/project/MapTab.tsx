@@ -689,7 +689,7 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
         ) : data && (
           <Stack spacing={1.5}>
             <AsOf asOf={data.asOf} />
-            {data.unsupportedSrs !== null && (
+            {data.unsupportedSrs !== undefined && (
               <Alert severity="info" role="note">
                 {t("map.unsupportedSrs.short", { srs: data.unsupportedSrs })}
                 <MoreInfo text={t("map.unsupportedSrs", { srs: data.unsupportedSrs })} />
@@ -706,7 +706,7 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
                 {t("map.staleFigures", { time: formatDate(data.figures.computedAt, language) })}
               </Typography>
             ) : null}
-            {data.total === 0 && data.unsupportedSrs === null && <Alert severity="info" role="note">{t("map.noPlots")}</Alert>}
+            {data.total === 0 && data.unsupportedSrs === undefined && <Alert severity="info" role="note">{t("map.noPlots")}</Alert>}
             {data.total > 0 && (
               <>
                 {colourBy === "change" && <ErrorAlert error={change.error} onRetry={change.reload} />}
@@ -836,10 +836,10 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
           {data.notOnMap > 0 && (
             <Typography variant="body2" sx={{ mt: 1.5 }}>
               {t("map.notOnMap", { n: n(data.notOnMap) })}
-              {data.unsupportedSrs === null && <MoreInfo text={t("map.notOnMap.more")} />}
+              {data.unsupportedSrs === undefined && <MoreInfo text={t("map.notOnMap.more")} />}
             </Typography>
           )}
-          {data.unsupportedSrs === null && offMap.length > 0 && (
+          {data.unsupportedSrs === undefined && offMap.length > 0 && (
             <Box component="ul" sx={{ mt: 0.5, mb: 0, pl: 3 }}>
               {offMap.map((f) => (
                 <li key={f.id}>

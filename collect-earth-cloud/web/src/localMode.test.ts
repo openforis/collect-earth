@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAP_STATUSES, type Forecast, type LogItem, type MapPlots, type MapStatus, type PatternFlag, type SurveyHealthData } from "./api";
+import { MAP_STATUSES, type Forecast, type LogItem, type MapPlots, type MapStatus, type PatternFlag, type SurveyHealthAnswer } from "./api";
 import { COORDINATOR_LOG_KINDS, logSentence } from "./activityView";
 import { flagText } from "./flagsView";
 import { orderText } from "./healthView";
@@ -165,7 +165,6 @@ describe("local mode: Map", () => {
     holders: [["ana"]],
     figures: null,
     asOf: null,
-    unsupportedSrs: null,
   });
 
   it("lists the statuses reachable alone (no decisions, no checks), and any other with plots", () => {
@@ -229,7 +228,7 @@ describe("local mode: Quality", () => {
   });
 
   it("orders the survey's health without checks or decisions", () => {
-    const data = { thresholds: { lowAgreement: 0.7, oftenOther: 0.2, oftenEmpty: 0.1, minPlots: 20, minChanged: 3, oftenChanged: 0.3 } } as unknown as SurveyHealthData;
+    const data = { thresholds: { lowAgreement: 0.7, oftenOther: 0.2, oftenEmpty: 0.1, minPlots: 20, minChanged: 3, oftenChanged: 0.3 } } as unknown as SurveyHealthAnswer;
     const text = orderText(t, data, "en", { local: true });
     expect(text).toContain("20 plots");
     expect(text).not.toMatch(/check|decided/);

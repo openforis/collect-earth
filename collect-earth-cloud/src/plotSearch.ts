@@ -1,5 +1,6 @@
 import { visibleId } from './plotShape.js';
 import { splitKey, type KeyShape } from './rounds.js';
+import type { PlotSearchAnswer } from './wire/review.js';
 
 /**
  * Plot search (Task 8): the plots of a project's plot files by the id the coordinator sees,
@@ -112,14 +113,7 @@ function lowerBound(keys: readonly string[], text: string): number {
   return lo;
 }
 
-export interface PlotMatch {
-  /** The plot unit, as the quality figures, the decisions and the review queue name it. */
-  plot: string;
-  /** The id the collector sees. */
-  name: string;
-  /** The plot files holding it, in the files' order. */
-  files: { id: string; filename: string }[];
-}
+export type { PlotMatch } from './wire/review.js';
 
 /** The files of a unit (by its index). */
 export function filesOfUnit(index: PlotIndex, u: number): { id: string; filename: string }[] {
@@ -147,7 +141,7 @@ export function unitIndex(index: PlotIndex, plot: string): number {
  * trimmed): the shortest ids first, then in text order ("1", "10" ... "19", "100"), each
  * plot once, at most `limit`. `more`: other plots match too (the person types more).
  */
-export function searchPlots(index: PlotIndex, query: string, limit = MAX_SEARCH_RESULTS, skip?: (plot: string) => boolean): { plots: PlotMatch[]; more: boolean } {
+export function searchPlots(index: PlotIndex, query: string, limit = MAX_SEARCH_RESULTS, skip?: (plot: string) => boolean): PlotSearchAnswer {
   const q = query.trim().toLowerCase();
   if (q === '') return { plots: [], more: false };
   const from = lowerBound(index.keys, q);

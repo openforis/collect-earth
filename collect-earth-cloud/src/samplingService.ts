@@ -6,6 +6,9 @@ import { keyShape, splitKey } from './rounds.js';
 import { checkersOf, coreOf, drawChecks, notBlindCheckers, samplingActive, type DrawFile, type DrawInput, type DrawResult } from './sampling.js';
 import type { Store } from './store/store.js';
 import type { CsvFile, Member, PlotAssignment, SampledCopy, SamplingDraw, SamplingRule, SamplingState } from './types.js';
+import type { SamplingView } from './wire/checks.js';
+
+export type { SamplingView } from './wire/checks.js';
 
 /**
  * After this many automatic draws in a row of one project worked out past their request's wait, the
@@ -250,49 +253,6 @@ export class SamplingService {
     }
     return { sampling, state, members, divided, holdings, input: drawInputOf(rule, state, members, divided, holdings) };
   }
-}
-
-export interface SamplingView {
-  rule: SamplingRule | null;
-  active: boolean;
-  intervalMinutes: number;
-  due: boolean;
-  dueSince: number | null;
-  /** When the next automatic draw can be made (a first submission or someone's plot list then triggers it). */
-  nextAutomaticAt: number | null;
-  /** The last draw that added copies. */
-  lastDraw: (SamplingDraw & { by: string | null }) | null;
-  /** When a draw last looked for plots to check (one that found none included). */
-  lastCheckedAt: number | null;
-  /** What a draw now would add. */
-  pending: { drawn: number; firstN: number; percent: number; noChecker: number };
-  files: {
-    csvFileId: string;
-    filename: string;
-    use: 'project' | 'off' | 'own';
-    own: { checkers: string[] | null; firstN: number | null; percent: number | null } | null;
-    plots: number;
-    submitted: number;
-    sampledCopies: number;
-    /** The division's copies (reference copies apart). */
-    divisionCopies: number;
-    /** Copies of reference plots (Task 14). */
-    referenceCopies: number;
-    pending: number;
-  }[];
-  /** Whole files cannot hold checks: assign them by plot to use checks. */
-  wholeFiles: { csvFileId: string; filename: string }[];
-  checkers: { userId: string; username: string; role: Member['role']; eligible: boolean; disabled: boolean; open: number; done: number; sampled: number }[];
-  /** Everyone of the project, to choose the checkers from. */
-  members: { userId: string; username: string; role: Member['role']; disabled: boolean }[];
-  /** Nobody may receive checks under the project's rule. */
-  noCheckers: boolean;
-  /**
-   * Reviewers or coordinators chosen as checkers (the project's or a file's own rule): they can
-   * read the first assessments on the dashboard, so their checks may not be blind (Decision 10).
-   */
-  warning: { code: 'checkers_not_blind'; usernames: string[] } | null;
-  asOf: number;
 }
 
 /** unit -> its earliest submitted first assessment (who and when), from the project state. */

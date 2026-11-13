@@ -87,6 +87,7 @@ import {
   getTeamReport,
   downloadExport,
   type RoundInfo,
+  type MapPage,
 } from "./api";
 import { CATALOGUES } from "./i18n";
 import { setToken } from "./storage";
@@ -552,15 +553,14 @@ describe("the quality figures", () => {
           {
             plot: "7",
             section: "resubmitted",
-            people: ["ana", 5],
+            people: ["ana"],
             differences: [{ plot: "7", first: { operator: "ana", recordKey: "7,1" }, check: { operator: "ben", recordKey: "7,2" }, fields: [{ key: "q", first: "F", check: "G" }] }, { plot: "7", first: { operator: "ana", recordKey: "7,1" }, check: { operator: "cy", recordKey: "7,2" }, fields: [], changed: true }],
-            flags: [{ kind: "very_fast", plot: "7", operator: "ana", at: 5, details: { gapMs: 3000, previousPlot: "6" } }, { kind: "unknown", plot: "7" }],
+            flags: [{ kind: "very_fast", plot: "7", operator: "ana", at: 5, details: { gapMs: 3000, previousPlot: "6" } }],
             resubmitted: [{ plot: "7", operator: "ana", at: 9, decidedAt: 8 }],
-            waiting: ["ben", 3],
+            waiting: ["ben"],
             left: ["cy"],
             decision: { plot: "7", decision: "recheck", comment: null, decidedBy: "rita", decidedAt: 8, byAssessor: true },
           },
-          { plot: "8", section: "odd" },
         ],
         next: "flag:5:8",
         total: 2,
@@ -578,6 +578,7 @@ describe("the quality figures", () => {
     expect(call(0).url).toBe("/v1/projects/p1/quality/queue?person=ana+b&kind=very_fast&after=difference%3A%3A12");
     expect(queue.next).toBe("flag:5:8");
     expect(queue.items).toHaveLength(1);
+    // The answer as it comes, the flags as the pattern flags section reads them.
     expect(queue.items[0]).toMatchObject({
       plot: "7",
       section: "resubmitted",
@@ -586,66 +587,51 @@ describe("the quality figures", () => {
       resubmitted: [{ operator: "ana", at: 9, decidedAt: 8 }],
       waiting: ["ben"],
       left: ["cy"],
-      decision: { decision: "recheck", decidedBy: "rita" },
+      decision: { decision: "recheck", decidedBy: "rita", byAssessor: true },
     });
-    expect(queue.items[0].differences[0].fields).toEqual([{ key: "q", first: "F", check: "G" }]);
     expect(queue.items[0].differences[1]).toMatchObject({ fields: [], changed: true });
-    expect(queue.items[0].differences[0].changed).toBe(false);
-    expect(queue.items[0].decision?.byAssessor).toBe(true);
     expect(queue).toMatchObject({ total: 2, counts: { resubmitted: 1 }, flagsCapped: true, excludedOwn: 2, labels: { q: "Land use" }, options: { q: [{ code: "F", label: "Forest" }] } });
     await getReviewQueue("p1", { person: null, kind: null }, null);
     expect(call(1).url).toBe("/v1/projects/p1/quality/queue");
-    expect(await bulkDecisions("p1", "first_by_reviewer", true)).toEqual({ decision: "first", count: 3, plots: ["1", "2", "3"], batch: null });
+    expect(await bulkDecisions("p1", "first_by_reviewer", true)).toEqual({ rule: "first_by_reviewer", decision: "first", count: 3, plots: ["1", "2", "3"], dryRun: true, batch: null });
     expect(call(2)).toEqual({ url: "/v1/projects/p1/quality/decisions:bulk?dryRun=1", method: "POST", body: { rule: "first_by_reviewer" } });
     expect((await bulkDecisions("p1", "first_by_reviewer", false)).batch).toBe("b-1");
     expect(call(3)).toEqual({ url: "/v1/projects/p1/quality/decisions:bulk", method: "POST", body: { rule: "first_by_reviewer" } });
   });
 
   it("searches plots and reads a plot's page", async () => {
+    const plotPage = {
+      plot: "1",
+      name: "1",
+      files: [{ id: "f1", filename: "a.csv", divided: true, main: ["ana"], copies: ["ben"] }],
+      records: [{ operator: "ana", recordKey: "1,1", round: "1", assessment: "main", submitted: true, deleted: false, modifiedOn: 5, receivedAt: 6, answers: { q: "F" } }],
+      questions: [{ key: "q", label: "Land use" }],
+      labels: { q: "Land use" },
+      options: { q: [{ code: "F", label: "Forest" }] },
+      decision: { plot: "1", decision: "check", comment: "G", decidedBy: "rita", decidedAt: 8, byAssessor: false },
+      ownPlot: true,
+      reference: null,
+      flags: [{ kind: "very_fast", plot: "1", operator: "ana", at: 5, details: { gapMs: 3000, previousPlot: "0" } }],
+      differences: [{ plot: "1", first: { operator: "ana", recordKey: "1,1" }, check: { operator: "ben", recordKey: "1,2" }, fields: [{ key: "q", first: "F", check: "G" }] }],
+      figures: { computedAt: 3, stale: true },
+      place: { lat: -10, lon: 20, name: "1" },
+      outline: { kind: "square", sideMeters: 70 },
+    };
     fetchMock.mockImplementation(async (_url) => {
       const url = String(_url);
-      if (url.includes("/plots/search")) return jsonResponse(200, { plots: [{ plot: "17,2025", name: "17", files: [{ id: "f1", filename: "a.csv" }, { id: 3 }] }, { name: "no plot" }], more: true });
-      return jsonResponse(200, {
-        plot: "1",
-        name: "1",
-        files: [{ id: "f1", filename: "a.csv", divided: true, main: ["ana"], copies: ["ben", 4] }, { id: "f2", filename: "b.csv", divided: false }],
-        records: [
-          { operator: "ana", recordKey: "1,1", round: "1", assessment: "main", submitted: true, deleted: false, modifiedOn: 5, receivedAt: 6, answers: { q: "F", n: 3 } },
-          { operator: "ben", recordKey: "1,2", round: "2", assessment: "odd", submitted: false, deleted: true, modifiedOn: "x" },
-        ],
-        questions: [{ key: "q", label: "Land use" }, { key: "n" }],
-        labels: { q: "Land use" },
-        options: { q: [{ code: "F", label: "Forest" }] },
-        decision: { plot: "1", decision: "check", comment: "G", decidedBy: "rita", decidedAt: 8, byAssessor: false },
-        ownPlot: true,
-        flags: [{ kind: "very_fast", plot: "1", operator: "ana", at: 5, details: { gapMs: 3000, previousPlot: "0" } }],
-        differences: [{ plot: "1", first: { operator: "ana", recordKey: "1,1" }, check: { operator: "ben", recordKey: "1,2" }, fields: [{ key: "q", first: "F", check: "G" }] }],
-        figures: { computedAt: 3, stale: true },
-        place: { lat: -10, lon: 20, name: "1" },
-        outline: { kind: "square", sideMeters: 70 },
-      });
+      if (url.includes("/plots/search")) return jsonResponse(200, { plots: [{ plot: "17,2025", name: "17", files: [{ id: "f1", filename: "a.csv" }] }], more: true });
+      return jsonResponse(200, plotPage);
     });
     const found = await searchPlots("p1", " 17 ");
     expect(call(0).url).toBe("/v1/projects/p1/plots/search?q=17");
     expect(found).toEqual({ plots: [{ plot: "17,2025", name: "17", files: [{ id: "f1", filename: "a.csv" }] }], more: true });
     const page = await getPlotPage("p1", "1,2025/x");
     expect(call(1).url).toBe("/v1/projects/p1/plots/1%2C2025%2Fx");
-    expect(page.files).toEqual([
-      { id: "f1", filename: "a.csv", divided: true, main: ["ana"], copies: ["ben"] },
-      // A reviewer's page names the files only.
-      { id: "f2", filename: "b.csv", divided: false, main: null, copies: null },
-    ]);
-    expect(page.records[0]).toEqual({ operator: "ana", recordKey: "1,1", round: "1", assessment: "main", submitted: true, deleted: false, modifiedOn: 5, receivedAt: 6, answers: { q: "F", n: "3" } });
-    expect(page.records[1]).toMatchObject({ assessment: "other", submitted: false, deleted: true, modifiedOn: null, answers: {} });
-    expect(page.questions).toEqual([{ key: "q", label: "Land use" }, { key: "n", label: "n" }]);
-    expect(page).toMatchObject({ plot: "1", name: "1", ownPlot: true, figures: { computedAt: 3, stale: true }, place: { lat: -10, lon: 20, name: "1" }, outline: { kind: "square", sideMeters: 70 }, unsupportedSrs: null });
-    expect(page.decision).toMatchObject({ decision: "check", decidedBy: "rita", comment: "G" });
-    expect(page.flags).toEqual([expect.objectContaining({ kind: "very_fast", gapMs: 3000 })]);
-    expect(page.differences?.[0]).toMatchObject({ changed: false, fields: [{ key: "q", first: "F", check: "G" }] });
-    expect(page.options).toEqual({ q: [{ code: "F", label: "Forest" }] });
+    // The answer as it comes, the flags as the pattern flags section reads them.
+    expect(page).toEqual({ ...plotPage, flags: [expect.objectContaining({ kind: "very_fast", gapMs: 3000, previousPlot: "0" })] });
     // No figures at hand: no flags nor differences, rather than none.
-    fetchMock.mockImplementation(async () => jsonResponse(200, { plot: "2", flags: null, differences: null, figures: null, place: null }));
-    expect(await getPlotPage("p1", "2")).toMatchObject({ flags: null, differences: null, figures: null, place: null, decision: null, records: [], files: [] });
+    fetchMock.mockImplementation(async () => jsonResponse(200, { ...plotPage, flags: null, differences: null, figures: null }));
+    expect(await getPlotPage("p1", "2")).toMatchObject({ flags: null, differences: null, figures: null });
     // Nothing typed: nothing asked.
     expect(await searchPlots("p1", "  ")).toEqual({ plots: [], more: false });
     expect(fetchMock).toHaveBeenCalledTimes(3);
@@ -661,15 +647,16 @@ describe("the quality figures", () => {
   });
 
   it("reads the map page by page into typed arrays, and again from the start when it changed", async () => {
-    const page = (offset: number, version = "v1") => ({
+    const page = (offset: number, version = "v1"): MapPage => ({
       version,
       offset,
       total: 3,
       next: offset === 0 ? 2 : null,
-      points: offset === 0 ? [[1.5, 2.5, 2, 0], [3, 4, 5, 9]] : [[-5, 6, 0, -1]],
+      points: offset === 0 ? [[1.5, 2.5, 2, 0], [3, 4, 5, -1]] : [[-5, 6, 0, -1]],
       plots: offset === 0 ? ["1", "2"] : ["3"],
-      statuses: ["notStarted", "started", "submitted", "accepted", "recheck", "differs"],
-      counts: [2, 0, 1, 0, 0, 1],
+      names: null,
+      statuses: ["notStarted", "started", "submitted", "accepted", "recheck", "differs", "resubmitted"],
+      counts: [2, 0, 1, 0, 0, 1, 0],
       notOnMap: 1,
       files: [{ id: "f", filename: "a.csv", plots: 5, onMap: 3 }],
       people: ["ana"],
@@ -691,33 +678,33 @@ describe("the quality figures", () => {
     expect([...map.lat]).toEqual([1.5, 3, -5]);
     expect([...map.lon]).toEqual([2.5, 4, 6]);
     expect([...map.status]).toEqual([2, 5, 0]);
-    // A holder index the answer does not have is nobody.
     expect([...map.holder]).toEqual([0, -1, -1]);
     expect(map.plots).toEqual(["1", "2", "3"]);
     expect(map.names).toBeNull();
     expect(map.counts).toEqual({ notStarted: 2, started: 0, submitted: 1, accepted: 0, recheck: 0, differs: 1, resubmitted: 0 });
-    expect(map).toMatchObject({ total: 3, notOnMap: 1, people: ["ana"], holders: [["ana"]], figures: null, asOf: null, unsupportedSrs: null });
-    expect(map.files).toEqual([{ id: "f", filename: "a.csv", plots: 5, onMap: 3, divided: false }]);
-    // Without `file` (an older server, or a reviewer): no plot file per plot, no reference plots.
+    expect(map).toMatchObject({ total: 3, notOnMap: 1, people: ["ana"], holders: [["ana"]], figures: null, asOf: null });
+    expect(map.unsupportedSrs).toBeUndefined();
+    expect(map.files).toEqual([{ id: "f", filename: "a.csv", plots: 5, onMap: 3 }]);
+    // Without `file` (a reviewer): no plot file per plot, no reference plots.
     expect(map.file).toBeNull();
     expect(map.reference).toBeNull();
     // A reviewer's map names nobody; status codes are read by their names.
-    const reviewer = addMapPage(null, { version: "x", offset: 0, total: 1, points: [[1, 2, 0, 0]], plots: ["9"], statuses: ["differs"], counts: [4], people: null, holders: null, unsupportedSrs: "EPSG:32633" });
+    const reviewer = addMapPage(null, { ...page(0), total: 1, next: null, points: [[1, 2, 0, -1]], plots: ["9"], statuses: ["differs"], counts: [4], people: null, holders: null, unsupportedSrs: "EPSG:32633" });
     expect(reviewer).toMatchObject({ people: null, holders: null, unsupportedSrs: "EPSG:32633" });
     expect([...reviewer.status]).toEqual([5]);
     expect([...reviewer.holder]).toEqual([-1]);
     expect(reviewer.counts.differs).toBe(4);
-    // Coordinators: each plot's plot file (an index the answer does not have is -1) and the reference plots, page by page.
+    // Coordinators: each plot's plot file (-1: several list it) and the reference plots, page by page.
     const first = addMapPage(null, {
-      version: "x", offset: 0, total: 3, points: [[1, 2, 0, 0], [1, 2, 0, 0]], plots: ["1", "2"], file: [0, 4], reference: [1, 2],
+      ...page(0), points: [[1, 2, 0, -1], [1, 2, 0, -1]], plots: ["1", "2"], file: [0, -1], reference: [1],
       files: [{ id: "f", filename: "a.csv", plots: 3, onMap: 3, divided: true }],
     });
-    const whole = addMapPage(first, { version: "x", offset: 2, points: [[1, 2, 0, 0]], plots: ["3"], file: [0], reference: [2, 0] });
+    const whole = addMapPage(first, { ...page(2), points: [[1, 2, 0, -1]], plots: ["3"], file: [0], reference: [2] });
     expect([...whole.file!]).toEqual([0, -1, 0]);
     expect([...whole.reference!]).toEqual([0, 1, 1]);
     expect(whole.files[0].divided).toBe(true);
     // The ids the collector sees, when the server sends them.
-    expect(addMapPage(null, { version: "x", offset: 0, total: 2, points: [[1, 2, 0, 0], [1, 2, 0, 0]], plots: ["1,2025", "2,2025"], names: ["1", 7] }).names).toEqual(["1", "2,2025"]);
+    expect(addMapPage(null, { ...page(0), total: 2, next: null, plots: ["1,2025", "2,2025"], names: ["1", "2"] }).names).toEqual(["1", "2"]);
   });
 
   it("never gives a map in part: when the map changes on every page, it says so", async () => {
@@ -725,7 +712,7 @@ describe("the quality figures", () => {
     fetchMock.mockImplementation(async (url) => {
       if (String(url).includes("version=")) return jsonResponse(409, { error: "map_changed", reason: "gone" });
       n += 1;
-      return jsonResponse(200, { version: `v${n}`, offset: 0, total: 3, next: 2, points: [[1, 2, 0, -1], [1, 2, 0, -1]], plots: ["1", "2"] });
+      return jsonResponse(200, { version: `v${n}`, offset: 0, total: 3, next: 2, points: [[1, 2, 0, -1], [1, 2, 0, -1]], plots: ["1", "2"], names: null, statuses: ["notStarted"], counts: [3], notOnMap: 0, files: [], people: null, holders: null, figures: null, asOf: null });
     });
     const error = await getMapPlots("p1", {}).catch((e: unknown) => e);
     expect(error).toBeInstanceOf(ApiError);

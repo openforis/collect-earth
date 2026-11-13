@@ -63,6 +63,20 @@ import type {
   RoundAnswer,
   RoundInfo,
 } from "../../src/wire/projects";
+import type {
+  HealthReason,
+  ReferenceAnswer,
+  ReferenceAnswersReport,
+  ReferenceChangeAnswer,
+  ReferenceMarkBody,
+  ReferencePerson,
+  SamplingDrawAnswer,
+  SamplingRuleInput,
+  SamplingView,
+  SurveyHealthAnswer,
+} from "../../src/wire/checks";
+import type { BulkDecisionAnswer, BulkRule, PlotPageAnswer, PlotSearchAnswer, ReviewQueueAnswer, ReviewQueueItem } from "../../src/wire/review";
+import type { MapFile, MapPage, MapStatus } from "../../src/wire/map";
 
 // Every call the dashboard makes to the Collect Earth Cloud server, in one place.
 //
@@ -3206,238 +3220,48 @@ export async function getFlags(projectId: string, filter: FlagsFilter): Promise<
 
 // --- automatic checks (Task 13) --------------------------------------------------
 
-/** What a sampling rule asks: who may check (null = every collector; reviewers and coordinators only when chosen), the first N plots, X % a week (null = off). */
-export interface SamplingCoreRule {
-  checkers: string[] | null;
-  firstN: number | null;
-  percent: number | null;
+export type {
+  SamplingChecker,
+  SamplingCore,
+  SamplingDraw,
+  SamplingDrawAnswer,
+  SamplingFile,
+  SamplingFileRule,
+  SamplingRule,
+  SamplingRuleInput,
+  SamplingView,
+} from "../../src/wire/checks";
+
+export function getSampling(projectId: string): Promise<SamplingView> {
+  return request("GET", `${p(projectId)}/sampling`);
 }
 
-export type SamplingFileRule = { use: "off" } | ({ use: "own" } & SamplingCoreRule);
-
-/** The rule as saved (PUT /sampling): the project's, and the divided files that do not follow it. */
-export interface SamplingRuleInput extends SamplingCoreRule {
-  files: Record<string, SamplingFileRule>;
-}
-
-export interface SamplingDraw {
-  at: number;
-  /** Who pressed "Draw now"; null for an automatic draw (or one made with a project token). */
-  by: string | null;
-  automatic: boolean;
-  drawn: number;
-  firstN: number;
-  percent: number;
-  noChecker: number;
-}
-
-export interface SamplingFile {
-  csvFileId: string;
-  filename: string;
-  use: "project" | "off" | "own";
-  own: SamplingCoreRule | null;
-  plots: number;
-  submitted: number;
-  sampledCopies: number;
-  divisionCopies: number;
-  /** Copies of reference plots (every collector has one of each). */
-  referenceCopies: number;
-  pending: number;
-}
-
-export interface SamplingChecker {
-  userId: string;
-  username: string;
-  role: Role;
-  eligible: boolean;
-  disabled: boolean;
-  open: number;
-  done: number;
-  sampled: number;
-}
-
-export interface SamplingView {
-  rule: (SamplingRuleInput & { seed: number }) | null;
-  active: boolean;
-  intervalMinutes: number;
-  due: boolean;
-  nextAutomaticAt: number | null;
-  lastDraw: SamplingDraw | null;
-  /** When a draw last looked for plots to check (an empty one included). */
-  lastCheckedAt: number | null;
-  pending: { drawn: number; firstN: number; percent: number; noChecker: number };
-  files: SamplingFile[];
-  wholeFiles: { csvFileId: string; filename: string }[];
-  checkers: SamplingChecker[];
-  members: { userId: string; username: string; role: Role; disabled: boolean }[];
-  noCheckers: boolean;
-  /**
-   * The reviewers and coordinators the rule (or a file's own rule) chooses as checkers: they can read the
-   * first assessments on the dashboard, so their checks may not be blind (warning checkers_not_blind).
-   */
-  notBlindCheckers: string[];
-}
-
-const toLimit = (value: unknown): number | null => (typeof value === "number" && Number.isInteger(value) && value > 0 ? value : null);
-
-function toCoreRule(value: unknown): SamplingCoreRule {
-  const r = obj(value);
-  return { checkers: Array.isArray(r.checkers) ? strings(r.checkers) : null, firstN: toLimit(r.firstN), percent: toLimit(r.percent) };
-}
-
-export function toSamplingView(body: unknown): SamplingView {
-  const b = obj(body);
-  let rule: SamplingView["rule"] = null;
-  if (b.rule && typeof b.rule === "object") {
-    const r = obj(b.rule);
-    const files: Record<string, SamplingFileRule> = {};
-    for (const [id, f] of Object.entries(obj(r.files))) {
-      const use = obj(f).use;
-      if (use === "off") files[id] = { use: "off" };
-      else if (use === "own") files[id] = { use: "own", ...toCoreRule(f) };
-    }
-    rule = { ...toCoreRule(r), seed: typeof r.seed === "number" ? r.seed : 0, files };
-  }
-  const draw = b.lastDraw && typeof b.lastDraw === "object" ? obj(b.lastDraw) : null;
-  const pending = obj(b.pending);
-  const list = (value: unknown) => (Array.isArray(value) ? value.map(obj) : []);
-  return {
-    rule,
-    active: b.active === true,
-    intervalMinutes: toCount(b.intervalMinutes) || 10,
-    due: b.due === true,
-    nextAutomaticAt: toMillis(b.nextAutomaticAt),
-    lastDraw: draw
-      ? {
-          at: toMillis(draw.at) ?? 0,
-          by: typeof draw.by === "string" ? draw.by : null,
-          automatic: draw.automatic === true,
-          drawn: toCount(draw.drawn),
-          firstN: toCount(draw.firstN),
-          percent: toCount(draw.percent),
-          noChecker: toCount(draw.noChecker),
-        }
-      : null,
-    lastCheckedAt: toMillis(b.lastCheckedAt),
-    pending: { drawn: toCount(pending.drawn), firstN: toCount(pending.firstN), percent: toCount(pending.percent), noChecker: toCount(pending.noChecker) },
-    files: list(b.files).map((f) => ({
-      csvFileId: String(f.csvFileId ?? ""),
-      filename: String(f.filename ?? ""),
-      use: f.use === "off" || f.use === "own" ? f.use : "project",
-      own: f.own && typeof f.own === "object" ? toCoreRule(f.own) : null,
-      plots: toCount(f.plots),
-      submitted: toCount(f.submitted),
-      sampledCopies: toCount(f.sampledCopies),
-      divisionCopies: toCount(f.divisionCopies),
-      referenceCopies: toCount(f.referenceCopies),
-      pending: toCount(f.pending),
-    })),
-    wholeFiles: list(b.wholeFiles).map((f) => ({ csvFileId: String(f.csvFileId ?? ""), filename: String(f.filename ?? "") })),
-    checkers: list(b.checkers).map((c) => ({
-      userId: String(c.userId ?? ""),
-      username: String(c.username ?? ""),
-      role: toRole(c.role),
-      eligible: c.eligible === true,
-      disabled: c.disabled === true,
-      open: toCount(c.open),
-      done: toCount(c.done),
-      sampled: toCount(c.sampled),
-    })),
-    members: list(b.members).map((m) => ({ userId: String(m.userId ?? ""), username: String(m.username ?? ""), role: toRole(m.role), disabled: m.disabled === true })),
-    noCheckers: b.noCheckers === true,
-    notBlindCheckers: obj(b.warning).code === "checkers_not_blind" ? strings(obj(b.warning).usernames) : [],
-  };
-}
-
-export async function getSampling(projectId: string): Promise<SamplingView> {
-  return toSamplingView(await request<unknown>("GET", `${p(projectId)}/sampling`));
-}
-
-export async function saveSampling(projectId: string, rule: SamplingRuleInput): Promise<SamplingView> {
-  return toSamplingView(await request<unknown>("PUT", `${p(projectId)}/sampling`, { json: rule }));
+export function saveSampling(projectId: string, rule: SamplingRuleInput): Promise<SamplingView> {
+  return request("PUT", `${p(projectId)}/sampling`, { json: rule });
 }
 
 /** "Draw now": the draw's counts and the section as it is after it. */
-export async function drawSamplingNow(projectId: string): Promise<{ drawn: number; view: SamplingView }> {
-  const body = obj(await request<unknown>("POST", `${p(projectId)}/sampling/draw`));
-  return { drawn: toCount(obj(body.draw).drawn), view: toSamplingView(body.view) };
+export function drawSamplingNow(projectId: string): Promise<SamplingDrawAnswer> {
+  return request("POST", `${p(projectId)}/sampling/draw`);
 }
 
 // --- reference plots (Task 14) ----------------------------------------------------
 
-/** One person's accuracy against the reference: plots where every answer matched, and per question. */
-export interface ReferencePerson {
-  username: string;
-  plots: Rate;
-  questions: { key: string; label: string; compared: number; agreeing: number; rate: number | null }[];
-}
+export type {
+  ExternalReferenceFigures,
+  ReferenceAnswer,
+  ReferenceAnswersReport,
+  ReferenceChangeAnswer,
+  ReferenceChangeResult,
+  ReferenceFiguresAnswer,
+  ReferenceMarkBody,
+  ReferencePerson,
+  ReferencePlotRow,
+  ReferenceQuestion,
+  ReferenceSet,
+} from "../../src/wire/checks";
 
-export interface ReferenceFiguresView {
-  /** Reference plots, those whose reference assessment is submitted, and the checks measured. */
-  plots: number;
-  assessed: number;
-  checks: number;
-  questions: (Rate & { key: string; label: string; kind: "choice" | "number" })[];
-  people: ReferencePerson[];
-  computedAt: number | null;
-  stale: boolean;
-  /** Against the reference answers uploaded from a file; null without them. Reviewers get no people nor plots. */
-  external: ExternalReferenceView | null;
-}
-
-/** Everyone's latest records of the plots of an uploaded reference set, compared with its answers. */
-export interface ExternalReferenceView {
-  plots: number;
-  assessed: number;
-  checks: number;
-  questions: (Rate & { key: string; label: string; kind: "choice" | "number" })[];
-  /** `answers`: every answer of theirs compared (its share differing is their disagreement). */
-  people: (ReferencePerson & { answers: Rate })[];
-  byPlot: { plot: string; records: number; compared: number; agreeing: number }[];
-}
-
-/** What an upload of reference answers took, and what did not match. */
-export interface ReferenceAnswersReport {
-  plots: number;
-  columns: { column: string; key: string }[];
-  unmatchedColumns: string[];
-  unmatchedValues: { column: string; value: string; count: number }[];
-  unknownPlots: string[];
-  unknownPlotCount: number;
-}
-
-export interface ReferencePlotRow {
-  csvFileId: string;
-  filename: string;
-  plot: string;
-  assessor: string;
-  assessorUserId: string;
-  /** The assessor is still a member of the project. */
-  assessorInProject: boolean;
-  addedAt: number | null;
-  /** The reference assessment is submitted. */
-  assessed: boolean;
-  /** Collectors holding a copy, and of them those who submitted their check. */
-  copies: number;
-  checked: number;
-}
-
-/** What GET /reference answers: the figures; for coordinators also the reference set and what it can be built from. */
-export interface ReferenceView {
-  coordinator: boolean;
-  count: number;
-  figures: ReferenceFiguresView | null;
-  max: number;
-  plots: ReferencePlotRow[];
-  files: { csvFileId: string; filename: string; plots: number; reference: number }[];
-  wholeFiles: { csvFileId: string; filename: string }[];
-  assessors: { userId: string; username: string; role: Role }[];
-  collectors: number;
-  people: { userId: string; username: string; copies: number; checked: number }[];
-  /** The reference answers uploaded: how many plots, and when (coordinators). */
-  external: { count: number; uploadedAt: number | null };
-}
-
+// merge: the people section's toPersonData still reads a person's reference line with it.
 export function toReferencePerson(value: unknown): ReferencePerson {
   const p = obj(value);
   return {
@@ -3447,144 +3271,42 @@ export function toReferencePerson(value: unknown): ReferencePerson {
   };
 }
 
-export function toReferenceView(body: unknown): ReferenceView {
-  const b = obj(body);
-  const f = b.figures && typeof b.figures === "object" ? obj(b.figures) : null;
-  return {
-    coordinator: b.coordinator === true,
-    count: toCount(b.count),
-    figures: f
-      ? {
-          plots: toCount(f.plots),
-          assessed: toCount(f.assessed),
-          checks: toCount(f.checks),
-          questions: list(f.questions).map((q) => ({ key: text(q.key), label: text(q.label) || text(q.key), kind: q.kind === "number" ? "number" : "choice", ...toRate(q) })),
-          people: list(f.people).map(toReferencePerson),
-          computedAt: toMillis(f.computedAt),
-          stale: f.stale === true,
-          external: f.external && typeof f.external === "object" ? toExternalReference(f.external) : null,
-        }
-      : null,
-    external: { count: toCount(obj(b.external).count), uploadedAt: toMillis(obj(b.external).uploadedAt) },
-    max: toCount(b.max) || 500,
-    plots: list(b.plots).map((r) => ({
-      csvFileId: text(r.csvFileId),
-      filename: text(r.filename),
-      plot: text(r.plot),
-      assessor: text(r.assessor),
-      assessorUserId: text(r.assessorUserId),
-      assessorInProject: r.assessorInProject !== false,
-      addedAt: toMillis(r.addedAt),
-      assessed: r.assessed === true,
-      copies: toCount(r.copies),
-      checked: toCount(r.checked),
-    })),
-    files: list(b.files).map((x) => ({ csvFileId: text(x.csvFileId), filename: text(x.filename), plots: toCount(x.plots), reference: toCount(x.reference) })),
-    wholeFiles: list(b.wholeFiles).map((x) => ({ csvFileId: text(x.csvFileId), filename: text(x.filename) })),
-    assessors: list(b.assessors).map((a) => ({ userId: text(a.userId), username: text(a.username), role: toRole(a.role) })),
-    collectors: toCount(b.collectors),
-    people: list(b.people).map((x) => ({ userId: text(x.userId), username: text(x.username), copies: toCount(x.copies), checked: toCount(x.checked) })),
-  };
-}
-
-function toExternalReference(value: unknown): ExternalReferenceView {
-  const e = obj(value);
-  return {
-    plots: toCount(e.plots),
-    assessed: toCount(e.assessed),
-    checks: toCount(e.checks),
-    questions: list(e.questions).map((q) => ({ key: text(q.key), label: text(q.label) || text(q.key), kind: q.kind === "number" ? "number" : "choice", ...toRate(q) })),
-    people: list(e.people).map((p) => ({ ...toReferencePerson(p), answers: toRate(p.answers) })),
-    byPlot: list(e.byPlot).map((p) => ({ plot: text(p.plot), records: toCount(p.records), compared: toCount(p.compared), agreeing: toCount(p.agreeing) })),
-  };
-}
-
 /** Uploads a reference set (a CSV, or a JSON array for a .json file); it replaces the one the project had. */
-export async function uploadReferenceAnswers(projectId: string, file: File): Promise<ReferenceAnswersReport> {
+export function uploadReferenceAnswers(projectId: string, file: File): Promise<ReferenceAnswersReport> {
   const json = file.name.toLowerCase().endsWith(".json");
-  const b = obj(await upload<unknown>("PUT", `${p(projectId)}/reference/answers`, file, json ? "application/json" : "text/csv"));
-  return {
-    plots: toCount(b.plots),
-    columns: list(b.columns).map((c) => ({ column: text(c.column), key: text(c.key) })),
-    unmatchedColumns: strings(b.unmatchedColumns),
-    unmatchedValues: list(b.unmatchedValues).map((v) => ({ column: text(v.column), value: text(v.value), count: toCount(v.count) })),
-    unknownPlots: strings(b.unknownPlots),
-    unknownPlotCount: toCount(b.unknownPlotCount),
-  };
+  return upload("PUT", `${p(projectId)}/reference/answers`, file, json ? "application/json" : "text/csv");
 }
 
 export async function deleteReferenceAnswers(projectId: string): Promise<void> {
   await send("DELETE", `${p(projectId)}/reference/answers`);
 }
 
-export async function getReference(projectId: string): Promise<ReferenceView> {
-  return toReferenceView(await request<unknown>("GET", `${p(projectId)}/reference`));
+export function getReference(projectId: string): Promise<ReferenceAnswer> {
+  return request("GET", `${p(projectId)}/reference`);
 }
 
 /** Marks plots of a divided file as reference plots: the ids given, or `random` plots nobody has assessed. */
-export async function markReference(
-  projectId: string,
-  body: { csvFileId: string; assessorUserId: string; plots: string[] } | { csvFileId: string; assessorUserId: string; random: number },
-): Promise<{ marked: number; view: ReferenceView }> {
-  const res = obj(await request<unknown>("POST", `${p(projectId)}/reference/plots`, { json: body }));
-  return { marked: toCount(obj(res.result).marked), view: toReferenceView({ ...res, coordinator: true }) };
+export function markReference(projectId: string, body: ReferenceMarkBody): Promise<ReferenceChangeAnswer> {
+  return request("POST", `${p(projectId)}/reference/plots`, { json: body });
 }
 
 /** No longer reference plots: the copies of those who did not check them go. */
-export async function unmarkReference(projectId: string, plots: { csvFileId: string; plot: string }[] | "all"): Promise<{ unmarked: number; view: ReferenceView }> {
-  const res = obj(await request<unknown>("POST", `${p(projectId)}/reference/remove`, { json: plots === "all" ? { all: true } : { plots } }));
-  return { unmarked: toCount(obj(res.result).unmarked), view: toReferenceView({ ...res, coordinator: true }) };
+export function unmarkReference(projectId: string, plots: { csvFileId: string; plot: string }[] | "all"): Promise<ReferenceChangeAnswer> {
+  return request("POST", `${p(projectId)}/reference/remove`, { json: plots === "all" ? { all: true } : { plots } });
 }
 
 // --- the review queue (Task 7) ----------------------------------------------------
 
-export type QueueSection = "difference" | "flag" | "resubmitted";
+export type { BulkDecisionAnswer, BulkRule, PlotDecision, QueueSection, Resubmission, ReviewQueueAnswer, ReviewQueueItem } from "../../src/wire/review";
 /** What the queue can be filtered by: a part, or a kind of flag (as the server's QUEUE_KINDS). */
 export const QUEUE_KINDS = ["difference", ...FLAG_KINDS, "resubmitted"] as const;
 export type QueueKind = (typeof QUEUE_KINDS)[number];
 
-/** A plot decided "both need another look" that someone submitted again. */
-export interface Resubmission {
-  operator: string;
-  at: number | null;
-  decidedAt: number | null;
-}
-
+// merge: the flags are the pattern flags section's PatternFlag (toPatternFlags) until that section
+// uses the server's Flag; then QueueItem and ReviewQueueData are ReviewQueueItem and ReviewQueueAnswer.
 /** One plot of the review queue, with everything known about it. */
-export interface QueueItem {
-  plot: string;
-  section: QueueSection;
-  /** Everyone whose record is shown. */
-  people: string[];
-  /** Its checks that differ from the first assessment, with the answers; `changed`: the records changed since the figures (their answers no longer differ, or one is gone). */
-  differences: (Difference & { changed: boolean })[];
-  flags: PatternFlag[];
-  resubmitted: Resubmission[];
-  /** Decided "Both need another look": who it went back to and has not submitted it again yet, still in the project (null for other decisions). */
-  waiting: string[] | null;
-  /** Those of them no longer in the project or disabled: named apart, waited for by nobody. */
-  left: string[];
-  decision: QualityDecision | null;
-}
-
-export interface ReviewQueueData {
-  items: QueueItem[];
-  /** The cursor of the next page (null: none after these). */
-  next: string | null;
-  /** Plots in the queue (with the filters), listed or not. */
-  total: number;
-  counts: Record<QueueSection, number>;
-  /** Everyone named in the queue, for the person filter. */
-  people: string[];
-  /** Only the newest flags (500) were looked at. */
-  flagsCapped: boolean;
-  /** A reviewer's own plots left out of the queue (someone else decides them); 0 for a coordinator. */
-  excludedOwn: number;
-  labels: Record<string, string>;
-  options: AnswerOptions;
-  computedAt: number | null;
-  stale: boolean;
-}
+export type QueueItem = Omit<ReviewQueueItem, "flags"> & { flags: PatternFlag[] };
+export type ReviewQueueData = Omit<ReviewQueueAnswer, "items"> & { items: QueueItem[] };
 
 export interface QueueFilter {
   person: string | null;
@@ -3593,56 +3315,6 @@ export interface QueueFilter {
 
 export const NO_QUEUE_FILTER: QueueFilter = { person: null, kind: null };
 
-const QUEUE_SECTIONS: readonly QueueSection[] = ["difference", "flag", "resubmitted"];
-
-function toDifference(value: unknown): Difference {
-  const d = obj(value);
-  const first = obj(d.first);
-  const check = obj(d.check);
-  return {
-    plot: text(d.plot),
-    first: { operator: text(first.operator), recordKey: text(first.recordKey) },
-    check: { operator: text(check.operator), recordKey: text(check.recordKey) },
-    fields: list(d.fields).map((f) => ({ key: text(f.key), first: text(f.first), check: text(f.check) })),
-  };
-}
-
-export function toReviewQueue(body: unknown): ReviewQueueData {
-  const b = obj(body);
-  const counts = obj(b.counts);
-  const labels: Record<string, string> = {};
-  for (const [key, label] of Object.entries(obj(b.labels))) if (typeof label === "string") labels[key] = label;
-  return {
-    items: list(b.items).flatMap((i): QueueItem[] => {
-      const section = QUEUE_SECTIONS.find((s) => s === i.section);
-      if (!section) return [];
-      return [
-        {
-          plot: text(i.plot),
-          section,
-          people: Array.isArray(i.people) ? i.people.filter((v): v is string => typeof v === "string") : [],
-          differences: list(i.differences).map((d) => ({ ...toDifference(d), changed: d.changed === true })),
-          flags: list(i.flags).flatMap(toPatternFlags),
-          resubmitted: list(i.resubmitted).map((r) => ({ operator: text(r.operator), at: toMillis(r.at), decidedAt: toMillis(r.decidedAt) })),
-          waiting: Array.isArray(i.waiting) ? i.waiting.filter((v): v is string => typeof v === "string") : null,
-          left: Array.isArray(i.left) ? i.left.filter((v): v is string => typeof v === "string") : [],
-          decision: i.decision && typeof i.decision === "object" ? toDecision(i.decision) : null,
-        },
-      ];
-    }),
-    next: typeof b.next === "string" && b.next !== "" ? b.next : null,
-    total: toCount(b.total),
-    counts: { difference: toCount(counts.difference), flag: toCount(counts.flag), resubmitted: toCount(counts.resubmitted) },
-    people: strings(b.people),
-    flagsCapped: b.flagsCapped === true,
-    excludedOwn: toCount(b.excludedOwn),
-    labels,
-    options: toOptions(b.options),
-    computedAt: toMillis(b.computedAt),
-    stale: b.stale === true,
-  };
-}
-
 /** The review queue (coordinators and reviewers), after the cursor `after` (a page's `next`). A 503 "busy" is thrown as ApiError code "busy". */
 export async function getReviewQueue(projectId: string, filter: QueueFilter, after: string | null): Promise<ReviewQueueData> {
   const query = new URLSearchParams();
@@ -3650,289 +3322,53 @@ export async function getReviewQueue(projectId: string, filter: QueueFilter, aft
   if (filter.kind) query.set("kind", filter.kind);
   if (after) query.set("after", after);
   const q = query.toString();
-  return toReviewQueue(await request<unknown>("GET", `${p(projectId)}/quality/queue${q ? `?${q}` : ""}`));
-}
-
-export type BulkRule = "first_by_reviewer" | "check_by_reviewer";
-
-export interface BulkResult {
-  decision: DecisionKind;
-  /** Plots decided (or, in a dry run, that would be). */
-  count: number;
-  /** The first of them (up to 20). */
-  plots: string[];
-  /** The run's id, kept with its decisions and in its audit entry (null for a dry run or nothing decided). */
-  batch: string | null;
+  const queue = await request<ReviewQueueAnswer>("GET", `${p(projectId)}/quality/queue${q ? `?${q}` : ""}`);
+  return { ...queue, items: queue.items.map((item) => ({ ...item, flags: item.flags.flatMap((f) => toPatternFlags({ ...f })) })) };
 }
 
 /** Bulk decisions (coordinators): `dryRun` only counts the plots the rule would decide. */
-export async function bulkDecisions(projectId: string, rule: BulkRule, dryRun: boolean): Promise<BulkResult> {
-  const body = obj(await request<unknown>("POST", `${p(projectId)}/quality/decisions:bulk${dryRun ? "?dryRun=1" : ""}`, { json: { rule } }));
-  return { decision: toDecision({ decision: body.decision }).decision, count: toCount(body.count), plots: strings(body.plots), batch: typeof body.batch === "string" ? body.batch : null };
+export function bulkDecisions(projectId: string, rule: BulkRule, dryRun: boolean): Promise<BulkDecisionAnswer> {
+  return request("POST", `${p(projectId)}/quality/decisions:bulk${dryRun ? "?dryRun=1" : ""}`, { json: { rule } });
 }
 
 // --- survey health (Task 6) -----------------------------------------------------
 
-export type HealthReason = "low_agreement" | "often_other" | "often_empty" | "often_changed";
+export type { HealthCodes, HealthReason, HealthRow, SurveyHealthAnswer } from "../../src/wire/checks";
 export const HEALTH_REASONS: readonly HealthReason[] = ["low_agreement", "often_other", "often_empty", "often_changed"];
 
-export interface HealthCodes {
-  count: number;
-  share: number | null;
-  answers: { code: string; label: string; count: number }[];
-}
-
-/** One question of the survey, as survey health counts it (first assessments, except agreement and decisions). */
-export interface HealthRow {
-  key: string;
-  label: string;
-  kind: "choice" | "number";
-  calculated: boolean;
-  required: boolean;
-  /** Shown only for some answers: its empty share is information, never a reason. */
-  conditional: boolean;
-  /** Inside a group of questions: whether it was left empty is never known. */
-  inGroup: boolean;
-  answered: number;
-  blank: number;
-  nonNumeric: number;
-  /** The first assessments that say whether it was left empty, and of them those left empty; notKnown the others. */
-  emptyBase: number;
-  emptyBlank: number;
-  notKnown: number;
-  /** emptyBlank / emptyBase; null in a group or under minPlots (emptyWhy). */
-  emptyShare: number | null;
-  emptyWhy: "group" | "few_records" | null;
-  other: HealthCodes | null;
-  /** "None" alone: an answer of its own, for information (Decision 6). */
-  none: HealthCodes | null;
-  agreement: { compared: number; agreeing: number; rate: number | null } | null;
-  decisions: { changed: number; share: number | null };
-  reasons: HealthReason[];
-}
-
-export interface SurveyHealthData {
-  plots: number;
-  plotsChecked: number;
-  decidedForCheck: number;
-  questions: HealthRow[];
-  questionsTotal: number;
-  thresholds: { minPlots: number; lowAgreement: number; oftenOther: number; oftenEmpty: number; minChanged: number; oftenChanged: number };
-  computedAt: number | null;
-  stale: boolean;
-}
-
-const toShare = (value: unknown): number | null => (typeof value === "number" && Number.isFinite(value) ? value : null);
-
-const toHealthCodes = (value: unknown): HealthCodes | null => {
-  if (!value || typeof value !== "object") return null;
-  const o = obj(value);
-  return {
-    count: toCount(o.count),
-    share: toShare(o.share),
-    answers: list(o.answers).map((a) => ({ code: text(a.code), label: text(a.label) || text(a.code), count: toCount(a.count) })),
-  };
-};
-
-export function toSurveyHealth(body: unknown): SurveyHealthData {
-  const b = obj(body);
-  const th = obj(b.thresholds);
-  const threshold = (value: unknown, fallback: number) => toShare(value) ?? fallback;
-  return {
-    plots: toCount(b.plots),
-    plotsChecked: toCount(b.plotsChecked),
-    decidedForCheck: toCount(b.decidedForCheck),
-    questions: list(b.questions).map((q): HealthRow => {
-      const agreement = q.agreement && typeof q.agreement === "object" ? obj(q.agreement) : null;
-      const decisions = obj(q.decisions);
-      return {
-        key: text(q.key),
-        label: text(q.label) || text(q.key),
-        kind: q.kind === "number" ? "number" : "choice",
-        calculated: q.calculated === true,
-        required: q.required === true,
-        conditional: q.conditional === true,
-        inGroup: q.inGroup === true,
-        answered: toCount(q.answered),
-        blank: toCount(q.blank),
-        nonNumeric: toCount(q.nonNumeric),
-        emptyBase: toCount(q.emptyBase),
-        emptyBlank: toCount(q.emptyBlank),
-        notKnown: toCount(q.notKnown),
-        emptyShare: toShare(q.emptyShare),
-        emptyWhy: q.emptyWhy === "group" || q.emptyWhy === "few_records" ? q.emptyWhy : null,
-        other: toHealthCodes(q.other),
-        none: toHealthCodes(q.none),
-        agreement: agreement ? { compared: toCount(agreement.compared), agreeing: toCount(agreement.agreeing), rate: toShare(agreement.rate) } : null,
-        decisions: { changed: toCount(decisions.changed), share: toShare(decisions.share) },
-        reasons: (Array.isArray(q.reasons) ? q.reasons : []).filter((r): r is HealthReason => (HEALTH_REASONS as readonly unknown[]).includes(r)),
-      };
-    }),
-    questionsTotal: toCount(b.questionsTotal),
-    thresholds: {
-      minPlots: threshold(th.minPlots, 20),
-      lowAgreement: threshold(th.lowAgreement, 0.8),
-      oftenOther: threshold(th.oftenOther, 0.1),
-      oftenEmpty: threshold(th.oftenEmpty, 0.2),
-      minChanged: threshold(th.minChanged, 5),
-      oftenChanged: threshold(th.oftenChanged, 0.25),
-    },
-    computedAt: toMillis(b.computedAt),
-    stale: b.stale === true,
-  };
-}
-
 /** Survey health (coordinators and reviewers). A 503 "busy" is thrown as ApiError code "busy". */
-export async function getSurveyHealth(projectId: string): Promise<SurveyHealthData> {
-  return toSurveyHealth(await request<unknown>("GET", `${p(projectId)}/quality/survey-health`));
+export function getSurveyHealth(projectId: string): Promise<SurveyHealthAnswer> {
+  return request("GET", `${p(projectId)}/quality/survey-health`);
 }
 
 // --- plot search (Task 8) ---------------------------------------------------------
 
-/** A plot found by its id (GET /plots/search). */
-export interface PlotMatch {
-  /** The plot unit, as the review queue and the decisions name it. */
-  plot: string;
-  /** The id the collector sees. */
-  name: string;
-  /** The plot files holding it. */
-  files: { id: string; filename: string }[];
-}
-
-export interface PlotSearchResult {
-  plots: PlotMatch[];
-  /** Other plots match too: typing more narrows them. */
-  more: boolean;
-}
-
-const toFileRef = (value: unknown): { id: string; filename: string }[] => {
-  const f = obj(value);
-  return typeof f.id === "string" && f.id !== "" ? [{ id: f.id, filename: text(f.filename) }] : [];
-};
-
-const onlyStrings = (value: unknown): string[] => (Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : []);
-
-export function toPlotSearch(body: unknown): PlotSearchResult {
-  const b = obj(body);
-  return {
-    plots: list(b.plots).flatMap((m) => (typeof m.plot === "string" && m.plot !== "" ? [{ plot: m.plot, name: text(m.name) || m.plot, files: list(m.files).flatMap(toFileRef) }] : [])),
-    more: b.more === true,
-  };
-}
+export type { Assessment, PlotMatch, PlotPageAnswer, PlotPageFile, PlotPageRecord, PlotSearchAnswer } from "../../src/wire/review";
 
 /** Plots whose id starts with `query` (coordinators and reviewers); nothing is asked for an empty one. */
-export async function searchPlots(projectId: string, query: string): Promise<PlotSearchResult> {
+export async function searchPlots(projectId: string, query: string): Promise<PlotSearchAnswer> {
   const q = query.trim();
   if (q === "") return { plots: [], more: false };
-  return toPlotSearch(await request<unknown>("GET", `${p(projectId)}/plots/search?${new URLSearchParams({ q }).toString()}`));
+  return request("GET", `${p(projectId)}/plots/search?${new URLSearchParams({ q }).toString()}`);
 }
 
-export type Assessment = "main" | "check" | "other";
-
-/** One record of a plot: whose, which round, submitted or not, and its answers. */
-export interface PlotRecordView {
-  operator: string;
-  recordKey: string;
-  round: string;
-  assessment: Assessment;
-  submitted: boolean;
-  deleted: boolean;
-  modifiedOn: number | null;
-  receivedAt: number | null;
-  answers: Record<string, string>;
-}
-
+// merge: the flags are the pattern flags section's PatternFlag (toPatternFlags), and the decision the
+// quality section's QualityDecision (what setQualityDecision answers), until those sections use the
+// server's types; then PlotPageData is PlotPageAnswer.
 /** One plot's page (GET /plots/:plot). */
-export interface PlotPageData {
-  plot: string;
-  name: string;
-  /** Each plot file holding it, with who holds it there (main and quality-check copies; null for a reviewer: the files only). */
-  files: { id: string; filename: string; divided: boolean; main: string[] | null; copies: string[] | null }[];
-  records: PlotRecordView[];
-  /** The questions answered, in the survey's order. */
-  questions: { key: string; label: string }[];
-  labels: Record<string, string>;
-  options: AnswerOptions;
-  decision: QualityDecision | null;
-  /** The reviewer asking made a record of it: someone else decides it. */
-  ownPlot: boolean;
-  /** A reference plot (its checks are measured against it, never compared as differences); the assessor for coordinators. */
-  reference: { assessor: string | null } | null;
-  /** From the quality figures at hand; null when there are none (the Quality tab works them out). */
-  flags: PatternFlag[] | null;
-  differences: (Difference & { changed: boolean })[] | null;
-  figures: { computedAt: number | null; stale: boolean } | null;
-  place: { lat: number; lon: number; name: string } | null;
-  outline: PlotOutline;
-  unsupportedSrs: string | null;
-}
-
-const ASSESSMENTS: readonly Assessment[] = ["main", "check", "other"];
-
-export function toPlotPage(body: unknown): PlotPageData {
-  const b = obj(body);
-  const labels: Record<string, string> = {};
-  for (const [key, label] of Object.entries(obj(b.labels))) if (typeof label === "string") labels[key] = label;
-  const place = obj(b.place);
-  const lat = Number(place.lat);
-  const lon = Number(place.lon);
-  const figures = b.figures && typeof b.figures === "object" ? obj(b.figures) : null;
-  return {
-    plot: text(b.plot),
-    name: text(b.name) || text(b.plot),
-    files: list(b.files).flatMap((f) =>
-      toFileRef(f).map((ref) => ({ ...ref, divided: f.divided === true, main: Array.isArray(f.main) ? onlyStrings(f.main) : null, copies: Array.isArray(f.copies) ? onlyStrings(f.copies) : null })),
-    ),
-    records: list(b.records).map((r) => {
-      const answers: Record<string, string> = {};
-      for (const [key, value] of Object.entries(obj(r.answers))) if (value !== null && value !== undefined) answers[key] = String(value);
-      return {
-        operator: text(r.operator),
-        recordKey: text(r.recordKey),
-        round: text(r.round),
-        assessment: ASSESSMENTS.find((a) => a === r.assessment) ?? "other",
-        submitted: r.submitted === true,
-        deleted: r.deleted === true,
-        modifiedOn: toMillis(r.modifiedOn),
-        receivedAt: toMillis(r.receivedAt),
-        answers,
-      };
-    }),
-    questions: list(b.questions).map((q) => ({ key: text(q.key), label: text(q.label) || text(q.key) })),
-    labels,
-    options: toOptions(b.options),
-    decision: b.decision && typeof b.decision === "object" ? toDecision(b.decision) : null,
-    ownPlot: b.ownPlot === true,
-    reference: b.reference && typeof b.reference === "object" ? { assessor: nullableText(obj(b.reference).assessor) } : null,
-    flags: Array.isArray(b.flags) ? list(b.flags).flatMap(toPatternFlags) : null,
-    differences: Array.isArray(b.differences) ? list(b.differences).map((d) => ({ ...toDifference(d), changed: d.changed === true })) : null,
-    figures: figures ? { computedAt: toMillis(figures.computedAt), stale: figures.stale === true } : null,
-    place: b.place && Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon, name: text(place.name) || text(b.plot) } : null,
-    outline: toOutline(b.outline),
-    unsupportedSrs: typeof b.unsupportedSrs === "string" && b.unsupportedSrs !== "" ? b.unsupportedSrs : null,
-  };
-}
+export type PlotPageData = Omit<PlotPageAnswer, "flags" | "decision"> & { flags: PatternFlag[] | null; decision: QualityDecision | null };
 
 /** One plot (coordinators and reviewers); a 404 for a plot in no plot file. */
 export async function getPlotPage(projectId: string, plot: string): Promise<PlotPageData> {
-  return toPlotPage(await request<unknown>("GET", `${p(projectId)}/plots/${encodeURIComponent(plot)}`));
+  const page = await request<PlotPageAnswer>("GET", `${p(projectId)}/plots/${encodeURIComponent(plot)}`);
+  return { ...page, flags: page.flags && page.flags.flatMap((f) => toPatternFlags({ ...f })) };
 }
 
 // --- map of progress (Task 9) -------------------------------------------------------
 
-/** A plot's status on the map, in the server's order of status codes. */
-export const MAP_STATUSES = ["notStarted", "started", "submitted", "accepted", "recheck", "differs", "resubmitted"] as const;
-export type MapStatus = (typeof MAP_STATUSES)[number];
-
-export interface MapFile {
-  id: string;
-  filename: string;
-  /** Its plots, and how many of them have a latitude and longitude. */
-  plots: number;
-  onMap: number;
-  /** Coordinators: its plots are divided between people (a whole file's plots are not moved one by one); false for a reviewer. */
-  divided: boolean;
-}
+export type { MapFile, MapPage, MapStatus } from "../../src/wire/map";
+/** A plot's status on the map, in the server's order of status codes (its GEO_STATUSES). */
+export const MAP_STATUSES = ["notStarted", "started", "submitted", "accepted", "recheck", "differs", "resubmitted"] as const satisfies readonly MapStatus[];
 
 /** Every plot on the map, in typed arrays (a large project has 100,000 or more). */
 export interface MapPlots {
@@ -3960,11 +3396,11 @@ export interface MapPlots {
   people: string[] | null;
   holders: string[][] | null;
   /** The quality figures the disagreements come from; null when none are at hand. */
-  figures: { computedAt: number | null; stale: boolean } | null;
+  figures: MapPage["figures"];
   /** Set when the plots' state is older than the records (newer figures are being worked out). */
   asOf: number | null;
   /** The survey's coordinate system when it is not latitude and longitude: no plot is on the map. */
-  unsupportedSrs: string | null;
+  unsupportedSrs?: string;
 }
 
 export interface MapFilters {
@@ -3976,68 +3412,51 @@ export interface MapFilters {
 const MAP_RESTARTS = 3;
 
 /** One page of GET /map/plots, added to the map being read (made on the first page). */
-export function addMapPage(map: MapPlots | null, body: unknown): MapPlots {
-  const b = obj(body);
-  // The server's status names, so a code is read by its name whatever their order.
-  const names: unknown[] = Array.isArray(b.statuses) ? b.statuses : [...MAP_STATUSES];
-  const codeOf = names.map((name) => Math.max(0, MAP_STATUSES.indexOf(name as MapStatus)));
+export function addMapPage(map: MapPlots | null, page: MapPage): MapPlots {
+  // A point's status is an index in the page's `statuses`: read by its name.
+  const codeOf = page.statuses.map((name) => MAP_STATUSES.indexOf(name));
   if (map === null) {
-    const total = Math.max(0, Math.floor(Number(b.total) || 0));
+    const total = page.total;
     const counts = Object.fromEntries(MAP_STATUSES.map((s) => [s, 0])) as Record<MapStatus, number>;
-    (Array.isArray(b.counts) ? b.counts : []).forEach((n: unknown, i: number) => {
-      counts[MAP_STATUSES[codeOf[i] ?? 0]] += Number(n) || 0;
+    page.counts.forEach((n, i) => {
+      counts[page.statuses[i]] += n;
     });
-    const figures = b.figures && typeof b.figures === "object" ? obj(b.figures) : null;
+    const coordinator = page.file !== undefined;
     map = {
-      version: text(b.version),
+      version: page.version,
       total,
       lat: new Float64Array(total),
       lon: new Float64Array(total),
       status: new Uint8Array(total),
       holder: new Int32Array(total).fill(-1),
       plots: new Array<string>(total).fill(""),
-      names: Array.isArray(b.names) ? new Array<string>(total).fill("") : null,
-      file: Array.isArray(b.file) ? new Int32Array(total).fill(-1) : null,
-      reference: Array.isArray(b.file) ? new Uint8Array(total) : null,
+      names: page.names ? new Array<string>(total).fill("") : null,
+      file: coordinator ? new Int32Array(total).fill(-1) : null,
+      reference: coordinator ? new Uint8Array(total) : null,
       counts,
-      notOnMap: Number(b.notOnMap) || 0,
-      files: list(b.files).map((f) => ({ id: text(f.id), filename: text(f.filename), plots: Number(f.plots) || 0, onMap: Number(f.onMap) || 0, divided: f.divided === true })),
-      people: Array.isArray(b.people) ? onlyStrings(b.people) : null,
-      holders: Array.isArray(b.holders) ? b.holders.map((h: unknown) => (Array.isArray(h) ? onlyStrings(h) : [])) : null,
-      figures: figures ? { computedAt: toMillis(figures.computedAt), stale: figures.stale === true } : null,
-      asOf: toMillis(b.asOf),
-      unsupportedSrs: typeof b.unsupportedSrs === "string" && b.unsupportedSrs !== "" ? b.unsupportedSrs : null,
+      notOnMap: page.notOnMap,
+      files: page.files,
+      people: page.people,
+      holders: page.holders,
+      figures: page.figures,
+      asOf: page.asOf,
+      ...(page.unsupportedSrs !== undefined ? { unsupportedSrs: page.unsupportedSrs } : {}),
     };
   }
-  const offset = Math.max(0, Math.floor(Number(b.offset) || 0));
-  const points: unknown[] = Array.isArray(b.points) ? b.points : [];
-  const plots: unknown[] = Array.isArray(b.plots) ? b.plots : [];
-  const visible: unknown[] | null = Array.isArray(b.names) ? b.names : null;
-  const holders = map.holders?.length ?? 0;
-  const fileOf: unknown[] | null = Array.isArray(b.file) ? b.file : null;
-  const files = map.files.length;
+  const { offset, points } = page;
   for (let i = 0; i < points.length && offset + i < map.total; i++) {
-    const point = Array.isArray(points[i]) ? (points[i] as unknown[]) : [];
+    const [lat, lon, status, holder] = points[i];
     const at = offset + i;
-    map.lat[at] = Number(point[0]);
-    map.lon[at] = Number(point[1]);
-    map.status[at] = codeOf[Number(point[2])] ?? 0;
-    const holder = Number(point[3]);
-    map.holder[at] = Number.isInteger(holder) && holder >= 0 && holder < holders ? holder : -1;
-    map.plots[at] = typeof plots[i] === "string" ? (plots[i] as string) : "";
-    if (map.names) map.names[at] = visible && typeof visible[i] === "string" ? (visible[i] as string) : map.plots[at];
-    if (map.file && fileOf) {
-      const f = Number(fileOf[i]);
-      map.file[at] = Number.isInteger(f) && f >= 0 && f < files ? f : -1;
-    }
+    map.lat[at] = lat;
+    map.lon[at] = lon;
+    map.status[at] = codeOf[status];
+    map.holder[at] = holder;
+    map.plots[at] = page.plots[i];
+    if (map.names) map.names[at] = page.names?.[i] ?? map.plots[at];
+    if (map.file && page.file) map.file[at] = page.file[i];
   }
   // The reference plots of this page, by their index in the whole map.
-  if (map.reference && Array.isArray(b.reference)) {
-    for (const r of b.reference as unknown[]) {
-      const at = Number(r);
-      if (Number.isInteger(at) && at >= offset && at < Math.min(map.total, offset + points.length)) map.reference[at] = 1;
-    }
-  }
+  if (map.reference) for (const at of page.reference ?? []) map.reference[at] = 1;
   return map;
 }
 
@@ -4064,23 +3483,16 @@ export async function getMapPlots(
       if (filters.file) query.set("file", filters.file);
       if (filters.person) query.set("person", filters.person);
       if (map !== null) query.set("version", map.version);
-      let body: Record<string, unknown>;
+      let page: MapPage;
       try {
-        body = obj(await request<unknown>("GET", `${p(projectId)}/map/plots?${query.toString()}`));
+        page = await request<MapPage>("GET", `${p(projectId)}/map/plots?${query.toString()}`);
       } catch (error) {
         if (!(error instanceof ApiError && error.code === "map_changed") || attempt >= MAP_RESTARTS) throw error;
         changed = true;
         break;
       }
-      if (map !== null && text(body.version) !== map.version) {
-        // A server that does not know versions: a map that changed is read again.
-        if (attempt >= MAP_RESTARTS) throw new ApiError(409, "map_changed");
-        changed = true;
-        break;
-      }
-      map = addMapPage(map, body);
-      const next = Number(body.next);
-      offset = body.next === null || body.next === undefined || !Number.isInteger(next) || next <= offset ? null : next;
+      map = addMapPage(map, page);
+      offset = page.next;
       onProgress?.(offset ?? map.total, map.total);
       if (stopped()) return map;
     }
