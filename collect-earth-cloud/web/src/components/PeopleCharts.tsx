@@ -216,7 +216,7 @@ export function CalendarHeatMap({
   cellTitle,
   ariaLabel,
 }: {
-  days: readonly { date: string; plots: number; checks: number }[];
+  days: readonly { date: string; plots: number; checks?: number }[];
   today: string;
   language: string;
   cellTitle: (cell: CalendarCell) => string;

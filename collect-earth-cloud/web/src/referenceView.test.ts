@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { toPersonData, type ReferenceFiguresAnswer } from "./api";
+import type { ReferenceFiguresAnswer } from "./api";
 import { CATALOGUES, translator } from "./i18n";
 import { accuracyText, parsePlotIds, refusalKey, sortedPeople, weakestQuestions } from "./referenceView";
 
@@ -55,14 +55,5 @@ describe("the Reference plots section", () => {
     expect(weakestQuestions(figures.people![2]).map((q) => q.key)).toEqual(["c", "b", "d"]);
     // A reviewer's figures name nobody.
     expect(sortedPeople({ ...figures, people: undefined })).toEqual([]);
-  });
-
-  it("reads the person page's accuracy", () => {
-    const person = toPersonData({ person: { userId: "u" }, quality: { reference: { username: "ana", plots: { compared: 3, agreeing: 2, rate: null }, questions: [] } } });
-    expect(person.quality.reference).toEqual({ username: "ana", plots: { compared: 3, agreeing: 2, rate: null }, questions: [] });
-    expect(toPersonData({ person: { userId: "u" }, quality: { reference: null } }).quality.reference).toBeNull();
-    // No reference plot in the project: no line at all.
-    expect(toPersonData({ person: { userId: "u" }, quality: {} }).quality.reference).toBeUndefined();
-    expect(toPersonData({ person: { userId: "u" }, plots: [] }).quality).toBeDefined();
   });
 });

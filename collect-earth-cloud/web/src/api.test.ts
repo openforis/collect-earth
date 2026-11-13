@@ -77,7 +77,6 @@ import {
   getServerOverview,
   setUserDisabled,
   listMembers,
-  toPersonRow,
   setMemberExcluded,
   getMyQuality,
   getTeamReport,
@@ -955,16 +954,13 @@ describe("the AI assistant and the reports", () => {
     expect(usage.totals.tokens).toBe(15);
   });
 
-  it("reads a member disabled by the server owner: a flag in the member list, a status on the People tab", async () => {
+  it("reads a member disabled by the server owner: a flag in the member list", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(200, { members: [{ userId: "u1", username: "maria", role: "operator", disabled: true }, { userId: "u2", username: "ana", role: "operator" }] }));
     const members = await listMembers("p1");
     expect(members.map((m) => m.disabled)).toEqual([true, undefined]);
-    expect(toPersonRow({ userId: "u1", username: "maria", status: { kind: "disabled" } }).status).toEqual({ kind: "disabled", days: null, level: null });
   });
 
   it("reads who is left out of the results, and leaves someone out or puts them back", async () => {
-    expect(toPersonRow({ userId: "u1", excluded: { at: 5, reason: "protocol" } }).excluded).toEqual({ at: 5, reason: "protocol" });
-    expect(toPersonRow({ userId: "u1" }).excluded).toBeNull();
     fetchMock.mockResolvedValueOnce(jsonResponse(200, { ok: true }));
     await setMemberExcluded("p1", "u1", true, "  protocol ");
     expect(call().url).toBe("/v1/projects/p1/members/u1/excluded");
@@ -1084,62 +1080,70 @@ describe("the Collect Earth backup", () => {
 describe("activity: the log, the weekly summary, the downloads and the bell", () => {
   const url = (i = 0) => String(fetchMock.mock.calls[i][0]);
 
-  it("asks for a page of the log with its filters and cursor, and reads its rows", async () => {
-    fetchMock.mockResolvedValue(
-      jsonResponse(200, {
-        items: [
-          { type: "record", id: "r2", at: 2000, receivedAt: 2500, person: "maria", change: "submitted", plot: "17", name: "17", assessment: "check", round: "2" },
-          { type: "audit", id: "a1", at: 1000, person: null, action: "member.removed", details: { userId: "u1", nested: { no: 1 } }, plotName: null },
-          { type: "other" },
-        ],
-        next: "1000.1_e",
-        people: { u1: { name: "ben", removed: true } },
-        files: { f1: "north.csv", f2: null },
-        persons: ["maria", "owner"],
-      }),
-    );
+  it("asks for a page of the log with its filters and cursor", async () => {
+    const body = {
+      items: [
+        { type: "record", id: "r2", at: 2000, receivedAt: 2500, person: "maria", change: "submitted", plot: "17", name: "17", assessment: "check", round: "2" },
+        { type: "audit", id: "a1", at: 1000, person: null, action: "member.removed", details: { userId: "u1" } },
+      ],
+      next: "1000.1_e",
+      people: { u1: { name: "ben", removed: true } },
+      files: { f1: "north.csv", f2: null },
+      persons: ["maria", "owner"],
+    };
+    fetchMock.mockResolvedValue(jsonResponse(200, body));
     const page = await getActivity("p 1", { person: "maria", kind: "submitted", from: 10, to: 20.4, cursor: "s_s", limit: 50 });
     expect(url()).toBe("/v1/projects/p%201/activity?person=maria&kind=submitted&from=10&to=20&cursor=s_s&limit=50");
-    expect(page.items).toEqual([
-      { type: "record", id: "r2", at: 2000, receivedAt: 2500, person: "maria", change: "submitted", plot: "17", name: "17", assessment: "check", round: "2" },
-      { type: "audit", id: "a1", at: 1000, person: null, action: "member.removed", details: { userId: "u1" }, plotName: null },
-    ]);
-    expect(page).toMatchObject({ next: "1000.1_e", people: { u1: { name: "ben", removed: true } }, files: { f1: "north.csv", f2: null }, persons: ["maria", "owner"] });
-    fetchMock.mockResolvedValue(jsonResponse(200, { items: [], next: null }));
+    expect(page).toEqual(body);
+    fetchMock.mockResolvedValue(jsonResponse(200, { items: [], next: null, people: {}, files: {}, persons: [] }));
     await getActivity("p1", { kind: "all" });
     expect(url(1)).toBe("/v1/projects/p1/activity");
   });
 
   it("the weekly summary of a week, or of this week", async () => {
-    fetchMock.mockImplementation(async () =>
-      jsonResponse(200, {
-        week: "2026-W44",
-        timeZone: "Europe/Rome",
-        start: "2026-10-26",
-        end: "2026-11-01",
-        current: false,
-        asOf: null,
-        progress: { days: [{ date: "2026-10-26", submitted: 2, checks: 1 }], submitted: 2, checks: 1, before: 0, byEnd: 2, totals: { plots: 30, submitted: 2 } },
-        people: [{ userId: "u1", username: "maria", role: "operator", submitted: 2, checks: 0, status: { kind: "working" }, plots: { assigned: 30, submitted: 2, started: 0, remaining: 28, done: 0.07 } }],
-        quality: { available: true, computedAt: 5, stale: false, week: { compared: 1, agreeing: 0, rate: null }, overall: null, decided: { first: 1, check: 0, recheck: 0, total: 1 }, flags: { counts: { very_fast: 2 }, total: 2 } },
-      }),
-    );
+    const body = {
+      week: "2026-W44",
+      timeZone: "Europe/Rome",
+      start: "2026-10-26",
+      end: "2026-11-01",
+      current: false,
+      asOf: null,
+      progress: {
+        days: [{ date: "2026-10-26", submitted: 2, checks: 1 }],
+        submitted: 2,
+        checks: 1,
+        referenceMeasurements: 0,
+        before: 0,
+        byEnd: 2,
+        totals: { plots: 30, assigned: 30, notAssigned: 0, submitted: 2, started: 0, notStarted: 28 },
+      },
+      people: [{ userId: "u1", username: "maria", role: "operator", submitted: 2, checks: 0, referenceMeasurements: 0, status: { kind: "working" }, plots: { assigned: 30, submitted: 2, started: 0, remaining: 28, done: 0.07 } }],
+      quality: {
+        available: true,
+        computedAt: 5,
+        stale: false,
+        week: { compared: 1, agreeing: 0, rate: null },
+        overall: null,
+        decided: { first: 1, check: 0, recheck: 0, total: 1 },
+        flags: { counts: { very_fast: 2, same_as_before: 0, required_empty: 0, edited_after_decision: 0, two_main: 0, no_plot: 0 }, total: 2 },
+      },
+    };
+    fetchMock.mockImplementation(async () => jsonResponse(200, body));
     const w = await getWeekly("p1", "2026-W44", "Europe/Rome");
     expect(url()).toBe("/v1/projects/p1/weekly?tz=Europe%2FRome&week=2026-W44");
-    expect(w.progress).toMatchObject({ submitted: 2, checks: 1, byEnd: 2, totals: { plots: 30, submitted: 2, assigned: 0 } });
-    expect(w.people[0]).toMatchObject({ username: "maria", submitted: 2, status: { kind: "working" }, plots: { assigned: 30, remaining: 28 } });
-    expect(w.quality).toMatchObject({ available: true, week: { compared: 1, agreeing: 0, rate: null }, overall: null, decided: { total: 1 }, flags: { total: 2, counts: { very_fast: 2 } } });
+    expect(w).toEqual(body);
     await getWeekly("p1", null, "UTC");
     expect(url(1)).toBe("/v1/projects/p1/weekly?tz=UTC");
   });
 
   it("the rows of each download; the differences say when the figures are not at hand", async () => {
-    fetchMock.mockResolvedValue(jsonResponse(200, { kind: "daily", today: "2026-11-02", rows: [{ date: "2026-10-26", person: "maria", plots: 2, checks: "x", drafts: 3 }] }));
-    const daily = await getExport("p1", "daily", "UTC");
+    const daily = { kind: "daily", today: "2026-11-02", timeZone: "UTC", rows: [{ date: "2026-10-26", person: "maria", plots: 2, checks: 0, submittedAgain: 0, drafts: 3, reopened: 0, deleted: 0 }] };
+    fetchMock.mockResolvedValue(jsonResponse(200, daily));
+    expect(await getExport("p1", "daily", "UTC")).toEqual(daily);
     expect(url()).toBe("/v1/projects/p1/exports/daily?tz=UTC");
-    expect(daily).toEqual({ kind: "daily", today: "2026-11-02", rows: [{ date: "2026-10-26", person: "maria", plots: 2, checks: 0, submittedAgain: 0, drafts: 3, reopened: 0, deleted: 0 }] });
-    fetchMock.mockResolvedValue(jsonResponse(200, { today: "2026-11-02", rows: [{ plot: "1", name: "1", decision: "check", comment: null, decidedBy: "ana", decidedAt: 9, byAssessor: false, bulk: true }] }));
-    expect((await getExport("p1", "decisions", "UTC")).rows).toEqual([{ plot: "1", name: "1", decision: "check", comment: null, decidedBy: "ana", decidedAt: 9, byAssessor: false, bulk: true }]);
+    const decisions = { kind: "decisions", today: "2026-11-02", timeZone: "UTC", rows: [{ plot: "1", name: "1", decision: "check", comment: null, decidedBy: "ana", decidedAt: 9, byAssessor: false, bulk: true }], figures: null };
+    fetchMock.mockResolvedValue(jsonResponse(200, decisions));
+    expect(await getExport("p1", "decisions", "UTC")).toEqual(decisions);
     fetchMock.mockResolvedValue(jsonResponse(409, { error: "no_figures", reason: "open the Quality tab first" }));
     await expect(getExport("p1", "differences", "UTC")).rejects.toMatchObject({ status: 409, code: "no_figures" });
   });

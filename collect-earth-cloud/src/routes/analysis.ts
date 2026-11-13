@@ -18,6 +18,7 @@ import { recordResolver } from '../quality.js';
 import { periodSummaryKey, withPeriodColumns } from '../repeatSurvey.js';
 import type { Store } from '../store/store.js';
 import type { RecordRow, SharedAnalysisView } from '../types.js';
+import type { AnalysisAnswer, AreasSource, SharedAnalysisViewsAnswer, StandaloneAnalysis } from '../wire/analysis.js';
 
 /** The stand-alone page in the built dashboard, and where its data goes in it (web/standalone.config.ts writes both). */
 export const STANDALONE_FILE = 'analysis-standalone.html';
@@ -107,7 +108,7 @@ export async function registerAnalysisRoutes(app: FastifyInstance, store: Store,
     // A file that is easy to pass around: who took it, and whether with the plots' places
     await audit(store, request, 'export.downloaded', { kind: 'analysis', records, coordinates: !noPositions });
     const made = new Date();
-    const data = { ...payload, project: { id: request.membership!.projectId, name: project?.name ?? '' }, made: made.toISOString(), withoutPositions: noPositions };
+    const data: StandaloneAnalysis = { ...payload, project: { id: request.membership!.projectId, name: project?.name ?? '' }, made: made.toISOString(), withoutPositions: noPositions };
     const embedded = `<script>window.__CE_ANALYSIS=${JSON.stringify(gzipSync(JSON.stringify(data), { level: 6 }).toString('base64'))}</script>`;
     // A function replacement: a replacement string would read "$&" or "$`" in the data as patterns
     const html = template.replace(STANDALONE_DATA, () => embedded);
@@ -119,7 +120,7 @@ export async function registerAnalysisRoutes(app: FastifyInstance, store: Store,
   });
 
   /** The page's data for whoever asks, or null when an error was sent instead. */
-  async function analysisPayload(request: FastifyRequest, reply: FastifyReply, noPositions = false) {
+  async function analysisPayload(request: FastifyRequest, reply: FastifyReply, noPositions = false): Promise<AnalysisAnswer | null> {
     const projectId = request.membership!.projectId;
     const role = request.membership!.role;
     const cep = await store.getCep(projectId);
@@ -188,7 +189,7 @@ export async function registerAnalysisRoutes(app: FastifyInstance, store: Store,
 
   // The views a coordinator shares with the team: everyone in the project sees them, coordinators save and delete them
   app.get('/v1/projects/:pid/analysis/views', member, async (request: FastifyRequest, reply: FastifyReply) => {
-    return reply.header('cache-control', 'no-store').send({ views: await store.getAnalysisViews(request.membership!.projectId) });
+    return reply.header('cache-control', 'no-store').send({ views: await store.getAnalysisViews(request.membership!.projectId) } satisfies SharedAnalysisViewsAnswer);
   });
 
   const coordinator = { preHandler: requireProjectMembership(store, 'admin') };
@@ -210,7 +211,7 @@ export async function registerAnalysisRoutes(app: FastifyInstance, store: Store,
     const view: SharedAnalysisView = { name, table, language, config: config as Record<string, unknown>, savedBy, savedAt: Date.now() };
     const next = [...others, view].sort((a, b) => a.name.localeCompare(b.name) || a.table.localeCompare(b.table));
     await store.setAnalysisViews(projectId, next);
-    return reply.send({ views: next });
+    return reply.send({ views: next } satisfies SharedAnalysisViewsAnswer);
   });
 
   app.delete('/v1/projects/:pid/analysis/views', coordinator, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -222,7 +223,7 @@ export async function registerAnalysisRoutes(app: FastifyInstance, store: Store,
     const next = views.filter((v) => !(v.name === name && v.table === table));
     if (next.length === views.length) return reply.code(404).send({ error: 'not_found' });
     await store.setAnalysisViews(projectId, next);
-    return reply.send({ views: next });
+    return reply.send({ views: next } satisfies SharedAnalysisViewsAnswer);
   });
 }
 
@@ -280,7 +281,7 @@ export async function projectFactors(
 }
 
 /** Where the areas come from, the Uncertainty page's own total area left out: the dashboard's setting or a file. */
-export async function areasSource(store: Store, projectId: string, parsed: NonNullable<Parsed>): Promise<string | null> {
+export async function areasSource(store: Store, projectId: string, parsed: NonNullable<Parsed>): Promise<AreasSource | null> {
   const settings = await store.getAreaSettings(projectId);
   return settings ? settings.mode : parsed.regionAreas ? REGION_AREAS_CSV : parsed.attributeAreas ? ATTRIBUTE_AREAS_CSV : null;
 }

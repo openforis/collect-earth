@@ -11,7 +11,7 @@ import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import WarningAmber from "@mui/icons-material/WarningAmber";
 import type { ReactNode } from "react";
-import { getTimeSpent, type PersonRow, type QuickPlot, type TimeSpentData } from "../api";
+import { getTimeSpent, type PersonRow, type QuickPlot, type TimeSpent } from "../api";
 import { useApp } from "../appContext";
 import { formatDate, formatNumber } from "../format";
 import { useT } from "../i18n";
@@ -39,7 +39,7 @@ function Frame({ id, children }: { id: string; children: ReactNode }) {
 }
 
 /** The plots' times in bands, the quick ones in the warning colour. */
-function Bands({ data, bands }: { data: TimeSpentData; bands: number[] }) {
+function Bands({ data, bands }: { data: TimeSpent; bands: number[] }) {
   const t = useT();
   const { language } = useApp();
   const labels = bandLabels(t, data.bandLimits);
@@ -61,7 +61,7 @@ function Bands({ data, bands }: { data: TimeSpentData; bands: number[] }) {
 }
 
 /** How the team usually does, and the rule that calls a plot quick (or why none is yet). */
-function TeamLines({ data }: { data: TimeSpentData }) {
+function TeamLines({ data }: { data: TimeSpent }) {
   const t = useT();
   const { language } = useApp();
   const n = (v: number) => formatNumber(v, language);

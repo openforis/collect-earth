@@ -45,7 +45,7 @@ import type {
   TwoFactorSetup,
   UnsubscribeAnswer,
 } from "../../src/wire/account";
-import type { BellAnswer, ProgressAnswer, ProgressSettings, ProgressTotals, PublicProgress } from "../../src/wire/progress";
+import type { BellAnswer, ProgressAnswer, ProgressSettings, PublicProgress } from "../../src/wire/progress";
 import type {
   NewShareLinkAnswer,
   ProjectAi,
@@ -101,7 +101,6 @@ import type { BulkDecisionAnswer, BulkRule, PlotPageAnswer, PlotSearchAnswer, Re
 import type { MapFile, MapPage, MapStatus } from "../../src/wire/map";
 import type {
   AnswerColumnsAnswer,
-  AnswerOptions,
   AnswersAnswer,
   DecisionKind,
   FlagCounts,
@@ -150,6 +149,39 @@ import type {
   UserSummary,
   WebhookTestAnswer,
 } from "../../src/wire/serverAdmin";
+import type { PeopleAnswer, PersonAnswer, TimeSpent } from "../../src/wire/people";
+import type { ActivityPage, ExportAnswer, ExportKind, WeeklyAnswer } from "../../src/wire/activity";
+import type {
+  AnalysisAnswer,
+  AreaSettings,
+  AreaSettingsAnswer,
+  AreasAnswer,
+  IpccCategory,
+  IpccExports,
+  ListItem,
+  ProposedView,
+  ProposedViewsAnswer,
+  SharedAnalysisView,
+  SharedAnalysisViewInput,
+  SharedAnalysisViewsAnswer,
+  UncertaintyAnswer,
+  UncertaintySettings,
+  UncertaintySettingsAnswer,
+  UncertaintySetup,
+} from "../../src/wire/analysis";
+import type {
+  AttemptsAnswer,
+  GoldenFromAnswer,
+  GoldenPruneAnswer,
+  MyTrainingAnswer,
+  MyTrainingSet,
+  TrainingFiguresAnswer,
+  TrainingGolden,
+  TrainingKind,
+  TrainingList,
+  TrainingSetSummary,
+  TrainingSetView,
+} from "../../src/wire/training";
 
 // Every call the dashboard makes to the Collect Earth Cloud server, in one place.
 //
@@ -474,7 +506,6 @@ export function toMillis(value: unknown): number | null {
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 /** A calendar day (YYYY-MM-DD), or null. */
 const toDate = (value: unknown): string | null => (typeof value === "string" && DATE_RE.test(value) ? value : null);
-const toNumberOrNull = (value: unknown): number | null => (typeof value === "number" && Number.isFinite(value) ? value : null);
 
 /** A count from a number or a list (its length). */
 export function toCount(value: unknown): number {
@@ -507,6 +538,8 @@ export function asStatus(value: unknown): ProjectStatus {
 }
 
 const p = (projectId: string) => `/v1/projects/${encodeURIComponent(projectId)}`;
+
+void [toDate]; // merge: drop when unused
 
 // --- server & account --------------------------------------------------------------
 
@@ -1106,8 +1139,6 @@ export async function saveAssignments(projectId: string, assignments: Assignment
 
 const f = (projectId: string, csvFileId: string) => `${p(projectId)}/csv-files/${encodeURIComponent(csvFileId)}`;
 
-const strings = (value: unknown): string[] => (Array.isArray(value) ? value.map((v) => String(v ?? "")) : []);
-
 export function getCsvColumns(projectId: string, csvFileId: string): Promise<CsvColumns> {
   return request("GET", `${f(projectId, csvFileId)}/columns`);
 }
@@ -1154,7 +1185,6 @@ export function rebalance(
 // --- quality ---------------------------------------------------------------------------------
 
 const text = (value: unknown): string => (value == null ? "" : String(value));
-const nullableText = (value: unknown): string | null => (typeof value === "string" && value !== "" ? value : null);
 const list = (value: unknown): Record<string, unknown>[] =>
   Array.isArray(value) ? value.filter((v): v is Record<string, unknown> => !!v && typeof v === "object") : [];
 const obj = (value: unknown): Record<string, unknown> => (value && typeof value === "object" ? (value as Record<string, unknown>) : {});
@@ -1187,10 +1217,6 @@ function toRate(value: unknown): Rate {
 
 export function toDecision(value: unknown): QualityDecision {
   return value as QualityDecision;
-}
-
-function toOptions(value: unknown): AnswerOptions {
-  return obj(value) as AnswerOptions;
 }
 
 /** The quality figures. A 503 "busy" (other projects' figures being worked out) is thrown as ApiError code "busy". */
@@ -1527,420 +1553,70 @@ export function getPublicProgress(token: string, timeZone: string): Promise<Publ
 
 // --- people (the People tab, a person's page, My work) ------------------------------
 
-export type PersonStatusKind = "noPlots" | "finished" | "neverStarted" | "quiet" | "working" | "disabled";
+export type {
+  InviteRow,
+  PeopleAnswer,
+  PersonAnswer,
+  PersonDetail,
+  PersonFile,
+  PersonRow,
+  PersonStatus,
+  PersonTime,
+  PlotStatus,
+  QualityAtHand,
+  QuickPlot,
+  SentBack,
+  Speed,
+  SyncHealth,
+  TimeSpent,
+  WeekSummary,
+} from "../../src/wire/people";
 
-export interface PersonStatus {
-  kind: PersonStatusKind;
-  /** quiet: whole days since their last sync or plot download. */
-  days: number | null;
-  /** quiet: amber from the project's quiet days on, red from twice that. */
-  level: "amber" | "red" | null;
-}
-
-export interface PersonRow {
-  userId: string;
-  username: string;
-  role: Role;
-  plots: { assigned: number; submitted: number; started: number; remaining: number; done: number | null };
-  /** Null on My work: checks are blind there (copies are counted as plots). */
-  checks: { assigned: number; submitted: number; remaining: number } | null;
-  submittedLast7: number;
-  medianPerDay: number | null;
-  lastSyncAt: number | null;
-  lastPlotsDownloadAt: number | null;
-  lastSubmittedAt: number | null;
-  /** Null when the quality figures are not at hand. */
-  agreement: Rate | null;
-  status: PersonStatus;
-  /** Left out of the results by a coordinator (their records are in no figure nor export); null otherwise. */
-  excluded?: { at: number; reason: string | null } | null;
-}
-
-export interface QualityAtHand {
-  available: boolean;
-  computedAt: number | null;
-  stale: boolean;
-}
-
-export interface WeekPerson {
-  userId: string;
-  username: string;
-  submitted: number;
-}
-
-/** An open invitation link; `forUsername`: made for someone already in the project, to get the new project file. */
+/** An open invitation link as listInvites gives it; `forUsername`: made for someone already in the project, to get the new project file. */
 export interface PeopleInvite extends Invite {
   forUsername: string | null;
 }
 
-export interface PeopleData {
-  timeZone: string;
-  today: string;
-  quietDays: number;
-  /** When the figures are older than the records: the time they are from (newer ones are being worked out). */
-  asOf: number | null;
-  quality: QualityAtHand;
-  people: PersonRow[];
-  invites: PeopleInvite[];
-  week: { days: { date: string; submitted: number }[]; mostActive: WeekPerson[]; leastActive: WeekPerson[] };
-}
-
-export type PlotStatus = "submitted" | "doneByOther" | "started" | "notStarted";
-
-export interface PersonFile {
-  csvFileId: string;
-  filename: string;
-  divided: boolean;
-  plots: { total: number; submitted: number; doneByOther: number; started: number; notStarted: number };
-  /** Null on My work (copies are counted as plots there). */
-  checks: { total: number; submitted: number; started: number; notStarted: number } | null;
-  /** `kind` null on My work. */
-  list: { plot: string; kind: "main" | "check" | null; status: PlotStatus }[];
-  truncated: boolean;
-}
-
-export interface Speed {
-  submissions: number;
-  sessions: number;
-  gaps: number;
-  medianGapMs: number | null;
-  veryFast: number;
-  /** The project's "very fast" threshold (fastSeconds) the count used. */
-  veryFastSeconds: number;
-  buckets: { upToMs: number; count: number }[];
-}
-
-export interface SyncHealth {
-  lastSeenAt: number | null;
-  lastSyncAt: number | null;
-  lastPlotsDownloadAt: number | null;
-  lastCepDownloadAt: number | null;
-  syncsCount: number;
-  recordsReceived: number;
-  cepUpdatedAt: number | null;
-  oldProjectFile: boolean;
-  collectEarth: { kind: "collect-earth" | "old-collect-earth" | "unknown"; version: string | null } | null;
-}
-
-export interface SentBack {
-  plot: string;
-  comment: string | null;
-  decidedAt: number | null;
-  decidedBy: string | null;
-  /** Submitted again since: it has left their "To check again" plot file. */
-  submittedAgain: boolean;
-  /** The "To check again" plot file it is in for them in Collect Earth, while waiting. */
-  file: string | null;
-}
-
-export interface PersonData {
-  timeZone: string;
-  today: string;
-  quietDays: number;
-  asOf: number | null;
-  person: PersonRow;
-  /** `checks` 0 on My work (`plots` counts both there). */
-  calendar: { date: string; plots: number; checks: number }[];
-  /** What removing them leaves behind (coordinators); null on My work. */
-  removal: { plots: number; copies: number } | null;
-  hours: number[];
-  files: PersonFile[];
-  speed: Speed;
-  sync: SyncHealth;
-  /** `flags`: their pattern flags by kind (coordinators' page, from the figures at hand); null on My work or without figures. */
-  quality: QualityAtHand & { asFirst: Rate | null; asChecker: Rate | null; sentBack: SentBack[]; flags: FlagCounts | null; reference?: ReferencePerson | null };
-}
-
-const STATUS_KINDS: readonly PersonStatusKind[] = ["noPlots", "finished", "neverStarted", "quiet", "working", "disabled"];
-const PLOT_STATUSES: readonly PlotStatus[] = ["submitted", "doneByOther", "started", "notStarted"];
-const toRole = (value: unknown): Role => (value === "admin" || value === "reviewer" ? value : "operator");
-const toRateOrNull = (value: unknown): Rate | null => (value && typeof value === "object" ? toRate(value) : null);
-
-function toQualityAtHand(value: unknown): QualityAtHand {
-  const q = obj(value);
-  return { available: q.available === true, computedAt: toMillis(q.computedAt), stale: q.stale === true };
-}
-
-export function toPersonRow(value: unknown): PersonRow {
-  const r = obj(value);
-  const plots = obj(r.plots);
-  const checks = obj(r.checks);
-  const status = obj(r.status);
-  const kind = STATUS_KINDS.includes(status.kind as PersonStatusKind) ? (status.kind as PersonStatusKind) : "working";
-  return {
-    userId: text(r.userId),
-    username: text(r.username),
-    role: toRole(r.role),
-    plots: {
-      assigned: toCount(plots.assigned),
-      submitted: toCount(plots.submitted),
-      started: toCount(plots.started),
-      remaining: toCount(plots.remaining),
-      done: toNumberOrNull(plots.done),
-    },
-    checks:
-      r.checks && typeof r.checks === "object"
-        ? { assigned: toCount(checks.assigned), submitted: toCount(checks.submitted), remaining: toCount(checks.remaining) }
-        : null,
-    submittedLast7: toCount(r.submittedLast7),
-    medianPerDay: toNumberOrNull(r.medianPerDay),
-    lastSyncAt: toMillis(r.lastSyncAt),
-    lastPlotsDownloadAt: toMillis(r.lastPlotsDownloadAt),
-    lastSubmittedAt: toMillis(r.lastSubmittedAt),
-    agreement: toRateOrNull(r.agreement),
-    excluded: r.excluded && typeof r.excluded === "object" ? { at: toCount(obj(r.excluded).at), reason: typeof obj(r.excluded).reason === "string" ? text(obj(r.excluded).reason) : null } : null,
-    status: {
-      kind,
-      days: kind === "quiet" ? toNumberOrNull(status.days) : null,
-      level: kind === "quiet" ? (status.level === "red" ? "red" : "amber") : null,
-    },
-  };
-}
-
-const toWeekPerson = (value: unknown): WeekPerson => {
-  const w = obj(value);
-  return { userId: text(w.userId), username: text(w.username), submitted: toCount(w.submitted) };
-};
-
-export function toPeopleData(body: unknown): PeopleData {
-  const b = obj(body);
-  const week = obj(b.week);
-  return {
-    timeZone: typeof b.timeZone === "string" ? b.timeZone : "UTC",
-    today: toDate(b.today) ?? new Date().toISOString().slice(0, 10),
-    quietDays: toCount(b.quietDays) || 3,
-    asOf: toMillis(b.asOf),
-    quality: toQualityAtHand(b.quality),
-    people: list(b.people).map(toPersonRow),
-    invites: list(b.invites).map((i) => ({
-      id: text(i.id),
-      role: toRole(i.role),
-      maxUses: toCount(i.maxUses),
-      usedCount: toCount(i.usedCount),
-      expiresAt: toMillis(i.expiresAt),
-      createdAt: toMillis(i.createdAt),
-      forUsername: nullableText(i.forUsername),
-    })),
-    week: {
-      days: list(week.days)
-        .filter((d) => toDate(d.date) !== null)
-        .map((d) => ({ date: String(d.date), submitted: toCount(d.submitted) })),
-      mostActive: list(week.mostActive).map(toWeekPerson),
-      leastActive: list(week.leastActive).map(toWeekPerson),
-    },
-  };
-}
-
-export function toPersonData(body: unknown): PersonData {
-  const b = obj(body);
-  const sync = obj(b.sync);
-  const speed = obj(b.speed);
-  const quality = obj(b.quality);
-  const ce = sync.collectEarth && typeof sync.collectEarth === "object" ? obj(sync.collectEarth) : null;
-  const hours = Array.isArray(b.hours) ? b.hours.map(toCount) : [];
-  return {
-    timeZone: typeof b.timeZone === "string" ? b.timeZone : "UTC",
-    today: toDate(b.today) ?? new Date().toISOString().slice(0, 10),
-    quietDays: toCount(b.quietDays) || 3,
-    asOf: toMillis(b.asOf),
-    person: toPersonRow(b.person),
-    calendar: list(b.calendar)
-      .filter((d) => toDate(d.date) !== null)
-      .map((d) => ({ date: String(d.date), plots: toCount(d.plots), checks: toCount(d.checks) })),
-    removal: b.removal && typeof b.removal === "object" ? { plots: toCount(obj(b.removal).plots), copies: toCount(obj(b.removal).copies) } : null,
-    hours: Array.from({ length: 24 }, (_, i) => hours[i] ?? 0),
-    files: list(b.files).map((f) => {
-      const plots = obj(f.plots);
-      const checks = obj(f.checks);
-      return {
-        csvFileId: text(f.csvFileId),
-        filename: text(f.filename),
-        divided: f.divided === true,
-        plots: {
-          total: toCount(plots.total),
-          submitted: toCount(plots.submitted),
-          doneByOther: toCount(plots.doneByOther),
-          started: toCount(plots.started),
-          notStarted: toCount(plots.notStarted),
-        },
-        checks:
-          f.checks && typeof f.checks === "object"
-            ? { total: toCount(checks.total), submitted: toCount(checks.submitted), started: toCount(checks.started), notStarted: toCount(checks.notStarted) }
-            : null,
-        list: list(f.list).map((x) => ({
-          plot: text(x.plot),
-          kind: x.kind === "check" ? "check" : x.kind === "main" ? "main" : null,
-          status: PLOT_STATUSES.includes(x.status as PlotStatus) ? (x.status as PlotStatus) : "notStarted",
-        })),
-        truncated: f.truncated === true,
-      };
-    }),
-    speed: {
-      submissions: toCount(speed.submissions),
-      sessions: toCount(speed.sessions),
-      gaps: toCount(speed.gaps),
-      medianGapMs: toNumberOrNull(speed.medianGapMs),
-      veryFast: toCount(speed.veryFast),
-      veryFastSeconds: toFastSeconds(speed.veryFastSeconds),
-      buckets: list(speed.buckets).map((x) => ({ upToMs: toCount(x.upToMs), count: toCount(x.count) })),
-    },
-    sync: {
-      lastSeenAt: toMillis(sync.lastSeenAt),
-      lastSyncAt: toMillis(sync.lastSyncAt),
-      lastPlotsDownloadAt: toMillis(sync.lastPlotsDownloadAt),
-      lastCepDownloadAt: toMillis(sync.lastCepDownloadAt),
-      syncsCount: toCount(sync.syncsCount),
-      recordsReceived: toCount(sync.recordsReceived),
-      cepUpdatedAt: toMillis(sync.cepUpdatedAt),
-      oldProjectFile: sync.oldProjectFile === true,
-      collectEarth:
-        ce === null
-          ? null
-          : {
-              kind: ce.kind === "collect-earth" || ce.kind === "old-collect-earth" ? ce.kind : "unknown",
-              version: nullableText(ce.version),
-            },
-    },
-    quality: {
-      ...toQualityAtHand(quality),
-      asFirst: toRateOrNull(quality.asFirst),
-      asChecker: toRateOrNull(quality.asChecker),
-      sentBack: list(quality.sentBack).map((s) => ({ plot: text(s.plot), comment: nullableText(s.comment), decidedAt: toMillis(s.decidedAt), decidedBy: nullableText(s.decidedBy), submittedAgain: s.submittedAgain === true, file: nullableText(s.file) })),
-      flags: quality.flags && typeof quality.flags === "object" ? toFlagCounts(quality.flags) : null,
-      // Absent: the project has no reference plot (the line is not shown); null: none of theirs measured yet.
-      ...(quality.reference === undefined ? {} : { reference: quality.reference && typeof quality.reference === "object" ? toReferencePerson(quality.reference) : null }),
-    },
-  };
-}
-
 /** The People tab's table (coordinators), with the days in the browser's time zone. */
-export async function getPeople(projectId: string, timeZone: string): Promise<PeopleData> {
-  return toPeopleData(await request<unknown>("GET", `${p(projectId)}/people?${new URLSearchParams({ tz: timeZone })}`));
+export function getPeople(projectId: string, timeZone: string): Promise<PeopleAnswer> {
+  return request("GET", `${p(projectId)}/people?${new URLSearchParams({ tz: timeZone })}`);
 }
 
 /** One person's page (coordinators). */
-export async function getPerson(projectId: string, userId: string, timeZone: string): Promise<PersonData> {
-  return toPersonData(await request<unknown>("GET", `${p(projectId)}/people/${encodeURIComponent(userId)}?${new URLSearchParams({ tz: timeZone })}`));
-}
-
-/** One person's time per plot (GET /time-spent): Collect Earth's active time on their submitted plots. */
-export interface PersonTime {
-  username: string;
-  timed: number;
-  untimed: number;
-  medianSeconds: number | null;
-  q1Seconds: number | null;
-  q3Seconds: number | null;
-  totalSeconds: number;
-  quick: number;
-  /** Their timed plots in each band of `bandLimits` (one more: the last band is open). */
-  bands: number[];
-}
-
-/** A plot done much quicker than the team usually takes. */
-export interface QuickPlot {
-  plot: string;
-  operator: string;
-  seconds: number;
-  submittedAt: number;
-}
-
-/** The time spent on each plot (coordinators only). */
-export interface TimeSpentData {
-  timed: number;
-  untimed: number;
-  medianSeconds: number | null;
-  q1Seconds: number | null;
-  q3Seconds: number | null;
-  /** Plots under this many seconds are quick; null while fewer than `minTimed` plots are timed. */
-  quickBelowSeconds: number | null;
-  quickShare: number;
-  minTimed: number;
-  bands: number[];
-  bandLimits: number[];
-  people: PersonTime[];
-  quickCount: number;
-  quick: QuickPlot[];
+export function getPerson(projectId: string, userId: string, timeZone: string): Promise<PersonAnswer> {
+  return request("GET", `${p(projectId)}/people/${encodeURIComponent(userId)}?${new URLSearchParams({ tz: timeZone })}`);
 }
 
 /** How long the interpreters take per plot, and the plots done much quicker than the team usually takes (coordinators). */
-export async function getTimeSpent(projectId: string, person?: string): Promise<TimeSpentData> {
+export function getTimeSpent(projectId: string, person?: string): Promise<TimeSpent> {
   const query = person === undefined ? "" : `?${new URLSearchParams({ person })}`;
-  return request<TimeSpentData>("GET", `${p(projectId)}/time-spent${query}`);
+  return request("GET", `${p(projectId)}/time-spent${query}`);
 }
 
 // --- the analysis page (what replaces Saiku; the server's src/analysis.ts) -----------
 
-export type AnalysisColumnType = "code" | "boolean" | "integer" | "real" | "text" | "date" | "time";
+export type {
+  AnalysisAnswer,
+  AnalysisColumn,
+  AnalysisModel,
+  AnalysisTable,
+  AreasSource,
+  ColumnType,
+  ListItem,
+  ProposedFilter,
+  ProposedView,
+  SharedAnalysisView,
+  SharedAnalysisViewInput,
+  StandaloneAnalysis,
+  TableData,
+} from "../../src/wire/analysis";
 
-export interface AnalysisColumnModel {
-  name: string;
-  key: string;
-  labels: Record<string, string>;
-  type: AnalysisColumnType;
-  list: string | null;
-  calculated: boolean;
-  multiple: boolean;
-  fromPlotFile: boolean;
-  /** A key attribute of the survey (the plot's id, the assessment round). Absent from an older server. */
-  keyAttr?: boolean;
-  /** For a code: the column of the code it refines (a land use's subdivision), else null. */
-  parent?: string | null;
-  /** The yes/no column the question is asked after (the year of a change, after "Any change?"), else null. */
-  relevantIf?: string | null;
-  /** A repeat survey's earlier period the column holds the answers of ("2020"); absent for this period's columns */
-  period?: string;
-}
-
-export interface AnalysisTableModel {
-  name: string;
-  labels: Record<string, string>;
-  keyColumn: string | null;
-  columns: AnalysisColumnModel[];
-}
-
-export interface AnalysisListItem {
-  code: string;
-  labels: Record<string, string>;
-  parent: string | null;
-  level: number;
-}
-
-export interface AnalysisModelData {
-  languages: string[];
-  tables: AnalysisTableModel[];
-  lists: Record<string, AnalysisListItem[]>;
-}
-
-export interface AnalysisTableData {
-  name: string;
-  /** Each column's name and DuckDB type, in the CSV's order. */
-  columns: [string, string][];
-  rows: number;
-  csv: string;
-}
-
-export interface AnalysisData {
-  model: AnalysisModelData;
-  /** "project": every record (coordinators, reviewers); "own": the person's own, without rounds (collectors). */
-  scope: "project" | "own";
-  /**
-   * Where the areas come from (the project file's region_areas.csv or areas_per_attribute.csv), or null: no areas.
-   * `unknownColumns`: the file's columns that are no question of the survey; `noStratum`: plots in no line of the file.
-   */
-  areas: {
-    source: string;
-    plots: number;
-    unmatched: number;
-    unknownColumns?: string[];
-    noStratum?: { plots: number; examples: { stratum: string; plots: number }[] };
-  } | null;
-  tables: AnalysisTableData[];
-}
+/** A code list's item; the name ExportChoices (the data section) still uses. */
+export type AnalysisListItem = ListItem;
 
 /** The survey's model and the rows of its tables, for the analysis page (any member). */
-export async function getAnalysis(projectId: string): Promise<AnalysisData> {
-  return request<AnalysisData>("GET", `${p(projectId)}/analysis`);
+export function getAnalysis(projectId: string): Promise<AnalysisAnswer> {
+  return request("GET", `${p(projectId)}/analysis`);
 }
 
 /** The analysis as one HTML file that opens with no server (fetched with the session, then saved by the page). */
@@ -1949,52 +1625,13 @@ export async function downloadAnalysisStandalone(projectId: string, withoutPosit
   return { blob: await response.blob(), filename: attachmentName(response, "analysis.html") };
 }
 
-/** What the stand-alone file holds besides the page's data: its project, and when it was made. */
-export interface StandaloneAnalysisData extends AnalysisData {
-  project: { id: string; name: string };
-  /** ISO 8601. */
-  made: string;
-  /** The plots' locations were left out (?coordinates=none). */
-  withoutPositions?: boolean;
-}
-
-/** A view a coordinator shared with the team (the analysis page). */
-export interface SharedAnalysisView {
-  name: string;
-  table: string;
-  language: string;
-  config: Record<string, unknown>;
-  savedBy: string;
-  savedAt: number;
-}
-
 export async function getSharedAnalysisViews(projectId: string): Promise<SharedAnalysisView[]> {
-  return (await request<{ views: SharedAnalysisView[] }>("GET", `${p(projectId)}/analysis/views`)).views;
+  return (await request<SharedAnalysisViewsAnswer>("GET", `${p(projectId)}/analysis/views`)).views;
 }
 
 /** Shares a view with the team (coordinators), replacing one of the same name and table; gives them all. */
-export async function shareAnalysisView(projectId: string, view: { name: string; table: string; language: string; config: Record<string, unknown> }): Promise<SharedAnalysisView[]> {
-  return (await request<{ views: SharedAnalysisView[] }>("PUT", `${p(projectId)}/analysis/views`, { json: view })).views;
-}
-
-/** A filter of a view proposed by the AI assistant, on codes (the server's src/ai/analysisViews.ts). */
-export interface ProposedFilter {
-  column: string;
-  op: "is" | "isNot" | "yes" | "no" | "answered" | "notAnswered" | "atLeast" | "atMost";
-  codes?: string[];
-  value?: number | string;
-}
-
-/** A view of the analysis page proposed by the AI assistant from the survey's structure, by the cube's column ids. */
-export interface ProposedView {
-  title: string;
-  why: string;
-  rows: string[];
-  columns: string[];
-  measures: string[];
-  chart: "table" | "bars" | "hbars" | "stacked" | "lines" | "areas" | "heatmap" | "treemap" | "sunburst";
-  filters: ProposedFilter[];
-  order: "largest" | "smallest" | "name";
+export async function shareAnalysisView(projectId: string, view: SharedAnalysisViewInput): Promise<SharedAnalysisView[]> {
+  return (await request<SharedAnalysisViewsAnswer>("PUT", `${p(projectId)}/analysis/views`, { json: view })).views;
 }
 
 /**
@@ -2002,17 +1639,16 @@ export interface ProposedView {
  * the server sends the model the survey's structure only, never the data. Counted against the project's AI limits.
  */
 export async function proposeAnalysisViews(projectId: string, table: string, language: string): Promise<ProposedView[]> {
-  const body = obj(await request<unknown>("POST", `${p(projectId)}/analysis/proposals`, { json: { table, language } }));
-  return Array.isArray(body.views) ? (body.views as ProposedView[]) : [];
+  return (await request<ProposedViewsAnswer>("POST", `${p(projectId)}/analysis/proposals`, { json: { table, language } })).views;
 }
 
 export async function deleteSharedAnalysisView(projectId: string, name: string, table: string): Promise<SharedAnalysisView[]> {
-  return (await request<{ views: SharedAnalysisView[] }>("DELETE", `${p(projectId)}/analysis/views?${new URLSearchParams({ name, table })}`)).views;
+  return (await request<SharedAnalysisViewsAnswer>("DELETE", `${p(projectId)}/analysis/views?${new URLSearchParams({ name, table })}`)).views;
 }
 
 /** The signed-in person's own page ("My work", any member). */
-export async function getMyWork(projectId: string, timeZone: string): Promise<PersonData> {
-  return toPersonData(await request<unknown>("GET", `${p(projectId)}/my-work?${new URLSearchParams({ tz: timeZone })}`));
+export function getMyWork(projectId: string, timeZone: string): Promise<PersonAnswer> {
+  return request("GET", `${p(projectId)}/my-work?${new URLSearchParams({ tz: timeZone })}`);
 }
 
 // --- answers per person (the Quality tab's Answers section, Task 4) -------------------
@@ -2377,50 +2013,24 @@ export async function getMapPlots(
 
 // --- activity: the log, the weekly summary, the downloads and the bell (coordinators) ----
 
-export type RecordChange = "created" | "updated" | "submitted" | "resubmitted" | "unsubmitted" | "deleted";
-const RECORD_CHANGES: readonly RecordChange[] = ["created", "updated", "submitted", "resubmitted", "unsubmitted", "deleted"];
+export type {
+  ActivityPage,
+  DailyRow,
+  DecisionRow,
+  DifferenceRow,
+  ExportAnswer,
+  ExportFigures,
+  ExportKind,
+  LogItem,
+  RecordChange,
+  WeeklyAnswer,
+  WeeklyPerson,
+  WeeklySummary,
+} from "../../src/wire/activity";
 
 /** What the log can be filtered by (the server's LOG_KINDS). */
 export const LOG_KINDS = ["all", "records", "submitted", "resubmitted", "draft", "unsubmitted", "deleted", "coordinators", "decisions", "people", "files", "settings", "downloads"] as const;
 export type LogKind = (typeof LOG_KINDS)[number];
-
-export type LogItem =
-  | {
-      type: "record";
-      id: string;
-      /** When Collect Earth saved it (the collector's clock). */
-      at: number;
-      receivedAt: number | null;
-      person: string;
-      change: RecordChange;
-      /** The plot's page id, or null for a plot in no plot file. */
-      plot: string | null;
-      /** The plot as the collector sees it. */
-      name: string;
-      assessment: "main" | "check" | "other";
-      round: string;
-    }
-  | {
-      type: "audit";
-      id: string;
-      at: number;
-      /** Null: a project key, or someone no longer in the project. */
-      person: string | null;
-      action: string;
-      details: Record<string, string | number | boolean | null>;
-      plotName: string | null;
-    };
-
-export interface ActivityPage {
-  items: LogItem[];
-  next: string | null;
-  /** user id -> their name now (null: the account is gone) and whether they left the project. */
-  people: Record<string, { name: string | null; removed: boolean }>;
-  /** plot file id -> its name, or null when it is gone. */
-  files: Record<string, string | null>;
-  /** The people the log can be filtered by. */
-  persons: string[];
-}
 
 export interface ActivityQuery {
   person?: string | null;
@@ -2432,57 +2042,8 @@ export interface ActivityQuery {
   limit?: number;
 }
 
-function toDetails(value: unknown): Record<string, string | number | boolean | null> {
-  const out: Record<string, string | number | boolean | null> = {};
-  for (const [k, v] of Object.entries(obj(value))) {
-    if (typeof v === "string" || typeof v === "number" || typeof v === "boolean" || v === null) out[k] = v;
-  }
-  return out;
-}
-
-export function toActivityPage(body: unknown): ActivityPage {
-  const b = obj(body);
-  const items: LogItem[] = [];
-  for (const i of list(b.items)) {
-    if (i.type === "record") {
-      const change = RECORD_CHANGES.includes(i.change as RecordChange) ? (i.change as RecordChange) : "updated";
-      const assessment = i.assessment === "check" || i.assessment === "other" ? i.assessment : "main";
-      items.push({
-        type: "record",
-        id: text(i.id),
-        at: toMillis(i.at) ?? 0,
-        receivedAt: toMillis(i.receivedAt),
-        person: text(i.person),
-        change,
-        plot: typeof i.plot === "string" ? i.plot : null,
-        name: text(i.name),
-        assessment,
-        round: text(i.round),
-      });
-    } else if (i.type === "audit") {
-      items.push({
-        type: "audit",
-        id: text(i.id),
-        at: toMillis(i.at) ?? 0,
-        person: typeof i.person === "string" ? i.person : null,
-        action: text(i.action),
-        details: toDetails(i.details),
-        plotName: typeof i.plotName === "string" ? i.plotName : null,
-      });
-    }
-  }
-  const people: ActivityPage["people"] = {};
-  for (const [id, v] of Object.entries(obj(b.people))) {
-    const r = obj(v);
-    people[id] = { name: typeof r.name === "string" ? r.name : null, removed: r.removed === true };
-  }
-  const files: ActivityPage["files"] = {};
-  for (const [id, v] of Object.entries(obj(b.files))) files[id] = typeof v === "string" ? v : null;
-  return { items, next: typeof b.next === "string" && b.next ? b.next : null, people, files, persons: strings(b.persons) };
-}
-
 /** One page of the activity log (coordinators). */
-export async function getActivity(projectId: string, q: ActivityQuery = {}): Promise<ActivityPage> {
+export function getActivity(projectId: string, q: ActivityQuery = {}): Promise<ActivityPage> {
   const query = new URLSearchParams();
   if (q.person) query.set("person", q.person);
   if (q.kind && q.kind !== "all") query.set("kind", q.kind);
@@ -2491,220 +2052,20 @@ export async function getActivity(projectId: string, q: ActivityQuery = {}): Pro
   if (q.cursor) query.set("cursor", q.cursor);
   if (q.limit) query.set("limit", String(q.limit));
   const qs = query.toString();
-  return toActivityPage(await request<unknown>("GET", `${p(projectId)}/activity${qs ? `?${qs}` : ""}`));
-}
-
-export interface WeeklyPerson {
-  userId: string;
-  username: string;
-  role: Role;
-  submitted: number;
-  checks: number;
-  status: PersonStatus;
-  plots: PersonRow["plots"];
-}
-
-export interface WeeklyData {
-  week: string;
-  timeZone: string;
-  start: string;
-  end: string;
-  current: boolean;
-  asOf: number | null;
-  progress: {
-    days: { date: string; submitted: number; checks: number }[];
-    submitted: number;
-    checks: number;
-    /** Collectors' records of reference plots submitted that week: measurements, counted apart from the checks. */
-    referenceMeasurements: number;
-    before: number;
-    byEnd: number;
-    totals: ProgressTotals;
-  };
-  people: WeeklyPerson[];
-  quality: {
-    available: boolean;
-    computedAt: number | null;
-    stale: boolean;
-    week: Rate | null;
-    overall: Rate | null;
-    decided: { first: number; check: number; recheck: number; total: number };
-    flags: { counts: Record<string, number>; total: number } | null;
-  };
-}
-
-export function toWeeklyData(body: unknown): WeeklyData {
-  const b = obj(body);
-  const pr = obj(b.progress);
-  const t = obj(pr.totals);
-  const q = obj(b.quality);
-  const d = obj(q.decided);
-  const flags = q.flags && typeof q.flags === "object" ? obj(q.flags) : null;
-  const counts: Record<string, number> = {};
-  for (const [k, v] of Object.entries(obj(flags?.counts))) counts[k] = toCount(v);
-  return {
-    week: text(b.week),
-    timeZone: typeof b.timeZone === "string" ? b.timeZone : "UTC",
-    start: toDate(b.start) ?? "",
-    end: toDate(b.end) ?? "",
-    current: b.current === true,
-    asOf: toMillis(b.asOf),
-    progress: {
-      days: list(pr.days)
-        .filter((x) => toDate(x.date) !== null)
-        .map((x) => ({ date: String(x.date), submitted: toCount(x.submitted), checks: toCount(x.checks) })),
-      submitted: toCount(pr.submitted),
-      checks: toCount(pr.checks),
-      referenceMeasurements: toCount(pr.referenceMeasurements),
-      before: toCount(pr.before),
-      byEnd: toCount(pr.byEnd),
-      totals: {
-        plots: toCount(t.plots),
-        assigned: toCount(t.assigned),
-        notAssigned: toCount(t.notAssigned),
-        submitted: toCount(t.submitted),
-        started: toCount(t.started),
-        notStarted: toCount(t.notStarted),
-      },
-    },
-    people: list(b.people).map((x) => {
-      const row = toPersonRow({ ...x, submittedLast7: 0 });
-      return { userId: row.userId, username: row.username, role: row.role, submitted: toCount(x.submitted), checks: toCount(x.checks), status: row.status, plots: row.plots };
-    }),
-    quality: {
-      available: q.available === true,
-      computedAt: toMillis(q.computedAt),
-      stale: q.stale === true,
-      week: q.week ? toRate(q.week) : null,
-      overall: q.overall ? toRate(q.overall) : null,
-      decided: { first: toCount(d.first), check: toCount(d.check), recheck: toCount(d.recheck), total: toCount(d.total) },
-      flags: flags ? { counts, total: toCount(flags.total) } : null,
-    },
-  };
+  return request("GET", `${p(projectId)}/activity${qs ? `?${qs}` : ""}`);
 }
 
 /** One ISO week's summary (null: the viewer's current week), its days in the browser's time zone. */
-export async function getWeekly(projectId: string, week: string | null, timeZone: string): Promise<WeeklyData> {
+export function getWeekly(projectId: string, week: string | null, timeZone: string): Promise<WeeklyAnswer> {
   const query = new URLSearchParams({ tz: timeZone });
   if (week) query.set("week", week);
-  return toWeeklyData(await request<unknown>("GET", `${p(projectId)}/weekly?${query}`));
-}
-
-export type ExportKind = "people" | "daily" | "decisions" | "differences";
-
-export interface DailyRow {
-  date: string;
-  person: string;
-  plots: number;
-  checks: number;
-  submittedAgain: number;
-  drafts: number;
-  reopened: number;
-  deleted: number;
-}
-
-export interface DecisionRow {
-  plot: string;
-  name: string;
-  decision: DecisionKind;
-  comment: string | null;
-  decidedBy: string | null;
-  decidedAt: number;
-  /** Null when the figures were not at hand to tell. */
-  byAssessor: boolean | null;
-  bulk: boolean;
-}
-
-export interface DifferenceRow {
-  plot: string;
-  name: string;
-  first: string;
-  check: string;
-  latest: boolean;
-  decision: DecisionKind | null;
-  /** Null for a pair changed or gone since the figures. */
-  key: string | null;
-  firstAnswer: string | null;
-  checkAnswer: string | null;
-  /** differs; changed: its answers no longer differ; gone: one of its records was deleted (both since the figures). */
-  status: "differs" | "changed" | "gone";
-}
-
-export type ExportData =
-  | { kind: "people"; today: string; rows: PersonRow[] }
-  | { kind: "daily"; today: string; rows: DailyRow[] }
-  | { kind: "decisions"; today: string; rows: DecisionRow[] }
-  | { kind: "differences"; today: string; rows: DifferenceRow[]; labels: Record<string, string>; options: AnswerOptions; numbers: string[] };
-
-const asDecision = (v: unknown): DecisionKind | null => (v === "first" || v === "check" || v === "recheck" ? v : null);
-
-export function toExportData(kind: ExportKind, body: unknown): ExportData {
-  const b = obj(body);
-  const today = toDate(b.today) ?? new Date().toISOString().slice(0, 10);
-  const rows = list(b.rows);
-  switch (kind) {
-    case "people":
-      return { kind, today, rows: rows.map(toPersonRow) };
-    case "daily":
-      return {
-        kind,
-        today,
-        rows: rows.map((r) => ({
-          date: text(r.date),
-          person: text(r.person),
-          plots: toCount(r.plots),
-          checks: toCount(r.checks),
-          submittedAgain: toCount(r.submittedAgain),
-          drafts: toCount(r.drafts),
-          reopened: toCount(r.reopened),
-          deleted: toCount(r.deleted),
-        })),
-      };
-    case "decisions":
-      return {
-        kind,
-        today,
-        rows: rows.map((r) => ({
-          plot: text(r.plot),
-          name: text(r.name),
-          decision: asDecision(r.decision) ?? "recheck",
-          comment: typeof r.comment === "string" ? r.comment : null,
-          decidedBy: typeof r.decidedBy === "string" ? r.decidedBy : null,
-          decidedAt: toMillis(r.decidedAt) ?? 0,
-          byAssessor: typeof r.byAssessor === "boolean" ? r.byAssessor : null,
-          bulk: r.bulk === true,
-        })),
-      };
-    case "differences": {
-      const labels: Record<string, string> = {};
-      for (const [k, v] of Object.entries(obj(b.labels))) labels[k] = text(v);
-      return {
-        kind,
-        today,
-        labels,
-        options: toOptions(b.options),
-        numbers: strings(b.numbers),
-        rows: rows.map((r) => ({
-          plot: text(r.plot),
-          name: text(r.name),
-          first: text(r.first),
-          check: text(r.check),
-          latest: r.latest === true,
-          decision: asDecision(r.decision),
-          key: typeof r.key === "string" ? r.key : null,
-          firstAnswer: typeof r.firstAnswer === "string" ? r.firstAnswer : null,
-          checkAnswer: typeof r.checkAnswer === "string" ? r.checkAnswer : null,
-          status: r.status === "changed" || r.status === "gone" ? r.status : "differs",
-        })),
-      };
-    }
-  }
+  return request("GET", `${p(projectId)}/weekly?${query}`);
 }
 
 /** The rows of a download (the server notes who downloaded what). */
-export async function getExport(projectId: string, kind: ExportKind, timeZone: string): Promise<ExportData> {
+export function getExport<K extends ExportKind>(projectId: string, kind: K, timeZone: string): Promise<Extract<ExportAnswer, { kind: K }>> {
   const query = new URLSearchParams({ tz: timeZone });
-  return toExportData(kind, await request<unknown>("GET", `${p(projectId)}/exports/${kind}?${query}`));
+  return request("GET", `${p(projectId)}/exports/${kind}?${query}`);
 }
 
 /** The bell's "needs attention" items, with what this coordinator has read. */
@@ -2719,141 +2080,36 @@ export function markAttentionRead(projectId: string, keys: string[] | "all"): Pr
 
 // --- Training: calibration and learning plots -----------------------------------------
 
-export type TrainingKind = "calibration" | "learning";
+export type {
+  AnonymousCalibration,
+  AnswerCount,
+  CalibrationCell,
+  CalibrationFigures,
+  CalibrationPerson,
+  CalibrationPlot,
+  CalibrationQuestion,
+  LearningScore,
+  MyScoredPlot,
+  MyTrainingSet,
+  ScoredAnswer,
+  ScoredPlot,
+  Share,
+  TrainingAttemptPast,
+  TrainingAttemptStart,
+  TrainingFiguresAnswer,
+  TrainingFiguresSet,
+  TrainingGolden,
+  TrainingKind,
+  TrainingList,
+  TrainingListItem,
+  TrainingPerson,
+  TrainingQuestion,
+  TrainingSetSummary,
+  TrainingSetView,
+} from "../../src/wire/training";
 
-/** Agreement as counts and their share (null with nothing compared). */
-export interface TrainingShare {
-  compared: number;
-  agreeing: number;
-  rate: number | null;
-}
-
-export interface TrainingPerson {
-  userId: string;
-  username: string;
-  role: Role;
-}
-
-export interface TrainingSetSummary {
-  id: string;
-  kind: TrainingKind;
-  name: string;
-  filename: string;
-  /** The file's name in Collect Earth ("Learning – plots.csv"). */
-  servedName: string;
-  plotCount: number;
-  passMark: number | null;
-  createdAt: number;
-  participants: TrainingPerson[];
-}
-
-export interface TrainingListItem extends TrainingSetSummary {
-  /** Plots with a golden interpretation. */
-  golden: number;
-  progress: { userId: string; attempt: number; submitted: number; accuracy: number | null; passed: boolean | null }[];
-}
-
-export interface TrainingList {
-  sets: TrainingListItem[];
-  members: TrainingPerson[];
-  max: number;
-}
-
-export interface TrainingAnswerCount {
-  value: string;
-  count: number;
-  people: string[];
-}
-
-export interface CalibrationCell {
-  key: string;
-  answers: TrainingAnswerCount[];
-  pairs: TrainingShare;
-  consensus: string | null;
-}
-
-export interface CalibrationFigures {
-  participants: string[];
-  plots: { plot: string; people: string[]; questions: CalibrationCell[] }[];
-  questions: { key: string; label: string; kind: "choice" | "number"; pairs: TrainingShare; kappa: number | null }[];
-  people: { username: string; plots: number; withConsensus: TrainingShare; byQuestion: Record<string, TrainingShare> }[];
-  overall: TrainingShare;
-}
-
-export interface TrainingGolden {
-  plotKey: string;
-  answers: Record<string, string>;
-  note: string | null;
-  updatedAt: number;
-  updatedBy: string | null;
-}
-
-export interface TrainingQuestion {
-  key: string;
-  label: string;
-  kind: "choice" | "number";
-  options: { code: string; label: string }[] | null;
-  multiple: boolean;
-}
-
-export interface ScoredPlot {
-  plot: string;
-  submittedAt: number;
-  answers: TrainingShare;
-  right: boolean;
-  questions: { key: string; label: string; golden: string; given: string; right: boolean }[];
-  /** The coordinator's explanation (My work only). */
-  note?: string | null;
-}
-
-export interface LearningScore {
-  plots: number;
-  submitted: number;
-  answers: TrainingShare;
-  plotsRight: number;
-  byQuestion: Record<string, TrainingShare>;
-  passed: boolean | null;
-  byPlot: ScoredPlot[];
-}
-
-export interface TrainingAttemptPast {
-  number: number;
-  startedAt: number;
-  closedAt: number | null;
-  plots: number;
-  submitted: number;
-  answers: TrainingShare;
-  plotsRight: number;
-  passed: boolean | null;
-}
-
-export interface TrainingSetView {
-  set: TrainingSetSummary;
-  plots: string[];
-  calibration: CalibrationFigures;
-  golden: TrainingGolden[];
-  questions: TrainingQuestion[];
-  /** Golden answers' questions the survey no longer has (not scored). */
-  staleQuestions?: string[];
-  scores: { userId: string; username: string; attempt: { number: number; startedAt: number }; score: LearningScore; history: TrainingAttemptPast[] }[];
-}
-
-export interface MyTrainingSet {
-  id: string;
-  kind: TrainingKind;
-  name: string;
-  servedName: string;
-  plotCount: number;
-  passMark: number | null;
-  attempt: { number: number; startedAt: number };
-  submitted: number;
-  /** Learning sets only. */
-  score?: LearningScore;
-  history?: TrainingAttemptPast[];
-}
-
-export async function getTraining(projectId: string): Promise<TrainingList> {
-  return request<TrainingList>("GET", `${p(projectId)}/training`);
+export function getTraining(projectId: string): Promise<TrainingList> {
+  return request("GET", `${p(projectId)}/training`);
 }
 
 /** A new set from a CSV file. */
@@ -2868,30 +2124,29 @@ export function createTrainingSet(
   return upload<TrainingSetSummary>("PUT", `${p(projectId)}/training-sets/${encodeURIComponent(file.name)}?${q}`, file, "text/csv", onProgress);
 }
 
-export async function updateTrainingSet(projectId: string, setId: string, change: { name?: string; kind?: TrainingKind; passMark?: number | null }): Promise<TrainingSetSummary> {
-  return request<TrainingSetSummary>("PATCH", `${p(projectId)}/training/${encodeURIComponent(setId)}`, { json: change });
+export function updateTrainingSet(projectId: string, setId: string, change: { name?: string; kind?: TrainingKind; passMark?: number | null }): Promise<TrainingSetSummary> {
+  return request("PATCH", `${p(projectId)}/training/${encodeURIComponent(setId)}`, { json: change });
 }
 
 export async function deleteTrainingSet(projectId: string, setId: string): Promise<void> {
-  await request<unknown>("DELETE", `${p(projectId)}/training/${encodeURIComponent(setId)}`);
+  await send("DELETE", `${p(projectId)}/training/${encodeURIComponent(setId)}`);
 }
 
 export async function setTrainingMembers(projectId: string, setId: string, userIds: string[]): Promise<void> {
-  await request<unknown>("PUT", `${p(projectId)}/training/${encodeURIComponent(setId)}/members`, { json: { userIds } });
+  await send("PUT", `${p(projectId)}/training/${encodeURIComponent(setId)}/members`, { json: { userIds } });
 }
 
-export async function getTrainingSet(projectId: string, setId: string): Promise<TrainingSetView> {
-  return request<TrainingSetView>("GET", `${p(projectId)}/training/${encodeURIComponent(setId)}`);
+export function getTrainingSet(projectId: string, setId: string): Promise<TrainingSetView> {
+  return request("GET", `${p(projectId)}/training/${encodeURIComponent(setId)}`);
 }
 
-export async function putTrainingGolden(projectId: string, setId: string, plot: string, answers: Record<string, string>, note: string | null): Promise<TrainingGolden> {
-  return request<TrainingGolden>("PUT", `${p(projectId)}/training/${encodeURIComponent(setId)}/golden/${encodeURIComponent(plot)}`, { json: { answers, note } });
+export function putTrainingGolden(projectId: string, setId: string, plot: string, answers: Record<string, string>, note: string | null): Promise<TrainingGolden> {
+  return request("PUT", `${p(projectId)}/training/${encodeURIComponent(setId)}/golden/${encodeURIComponent(plot)}`, { json: { answers, note } });
 }
 
 /** Golden answers for every plot: the calibration's agreed answers, or one person's records. */
 export async function goldenFrom(projectId: string, setId: string, from: { from: "consensus" } | { from: "person"; userId: string }): Promise<number> {
-  const res = await request<{ plots?: number }>("POST", `${p(projectId)}/training/${encodeURIComponent(setId)}/golden`, { json: from });
-  return typeof res.plots === "number" ? res.plots : 0;
+  return (await request<GoldenFromAnswer>("POST", `${p(projectId)}/training/${encodeURIComponent(setId)}/golden`, { json: from })).plots;
 }
 
 /** A training set's results as CSV: each person's attempts, or every answer scored. */
@@ -2900,148 +2155,61 @@ export async function downloadTrainingExport(projectId: string, setId: string, w
   return { blob: await response.blob(), filename: attachmentName(response, `training-${what}.csv`) };
 }
 
-/** Takes the questions the survey no longer has out of every golden answer of a set. */
+/** Takes the questions the survey no longer has out of every golden answer of a set; gives the plots changed. */
 export async function pruneTrainingGolden(projectId: string, setId: string): Promise<number> {
-  const res = await request<{ plots?: number }>("POST", `${p(projectId)}/training/${encodeURIComponent(setId)}/golden/prune`);
-  return typeof res.plots === "number" ? res.plots : 0;
+  return (await request<GoldenPruneAnswer>("POST", `${p(projectId)}/training/${encodeURIComponent(setId)}/golden/prune`)).plots;
 }
 
 export async function startTrainingAttempts(projectId: string, setId: string, who: { userIds: string[] } | { all: true }): Promise<number> {
-  const res = await request<{ started?: number }>("POST", `${p(projectId)}/training/${encodeURIComponent(setId)}/attempts`, { json: who });
-  return typeof res.started === "number" ? res.started : 0;
+  return (await request<AttemptsAnswer>("POST", `${p(projectId)}/training/${encodeURIComponent(setId)}/attempts`, { json: who })).started;
 }
 
 export async function getMyTraining(projectId: string): Promise<MyTrainingSet[]> {
-  const res = await request<{ sets?: MyTrainingSet[] }>("GET", `${p(projectId)}/training/mine`);
-  return Array.isArray(res.sets) ? res.sets : [];
+  return (await request<MyTrainingAnswer>("GET", `${p(projectId)}/training/mine`)).sets;
 }
 
-/** Calibration figures without anyone's name (reviewers). */
-export interface AnonymousCalibration {
-  participants: number;
-  plots: { plot: string; people: number; questions: { key: string; answers: { value: string; count: number }[]; pairs: TrainingShare; consensus: string | null }[] }[];
-  questions: CalibrationFigures["questions"];
-  overall: TrainingShare;
+/** Calibration figures without anyone's name (reviewers), and the survey's questions for them. */
+export function getTrainingFigures(projectId: string): Promise<TrainingFiguresAnswer> {
+  return request("GET", `${p(projectId)}/training/figures`);
 }
 
-export interface TrainingFiguresSet {
-  id: string;
-  kind: TrainingKind;
-  name: string;
-  plotCount: number;
-  /** The caller takes part and has not submitted every plot yet: no figures. */
-  takingPart?: { submitted: number };
-  calibration?: AnonymousCalibration;
-}
-
-export async function getTrainingFigures(projectId: string): Promise<{ sets: TrainingFiguresSet[]; questions: TrainingQuestion[] }> {
-  const res = await request<{ sets?: TrainingFiguresSet[]; questions?: TrainingQuestion[] }>("GET", `${p(projectId)}/training/figures`);
-  return { sets: Array.isArray(res.sets) ? res.sets : [], questions: Array.isArray(res.questions) ? res.questions : [] };
-}
+export type {
+  AreaSettings,
+  AreaSettingsAnswer,
+  AreasAnswer,
+  Estimate,
+  ForestRow,
+  IpccCategory,
+  IpccExports,
+  StrataAreas,
+  UncertaintyAnswer,
+  UncertaintyQuestion,
+  UncertaintyResult,
+  UncertaintySettings,
+  UncertaintySettingsAnswer,
+  UncertaintySetup,
+} from "../../src/wire/analysis";
 
 /** The six IPCC land categories (the server's src/uncertainty.ts). */
-export const IPCC_CATEGORIES = ["forest", "cropland", "grassland", "wetland", "settlement", "other"] as const;
-export type IpccCategory = (typeof IPCC_CATEGORIES)[number];
+export const IPCC_CATEGORIES = ["forest", "cropland", "grassland", "wetland", "settlement", "other"] as const satisfies readonly IpccCategory[];
 
-/** The uncertainty analysis's setup: the two land use questions, their years, each code's category (null: left out), the area. */
-export interface UncertaintySettings {
-  initial: string;
-  final: string;
-  initialYear: string;
-  finalYear: string;
-  codes: Record<string, Record<string, IpccCategory | null>>;
-  totalArea: number | null;
-}
-
-export interface UncertaintyQuestion {
-  name: string;
-  labels: Record<string, string>;
-  list: string;
-  parent: string | null;
-  fromPlotFile: boolean;
-  calculated: boolean;
-}
-
-export interface UncertaintySetup {
-  settings: UncertaintySettings | null;
-  languages: string[];
-  questions: UncertaintyQuestion[];
-  lists: Record<string, AnalysisListItem[]>;
-  areas: "strata" | "total" | "region_areas.csv" | "areas_per_attribute.csv" | null;
-  canEdit: boolean;
-}
-
-export interface UncertaintyEstimate {
-  plots: number;
-  proportion: number;
-  area: number;
-  se: number;
-  ci: number;
-  uncertainty: number | null;
-}
-
-export type ForestRow = "forestStable" | "nonForestToForest" | "forestToNonForest" | "nonForestStable" | "initiallyForest" | "initiallyNonForest" | "currentlyForest" | "currentlyNonForest";
-
-/** The tables of the uncertainty analysis (the server's UncertaintyResult). */
-export interface UncertaintyData {
-  settings: UncertaintySettings;
-  areas: string | null;
-  estimator: "simple" | "stratified";
-  totalArea: number;
-  plots: number;
-  strata: { key: string; area: number; plots: number }[];
-  notEstimable: { key: string; area: number; plots: number }[];
-  skipped: { missing: number; unmapped: number; noArea: number };
-  /** The plots of a code left out (no data), each year: in their stratum's count, in no category. */
-  noData: { initial: UncertaintyEstimate; final: UncertaintyEstimate };
-  unmapped: { which: "initial" | "final"; code: string; plots: number }[];
-  categories: { category: IpccCategory; initial: UncertaintyEstimate; final: UncertaintyEstimate }[];
-  total: UncertaintyEstimate;
-  forest: { row: ForestRow; estimate: UncertaintyEstimate }[];
-  transitions: { from: IpccCategory; to: IpccCategory; estimate: UncertaintyEstimate }[];
-  matrix: { cells: number[][]; rowTotals: number[]; columnTotals: number[]; total: number; rowPercent: (number | null)[][] };
-}
-
-export async function getUncertaintySetup(projectId: string): Promise<UncertaintySetup> {
-  return request<UncertaintySetup>("GET", `${p(projectId)}/uncertainty/settings`);
+export function getUncertaintySetup(projectId: string): Promise<UncertaintySetup> {
+  return request("GET", `${p(projectId)}/uncertainty/settings`);
 }
 
 export async function saveUncertaintySettings(projectId: string, settings: UncertaintySettings): Promise<UncertaintySettings> {
-  return (await request<{ settings: UncertaintySettings }>("PUT", `${p(projectId)}/uncertainty/settings`, { json: settings })).settings;
-}
-
-/** The strata and their areas, or one total area (the server's src/areas.ts AreaSettings). */
-export type AreaSettings = { mode: "strata"; columns: string[]; strata: { values: string[]; area: number }[] } | { mode: "total"; area: number };
-
-/** What the plots' areas come from, and the strata with their plots (src/routes/areas.ts). */
-export interface AreasData {
-  /** "strata" | "total": set on the dashboard; a file of the project file; "uncertainty": the Uncertainty page's total; null: none. */
-  source: "strata" | "total" | "areas_per_attribute.csv" | "region_areas.csv" | "uncertainty" | null;
-  settings: AreaSettings | null;
-  /** Lines of the project file's areas file whose area cannot be read. */
-  unreadable: number;
-  /** The columns that can make strata: the survey's questions filled from the plot file, then the plot files' columns. */
-  columns: string[];
-  /** Each stratum: its area (null: none yet), its plots in the plot files (null: a column only in the answers), assessed, ha per plot. */
-  strata: { values: string[]; area: number | null; plots: number | null; assessed: number; haPerPlot: number | null }[];
-  /** Plots of values not listed (a column of many values). */
-  more: number;
-  assessed: number;
-  withArea: number;
-  unknownColumns: string[];
-  noStratum: { plots: number; examples: { stratum: string; plots: number }[] };
-  canEdit: boolean;
+  return (await request<UncertaintySettingsAnswer>("PUT", `${p(projectId)}/uncertainty/settings`, { json: settings })).settings;
 }
 
 /** The project's strata and areas; with `columns`, the strata those columns would make (nothing saved). */
 export const getAreas = (projectId: string, columns?: string[]) =>
-  request<AreasData>("GET", `${p(projectId)}/areas${columns ? `?columns=${encodeURIComponent(columns.join(","))}` : ""}`);
+  request<AreasAnswer>("GET", `${p(projectId)}/areas${columns ? `?columns=${encodeURIComponent(columns.join(","))}` : ""}`);
 
 /** Saves the strata and areas, or one total area; null: back to the project file's areas file. */
-export const saveAreas = (projectId: string, settings: AreaSettings | null) => request<{ settings: AreaSettings | null }>("PUT", `${p(projectId)}/areas`, { json: { settings } });
+export const saveAreas = (projectId: string, settings: AreaSettings | null) => request<AreaSettingsAnswer>("PUT", `${p(projectId)}/areas`, { json: { settings } });
 
 /** Saves the strata of an areas_per_attribute.csv (Collect Earth's: the columns, then area). */
-export const uploadAreasFile = (projectId: string, file: string) => request<{ settings: AreaSettings }>("PUT", `${p(projectId)}/areas`, { json: { file } });
+export const uploadAreasFile = (projectId: string, file: string) => request<AreaSettingsAnswer>("PUT", `${p(projectId)}/areas`, { json: { file } });
 
 /** The strata as areas_per_attribute.csv. */
 export async function downloadAreasFile(projectId: string): Promise<{ blob: Blob; filename: string }> {
@@ -3049,22 +2217,6 @@ export async function downloadAreasFile(projectId: string): Promise<{ blob: Blob
   return { blob: await response.blob(), filename: attachmentName(response, "areas_per_attribute.csv") };
 }
 
-/** Collect Earth's IPCC exports (src/routes/ipcc.ts): what the survey lacks, the plots, and what the form offers. */
-export interface IpccExports {
-  /** Questions or lists the survey lacks for them: none when they can be made. */
-  missing: string[];
-  /** Plots with a submitted first assessment. */
-  plots: number;
-  /** Where the plots' areas come from, null when the project has none. */
-  areas: string | null;
-  /** The IPCC Inventory Software's countries: code and name. */
-  countries: [string, string][];
-  /** The questions that can hold the region, and the one to choose first. */
-  regions: string[];
-  region: string | null;
-  /** The land use subdivisions and their default management type. */
-  subdivisions: { category: string; code: string; name: string; management: string }[];
-}
 export type IpccFile = "matrix" | "matrix-strata" | "plots" | "land-units" | "timeseries";
 export const IPCC_FILES: readonly IpccFile[] = ["matrix", "matrix-strata", "plots", "land-units", "timeseries"];
 /** The management types of each IPCC category (the server's MANAGEMENT_TYPES). */
@@ -3090,8 +2242,8 @@ export async function downloadIpccGhgi(projectId: string, choices: { country: st
   return { blob: await response.blob(), filename: attachmentName(response, "GHGi_tool_data.xml") };
 }
 
-export async function getUncertainty(projectId: string): Promise<UncertaintyData> {
-  return request<UncertaintyData>("GET", `${p(projectId)}/uncertainty`);
+export function getUncertainty(projectId: string): Promise<UncertaintyAnswer> {
+  return request("GET", `${p(projectId)}/uncertainty`);
 }
 
 /** The copy of a CEO project's plot and sample shapes into the project (src/routes/ceoShapes.ts). */

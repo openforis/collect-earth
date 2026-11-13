@@ -4,6 +4,8 @@
 // Collect Earth reads the csv-files routes (the list and each file's content): a change to their types is a change to
 // the /v1 contract.
 
+import type { AreasSource } from './analysis.js';
+
 /**
  * The order plots are dealt in: the file's, 'mixed' (a seeded shuffle) or 'nearby' (along a
  * Hilbert curve over their latitude and longitude, Task 15: each share a compact area, and
@@ -279,7 +281,7 @@ export type AreaSettings = ({ mode: 'strata' } & StrataAreas) | { mode: 'total';
 /** GET /v1/projects/:pid/areas: what the plots' areas come from, and the strata with their plots. */
 export interface AreasData {
   /** "strata" | "total": set on the dashboard; a file of the project file; "uncertainty": the Uncertainty page's total; null: none. */
-  source: string | null;
+  source: AreasSource | 'uncertainty' | null;
   settings: AreaSettings | null;
   /** Lines of the project file's areas file whose area cannot be read. */
   unreadable: number;

@@ -22,7 +22,7 @@ import {
   getUncertaintySetup,
   IPCC_CATEGORIES,
   saveUncertaintySettings,
-  type UncertaintyData,
+  type UncertaintyAnswer,
   type UncertaintySetup,
 } from "../api";
 import { labelIn } from "../analysisView";
@@ -256,7 +256,7 @@ function Results({ projectId, projectName }: { projectId: string; projectName: s
   );
 }
 
-function Summary({ d }: { d: UncertaintyData }) {
+function Summary({ d }: { d: UncertaintyAnswer }) {
   const t = useT();
   const { language } = useApp();
   const n = (v: number, digits = 0) => new Intl.NumberFormat(language, { maximumFractionDigits: digits }).format(v);

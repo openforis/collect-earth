@@ -7,6 +7,7 @@
 // configuration (web/src/analysisSuggest.ts, viewOfProposal), checking them again against its own cube.
 import type { AnalysisColumn, AnalysisModel, Labels } from '../analysis.js';
 import { languageName, type AiLanguage } from './prompts.js';
+import type { FilterOp, ProposedFilter, ProposedView, ViewChart, ViewOrder } from '../wire/analysis.js';
 
 /** At most so many views per answer, and so many codes of one list sent (a list of 300 items says no more than 40 do). */
 export const MAX_PROPOSALS = 8;
@@ -139,31 +140,10 @@ const COLLECTION: Record<AiLanguage, Record<'operator' | 'assessment' | 'main' |
 
 // --- what the model is asked, and the shape of its answer ---------------------------------------------------------
 
-export const VIEW_CHARTS = ['table', 'bars', 'hbars', 'stacked', 'lines', 'areas', 'heatmap', 'treemap', 'sunburst'] as const;
-export type ViewChart = (typeof VIEW_CHARTS)[number];
-export const FILTER_OPS = ['is', 'isNot', 'yes', 'no', 'answered', 'notAnswered', 'atLeast', 'atMost'] as const;
-export type FilterOp = (typeof FILTER_OPS)[number];
-export const VIEW_ORDERS = ['largest', 'smallest', 'name'] as const;
-
-export interface ProposedFilter {
-  column: string;
-  op: FilterOp;
-  /** For is / isNot: codes of the column's list. */
-  codes?: string[];
-  /** For atLeast / atMost: a number, or a date (yyyy-mm-dd). */
-  value?: number | string;
-}
-
-export interface ProposedView {
-  title: string;
-  why: string;
-  rows: string[];
-  columns: string[];
-  measures: string[];
-  chart: ViewChart;
-  filters: ProposedFilter[];
-  order: (typeof VIEW_ORDERS)[number];
-}
+export const VIEW_CHARTS = ['table', 'bars', 'hbars', 'stacked', 'lines', 'areas', 'heatmap', 'treemap', 'sunburst'] as const satisfies readonly ViewChart[];
+export const FILTER_OPS = ['is', 'isNot', 'yes', 'no', 'answered', 'notAnswered', 'atLeast', 'atMost'] as const satisfies readonly FilterOp[];
+export const VIEW_ORDERS = ['largest', 'smallest', 'name'] as const satisfies readonly ViewOrder[];
+export type { FilterOp, ProposedFilter, ProposedView, ViewChart } from '../wire/analysis.js';
 
 const STRING = { type: 'string' };
 const IDS = { type: 'array', items: { type: 'string' } };

@@ -1,7 +1,7 @@
 // The final review's web fixes (Task 22): server answers the web now reads, the texts that follow
 // the project's settings, the map's list, the page titles and the plurals.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ApiError, errorMessageKey, getServerOverview, NO_SUCH_PLOT, setQualityDecision, toPersonData, toWeeklyData } from "./api";
+import { ApiError, errorMessageKey, getServerOverview, NO_SUCH_PLOT, setQualityDecision } from "./api";
 import { logSentence } from "./activityView";
 import { notBlindText } from "./checksView";
 import { reasonText } from "./healthView";
@@ -44,12 +44,7 @@ describe("server answers the web now reads", () => {
     expect(t("checks.checkersAll")).toBe("Every collector");
   });
 
-  it("the weekly summary's reference measurements, the person's threshold, the owner's late draws", async () => {
-    expect(toWeeklyData({ progress: { checks: 2, referenceMeasurements: 3 } }).progress).toMatchObject({ checks: 2, referenceMeasurements: 3 });
-    expect(toWeeklyData({}).progress.referenceMeasurements).toBe(0);
-    expect(toPersonData({ speed: { veryFast: 2, veryFastSeconds: 20 } }).speed).toMatchObject({ veryFast: 2, veryFastSeconds: 20 });
-    // An older server: the default threshold.
-    expect(toPersonData({ speed: { veryFast: 2 } }).speed.veryFastSeconds).toBe(15);
+  it("the owner's late draws", async () => {
     fetchMock.mockResolvedValue(jsonResponse(200, { security: { lateDraws: 2, lastLateDrawAt: 1_700_000_000_000 } }));
     expect((await getServerOverview()).security).toMatchObject({ lateDraws: 2, lastLateDrawAt: 1_700_000_000_000 });
   });

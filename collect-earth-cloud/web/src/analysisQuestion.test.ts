@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { AnalysisData, AnalysisModelData } from "./api";
+import type { AnalysisAnswer, AnalysisModel } from "./api";
 import {
   applyQuestion,
   decodeView,
@@ -20,7 +20,7 @@ import {
 import { cubeOf } from "./analysisView";
 import { translator } from "./i18n";
 
-const col = (name: string, over: Partial<AnalysisModelData["tables"][number]["columns"][number]> = {}) => ({
+const col = (name: string, over: Partial<AnalysisModel["tables"][number]["columns"][number]> = {}) => ({
   name,
   key: `collect_text_${name}`,
   labels: {},
@@ -29,10 +29,13 @@ const col = (name: string, over: Partial<AnalysisModelData["tables"][number]["co
   calculated: false,
   multiple: false,
   fromPlotFile: false,
+  keyAttr: false,
+  parent: null,
+  relevantIf: null,
   ...over,
 });
 
-const model: AnalysisModelData = {
+const model: AnalysisModel = {
   languages: ["en"],
   tables: [
     {
@@ -63,7 +66,7 @@ const model: AnalysisModelData = {
     elements: [{ code: "trees", labels: { en: "Trees" }, parent: null, level: 0 }],
   },
 };
-const data = (over: Partial<AnalysisData> = {}): AnalysisData => ({ model, scope: "project", areas: { source: "region_areas.csv", plots: 2, unmatched: 0 }, tables: [], ...over });
+const data = (over: Partial<AnalysisAnswer> = {}): AnalysisAnswer => ({ model, scope: "project", areas: { source: "region_areas.csv", unknownColumns: [], noStratum: { plots: 0, examples: [] }, plots: 2, unmatched: 0 }, tables: [], ...over });
 const t = translator("en");
 const cube = cubeOf(data(), "plot", "en", t);
 const measures = measuresOf(cube, t);

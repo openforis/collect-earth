@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import type { AnalysisData, AnalysisModelData } from "./api";
+import type { AnalysisAnswer, AnalysisModel } from "./api";
 import { changeChoiceSql, childField, changeFields, defaultChange, drillDown, flowsSql, mapPlotsSql, pickChange, quickFilterFields, sankeyLayout } from "./analysisInsights";
 import type { Question } from "./analysisQuestion";
 import { cubeOf } from "./analysisView";
 import { translator } from "./i18n";
 
-const col = (name: string, over: Partial<AnalysisModelData["tables"][number]["columns"][number]> = {}) => ({
+const col = (name: string, over: Partial<AnalysisModel["tables"][number]["columns"][number]> = {}) => ({
   name,
   key: `collect_text_${name}`,
   labels: {},
@@ -14,11 +14,14 @@ const col = (name: string, over: Partial<AnalysisModelData["tables"][number]["co
   calculated: false,
   multiple: false,
   fromPlotFile: false,
+  keyAttr: false,
+  parent: null,
+  relevantIf: null,
   ...over,
 });
 const lu = (code: string, en: string, parent: string | null = null) => ({ code, labels: { en }, parent, level: parent ? 1 : 0 });
 
-const model: AnalysisModelData = {
+const model: AnalysisModel = {
   languages: ["en"],
   tables: [
     {
@@ -41,7 +44,7 @@ const model: AnalysisModelData = {
     years: [lu("2001", "2001"), lu("2002", "2002")],
   },
 };
-const data: AnalysisData = { model, scope: "project", areas: null, tables: [] };
+const data: AnalysisAnswer = { model, scope: "project", areas: null, tables: [] };
 const cube = cubeOf(data, "plot", "en", translator("en"));
 const q = (over: Partial<Question> = {}): Question => ({ rows: ["Land use"], columns: [], measures: ["plots"], extra: [], filters: [], chart: "X Bar", order: "desc", ...over });
 

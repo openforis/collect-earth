@@ -234,7 +234,7 @@ describe("local mode: Activity", () => {
     type: "record",
     id: "1",
     at: 0,
-    receivedAt: null,
+    receivedAt: 0,
     person: "ana",
     change,
     plot: "17",
@@ -249,7 +249,6 @@ describe("local mode: Activity", () => {
     person: "ana",
     action,
     details,
-    plotName: null,
   });
   const page = { people: {}, files: { f1: "plots.csv" } };
 

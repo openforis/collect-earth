@@ -11,7 +11,7 @@ import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import ChevronLeft from "@mui/icons-material/ChevronLeft";
 import ChevronRight from "@mui/icons-material/ChevronRight";
-import { getWeekly, type FlagCounts, type WeeklyData } from "../api";
+import { getWeekly, type FlagCounts, type WeeklyAnswer } from "../api";
 import { useApp, useLocalMode } from "../appContext";
 import { dayStartMs, isoWeekOf, localDay, shiftWeek, weeklyNotForRole } from "../activityView";
 import { AsOf } from "../components/PeopleCharts";
@@ -31,7 +31,7 @@ import { Block, FiguresTime, ReportFrame } from "./ReportPages";
 
 const dayText = (date: string, language: string) => formatDay(dayStartMs(date), language);
 
-function WeekNav({ projectId, data }: { projectId: string; data: WeeklyData }) {
+function WeekNav({ projectId, data }: { projectId: string; data: WeeklyAnswer }) {
   const t = useT();
   const thisWeek = isoWeekOf(localDay(new Date()));
   const go = (week: string) => linkProps(pathFor({ name: "weekly", projectId, week: week === thisWeek ? null : week }));
@@ -51,7 +51,7 @@ function WeekNav({ projectId, data }: { projectId: string; data: WeeklyData }) {
 }
 
 /** `local`: the local mode (one person), with no quality checks to count. */
-function Progress({ data, local }: { data: WeeklyData; local: boolean }) {
+function Progress({ data, local }: { data: WeeklyAnswer; local: boolean }) {
   const t = useT();
   const { language } = useApp();
   const n = (v: number) => formatNumber(v, language);
@@ -87,7 +87,7 @@ function Progress({ data, local }: { data: WeeklyData; local: boolean }) {
   );
 }
 
-function People({ data }: { data: WeeklyData }) {
+function People({ data }: { data: WeeklyAnswer }) {
   const t = useT();
   const { language } = useApp();
   const n = (v: number) => formatNumber(v, language);
@@ -134,7 +134,7 @@ function People({ data }: { data: WeeklyData }) {
   );
 }
 
-function Quality({ projectId, data }: { projectId: string; data: WeeklyData }) {
+function Quality({ projectId, data }: { projectId: string; data: WeeklyAnswer }) {
   const t = useT();
   const { language } = useApp();
   const n = (v: number) => formatNumber(v, language);
@@ -179,7 +179,7 @@ function Quality({ projectId, data }: { projectId: string; data: WeeklyData }) {
 }
 
 /** The local mode's quality for the week: the plots worth a look (pattern flags) saved in it. */
-function Flags({ projectId, data }: { projectId: string; data: WeeklyData }) {
+function Flags({ projectId, data }: { projectId: string; data: WeeklyAnswer }) {
   const t = useT();
   const { language } = useApp();
   const q = data.quality;

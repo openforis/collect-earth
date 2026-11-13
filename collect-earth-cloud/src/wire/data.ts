@@ -2,6 +2,8 @@
 // Earth's IPCC exports, the uncertainty analysis and the areas of a repeat survey's changes. Types only: see README.md
 // in this folder.
 
+import type { AreasSource } from './analysis.js';
+
 /** An item of a code list (src/analysis.ts ListItem): its code, its labels by language, its parent in a hierarchy. */
 export interface ListItem {
   code: string;
@@ -85,7 +87,7 @@ export interface IpccExports {
   /** Plots with a submitted first assessment. */
   plots: number;
   /** Where the plots' areas come from, null when the project has none. */
-  areas: string | null;
+  areas: AreasSource | null;
   /** The IPCC Inventory Software's countries: code and name. */
   countries: readonly (readonly [string, string])[];
   /** The questions that can hold the region, and the one to choose first. */

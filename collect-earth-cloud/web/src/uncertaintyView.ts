@@ -1,5 +1,5 @@
 import { strToU8, zipSync } from "fflate";
-import { IPCC_CATEGORIES, type AnalysisListItem, type IpccCategory, type UncertaintyData, type UncertaintyEstimate, type UncertaintyQuestion, type UncertaintySettings } from "./api";
+import { IPCC_CATEGORIES, type ListItem, type IpccCategory, type UncertaintyAnswer, type Estimate, type UncertaintyQuestion, type UncertaintySettings } from "./api";
 import { ipccCategory } from "./analysisSuggest";
 import { csvText } from "./csv";
 import type { MessageKey, Translate } from "./i18n";
@@ -38,10 +38,10 @@ export interface CodeRow {
  */
 export function codeRows(
   questions: readonly UncertaintyQuestion[],
-  lists: Readonly<Record<string, readonly AnalysisListItem[]>>,
+  lists: Readonly<Record<string, readonly ListItem[]>>,
   chosen: readonly string[],
   saved: UncertaintySettings["codes"],
-  labelOf: (item: AnalysisListItem) => string,
+  labelOf: (item: ListItem) => string,
 ): CodeRow[] {
   const levels = new Map<string, Set<number>>();
   for (const name of chosen) {
@@ -53,7 +53,7 @@ export function codeRows(
   const rows: CodeRow[] = [];
   for (const [list, wanted] of levels) {
     const items = lists[list] ?? [];
-    const guess = (item: AnalysisListItem | undefined, depth = 0): IpccCategory | null =>
+    const guess = (item: ListItem | undefined, depth = 0): IpccCategory | null =>
       !item || depth > 10 ? null : (guessCategory(item.code, labelOf(item)) ?? guess(items.find((i) => i.code === item.parent), depth + 1));
     for (const item of items) {
       if (!wanted.has(item.level)) continue;
@@ -82,13 +82,13 @@ export interface Sheet {
 }
 
 /** The tables of the page, as sheets of values. */
-export function uncertaintySheets(d: UncertaintyData, t: Translate): Sheet[] {
+export function uncertaintySheets(d: UncertaintyAnswer, t: Translate): Sheet[] {
   const cat = (c: IpccCategory) => t(`uncertainty.cat.${c}` as MessageKey);
   const y0 = d.settings.initialYear;
   const y1 = d.settings.finalYear;
   const estimateHeader = [t("uncertainty.col.plots"), t("uncertainty.col.share"), t("uncertainty.col.area"), t("uncertainty.col.se"), t("uncertainty.col.ci"), t("uncertainty.col.uncertainty")];
   const estimateFormats: ColumnFormat[] = ["count", "share", "ha", "ha", "ha", "percent"];
-  const values = (e: UncertaintyEstimate) => [e.plots, e.proportion, e.area, e.se, e.ci, e.uncertainty];
+  const values = (e: Estimate) => [e.plots, e.proportion, e.area, e.se, e.ci, e.uncertainty];
   const matrixHeader = [t("uncertainty.col.initialFinal", { initial: y0, final: y1 }), ...IPCC_CATEGORIES.map(cat), t("uncertainty.total")];
   const matrixFormats = (f: ColumnFormat): ColumnFormat[] => ["text", ...IPCC_CATEGORIES.map(() => f), f];
   const m = d.matrix;

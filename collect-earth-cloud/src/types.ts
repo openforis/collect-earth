@@ -5,6 +5,8 @@ import type { SamplingDraw, SamplingRule } from './wire/checks.js';
 import type { AiRunKind, AiRunStatus, FollowUpAction } from './wire/ai.js';
 import type { DecisionKind } from './wire/quality.js';
 import type { DayCount, ServerAction, ServerActionKind, ServerSettings } from './wire/serverAdmin.js';
+import type { RecordChange } from './wire/activity.js';
+import type { TrainingKind } from './wire/training.js';
 
 export type { DigestKind, InviteSummary, Membership, ProjectCreation, Role } from './wire/account.js';
 export type { ProgressSettings } from './wire/progress.js';
@@ -274,8 +276,8 @@ export interface SampledCopy {
  * A reference plot (Task 14, reference_plots): a plot of a divided file whose first assessment,
  * by its reference assessor (its main holder there), every collector checks blind (a copy each).
  */
-/** Calibration or learning plots (docs/plans/2026-11-04-calibration-and-learning-plots.md). */
-export type TrainingKind = 'calibration' | 'learning';
+/** Calibration or learning plots (docs/plans/2026-11-04-calibration-and-learning-plots.md; src/wire/training.ts). */
+export type { TrainingGolden, TrainingKind } from './wire/training.js';
 
 /** A training set: its own plot file, given whole to its participants, kept apart from production. */
 export interface TrainingSet {
@@ -298,14 +300,6 @@ export interface TrainingSet {
   memberIds: string[];
 }
 
-/** The golden interpretation of one plot of a set: question key -> answer, and the coordinator's explanation. */
-export interface TrainingGolden {
-  plotKey: string;
-  answers: Record<string, string>;
-  note: string | null;
-  updatedAt: number;
-  updatedBy: string | null;
-}
 
 /**
  * One attempt of one participant at a set. A record counts for the open attempt when it was
@@ -429,18 +423,8 @@ export type RecordXml = Pick<RecordRow, 'recordKey' | 'operator' | 'step' | 'xml
 
 export const DEFAULT_PROGRESS_SETTINGS: ProgressSettings = { deadline: null, targetPlots: null, quietDays: 3 };
 
-/**
- * A view of the analysis page a coordinator shared with the project's team (web/src/analysisView.ts): the table, the
- * language its column names are in, and Perspective's configuration (kept as given: the page reads it).
- */
-export interface SharedAnalysisView {
-  name: string;
-  table: string;
-  language: string;
-  config: Record<string, unknown>;
-  savedBy: string;
-  savedAt: number;
-}
+/** A view of the analysis page shared with the team (src/wire/analysis.ts). */
+export type { SharedAnalysisView } from './wire/analysis.js';
 
 /** The coordinator's decision on one plot unit (the plot as the quality figures pair it). */
 export interface QualityDecision {
@@ -589,17 +573,8 @@ export const AI_INTERRUPTED = { code: 'interrupted', message: 'The assistant sto
 
 // --- Activity data (record_events, member_activity, audit_log) ---
 
-/**
- * What one stored upload did to a record (recordChange, src/lww.ts), from the stored
- * row before it and whether the record (key, operator) was ever submitted:
- * - `submitted`: actively saved (Submit and validate), the record's first submission;
- * - `resubmitted`: actively saved again, after an earlier submission;
- * - `unsubmitted`: a draft save (an autosave) onto a submitted plot;
- * - `deleted`: a tombstone;
- * - `created`: a first (or revived) record, not submitted;
- * - `updated`: a draft saved again.
- */
-export type RecordChange = 'created' | 'updated' | 'submitted' | 'resubmitted' | 'unsubmitted' | 'deleted';
+/** What one stored upload did to a record (src/wire/activity.ts). */
+export type { RecordChange } from './wire/activity.js';
 
 /** One stored upload of a record (record_events). No XML; the answers only on a (re)submission. */
 export interface RecordEvent {
