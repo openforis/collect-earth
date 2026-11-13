@@ -622,6 +622,7 @@ const CODE_MESSAGES: Record<string, MessageKey> = {
   own_account: "error.ownAccount",
   account_disabled: "error.accountDisabled",
   account_locked: "error.accountLocked",
+  email_not_confirmed: "error.emailNotConfirmed",
   email_domain_not_allowed: "error.emailDomainNotAllowed",
   webhook_not_allowed: "error.webhookNotAllowed",
   webhook_refused: "error.webhookRefused",
@@ -887,13 +888,15 @@ export function login(username: string, password: string, code?: string): Promis
   return request<Session>("POST", "/v1/auth/login", { json: code ? { username, password, code } : { username, password }, noSessionEnd: true });
 }
 
-export function signup(username: string, password: string, email?: string, acceptTerms?: boolean, language?: string): Promise<Session> {
+/** Creates an account; null when the server signs it in only once the mailed link is opened (sign-up limited to some domains). */
+export async function signup(username: string, password: string, email?: string, acceptTerms?: boolean, language?: string): Promise<Session | null> {
   const json: Record<string, string | boolean> = { username, password };
   if (email) json.email = email;
   // the confirmation mail of the address is written in the page's language
   if (email && language) json.language = language;
   if (acceptTerms) json.acceptTerms = true;
-  return request<Session>("POST", "/v1/auth/signup", { json, noSessionEnd: true });
+  const session = await request<Session>("POST", "/v1/auth/signup", { json, noSessionEnd: true });
+  return session.token ? session : null;
 }
 
 export async function logout(): Promise<void> {
@@ -995,9 +998,9 @@ export async function startTwoFactor(): Promise<{ secret: string; uri: string }>
   return request<{ secret: string; uri: string }>("POST", "/v1/me/two-factor/setup", { json: {} });
 }
 
-/** Turns two-step sign-in on with the app's first code; gives the recovery codes, shown once. */
-export async function enableTwoFactor(code: string): Promise<string[]> {
-  return (await request<{ recoveryCodes: string[] }>("POST", "/v1/me/two-factor/enable", { json: { code } })).recoveryCodes;
+/** Turns two-step sign-in on with the account password and the app's first code; gives the recovery codes, shown once. */
+export async function enableTwoFactor(code: string, password: string): Promise<string[]> {
+  return (await request<{ recoveryCodes: string[] }>("POST", "/v1/me/two-factor/enable", { json: { code, password } })).recoveryCodes;
 }
 
 export async function disableTwoFactor(password: string): Promise<void> {

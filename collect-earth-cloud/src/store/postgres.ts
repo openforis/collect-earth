@@ -1646,6 +1646,8 @@ export class PostgresStore implements Store {
   }
 
   async getMembership(projectId: string, userId: string): Promise<TokenMembership | null> {
+    // A user id from the path (member routes): not a uuid is no member, not a cast error (500)
+    if (!isUuid(projectId) || !isUuid(userId)) return null;
     const res = await this.pool.query(
       'SELECT role FROM project_members WHERE project_id = $1 AND user_id = $2',
       [projectId, userId],
@@ -1739,6 +1741,13 @@ export class PostgresStore implements Store {
       await client.query('DELETE FROM attention_reads WHERE project_id = $1 AND user_id = $2', [projectId, userId]);
       await client.query('UPDATE audit_log SET actor_user_id = NULL WHERE project_id = $1 AND actor_user_id = $2', [projectId, userId]);
       await client.query('DELETE FROM project_members WHERE project_id = $1 AND user_id = $2', [projectId, userId]);
+      // deleteUser only sees the account's current projects: records left behind here retire the name now
+      // (harmless while the account lives, its name being taken anyway; usernames never change)
+      await client.query(
+        `INSERT INTO retired_usernames (username) SELECT u.username FROM users u WHERE u.id = $2
+           AND EXISTS (SELECT 1 FROM records r WHERE r.project_id = $1 AND r.operator = u.username) ON CONFLICT DO NOTHING`,
+        [projectId, userId],
+      );
       return 'ok';
     });
   }

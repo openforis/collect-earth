@@ -34,6 +34,21 @@ export function setToken(token: string | null): void {
   write(TOKEN_KEY, token);
 }
 
+/**
+ * Another tab of this browser logged out (null) or in (its token): `listener` is told, and this tab's copy of the
+ * token follows. Returns the unsubscribe.
+ */
+export function onOtherTabToken(listener: (token: string | null) => void): () => void {
+  const handle = (event: StorageEvent) => {
+    // key null: the whole storage was cleared
+    if (event.key !== TOKEN_KEY && event.key !== null) return;
+    memoryToken = read(TOKEN_KEY);
+    listener(memoryToken);
+  };
+  window.addEventListener("storage", handle);
+  return () => window.removeEventListener("storage", handle);
+}
+
 export function getStoredLanguage(): string | null {
   return read(LANGUAGE_KEY);
 }

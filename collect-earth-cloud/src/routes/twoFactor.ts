@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { bearerToken } from '../auth.js';
 import { logServerAction } from '../serverActivity.js';
 import { verifyPassword } from '../password.js';
 import { requirePlatformAdmin, requireSession } from '../plugins/projectAuth.js';
@@ -50,7 +51,7 @@ export async function twoFactorEnabled(store: Store, userId: string): Promise<bo
 /**
  * The account's own two-step sign-in (the account page) and the administrator's reset for a lost phone:
  *  - POST /v1/me/two-factor/setup: a new secret to scan (kept as pending until its first code is confirmed);
- *  - POST /v1/me/two-factor/enable {code}: the first code from the app turns it on and gives the recovery codes, once;
+ *  - POST /v1/me/two-factor/enable {code, password}: the first code from the app turns it on and gives the recovery codes, once;
  *  - POST /v1/me/two-factor/disable {password}: off again (refused while the server requires it of the person);
  *  - POST /v1/me/two-factor/recovery-codes {password}: ten new codes, the old ones stop working;
  *  - POST /v1/admin/users/:uid/two-factor/reset: off for someone who lost their phone and their codes.
@@ -67,7 +68,18 @@ export async function registerTwoFactorRoutes(app: FastifyInstance, store: Store
     return reply.header('cache-control', 'no-store').send({ secret, uri: otpauthUri(await issuerOf(), user.username, secret) });
   });
 
+  const withPassword = async (request: FastifyRequest, reply: FastifyReply) => {
+    const password = String((request.body as { password?: unknown } | null)?.password ?? '');
+    const user = await store.getUserById(request.userId!);
+    if (!user || !(await verifyPassword(password, user.passwordHash))) {
+      reply.code(403).send({ error: 'wrong_password' });
+      return null;
+    }
+    return user;
+  };
+
   app.post('/v1/me/two-factor/enable', { preHandler: [limiter.guard('two-factor'), requireSession(store)] }, async (request: FastifyRequest, reply: FastifyReply) => {
+    if (!(await withPassword(request, reply))) return reply;
     const code = String((request.body as { code?: unknown } | null)?.code ?? '');
     const state = await store.getTwoFactor(request.userId!);
     const secret = state?.pendingEnc ? decryptSecret(state.pendingEnc, key) : null;
@@ -78,20 +90,9 @@ export async function registerTwoFactorRoutes(app: FastifyInstance, store: Store
     await store.enableTwoFactor(request.userId!, encryptSecret(secret, key), codes.map(hashRecoveryCode));
     await store.claimTwoFactorStep(request.userId!, step);
     // The other sessions were opened without the second step: they are signed out (this one stays)
-    const token = String(request.headers.authorization ?? '').replace(/^Bearer\s+/i, '');
-    await store.deleteUserSessionsExcept(request.userId!, token);
+    await store.deleteUserSessionsExcept(request.userId!, bearerToken(request.headers.authorization) ?? '');
     return reply.header('cache-control', 'no-store').send({ recoveryCodes: codes });
   });
-
-  const withPassword = async (request: FastifyRequest, reply: FastifyReply) => {
-    const password = String((request.body as { password?: unknown } | null)?.password ?? '');
-    const user = await store.getUserById(request.userId!);
-    if (!user || !(await verifyPassword(password, user.passwordHash))) {
-      reply.code(403).send({ error: 'wrong_password' });
-      return null;
-    }
-    return user;
-  };
 
   app.post('/v1/me/two-factor/disable', { preHandler: [limiter.guard('two-factor'), requireSession(store)] }, async (request: FastifyRequest, reply: FastifyReply) => {
     const user = await withPassword(request, reply);

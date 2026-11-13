@@ -19,7 +19,7 @@ import { LocalSignedOutPage } from "./pages/LocalSignedOutPage";
 import { ResetPage } from "./pages/ResetPage";
 import { SetupPage } from "./pages/SetupPage";
 import { matchRoute, navigate, usePath, type Route } from "./router";
-import { getToken, setToken, storeLanguage } from "./storage";
+import { getToken, onOtherTabToken, setToken, storeLanguage } from "./storage";
 import { theme } from "./theme";
 import { startErrorReports } from "./telemetry";
 
@@ -124,13 +124,23 @@ export function App() {
   });
 
   // The server said our session is no longer valid: back to logging in, on the same page.
+  // Logging out (or in) in another tab: this one follows.
   useEffect(() => {
-    setUnauthorizedHandler(() => {
+    const signedOut = () => {
       setToken(null);
       setMe(null);
       setSessionEnded(true);
+    };
+    setUnauthorizedHandler(signedOut);
+    const off = onOtherTabToken((token) => {
+      if (!token) return signedOut();
+      setSessionEnded(false);
+      getMe().then(setMe, () => undefined);
     });
-    return () => setUnauthorizedHandler(null);
+    return () => {
+      setUnauthorizedHandler(null);
+      off();
+    };
   }, []);
 
   const refreshInfo = useCallback(async () => {
