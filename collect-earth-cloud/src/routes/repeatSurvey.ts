@@ -192,50 +192,56 @@ export async function registerRepeatSurveyRoutes(app: FastifyInstance, store: St
       keepPlot = (plotId) => collected.has(own ? splitKey(plotId, shape.count, shape.roundIndex).plot : plotId);
     }
     const projectId = await copyProject(store, sourceId, { name, ownerId: user.id, members: body.members === true, keepPlot });
-    if (newer) {
-      const accepted = await acceptCep(store, projectId, newer, request.log);
-      if (!accepted.ok) {
-        // Nothing half made
-        await store.deleteProject(projectId);
-        return reply.code(accepted.status).send(accepted.body);
-      }
-    }
-    const outline = outlineOf(await store.getCep(projectId))!;
-
-    // This project's answers, and those of the periods before it (a project that repeats another), matched to the new
-    // survey; what does not match is reported, per period
-    const reports: { label: string; plots: number; report: MatchReport }[] = [];
-    const matched = matchToSurvey(earlier, outline);
-    const periods: RepeatSettings['earlier'] = [];
-    const now = Date.now();
-    for (const p of sourceSettings?.earlier ?? []) {
-      const rows = (await store.listPeriodAnswers(sourceId, p.label)).map((r) => ({ plot: r.plotKey, operator: r.operator, savedAt: r.savedAt, answers: r.answers }));
-      const before = matchToSurvey(rows, outline);
-      await store.replacePeriodAnswers(projectId, p.label, before.records.map((r) => ({ plotKey: r.plot, operator: r.operator, savedAt: r.savedAt, answers: r.answers })));
-      periods.push(p);
-      reports.push({ label: p.label, plots: before.records.length, report: before.report });
-    }
-    await store.replacePeriodAnswers(projectId, earlierLabel, matched.records.map((r) => ({ plotKey: r.plot, operator: r.operator, savedAt: r.savedAt, answers: r.answers })));
-    periods.push({ label: earlierLabel, sourceProjectId: sourceId, sourceName: source?.name ?? '', plots: matched.records.length, madeAt: now });
-    reports.push({ label: earlierLabel, plots: matched.records.length, report: matched.report });
-    const headerQuestions = headerOf(body.headerQuestions, outline);
-    await store.setRepeatSettings(projectId, { label, earlier: periods, headerQuestions, ...(sourceSettings?.totalArea ? { totalArea: sourceSettings.totalArea } : {}) });
-    // The period status the collectors' form asks in the plot's header, added to the survey it serves
-    await servePeriodStatus(store, projectId);
-
+    // Nothing half made: the project goes when anything fails
     try {
-      await store.appendAudit(projectId, {
-        actorUserId: user.id,
-        action: 'project.imported',
-        details: { source: 'repeat', sourceProjectId: sourceId, label, earlierLabel, plots: matched.records.length, newerSurvey: newer !== undefined, onlyCollected: body.plots === 'collected' },
-      });
-    } catch (err) {
-      request.log.error({ err }, 'audit log write failed');
+      if (newer) {
+        const accepted = await acceptCep(store, projectId, newer, request.log);
+        if (!accepted.ok) {
+          // Nothing half made
+          await store.deleteProject(projectId);
+          return reply.code(accepted.status).send(accepted.body);
+        }
+      }
+      const outline = outlineOf(await store.getCep(projectId))!;
+
+      // This project's answers, and those of the periods before it (a project that repeats another), matched to the new
+      // survey; what does not match is reported, per period
+      const reports: { label: string; plots: number; report: MatchReport }[] = [];
+      const matched = matchToSurvey(earlier, outline);
+      const periods: RepeatSettings['earlier'] = [];
+      const now = Date.now();
+      for (const p of sourceSettings?.earlier ?? []) {
+        const rows = (await store.listPeriodAnswers(sourceId, p.label)).map((r) => ({ plot: r.plotKey, operator: r.operator, savedAt: r.savedAt, answers: r.answers }));
+        const before = matchToSurvey(rows, outline);
+        await store.replacePeriodAnswers(projectId, p.label, before.records.map((r) => ({ plotKey: r.plot, operator: r.operator, savedAt: r.savedAt, answers: r.answers })));
+        periods.push(p);
+        reports.push({ label: p.label, plots: before.records.length, report: before.report });
+      }
+      await store.replacePeriodAnswers(projectId, earlierLabel, matched.records.map((r) => ({ plotKey: r.plot, operator: r.operator, savedAt: r.savedAt, answers: r.answers })));
+      periods.push({ label: earlierLabel, sourceProjectId: sourceId, sourceName: source?.name ?? '', plots: matched.records.length, madeAt: now });
+      reports.push({ label: earlierLabel, plots: matched.records.length, report: matched.report });
+      const headerQuestions = headerOf(body.headerQuestions, outline);
+      await store.setRepeatSettings(projectId, { label, earlier: periods, headerQuestions, ...(sourceSettings?.totalArea ? { totalArea: sourceSettings.totalArea } : {}) });
+      // The period status the collectors' form asks in the plot's header, added to the survey it serves
+      await servePeriodStatus(store, projectId);
+
+      try {
+        await store.appendAudit(projectId, {
+          actorUserId: user.id,
+          action: 'project.imported',
+          details: { source: 'repeat', sourceProjectId: sourceId, label, earlierLabel, plots: matched.records.length, newerSurvey: newer !== undefined, onlyCollected: body.plots === 'collected' },
+        });
+      } catch (err) {
+        request.log.error({ err }, 'audit log write failed');
+      }
+      await audit(store, request, 'project.imported', { source: 'repeated', repeatProjectId: projectId, label });
+      request.log.info({ sourceId, projectId, plots: matched.records.length }, 'survey repeated');
+      const filePlots = (await store.listCsvFiles(projectId)).reduce((n, f) => n + f.plotCount, 0);
+      return reply.code(201).send({ projectId, name, status: 'draft', label, periods: reports, headerQuestions, plots: body.plots === 'collected' ? 'collected' : 'all', filePlots });
+    } catch (e) {
+      await store.deleteProject(projectId);
+      throw e;
     }
-    await audit(store, request, 'project.imported', { source: 'repeated', repeatProjectId: projectId, label });
-    request.log.info({ sourceId, projectId, plots: matched.records.length }, 'survey repeated');
-    const filePlots = (await store.listCsvFiles(projectId)).reduce((n, f) => n + f.plotCount, 0);
-    return reply.code(201).send({ projectId, name, status: 'draft', label, periods: reports, headerQuestions, plots: body.plots === 'collected' ? 'collected' : 'all', filePlots });
   });
 
   app.get('/v1/projects/:pid/periods', member, async (request: FastifyRequest, reply: FastifyReply) => {

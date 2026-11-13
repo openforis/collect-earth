@@ -218,123 +218,129 @@ export async function registerCeoImportRoutes(app: FastifyInstance, store: Store
 
     const cep = ceoProjectFile(survey, new Date());
     const { projectId } = await store.createProject({ name });
-    await store.addMembership(projectId, user.id, 'admin');
-    const accepted = await acceptCep(store, projectId, cep, request.log);
-    if (!accepted.ok) {
-      // Nothing half made: the project goes with its refusal
-      await store.deleteProject(projectId);
-      return reply.code(accepted.status).send(accepted.body);
-    }
-    // Its plots, as the plot design writes a plot file, through what the plot-file upload stores and logs; with the
-    // answers, the plots answered in CEO in a file of their own, so only the others are given out
-    type StoredFile = { csvFileId: string; filename: string; plots: number };
-    let plotFile: StoredFile | null = null;
-    let doneFile: StoredFile | null = null;
-    const format = survey.plots ? await plotFileFormat(store, projectId, request.log) : null;
-    const storePlotFile = async (filename: string, plots: NonNullable<CeoSurvey['plots']>['plots']): Promise<StoredFile | 'over'> => {
-      const data = Buffer.from(plotFileCsv(plots, format?.keys ?? { count: 1, roundIndex: null, roundCode: '1' }, format?.extra ?? null), 'utf8');
-      const over = await checkUploadFits(store, projectId, { kind: 'csv', filename }, data.length);
-      if (over) {
-        await store.deleteProject(projectId);
-        void reply.code(413).send(over);
-        return 'over';
-      }
-      const meta = await store.putCsvFile(projectId, filename, data, parsePlotFile(data, format?.keys.count ?? 1).plotIds);
-      return { csvFileId: meta.id, filename, plots: meta.plotCount };
-    };
-    if (survey.plots) {
-      const done = survey.answers ? answeredPlots(survey.answers.plots) : new Set<string>();
-      // with the columns of the plot file uploaded to CEO, read from its sample data
-      const plotColumns = survey.answers?.plotColumns;
-      const withColumns = survey.plots.plots.map((p) => {
-        const values = plotColumns?.get(p.id);
-        return values ? { ...p, columns: Object.fromEntries(Object.entries(values).map(([name, value]) => [name.toLowerCase(), value])) } : p;
-      });
-      const toDo = withColumns.filter((p) => !done.has(p.id));
-      const base = `ceo_${survey.project.id ?? 'project'}_plots`;
-      if (toDo.length > 0) {
-        const stored = await storePlotFile(`${base}.csv`, toDo);
-        if (stored === 'over') return reply;
-        plotFile = stored;
-      }
-      if (done.size > 0) {
-        const stored = await storePlotFile(`${base}_done.csv`, withColumns.filter((p) => done.has(p.id)));
-        if (stored === 'over') return reply;
-        doneFile = stored;
-      }
-    }
-
-    // The plots' and samples' shapes CEO keeps (uploaded as shapes): copied from CEO in steps the dashboard asks for
-    let shapes: { total: number } | null = null;
-    if (survey.plots && ceoHasShapes(survey.project)) {
-      const toRead = survey.plots.plots.filter((p) => p.internal !== '');
-      if (toRead.length > 0) {
-        const properties = new Map(layoutProperties(survey.layout).map((line) => line.split('=', 2) as [string, string]));
-        await store.setCeoShapes(projectId, newShapesJob(survey.project.id, toRead, plotOutline(properties)));
-        shapes = { total: toRead.length };
-      }
-    }
-
-    // CEO's answers, as records Collect Earth would have sent, stored as a sync stores them (last write wins, events)
-    let records = 0;
-    if (survey.answers && survey.plots && survey.answers.plots.length > 0) {
-      for (const { userId } of operators.values()) {
-        if (userId && !(await store.listMemberships(userId)).some((m) => m.projectId === projectId)) await store.addMembership(projectId, userId, 'operator');
-      }
-      const stored = readCep(await store.getCep(projectId) as Buffer);
-      const surveyXml = new TextDecoder().decode(stored.entries.get(stored.surveyPath)!);
-      const info = await store.getRoundInfo(projectId);
-      const roundCode = info && info.state !== 'none' ? info.roundCodes.find((c) => c.code !== info.reassessmentCode)?.code ?? null : null;
-      const done = answeredPlots(survey.answers.plots);
-      const receivedAt = Date.now();
-      const built = ceoRecords(survey.answers.plots, {
-        surveyXml,
-        roundCode,
-        operatorOf: (email) => operators.get(email)!.username,
-        plotFile: (done.size > 0 ? doneFile : plotFile)?.filename ?? '',
-        centres: new Map(survey.plots.plots.map((p) => [p.id, { lat: p.lat, lon: p.lon }])),
-        plotColumns: survey.answers.plotColumns,
-        now: receivedAt,
-      });
-      for (const r of built) {
-        const envelope = { recordKey: r.recordKey, surveyUri: `http://www.openforis.org/idm/${survey.surveyName}`, operator: r.operator, modifiedOn: r.modifiedOn,
-          activelySaved: r.activelySaved, step: 1, xml: r.xml, summary: r.summary, deleted: false, payloadVersion: 1, activeSeconds: r.activeSeconds };
-        const kept = await store.putRecordWithEvent(projectId, r.recordKey, r.operator, (existing, submittedBefore) => {
-          // Received when it was saved in CEO: it did not come late (the Progress tab's "work that arrives late")
-          const { row, status } = applyLww(envelope, existing, r.modifiedOn);
-          if (status !== 'stored') return null;
-          const next = { ...row, projectId };
-          return { row: next, event: recordEventOf(existing, next, submittedBefore) };
-        });
-        if (kept) records++;
-      }
-    }
-    const s = summary(survey);
+    // Nothing half made: the project goes when anything fails
     try {
-      await store.appendAudit(projectId, {
-        actorUserId: user.id,
-        action: 'project.imported',
-        details: {
-          source: 'ceo',
-          ceoProjectId: survey.project.id,
-          questions: s.counts.questions,
-          questionsChanged: s.counts.questionsChanged,
-          questionsSkipped: s.counts.questionsSkipped,
-          rules: s.counts.rules,
-          rulesSkipped: s.counts.rulesSkipped,
-          plots: s.counts.plots,
-          ...(survey.answers ? { records, collectors: survey.answers.collectors.length } : {}),
-        },
-      });
-      for (const file of [plotFile, doneFile]) {
-        if (file) await store.appendAudit(projectId, { actorUserId: user.id, action: 'csv.uploaded', details: { csvFileId: file.csvFileId, plots: file.plots } });
+      await store.addMembership(projectId, user.id, 'admin');
+      const accepted = await acceptCep(store, projectId, cep, request.log);
+      if (!accepted.ok) {
+        // Nothing half made: the project goes with its refusal
+        await store.deleteProject(projectId);
+        return reply.code(accepted.status).send(accepted.body);
       }
-    } catch (err) {
-      request.log.error({ err }, 'audit log write failed');
+      // Its plots, as the plot design writes a plot file, through what the plot-file upload stores and logs; with the
+      // answers, the plots answered in CEO in a file of their own, so only the others are given out
+      type StoredFile = { csvFileId: string; filename: string; plots: number };
+      let plotFile: StoredFile | null = null;
+      let doneFile: StoredFile | null = null;
+      const format = survey.plots ? await plotFileFormat(store, projectId, request.log) : null;
+      const storePlotFile = async (filename: string, plots: NonNullable<CeoSurvey['plots']>['plots']): Promise<StoredFile | 'over'> => {
+        const data = Buffer.from(plotFileCsv(plots, format?.keys ?? { count: 1, roundIndex: null, roundCode: '1' }, format?.extra ?? null), 'utf8');
+        const over = await checkUploadFits(store, projectId, { kind: 'csv', filename }, data.length);
+        if (over) {
+          await store.deleteProject(projectId);
+          void reply.code(413).send(over);
+          return 'over';
+        }
+        const meta = await store.putCsvFile(projectId, filename, data, parsePlotFile(data, format?.keys.count ?? 1).plotIds);
+        return { csvFileId: meta.id, filename, plots: meta.plotCount };
+      };
+      if (survey.plots) {
+        const done = survey.answers ? answeredPlots(survey.answers.plots) : new Set<string>();
+        // with the columns of the plot file uploaded to CEO, read from its sample data
+        const plotColumns = survey.answers?.plotColumns;
+        const withColumns = survey.plots.plots.map((p) => {
+          const values = plotColumns?.get(p.id);
+          return values ? { ...p, columns: Object.fromEntries(Object.entries(values).map(([name, value]) => [name.toLowerCase(), value])) } : p;
+        });
+        const toDo = withColumns.filter((p) => !done.has(p.id));
+        const base = `ceo_${survey.project.id ?? 'project'}_plots`;
+        if (toDo.length > 0) {
+          const stored = await storePlotFile(`${base}.csv`, toDo);
+          if (stored === 'over') return reply;
+          plotFile = stored;
+        }
+        if (done.size > 0) {
+          const stored = await storePlotFile(`${base}_done.csv`, withColumns.filter((p) => done.has(p.id)));
+          if (stored === 'over') return reply;
+          doneFile = stored;
+        }
+      }
+
+      // The plots' and samples' shapes CEO keeps (uploaded as shapes): copied from CEO in steps the dashboard asks for
+      let shapes: { total: number } | null = null;
+      if (survey.plots && ceoHasShapes(survey.project)) {
+        const toRead = survey.plots.plots.filter((p) => p.internal !== '');
+        if (toRead.length > 0) {
+          const properties = new Map(layoutProperties(survey.layout).map((line) => line.split('=', 2) as [string, string]));
+          await store.setCeoShapes(projectId, newShapesJob(survey.project.id, toRead, plotOutline(properties)));
+          shapes = { total: toRead.length };
+        }
+      }
+
+      // CEO's answers, as records Collect Earth would have sent, stored as a sync stores them (last write wins, events)
+      let records = 0;
+      if (survey.answers && survey.plots && survey.answers.plots.length > 0) {
+        for (const { userId } of operators.values()) {
+          if (userId && !(await store.listMemberships(userId)).some((m) => m.projectId === projectId)) await store.addMembership(projectId, userId, 'operator');
+        }
+        const stored = readCep(await store.getCep(projectId) as Buffer);
+        const surveyXml = new TextDecoder().decode(stored.entries.get(stored.surveyPath)!);
+        const info = await store.getRoundInfo(projectId);
+        const roundCode = info && info.state !== 'none' ? info.roundCodes.find((c) => c.code !== info.reassessmentCode)?.code ?? null : null;
+        const done = answeredPlots(survey.answers.plots);
+        const receivedAt = Date.now();
+        const built = ceoRecords(survey.answers.plots, {
+          surveyXml,
+          roundCode,
+          operatorOf: (email) => operators.get(email)!.username,
+          plotFile: (done.size > 0 ? doneFile : plotFile)?.filename ?? '',
+          centres: new Map(survey.plots.plots.map((p) => [p.id, { lat: p.lat, lon: p.lon }])),
+          plotColumns: survey.answers.plotColumns,
+          now: receivedAt,
+        });
+        for (const r of built) {
+          const envelope = { recordKey: r.recordKey, surveyUri: `http://www.openforis.org/idm/${survey.surveyName}`, operator: r.operator, modifiedOn: r.modifiedOn,
+            activelySaved: r.activelySaved, step: 1, xml: r.xml, summary: r.summary, deleted: false, payloadVersion: 1, activeSeconds: r.activeSeconds };
+          const kept = await store.putRecordWithEvent(projectId, r.recordKey, r.operator, (existing, submittedBefore) => {
+            // Received when it was saved in CEO: it did not come late (the Progress tab's "work that arrives late")
+            const { row, status } = applyLww(envelope, existing, r.modifiedOn);
+            if (status !== 'stored') return null;
+            const next = { ...row, projectId };
+            return { row: next, event: recordEventOf(existing, next, submittedBefore) };
+          });
+          if (kept) records++;
+        }
+      }
+      const s = summary(survey);
+      try {
+        await store.appendAudit(projectId, {
+          actorUserId: user.id,
+          action: 'project.imported',
+          details: {
+            source: 'ceo',
+            ceoProjectId: survey.project.id,
+            questions: s.counts.questions,
+            questionsChanged: s.counts.questionsChanged,
+            questionsSkipped: s.counts.questionsSkipped,
+            rules: s.counts.rules,
+            rulesSkipped: s.counts.rulesSkipped,
+            plots: s.counts.plots,
+            ...(survey.answers ? { records, collectors: survey.answers.collectors.length } : {}),
+          },
+        });
+        for (const file of [plotFile, doneFile]) {
+          if (file) await store.appendAudit(projectId, { actorUserId: user.id, action: 'csv.uploaded', details: { csvFileId: file.csvFileId, plots: file.plots } });
+        }
+      } catch (err) {
+        request.log.error({ err }, 'audit log write failed');
+      }
+      request.log.info({ projectId, ceoProjectId: survey.project.id, round: accepted.info.state }, 'project made from a Collect Earth Online project');
+      // The collectors' names on this server, by CEO email: for the coordinator, who mapped them (never stored)
+      const collectors = survey.answers ? survey.answers.collectors.map((c) => ({ ...c, username: operators.get(c.email)!.username })) : [];
+      return reply.code(201).send({ projectId, name, round: accepted.info.state, plotFile, doneFile, records, shapes, reportText: reportText(survey), ...s, collectors });
+    } catch (e) {
+      await store.deleteProject(projectId);
+      throw e;
     }
-    request.log.info({ projectId, ceoProjectId: survey.project.id, round: accepted.info.state }, 'project made from a Collect Earth Online project');
-    // The collectors' names on this server, by CEO email: for the coordinator, who mapped them (never stored)
-    const collectors = survey.answers ? survey.answers.collectors.map((c) => ({ ...c, username: operators.get(c.email)!.username })) : [];
-    return reply.code(201).send({ projectId, name, round: accepted.info.state, plotFile, doneFile, records, shapes, reportText: reportText(survey), ...s, collectors });
   });
 }

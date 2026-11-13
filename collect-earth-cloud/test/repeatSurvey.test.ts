@@ -339,6 +339,15 @@ describe('repeating a survey in the dashboard', () => {
     expect((await call('PUT', '/periods/header', owner.token, { headerQuestions: [FOREST] })).statusCode).toBe(404);
   });
 
+  it('leaves no half-made project when making it fails midway', async () => {
+    const before = (await ctx.store.listMemberships(owner.userId)).length;
+    ctx.store.setRepeatSettings = async () => {
+      throw new Error('store down');
+    };
+    expect((await call('POST', '/repeat', owner.token, { name: 'Land 2025', label: '2025', earlierLabel: '2020' })).statusCode).toBe(500);
+    expect(await ctx.store.listMemberships(owner.userId)).toHaveLength(before);
+  });
+
   it("takes the coordinator's final answer of a decided plot", async () => {
     await ctx.store.setQualityDecision(pid, '1', 'check', null, owner.userId);
     const res = await call('POST', '/repeat', owner.token, { name: 'Land 2025', label: '2025', earlierLabel: '2020' });
