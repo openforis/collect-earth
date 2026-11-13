@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { DistributionState, Member, PersonShare } from "./api";
+import type { DistributionSummary, Member, PersonShare } from "./api";
 import { translator } from "./i18n";
 import {
   holdersOf,
@@ -33,8 +33,8 @@ const share = (userId: string, plots: number, submitted: number): PersonShare =>
   reference: 0,
   submitted,
 });
-const state = (people: PersonShare[]): DistributionState => ({
-  distribution: { mode: "manual", groups: [] } as unknown as DistributionState["distribution"],
+const state = (people: PersonShare[]): DistributionSummary => ({
+  distribution: { mode: "manual", groups: [] } as unknown as DistributionSummary["distribution"],
   plotCount: 100,
   unassigned: 0,
   people,

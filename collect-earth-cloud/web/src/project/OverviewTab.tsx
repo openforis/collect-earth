@@ -173,7 +173,7 @@ export function OverviewTab({ projectId, onGo }: { projectId: string; onGo: (tab
           {list}
         </Paper>
       )}
-      {overview.storage && <StorageUse usedBytes={overview.storage.usedBytes} limitBytes={overview.storage.limitBytes} />}
+      <StorageUse usedBytes={overview.storage.usedBytes} limitBytes={overview.storage.limitBytes} />
     </Stack>
   );
 }

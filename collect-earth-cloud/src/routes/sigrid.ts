@@ -6,6 +6,7 @@ import { fileKeyCount } from '../rounds.js';
 import { SIGRID_COUNTRIES } from '../sigridCountries.js';
 import { selects, SIGRID_SPACINGS, sigridCountry, sigridCounts, SigridError, sigridPlots, type SigridSelection } from '../sigrid.js';
 import type { Store } from '../store/store.js';
+import type { SigridCountries, SigridFacts } from '../wire/plotFiles.js';
 import { extraColumns } from './plotDesign.js';
 import type { PlotPlaceReader } from './plotPlaces.js';
 
@@ -34,7 +35,7 @@ const stem = (zip: string) => zip.replace(/_grids(_no_districts)?\.zip$/, '');
  */
 export async function registerSigridRoutes(app: FastifyInstance, store: Store, places: PlotPlaceReader): Promise<void> {
   const admin = { preHandler: requireProjectMembership(store, 'admin') };
-  app.get('/v1/projects/:pid/sigrid/countries', admin, async () => ({
+  app.get('/v1/projects/:pid/sigrid/countries', admin, async (): Promise<SigridCountries> => ({
     countries: SIGRID_COUNTRIES.map((c) => ({ name: c.name, file: stem(c.zip) })),
     spacings: SIGRID_SPACINGS,
     max: MAX_DESIGN_PLOTS,
@@ -84,7 +85,7 @@ export async function registerSigridRoutes(app: FastifyInstance, store: Store, p
           p.districts.push({ name: r.district, plots: r.plots });
           byProvince.set(r.province, p);
         }
-        const facts = {
+        const facts: SigridFacts = {
           country: country.name,
           spacings: counts.spacings,
           // A package without district names has one row of empty names.
@@ -95,7 +96,7 @@ export async function registerSigridRoutes(app: FastifyInstance, store: Store, p
         if (at < 0) return reply.send(facts);
         // Without a clip the counts file says it; with one, the grid is read and its plots tested.
         const plots = clip && selected[at] > 0 ? (await sigridPlots(country.zip, spacing as number, selection, areaContains(clip), 0)).count : selected[at];
-        return reply.send({ ...facts, spacingKm: spacing, plots, tooMany: plots > MAX_DESIGN_PLOTS });
+        return reply.send({ ...facts, spacingKm: spacing as number, plots, tooMany: plots > MAX_DESIGN_PLOTS } satisfies SigridFacts);
       }
 
       if (at < 0) return refuse('bad_spacing', 'spacingKm is needed to make the plot file.');

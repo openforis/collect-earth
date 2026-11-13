@@ -29,6 +29,7 @@ import { plotFileCsv } from '../plotDesign.js';
 import { parsePlotFile } from '../plots.js';
 import { requireSession } from '../plugins/projectAuth.js';
 import type { Store } from '../store/store.js';
+import type { CeoFetchAnswer, CeoImportAnswer, CeoImportPreview, CeoImportSummary } from '../wire/projects.js';
 import { acceptCep } from './platform.js';
 import { plotFileFormat } from './plotDesign.js';
 import { creationRefusal } from './projects.js';
@@ -51,7 +52,7 @@ interface ImportBody {
 const MAX_NAME = 200;
 
 /** What the dashboard shows of an import: the counts, and every entry */
-function summary(s: CeoSurvey) {
+function summary(s: CeoSurvey): CeoImportSummary {
   const r = s.report;
   return {
     ceoProjectId: s.project.id,
@@ -165,7 +166,7 @@ export async function registerCeoImportRoutes(app: FastifyInstance, store: Store
         /* not JSON: refused below */
       }
       if (typeof name !== 'string') return reply.code(404).send({ error: 'ceo_not_found', reason: `Collect Earth Online has no project ${id}.` });
-      return reply.send({ project, plots });
+      return reply.send({ project, plots } satisfies CeoFetchAnswer);
     } catch (err) {
       if (!(err instanceof CeoFetchError)) throw err;
       request.log.warn({ ceoProjectId: id, why: err.message }, 'Collect Earth Online could not be read');
@@ -179,7 +180,7 @@ export async function registerCeoImportRoutes(app: FastifyInstance, store: Store
   app.post('/v1/projects/from-ceo/preview', { preHandler: requireSession(store) }, async (request: FastifyRequest, reply: FastifyReply) => {
     const survey = translate((request.body ?? {}) as ImportBody, reply);
     if (!survey) return reply;
-    return reply.send({ name: survey.project.name, ...summary(survey) });
+    return reply.send({ name: survey.project.name, ...summary(survey) } satisfies CeoImportPreview);
   });
 
   app.post('/v1/projects/from-ceo', { preHandler: requireSession(store) }, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -343,7 +344,7 @@ export async function registerCeoImportRoutes(app: FastifyInstance, store: Store
       request.log.info({ projectId, ceoProjectId: survey.project.id, round: accepted.info.state }, 'project made from a Collect Earth Online project');
       // The collectors' names on this server, by CEO email: for the coordinator, who mapped them (never stored)
       const collectors = survey.answers ? survey.answers.collectors.map((c) => ({ ...c, username: operators.get(c.email)!.username })) : [];
-      return reply.code(201).send({ projectId, name, round: accepted.info.state, plotFile, doneFile, records, shapes, reportText: reportText(survey), ...s, collectors });
+      return reply.code(201).send({ projectId, name, round: accepted.info.state, plotFile, doneFile, records, shapes, reportText: reportText(survey), ...s, collectors } satisfies CeoImportAnswer);
     } catch (e) {
       await store.deleteProject(projectId);
       throw e;

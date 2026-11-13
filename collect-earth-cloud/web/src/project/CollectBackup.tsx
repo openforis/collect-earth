@@ -79,7 +79,7 @@ function BackupDialog({ projectId, onClose, onStarted }: { projectId: string; on
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const s = summary.data;
-  const counts = s ? (rounds === "all" && s.all ? s.all : s.first) : null;
+  const counts = s ? (rounds === "all" && s.rounds.all ? s.rounds.all : s.rounds["1"]) : null;
   const canDownload = !!s && s.projectFile && !!counts && counts.records > 0 && !busy;
 
   const download = async () => {

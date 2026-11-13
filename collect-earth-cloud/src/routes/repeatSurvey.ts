@@ -49,6 +49,8 @@ import { keyShape, splitKey } from '../rounds.js';
 import type { Store } from '../store/store.js';
 import { surveyOutline, type Question } from '../surveyOutline.js';
 import type { RepeatSettings } from '../types.js';
+import type { ChangeAreas } from '../wire/data.js';
+import type { PeriodHeaderAnswer, Periods, PlotPeriodsAnswer, RepeatAnswer, RepeatAreaAnswer, RepeatChange, RepeatPreview } from '../wire/projects.js';
 import { acceptCep } from './platform.js';
 import { creationRefusal } from './projects.js';
 import { isPositionKey, withoutPositions } from '../positions.js';
@@ -151,7 +153,7 @@ export async function registerRepeatSurveyRoutes(app: FastifyInstance, store: St
       questions: questionList(outline),
       headerQuestions: settings ? headerOf(settings.headerQuestions, outline) : defaultHeaderQuestions(outline),
       report,
-    });
+    } satisfies RepeatPreview);
   });
 
   app.post('/v1/projects/:pid/repeat', admin, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -237,7 +239,7 @@ export async function registerRepeatSurveyRoutes(app: FastifyInstance, store: St
       await audit(store, request, 'project.imported', { source: 'repeated', repeatProjectId: projectId, label });
       request.log.info({ sourceId, projectId, plots: matched.records.length }, 'survey repeated');
       const filePlots = (await store.listCsvFiles(projectId)).reduce((n, f) => n + f.plotCount, 0);
-      return reply.code(201).send({ projectId, name, status: 'draft', label, periods: reports, headerQuestions, plots: body.plots === 'collected' ? 'collected' : 'all', filePlots });
+      return reply.code(201).send({ projectId, name, status: 'draft', label, periods: reports, headerQuestions, plots: body.plots === 'collected' ? 'collected' : 'all', filePlots } satisfies RepeatAnswer);
     } catch (e) {
       await store.deleteProject(projectId);
       throw e;
@@ -247,7 +249,7 @@ export async function registerRepeatSurveyRoutes(app: FastifyInstance, store: St
   app.get('/v1/projects/:pid/periods', member, async (request: FastifyRequest, reply: FastifyReply) => {
     const projectId = request.membership!.projectId;
     const settings = await store.getRepeatSettings(projectId);
-    if (!settings) return reply.send({ settings: null, periods: [], questions: [] });
+    if (!settings) return reply.send({ settings: null, periods: [], questions: [] } satisfies Periods);
     const outline = outlineOf(await store.getCep(projectId));
     const labels = new Map(outline ? [...outline.values()].map((q) => [q.key, q.label] as const) : []);
     return reply.send({
@@ -256,7 +258,7 @@ export async function registerRepeatSurveyRoutes(app: FastifyInstance, store: St
       // The header's questions with their labels, in the header's order
       questions: settings.headerQuestions.map((key) => ({ key, label: labels.get(key) ?? key })),
       candidates: outline ? questionList(outline) : [],
-    });
+    } satisfies Periods);
   });
 
   app.put('/v1/projects/:pid/periods/header', admin, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -269,7 +271,7 @@ export async function registerRepeatSurveyRoutes(app: FastifyInstance, store: St
     const headerQuestions = headerOf(raw, outline);
     await store.setRepeatSettings(projectId, { ...settings, headerQuestions });
     await audit(store, request, 'settings.changed', { setting: 'repeatHeader', questions: headerQuestions.length });
-    return reply.send({ headerQuestions });
+    return reply.send({ headerQuestions } satisfies PeriodHeaderAnswer);
   });
 
   /** The comparison of one question between an earlier period and this one (stage 3), or the answer refusing it */
@@ -309,7 +311,7 @@ export async function registerRepeatSurveyRoutes(app: FastifyInstance, store: St
    * the project file's areas file), else one stratum of the total area (the query's `area`, else the one saved), else shares only
    * (`areaKnown` false: every plot standing for the same share of an area not known).
    */
-  const areasOf = async (request: FastifyRequest, found: NonNullable<Awaited<ReturnType<typeof changeOf>>>) => {
+  const areasOf = async (request: FastifyRequest, found: NonNullable<Awaited<ReturnType<typeof changeOf>>>): Promise<ChangeAreas> => {
     const projectId = request.membership!.projectId;
     const cep = await store.getCep(projectId);
     const parsed = cep ? modelOf(cep) : null;
@@ -349,7 +351,7 @@ export async function registerRepeatSurveyRoutes(app: FastifyInstance, store: St
       rows: change.rows,
       areas: await areasOf(request, found),
       canEdit: request.membership!.role === 'admin',
-    });
+    } satisfies RepeatChange);
   });
 
   // The areas as a file: the outcomes, the transition matrix, the corrections and each answer's area, with the uncertainty
@@ -419,7 +421,7 @@ export async function registerRepeatSurveyRoutes(app: FastifyInstance, store: St
     const { totalArea: _old, ...rest } = settings;
     await store.setRepeatSettings(projectId, raw === null ? rest : { ...rest, totalArea: raw });
     await audit(store, request, 'settings.changed', { setting: 'repeatArea' });
-    return reply.send({ totalArea: raw });
+    return reply.send({ totalArea: raw } satisfies RepeatAreaAnswer);
   });
 
   // The comparison as a file: one row per plot, the answer of each period, the collector's answer and the outcome
@@ -463,6 +465,6 @@ export async function registerRepeatSurveyRoutes(app: FastifyInstance, store: St
       // what the form's header shows: this period's label and the plot's main characteristics
       label: settings?.label ?? null,
       header: settings?.headerQuestions ?? [],
-    });
+    } satisfies PlotPeriodsAnswer);
   });
 }

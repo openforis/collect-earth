@@ -23,7 +23,7 @@ import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { useEffect, useMemo, useState } from "react";
-import { ApiError, getPeople, rebalance, type DistributionState, type Member, type PersonRow, type RebalancePlan } from "../api";
+import { ApiError, getPeople, rebalance, type DistributionSummary, type Member, type PersonRow, type RebalancePlan } from "../api";
 import { useApp } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Explain } from "../components/Explain";
@@ -53,7 +53,7 @@ interface Preview {
   plan: RebalancePlan;
   /** The request and the division it was made for: a change to either drops it. */
   key: string;
-  state: DistributionState;
+  state: DistributionSummary;
 }
 
 export function RebalanceCard({
@@ -66,8 +66,8 @@ export function RebalanceCard({
   projectId: string;
   fileId: string;
   members: Member[];
-  current: DistributionState;
-  onApplied: (state: DistributionState) => void;
+  current: DistributionSummary;
+  onApplied: (state: DistributionSummary) => void;
 }) {
   const t = useT();
   const { language } = useApp();
@@ -83,7 +83,7 @@ export function RebalanceCard({
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<unknown>(null);
   // The division a 409 answered for (the file was made whole meanwhile).
-  const [wholeFor, setWholeFor] = useState<DistributionState | null>(null);
+  const [wholeFor, setWholeFor] = useState<DistributionSummary | null>(null);
   const [paceTry, setPaceTry] = useState(0);
   const [busy, setBusy] = useState(false);
 
@@ -154,9 +154,11 @@ export function RebalanceCard({
     setError(null);
     try {
       const result = await rebalance(projectId, fileId, request.people, false);
-      setNotice(sharedText(t, result, language));
       setPreview(null);
-      if (result.state) onApplied(result.state);
+      if (result.saved) {
+        setNotice(sharedText(t, result, language));
+        onApplied({ distribution: result.distribution, plotCount: result.plotCount, unassigned: result.unassigned, people: result.people });
+      }
     } catch (err) {
       failed(err);
     } finally {

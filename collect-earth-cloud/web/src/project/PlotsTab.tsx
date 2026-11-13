@@ -32,7 +32,7 @@ import {
   saveAssignments,
   uploadCsvFile,
   type ReplaceImpact,
-  type CsvFile,
+  type ListedCsvFile,
   type Member,
 } from "../api";
 import { useApp } from "../appContext";
@@ -65,8 +65,8 @@ interface PendingReplace {
 /** For each divided file (its plots shared out between people): how many people have plots. */
 type Divided = Map<string, number>;
 
-function dividedOf(files: CsvFile[]): Divided {
-  return new Map(files.filter((file) => file.divided).map((file) => [file.id, file.dividedPeople ?? 0]));
+function dividedOf(files: ListedCsvFile[]): Divided {
+  return new Map(files.filter((file) => file.divided).map((file) => [file.id, file.dividedPeople]));
 }
 
 async function loadPlots(projectId: string) {
@@ -110,7 +110,7 @@ function WhoCollectsDialog({
   onSave,
   onGo,
 }: {
-  file: CsvFile;
+  file: ListedCsvFile;
   people: Member[];
   ticked: ReadonlySet<string>;
   onClose: () => void;
@@ -180,7 +180,7 @@ export function PlotsTab({ projectId, onGo }: { projectId: string; onGo: (tab: P
   const [error, setError] = useState<unknown>(null);
 
   const [pendingReplace, setPendingReplace] = useState<PendingReplace | null>(null);
-  const [editing, setEditing] = useState<CsvFile | null>(null);
+  const [editing, setEditing] = useState<ListedCsvFile | null>(null);
   const [savedNote, setSavedNote] = useState(false);
 
   const askReplace = (name: string, impact: ReplaceImpact) =>

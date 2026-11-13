@@ -1,6 +1,9 @@
 import { plotFileOf } from './plotFileCache.js';
 import { isWgs84 } from './routes/plotPlaces.js';
 import type { StoredDistribution } from './types.js';
+import type { NearbyAvailability } from './wire/plotFiles.js';
+
+export type { NearbyAvailability } from './wire/plotFiles.js';
 
 /**
  * Division order 'nearby' (Task 15): a plot file's plots along a Hilbert curve over
@@ -120,12 +123,6 @@ export function nearbyOrder(plotIds: readonly string[], places: ReadonlyMap<stri
 export function servedNearby(distribution: StoredDistribution | null | undefined): boolean {
   return distribution !== null && distribution !== undefined && 'order' in distribution && distribution.order === 'nearby';
 }
-
-/** Whether order 'nearby' can be offered, and why not. */
-export type NearbyAvailability =
-  | { available: true; reason: null; withPlace: number; withoutPlace: number }
-  | { available: false; reason: 'other_srs'; withPlace: 0; withoutPlace: number; srid: string }
-  | { available: false; reason: 'no_places'; withPlace: 0; withoutPlace: number };
 
 /**
  * Order 'nearby' needs latitude and longitude: the survey's first spatial reference system
