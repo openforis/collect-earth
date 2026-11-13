@@ -33,6 +33,8 @@ export const MAX_DIGEST_PROJECTS = 20;
 export const MAX_QUIET_NAMED = 20;
 /** Subscriptions read from the store at a time. */
 const PAGE = 50;
+/** The project states a digest run keeps besides the shared cache's. */
+const RUN_STATES_KEPT = 6;
 /** Defaults of one run: what Cloud Run's request timeout leaves room for. */
 export const DEFAULT_BUDGET_MS = 60_000;
 export const DEFAULT_MAX_MAILS = 500;
@@ -259,11 +261,15 @@ export async function runDigests(shared: DigestDeps, options: { baseUrl: string;
     states: {
       get: (projectId, log) => {
         let served = kept.get(projectId);
-        if (!served) {
+        if (served) {
+          kept.delete(projectId); // moved last: the least recently used goes first
+        } else {
           served = shared.states.get(projectId, log);
-          kept.set(projectId, served);
           served.catch(() => kept.delete(projectId));
         }
+        kept.set(projectId, served);
+        // shortcut: a fixed count, as the shared cache (a state of 100,000 records is tens of MB); order the subscriptions by project if digests still rebuild too often
+        if (kept.size > RUN_STATES_KEPT) kept.delete(kept.keys().next().value!);
         return served;
       },
     },
