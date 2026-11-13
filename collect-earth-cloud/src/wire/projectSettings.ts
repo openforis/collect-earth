@@ -1,4 +1,4 @@
-// The Settings tab's project calls (name, status, copy, the AI assistant, progress links) as the server
+// The project calls of Setup (name, status, copy, the AI assistant, progress links) as the server
 // answers them. Types only: see README.md in this folder.
 
 

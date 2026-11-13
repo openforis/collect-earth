@@ -76,7 +76,7 @@ export async function registerUncertaintyRoutes(app: FastifyInstance, store: Sto
     const { context } = served.state;
     const firsts = firstAssessments(rows, recordResolver({ info: context.info, units: context.units, copyHolders: context.copyHolders }));
     const factors = await projectFactors(store, projectId, parsed, firsts, context.info);
-    if (!factors) return reply.code(409).send({ error: 'needs_total_area', message: 'The project has no areas: enter the total area in hectares, or the strata and their areas on the Plot files tab.' });
+    if (!factors) return reply.code(409).send({ error: 'needs_total_area', message: 'The project has no areas: enter the total area in hectares, or the strata and their areas in Setup › Areas.' });
 
     // The strata: their areas are the factors of their plots (one stratum of the total area when there is one)
     const strata = new Map<string, number>();

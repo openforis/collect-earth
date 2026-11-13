@@ -30,7 +30,7 @@ interface ProjectSettings {
 }
 
 /**
- * Settings of the project file that the coordinator changes on the Project file tab: the plot layout (Collect Earth's
+ * Settings of the project file that the coordinator changes in the dashboard's Setup (Plot layout & imagery): the plot layout (Collect Earth's
  * Settings > Plot) and the imagery windows (Settings > Imagery). Read by any member (Collect Earth asks during its sync
  * and applies a change by itself). Cloud only (LOCAL_OFF_ROUTES): alone, the person changes them in Collect Earth's
  * settings.
