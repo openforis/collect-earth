@@ -27,6 +27,7 @@ import type { QualityService, ServedReport } from '../qualityService.js';
 import type { Assessment } from '../rounds.js';
 import { InvalidCursorError, isStoredTime, MAX_STORED_TIME, type Store } from '../store/store.js';
 import type { AuditAction, RecordChange } from '../types.js';
+import type { BellAnswer } from '../wire/progress.js';
 import { isIsoWeek, weekOfDate, weeklySummary, type WeeklySummary } from '../weekly.js';
 import { loadPeople, loadPeopleFor } from './people.js';
 import type { PlotPlaceReader } from './plotPlaces.js';
@@ -304,7 +305,7 @@ export async function registerActivityRoutes(
 
   // --- the bell ------------------------------------------------------------------------------
 
-  async function bell(request: FastifyRequest, add: readonly string[] | 'all' | null) {
+  async function bell(request: FastifyRequest, add: readonly string[] | 'all' | null): Promise<BellAnswer> {
     const { projectId, userId } = request.membership!;
     const at = now();
     const [served, settings] = await Promise.all([states.get(projectId, request.log), store.getProgressSettings(projectId)]);

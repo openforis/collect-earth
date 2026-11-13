@@ -11,6 +11,7 @@ import type { Config } from '../config.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import type { Store } from '../store/store.js';
 import type { AiRunRow, AiRunSummary } from '../types.js';
+import type { ProjectAi } from '../wire/projectSettings.js';
 import { areasSource, modelOf } from './analysis.js';
 
 /** Runs listed by default, and at most. */
@@ -89,14 +90,18 @@ export async function registerAiRoutes(app: FastifyInstance, store: Store, confi
     await runs.close();
   });
 
+  // Whether the assistant is on, and where what is sent is processed, for the coordinator deciding to switch it on (a
+  // region of "global" is not one place: Google may process it in any of its regions). Both GET and PUT answer it.
+  const aiState = (enabled: boolean, available: boolean): ProjectAi => ({
+    enabled,
+    available,
+    where: available ? { provider: 'Google Gemini (Vertex AI)', model: config.aiModel ?? DEFAULT_AI_MODEL, region: config.aiVertexRegion ?? DEFAULT_AI_REGION } : null,
+  });
+
   app.get('/v1/projects/:pid/ai', admin, async (request: FastifyRequest, reply: FastifyReply) => {
     const projectId = request.membership!.projectId;
     const [enabled, settings] = await Promise.all([store.isAiEnabled(projectId), store.getSettings()]);
-    const available = aiAvailable(config, settings);
-    // Where what is sent is processed, for the coordinator deciding to switch it on (a region of "global" is not one
-    // place: Google may process it in any of its regions)
-    const where = available ? { provider: 'Google Gemini (Vertex AI)', model: config.aiModel ?? DEFAULT_AI_MODEL, region: config.aiVertexRegion ?? DEFAULT_AI_REGION } : null;
-    return reply.send({ enabled, available, where });
+    return reply.send(aiState(enabled, aiAvailable(config, settings)));
   });
 
   app.put('/v1/projects/:pid/ai', admin, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -118,7 +123,7 @@ export async function registerAiRoutes(app: FastifyInstance, store: Store, confi
     }
     await store.setAiEnabled(projectId, enabled);
     await audit(store, request, 'settings.changed', { setting: 'ai', enabled });
-    return reply.send({ enabled, available });
+    return reply.send(aiState(enabled, available));
   });
 
   app.post('/v1/projects/:pid/ai/runs', admin, async (request: FastifyRequest, reply: FastifyReply) => {

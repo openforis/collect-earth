@@ -7,6 +7,9 @@ import { METADATA_KEY_PARTS } from './division.js';
 import { copyUnitsByUser, keyShape, recordRound, unitOfRecord, type RecordRound } from './rounds.js';
 import { BOOKKEEPING_KEYS, MAX_INDEXED_ENTITIES, QUALIFIER_SEPARATOR, SUMMARY_VALUES_SEPARATOR, type Question } from './surveyOutline.js';
 import type { DecisionKind } from './types.js';
+import type { Rate } from './wire/progress.js';
+
+export type { Rate } from './wire/progress.js';
 
 /** Below this many compared plots a rate says nothing: it is null ("too few plots to judge"). */
 export const MIN_PLOTS = 20;
@@ -80,13 +83,6 @@ export function overallAgreement(report: Pick<QualityReport, 'weeks'>): Rate {
     agreeing += w.agreeing;
   }
   return { compared, agreeing, rate: compared >= MIN_PLOTS ? agreeing / compared : null };
-}
-
-export interface Rate {
-  compared: number;
-  agreeing: number;
-  /** agreeing / compared (0..1), null when compared < MIN_PLOTS. */
-  rate: number | null;
 }
 
 export interface QuestionAgreement extends Rate {

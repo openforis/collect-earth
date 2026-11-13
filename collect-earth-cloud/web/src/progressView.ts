@@ -1,4 +1,4 @@
-import type { AttentionItem, AttentionKind, Forecast, ProgressDay, ProgressSettings, PublicProgressData } from "./api";
+import type { AttentionItem, AttentionKind, AttentionPerson, Forecast, ProgressDay, ProgressSettings, PublicProgress } from "./api";
 import { formatNumber } from "./format";
 import type { MessageKey, Translate } from "./i18n";
 import { rateText } from "./qualityView";
@@ -14,7 +14,7 @@ export const REFRESH_MS = 60_000;
  * A progress link's quality figure in words: how often the checks agreed with the first
  * assessment so far, or why there is no figure (none at hand on the server, no check yet, too few).
  */
-export function publicQualityText(t: Translate, q: PublicProgressData["quality"], language: string): string {
+export function publicQualityText(t: Translate, q: PublicProgress["quality"], language: string): string {
   if (!q.available || q.agreement === null) return t("publicProgress.qualityNone");
   if (q.agreement.compared === 0) return t("publicProgress.qualityNoChecks");
   return rateText(t, q.agreement, language);
@@ -206,14 +206,19 @@ export function attentionText(t: Translate, item: AttentionItem, language: strin
   }
 }
 
+/** The people an item names (none for the kinds about plots or the server: not given, differences, storage). */
+export function peopleOf(item: AttentionItem): AttentionPerson[] {
+  return "people" in item ? item.people : [];
+}
+
 /** What is said next to a person in a card: their last sync (or, never synced, when they got their plots), how late their work arrives. */
-export function personDetail(t: Translate, item: AttentionItem, person: AttentionItem["people"][number], language: string, formatDate: (ms: number) => string): string | null {
-  if (item.kind === "quiet" && person.lastSyncAt !== null) return t("attention.lastSync", { date: formatDate(person.lastSyncAt) });
-  if (item.kind === "quiet" && person.lastPlotsDownloadAt !== null) return t("attention.lastDownload", { date: formatDate(person.lastPlotsDownloadAt) });
+export function personDetail(t: Translate, item: AttentionItem, person: AttentionPerson, language: string, formatDate: (ms: number) => string): string | null {
+  if (item.kind === "quiet" && person.lastSyncAt != null) return t("attention.lastSync", { date: formatDate(person.lastSyncAt) });
+  if (item.kind === "quiet" && person.lastPlotsDownloadAt != null) return t("attention.lastDownload", { date: formatDate(person.lastPlotsDownloadAt) });
   if (item.kind === "trainingFinished" && person.set) {
     return t(person.passed === true ? "attention.trainingPassed" : person.passed === false ? "attention.trainingNotPassed" : "attention.trainingDone", { set: person.set });
   }
-  if (item.kind === "oldUnsentWork" && person.medianDelayMs !== null) {
+  if (item.kind === "oldUnsentWork" && person.medianDelayMs !== undefined) {
     const days = Math.round((person.medianDelayMs / DAY_MS) * 10) / 10;
     return t(days === 1 ? "attention.dayLate" : "attention.daysLate", { n: formatNumber(days, language) });
   }

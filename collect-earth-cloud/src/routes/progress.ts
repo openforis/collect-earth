@@ -9,6 +9,7 @@ import type { ProjectStateCache, ServedState } from '../projectState.js';
 import { remember, type QualityService } from '../qualityService.js';
 import type { Store } from '../store/store.js';
 import { totalStorageBytes, type ProgressSettings } from '../types.js';
+import type { ProgressAnswer } from '../wire/progress.js';
 
 const DAY_MS = 86_400_000;
 export const DEFAULT_DAYS = 90;
@@ -73,7 +74,7 @@ export async function registerProgressRoutes(
     const [served, settings] = await Promise.all([states.get(projectId, request.log), store.getProgressSettings(projectId)]);
     const { context, assignments, units } = served.state;
     const attention = coordinator ? await attentionOf(projectId, served, request, at) : undefined;
-    return reply.send({
+    const answer: ProgressAnswer = {
       ...progressReport({
         now: at,
         timeZone,
@@ -91,11 +92,12 @@ export async function registerProgressRoutes(
       }),
       // When the figures are older than the records (a newer state is being worked out).
       asOf: served.stale ? served.state.builtAt : null,
-    });
+    };
+    return reply.send(answer);
   });
 
   app.get('/v1/projects/:pid/progress/settings', admin, async (request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(await store.getProgressSettings(request.membership!.projectId));
+    return reply.send((await store.getProgressSettings(request.membership!.projectId)) satisfies ProgressSettings);
   });
 
   app.put('/v1/projects/:pid/progress/settings', admin, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -107,11 +109,11 @@ export async function registerProgressRoutes(
     const before = await store.getProgressSettings(projectId);
     // Saving the same settings again changes nothing: no write, no line in the activity log.
     if (before.deadline === input.deadline && before.targetPlots === input.targetPlots && before.quietDays === input.quietDays) {
-      return reply.send(input);
+      return reply.send(input satisfies ProgressSettings);
     }
     await store.setProgressSettings(projectId, input);
     await audit(store, request, 'settings.changed', { setting: 'progress' });
-    return reply.send(input);
+    return reply.send(input satisfies ProgressSettings);
   });
 }
 

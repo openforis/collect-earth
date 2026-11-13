@@ -1,4 +1,10 @@
 /** Membership role within a single project. Authority derives only from these. */
+import type { ProgressSettings } from './wire/progress.js';
+import type { ProjectStatus } from './wire/projectSettings.js';
+
+export type { ProgressSettings } from './wire/progress.js';
+export type { ProjectStatus, ShareLink } from './wire/projectSettings.js';
+
 export type Role = 'admin' | 'reviewer' | 'operator';
 
 export interface User {
@@ -22,11 +28,6 @@ export interface Membership {
   status: ProjectStatus;
 }
 
-/**
- * A project's lifecycle: draft (being set up: collectors cannot sync yet), active, closed (read-only:
- * no syncs, no changes; reading and exports work) and archived (closed and out of the normal list).
- */
-export type ProjectStatus = 'draft' | 'active' | 'closed' | 'archived';
 export const PROJECT_STATUSES: readonly ProjectStatus[] = ['draft', 'active', 'closed', 'archived'];
 /** The moves a coordinator can make: publish, close, reopen, archive, restore. */
 export const STATUS_MOVES: Record<ProjectStatus, readonly ProjectStatus[]> = {
@@ -66,21 +67,6 @@ export interface InviteSummary {
   usedCount: number;
   expiresAt: number | null;
   createdAt: number;
-}
-
-/**
- * A read-only progress link of a project (Task 18), as coordinators list it. The token is shown
- * once, when it is made; only its sha256 is stored (share_links.token_hash).
- */
-export interface ShareLink {
-  id: string;
-  /** The coordinator's note to tell links apart ("For the donor"); may be empty. */
-  label: string;
-  createdAt: number;
-  /** The username of who made it; null for a project admin token or an account since deleted. */
-  createdBy: string | null;
-  /** When the page was last opened with it (kept to the minute); null when never. */
-  lastUsedAt: number | null;
 }
 
 /**
@@ -709,17 +695,6 @@ export interface QualitySettings {
   margins: Record<string, number>;
   /** The "very fast" flag's threshold in whole seconds (Task 5); absent: DEFAULT_FAST_SECONDS (15). */
   fastSeconds?: number;
-}
-
-/**
- * A project's progress settings (the Progress tab): an optional deadline (a calendar
- * day, YYYY-MM-DD), an optional target in plots (null: every assigned plot), and after
- * how many days without a sync someone with plots left counts as quiet.
- */
-export interface ProgressSettings {
-  deadline: string | null;
-  targetPlots: number | null;
-  quietDays: number;
 }
 
 export const DEFAULT_PROGRESS_SETTINGS: ProgressSettings = { deadline: null, targetPlots: null, quietDays: 3 };

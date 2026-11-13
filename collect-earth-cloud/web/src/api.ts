@@ -1,17 +1,30 @@
 import { unzipSync } from "fflate";
 import type { MessageKey } from "./i18n";
 import { getToken } from "./storage";
+import type { BellAnswer, ProgressAnswer, ProgressSettings, ProgressTotals, PublicProgress } from "../../src/wire/progress";
+import type {
+  NewShareLinkAnswer,
+  ProjectAi,
+  ProjectCopyAnswer,
+  ProjectStatus,
+  ProjectStatusAnswer,
+  ShareLink,
+  ShareLinksAnswer,
+} from "../../src/wire/projectSettings";
 
-// Every call the dashboard makes to the Collect Earth Cloud server, in one place, with
-// the response shapes it expects. Responses are normalised here (timestamps to epoch
-// ms, counts to numbers, relative links to absolute ones) so the pages do not have to
-// care about small differences between server versions.
+// Every call the dashboard makes to the Collect Earth Cloud server, in one place.
+//
+// The dashboard is built and shipped with the server, so it never talks to another version of it.
+// Where the answer's type is in the server's src/wire/ folder, it is imported from there and the
+// answer is used as it comes: a field the server renames fails the typecheck. The other areas
+// still have their own copy of the types and a clean-up function per answer (to be moved to
+// src/wire/ one area at a time; see its README.md).
 
 export type Role = "admin" | "reviewer" | "operator";
 export const ROLES: Role[] = ["operator", "reviewer", "admin"];
 export type ProjectCreation = "anyone" | "platform-admins";
+export type { ProjectStatus } from "../../src/wire/projectSettings";
 /** A project's lifecycle (the server's STATUS_MOVES): draft -> active -> closed (-> archived), closed -> active again. */
-export type ProjectStatus = "draft" | "active" | "closed" | "archived";
 export const STATUS_MOVES: Record<ProjectStatus, readonly ProjectStatus[]> = { draft: ["active"], active: ["closed"], closed: ["active", "archived"], archived: ["closed"] };
 
 export interface ServerInfo {
@@ -801,6 +814,11 @@ export function toMillis(value: unknown): number | null {
   return null;
 }
 
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+/** A calendar day (YYYY-MM-DD), or null. */
+const toDate = (value: unknown): string | null => (typeof value === "string" && DATE_RE.test(value) ? value : null);
+const toNumberOrNull = (value: unknown): number | null => (typeof value === "number" && Number.isFinite(value) ? value : null);
+
 /** A count from a number or a list (its length). */
 export function toCount(value: unknown): number {
   if (Array.isArray(value)) return value.length;
@@ -1318,7 +1336,7 @@ export async function getProject(projectId: string): Promise<ProjectInfo> {
 }
 
 /** A new project (a draft) from this one: its survey, plot files and settings; with `members`, its people and who does which plots. */
-export function copyProject(projectId: string, name: string, members: boolean): Promise<{ projectId: string; name: string }> {
+export function copyProject(projectId: string, name: string, members: boolean): Promise<ProjectCopyAnswer> {
   return request("POST", `${p(projectId)}/copy`, { json: { name, members } });
 }
 
@@ -1478,8 +1496,7 @@ export function getPlotPeriods(projectId: string, plot: string): Promise<{ perio
 }
 
 export async function setProjectStatus(projectId: string, status: ProjectStatus): Promise<ProjectStatus> {
-  const body = await request<{ status?: string }>("PUT", `${p(projectId)}/status`, { json: { status } });
-  return asStatus(body?.status);
+  return (await request<ProjectStatusAnswer>("PUT", `${p(projectId)}/status`, { json: { status } })).status;
 }
 
 export async function renameProject(projectId: string, name: string): Promise<void> {
@@ -2219,17 +2236,7 @@ export type FindingCause = "unclear_question" | "overlapping_options" | "person_
 const CAUSES: FindingCause[] = ["unclear_question", "overlapping_options", "person_habit", "number_typing", "other"];
 
 /** The assistant in a project: switched on here, and available on the server. */
-export interface ProjectAi {
-  enabled: boolean;
-  available: boolean;
-  /** Who processes what is sent, and where (region "global": any of the provider's regions); null while unavailable. */
-  where: { provider: string; model: string; region: string } | null;
-}
-
-function toWhere(v: unknown): ProjectAi["where"] {
-  const w = v && typeof v === "object" ? (v as Record<string, unknown>) : null;
-  return w && typeof w.provider === "string" ? { provider: w.provider, model: String(w.model ?? ""), region: String(w.region ?? "") } : null;
-}
+export type { ProjectAi } from "../../src/wire/projectSettings";
 
 /** A run as listed: who, when and what, never its result. */
 export interface AiRunSummary {
@@ -2348,15 +2355,13 @@ export function toAiRun(body: unknown): AiRun {
   };
 }
 
-export async function getProjectAi(projectId: string): Promise<ProjectAi> {
-  const body = obj(await request<unknown>("GET", `${p(projectId)}/ai`));
-  return { enabled: body.enabled === true, available: body.available === true, where: toWhere(body.where) };
+export function getProjectAi(projectId: string): Promise<ProjectAi> {
+  return request("GET", `${p(projectId)}/ai`);
 }
 
 /** Switches the assistant on or off for a project (a person's session only: a project key gets 403 user_session_required). */
-export async function setProjectAi(projectId: string, enabled: boolean): Promise<ProjectAi> {
-  const body = obj(await request<unknown>("PUT", `${p(projectId)}/ai`, { json: { enabled } }));
-  return { enabled: body.enabled === true, available: body.available === true, where: toWhere(body.where) };
+export function setProjectAi(projectId: string, enabled: boolean): Promise<ProjectAi> {
+  return request("PUT", `${p(projectId)}/ai`, { json: { enabled } });
 }
 
 /**
@@ -2935,279 +2940,55 @@ export async function makeResetLink(userId: string): Promise<ResetLink> {
 
 // --- progress (the Progress tab) -----------------------------------------------------
 
-export interface ProgressSettings {
-  /** YYYY-MM-DD, or null. */
-  deadline: string | null;
-  /** null: every assigned plot. */
-  targetPlots: number | null;
-  quietDays: number;
-}
-
-export interface ProgressTotals {
-  plots: number;
-  assigned: number;
-  notAssigned: number;
-  submitted: number;
-  started: number;
-  notStarted: number;
-}
-
-export interface ProgressDay {
-  date: string;
-  /** Plots (submitted now) first submitted that day; checks are not counted. */
-  submitted: number;
-  /** Plots submitted by the end of the day, as things are now. */
-  cumulative: number;
-}
-
-export interface Forecast {
-  target: number;
-  targetFrom: "setting" | "assigned";
-  remaining: number;
-  pacePerDay: number;
-  paceDays: number;
-  daysLeft: number | null;
-  endDate: string | null;
-  deadline: string | null;
-  daysToDeadline: number | null;
-  daysOver: number | null;
-  neededPerDay: number | null;
-}
-
-export interface AttentionPerson {
-  username: string;
-  lastSyncAt: number | null;
-  lastPlotsDownloadAt: number | null;
-  medianDelayMs: number | null;
-  /** trainingFinished: the learning set, and whether they passed (null: no pass mark). */
-  set?: string | null;
-  passed?: boolean | null;
-}
-
-export type AttentionKind =
-  | "quiet"
-  | "neverDownloaded"
-  | "notAssigned"
-  | "oldUnsentWork"
-  | "differencesWaiting"
-  | "storage"
-  | "oldProjectFile"
-  | "oldCollectEarth"
-  | "trainingFinished";
-
-export const ATTENTION_KINDS: readonly AttentionKind[] = [
-  "quiet",
-  "neverDownloaded",
-  "notAssigned",
-  "oldUnsentWork",
-  "differencesWaiting",
-  "storage",
-  "oldProjectFile",
-  "oldCollectEarth",
-  "trainingFinished",
-];
-
-export interface AttentionItem {
-  kind: AttentionKind;
-  count: number;
-  people: AttentionPerson[];
-  /** quiet */
-  quietDays: number | null;
-  /** oldCollectEarth: people whose Collect Earth could not be told. */
-  unknownVersion: number;
-  /** storage */
-  level: "nearlyFull" | "over" | null;
-  usedBytes: number | null;
-  limitBytes: number | null;
-}
-
-export interface ProgressData {
-  timeZone: string;
-  today: string;
-  /** When the figures are older than the records: the time they are from (newer ones are being worked out). */
-  asOf: number | null;
-  totals: ProgressTotals;
-  daily: ProgressDay[];
-  forecast: Forecast;
-  /** Null for a reviewer. */
-  attention: AttentionItem[] | null;
-  settings: ProgressSettings;
-}
-
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const toDate = (value: unknown): string | null => (typeof value === "string" && DATE_RE.test(value) ? value : null);
-const toNumberOrNull = (value: unknown): number | null => (typeof value === "number" && Number.isFinite(value) ? value : null);
-
-export function toProgressSettings(value: unknown): ProgressSettings {
-  const s = (value ?? {}) as Record<string, unknown>;
-  const target = toNumberOrNull(s.targetPlots);
-  const quiet = toNumberOrNull(s.quietDays);
-  return { deadline: toDate(s.deadline), targetPlots: target !== null && target > 0 ? target : null, quietDays: quiet !== null && quiet > 0 ? quiet : 3 };
-}
-
-/** One "needs attention" item (the Progress tab's cards, the bell). */
-export function toAttentionItem(a: Record<string, unknown>): AttentionItem {
-  return {
-    kind: a.kind as AttentionKind,
-    count: toCount(a.count),
-    people: (Array.isArray(a.people) ? (a.people as Record<string, unknown>[]) : []).map((person) => ({
-      username: String(person.username ?? ""),
-      lastSyncAt: toMillis(person.lastSyncAt),
-      lastPlotsDownloadAt: toMillis(person.lastPlotsDownloadAt),
-      medianDelayMs: toNumberOrNull(person.medianDelayMs),
-      ...(typeof person.set === "string" ? { set: person.set, passed: typeof person.passed === "boolean" ? person.passed : null } : {}),
-    })),
-    quietDays: toNumberOrNull(a.quietDays),
-    unknownVersion: toCount(a.unknownVersion),
-    level: a.level === "over" || a.level === "nearlyFull" ? a.level : null,
-    usedBytes: toNumberOrNull(a.usedBytes),
-    limitBytes: toNumberOrNull(a.limitBytes),
-  };
-}
-
-export function toProgressData(body: unknown): ProgressData {
-  const b = (body ?? {}) as Record<string, unknown>;
-  const t = (b.totals ?? {}) as Record<string, unknown>;
-  const f = (b.forecast ?? {}) as Record<string, unknown>;
-  const daily = Array.isArray(b.daily) ? (b.daily as Record<string, unknown>[]) : [];
-  const attention = Array.isArray(b.attention) ? (b.attention as Record<string, unknown>[]) : null;
-  return {
-    timeZone: typeof b.timeZone === "string" ? b.timeZone : "UTC",
-    today: toDate(b.today) ?? new Date().toISOString().slice(0, 10),
-    asOf: toMillis(b.asOf),
-    totals: {
-      plots: toCount(t.plots),
-      assigned: toCount(t.assigned),
-      notAssigned: toCount(t.notAssigned),
-      submitted: toCount(t.submitted),
-      started: toCount(t.started),
-      notStarted: toCount(t.notStarted),
-    },
-    daily: daily
-      .filter((d) => toDate(d.date) !== null)
-      .map((d) => ({ date: String(d.date), submitted: toCount(d.submitted), cumulative: toCount(d.cumulative) })),
-    forecast: {
-      target: toCount(f.target),
-      targetFrom: f.targetFrom === "setting" ? "setting" : "assigned",
-      remaining: toCount(f.remaining),
-      pacePerDay: toNumberOrNull(f.pacePerDay) ?? 0,
-      paceDays: toCount(f.paceDays) || 7,
-      daysLeft: toNumberOrNull(f.daysLeft),
-      endDate: toDate(f.endDate),
-      deadline: toDate(f.deadline),
-      daysToDeadline: toNumberOrNull(f.daysToDeadline),
-      daysOver: toNumberOrNull(f.daysOver),
-      neededPerDay: toNumberOrNull(f.neededPerDay),
-    },
-    attention:
-      attention === null
-        ? null
-        : attention.filter((a) => ATTENTION_KINDS.includes(a.kind as AttentionKind)).map(toAttentionItem),
-    settings: toProgressSettings(b.settings),
-  };
-}
+// The types are the server's own (src/wire/progress.ts): the answers are used as they come.
+export type {
+  AttentionItem,
+  AttentionKind,
+  AttentionPerson,
+  BellAnswer,
+  Forecast,
+  ProgressAnswer,
+  ProgressDay,
+  ProgressSettings,
+  ProgressTotals,
+  PublicProgress,
+} from "../../src/wire/progress";
 
 /** The Progress tab's figures, with the days in the browser's time zone. */
-export async function getProgress(projectId: string, timeZone: string, days = 90): Promise<ProgressData> {
+export function getProgress(projectId: string, timeZone: string, days = 90): Promise<ProgressAnswer> {
   const query = new URLSearchParams({ days: String(days), tz: timeZone });
-  return toProgressData(await request<unknown>("GET", `${p(projectId)}/progress?${query}`));
+  return request("GET", `${p(projectId)}/progress?${query}`);
 }
 
-export async function getProgressSettings(projectId: string): Promise<ProgressSettings> {
-  return toProgressSettings(await request<unknown>("GET", `${p(projectId)}/progress/settings`));
+export function getProgressSettings(projectId: string): Promise<ProgressSettings> {
+  return request("GET", `${p(projectId)}/progress/settings`);
 }
 
-export async function saveProgressSettings(projectId: string, settings: ProgressSettings): Promise<ProgressSettings> {
-  return toProgressSettings(await request<unknown>("PUT", `${p(projectId)}/progress/settings`, { json: settings }));
+export function saveProgressSettings(projectId: string, settings: ProgressSettings): Promise<ProgressSettings> {
+  return request("PUT", `${p(projectId)}/progress/settings`, { json: settings });
 }
 
 // --- progress links for funders (Task 18) -------------------------------------------
 
-/** A read-only progress link as coordinators list it (its token is shown only when it is made). */
-export interface ShareLink {
-  id: string;
-  label: string;
-  createdAt: number | null;
-  /** The username of who made it; null for a project key or an account since deleted. */
-  createdBy: string | null;
-  lastUsedAt: number | null;
-}
-
-export interface NewShareLink {
-  link: ShareLink;
-  /** The whole address to give out (shown once). */
-  url: string;
-}
-
-function toShareLink(value: unknown): ShareLink {
-  const l = (value ?? {}) as Record<string, unknown>;
-  return {
-    id: String(l.id ?? ""),
-    label: typeof l.label === "string" ? l.label : "",
-    createdAt: toMillis(l.createdAt),
-    createdBy: typeof l.createdBy === "string" ? l.createdBy : null,
-    lastUsedAt: toMillis(l.lastUsedAt),
-  };
-}
+export type { NewShareLinkAnswer, ShareLink } from "../../src/wire/projectSettings";
 
 export async function listShareLinks(projectId: string): Promise<ShareLink[]> {
-  const body = await request<{ links?: unknown[] }>("GET", `${p(projectId)}/share-links`);
-  return (Array.isArray(body?.links) ? body.links : []).map(toShareLink);
+  return (await request<ShareLinksAnswer>("GET", `${p(projectId)}/share-links`)).links;
 }
 
-export async function createShareLink(projectId: string, label: string): Promise<NewShareLink> {
-  const body = await request<Record<string, unknown>>("POST", `${p(projectId)}/share-links`, { json: { label } });
-  const path = typeof body.path === "string" && body.path.startsWith("/p/") ? body.path : `/p/${encodeURIComponent(String(body.token ?? ""))}`;
-  return { link: toShareLink(body.link), url: absoluteUrl(typeof body.url === "string" ? body.url : null, path) };
+/** A new link; its token and address are shown this once. */
+export function createShareLink(projectId: string, label: string): Promise<NewShareLinkAnswer> {
+  return request("POST", `${p(projectId)}/share-links`, { json: { label } });
 }
 
 export async function revokeShareLink(projectId: string, linkId: string): Promise<void> {
   await send("DELETE", `${p(projectId)}/share-links/${encodeURIComponent(linkId)}`);
 }
 
-/** What a progress link shows: the project's name and the Progress tab's figures, never a name or an answer. */
-export interface PublicProgressData {
-  projectName: string;
-  timeZone: string;
-  today: string;
-  asOf: number | null;
-  totals: ProgressTotals;
-  daily: ProgressDay[];
-  forecast: Forecast;
-  quality: {
-    /** False when the server has no quality figures at hand yet. */
-    available: boolean;
-    /** Checked plots compared with their first assessment; rate null when too few to say. */
-    agreement: { compared: number; agreeing: number; rate: number | null } | null;
-    computedAt: number | null;
-  };
-}
-
-export function toPublicProgress(body: unknown): PublicProgressData {
-  const b = (body ?? {}) as Record<string, unknown>;
-  const progress = toProgressData(b);
-  const q = (b.quality ?? {}) as Record<string, unknown>;
-  const a = q.agreement as Record<string, unknown> | null | undefined;
-  return {
-    projectName: String(((b.project ?? {}) as Record<string, unknown>).name ?? ""),
-    timeZone: progress.timeZone,
-    today: progress.today,
-    asOf: progress.asOf,
-    totals: progress.totals,
-    daily: progress.daily,
-    forecast: progress.forecast,
-    quality: {
-      available: q.available === true,
-      agreement: a && typeof a === "object" ? { compared: toCount(a.compared), agreeing: toCount(a.agreeing), rate: toNumberOrNull(a.rate) } : null,
-      computedAt: toMillis(q.computedAt),
-    },
-  };
-}
-
 /** A progress link's figures, asked without the session (the page is public; nobody needs to be logged in). */
-export async function getPublicProgress(token: string, timeZone: string): Promise<PublicProgressData> {
+export function getPublicProgress(token: string, timeZone: string): Promise<PublicProgress> {
   const query = new URLSearchParams({ tz: timeZone });
-  return toPublicProgress(await request<unknown>("GET", `/v1/public/progress/${encodeURIComponent(token)}?${query}`, { anonymous: true, noSessionEnd: true }));
+  return request("GET", `/v1/public/progress/${encodeURIComponent(token)}?${query}`, { anonymous: true, noSessionEnd: true });
 }
 
 // --- people (the People tab, a person's page, My work) ------------------------------
@@ -5194,33 +4975,14 @@ export async function getExport(projectId: string, kind: ExportKind, timeZone: s
   return toExportData(kind, await request<unknown>("GET", `${p(projectId)}/exports/${kind}?${query}`));
 }
 
-export interface BellItem {
-  key: string;
-  read: boolean;
-  item: AttentionItem;
-}
-
-export interface BellData {
-  items: BellItem[];
-  unread: number;
-}
-
-export function toBellData(body: unknown): BellData {
-  const b = obj(body);
-  const items = list(b.items)
-    .filter((x) => ATTENTION_KINDS.includes(obj(x.item).kind as AttentionKind))
-    .map((x) => ({ key: text(x.key), read: x.read === true, item: toAttentionItem(obj(x.item)) }));
-  return { items, unread: items.filter((x) => !x.read).length };
-}
-
 /** The bell's "needs attention" items, with what this coordinator has read. */
-export async function getAttention(projectId: string): Promise<BellData> {
-  return toBellData(await request<unknown>("GET", `${p(projectId)}/attention`));
+export function getAttention(projectId: string): Promise<BellAnswer> {
+  return request("GET", `${p(projectId)}/attention`);
 }
 
 /** Marks items read (by key), or all of them. */
-export async function markAttentionRead(projectId: string, keys: string[] | "all"): Promise<BellData> {
-  return toBellData(await request<unknown>("POST", `${p(projectId)}/attention/read`, { json: keys === "all" ? { all: true } : { keys } }));
+export function markAttentionRead(projectId: string, keys: string[] | "all"): Promise<BellAnswer> {
+  return request("POST", `${p(projectId)}/attention/read`, { json: keys === "all" ? { all: true } : { keys } });
 }
 
 // --- Training: calibration and learning plots -----------------------------------------

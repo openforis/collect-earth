@@ -6,6 +6,8 @@ WORKDIR /app
 COPY web/package.json web/package-lock.json ./web/
 RUN cd web && npm ci
 COPY web ./web
+# The types of what the server and the dashboard send each other: the dashboard's typecheck reads them (src/wire/README.md).
+COPY src/wire ./src/wire
 RUN cd web && npm run build
 
 # Stage 2: the API server, serving the built dashboard from web/dist.

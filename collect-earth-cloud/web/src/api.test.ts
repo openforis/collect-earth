@@ -914,9 +914,9 @@ describe("the AI assistant and the reports", () => {
     const where = { provider: "Google Gemini (Vertex AI)", model: "gemini-x", region: "europe-west1" };
     fetchMock.mockResolvedValueOnce(jsonResponse(200, { enabled: false, available: true, where }));
     expect(await getProjectAi("p1")).toEqual({ enabled: false, available: true, where });
-    fetchMock.mockResolvedValueOnce(jsonResponse(200, { enabled: true, available: true }));
-    // an older server says nothing of where
-    expect(await setProjectAi("p1", true)).toEqual({ enabled: true, available: true, where: null });
+    // switching answers the same as reading, so the card keeps saying where it runs
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { enabled: true, available: true, where }));
+    expect(await setProjectAi("p1", true)).toEqual({ enabled: true, available: true, where });
     expect(call(1)).toEqual({ url: "/v1/projects/p1/ai", method: "PUT", body: { enabled: true } });
     fetchMock.mockResolvedValueOnce(jsonResponse(403, { error: "user_session_required", reason: "Sign in" }));
     const err = await setProjectAi("p1", true).catch((e: unknown) => e);
@@ -1254,9 +1254,10 @@ describe("activity: the log, the weekly summary, the downloads and the bell", ()
   });
 
   it("the bell: items with their read state; marking some or all read", async () => {
-    const body = { items: [{ key: "quiet:1", read: false, item: { kind: "quiet", count: 2, quietDays: 3, people: [{ username: "ana", lastSyncAt: 5 }] } }, { key: "x:1", read: false, item: { kind: "nope", count: 1 } }] };
+    const body = { items: [{ key: "quiet:1", read: false, item: { kind: "quiet", count: 2, quietDays: 3, people: [{ username: "ana", lastSyncAt: 5 }] } }], unread: 1 };
     fetchMock.mockImplementation(async () => jsonResponse(200, body));
     const bell = await getAttention("p1");
+    expect(url()).toBe("/v1/projects/p1/attention");
     expect(bell.unread).toBe(1);
     expect(bell.items[0]).toMatchObject({ key: "quiet:1", read: false, item: { kind: "quiet", count: 2, quietDays: 3, people: [{ username: "ana", lastSyncAt: 5 }] } });
     await markAttentionRead("p1", ["quiet:1"]);
@@ -1270,23 +1271,19 @@ describe("activity: the log, the weekly summary, the downloads and the bell", ()
 describe("progress links for funders", () => {
   const url = (i = 0) => String(fetchMock.mock.calls[i][0]);
 
-  it("makes, lists and revokes links; the address is the server's or this page's origin", async () => {
+  it("makes, lists and revokes links", async () => {
     const link = { id: "l1", label: "For the donor", createdAt: 1000, createdBy: "ana", lastUsedAt: null };
-    fetchMock.mockResolvedValue(jsonResponse(201, { token: "tok", path: "/p/tok", url: "https://ce.example.org/p/tok", link }));
-    expect(await createShareLink("p 1", "For the donor")).toEqual({ link, url: "https://ce.example.org/p/tok" });
+    const made = { token: "tok", path: "/p/tok", url: "https://ce.example.org/p/tok", link };
+    fetchMock.mockResolvedValue(jsonResponse(201, made));
+    expect(await createShareLink("p 1", "For the donor")).toEqual(made);
     expect(url()).toBe("/v1/projects/p%201/share-links");
     expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: "POST", body: JSON.stringify({ label: "For the donor" }) });
-    fetchMock.mockResolvedValue(jsonResponse(201, { token: "tok", path: "/p/tok", link }));
-    expect((await createShareLink("p1", "")).url).toBe("https://ce.example.org/p/tok");
-    fetchMock.mockResolvedValue(jsonResponse(200, { links: [{ ...link, lastUsedAt: 2000, extra: "x" }, { id: "l2" }] }));
-    expect(await listShareLinks("p1")).toEqual([
-      { ...link, lastUsedAt: 2000 },
-      { id: "l2", label: "", createdAt: null, createdBy: null, lastUsedAt: null },
-    ]);
+    fetchMock.mockResolvedValue(jsonResponse(200, { links: [link] }));
+    expect(await listShareLinks("p1")).toEqual([link]);
     fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
     await revokeShareLink("p1", "l/1");
-    expect(url(3)).toBe("/v1/projects/p1/share-links/l%2F1");
-    expect(fetchMock.mock.calls[3][1]).toMatchObject({ method: "DELETE" });
+    expect(url(2)).toBe("/v1/projects/p1/share-links/l%2F1");
+    expect(fetchMock.mock.calls[2][1]).toMatchObject({ method: "DELETE" });
     fetchMock.mockResolvedValue(jsonResponse(409, { error: "too_many_links" }));
     expect(errorMessageKey(await createShareLink("p1", "x").catch((e: unknown) => e))).toBe("shareLinks.tooMany");
   });
@@ -1310,10 +1307,8 @@ describe("progress links for funders", () => {
     const init = fetchMock.mock.calls[0][1] as RequestInit;
     expect((init.headers as Record<string, string>).authorization).toBeUndefined();
     expect(init).toMatchObject({ credentials: "omit", referrerPolicy: "no-referrer" });
-    expect(data).toMatchObject({ projectName: "Forest 2026", timeZone: "Europe/Rome", totals: { submitted: 3 }, quality: { available: true, agreement: { compared: 25, agreeing: 20, rate: 0.8 }, computedAt: 5000 } });
+    expect(data).toMatchObject({ project: { name: "Forest 2026" }, timeZone: "Europe/Rome", totals: { submitted: 3 }, quality: { available: true, agreement: { compared: 25, agreeing: 20, rate: 0.8 }, computedAt: 5000 } });
     expect(data.daily).toEqual([{ date: "2026-11-03", submitted: 1, cumulative: 3 }]);
-    fetchMock.mockResolvedValue(jsonResponse(200, { project: { name: "x" }, quality: { available: false, agreement: null, computedAt: null } }));
-    expect((await getPublicProgress("t", "UTC")).quality).toEqual({ available: false, agreement: null, computedAt: null });
     // A link that does not work: a 404, and the session is not ended by it.
     const ended = vi.fn();
     setUnauthorizedHandler(ended);

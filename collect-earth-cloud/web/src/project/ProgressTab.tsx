@@ -20,7 +20,7 @@ import CheckCircleOutline from "@mui/icons-material/CheckCircleOutlineOutlined";
 import Refresh from "@mui/icons-material/Refresh";
 import WarningAmber from "@mui/icons-material/WarningAmber";
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from "react";
-import { getProgress, type AttentionItem, type ProgressData } from "../api";
+import { getProgress, type AttentionItem, type ProgressAnswer } from "../api";
 import { useApp, useLocalMode } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Explain, MoreInfo } from "../components/Explain";
@@ -39,6 +39,7 @@ import {
   forecastTargetKey,
   fromFirstWork,
   percentText,
+  peopleOf,
   personDetail,
   progressChart,
   REFRESH_MS,
@@ -75,7 +76,7 @@ export function useNow(everyMs: number): number {
 }
 
 /** What the headline numbers, the chart and the forecast are drawn from (the Progress tab's data, or a progress link's). */
-export type ProgressFigures = Pick<ProgressData, "timeZone" | "totals" | "daily" | "forecast">;
+export type ProgressFigures = Pick<ProgressAnswer, "timeZone" | "totals" | "daily" | "forecast">;
 
 export function Section({ title, children, id }: { title: string; children: ReactNode; id: string }) {
   return (
@@ -347,7 +348,8 @@ function AttentionCard({ item, onGo }: { item: AttentionItem; onGo: (tab: Projec
   const { language } = useApp();
   const { title, text, more: fullText } = attentionText(t, item, language);
   const action = attentionAction(t, item.kind);
-  const more = item.count - item.people.length;
+  const people = peopleOf(item);
+  const more = item.count - people.length;
   return (
     // A row of the list (not a card in the card): what is wrong, its details, and the way to it on the right
     <Box sx={{ display: "flex", gap: 1.5, py: 2, flexDirection: { xs: "column", sm: "row" }, alignItems: { sm: "flex-start" } }}>
@@ -362,9 +364,9 @@ function AttentionCard({ item, onGo }: { item: AttentionItem; onGo: (tab: Projec
             {fullText && i === text.length - 1 && <MoreInfo text={fullText} />}
           </Typography>
         ))}
-        {item.people.length > 0 && (
+        {people.length > 0 && (
           <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
-            {item.people.map((person) => {
+            {people.map((person) => {
               const detail = personDetail(t, item, person, language, (ms) => formatDay(ms, language));
               return (
                 <Typography component="li" variant="body2" key={person.username} sx={{ wordBreak: "break-word" }}>

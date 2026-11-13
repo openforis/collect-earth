@@ -15,6 +15,7 @@ import { loadPlotContext } from '../qualityService.js';
 import type { Store } from '../store/store.js';
 import { QUALIFIER_SEPARATOR, SUMMARY_VALUES_SEPARATOR } from '../surveyOutline.js';
 import { PROJECT_STATUSES, STATUS_MOVES, type AuditDetails, type EventCursor, type ProjectStatus, type RecordRow, type User } from '../types.js';
+import type { ProjectCopyAnswer, ProjectRenameAnswer, ProjectStatusAnswer } from '../wire/projectSettings.js';
 import { copyProject } from '../projectCopy.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import { factorsByRecord, firstAssessments, projectFactors } from './analysis.js';
@@ -149,7 +150,7 @@ export async function registerProjectRoutes(
       }
       await store.renameProject(request.membership!.projectId, name);
       await audit(store, request, 'settings.changed', { setting: 'name', name });
-      return reply.send({ projectId: request.membership!.projectId, name });
+      return reply.send({ projectId: request.membership!.projectId, name } satisfies ProjectRenameAnswer);
     },
   );
 
@@ -172,7 +173,7 @@ export async function registerProjectRoutes(
       }
       await store.setProjectStatus(projectId, status as ProjectStatus);
       await audit(store, request, 'settings.changed', { setting: 'status', from, status: status as ProjectStatus });
-      return reply.send({ projectId, status });
+      return reply.send({ projectId, status: status as ProjectStatus } satisfies ProjectStatusAnswer);
     },
   );
 
@@ -196,7 +197,7 @@ export async function registerProjectRoutes(
         return reply.code(403).send(refused);
       }
       const projectId = await copyProject(store, request.membership!.projectId, { name, ownerId: user.id, members: body.members === true });
-      return reply.code(201).send({ projectId, name, status: 'draft' });
+      return reply.code(201).send({ projectId, name, status: 'draft' } satisfies ProjectCopyAnswer);
     },
   );
 
