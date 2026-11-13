@@ -1,6 +1,5 @@
-import { createHash, timingSafeEqual } from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { configuredBaseUrl, isEmailAddress } from '../accountRules.js';
+import { configuredBaseUrl, isEmailAddress, secretsEqual } from '../accountRules.js';
 import type { Config } from '../config.js';
 import { isTimeZone } from '../days.js';
 import { confirmMail, MAX_BUDGET_MS, runDigests } from '../digest.js';
@@ -109,13 +108,6 @@ const MAX_LOGIN_LENGTH = 254;
 const isLanguage = (v: unknown): v is MailLanguage => (MAIL_LANGUAGES as readonly unknown[]).includes(v);
 const TOO_MANY = { error: 'too_many_confirmations', reason: 'too many confirmation mails were sent for this account: try again in an hour' } as const;
 const INVALID_STORED = { error: 'invalid_stored_email', reason: 'the address on the account is not one email address: type it again' } as const;
-
-/** Constant-time comparison of two secrets of any length (their sha256 compared). */
-export function secretsMatch(given: string, expected: string): boolean {
-  const a = createHash('sha256').update(given).digest();
-  const b = createHash('sha256').update(expected).digest();
-  return timingSafeEqual(a, b);
-}
 
 /** Headers of the pages and answers a mail's link reaches: not indexed, no referrer, not kept. */
 function linkHeaders(reply: FastifyReply): void {
@@ -494,7 +486,7 @@ export async function registerMailRoutes(app: FastifyInstance, store: Store, con
   /** Whether the job's caller is who DIGEST_SECRET or DIGEST_OIDC_* say. */
   const authorized = async (request: FastifyRequest): Promise<boolean> => {
     const given = request.headers['x-digest-secret'];
-    if (config.digestSecret && typeof given === 'string' && secretsMatch(given, config.digestSecret)) return true;
+    if (config.digestSecret && typeof given === 'string' && secretsEqual(given, config.digestSecret)) return true;
     const auth = request.headers.authorization;
     if (config.digestOidc && typeof auth === 'string' && auth.startsWith('Bearer ')) {
       try {

@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { bearerToken } from '../auth.js';
 import { logServerAction } from '../serverActivity.js';
 import { verifyPassword } from '../password.js';
 import { requirePlatformAdmin, requireSession } from '../plugins/projectAuth.js';
@@ -89,8 +90,7 @@ export async function registerTwoFactorRoutes(app: FastifyInstance, store: Store
     await store.enableTwoFactor(request.userId!, encryptSecret(secret, key), codes.map(hashRecoveryCode));
     await store.claimTwoFactorStep(request.userId!, step);
     // The other sessions were opened without the second step: they are signed out (this one stays)
-    const token = String(request.headers.authorization ?? '').replace(/^Bearer\s+/i, '');
-    await store.deleteUserSessionsExcept(request.userId!, token);
+    await store.deleteUserSessionsExcept(request.userId!, bearerToken(request.headers.authorization) ?? '');
     return reply.header('cache-control', 'no-store').send({ recoveryCodes: codes });
   });
 
