@@ -29,7 +29,7 @@ managed Postgres (Option B).
 | `SENTRY_DSN` | no | `https://key@o1.ingest.sentry.io/2` | With `TELEMETRY`: where the server and the dashboard send error reports. Default: the desktop app's Sentry project |
 | `SENTRY_ENVIRONMENT` | no | `staging` | With `TELEMETRY`: the reports' environment (default `production`) |
 | `GA_API_SECRET` | with GA | *(secret)* | With `TELEMETRY`: the Measurement Protocol API secret of the Google Analytics property. Without it no usage event is sent (it cannot be in this public repository) |
-| `GA_MEASUREMENT_ID` | no | `G-XXXXXXX` | With `TELEMETRY` and `GA_API_SECRET`: the property. Default: the desktop app's (`G-8K943HZKJZ`) |
+| `GA_MEASUREMENT_ID` | no | `G-XXXXXXX` | With `TELEMETRY` and `GA_API_SECRET`: the property. Default: Collect Earth Cloud's (`G-LRHVV8FNZB`) |
 | `TRUST_PROXY_HOPS` | no | `1` | Proxies in front of the server that add to `x-forwarded-for` (see below) |
 | `SESSION_IDLE_DAYS` | no | `90` | A sign-in (in Collect Earth or the dashboard) unused for this many days stops working; each use keeps it alive. A coordinator can also sign a person out everywhere (their page, *Sign out everywhere*), and anyone their other devices (*My account*) |
 | `MIGRATE_ON_BOOT` | optional | `true` | Apply pending migrations on startup (see below); `true` or `1` |

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { batchRequest, bearer, createProject, envelope, makeContext, setupPlatformAdmin } from './helpers.js';
-import { cleanParams, clientIdOf, DESKTOP_GA_MEASUREMENT_ID, DESKTOP_SENTRY_DSN, NO_TELEMETRY, scrubEvent, telemetry, telemetryConfigOf } from '../src/telemetry.js';
+import { cleanParams, clientIdOf, CLOUD_GA_MEASUREMENT_ID, DESKTOP_SENTRY_DSN, NO_TELEMETRY, scrubEvent, telemetry, telemetryConfigOf } from '../src/telemetry.js';
 
 describe('telemetry settings', () => {
   it('is off unless TELEMETRY=1; then the desktop app\'s Sentry project and GA property, GA only with its secret', () => {
@@ -10,7 +10,7 @@ describe('telemetry settings', () => {
     expect(telemetryConfigOf({ TELEMETRY: 'true', GA_API_SECRET: 's', SENTRY_DSN: 'https://k@o.io/2', SENTRY_ENVIRONMENT: 'staging' })).toEqual({
       sentryDsn: 'https://k@o.io/2',
       environment: 'staging',
-      gaMeasurementId: DESKTOP_GA_MEASUREMENT_ID,
+      gaMeasurementId: CLOUD_GA_MEASUREMENT_ID,
       gaApiSecret: 's',
     });
     expect(() => telemetryConfigOf({ TELEMETRY: 'yes' })).toThrow(/TELEMETRY/);
