@@ -10,8 +10,9 @@
 // wrote, as a sync with a project token keeps it.
 import type { FastifyReply, FastifyRequest, FastifyInstance } from 'fastify';
 import { audit } from '../activity.js';
-import { CepError, readCep } from '../cep.js';
-import { BackupImportError, backupReader, readBackup, surveyUriOf, type ImportedRecord } from '../collectImport.js';
+import { BackupError, openBackup, stepOf, type BackupZip } from '../backupImport.js';
+import { CepError, readCep, type ZipEntryReader } from '../cep.js';
+import { backupReader, surveyUriOf, type ImportedRecord } from '../collectImport.js';
 import { checkUploadFits } from '../limits.js';
 import { applyLww, recordEventOf } from '../lww.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
@@ -20,8 +21,15 @@ import type { RecordEnvelope } from '../types.js';
 
 const MAX_PROBLEMS = 20;
 
+/** A record of the backup, without its XML: the import reads its entry again, stores it and drops it. */
+type PreparedRecord = Pick<ImportedRecord, 'recordKey' | 'operator' | 'modifiedOn' | 'activelySaved'> & { entry: ZipEntryReader };
+
 interface Prepared {
-  records: ImportedRecord[];
+  records: PreparedRecord[];
+  /** reads a record's entry against the served survey */
+  read: (entry: ZipEntryReader) => ReturnType<ReturnType<typeof backupReader>>;
+  /** what storing the records takes: their XML and their summaries */
+  bytes: number;
   problems: string[];
   problemCount: number;
   existing: Map<string, number>;
@@ -47,13 +55,13 @@ async function prepare(store: Store, request: FastifyRequest, reply: FastifyRepl
   }
   const served = readCep(cep);
   const servedSurvey = new TextDecoder().decode(served.entries.get(served.surveyPath)!);
-  let backup: ReturnType<typeof readBackup>;
+  let backup: BackupZip;
   let backupUri: string | null;
   try {
-    backup = readBackup(zip);
-    backupUri = surveyUriOf(backup.surveyXml);
+    backup = openBackup(zip);
+    backupUri = backup.survey.uri || null;
   } catch (e) {
-    if (e instanceof BackupImportError || e instanceof CepError) {
+    if (e instanceof BackupError || e instanceof CepError) {
       void reply.code(400).send({ error: 'backup_unreadable', reason: e instanceof CepError ? "The backup's idml.xml cannot be read." : e.message });
       return null;
     }
@@ -96,13 +104,23 @@ async function prepare(store: Store, request: FastifyRequest, reply: FastifyRepl
     accountOf.set(name, account.username);
   }
 
-  const read = backupReader(servedSurvey, await store.getRoundInfo(projectId));
-  const records: ImportedRecord[] = [];
+  const readFile = backupReader(servedSurvey, await store.getRoundInfo(projectId));
+  const read = (entry: ZipEntryReader) => readFile({ name: entry.name, step: stepOf(entry.name), xml: new TextDecoder().decode(entry.read()) });
+  const records: PreparedRecord[] = [];
   const problems: string[] = [];
   let problemCount = 0;
+  let bytes = 0;
   const byOperator = new Map<string, { username: string; records: number }>();
-  for (const file of backup.files) {
-    const r = read(file);
+  for (const entry of backup.records) {
+    let r: ReturnType<typeof read>;
+    try {
+      r = read(entry);
+    } catch (e) {
+      // a damaged file in the zip
+      if (!(e instanceof CepError)) throw e;
+      void reply.code(400).send({ error: 'backup_unreadable', reason: e.message });
+      return null;
+    }
     if ('problem' in r) {
       problemCount++;
       if (problems.length < MAX_PROBLEMS) problems.push(r.problem);
@@ -112,14 +130,13 @@ async function prepare(store: Store, request: FastifyRequest, reply: FastifyRepl
     const seen = byOperator.get(r.operator) ?? { username, records: 0 };
     seen.records++;
     byOperator.set(r.operator, seen);
-    // its parsed nodes are not kept: every record is held until stored
-    const { children: _children, keyValues: _keyValues, ...record } = r;
-    records.push({ ...record, operator: username });
+    bytes += Buffer.byteLength(r.xml) + Buffer.byteLength(JSON.stringify(r.summary));
+    records.push({ recordKey: r.recordKey, operator: username, modifiedOn: r.modifiedOn, activelySaved: r.activelySaved, entry });
   }
   const existing = new Map<string, number>();
   for (const s of await store.listRecordStates(projectId)) existing.set(id(s.recordKey, s.operator), s.modifiedOn);
   const operators = [...byOperator].map(([name, o]) => ({ name, username: o.username, records: o.records, member: members.has(o.username) }));
-  return { records, problems, problemCount, existing, operators, newMembers: [...new Set(operators.filter((o) => !o.member && accountOf.has(o.name)).map((o) => o.username))] };
+  return { records, read, bytes, problems, problemCount, existing, operators, newMembers: [...new Set(operators.filter((o) => !o.member && accountOf.has(o.name)).map((o) => o.username))] };
 }
 
 /** What the coordinator sees before importing: nothing stored. */
@@ -159,8 +176,7 @@ export async function registerCollectImportRoutes(app: FastifyInstance, store: S
     const projectId = request.membership!.projectId;
     const prepared = await prepare(store, request, reply);
     if (!prepared) return reply;
-    const bytes = prepared.records.reduce((n, r) => n + Buffer.byteLength(r.xml) + Buffer.byteLength(JSON.stringify(r.summary)), 0);
-    const over = await checkUploadFits(store, projectId, { kind: 'records' }, bytes);
+    const over = await checkUploadFits(store, projectId, { kind: 'records' }, prepared.bytes);
     if (over) return reply.code(413).send(over);
     for (const username of prepared.newMembers) {
       const account = await store.getUserByUsername(username);
@@ -168,8 +184,11 @@ export async function registerCollectImportRoutes(app: FastifyInstance, store: S
     }
     let stored = 0;
     for (const r of prepared.records) {
+      // read once more, as prepare read it: only one record's XML is held at a time
+      const read = prepared.read(r.entry);
+      if ('problem' in read) continue;
       const envelope: RecordEnvelope = { recordKey: r.recordKey, surveyUri: '', operator: r.operator, modifiedOn: r.modifiedOn, activelySaved: r.activelySaved,
-        step: r.step, xml: r.xml, summary: r.summary, deleted: false, payloadVersion: 1, activeSeconds: null };
+        step: read.step, xml: read.xml, summary: read.summary, deleted: false, payloadVersion: 1, activeSeconds: null };
       const kept = await store.putRecordWithEvent(projectId, r.recordKey, r.operator, (existing, submittedBefore) => {
         // Received when it was saved: it did not come late (the Progress tab's "work that arrives late")
         const { row, status } = applyLww(envelope, existing, r.modifiedOn ?? Date.now());

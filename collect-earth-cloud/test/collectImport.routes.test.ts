@@ -108,6 +108,18 @@ describe('importing a Collect Earth backup', () => {
     expect(unknown.json().error).toBe('unknown_account');
   });
 
+  it('imports a backup of many records one file at a time, the copy of the last step folder being the record', async () => {
+    const many: [string, string][] = Array.from({ length: 500 }, (_, i) => [`1/${i}.xml`, recordXml(String(1000 + i), 'anna', true, '2026-10-02T10:00:00.000+02:00')]);
+    // Collect writes a record once per step up to its own: 1/7.xml and 2/7.xml are one record, at step 2
+    many.push(['2/7.xml', recordXml('1007', 'anna', true, '2026-10-02T10:00:00.000+02:00')]);
+    const res = await post('', backup(many));
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ records: 500, stored: 500, kept: 0, problemCount: 0 });
+    expect((await ctx.store.listRecordStates(pid)).length).toBe(500);
+    expect(await ctx.store.getRecord(pid, '1007,1', 'anna')).toMatchObject({ step: 2 });
+    expect((await ctx.store.getRecord(pid, '1499,1', 'anna'))?.xml).toContain('<value>1499</value>');
+  });
+
   it("refuses another survey's backup, a file that is no backup, and a collector", async () => {
     const other = await post('/preview', backup([['1/1.xml', recordXml('1', 'a', true, '2026-10-02T10:00:00Z')]], '<survey><uri>http://example.org/other</uri><schema><entity name="plot"/></schema></survey>'));
     expect(other.statusCode).toBe(400);
