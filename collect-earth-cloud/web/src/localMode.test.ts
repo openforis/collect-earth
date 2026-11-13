@@ -132,14 +132,14 @@ describe("local mode: Progress", () => {
     expect(attentionShown(false, null)).toBeNull();
   });
 
-  it("asks for a target in the Settings tab, not for plots given to someone", () => {
+  it("asks for a target in Setup › Schedule, not for plots given to someone", () => {
     const [sentence] = forecastSentences(t, forecast(), "en", { local: true });
-    expect(sentence).toContain("Settings tab");
+    expect(sentence).toContain("Setup › Schedule");
     expect(sentence).not.toMatch(/given to/);
     expect(forecastSentences(t, forecast(), "en")[0]).toBe(t("progress.forecastNoTarget"));
   });
 
-  it("names the target only when it was set in Settings", () => {
+  it("names the target only when it was set in Setup", () => {
     expect(forecastTargetKey(forecast({ target: 300, targetFrom: "setting" }), { local: true })).toBe("progress.forecastTargetSet");
     expect(forecastTargetKey(forecast({ target: 300, targetFrom: "assigned" }), { local: true })).toBeNull();
     expect(forecastTargetKey(forecast({ target: 0 }), { local: true })).toBeNull();

@@ -3,6 +3,7 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Divider from "@mui/material/Divider";
 import LinearProgress from "@mui/material/LinearProgress";
+import Link from "@mui/material/Link";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
@@ -315,14 +316,20 @@ export function OverTime({ data }: { data: ProgressFigures }) {
 }
 
 /** `publicView`: a progress link's page (no Settings tab to point to); `local`: the local mode (one person). */
-export function ForecastSection({ data, publicView, local }: { data: ProgressFigures; publicView?: boolean; local?: boolean }) {
+export function ForecastSection({ data, publicView, local, onSchedule }: {
+  data: ProgressFigures;
+  publicView?: boolean;
+  local?: boolean;
+  /** Opens Setup's Schedule, where the deadline and the target are set (only for someone who can change them) */
+  onSchedule?: () => void;
+}) {
   const t = useT();
   const { language } = useApp();
   const f = data.forecast;
   const targetKey = forecastTargetKey(f, { publicView, local });
   const sentences = forecastSentences(t, f, language, { publicView, local });
   // How the forecast is worked out and where its target and deadline are set: for the project's own dashboard
-  // (a progress link has no Settings tab; the local mode's target comes from Settings only).
+  // (a progress link has no Setup; the local mode's target comes from Setup only).
   const more = !publicView && !local;
   return (
     <Section title={t("progress.forecastTitle")} id="progress-forecast">
@@ -333,9 +340,17 @@ export function ForecastSection({ data, publicView, local }: { data: ProgressFig
             {more && i === sentences.length - 1 && <MoreInfo text={t("progress.forecastTitle.more")} />}
           </Typography>
         ))}
-        {targetKey !== null && (
+        {(targetKey !== null || onSchedule) && (
           <Typography variant="body2" color="text.secondary">
-            {t(targetKey, { target: formatNumber(f.target, language) })}
+            {targetKey !== null && t(targetKey, { target: formatNumber(f.target, language) })}
+            {onSchedule && (
+              <>
+                {targetKey !== null && " "}
+                <Link component="button" type="button" variant="body2" onClick={onSchedule} sx={{ verticalAlign: "baseline" }}>
+                  {t("progress.changeSchedule")}
+                </Link>
+              </>
+            )}
           </Typography>
         )}
       </Stack>
@@ -466,7 +481,8 @@ export function ProgressTab({ projectId, onGo }: { projectId: string; onGo: (tab
         <Totals data={data} local={local} />
       )}
       {attention !== null && <Attention items={attention} onGo={onGo} />}
-      <ForecastSection data={data} local={local} />
+      {/* A coordinator (who gets the cards) or the one person of the local mode sets the deadline and target */}
+      <ForecastSection data={data} local={local} onSchedule={local || attention !== null ? () => onGo("setup", "schedule") : undefined} />
       <OverTime data={data} />
     </Stack>
   );
