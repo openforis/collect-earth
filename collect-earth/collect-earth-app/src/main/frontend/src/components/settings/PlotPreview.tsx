@@ -36,7 +36,7 @@ export function PlotPreview({ values, plot, texts }: { values: Values; plot: Plo
   return (
     <Stack spacing={1} data-testid="plot-preview">
       <Typography variant="subtitle2">{s("SettingsPage.preview.title")}</Typography>
-      <Box component="svg" viewBox={`${-e} ${-e} ${2 * e} ${2 * e + below}`} sx={{ width: "100%", maxWidth: 360, aspectRatio: `${2 * e} / ${2 * e + below}`, display: "block" }}
+      <Box component="svg" viewBox={`${-e} ${-e} ${2 * e} ${2 * e + below}`} sx={{ width: "100%", maxWidth: 260, aspectRatio: `${2 * e} / ${2 * e + below}`, display: "block" }}
         role="img" aria-label={s("SettingsPage.preview.title")}>
         {/* North up: the generators' y grows northwards, SVG's downwards */}
         <g transform="scale(1,-1)">

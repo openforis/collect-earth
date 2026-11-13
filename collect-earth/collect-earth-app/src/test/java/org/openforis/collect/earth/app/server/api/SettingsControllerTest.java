@@ -71,7 +71,7 @@ public class SettingsControllerTest {
 	@Test
 	public void saysWhatThePageDraws() throws Exception {
 		mvc.perform(get("/api/settings")).andExpect(status().isOk())
-				.andExpect(jsonPath("$.sections", hasSize(6)))
+				.andExpect(jsonPath("$.sections", hasSize(4)))
 				.andExpect(jsonPath("$.sections[1].id").value("plot"))
 				.andExpect(jsonPath("$.sections[1].fields[0].key").value("sample_shape"))
 				.andExpect(jsonPath("$.sections[1].fields[0].choices[0].label").value("SettingsPage.shape.SQUARE"))

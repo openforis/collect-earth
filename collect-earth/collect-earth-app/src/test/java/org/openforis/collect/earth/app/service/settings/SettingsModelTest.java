@@ -48,7 +48,7 @@ public class SettingsModelTest {
 		for (Section section : model.sections()) {
 			ids.add(section.getId());
 		}
-		assertEquals(Arrays.asList("project", "plot", "imagery", "storage", "collaboration", "advanced"), ids);
+		assertEquals(Arrays.asList("project", "plot", "imagery", "storage"), ids);
 	}
 
 	@Test
@@ -235,9 +235,12 @@ public class SettingsModelTest {
 		assertEquals(Arrays.asList("csv", "ced"), csv.get("extensions"));
 		assertEquals("file", csv.get("type"));
 		List<Map<String, Object>> sections = model.toJson();
-		assertEquals(6, sections.size());
+		assertEquals(4, sections.size());
 		assertEquals("plot", sections.get(1).get("id"));
-		assertEquals("SettingsPage.collaboration.hint", sections.get(4).get("hint"));
+		// The browser in the project's section, the cloud project under the data storage that uses it
+		assertEquals("use_browser", ((List<Map<String, Object>>) sections.get(0).get("fields")).get(0).get("key"));
+		List<Map<String, Object>> storage = (List<Map<String, Object>>) sections.get(3).get("fields");
+		assertEquals(EarthProperty.CLOUD_SYNC_TOKEN.toString(), storage.get(storage.size() - 1).get("key"));
 		assertEquals(9, ((List<?>) sections.get(1).get("fields")).size());
 		assertEquals(EarthProperty.SAMPLE_SHAPE.toString(), ((List<Map<String, Object>>) sections.get(1).get("fields")).get(0).get("key"));
 	}
