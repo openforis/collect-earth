@@ -70,6 +70,12 @@ export async function accountDeletionPlan(store: Store, userId: string, isPlatfo
   return plan;
 }
 
+/** What login answers (403) for an account made by a domain-limited sign-up whose address is not confirmed yet. */
+export const EMAIL_NOT_CONFIRMED = {
+  error: 'email_not_confirmed',
+  reason: 'Confirm your email address first: open the link mailed to it (a new one has just been sent).',
+};
+
 /** Wrong second-step codes in a row that lock the account when the server's own lock (loginLockFailures) is off. */
 const SECOND_STEP_LOCK_FAILURES = 10;
 
@@ -211,6 +217,16 @@ export async function registerAuthRoutes(
     // Said only to someone who knows the password: a wrong one answers as above.
     if (user.disabledAt) {
       return reply.code(403).send(ACCOUNT_DISABLED);
+    }
+    // Sign-up limited to some email domains: an account it made (in no project yet) waits for its address to be
+    // confirmed. A new link goes with the refusal: without a session the person cannot ask for one. The server's
+    // administrators and the people of a project (an invitation, a coordinator) came another way and sign in.
+    if (lock?.signupDomains && !user.isPlatformAdmin) {
+      const mail = await store.getAccountMail(user.id);
+      if (mail?.email && mail.emailConfirmedAt === null && (await store.listMemberships(user.id)).length === 0) {
+        await accountMail?.sendConfirmation?.(request, user.id, mail.email, mail.language ?? 'en').catch(() => undefined);
+        return reply.code(403).send(EMAIL_NOT_CONFIRMED);
+      }
     }
     // Two-step sign-in: the password was right; without a code, say a code is needed (the dashboard and Collect Earth
     // then ask for it and send both again); a wrong code counts as a failed login, as a wrong password does

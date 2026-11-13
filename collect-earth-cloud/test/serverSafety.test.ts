@@ -116,7 +116,19 @@ describe('the server page: safety and communication', () => {
     expect((await signup({ username: 'ana', password: 'twelve-chars' })).json()).toMatchObject({ error: 'email_domain_not_allowed', domains: ['fao.org', 'example.org'] });
     expect((await signup({ username: 'ana', password: 'twelve-chars', email: 'ana@gmail.com' })).json()).toMatchObject({ error: 'email_domain_not_allowed' });
     expect((await signup({ username: 'ana', password: 'eleven-char', email: 'ana@fao.org' })).json()).toMatchObject({ error: 'weak_password', minLength: 12 });
-    expect((await signup({ username: 'ana', password: 'twelve-chars', email: 'ana@rome.fao.org' })).statusCode).toBe(201);
+    // an address of the domain is not enough: no session until the mailed link is opened
+    const made = await signup({ username: 'ana', password: 'twelve-chars', email: 'ana@rome.fao.org' });
+    expect(made.statusCode).toBe(202);
+    expect(made.json().token).toBeUndefined();
+    const confirmations = () => mailer.sent.filter((m) => m.tag === 'email.confirm' && m.to === 'ana@rome.fao.org').length;
+    expect(confirmations()).toBe(1);
+    const refused = await login('ana', 'twelve-chars');
+    expect(refused.statusCode).toBe(403);
+    expect(refused.json().error).toBe('email_not_confirmed');
+    expect(confirmations()).toBe(2);
+    // a wrong password still says only that
+    expect((await login('ana', 'wrong-password')).json().error).toBe('invalid_credentials');
+    await ctx.store.confirmEmail(made.json().userId, 'ana@rome.fao.org', Date.now());
     // a password change follows the rule too
     const token = (await login('ana', 'twelve-chars')).json().token;
     const change = await ctx.app.inject({ method: 'PUT', url: '/v1/me/password', headers: bearer(token), payload: { currentPassword: 'twelve-chars', newPassword: 'short-one' } });

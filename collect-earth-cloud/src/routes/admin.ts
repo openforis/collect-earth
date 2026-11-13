@@ -247,7 +247,6 @@ export async function registerAdminRoutes(
       }
       throw err;
     }
-    const token = await store.createSession(userId);
     // An address given here gets its confirmation link, as one given on the account page does: the
     // account page says a link was sent. A refused or failed send leaves the account made; the
     // person can send it again from there.
@@ -260,6 +259,9 @@ export async function registerAdminRoutes(
         // logged by sendConfirmation
       }
     }
+    // Limited to some domains: the address must be shown to be the person's before any session (login checks it too)
+    if (settings.signupDomains) return reply.code(202).send({ userId, username, emailConfirmationRequired: true });
+    const token = await store.createSession(userId);
     return reply.code(201).send({ token, userId, username });
   });
 

@@ -131,6 +131,7 @@ describe("error messages", () => {
     ["sole_coordinator", 409, "error.soleCoordinator"],
     ["last_platform_admin", 409, "error.lastPlatformAdmin"],
     ["terms_not_accepted", 400, "error.termsNotAccepted"],
+    ["email_not_confirmed", 403, "error.emailNotConfirmed"],
     ["no_plots", 400, "error.noPlots"],
     ["no_such_week", 404, "weekly.noSuchWeek"],
   ];
@@ -339,6 +340,9 @@ describe("normalising responses", () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1]!.body as string)).toEqual({ username: "maria", password: "password1", acceptTerms: true });
     await signup("juan", "password1");
     expect(JSON.parse(fetchMock.mock.calls[1][1]!.body as string)).toEqual({ username: "juan", password: "password1" });
+    // sign-up limited to some domains: no session until the mailed link is opened
+    fetchMock.mockImplementation(async () => jsonResponse(202, { userId: "u", username: "ana", emailConfirmationRequired: true }));
+    expect(await signup("ana", "password1", "ana@fao.org")).toBeNull();
   });
 
   it("deletes a project with its name", async () => {
