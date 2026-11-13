@@ -20,6 +20,7 @@ import { formatDate, formatNumber } from "../format";
 import { agreementText, changedText, emptyText, noneText, orderText, otherText, reasonText } from "../healthView";
 import { useT } from "../i18n";
 import { useLoad } from "../useLoad";
+import { onceVisibleAfter } from "../visibility";
 
 /** Tables fit a phone: they scroll inside their own frame. */
 const tableFrame = { border: 1, borderColor: "divider", borderRadius: 1, overflowX: "auto", maxHeight: 560 } as const;
@@ -91,8 +92,7 @@ export function QualitySurvey({ projectId }: { projectId: string }) {
   // Newer figures are being worked out (or the server is busy): ask again in a while.
   useEffect(() => {
     if (loading || !(data?.stale || busy)) return;
-    const id = window.setTimeout(reload, busy ? 15_000 : 20_000);
-    return () => window.clearTimeout(id);
+    return onceVisibleAfter(busy ? 15_000 : 20_000, document, reload);
   }, [loading, data?.stale, busy, reload]);
 
   const worth = data ? data.questions.filter((q) => q.reasons.length > 0) : [];

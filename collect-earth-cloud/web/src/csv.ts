@@ -37,6 +37,12 @@ export function csvText(header: readonly string[], rows: readonly (readonly (str
   return `${[line(header), ...rows.map(line)].join("\r\n")}\r\n`;
 }
 
+/** Rows of named values (a query's) as CSV of the columns given: numbers stay numbers, anything else is text. */
+export function recordsCsv(columns: readonly string[], rows: readonly Record<string, unknown>[], language: string): string {
+  const value = (v: unknown) => (v === null || v === undefined ? null : typeof v === "number" ? v : String(v));
+  return csvText(columns, rows.map((r) => columns.map((c) => value(r[c]))), language);
+}
+
 /** The file a spreadsheet opens with its accents right: a byte order mark, then the text. */
 export function csvBlob(text: string): Blob {
   return new Blob(["﻿", text], { type: "text/csv;charset=utf-8" });

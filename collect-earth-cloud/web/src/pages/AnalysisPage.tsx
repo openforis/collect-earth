@@ -65,6 +65,7 @@ import { DrillDialog } from "../components/analysis/DrillDialog";
 import { FilterBar } from "../components/analysis/FilterBar";
 import { QuestionBar } from "../components/analysis/QuestionBar";
 import { linkProps, pathFor } from "../router";
+import { csvBlob } from "../csv";
 import { saveBlob } from "../saveBlob";
 import { getAnalysisViews, storeAnalysisViews } from "../storage";
 import { useLoad } from "../useLoad";
@@ -518,8 +519,7 @@ export function Pivot({ projectId, projectName, role, data, language, standalone
       const e = engine.current;
       const v = viewer.current;
       if (!e || !v) return;
-      const csv = await e.viewCsv(v);
-      saveBlob(new Blob(["﻿", csv], { type: "text/csv;charset=utf-8" }), `${fileBase()}.csv`);
+      saveBlob(csvBlob(await e.viewCsv(v, language)), `${fileBase()}.csv`);
     });
   const fileBase = () => {
     const label = selectedLabel() || t("analysis.title");

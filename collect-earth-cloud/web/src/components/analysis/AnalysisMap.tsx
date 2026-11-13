@@ -11,8 +11,8 @@ import type { Cube } from "../../analysisView";
 import { useApp } from "../../appContext";
 import { formatNumber } from "../../format";
 import { useT } from "../../i18n";
-import { attributionHtml } from "../../mapView";
-import { loadLeaflet, type LeafletModule } from "../../project/leaflet";
+import { attributionHtml, CLUSTER_FROM } from "../../mapView";
+import { clusterIcon, loadLeaflet, type LeafletModule } from "../../project/leaflet";
 import { navigate, pathFor } from "../../router";
 import { ErrorAlert } from "../ErrorAlert";
 
@@ -114,13 +114,27 @@ export function AnalysisMap({
     if (!ready || !lf || !places || !rows) return;
     lf.layer.clearLayers();
     const bounds: [number, number][] = [];
-    for (const r of placed) {
+    const dots = placed.map((r) => {
       const at: [number, number] = [places.lat[r.i], places.lon[r.i]];
       bounds.push(at);
       const fill = valueColour(field, r.value, model);
       const dot = lf.L.circleMarker(at, { renderer: lf.renderer, radius: 6, weight: 1.5, color: "#ffffff", fillColor: fill, fillOpacity: 0.9 });
-      dot.bindPopup(() => popup(r.plot, places.names?.[r.i] || r.plot, colour, r.value));
-      lf.layer.addLayer(dot);
+      return dot.bindPopup(() => popup(r.plot, places.names?.[r.i] || r.plot, colour, r.value));
+    });
+    // Many plots are grouped, as on the project's map, and placed a little at a time so the page keeps answering
+    if (dots.length >= CLUSTER_FROM) {
+      lf.L.markerClusterGroup({
+        chunkedLoading: true,
+        showCoverageOnHover: false,
+        spiderfyOnMaxZoom: false,
+        disableClusteringAtZoom: 16,
+        maxClusterRadius: 60,
+        iconCreateFunction: (cluster) => clusterIcon(lf.L, cluster, language, t),
+      })
+        .addTo(lf.layer)
+        .addLayers(dots);
+    } else {
+      for (const dot of dots) lf.layer.addLayer(dot);
     }
     if (bounds.length) lf.map.fitBounds(bounds, { padding: [28, 28], maxZoom: 14, animate: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps

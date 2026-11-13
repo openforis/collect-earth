@@ -48,6 +48,7 @@ import { useT } from "../i18n";
 import { aboveHalf, accuracyText, disagreementText, mostDiffering, overallRate, parsePlotIds, refusalKey, sortedPeople, weakestQuestions } from "../referenceView";
 import { linkProps, pathFor } from "../router";
 import { useLoad } from "../useLoad";
+import { onceVisibleAfter } from "../visibility";
 import { wholeNumber } from "../checksView";
 
 /** Tables fit a phone: they scroll inside their own frame. */
@@ -613,8 +614,7 @@ export function QualityReference({ projectId, canEdit }: { projectId: string; ca
   // Newer figures are being worked out (or the server is busy): ask again in a while.
   useEffect(() => {
     if (loading || !(stale || busy)) return;
-    const id = window.setTimeout(reload, busy ? 15_000 : 20_000);
-    return () => window.clearTimeout(id);
+    return onceVisibleAfter(busy ? 15_000 : 20_000, document, reload);
   }, [loading, stale, busy, reload]);
   const changed = (next: ReferenceView, text: string) => {
     // The change's answer has the set as it is now; the figures follow with the next load.

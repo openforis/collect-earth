@@ -132,15 +132,6 @@ export function followedKind(
   return active.kind ?? runs.find((r) => r.id === active.id)?.kind ?? details.get(active.id)?.kind ?? null;
 }
 
-/** The AI limits as their fields show them: what is typed (not saved yet) over the server's values. */
-export function limitTexts(
-  settings: Readonly<Record<keyof typeof AI_LIMIT_MAX, number>>,
-  typed: Readonly<Partial<Record<keyof typeof AI_LIMIT_MAX, string>>>,
-): Record<keyof typeof AI_LIMIT_MAX, string> {
-  const keys = Object.keys(AI_LIMIT_MAX) as (keyof typeof AI_LIMIT_MAX)[];
-  return Object.fromEntries(keys.map((key) => [key, typed[key] ?? String(settings[key])])) as Record<keyof typeof AI_LIMIT_MAX, string>;
-}
-
 /** The plots of a finding or an answer: a link only for a plot in the differences list. */
 export function plotLinks(plots: readonly string[], existing: ReadonlySet<string>): { plot: string; linked: boolean }[] {
   return plots.map((plot) => ({ plot, linked: existing.has(plot) }));

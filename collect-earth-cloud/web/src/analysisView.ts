@@ -2,6 +2,7 @@ import type { AnalysisData, AnalysisModelData, AnalysisTableModel } from "./api"
 import type { MessageKey, Translate } from "./i18n";
 import { applyQuestion, measuresOf } from "./analysisQuestion";
 import { templatesOf } from "./analysisSuggest";
+import { csvText, csvTime } from "./csv";
 
 // The analysis page (docs/plans/2026-11-05-node-and-arena.md, stage 6a: what replaces Saiku). The server sends the
 // survey's model and the rows of its tables (src/analysis.ts there); the browser loads them into DuckDB and pivots
@@ -98,7 +99,27 @@ export function codesCsv(model: AnalysisModelData, language: string): { csv: str
   return { csv: lines.join("\n") + "\n", columns };
 }
 
-export function csvField(value: string): string {
+/**
+ * The pivot as the viewer shows it, as CSV (Perspective's own to_csv leaves cells that are formulas as they are): its
+ * to_columns (with __ROW_PATH__ when grouped, split columns named "a|b|measure"), its schema and group by.
+ */
+export function pivotCsv(columns: Record<string, unknown[]>, schema: Record<string, string>, groupBy: readonly string[], language: string): string {
+  const paths = columns.__ROW_PATH__ as unknown[][] | undefined;
+  const names = Object.keys(columns).filter((k) => k !== "__ROW_PATH__");
+  const levels = paths ? groupBy : [];
+  // Perspective gives dates and times as milliseconds
+  const value = (v: unknown, type: string | undefined): string | number | null =>
+    v === null || v === undefined ? null : type === "date" ? new Date(v as number).toISOString().slice(0, 10) : type === "datetime" ? csvTime(v as number) : typeof v === "number" ? v : String(v);
+  const count = paths?.length ?? columns[names[0]]?.length ?? 0;
+  const rows = Array.from({ length: count }, (_, i) => [
+    ...levels.map((g, l) => value(paths![i][l], schema[g])),
+    ...names.map((n) => value(columns[n][i], schema[n.split("|").pop()!])),
+  ]);
+  return csvText([...levels, ...names], rows, language);
+}
+
+// For the code tables DuckDB reads (not a download): no formula escaping, the codes must stay as they are
+function csvField(value: string): string {
   return /[",\n\r]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
 }
 

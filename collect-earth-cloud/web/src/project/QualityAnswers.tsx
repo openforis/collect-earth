@@ -55,6 +55,7 @@ import { formatDate, formatNumber } from "../format";
 import { useT } from "../i18n";
 import { browserTimeZone } from "../progressView";
 import { useLoad } from "../useLoad";
+import { onceVisibleAfter } from "../visibility";
 
 /**
  * The two series of these charts: the team (or the rest of it) and one person. Checked
@@ -580,8 +581,7 @@ export function QualityAnswers({ projectId, teamOnly = false }: { projectId: str
   // Newer figures are being worked out (or the server is busy): ask again in a while.
   useEffect(() => {
     if (loading || !(data?.stale || busy)) return;
-    const id = window.setTimeout(reload, busy ? 15_000 : 20_000);
-    return () => window.clearTimeout(id);
+    return onceVisibleAfter(busy ? 15_000 : 20_000, document, reload);
   }, [loading, data?.stale, busy, reload]);
 
   const questions = data ? answerQuestions(data) : [];

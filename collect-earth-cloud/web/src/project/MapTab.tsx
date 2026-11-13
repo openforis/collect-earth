@@ -26,11 +26,11 @@ import { ErrorAlert } from "../components/ErrorAlert";
 import { Explain, MoreInfo } from "../components/Explain";
 import { formatDate, formatNumber } from "../format";
 import { useT, type Translate } from "../i18n";
-import { attributionHtml, boundsOf, CHANGE_KINDS, CHANGE_STYLE, changeCodes, changeCounts, CLUSTER_FROM, escapeHtml, filesOffMap, LIST_PAGE, plotList, plotPopup, shownByCodes, shownIndexes, STATUS_STYLE, statusDrawnKey, statusLabelKey, styleSvg, symbolSvg, type StatusStyle } from "../mapView";
+import { attributionHtml, boundsOf, CHANGE_KINDS, CHANGE_STYLE, changeCodes, changeCounts, CLUSTER_FROM, filesOffMap, LIST_PAGE, plotList, plotPopup, shownByCodes, shownIndexes, STATUS_STYLE, statusDrawnKey, statusLabelKey, styleSvg, symbolSvg, type StatusStyle } from "../mapView";
 import { legendStatuses, localMapPlots } from "../localMode";
 import { navigate, pathFor } from "../router";
 import { EmptyState } from "../components/EmptyState";
-import { loadLeaflet, type LeafletModule } from "./leaflet";
+import { clusterIcon, loadLeaflet, type LeafletModule } from "./leaflet";
 import { useLoad } from "../useLoad";
 import { areaOf, MARK_AT_MOST, selectInAreas, summarizeSelection, type Area } from "../mapSelectView";
 import { MapSelection } from "./MapSelection";
@@ -240,23 +240,7 @@ function PlotMap({
         spiderfyOnMaxZoom: false,
         disableClusteringAtZoom: 16,
         maxClusterRadius: 60,
-        // Grey, not a status colour: a group holds plots of any status.
-        iconCreateFunction: (cluster) => {
-          const n = cluster.getChildCount();
-          const size = n < 100 ? 32 : n < 1000 ? 38 : n < 10000 ? 44 : 50;
-          let text = String(n);
-          try {
-            text = new Intl.NumberFormat(latest.current.language, { notation: "compact" }).format(n);
-          } catch {
-            // the plain number
-          }
-          const label = escapeHtml(latest.current.t("map.cluster", { n: text }));
-          return L.divIcon({
-            html: `<div role="img" aria-label="${label}" style="width:${size}px;height:${size}px;border-radius:50%;background:rgba(33,33,33,0.8);border:2px solid #fff;color:#fff;font:600 12px/1 Roboto,sans-serif;display:flex;align-items:center;justify-content:center;box-sizing:border-box">${text}</div>`,
-            className: "",
-            iconSize: L.point(size, size),
-          });
-        },
+        iconCreateFunction: (cluster) => clusterIcon(L, cluster, latest.current.language, latest.current.t),
       });
       layer = group;
     } else {
