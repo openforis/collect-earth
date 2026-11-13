@@ -93,7 +93,7 @@ function LinkRow({ link, onRevoke }: { link: ShareLink; onRevoke: (link: ShareLi
  */
 export function ShareLinksCard({ projectId }: { projectId: string }) {
   const t = useT();
-  const links = useLoad(() => listShareLinks(projectId), [projectId]);
+  const links = useLoad(["project", projectId, "listShareLinks"], () => listShareLinks(projectId));
   const [label, setLabel] = useState("");
   const [made, setMade] = useState<NewShareLinkAnswer | null>(null);
   const [error, setError] = useState<unknown>(null);

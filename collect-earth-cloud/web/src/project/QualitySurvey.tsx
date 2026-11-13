@@ -87,7 +87,7 @@ export function QualitySurvey({ projectId }: { projectId: string }) {
   const local = useLocalMode();
   const checks = !local;
   const [all, setAll] = useState(false);
-  const { data, error, loading, reload } = useLoad(() => getSurveyHealth(projectId), [projectId]);
+  const { data, error, loading, reload } = useLoad(["project", projectId, "getSurveyHealth"], () => getSurveyHealth(projectId));
   const busy = error instanceof ApiError && error.code === "busy";
   // Newer figures are being worked out (or the server is busy): ask again in a while.
   useEffect(() => {

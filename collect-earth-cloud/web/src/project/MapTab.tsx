@@ -527,12 +527,12 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
   // The menus keep the whole lists of the first answer (an answer for one person lists everyone too).
   const [menus, setMenus] = useState<{ files: MapPlots["files"]; people: string[] | null } | null>(null);
   // A repeat survey: the plots coloured by their change since the earlier period, for a question, instead of their status
-  const periods = useLoad(() => (local ? Promise.resolve(null) : getPeriods(projectId)), [projectId, local]);
+  const periods = useLoad(["project", projectId, "MapTab.periods", local], () => (local ? Promise.resolve(null) : getPeriods(projectId)));
   const repeats = periods.data?.settings != null;
   const [colourBy, setColourBy] = useState<"status" | "change">("status");
   const [question, setQuestion] = useState<string | null>(null);
   const [changeShown, setChangeShown] = useState<boolean[]>(() => CHANGE_KINDS.map(() => true));
-  const change = useLoad(() => (repeats && colourBy === "change" ? getRepeatChange(projectId, question, null) : Promise.resolve(null)), [projectId, repeats, colourBy, question, reload]);
+  const change = useLoad(["project", projectId, "MapTab.change", repeats, colourBy, question, reload], () => (repeats && colourBy === "change" ? getRepeatChange(projectId, question, null) : Promise.resolve(null)));
   const codes = useMemo(() => (data && change.data && colourBy === "change" ? changeCodes(data, change.data.rows) : null), [data, change.data, colourBy]);
   const paint = useMemo<Paint | null>(() => (codes ? { codes, styles: CHANGE_KINDS.map((k) => CHANGE_STYLE[k]), shown: changeShown } : null), [codes, changeShown]);
   const paintedIndexes = useMemo(() => (paint ? shownByCodes(paint.codes, paint.shown) : null), [paint]);

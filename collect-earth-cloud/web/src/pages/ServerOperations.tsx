@@ -117,7 +117,7 @@ export function VersionsCard({ versions }: { versions: Loaded<CollectEarthVersio
 export function MailCard() {
   const t = useT();
   const { language } = useApp();
-  const check = useLoad(() => getMailCheck(), []);
+  const check = useLoad(["app", "getMailCheck"], () => getMailCheck());
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<{ severity: "success" | "error"; text: string } | null>(null);
   const m = check.data;
@@ -203,7 +203,7 @@ export function ActivityCard() {
   const t = useT();
   const { language } = useApp();
   const [query, setQuery] = useState<ServerActivityQuery>({ actor: "", kind: "", page: 1, pageSize: ACTIVITY_PAGE });
-  const log = useLoad(() => getServerActivity(query), [query]);
+  const log = useLoad(["app", "getServerActivity", query], () => getServerActivity(query));
   const [error, setError] = useState<unknown>(null);
   const page = log.data;
   const n = (x: number) => formatNumber(x, language);

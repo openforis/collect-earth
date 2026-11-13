@@ -90,7 +90,7 @@ function QualitySection({ data }: { data: PublicProgress }) {
 export function PublicProgressPage({ token }: { token: string }) {
   const t = useT();
   const timeZone = browserTimeZone();
-  const state = useLoad(() => getPublicProgress(token, timeZone), [token, timeZone]);
+  const state = useLoad(["app", "getPublicProgress", token, timeZone], () => getPublicProgress(token, timeZone));
   const { data, loading, reload, error } = state;
   const [loadedAt, setLoadedAt] = useState(() => Date.now());
   const now = useNow(15_000);

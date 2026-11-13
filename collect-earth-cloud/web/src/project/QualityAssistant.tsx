@@ -499,8 +499,8 @@ export function QualityAssistant({
 }) {
   const t = useT();
   const { language } = useApp();
-  const ai = useLoad(() => getProjectAi(projectId), [projectId]);
-  const runs = useLoad(() => listAiRuns(projectId), [projectId]);
+  const ai = useLoad(["project", projectId, "getProjectAi"], () => getProjectAi(projectId));
+  const runs = useLoad(["project", projectId, "listAiRuns"], () => listAiRuns(projectId));
   const hidden = usePageHidden();
   const [details, setDetails] = useState<Map<string, AiRunAnswer>>(new Map());
   const [selected, setSelected] = useState<string | null>(null);

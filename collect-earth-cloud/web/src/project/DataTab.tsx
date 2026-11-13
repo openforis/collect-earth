@@ -57,18 +57,18 @@ export function DataTab({ projectId }: { projectId: string }) {
   // The local mode (one person): the data download only (src/localMode.ts, dataSections).
   const local = useLocalMode();
   const sections = dataSections(local);
-  const overview = useLoad(() => getOverview(projectId), [projectId]);
+  const overview = useLoad(["project", projectId, "getOverview"], () => getOverview(projectId));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [done, setDone] = useState(false);
   const [format, setFormat] = useState<ExportFormat>("csv");
   const [noPositions, setNoPositions] = useState(false);
   // People left out of the results: their records are not in the download unless asked for.
-  const excluded = useLoad(() => (local ? Promise.resolve([]) : listMembers(projectId).then((ms) => ms.filter((m) => m.excluded))), [projectId, local]);
+  const excluded = useLoad(["project", projectId, "DataTab.excluded", local], () => (local ? Promise.resolve([]) : listMembers(projectId).then((ms) => ms.filter((m) => m.excluded))));
   const [includeExcluded, setIncludeExcluded] = useState(false);
   const [labels, setLabels] = useState(false);
   // Records to download: your last download and the survey's questions come from the server.
-  const choices = useLoad(() => getExportChoices(projectId), [projectId]);
+  const choices = useLoad(["project", projectId, "getExportChoices"], () => getExportChoices(projectId));
   const [which, setWhich] = useState<RecordsChoice>("all");
   const [from, setFrom] = useState("");
   const [questionKey, setQuestionKey] = useState("");

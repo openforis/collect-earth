@@ -800,10 +800,10 @@ function PeopleTableSection({ projectId, data }: { projectId: string; data: Peop
 
 export function PeopleTab({ projectId, view = "members" }: { projectId: string; view?: ProjectView<"people"> }) {
   const t = useT();
-  const invites = useLoad(() => listInvites(projectId), [projectId]);
-  const members = useLoad(() => listMembers(projectId), [projectId]);
+  const invites = useLoad(["project", projectId, "listInvites"], () => listInvites(projectId));
+  const members = useLoad(["project", projectId, "listMembers"], () => listMembers(projectId));
   const timeZone = browserTimeZone();
-  const people = useLoad(() => getPeople(projectId, timeZone), [projectId, timeZone]);
+  const people = useLoad(["project", projectId, "getPeople", timeZone], () => getPeople(projectId, timeZone));
   const [inviting, setInviting] = useState(false);
   const [created, setCreated] = useState<NewInvite | null>(null);
   const [revokeError, setRevokeError] = useState<unknown>(null);

@@ -779,8 +779,8 @@ export function PersonHeading({ data, title }: { data: PersonAnswer; title?: str
 export function PersonPage({ projectId, userId, onGo }: { projectId: string; userId: string; onGo: (tab: ProjectTab) => void }) {
   const t = useT();
   const timeZone = browserTimeZone();
-  const state = useLoad(() => getPerson(projectId, userId, timeZone), [projectId, userId, timeZone]);
-  const members = useLoad(() => listMembers(projectId), [projectId]);
+  const state = useLoad(["project", projectId, "getPerson", userId, timeZone], () => getPerson(projectId, userId, timeZone));
+  const members = useLoad(["project", projectId, "listMembers"], () => listMembers(projectId));
   const data = state.data;
   return (
     <Stack spacing={3}>

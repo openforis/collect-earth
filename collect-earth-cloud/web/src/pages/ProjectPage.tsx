@@ -150,7 +150,7 @@ export function ProjectPage({
   // The local mode (one person, on their own computer): no People, Plot files, Setup or project
   // file tabs, no bell (its cards are about other people) and no plot files' pages.
   const local = useLocalMode();
-  const project = useLoad(() => getProject(projectId), [projectId]);
+  const project = useLoad(["project", projectId, "getProject"], () => getProject(projectId));
   const tabsRef = useRef<HTMLDivElement>(null);
   const loaded = project.data !== null && project.data !== undefined;
   // The selected tab in sight: a scrollable row of tabs shows only its first ones on a phone,
@@ -292,13 +292,7 @@ export function ProjectPage({
     training: <TrainingTab key={trainingSetId ?? "list"} projectId={projectId} setId={trainingSetId} />,
     activity: <ActivityTab projectId={projectId} />,
     settings: (
-      <SettingsTab
-        projectId={projectId}
-        name={info.name}
-        status={info.status}
-        onRenamed={(name) => project.setData({ ...info, name })}
-        onStatus={(status) => project.setData({ ...info, status })}
-      />
+      <SettingsTab projectId={projectId} name={info.name} status={info.status} />
     ),
   }[tab];
 

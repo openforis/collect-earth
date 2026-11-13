@@ -216,7 +216,7 @@ function CopyDialog({ projects, onClose }: { projects: Membership[]; onClose: ()
 export function ProjectsPage() {
   const t = useT();
   const { me, info } = useApp();
-  const projects = useLoad(listProjects, []);
+  const projects = useLoad(["app", "listProjects"], listProjects);
   const [choosing, setChoosing] = useState(false);
   const [start, setStart] = useState<Start | null>(null);
   const [showArchived, setShowArchived] = useState(false);

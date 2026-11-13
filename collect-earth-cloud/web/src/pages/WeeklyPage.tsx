@@ -217,7 +217,7 @@ export function WeeklyPage({ projectId, week }: { projectId: string; week: strin
   const local = useLocalMode();
   const blocks = weeklyBlocks(local);
   const timeZone = browserTimeZone();
-  const state = useLoad(() => getWeekly(projectId, week, timeZone), [projectId, week, timeZone]);
+  const state = useLoad(["project", projectId, "getWeekly", week, timeZone], () => getWeekly(projectId, week, timeZone));
   const data = state.data;
   const title = data ? t("weekly.title", { n: String(Number(data.week.slice(6))), year: data.week.slice(0, 4), start: dayText(data.start, language), end: dayText(data.end, language) }) : t("weekly.titleLoading");
   return (

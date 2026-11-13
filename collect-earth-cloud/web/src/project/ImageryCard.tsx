@@ -20,7 +20,7 @@ import { extraMapWarning, imageryChanges, imageryErrors, isShown, planetMonths, 
 /** The imagery windows of the project file (Collect Earth's Settings > Imagery), which Collect Earth applies by itself. */
 export function ImageryCard({ projectId }: { projectId: string }) {
   const t = useT();
-  const loaded = useLoad(() => getImagery(projectId), [projectId]);
+  const loaded = useLoad(["project", projectId, "getImagery"], () => getImagery(projectId));
   if (loaded.error) return <ErrorAlert error={loaded.error} onRetry={loaded.reload} />;
   if (!loaded.data) return <Loading />;
   const shown = shownImagery(loaded.data.imagery);

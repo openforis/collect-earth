@@ -152,7 +152,7 @@ export function PlotPage({ projectId, plot, canOpenFiles }: { projectId: string;
   // The local mode (one person): no decision, differences or holders, and every record is yours.
   const local = useLocalMode();
   const parts = plotPageParts(local);
-  const loaded = useLoad(() => getPlotPage(projectId, plot), [projectId, plot]);
+  const loaded = useLoad(["project", projectId, "getPlotPage", plot], () => getPlotPage(projectId, plot));
   const quality = pathFor({ name: "project", projectId, tab: "quality" });
   const back = (
     <Button startIcon={<ArrowBack />} {...linkProps(quality)} sx={{ alignSelf: "flex-start" }}>

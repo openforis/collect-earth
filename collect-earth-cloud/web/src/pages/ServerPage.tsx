@@ -70,7 +70,7 @@ import { ProjectsDirectory } from "./ServerProjects";
 function AiUsageCard() {
   const t = useT();
   const { language } = useApp();
-  const usage = useLoad(getAiUsage, []);
+  const usage = useLoad(["app", "getAiUsage"], getAiUsage);
   const n = (value: number) => formatNumber(value, language);
   const columns: { key: keyof AiUsageCounts; label: MessageKey }[] = [
     { key: "runs", label: "server.aiRuns" },
@@ -398,7 +398,7 @@ function AlertsCard({ onSeen }: { onSeen: () => void }) {
   const t = useT();
   const { language } = useApp();
   const [page, setPage] = useState(1);
-  const alerts = useLoad(() => getOwnerAlerts(page), [page]);
+  const alerts = useLoad(["app", "getOwnerAlerts", page], () => getOwnerAlerts(page));
   const [error, setError] = useState<unknown>(null);
   const a = alerts.data;
   const n = (v: number) => formatNumber(v, language);
@@ -542,10 +542,10 @@ export function ServerPage({ section }: { section: ServerSection }) {
   // Counts the account changes, so the overview's figures (disabled accounts) follow them.
   const [accountChanges, setAccountChanges] = useState(0);
   const admin = me?.isPlatformAdmin === true;
-  const overview = useLoad(() => (admin ? getServerOverview() : Promise.resolve(null as unknown as ServerOverview)), [accountChanges, admin]);
-  const alerts = useLoad(() => (admin ? getOwnerAlerts() : Promise.resolve(null as unknown as OwnerAlertsPage)), [admin]);
+  const overview = useLoad(["app", "ServerPage.overview", accountChanges, admin], () => (admin ? getServerOverview() : Promise.resolve(null as unknown as ServerOverview)));
+  const alerts = useLoad(["app", "ServerPage.alerts", admin], () => (admin ? getOwnerAlerts() : Promise.resolve(null as unknown as OwnerAlertsPage)));
   // The Collect Earth versions in use: the System section's card and the health line
-  const versions = useLoad(() => (admin ? getCollectEarthVersions() : Promise.resolve(null as unknown as CollectEarthVersions)), [admin]);
+  const versions = useLoad(["app", "ServerPage.versions", admin], () => (admin ? getCollectEarthVersions() : Promise.resolve(null as unknown as CollectEarthVersions)));
   const unsaved = useUnsavedGroups();
   const [leaving, setLeaving] = useState<string | null>(null);
 

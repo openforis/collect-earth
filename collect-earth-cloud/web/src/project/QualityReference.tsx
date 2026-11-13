@@ -609,7 +609,7 @@ const visuallyHidden = { position: "absolute", width: "1px", height: "1px", over
 export function QualityReference({ projectId, canEdit }: { projectId: string; canEdit: boolean }) {
   const t = useT();
   const { language } = useApp();
-  const { data, error, loading, reload, setData } = useLoad(() => getReference(projectId), [projectId]);
+  const { data, error, loading, reload, setData } = useLoad(["project", projectId, "getReference"], () => getReference(projectId));
   const [message, setMessage] = useState<string | null>(null);
   const busy = error instanceof ApiError && error.code === "busy";
   const stale = data?.figures.stale === true;

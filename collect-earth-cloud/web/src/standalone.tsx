@@ -19,6 +19,7 @@ import Toolbar from "@mui/material/Toolbar";
 import Typography from "@mui/material/Typography";
 import { ThemeProvider } from "@mui/material/styles";
 import { StrictMode, useEffect, useMemo, useState } from "react";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { createRoot } from "react-dom/client";
 import type { ServerInfo, StandaloneAnalysis } from "./api";
 import { AppContext, type AppState } from "./appContext";
@@ -31,6 +32,7 @@ import { storeLanguage } from "./storage";
 import { theme } from "./theme";
 import { collectEarthAppBar } from "./shared/collectEarthTheme";
 import logo from "./shared/collect-earth-logo.png";
+import { queryClient } from "./queryClient";
 
 declare global {
   interface Window {
@@ -131,6 +133,8 @@ function Standalone() {
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <Standalone />
+    <QueryClientProvider client={queryClient}>
+      <Standalone />
+    </QueryClientProvider>
   </StrictMode>,
 );

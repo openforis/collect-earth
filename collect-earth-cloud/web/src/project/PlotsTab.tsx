@@ -173,7 +173,7 @@ function WhoCollectsDialog({
 export function PlotsTab({ projectId, onGo }: { projectId: string; onGo: (tab: ProjectTab) => void }) {
   const t = useT();
   const { language } = useApp();
-  const state = useLoad(() => loadPlots(projectId), [projectId]);
+  const state = useLoad(["project", projectId, "loadPlots"], () => loadPlots(projectId));
   const [upload, setUpload] = useState<UploadState | null>(null);
   const [messages, setMessages] = useState<string[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);

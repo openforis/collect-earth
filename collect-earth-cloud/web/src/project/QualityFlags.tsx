@@ -186,8 +186,7 @@ export function QualityFlags({ projectId, canEdit }: { projectId: string; canEdi
   const perPerson = canEdit && !local;
   const [filter, setFilter] = useState<FlagsFilter>(NO_FLAGS_FILTER);
   const [all, setAll] = useState(false);
-  const key = JSON.stringify(filter);
-  const flags = useLoad(() => getFlags(projectId, filter), [projectId, key]);
+  const flags = useLoad(["project", projectId, "getFlags", filter], () => getFlags(projectId, filter));
   const { data, error, loading, reload } = flags;
   const busy = error instanceof ApiError && error.code === "busy";
   // Newer figures are being worked out (or the server is busy): ask again in a while.

@@ -14,7 +14,7 @@ import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Typography from "@mui/material/Typography";
 import Download from "@mui/icons-material/Download";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { downloadAreasFile, getAreas, saveAreas, uploadAreasFile } from "../api";
 import { useApp } from "../appContext";
 import { areasOf, shownArea, strataSettings, stratumKey, typedArea } from "../areasView";
@@ -47,7 +47,15 @@ export function StrataAreas({ projectId, version }: { projectId: string; version
   const { language } = useApp();
   // null: the saved columns; a choice previews the strata those columns make
   const [chosen, setChosen] = useState<string[] | null>(null);
-  const state = useLoad(() => getAreas(projectId, chosen ?? undefined), [projectId, version, chosen?.join("\u0000")]);
+  const state = useLoad(["project", projectId, "getAreas", chosen], () => getAreas(projectId, chosen ?? undefined));
+  // The plot files changed (another file, other values): their strata are asked again
+  const { reload } = state;
+  const shown = useRef(version);
+  useEffect(() => {
+    if (shown.current === version) return;
+    shown.current = version;
+    reload();
+  }, [version, reload]);
   const [mode, setMode] = useState<"strata" | "total" | null>(null);
   const [typed, setTyped] = useState<Record<string, string>>({});
   const [total, setTotal] = useState<string | null>(null);

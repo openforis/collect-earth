@@ -17,7 +17,7 @@ import { useLoad } from "../useLoad";
 /** Public page an invitation link opens: what the invite is and how to use it in Collect Earth. */
 export function JoinPage({ token }: { token: string }) {
   const t = useT();
-  const preview = useLoad(() => previewInvite(token), [token]);
+  const preview = useLoad(["app", "previewInvite", token], () => previewInvite(token));
   const link = `${window.location.origin}${pathFor({ name: "join", token })}`;
 
   let body;

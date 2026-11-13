@@ -27,7 +27,7 @@ import { MoreInfo } from "./Explain";
  */
 export function MyTraining({ projectId }: { projectId: string }) {
   const t = useT();
-  const state = useLoad(() => getMyTraining(projectId), [projectId]);
+  const state = useLoad(["project", projectId, "getMyTraining"], () => getMyTraining(projectId));
   if (state.error) return <ErrorAlert error={state.error} onRetry={state.reload} />;
   if (!state.data || state.data.length === 0) return null;
   return (

@@ -435,7 +435,7 @@ function Filters({
 }) {
   const t = useT();
   const { language } = useApp();
-  const columns = useLoad(() => (filter.file ? getAnswerColumns(projectId, filter.file) : Promise.resolve([])), [projectId, filter.file]);
+  const columns = useLoad(["project", projectId, "QualityAnswers.columns", filter.file], () => (filter.file ? getAnswerColumns(projectId, filter.file) : Promise.resolve([])));
   const people = data?.filters.people ?? (filter.person ? [filter.person] : []);
   const files = data?.filters.files ?? [];
   const column = columns.data?.find((c) => c.index === filter.column) ?? null;
@@ -572,8 +572,7 @@ export function QualityAnswers({ projectId, teamOnly = false }: { projectId: str
   const [allFlags, setAllFlags] = useState(false);
   // A column without its value yet asks for nothing new.
   const asked: AnswersFilter = filter.column !== null && filter.value === null ? { ...filter, column: null } : filter;
-  const key = JSON.stringify(asked);
-  const answers = useLoad(() => getAnswers(projectId, asked, timeZone), [projectId, key, timeZone]);
+  const answers = useLoad(["project", projectId, "getAnswers", asked, timeZone], () => getAnswers(projectId, asked, timeZone));
   const { data, error, loading, reload } = answers;
   const busy = error instanceof ApiError && error.code === "busy";
   // A reviewer's filter of fewer than 5 plots, or of one person's plots, is refused (403): the figures of the filter before are not shown under it.

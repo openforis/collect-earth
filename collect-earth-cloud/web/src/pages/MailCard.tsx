@@ -31,7 +31,7 @@ function browserTimeZone(): string | null {
 export function MailCard() {
   const t = useT();
   const { language } = useApp();
-  const loaded = useLoad(getNotifications, []);
+  const loaded = useLoad(["app", "getNotifications"], getNotifications);
   const [address, setAddress] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<unknown>(null);

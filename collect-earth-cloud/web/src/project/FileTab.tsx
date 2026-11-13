@@ -178,8 +178,8 @@ function RoundStatus({ projectId, projectName, info, onChange }: { projectId: st
 export function FileTab({ projectId }: { projectId: string }) {
   const t = useT();
   const { language } = useApp();
-  const overview = useLoad(() => getOverview(projectId), [projectId]);
-  const round = useLoad(() => getRoundInfo(projectId), [projectId]);
+  const overview = useLoad(["project", projectId, "getOverview"], () => getOverview(projectId));
+  const round = useLoad(["project", projectId, "getRoundInfo"], () => getRoundInfo(projectId));
   const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [wrongType, setWrongType] = useState(false);

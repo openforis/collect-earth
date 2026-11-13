@@ -41,8 +41,9 @@ import { useLoad } from "../useLoad";
 import type { MessageKey } from "../i18n";
 import { RepeatCard } from "./RepeatSurvey";
 import { ShareLinksCard } from "./ShareLinks";
+import { projectChanged } from "../queryClient";
 
-function RenameCard({ projectId, name, onRenamed }: { projectId: string; name: string; onRenamed: (name: string) => void }) {
+function RenameCard({ projectId, name }: { projectId: string; name: string }) {
   const t = useT();
   const { refreshMe } = useApp();
   const [value, setValue] = useState(name);
@@ -63,7 +64,7 @@ function RenameCard({ projectId, name, onRenamed }: { projectId: string; name: s
     setBusy(true);
     try {
       await renameProject(projectId, next);
-      onRenamed(next);
+      projectChanged(projectId, { name: next });
       setDone(true);
       void refreshMe();
     } catch (err) {
@@ -200,7 +201,7 @@ function ProgressSettingsForm({ projectId, saved, onSaved }: { projectId: string
 function ProgressCard({ projectId }: { projectId: string }) {
   const t = useT();
   const local = useLocalMode();
-  const settings = useLoad(() => getProgressSettings(projectId), [projectId]);
+  const settings = useLoad(["project", projectId, "getProgressSettings"], () => getProgressSettings(projectId));
   return (
     <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section" aria-labelledby="settings-progress">
       <Stack spacing={2}>
@@ -226,7 +227,7 @@ function ProgressCard({ projectId }: { projectId: string }) {
  */
 function AiCard({ projectId }: { projectId: string }) {
   const t = useT();
-  const ai = useLoad(() => getProjectAi(projectId), [projectId]);
+  const ai = useLoad(["project", projectId, "getProjectAi"], () => getProjectAi(projectId));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [changed, setChanged] = useState(false);
@@ -328,7 +329,7 @@ function moveLabel(from: ProjectStatus, to: ProjectStatus): MessageKey {
 }
 
 /** The project's lifecycle: what its status means, and the moves it can make (publish, close, reopen, archive, restore). */
-function StatusCard({ projectId, status, onStatus }: { projectId: string; status: ProjectStatus; onStatus: (status: ProjectStatus) => void }) {
+function StatusCard({ projectId, status }: { projectId: string; status: ProjectStatus }) {
   const t = useT();
   const { refreshMe } = useApp();
   const [error, setError] = useState<unknown>(null);
@@ -338,7 +339,7 @@ function StatusCard({ projectId, status, onStatus }: { projectId: string; status
     setError(null);
     setBusy(true);
     try {
-      onStatus(await setProjectStatus(projectId, to));
+      projectChanged(projectId, { status: await setProjectStatus(projectId, to) });
       void refreshMe();
     } catch (err) {
       setError(err);
@@ -466,25 +467,13 @@ function DeleteCard({ projectId, name }: { projectId: string; name: string }) {
 }
 
 /** The project's settings; in the local mode (one person), the progress settings only (src/localMode.ts, settingsCards). */
-export function SettingsTab({
-  projectId,
-  name,
-  status,
-  onRenamed,
-  onStatus,
-}: {
-  projectId: string;
-  name: string;
-  status: ProjectStatus;
-  onRenamed: (name: string) => void;
-  onStatus: (status: ProjectStatus) => void;
-}) {
+export function SettingsTab({ projectId, name, status }: { projectId: string; name: string; status: ProjectStatus }) {
   const cards = settingsCards(useLocalMode());
   return (
     <Stack spacing={3}>
       {cards.map((card) =>
         card === "rename" ? (
-          <RenameCard key={card} projectId={projectId} name={name} onRenamed={onRenamed} />
+          <RenameCard key={card} projectId={projectId} name={name} />
         ) : card === "progress" ? (
           <ProgressCard key={card} projectId={projectId} />
         ) : card === "shareLinks" ? (
@@ -496,7 +485,7 @@ export function SettingsTab({
         ) : card === "repeat" ? (
           <RepeatCard key={card} projectId={projectId} name={name} />
         ) : card === "status" ? (
-          <StatusCard key={card} projectId={projectId} status={status} onStatus={onStatus} />
+          <StatusCard key={card} projectId={projectId} status={status} />
         ) : (
           <DeleteCard key={card} projectId={projectId} name={name} />
         ),

@@ -398,7 +398,7 @@ function SignupRulesGroup({ settings, onSave }: { settings: ServerSettings; onSa
 export function ServerSettingsSection() {
   const t = useT();
   const { refreshInfo } = useApp();
-  const settings = useLoad(getServerSettings, []);
+  const settings = useLoad(["app", "getServerSettings"], getServerSettings);
   if (settings.loading && !settings.data) return <Loading />;
   if (settings.error || !settings.data) return <ErrorAlert error={settings.error} onRetry={settings.reload} />;
   const current = settings.data;

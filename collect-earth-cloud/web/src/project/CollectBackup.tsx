@@ -73,7 +73,7 @@ export function CollectBackup({ projectId }: { projectId: string }) {
 
 function BackupDialog({ projectId, onClose, onStarted }: { projectId: string; onClose: () => void; onStarted: () => void }) {
   const t = useT();
-  const summary = useLoad(() => getBackupSummary(projectId), [projectId]);
+  const summary = useLoad(["project", projectId, "getBackupSummary"], () => getBackupSummary(projectId));
   const [rounds, setRounds] = useState<BackupRounds>("1");
   const [format, setFormat] = useState<BackupFormat>("zip");
   const [busy, setBusy] = useState(false);
