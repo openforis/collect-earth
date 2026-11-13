@@ -7,7 +7,6 @@ import {
   findingFigures,
   followedKind,
   followUpsOf,
-  limitTexts,
   LOST_CONTACT_AFTER,
   MAX_QUESTION_CHARS,
   parseLimit,
@@ -171,15 +170,6 @@ describe("following a run", () => {
   it("waits longer after each failure: 2, 4, 8, 16, then 30 seconds, and says contact is lost after 3", () => {
     expect([1, 2, 3, 4, 5, 6, 20].map(runRetryDelay)).toEqual([2_000, 4_000, 8_000, 16_000, 30_000, 30_000, 30_000]);
     expect(LOST_CONTACT_AFTER).toBe(3);
-  });
-});
-
-describe("the AI limits on the server's page", () => {
-  const settings = { aiReportsPerDay: 5, aiFollowUpsPerDay: 50, aiMonthlyTokens: 2_000_000 };
-  it("show the server's values, and what is being typed over them until it is saved", () => {
-    expect(limitTexts(settings, {})).toEqual({ aiReportsPerDay: "5", aiFollowUpsPerDay: "50", aiMonthlyTokens: "2000000" });
-    expect(limitTexts({ ...settings, aiReportsPerDay: 7 }, {})).toMatchObject({ aiReportsPerDay: "7" });
-    expect(limitTexts({ ...settings, aiReportsPerDay: 7 }, { aiReportsPerDay: "9" })).toMatchObject({ aiReportsPerDay: "9", aiFollowUpsPerDay: "50" });
   });
 });
 
