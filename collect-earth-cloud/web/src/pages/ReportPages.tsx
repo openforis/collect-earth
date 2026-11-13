@@ -64,7 +64,7 @@ export function ReportFrame({
   children: ReactNode;
 }) {
   const t = useT();
-  const project = useLoad(() => getProject(projectId), [projectId]);
+  const project = useLoad(["project", projectId, "getProject"], () => getProject(projectId));
   return (
     <AppShell>
       <Stack spacing={3}>
@@ -172,7 +172,7 @@ function ConfusionItem({ confusion, text, plots, options }: { confusion: ReportC
 export function MyQualityPage({ projectId }: { projectId: string }) {
   const t = useT();
   const { language } = useApp();
-  const mine = useLoad(() => getMyQuality(projectId), [projectId]);
+  const mine = useLoad(["project", projectId, "getMyQuality"], () => getMyQuality(projectId));
   useRefreshWhileStale(mine);
   const data = mine.data;
   return (
@@ -227,7 +227,7 @@ export function MyQualityPage({ projectId }: { projectId: string }) {
 export function MyWorkPage({ projectId }: { projectId: string }) {
   const t = useT();
   const timeZone = browserTimeZone();
-  const mine = useLoad(() => getMyWork(projectId, timeZone), [projectId, timeZone]);
+  const mine = useLoad(["project", projectId, "getMyWork", timeZone], () => getMyWork(projectId, timeZone));
   const data = mine.data;
   return (
     <ReportFrame projectId={projectId} title={t("myWork.title")} back="progress">
@@ -288,7 +288,7 @@ function YourData() {
 export function TeamReportPage({ projectId }: { projectId: string }) {
   const t = useT();
   const { language } = useApp();
-  const report = useLoad(() => getTeamReport(projectId), [projectId]);
+  const report = useLoad(["project", projectId, "getTeamReport"], () => getTeamReport(projectId));
   useRefreshWhileStale(report);
   const data = report.data;
   const labels = new Map((data?.questions ?? []).map((q) => [q.key, q.label]));

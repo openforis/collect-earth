@@ -41,8 +41,8 @@ import { useLoad } from "../useLoad";
 /** The IPCC uncertainty of the land areas (coordinators and reviewers): the setup, then the tables, to download. */
 export function UncertaintyPage({ projectId }: { projectId: string }) {
   const t = useT();
-  const project = useLoad(() => getProject(projectId), [projectId]);
-  const setup = useLoad(() => getUncertaintySetup(projectId), [projectId]);
+  const project = useLoad(["project", projectId, "getProject"], () => getProject(projectId));
+  const setup = useLoad(["project", projectId, "getUncertaintySetup"], () => getUncertaintySetup(projectId));
   const [editing, setEditing] = useState(false);
   const forbidden = setup.error instanceof ApiError && setup.error.status === 403;
   const settings = setup.data?.settings ?? null;
@@ -227,7 +227,7 @@ const ERROR_KEYS: Record<string, MessageKey> = { not_set_up: "uncertainty.notSet
 function Results({ projectId, projectName }: { projectId: string; projectName: string }) {
   const t = useT();
   const { language } = useApp();
-  const data = useLoad(() => getUncertainty(projectId), [projectId]);
+  const data = useLoad(["project", projectId, "getUncertainty"], () => getUncertainty(projectId));
   const sheets = useMemo(() => (data.data ? uncertaintySheets(data.data, t) : []), [data.data, t]);
   if (data.loading && !data.data) return <Loading />;
   if (data.error) {

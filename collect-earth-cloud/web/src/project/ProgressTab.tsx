@@ -427,7 +427,7 @@ export function ProgressTab({ projectId, onGo }: { projectId: string; onGo: (tab
   // The local mode (one person): no cards about other people, nor plots given to someone.
   const local = useLocalMode();
   const timeZone = browserTimeZone();
-  const state = useLoad(() => getProgress(projectId, timeZone), [projectId, timeZone]);
+  const state = useLoad(["project", projectId, "getProgress", timeZone], () => getProgress(projectId, timeZone));
   const [loadedAt, setLoadedAt] = useState(() => Date.now());
   const now = useNow(5_000);
   const { data, loading, reload } = state;

@@ -68,7 +68,7 @@ function Row({ cells }: { cells: ReactNode[] }) {
 export function TrainingReportPage({ projectId, setId }: { projectId: string; setId: string }) {
   const t = useT();
   const { info } = useApp();
-  const state = useLoad(() => getTrainingSet(projectId, setId), [projectId, setId]);
+  const state = useLoad(["project", projectId, "getTrainingSet", setId], () => getTrainingSet(projectId, setId));
   const data = state.data;
   const kind = data?.set.kind;
   // Usage events (when the server sends them): the report opened, and printed.

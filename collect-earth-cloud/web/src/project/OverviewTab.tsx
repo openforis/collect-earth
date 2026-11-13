@@ -75,7 +75,7 @@ function StorageUse({ usedBytes, limitBytes }: { usedBytes: number; limitBytes: 
 
 export function OverviewTab({ projectId, onGo }: { projectId: string; onGo: (tab: ProjectTab) => void }) {
   const t = useT();
-  const state = useLoad(() => loadOverview(projectId), [projectId]);
+  const state = useLoad(["project", projectId, "loadOverview"], () => loadOverview(projectId));
 
   if (state.loading && !state.data) return <Loading />;
   if (state.error || !state.data) return <ErrorAlert error={state.error} onRetry={state.reload} />;

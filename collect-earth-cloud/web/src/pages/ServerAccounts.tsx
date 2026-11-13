@@ -219,7 +219,7 @@ export function AccountsSection({ onAccountChanged }: { onAccountChanged: () => 
     const timer = window.setTimeout(() => setQuery((q) => (q.q === search.trim() ? q : { ...q, q: search.trim(), page: 1 })), 300);
     return () => window.clearTimeout(timer);
   }, [search]);
-  const users = useLoad(() => listUsers(query), [query]);
+  const users = useLoad(["app", "listUsers", query], () => listUsers(query));
   const [menu, setMenu] = useState<{ anchor: HTMLElement; user: AdminUser } | null>(null);
   const [confirm, setConfirm] = useState<Confirm | null>(null);
   const [typed, setTyped] = useState("");

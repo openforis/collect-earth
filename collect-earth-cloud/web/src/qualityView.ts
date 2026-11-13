@@ -2,7 +2,7 @@
 // geometry, the Google Earth link, the differences grouped by plot, local changes and
 // when to ask for newer figures.
 
-import type { AnswerOptions, DataProblemKind, Difference, GuidanceNote, QualityAnswer, QualityDecision, QuestionAgreement, Rate, ReportRate, WeekAgreement } from "./api";
+import type { AnswerOptions, DataProblemKind, Difference, GuidanceNote, QualityDecision, QuestionAgreement, Rate, ReportRate, WeekAgreement } from "./api";
 import type { MessageKey, Translate } from "./i18n";
 
 /** Below this many checks a rate is not given (the server's MIN_PLOTS). */
@@ -200,14 +200,6 @@ export function withDecision(decisions: readonly QualityDecision[], plot: string
 export function withNote(notes: readonly GuidanceNote[], saved: GuidanceNote): GuidanceNote[] {
   const order = (n: GuidanceNote) => [n.questionKey, n.firstValue ?? "", n.checkValue ?? ""].join("\u0000");
   return [...notes.filter((n) => n.id !== saved.id), saved].sort((a, b) => (order(a) < order(b) ? -1 : order(a) > order(b) ? 1 : 0));
-}
-
-/**
- * For a load that started before a change made on this page: the loaded figures, with
- * the decisions, notes and margins as changed here (the load may have read them before).
- */
-export function keepLocalChanges(fresh: QualityAnswer, prev: QualityAnswer): QualityAnswer {
-  return { ...fresh, decisions: prev.decisions, notes: prev.notes, settings: { ...fresh.settings, margins: prev.settings.margins } };
 }
 
 /** Shown again after this long, the page asks for the figures again even when they were fresh. */

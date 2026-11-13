@@ -35,7 +35,7 @@ type Management = "MANAGED" | "UNMANAGED" | "ANNUAL" | "PERENNIAL" | "TREED" | "
  */
 export function IpccExports({ projectId }: { projectId: string }) {
   const t = useT();
-  const status = useLoad(() => getIpccExports(projectId), [projectId]);
+  const status = useLoad(["project", projectId, "getIpccExports"], () => getIpccExports(projectId));
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [form, setForm] = useState(false);

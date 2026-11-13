@@ -25,7 +25,7 @@ import {
 /** The plot layout of the project file (Collect Earth's Settings > Plot), which Collect Earth applies by itself. */
 export function PlotLayoutCard({ projectId }: { projectId: string }) {
   const t = useT();
-  const loaded = useLoad(() => getPlotLayout(projectId), [projectId]);
+  const loaded = useLoad(["project", projectId, "getPlotLayout"], () => getPlotLayout(projectId));
   if (loaded.error) return <ErrorAlert error={loaded.error} onRetry={loaded.reload} />;
   if (!loaded.data) return <Loading />;
   const shown = shownLayout(loaded.data.layout);

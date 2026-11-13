@@ -383,7 +383,7 @@ function Load({ view }: { view: SamplingView }) {
  */
 export function QualityChecks({ projectId }: { projectId: string }) {
   const t = useT();
-  const { data, error, loading, reload, setData } = useLoad(() => getSampling(projectId), [projectId]);
+  const { data, error, loading, reload, setData } = useLoad(["project", projectId, "getSampling"], () => getSampling(projectId));
   return (
     <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section">
       <Stack spacing={2}>

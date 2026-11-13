@@ -666,7 +666,7 @@ const visuallyHidden = {
 
 export function PlotFilePage({ projectId, fileId, onGo }: { projectId: string; fileId: string; onGo: (tab: ProjectTab) => void }) {
   const t = useT();
-  const state = useLoad(() => loadFile(projectId, fileId), [projectId, fileId]);
+  const state = useLoad(["project", projectId, "loadFile", fileId], () => loadFile(projectId, fileId));
   // Bumped by a move, so the form starts again from the new holders (and drops its old notice).
   const [moves, setMoves] = useState(0);
   const back = (

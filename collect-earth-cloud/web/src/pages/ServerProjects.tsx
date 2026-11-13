@@ -63,7 +63,7 @@ export function ProjectsDirectory() {
     const timer = window.setTimeout(() => setQuery((q) => (q.q === search.trim() ? q : { ...q, q: search.trim(), page: 1 })), 300);
     return () => window.clearTimeout(timer);
   }, [search]);
-  const projects = useLoad(() => listAdminProjects(query), [query]);
+  const projects = useLoad(["app", "listAdminProjects", query], () => listAdminProjects(query));
   const [menu, setMenu] = useState<{ anchor: HTMLElement; project: AdminProject } | null>(null);
   const [pending, setPending] = useState<Pending | null>(null);
   const [username, setUsername] = useState("");

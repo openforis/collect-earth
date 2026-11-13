@@ -174,7 +174,7 @@ function OtherDevicesCard() {
 function DeleteAccountCard() {
   const t = useT();
   const { logOut } = useApp();
-  const plan = useLoad(getAccountDeletion, []);
+  const plan = useLoad(["app", "getAccountDeletion"], getAccountDeletion);
   const [password, setPassword] = useState("");
   const [missing, setMissing] = useState(false);
   const [error, setError] = useState<unknown>(null);

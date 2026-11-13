@@ -83,13 +83,16 @@ npm run smoke:pg:sampling -- 55481
   import those modules from code that local mode reaches except through the swapped paths.
 - **Wire types** (`src/wire/`, one file per area): the types of the JSON the server and the
   dashboard send each other, written once. Routes build their answers against them (`satisfies` or
-  a typed return); `web/src/api.ts` imports them with `import type` and returns each answer as it
+  a typed return); `web/src/api/` (one file per area) imports them with `import type` and returns each answer as it
   comes, with no clean-up function and no fallback for older servers (the two are always shipped
   together; a page left open across an upgrade offers to reload: server-info's `dashboardBuild`,
   `web/src/newVersion.ts`). Types only (`test/wire.test.ts`). A new route's answer gets its type
   there, in its area's file (`src/wire/README.md`).
-- **Dashboard** (`web/src`): React 19 + MUI, `api.ts` for calls, `pages/` and `project/` for
-  screens, view logic in `*View.ts` files with their tests beside them. All UI text goes through
+- **Dashboard** (`web/src`): React 19 + MUI, `api/` for calls (one file per area, `api/index.ts` re-exports them).
+  Screens load with `useLoad(key, load)` (`useLoad.ts`), on TanStack Query's one cache (`queryClient.ts`): the key
+  names the answer and everything it depends on (`["project", id, "listMembers"]`), so screens showing the same
+  answer share one load and one copy, `setData` updates all of them, and the cache is emptied whenever the session
+  changes. `pages/` and `project/` for screens, view logic in `*View.ts` files with their tests beside them. All UI text goes through
   `i18n.ts`, which holds en, es, fr and pt catalogues (typed `Catalogue`, so a key missing in one
   language fails the typecheck). Wording is deliberately plain for non-technical users
   ("people", not "members"; "plot files", not "CSV assignments"; "project file", not "CEP").

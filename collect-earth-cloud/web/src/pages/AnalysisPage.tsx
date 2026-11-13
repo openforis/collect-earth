@@ -76,8 +76,8 @@ type EngineModule = typeof import("../analysisEngine");
 export function AnalysisPage({ projectId }: { projectId: string }) {
   const t = useT();
   const { language } = useApp();
-  const project = useLoad(() => getProject(projectId), [projectId]);
-  const data = useLoad(() => getAnalysis(projectId), [projectId]);
+  const project = useLoad(["project", projectId, "getProject"], () => getProject(projectId));
+  const data = useLoad(["project", projectId, "getAnalysis"], () => getAnalysis(projectId));
 
   const back =
     project.data?.role === "admin" ? pathFor({ name: "project", projectId, tab: "data" }) : pathFor({ name: "myWork", projectId });
@@ -171,7 +171,7 @@ export function Pivot({ projectId, projectName, role, data, language, standalone
   const [shown, setShown] = useState<Shown | null>(null);
   const [config, setConfig] = useState<ViewConfig | null>(null);
   const [mine, setMine] = useState<SavedView[]>(() => parseSavedViews(getAnalysisViews(projectId)));
-  const team = useLoad(() => (local ? Promise.resolve([]) : getSharedAnalysisViews(projectId)), [projectId, local]);
+  const team = useLoad(["project", projectId, "AnalysisPage.team", local], () => (local ? Promise.resolve([]) : getSharedAnalysisViews(projectId)));
   const [selected, setSelected] = useState<ViewKey>("tpl:default");
   const [changed, setChanged] = useState(false);
   const [saving, setSaving] = useState<"mine" | "team" | null>(null);
@@ -185,7 +185,7 @@ export function Pivot({ projectId, projectName, role, data, language, standalone
   const [trail, setTrail] = useState<{ question: Question; label: string }[]>([]);
   const tables = useMemo(() => tableChoices(data.model, language, t), [data, language, t]);
   // The AI assistant's views: for coordinators of a project where it is on (never in the local mode, which has none)
-  const ai = useLoad(() => (coordinator && !local ? getProjectAi(projectId).catch(() => null) : Promise.resolve(null)), [projectId, coordinator, local]);
+  const ai = useLoad(["project", projectId, "AnalysisPage.ai", coordinator, local], () => (coordinator && !local ? getProjectAi(projectId).catch(() => null) : Promise.resolve(null)));
   const canAskAi = !!ai.data?.enabled && !!ai.data.available;
   const [proposals, setProposals] = useState<{ table: string; views: ProposedView[] } | null>(null);
   const proposalsRef = useRef(proposals);

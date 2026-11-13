@@ -149,7 +149,7 @@ function QuickTable({ projectId, quick, total, person }: { projectId: string; qu
 export function TeamTimeSpent({ projectId, people }: { projectId: string; people: readonly PersonRow[] }) {
   const t = useT();
   const { language } = useApp();
-  const state = useLoad(() => getTimeSpent(projectId), [projectId]);
+  const state = useLoad(["project", projectId, "getTimeSpent"], () => getTimeSpent(projectId));
   const data = state.data;
   const n = (v: number) => formatNumber(v, language);
   const ids = new Map(people.map((p) => [p.username, p.userId]));
@@ -217,7 +217,7 @@ export function TeamTimeSpent({ projectId, people }: { projectId: string; people
 export function PersonTimeSpent({ projectId, username }: { projectId: string; username: string }) {
   const t = useT();
   const { language } = useApp();
-  const state = useLoad(() => getTimeSpent(projectId, username), [projectId, username]);
+  const state = useLoad(["project", projectId, "getTimeSpent", username], () => getTimeSpent(projectId, username));
   const data = state.data;
   const n = (v: number) => formatNumber(v, language);
   if (!data) {

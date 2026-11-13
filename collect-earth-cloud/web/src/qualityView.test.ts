@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Difference, GuidanceNote, QualityAnswer, QualityDecision, QuestionAgreement } from "./api";
+import type { Difference, GuidanceNote, QualityDecision, QuestionAgreement } from "./api";
 import { translator } from "./i18n";
 import {
   barPercent,
@@ -7,7 +7,6 @@ import {
   formatRate,
   googleEarthUrl,
   groupDifferences,
-  keepLocalChanges,
   labelMap,
   marginKey,
   marginRows,
@@ -310,11 +309,3 @@ describe("question keys in texts", () => {
   });
 });
 
-describe("a load that started before a change made here", () => {
-  const prev = { decisions: ["mine"], notes: ["mine"], settings: { margins: { a: 1 }, fastSeconds: 15 }, plotsChecked: 1 } as unknown as QualityAnswer;
-  const fresh = { decisions: [], notes: [], settings: { margins: {}, fastSeconds: 20 }, plotsChecked: 2 } as unknown as QualityAnswer;
-
-  it("keeps the decisions, notes and margins changed here, and takes the rest", () => {
-    expect(keepLocalChanges(fresh, prev)).toEqual({ decisions: ["mine"], notes: ["mine"], settings: { margins: { a: 1 }, fastSeconds: 20 }, plotsChecked: 2 });
-  });
-});

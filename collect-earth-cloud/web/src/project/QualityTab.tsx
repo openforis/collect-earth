@@ -35,7 +35,6 @@ import {
   barPercent,
   canWriteNote,
   formatRate,
-  keepLocalChanges,
   labelMap,
   marginRows,
   marginsToSave,
@@ -700,7 +699,7 @@ export function QualityTab({ projectId, view = "review" }: { projectId: string; 
 function TeamQualityTab({ projectId, view }: { projectId: string; view: ProjectView<"quality"> }) {
   const t = useT();
   // A load that started before a decision, a note or margins were saved here keeps those as saved.
-  const quality = useLoad(() => getQuality(projectId), [projectId], { merge: keepLocalChanges });
+  const quality = useLoad(["project", projectId, "getQuality"], () => getQuality(projectId));
   const { data, error, loading, reload, setData } = quality;
   const [note, setNote] = useState<NoteDraft | null>(null);
   const sectionsRef = useRef<HTMLDivElement>(null);

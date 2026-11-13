@@ -84,7 +84,7 @@ function Section({ title, children, explain, more, pageHeading = false }: { titl
 export function TrainingTab({ projectId, setId }: { projectId: string; setId?: string }) {
   const t = useT();
   const { language } = useApp();
-  const state = useLoad(() => getTraining(projectId), [projectId]);
+  const state = useLoad(["project", projectId, "getTraining"], () => getTraining(projectId));
   const n = (v: number) => formatNumber(v, language);
   // A set has its own address, so Back (the browser's or the report's) returns to it.
   const setOpen = (id: string) => navigate(pathFor({ name: "trainingSet", projectId, setId: id }));
@@ -234,7 +234,7 @@ function ClashAlert({ error, language }: { error: unknown; language: string }) {
 /** One set: its settings and participants, the calibration figures, the golden answers and the scores. */
 function SetPage({ projectId, setId, members, onBack }: { projectId: string; setId: string; members: TrainingPerson[]; onBack: () => void }) {
   const t = useT();
-  const state = useLoad(() => getTrainingSet(projectId, setId), [projectId, setId]);
+  const state = useLoad(["project", projectId, "getTrainingSet", setId], () => getTrainingSet(projectId, setId));
   const data = state.data;
   return (
     <Stack spacing={3}>

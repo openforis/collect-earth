@@ -371,7 +371,7 @@ function PeriodsOfThisProject({ projectId, periods, onSaved }: { projectId: stri
 /** Settings: "Repeat this survey", and for a repeat survey its earlier periods. */
 export function RepeatCard({ projectId, name }: { projectId: string; name: string }) {
   const t = useT();
-  const periods = useLoad(() => getPeriods(projectId), [projectId]);
+  const periods = useLoad(["project", projectId, "getPeriods"], () => getPeriods(projectId));
   const [open, setOpen] = useState(false);
   return (
     <CardFrame title={t("repeat.cardTitle")} fold={t("repeat.intro.short")}>
@@ -397,11 +397,11 @@ export function RepeatCard({ projectId, name }: { projectId: string; name: strin
 export function EarlierPeriods({ projectId, plot, labels, options }: { projectId: string; plot: string; labels: Record<string, string>; options: AnswerOptions }) {
   const t = useT();
   const { language } = useApp();
-  const loaded = useLoad(async () => {
+  const loaded = useLoad(["project", projectId, "RepeatSurvey.loaded", plot], async () => {
     const periods = await getPeriods(projectId);
     if (!periods.settings) return null;
     return { periods, plotPeriods: await getPlotPeriods(projectId, plot) };
-  }, [projectId, plot]);
+  });
   if (!loaded.data) return null;
   const { periods, plotPeriods } = loaded.data;
   const answers = plotPeriods.periods;
@@ -467,14 +467,14 @@ const OUTCOMES = ["unchanged", "changed", "corrected", "new", "pending"] as cons
  */
 export function ChangeCard({ projectId }: { projectId: string }) {
   const t = useT();
-  const periods = useLoad(() => getPeriods(projectId), [projectId]);
+  const periods = useLoad(["project", projectId, "getPeriods"], () => getPeriods(projectId));
   const [question, setQuestion] = useState<string | null>(null);
   const [period, setPeriod] = useState<string | null>(null);
   const [which, setWhich] = useState<"changed" | "corrected" | "mismatch">("changed");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const repeats = periods.data?.settings != null;
-  const change = useLoad(() => (repeats ? getRepeatChange(projectId, question, period) : Promise.resolve(null)), [projectId, question, period, repeats]);
+  const change = useLoad(["project", projectId, "RepeatSurvey.change", question, period, repeats], () => (repeats ? getRepeatChange(projectId, question, period) : Promise.resolve(null)));
   if (!repeats) return null;
   const data = change.data;
   const name = (code: string | null) => (code === null ? "—" : (data?.options.find((o) => o.code === code)?.label ?? code));
