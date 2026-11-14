@@ -641,9 +641,17 @@ public class LocalPropertiesService extends Observable {
 		return isPropertyActivated(EarthProperty.EXCEPTION_SHOWN);
 	}
 
-	/** Planet is offered once its key is set (open_planet_maps is no longer read): without one it shows nothing. */
+	/**
+	 * Planet opens when its switch (open_planet_maps) is on and a key is set. The switch is on unless it says false: files
+	 * without it opened Planet by its key alone.
+	 */
 	public boolean isPlanetMapsSupported() {
-		return !getValue(EarthProperty.PLANET_MAPS_KEY).trim().isEmpty();
+		return isPlanetMapsOpen() && !getValue(EarthProperty.PLANET_MAPS_KEY).trim().isEmpty();
+	}
+
+	/** The switch of Planet, on unless it says false (blank in the files written while the key alone decided). */
+	public boolean isPlanetMapsOpen() {
+		return !"false".equalsIgnoreCase(getValue(EarthProperty.OPEN_PLANET_MAPS).trim());
 	}
 
 

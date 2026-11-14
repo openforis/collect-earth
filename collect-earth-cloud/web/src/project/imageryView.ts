@@ -5,7 +5,7 @@ import type { MessageKey } from "../i18n";
 
 export type ImageryValues = Record<string, string>;
 
-export const SWITCHES = ["open_gee_app", "open_earth_map", "open_esri_wayback", "planet_maps_use_tfo"] as const;
+export const SWITCHES = ["open_gee_app", "open_earth_map", "open_esri_wayback", "open_planet_maps", "planet_maps_use_tfo"] as const;
 const DATES = ["geeapp_date_from", "geeapp_date_to"];
 const MONTHS = ["planet_tfo_date_from", "planet_tfo_date_to"];
 const KEYS = [...SWITCHES, ...DATES, ...MONTHS, "extra_map_url"];
@@ -16,14 +16,20 @@ export function shownImagery(stored: ImageryValues): ImageryValues {
   const values: ImageryValues = {};
   for (const key of KEYS) values[key] = (stored[key] ?? "").trim();
   for (const key of SWITCHES) values[key] = String(values[key].toLowerCase() === "true");
+  // Planet's switch is on unless it says false (LocalPropertiesService.isPlanetMapsOpen): files without it opened Planet by the key
+  values.open_planet_maps = String((stored.open_planet_maps ?? "").trim().toLowerCase() !== "false");
   for (const key of MONTHS) if (values[key] === "Oldest" || values[key] === "Latest") values[key] = "";
   return values;
 }
 
-/** Whether a field shows (SettingsModel's visibleWhen): the dates with the Earth Engine app, the months with the TFO mosaics. */
+/**
+ * Whether a field shows (SettingsModel's visibleWhen): the dates with the Earth Engine app, which Planet imagery with
+ * Planet on, the months with its monthly mosaics.
+ */
 export function isShown(key: string, v: ImageryValues): boolean {
   if (DATES.includes(key)) return v.open_gee_app === "true";
-  if (MONTHS.includes(key)) return v.planet_maps_use_tfo === "true";
+  if (key === "planet_maps_use_tfo") return v.open_planet_maps === "true";
+  if (MONTHS.includes(key)) return v.open_planet_maps === "true" && v.planet_maps_use_tfo === "true";
   return true;
 }
 

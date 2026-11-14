@@ -170,7 +170,9 @@ public class CloudCoordinatorSettings {
 		if (isOn(EarthProperty.OPEN_ESRI_WAYBACK)) {
 			windows.add("ESRI Wayback"); //$NON-NLS-1$
 		}
-		if (StringUtils.isNotBlank(properties.getValue(EarthProperty.PLANET_MAPS_KEY))) {
+		// Planet with its switch on (on unless false, as LocalPropertiesService.isPlanetMapsSupported reads it) and the key
+		if (!"false".equalsIgnoreCase(StringUtils.trimToEmpty(properties.getValue(EarthProperty.OPEN_PLANET_MAPS))) //$NON-NLS-1$
+				&& StringUtils.isNotBlank(properties.getValue(EarthProperty.PLANET_MAPS_KEY))) {
 			windows.add("Planet"); //$NON-NLS-1$
 		}
 		if (isOn(EarthProperty.OPEN_GEE_APP)) {
