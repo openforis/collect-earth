@@ -250,6 +250,11 @@ export function durationText(t: Translate, ms: number): string {
   return rest === 0 || minutes >= 10 ? t("person.minutes", { n: minutes }) : t("person.minutesSeconds", { m: minutes, s: rest });
 }
 
+/** The usual time between two submissions: "under 1 s" rather than "0 s" when it rounds to nothing. */
+export function medianGapText(t: Translate, ms: number): string {
+  return Math.round(ms / 1000) === 0 ? t("person.under", { d: durationText(t, 1000) }) : durationText(t, ms);
+}
+
 /** A speed bin's words: "under 15 s", "15 s to 30 s", … */
 export function bucketLabel(t: Translate, buckets: readonly { upToMs: number }[], index: number): string {
   const upTo = durationText(t, buckets[index].upToMs);
@@ -389,6 +394,18 @@ export function finishWhen(t: Translate, w: Pick<Workload, "left" | "daysLeft">,
   if (w.daysLeft <= 0) return t("peopleTable.title.workloadToday");
   if (w.daysLeft === 1) return t("peopleTable.title.workloadTomorrow");
   return t("peopleTable.title.workloadInDays", { n: formatNumber(w.daysLeft, language) });
+}
+
+/** One person's workload in a line, for narrow screens: "27 left to do · 0.7 a day · about 22 Dec 2026". */
+export function workloadLine(t: Translate, w: Workload, language: string, dayText: (date: string) => string): string {
+  const parts = [t("peopleTable.leftCount", { n: formatNumber(w.left, language) })];
+  if (w.left > 0) {
+    parts.push(w.pace === null ? t("peopleTable.title.workloadNoPaceTip") : t("peopleTable.title.workloadPerDay", { n: perDayText(w.pace, language) }));
+    if (w.finish !== null) parts.push(t("peopleTable.title.workloadAbout", { date: dayText(w.finish) }));
+  } else if (w.daysLeft === 0) {
+    parts.push(t("peopleTable.title.workloadFinished"));
+  }
+  return parts.join(" · ");
 }
 
 /** Under the plots left: "and 3 copies to compare", "and 1 copy to compare". */

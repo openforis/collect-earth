@@ -8,11 +8,13 @@ import {
   checksLeftText,
   csvCell,
   durationText,
+  medianGapText,
   fileLeft,
   filterPeople,
   finishOf,
   finishPhrase,
   finishWhen,
+  workloadLine,
   lastToFinish,
   moveCount,
   heatLevel,
@@ -195,6 +197,8 @@ describe("speed words", () => {
   it("durations and bins", () => {
     expect(durationText(t, 8_000)).toBe("8 s");
     expect(durationText(t, 90_000)).toBe("1 min 30 s");
+    expect(medianGapText(t, 300)).toBe("under 1 s");
+    expect(medianGapText(t, 8_000)).toBe("8 s");
     expect(durationText(t, 12 * 60_000)).toBe("12 min");
     const buckets = [{ upToMs: 15_000 }, { upToMs: 30_000 }];
     expect(bucketLabel(t, buckets, 0)).toBe("under 15 s");
@@ -249,6 +253,10 @@ describe("the workload board", () => {
     expect(finishWhen(t, { left: 5, daysLeft: 1 }, "en")).toBe("tomorrow");
     expect(finishWhen(t, { left: 5, daysLeft: null }, "en")).toBe("—");
     expect(finishWhen(t, { left: 0, daysLeft: 0 }, "en")).toBe("Finished");
+    const w = { userId: "u", username: "joao", left: 27, done: 33, assigned: 60, checksLeft: 0, pace: 0.71, daysLeft: 38, finish: "2026-12-22" };
+    expect(workloadLine(t, w, "en", (d) => d)).toBe("27 left to do · 0.7 a day · about 2026-12-22");
+    expect(workloadLine(t, { ...w, pace: null, daysLeft: null, finish: null }, "en", (d) => d)).toBe("27 left to do · Nothing submitted in the last 7 days");
+    expect(workloadLine(t, { ...w, left: 0, daysLeft: 0, finish: null }, "en", (d) => d)).toBe("0 left to do · Finished");
     expect(checksLeftText(t, 3, "en")).toBe("and 3 copies to compare");
     expect(checksLeftText(t, 1, "en")).toBe("and 1 copy to compare");
     expect(checksLeftText(translator("es"), 1, "es")).toBe("y 1 copia para comparar");

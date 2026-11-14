@@ -112,8 +112,13 @@ function SetupForm({ projectId, setup, onSaved, onCancel }: { projectId: string;
   );
   // The areas are set in one place, Setup › Areas: the figures wait for them, the settings do not
   const needsArea = setup.areas === null;
-  const ready = initial !== "" && final !== "";
+  // the button stays on: a click with a question not chosen marks it
+  const [tried, setTried] = useState(false);
   const save = async () => {
+    if (initial === "" || final === "") {
+      setTried(true);
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -124,8 +129,17 @@ function SetupForm({ projectId, setup, onSaved, onCancel }: { projectId: string;
       setSaving(false);
     }
   };
-  const question = (value: string, onChange: (v: string) => void, label: MessageKey) => (
-    <TextField select size="small" label={t(label)} value={value} onChange={(e) => onChange(e.target.value)} sx={{ minWidth: 240, flex: 1 }}>
+  const question = (value: string, onChange: (v: string) => void, label: MessageKey, missing: MessageKey) => (
+    <TextField
+      select
+      size="small"
+      label={t(label)}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      error={tried && value === ""}
+      helperText={tried && value === "" ? t(missing) : undefined}
+      sx={{ minWidth: 240, flex: 1 }}
+    >
       {setup.questions.map((q) => (
         <MenuItem key={q.name} value={q.name}>
           {labelIn(q.labels, language, setup, q.name)} ({q.name})
@@ -138,12 +152,12 @@ function SetupForm({ projectId, setup, onSaved, onCancel }: { projectId: string;
       <Typography variant="h2" sx={{ mb: 2 }}>
         {t("uncertainty.setup")}
       </Typography>
-      <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mb: 2 }}>
-        {question(initial, setInitial, "uncertainty.initialQuestion")}
+      <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mb: 2, alignItems: { sm: "flex-start" } }}>
+        {question(initial, setInitial, "uncertainty.initialQuestion", "uncertainty.chooseInitial")}
         <TextField size="small" label={t("uncertainty.initialYear")} value={initialYear} onChange={(e) => setInitialYear(e.target.value)} slotProps={{ htmlInput: { maxLength: 20 } }} />
       </Stack>
-      <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mb: 2 }}>
-        {question(final, setFinal, "uncertainty.finalQuestion")}
+      <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mb: 2, alignItems: { sm: "flex-start" } }}>
+        {question(final, setFinal, "uncertainty.finalQuestion", "uncertainty.chooseFinal")}
         <TextField size="small" label={t("uncertainty.finalYear")} value={finalYear} onChange={(e) => setFinalYear(e.target.value)} slotProps={{ htmlInput: { maxLength: 20 } }} />
       </Stack>
       {needsArea ? (
@@ -212,7 +226,7 @@ function SetupForm({ projectId, setup, onSaved, onCancel }: { projectId: string;
       )}
       {error ? <ErrorAlert error={error} /> : null}
       <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-        <Button variant="contained" disabled={!ready || saving} onClick={save}>
+        <Button variant="contained" disabled={saving} onClick={save}>
           {t("uncertainty.save")}
         </Button>
         {onCancel && <Button onClick={onCancel}>{t("uncertainty.cancel")}</Button>}

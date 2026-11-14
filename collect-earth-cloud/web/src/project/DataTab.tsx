@@ -178,30 +178,27 @@ export function DataTab({ projectId }: { projectId: string }) {
               {t("data.labelsHelp")}
             </Typography>
           </Box>
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ alignItems: { sm: "center" } }}>
-            <TextField select size="small" label={t("data.format")} value={format} onChange={(e) => setFormat(e.target.value as ExportFormat)} sx={{ minWidth: 240 }}>
-              {EXPORT_FORMATS.map((f) => (
-                <MenuItem key={f} value={f}>
-                  {t(FORMAT_LABELS[f])}
-                </MenuItem>
-              ))}
-            </TextField>
-            <Box>
-              <Button variant="contained" size="large" startIcon={<Download />} onClick={download} disabled={busy || !chosen}>
-                {busy ? t("data.downloading") : t("data.download")}
-              </Button>
-            </Box>
-          </Stack>
-          {format === "csv" ? (
+          {format === "csv" && (
             <Box>
               <FormControlLabel control={<Checkbox checked={noPositions} onChange={(e) => setNoPositions(e.target.checked)} />} label={t("data.noPositions")} />
               <Typography variant="body2" color="text.secondary">
                 {t("data.noPositionsHelp")}
               </Typography>
             </Box>
-          ) : (
-            <Explain variant="body2" text={t("data.formatHint.short")} more={t("data.formatHint")} />
           )}
+          <TextField select size="small" label={t("data.format")} value={format} onChange={(e) => setFormat(e.target.value as ExportFormat)} sx={{ minWidth: 240 }}>
+            {EXPORT_FORMATS.map((f) => (
+              <MenuItem key={f} value={f}>
+                {t(FORMAT_LABELS[f])}
+              </MenuItem>
+            ))}
+          </TextField>
+          {format !== "csv" && <Explain variant="body2" text={t("data.formatHint.short")} more={t("data.formatHint")} />}
+          <Box>
+            <Button variant="contained" size="large" startIcon={<Download />} onClick={download} disabled={busy || !chosen} sx={{ whiteSpace: "nowrap" }}>
+              {busy ? t("data.downloading") : t("data.download")}
+            </Button>
+          </Box>
           {done && (
             <Alert severity="success" role="status">
               {t("data.downloaded")}
