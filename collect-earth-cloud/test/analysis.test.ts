@@ -146,7 +146,7 @@ describe('expansion factors, as RegionCalculationUtils works them out', () => {
   });
 
   // areas_per_attribute.csv, as the analysis reads it (src/routes/analysis.ts projectFactors): no dashboard setting, no plot file
-  const noSettings = { getAreaSettings: async () => null, getUncertaintySettings: async () => null } as unknown as Store;
+  const noSettings = { getAreaSettings: async () => null, getUncertaintySettings: async () => null, getRepeatSettings: async () => null } as unknown as Store;
   const fromFile = (attributeAreas: string | undefined, of = plots) =>
     projectFactors(noSettings, 'p', { model, attributeAreas }, new Map([...of].map(([unit, summary]) => [unit, { recordKey: unit, operator: 'ana', summary }])), null, async () => []);
 

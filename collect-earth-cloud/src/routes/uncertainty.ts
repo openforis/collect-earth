@@ -57,8 +57,11 @@ export async function registerUncertaintyRoutes(app: FastifyInstance, store: Sto
     if (!parsed) return reply;
     const settings = parseSettings(request.body, codeColumns(parsed), parsed.model.lists);
     if (typeof settings === 'string') return reply.code(400).send({ error: 'invalid_settings', message: settings });
-    await store.setUncertaintySettings(projectId, settings);
-    return reply.send({ settings } satisfies UncertaintySettingsAnswer);
+    // The areas are set in Setup › Areas: a total area sent here is not taken, and one typed here before stays as it is
+    // (read last, cleared when the areas are saved: src/areas.ts earlierTotalArea)
+    const kept = { ...settings, totalArea: (await store.getUncertaintySettings(projectId))?.totalArea ?? null };
+    await store.setUncertaintySettings(projectId, kept);
+    return reply.send({ settings: kept } satisfies UncertaintySettingsAnswer);
   });
 
   app.get('/v1/projects/:pid/uncertainty', reviewer, async (request: FastifyRequest, reply: FastifyReply) => {

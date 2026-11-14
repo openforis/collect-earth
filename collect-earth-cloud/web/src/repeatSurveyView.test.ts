@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PlotPeriod } from "./api";
-import { areaText, classRows, matrixTable, parseArea, periodRows, plotsToShow, repeatName, thinStrata } from "./repeatSurveyView";
+import { areaText, classRows, matrixTable, periodRows, plotsToShow, repeatName, thinStrata } from "./repeatSurveyView";
 
 describe("a repeat survey's earlier answers", () => {
   const periods: PlotPeriod[] = [
@@ -74,16 +74,5 @@ describe("the areas of the changes", () => {
 
   it("tells the strata whose uncertainty is not counted", () => {
     expect(thinStrata({ notEstimable: [{ key: "A", area: 1, plots: 1 }, { key: "B", area: 1, plots: 0 }] })).toEqual([{ key: "A", area: 1, plots: 1 }]);
-  });
-
-  it("reads the total area typed: spaces and a decimal comma taken, nothing else", () => {
-    expect(parseArea("12 500")).toBe(12500);
-    expect(parseArea("1250,5")).toBe(1250.5);
-    expect(parseArea(" 300.25 ")).toBe(300.25);
-    expect(parseArea("0")).toBeNull();
-    expect(parseArea("-5")).toBeNull();
-    expect(parseArea("1,250.5")).toBeNull();
-    expect(parseArea("abc")).toBeNull();
-    expect(parseArea("")).toBeNull();
   });
 });

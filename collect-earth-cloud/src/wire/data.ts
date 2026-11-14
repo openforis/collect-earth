@@ -112,7 +112,10 @@ export interface UncertaintySettings {
   finalYear: string;
   /** Per code list, each code's IPCC category; null: left out on purpose. A code not here is unmapped. */
   codes: Record<string, Record<string, IpccCategory | null>>;
-  /** The area in hectares when the project file has no areas file (every plot then stands for the same area). */
+  /**
+   * A total area in hectares typed here before the areas had one place (Setup › Areas): read only (saving these settings
+   * keeps it), read last as every figure reads the areas, and cleared when the areas are saved (src/areas.ts).
+   */
   totalArea: number | null;
 }
 
@@ -233,6 +236,4 @@ export interface ChangeAreas extends ChangeAreaEstimates {
   source: string | null;
   /** false: no areas and no total area, the areas are shares of the whole */
   areaKnown: boolean;
-  /** the total area saved by the coordinator, null when none */
-  savedArea: number | null;
 }

@@ -27,7 +27,6 @@ import {
 } from "../api";
 import { labelIn } from "../analysisView";
 import { useApp } from "../appContext";
-import { shownArea, typedArea } from "../areasView";
 import { AppShell } from "../components/AppShell";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Loading } from "../components/Loading";
@@ -103,7 +102,6 @@ function SetupForm({ projectId, setup, onSaved, onCancel }: { projectId: string;
   const [final, setFinal] = useState(named(s?.final ?? "land_use_category"));
   const [initialYear, setInitialYear] = useState(s?.initialYear ?? "");
   const [finalYear, setFinalYear] = useState(s?.finalYear ?? "");
-  const [totalArea, setTotalArea] = useState(s?.totalArea ? shownArea(s.totalArea, language) : "");
   // the person's choices, over the saved ones (the rows are worked out again when the questions change)
   const [chosen, setChosen] = useState<Record<string, CodeChoice>>({});
   const [saving, setSaving] = useState(false);
@@ -112,14 +110,14 @@ function SetupForm({ projectId, setup, onSaved, onCancel }: { projectId: string;
     () => codeRows(setup.questions, setup.lists, [initial, final], s?.codes ?? {}, (i) => labelIn(i.labels, language, setup, i.code)).map((r) => ({ ...r, choice: chosen[`${r.list}\u0000${r.code}`] ?? r.choice })),
     [setup, initial, final, s, language, chosen],
   );
-  const area = typedArea(totalArea, language) ?? Number.NaN;
+  // The areas are set in one place, Setup › Areas: the figures wait for them, the settings do not
   const needsArea = setup.areas === null;
-  const ready = initial !== "" && final !== "" && (!needsArea || (Number.isFinite(area) && area > 0));
+  const ready = initial !== "" && final !== "";
   const save = async () => {
     setSaving(true);
     setError(null);
     try {
-      onSaved(await saveUncertaintySettings(projectId, { initial, final, initialYear, finalYear, codes: codesOf(rows), totalArea: needsArea ? area : null }));
+      onSaved(await saveUncertaintySettings(projectId, { initial, final, initialYear, finalYear, codes: codesOf(rows), totalArea: null }));
     } catch (e) {
       setError(e);
     } finally {
@@ -149,16 +147,17 @@ function SetupForm({ projectId, setup, onSaved, onCancel }: { projectId: string;
         <TextField size="small" label={t("uncertainty.finalYear")} value={finalYear} onChange={(e) => setFinalYear(e.target.value)} slotProps={{ htmlInput: { maxLength: 20 } }} />
       </Stack>
       {needsArea ? (
-        <TextField
-          size="small"
-          label={t("uncertainty.totalArea")}
-          value={totalArea}
-          onChange={(e) => setTotalArea(e.target.value)}
-          slotProps={{ htmlInput: { inputMode: "decimal" } }}
-          helperText={t("uncertainty.totalAreaHelp")}
-          sx={{ mb: 2, maxWidth: 420 }}
-          fullWidth
-        />
+        <Alert
+          severity="info"
+          sx={{ mb: 2 }}
+          action={
+            <Button color="inherit" size="small" {...linkProps(pathFor({ name: "project", projectId, tab: "setup", view: "areas" }))}>
+              {t("view.setup.areas")}
+            </Button>
+          }
+        >
+          {t("uncertainty.noAreas")}
+        </Alert>
       ) : (
         <Typography variant="body2" sx={{ mb: 2 }}>
           {setup.areas === "strata" || setup.areas === "total" ? t("uncertainty.areasSetting") : t("uncertainty.areasFile", { file: setup.areas! })}

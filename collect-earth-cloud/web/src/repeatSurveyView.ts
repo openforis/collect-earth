@@ -100,11 +100,3 @@ export function classRows(areas: Pick<ChangeAreas, "classes">, options: readonly
 
 /** The strata whose uncertainty is not counted: fewer than 2 plots compared, but some (with none, their area is left out). */
 export const thinStrata = (areas: Pick<ChangeAreas, "notEstimable">) => areas.notEstimable.filter((s) => s.plots > 0);
-
-/** The total area typed by a coordinator: a number of hectares above 0 (spaces, and a comma for the decimals, taken), else null. */
-export function parseArea(text: string): number | null {
-  const cleaned = text.trim().replace(/[\s\u00a0\u202f]/g, "");
-  if (!/^\d+([.,]\d+)?$/.test(cleaned)) return null;
-  const n = Number(cleaned.replace(",", "."));
-  return Number.isFinite(n) && n > 0 && n <= 1e12 ? n : null;
-}

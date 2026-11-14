@@ -603,7 +603,7 @@ export function ChangeCard({ projectId }: { projectId: string }) {
                 ))}
               </Box>
             )}
-            <ChangeAreas key={`${data.question.key}\u0000${data.period}\u0000${data.areas.savedArea}`} projectId={projectId} data={data} onSaved={change.reload} />
+            <ChangeAreas key={`${data.question.key}\u0000${data.period}`} projectId={projectId} data={data} />
           </>
         )}
       </Stack>

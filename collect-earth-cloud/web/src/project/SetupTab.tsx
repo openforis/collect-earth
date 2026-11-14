@@ -96,7 +96,7 @@ export function SetupTab({ projectId, name, status, section, fileId, onGo }: {
     overview: <OverviewTab projectId={projectId} onGo={onGo} />,
     survey: <FileTab projectId={projectId} />,
     plots: fileId ? <PlotFilePage key={fileId} projectId={projectId} fileId={fileId} onGo={onGo} /> : <PlotsTab projectId={projectId} onGo={onGo} />,
-    areas: <StrataAreas projectId={projectId} />,
+    areas: <StrataAreas projectId={projectId} defaultOpen />,
     layout: <LayoutSection projectId={projectId} />,
     quality: (
       <Stack spacing={3}>

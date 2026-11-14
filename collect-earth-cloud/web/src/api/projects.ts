@@ -27,7 +27,6 @@ import type {
   ProjectListAnswer,
   PropertiesValues,
   RepeatAnswer,
-  RepeatAreaAnswer,
   RepeatChange,
   RepeatPreview,
   RoundAnswer,
@@ -201,11 +200,6 @@ export async function downloadRepeatChangeAreas(projectId: string, question: str
 export async function downloadPeriodsExport(projectId: string): Promise<{ blob: Blob; filename: string }> {
   const response = await send("GET", `${p(projectId)}/periods/export.csv`);
   return { blob: await response.blob(), filename: attachmentName(response, "periods.csv") };
-}
-
-/** The total area in hectares of a repeat survey whose project file has no areas file; null clears it. */
-export function setRepeatArea(projectId: string, totalArea: number | null): Promise<RepeatAreaAnswer> {
-  return request("PUT", `${p(projectId)}/periods/area`, { json: { totalArea } });
 }
 
 export type { PlotPeriod, PlotPeriodsAnswer } from "../../../src/wire/projects";

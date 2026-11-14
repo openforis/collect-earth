@@ -207,7 +207,7 @@ export async function registerAiRoutes(app: FastifyInstance, store: Store, confi
     if (!parsed) {
       return reply.code(409).send({ error: 'survey_unreadable', reason: 'The survey of the project file cannot be read.' });
     }
-    const hasAreas = (await areasSource(store, projectId, parsed)) !== null || !!(await store.getUncertaintySettings(projectId))?.totalArea;
+    const hasAreas = (await areasSource(store, projectId, parsed)) !== null;
     const structure = analysisStructure(parsed.model, table, language as string, hasAreas);
     if (!structure) {
       return reply.code(400).send(bad('the survey has no such table'));

@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { gzipSync } from 'node:zlib';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { analysisModel, analysisTables, ATTRIBUTE_AREAS_CSV, csvTextOf, expansionFactors, recordId, REGION_AREAS_CSV, type AnalysisModel, type AnalysisRecord, type Factors } from '../analysis.js';
-import { strataFactors, strataOfFile, totalFactors } from '../areas.js';
+import { earlierTotalArea, strataFactors, strataOfFile, totalFactors } from '../areas.js';
 import { plotFileOf } from '../plotFileCache.js';
 import { fileKeyCount } from '../rounds.js';
 import type { RoundInfo } from '../types.js';
@@ -253,7 +253,8 @@ export function firstAssessments(rows: readonly RecordRow[], resolve: ReturnType
 
 /**
  * The expansion factors of the plots: from the project's strata and areas set on the dashboard (src/areas.ts), else the
- * project file's areas file, else the Uncertainty page's total area; null when there is none of them.
+ * project file's areas file, else a total area typed before on another page (earlierTotalArea); null when there is none
+ * of them. The analysis, the uncertainty, the IPCC files and a repeat survey's change areas all read them here.
  */
 export async function projectFactors(
   store: Store,
@@ -276,14 +277,17 @@ export async function projectFactors(
     const { values, unknownColumns } = await strataValues(files, parsed.model, info, file.areas.columns, firsts);
     return strataFactors(file.areas, values, { source: ATTRIBUTE_AREAS_CSV, unknownColumns, unmatched: file.unreadable });
   }
-  const total = (await store.getUncertaintySettings(projectId))?.totalArea;
+  const total = await earlierTotalArea(store, projectId);
   return total ? totalFactors(total, firsts.keys()) : null;
 }
 
-/** Where the areas come from, the Uncertainty page's own total area left out: the dashboard's setting or a file. */
+/** Where the areas come from, in projectFactors' order: the dashboard's setting, a file, or a total typed before. */
 export async function areasSource(store: Store, projectId: string, parsed: NonNullable<Parsed>): Promise<AreasSource | null> {
   const settings = await store.getAreaSettings(projectId);
-  return settings ? settings.mode : parsed.regionAreas ? REGION_AREAS_CSV : parsed.attributeAreas ? ATTRIBUTE_AREAS_CSV : null;
+  if (settings) return settings.mode;
+  if (parsed.regionAreas) return REGION_AREAS_CSV;
+  if (parsed.attributeAreas) return ATTRIBUTE_AREAS_CSV;
+  return (await earlierTotalArea(store, projectId)) ? 'total' : null;
 }
 
 /** The survey's plot question of a column's name (any case), or null: a column of the plot files only. */

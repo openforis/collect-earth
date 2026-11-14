@@ -263,7 +263,10 @@ export interface RepeatSettings {
   earlier: { label: string; sourceProjectId: string; sourceName: string; plots: number; madeAt: number }[];
   /** The summary keys of the questions the form's header shows of the earlier period (the plot's main characteristics) */
   headerQuestions: string[];
-  /** The total area in hectares, for the areas of the changes when the project file has no areas file */
+  /**
+   * A total area in hectares typed for the change areas before the areas had one place (Setup › Areas): read last, as
+   * every figure reads the areas, and cleared when the areas are saved (src/areas.ts earlierTotalArea).
+   */
   totalArea?: number;
 }
 
@@ -332,13 +335,8 @@ export interface RepeatChange {
   rows: ChangeRow[];
   /** the areas of the changes, with their uncertainty (stage 4) */
   areas: ChangeAreas;
-  /** a coordinator: may save the total area */
+  /** a coordinator: may change the areas (in Setup › Areas) */
   canEdit: boolean;
-}
-
-/** PUT /v1/projects/:pid/periods/area */
-export interface RepeatAreaAnswer {
-  totalArea: number | null;
 }
 
 /** One plot's answers in an earlier period (who collected them: for coordinators and reviewers only). */

@@ -8,17 +8,17 @@ import TableCell from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
-import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { alpha } from "@mui/material/styles";
-import { useState, type FormEvent, type ReactNode } from "react";
-import { downloadRepeatChangeAreas, setRepeatArea, type AreaEstimate, type RepeatChange } from "../api";
+import { useState, type ReactNode } from "react";
+import { downloadRepeatChangeAreas, type AreaEstimate, type RepeatChange } from "../api";
 import { useApp } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Explain } from "../components/Explain";
 import { useT } from "../i18n";
 import { saveBlob } from "../saveBlob";
-import { areaText, classRows, parseArea, thinStrata } from "../repeatSurveyView";
+import { areaText, classRows, thinStrata } from "../repeatSurveyView";
+import { linkProps, pathFor } from "../router";
 
 const tableSx = { border: 1, borderColor: "divider", borderRadius: 1, overflowX: "auto" } as const;
 const cellSx = { "& th, & td": { px: { xs: 1, sm: 1.5 }, whiteSpace: "nowrap" } } as const;
@@ -38,40 +38,21 @@ function AreaCell({ e, data, signed = false, bold = false }: { e: AreaEstimate; 
 /**
  * The areas of the changes (stage 4 of docs/plans/2026-11-11-repeat-survey.md), with their uncertainty as the IPCC
  * uncertainty page has it: the outcomes' areas, each answer's area in both periods and its net change, the transition
- * matrix in areas, and the file. Hectares from the project file's areas file or the total area entered; shares of the
- * whole until either is known.
+ * matrix in areas, and the file. Hectares from the project's areas, as every figure has them (Setup › Areas, else the
+ * project file's areas file); shares of the whole until there are some.
  */
-export function ChangeAreas({ projectId, data, onSaved }: { projectId: string; data: RepeatChange; onSaved: () => void }) {
+export function ChangeAreas({ projectId, data }: { projectId: string; data: RepeatChange }) {
   const t = useT();
   const { language } = useApp();
   const areas = data.areas;
-  const [typed, setTyped] = useState(areas.savedArea === null ? "" : String(areas.savedArea));
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
-  const typedArea = parseArea(typed);
   const name = (code: string) => data.options.find((o) => o.code === code)?.label ?? code;
   const classes = classRows(areas, data.options);
   const thin = thinStrata(areas);
   const unit = areas.areaKnown ? t("changeAreas.unitHa") : t("changeAreas.unitShare");
   const ha = (v: number) => new Intl.NumberFormat(language, { maximumFractionDigits: 0 }).format(v);
 
-  const save = async (value: number | null) => {
-    setSaving(true);
-    setError(null);
-    try {
-      await setRepeatArea(projectId, value);
-      onSaved();
-    } catch (err) {
-      setError(err);
-    } finally {
-      setSaving(false);
-    }
-  };
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    if (typedArea !== null) void save(typedArea);
-  };
   const download = async () => {
     setBusy(true);
     setError(null);
@@ -110,29 +91,19 @@ export function ChangeAreas({ projectId, data, onSaved }: { projectId: string; d
               : t("changeAreas.fromFile", { file: areas.source, strata: String(areas.strata.length), area: ha(areas.totalArea) })}
         </Typography>
       ) : (
-        <Box component="form" onSubmit={submit} noValidate>
-          {!areas.areaKnown && <Alert severity="info" sx={{ mb: 1.5 }}>{t("changeAreas.sharesOnly")}</Alert>}
-          {data.canEdit ? (
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} sx={{ alignItems: { sm: "flex-start" } }}>
-              <TextField
-                size="small"
-                label={t("changeAreas.totalArea")}
-                value={typed}
-                onChange={(e) => setTyped(e.target.value)}
-                inputMode="decimal"
-                error={typed.trim() !== "" && typedArea === null}
-                helperText={typed.trim() !== "" && typedArea === null ? t("changeAreas.totalAreaInvalid") : t("changeAreas.totalAreaHelp")}
-                sx={{ width: { xs: 1, sm: 260 } }}
-              />
-              <Button type="submit" variant="contained" disabled={saving || typedArea === null || typedArea === areas.savedArea}>{t("changeAreas.save")}</Button>
-              {areas.savedArea !== null && (
-                <Button onClick={() => { setTyped(""); void save(null); }} disabled={saving}>{t("changeAreas.clear")}</Button>
-              )}
-            </Stack>
-          ) : areas.areaKnown ? (
-            <Typography variant="body2" color="text.secondary">{t("changeAreas.totalAreaIs", { area: ha(areas.totalArea) })}</Typography>
-          ) : null}
-        </Box>
+        // No areas yet: they are set in one place, Setup › Areas, for every figure of the project
+        <Alert
+          severity="info"
+          action={
+            data.canEdit ? (
+              <Button color="inherit" size="small" {...linkProps(pathFor({ name: "project", projectId, tab: "setup", view: "areas" }))}>
+                {t("view.setup.areas")}
+              </Button>
+            ) : undefined
+          }
+        >
+          {t("changeAreas.sharesOnly")}
+        </Alert>
       )}
       <ErrorAlert error={error} />
 

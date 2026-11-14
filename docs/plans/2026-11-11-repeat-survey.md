@@ -211,10 +211,11 @@ Repeating the 2025 project in 2030 brings both 2020 and 2025: the periods are a 
   known**: a corrected plot counts with the answer that corrects it, so the net change is a change of the land, not of
   the interpretation. New and pending plots are left out (`skipped.notCompared`), as are plots in no stratum.
 - The strata: the project file's areas file (region_areas.csv or areas_per_attribute.csv, the expansion factors of the
-  analysis), each plot matched by this period's record, else its earlier answers; without one, a single stratum of the
-  **total area** the coordinator saves (`PUT /v1/projects/:pid/periods/area { totalArea }`, kept in `repeat_settings`
-  and carried to a repeat of the repeat; `?area=` tries one without saving); without either, shares of the whole
-  (`areaKnown: false`).
+  analysis), each plot matched by this period's record, else its earlier answers; without one, the project's areas as
+  every figure reads them (Setup › Areas: strata or one total area; a total typed before for the change areas is read
+  last, until the areas are saved); without any, shares of the whole (`areaKnown: false`). Later change: the change
+  areas no longer save a total of their own (`PUT .../periods/area` is gone): the areas have one place, Setup › Areas,
+  and a repeat survey starts with those of the survey it repeats.
 - Routes: `GET .../periods/change` has `areas` and `canEdit`; `GET .../periods/change-areas.csv` (outcomes,
   transitions, corrections, each answer's area in both periods and its net change: plots, area, share, SE, CI,
   uncertainty), logged as `export.downloaded` (`kind: changeAreas`). Isolation cases.

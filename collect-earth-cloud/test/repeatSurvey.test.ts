@@ -417,7 +417,7 @@ describe('repeating a survey in the dashboard', () => {
     expect((await call('GET', '/periods/change', owner.token)).statusCode).toBe(404);
   });
 
-  it('gives the areas of the changes: shares until the total area is known, then hectares, and a file of them', async () => {
+  it('gives the areas of the changes: shares until the project has areas (Setup › Areas), then hectares, and a file of them', async () => {
     const made = await call('POST', '/repeat', owner.token, { name: 'Land 2025', label: '2025', earlierLabel: '2020', members: true });
     const projectId = made.json().projectId;
     expect((await call('PUT', '/status', owner.token, { status: 'active' }, {}, projectId)).statusCode).toBe(200);
@@ -426,19 +426,18 @@ describe('repeating a survey in the dashboard', () => {
     // 2020: plot 1 Forest, plot 2 Cropland; 2025: plot 1 changed to Cropland, plot 2 the same
     expect((await batchRequest(ctx.app, projectId, maria.token, [now(1, 'C', 'changed'), now(2, 'C', 'same')])).statusCode).toBe(200);
     const shares = (await call('GET', '/periods/change', owner.token, undefined, {}, projectId)).json();
-    expect(shares.areas).toMatchObject({ areaKnown: false, source: null, savedArea: null, estimator: 'simple', totalArea: 1, plots: 2, outcomes: { changed: { plots: 1, share: 0.5 } } });
+    expect(shares.areas).toMatchObject({ areaKnown: false, source: null, estimator: 'simple', totalArea: 1, plots: 2, outcomes: { changed: { plots: 1, share: 0.5 } } });
+    expect(shares.areas.savedArea).toBeUndefined();
     expect(shares.canEdit).toBe(true);
 
-    expect((await call('PUT', '/periods/area', maria.token, { totalArea: 5000 }, {}, projectId)).statusCode).toBe(403);
-    expect((await call('PUT', '/periods/area', owner.token, { totalArea: -1 }, {}, projectId)).statusCode).toBe(400);
-    expect((await call('PUT', '/periods/area', owner.token, { totalArea: 5000 }, {}, projectId)).statusCode).toBe(200);
+    // The areas have one place: Setup › Areas (the change areas no longer save a total of their own)
+    expect((await call('PUT', '/periods/area', owner.token, { totalArea: 5000 }, {}, projectId)).statusCode).toBe(404);
+    expect((await call('PUT', '/areas', owner.token, { settings: { mode: 'total', area: 5000 } }, {}, projectId)).statusCode).toBe(200);
     const ha = (await call('GET', '/periods/change', owner.token, undefined, {}, projectId)).json().areas;
-    expect(ha).toMatchObject({ areaKnown: true, savedArea: 5000, totalArea: 5000, outcomes: { changed: { area: 2500 } } });
+    expect(ha).toMatchObject({ areaKnown: true, source: 'total', totalArea: 5000, outcomes: { changed: { area: 2500 } } });
     // Forest lost 2500 ha, Cropland gained them; SE = 5000·√(0.5/2) = 2500
     const forest = ha.classes.find((c: { code: string }) => c.code === 'F');
     expect(forest.net).toMatchObject({ area: -2500, se: 2500, plots: 1 });
-    // an area asked in the query is used without being saved
-    expect((await call('GET', '/periods/change?area=100', owner.token, undefined, {}, projectId)).json().areas.totalArea).toBe(100);
 
     const csv = await call('GET', '/periods/change-areas.csv', owner.token, undefined, {}, projectId);
     expect(csv.statusCode).toBe(200);
@@ -448,10 +447,37 @@ describe('repeating a survey in the dashboard', () => {
     expect(lines.some((l) => /^net change,F,F,[^,]+,[^,]+,1,-2500,-50,2500,4900,196$/.test(l))).toBe(true);
     expect((await call('GET', '/periods/change-areas.csv', maria.token, undefined, {}, projectId)).statusCode).toBe(403);
 
-    // cleared, it is shares again
-    expect((await call('PUT', '/periods/area', owner.token, { totalArea: null }, {}, projectId)).statusCode).toBe(200);
+    // cleared in Setup › Areas, it is shares again
+    expect((await call('PUT', '/areas', owner.token, { settings: null }, {}, projectId)).statusCode).toBe(200);
     expect((await call('GET', '/periods/change', owner.token, undefined, {}, projectId)).json().areas.areaKnown).toBe(false);
-    expect((await call('PUT', '/periods/area', owner.token, { totalArea: 10 })).statusCode).toBe(404);
+  });
+
+  it('starts with the areas of the survey it repeats', async () => {
+    expect((await call('PUT', '/areas', owner.token, { settings: { mode: 'total', area: 3000 } })).statusCode).toBe(200);
+    const made = await call('POST', '/repeat', owner.token, { name: 'Land 2025', label: '2025', earlierLabel: '2020', members: true });
+    expect(made.statusCode, made.body).toBe(201);
+    expect((await call('GET', '/areas', owner.token, undefined, {}, made.json().projectId)).json()).toMatchObject({ source: 'total', settings: { mode: 'total', area: 3000 } });
+  });
+
+  it('reads a total typed before for the change areas as every figure does, until the areas are saved', async () => {
+    const made = await call('POST', '/repeat', owner.token, { name: 'Land 2025', label: '2025', earlierLabel: '2020', members: true });
+    const projectId = made.json().projectId;
+    expect((await call('PUT', '/status', owner.token, { status: 'active' }, {}, projectId)).statusCode).toBe(200);
+    const now = (plot: number, land: string, status: string) =>
+      envelope({ recordKey: `${plot},1`, operator: 'maria', modifiedOn: Date.UTC(2025, 5, plot), summary: { [LAND_USE]: land, collect_code_round: '1', collect_code_period_status: status } });
+    expect((await batchRequest(ctx.app, projectId, maria.token, [now(1, 'C', 'changed'), now(2, 'C', 'same')])).statusCode).toBe(200);
+    // A total saved by the change areas before (the route that did it is gone): kept in the repeat settings
+    const settings = (await ctx.store.getRepeatSettings(projectId))!;
+    await ctx.store.setRepeatSettings(projectId, { ...settings, totalArea: 800 });
+    // The change areas, Setup › Areas and the analysis read the same one
+    expect((await call('GET', '/periods/change', owner.token, undefined, {}, projectId)).json().areas).toMatchObject({ areaKnown: true, source: 'total', totalArea: 800 });
+    expect((await call('GET', '/areas', owner.token, undefined, {}, projectId)).json()).toMatchObject({ source: 'uncertainty', settings: { mode: 'total', area: 800 } });
+    const analysis = (await call('GET', '/analysis', owner.token, undefined, {}, projectId)).json();
+    expect(analysis.areas).toMatchObject({ source: 'total' });
+    // Saved in Setup › Areas, it is the one area, and the one typed before is gone
+    expect((await call('PUT', '/areas', owner.token, { settings: { mode: 'total', area: 1200 } }, {}, projectId)).statusCode).toBe(200);
+    expect((await ctx.store.getRepeatSettings(projectId))!.totalArea).toBeUndefined();
+    expect((await call('GET', '/periods/change', owner.token, undefined, {}, projectId)).json().areas.totalArea).toBe(1200);
   });
 
   it("takes the strata of the project file's areas file", async () => {

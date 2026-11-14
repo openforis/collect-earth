@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { audit } from '../activity.js';
-import { AREA_LIMITS, areasFileText, comparable, parseAreaSettings, strataOfFile, type AreaSettings } from '../areas.js';
+import { AREA_LIMITS, areasFileText, clearEarlierTotalAreas, comparable, earlierTotalArea, parseAreaSettings, strataOfFile, type AreaSettings } from '../areas.js';
 import { attachment } from '../download.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import { isPlotUnit } from '../progress.js';
@@ -32,14 +32,14 @@ export async function registerAreaRoutes(app: FastifyInstance, store: Store, sta
   const reviewer = { preHandler: requireProjectMembership(store, 'reviewer') };
   const coordinator = { preHandler: requireProjectMembership(store, 'admin') };
 
-  /** The areas in use, as a setting: the dashboard's, else the project file's areas_per_attribute.csv, else the Uncertainty page's total. */
+  /** The areas in use, as a setting: the dashboard's, else the project file's areas_per_attribute.csv, else a total typed before. */
   const shownOf = async (projectId: string, parsed: NonNullable<Parsed>): Promise<{ source: AreasSource | 'uncertainty' | null; areas: AreaSettings | null; unreadable: number }> => {
     const settings = await store.getAreaSettings(projectId);
     if (settings) return { source: settings.mode, areas: settings, unreadable: 0 };
     if (parsed.regionAreas) return { source: 'region_areas.csv', areas: null, unreadable: 0 };
     const file = parsed.attributeAreas ? strataOfFile(parsed.attributeAreas) : null;
     if (file) return { source: 'areas_per_attribute.csv', areas: { mode: 'strata', ...file.areas } as AreaSettings, unreadable: file.unreadable };
-    const total = (await store.getUncertaintySettings(projectId))?.totalArea;
+    const total = await earlierTotalArea(store, projectId);
     return total ? { source: 'uncertainty', areas: { mode: 'total', area: total } as AreaSettings, unreadable: 0 } : { source: null, areas: null, unreadable: 0 };
   };
 
@@ -129,6 +129,8 @@ export async function registerAreaRoutes(app: FastifyInstance, store: Store, sta
       settings = checked;
     }
     await store.setAreaSettings(projectId, settings);
+    // One place for the areas: a total typed before on another page goes, also when going back to the project file's
+    await clearEarlierTotalAreas(store, projectId);
     await audit(store, request, 'settings.changed', { setting: 'areas', mode: settings?.mode ?? null, strata: settings?.mode === 'strata' ? settings.strata.length : null });
     return reply.send({ settings } satisfies AreasSaved);
   });
