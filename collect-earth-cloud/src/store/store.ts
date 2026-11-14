@@ -50,7 +50,9 @@ import type {
   ReferenceChange,
   ReferenceChangeResult,
   ReferencePlot,
+  PeriodAnswer,
   ReferenceAnswer,
+  RepeatSettings,
   TrainingAttempt,
   TrainingGolden,
   TrainingKind,
@@ -74,6 +76,7 @@ import type {
   ServerActivityQuery,
   StoppedDigest,
 } from '../types.js';
+import type { OwnerAlertKind } from '../wire/serverAdmin.js';
 import type { UncertaintySettings } from '../uncertainty.js';
 import type { AreaSettings } from '../areas.js';
 import type { CeoShapesJob } from '../ceo/shapes.js';
@@ -129,6 +132,13 @@ export interface CreateInviteInput {
  * as in the auth middleware. Two implementations exist: an in-memory store for
  * development and tests, and a PostgreSQL store for deployment.
  */
+/** One upload of a batch (putRecordsWithEvents): the record and how to apply it, as putRecordWithEvent takes them. */
+export interface RecordUpload {
+  recordKey: string;
+  operator: string;
+  apply: (existing: RecordRow | null, submittedBefore: boolean) => { row: RecordRow; event: RecordEventInput | null } | null;
+}
+
 export interface Store {
   /** A new project is active unless `status` says otherwise (a copy starts as a draft). */
   createProject(input: { name: string; status?: ProjectStatus }): Promise<CreateProjectResult>;
@@ -305,7 +315,7 @@ export interface Store {
   /** The weekly mails stopped because the mail server refused the address, newest first. */
   listStoppedDigests(): Promise<StoppedDigest[]>;
   /** Keeps an alert raised for the server's administrators; its id. */
-  appendOwnerAlert(alert: { kind: string; at: number; count: number; projectId: string | null }): Promise<string>;
+  appendOwnerAlert(alert: { kind: OwnerAlertKind; at: number; count: number; projectId: string | null }): Promise<string>;
   /** The alerts kept, newest first, with how many there are and how many are not seen. */
   listOwnerAlerts(q: { offset: number; limit: number }): Promise<{ alerts: StoredOwnerAlert[]; total: number; unseen: number }>;
   /** Marks these alerts (null: every one not seen) seen by `userId` at `at`; how many were marked. */
@@ -498,6 +508,14 @@ export interface Store {
    * order), in one transaction under the check sampling's lock (no draw nor division meanwhile).
    */
   changeReferencePlots(projectId: string, change: ReferenceChange): Promise<ReferenceChangeResult>;
+  /** A repeat survey's earlier answers (migration 037): one period's, written once (replacing any of that label). */
+  replacePeriodAnswers(projectId: string, label: string, rows: readonly Omit<PeriodAnswer, 'label'>[]): Promise<void>;
+  /** The earlier answers of a repeat survey: one period's, or all of them. */
+  listPeriodAnswers(projectId: string, label?: string): Promise<PeriodAnswer[]>;
+  /** One plot's earlier answers, in every period, oldest first. */
+  getPlotPeriodAnswers(projectId: string, plotKey: string): Promise<PeriodAnswer[]>;
+  getRepeatSettings(projectId: string): Promise<RepeatSettings | null>;
+  setRepeatSettings(projectId: string, settings: RepeatSettings): Promise<void>;
   /** The reference answers a coordinator uploaded (migration 033), by plot unit. */
   listReferenceAnswers(projectId: string): Promise<ReferenceAnswer[]>;
   /** Replaces the whole set of reference answers (none: deletes it); the quality figures' version changes. */
@@ -636,8 +654,8 @@ export interface Store {
    * `code` and `message`, of one project. How many.
    */
   failStaleAiRuns(projectId: string, before: number, code: string, message: string, now: number): Promise<number>;
-  /** The project's runs, newest first, at most `limit`. */
-  listAiRuns(projectId: string, limit: number): Promise<AiRunSummary[]>;
+  /** The project's runs, newest first, at most `limit`; `exceptViews`: without the analysis page's view proposals (the AI tab). */
+  listAiRuns(projectId: string, limit: number, options?: { exceptViews?: boolean }): Promise<AiRunSummary[]>;
   /** Null when the project has no run with that id. */
   getAiRun(projectId: string, runId: string): Promise<AiRunRow | null>;
   /** Every project's AI use for runs started at or after `from`, by project id only; projects without runs are left out. */
@@ -658,6 +676,12 @@ export interface Store {
     operator: string,
     apply: (existing: RecordRow | null, submittedBefore: boolean) => { row: RecordRow; event: RecordEventInput | null } | null,
   ): Promise<boolean>;
+  /**
+   * putRecordWithEvent for a batch of uploads at once, in one transaction (records:batch): each item gets the row
+   * stored before it, including one stored by an earlier item of the batch for the same record, and whether that
+   * record was ever submitted, and gives its row and event as there. Whether each item was stored, in order.
+   */
+  putRecordsWithEvents(projectId: string, items: RecordUpload[]): Promise<boolean[]>;
   /** Logs one record event by itself (putRecordWithEvent is the intake's way). */
   appendRecordEvent(event: RecordEventInput): Promise<void>;
   /**

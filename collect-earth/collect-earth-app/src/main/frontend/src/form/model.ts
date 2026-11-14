@@ -586,14 +586,26 @@ export function answersToRemember(fields: Record<string, Field>, keys: string[],
 }
 
 /**
+ * Whether a number may be copied too: an integer or a decimal one, not calculated nor a key, whose value is a number.
+ * Only from the same plot (a repeat survey's earlier period, "Still the same"): a number measured on one plot (a
+ * percentage of tree cover, a count) is not another plot's, but it is the same plot's while its land has not changed.
+ */
+function copiableNumber(field: Field, keys: string[], value: string): boolean {
+  return !field.readOnly && !field.calculated && (field.type === "integer" || field.type === "real") && !keys.includes(field.name)
+    && numberProblem(field.type, value) === null;
+}
+
+/**
  * The answers of the plot submitted before (`previous`) to copy to the questions of a step (`fields`, those shown, in
- * their order) still left empty: never into a key or a text, never over an answer given.
+ * their order) still left empty: never into a key or a text, never over an answer given. With `numbers`, the integer
+ * and decimal answers too, for the same plot's earlier answers only (see copiableNumber).
  */
 export function answersToCopy(fields: Field[], keys: string[], previous: Record<string, string>,
-  value: (name: string) => string): [string, string][] {
+  value: (name: string) => string, numbers = false): [string, string][] {
   return fields
-    .filter((f) => copiable(f, keys) && value(f.name).trim() === "" && (previous[f.name] ?? "").trim() !== "")
-    .map((f) => [f.name, copiedValue(f, previous[f.name])]);
+    .filter((f) => value(f.name).trim() === "" && (previous[f.name] ?? "").trim() !== ""
+      && (copiable(f, keys) || (numbers && copiableNumber(f, keys, previous[f.name].trim()))))
+    .map((f) => [f.name, f.type === "integer" || f.type === "real" ? previous[f.name].trim() : copiedValue(f, previous[f.name])]);
 }
 
 /**

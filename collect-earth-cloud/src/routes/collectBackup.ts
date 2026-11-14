@@ -28,6 +28,7 @@ import { loadPlotContext } from '../qualityService.js';
 import type { RateLimiter } from '../rateLimit.js';
 import { keyShape } from '../rounds.js';
 import type { Store } from '../store/store.js';
+import type { BackupCounts, BackupLinkAnswer, BackupSummary } from '../wire/data.js';
 import { wholeFile } from './assignments.js';
 
 const BUSY = { error: 'backup_busy', reason: 'another Collect Earth backup is being prepared on this server: try again in a few minutes' };
@@ -76,7 +77,7 @@ export async function registerCollectBackupRoutes(
           '1': planSummary(planBackup(facts.input, '1')),
           all: facts.roundKey ? planSummary(planBackup(facts.input, 'all')) : null,
         },
-      });
+      } satisfies BackupSummary);
     },
   );
 
@@ -97,7 +98,7 @@ export async function registerCollectBackupRoutes(
       secret,
       now(),
     );
-    return reply.send({ url: `/v1/collect-backup/${token}`, expiresAt });
+    return reply.send({ url: `/v1/collect-backup/${token}`, expiresAt } satisfies BackupLinkAnswer);
   });
 
   app.get('/v1/collect-backup/:token', { preHandler: limiter.guard('admin') }, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -271,7 +272,7 @@ function firstCodes(info: RoundInfo | null): string[] | null {
 }
 
 /** A plan's counts for the dialog (not its list of records), and about how large the file is. */
-function planSummary(plan: BackupPlan) {
+function planSummary(plan: BackupPlan): BackupCounts {
   return {
     records: plan.records.length,
     drafts: plan.drafts,

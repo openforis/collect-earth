@@ -1,8 +1,8 @@
-import type { LearningScore, TrainingQuestion, TrainingShare } from "./api";
+import type { LearningScore, TrainingQuestion, Share } from "./api";
 import { percentText } from "./progressView";
 
 /** A share as a percent, "–" when nothing was compared. */
-export function shareText(share: TrainingShare, language: string): string {
+export function shareText(share: Share, language: string): string {
   return percentText(share.agreeing, share.compared, language);
 }
 
@@ -53,7 +53,7 @@ export function readPassMark(text: string): number | null | undefined {
 }
 
 /** Everyone's answers to one question (or on one plot) against the golden ones. */
-export interface Accuracy extends TrainingShare {
+export interface Accuracy extends Share {
   key: string;
   /** For a plot: people who submitted it, and those with every answer right. */
   people?: number;

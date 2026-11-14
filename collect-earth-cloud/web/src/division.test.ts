@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { CsvColumns, Member } from "./api";
-import { toDistribution, toDistributionState, toNearbyInfo } from "./api";
+import type { CsvColumns, DivisionBody, Member, StoredDistribution } from "./api";
 import {
   collectors,
   columnLabel,
@@ -17,6 +16,13 @@ import {
 import { translator } from "./i18n";
 
 const t = translator("en");
+
+/** What the server stores of a division request (src/division.ts parseDivisionRequest): the order and the copies' percent filled in. */
+function stored(request: DivisionBody): StoredDistribution | null {
+  const { dryRun: _dryRun, ...body } = JSON.parse(JSON.stringify(request)) as DivisionBody;
+  if (body.mode === "whole") return null;
+  return { ...body, order: body.order ?? "file", overlapPercent: body.overlapPercent ?? 0 };
+}
 
 const members: Member[] = [
   { userId: "u0", username: "zoe", role: "admin" },
@@ -41,7 +47,7 @@ const columns: CsvColumns = {
       ],
     },
   ],
-  nearby: { available: true, reason: null, withPlace: 120, withoutPlace: 0, srid: null },
+  nearby: { available: true, reason: null, withPlace: 120, withoutPlace: 0 },
 };
 
 const base: DivisionForm = initialForm(null, [], members);
@@ -53,14 +59,13 @@ describe("order nearby (plots close on the map together)", () => {
   it("is sent as it is chosen, round-trips, and needs no seed", () => {
     expect(formProblem(even, columns)).toBeNull();
     expect(toRequest(even, columns)).toEqual({ mode: "even", people: ["u1", "u2"], order: "nearby" });
-    const back = initialForm(toDistribution(JSON.parse(JSON.stringify(toRequest(even, columns)))), [], members);
+    const back = initialForm(stored(toRequest(even, columns)), [], members);
     expect(back).toEqual(even);
     const request = toRequest(even, columns);
-    expect(withSeed(request, { ...request, seed: 4 } as never)).toEqual(request);
+    expect(withSeed(request, { ...stored(request)!, seed: 4 } as StoredDistribution)).toEqual(request);
   });
 
   it("a move after it keeps the order: the form starts on evenly, nearby", () => {
-    expect(toDistribution({ mode: "manual", order: "nearby" })).toEqual({ mode: "manual", order: "nearby" });
     expect(initialForm({ mode: "manual", order: "nearby" }, ["u2"], members)).toMatchObject({ mode: "even", order: "nearby", people: ["u2"] });
   });
 
@@ -74,31 +79,15 @@ describe("order nearby (plots close on the map together)", () => {
     const n = (value: number) => String(value);
     expect(nearbyNote(columns.nearby, t, n)).toBeNull();
     expect(nearbyNote(otherSrs.nearby, t, n)).toBe("Not available: the survey's coordinates are in EPSG:32633, not in latitude and longitude.");
-    expect(nearbyNote({ available: false, reason: "no_places", withPlace: 0, withoutPlace: 3, srid: null }, t, n)).toBe(
+    expect(nearbyNote({ available: false, reason: "no_places", withPlace: 0, withoutPlace: 3 }, t, n)).toBe(
       "Not available: no plot of this file has a latitude and longitude (the two columns after the plot id).",
     );
-    expect(nearbyNote({ available: true, reason: null, withPlace: 100, withoutPlace: 20, srid: null }, t, n)).toBe(
+    expect(nearbyNote({ available: true, reason: null, withPlace: 100, withoutPlace: 20 }, t, n)).toBe(
       "20 plots of this file have no latitude and longitude: they are shared out last, in the order of the file.",
     );
-    expect(nearbyNote({ available: true, reason: null, withPlace: 100, withoutPlace: 1, srid: null }, t, n)).toBe(
+    expect(nearbyNote({ available: true, reason: null, withPlace: 100, withoutPlace: 1 }, t, n)).toBe(
       "1 plot of this file has no latitude and longitude: it is shared out last, in the order of the file.",
     );
-    expect(nearbyNote({ available: false, reason: "unknown", withPlace: 0, withoutPlace: 0, srid: null }, t, n)).toBe(
-      "Not available: this server does not say whether the plots of this file have a latitude and longitude.",
-    );
-  });
-
-  it("reads the server's answer; a server that does not say does not offer it", () => {
-    expect(toNearbyInfo({ available: true, reason: null, withPlace: "9", withoutPlace: 1 }, 10)).toEqual({ available: true, reason: null, withPlace: 9, withoutPlace: 1, srid: null });
-    expect(toNearbyInfo({ available: false, reason: "other_srs", withPlace: 0, withoutPlace: 10, srid: "EPSG:3857" }, 10)).toEqual({
-      available: false,
-      reason: "other_srs",
-      withPlace: 0,
-      withoutPlace: 10,
-      srid: "EPSG:3857",
-    });
-    expect(toNearbyInfo(undefined, 10)).toEqual({ available: false, reason: "unknown", withPlace: 0, withoutPlace: 0, srid: null });
-    expect(toNearbyInfo({ available: false }, 10)).toEqual({ available: false, reason: "unknown", withPlace: 0, withoutPlace: 0, srid: null });
   });
 });
 
@@ -135,7 +124,7 @@ describe("initialForm", () => {
 
   it("a division by column", () => {
     const form = initialForm(
-      { mode: "column", column: 4, groups: [{ value: "La Paz", people: ["u1"] }, { value: "Oruro", people: ["gone"] }], order: "file" },
+      { mode: "column", column: 4, groups: [{ value: "La Paz", people: ["u1"] }, { value: "Oruro", people: ["gone"] }], order: "file", overlapPercent: 0 },
       [],
       members,
     );
@@ -214,45 +203,22 @@ describe("formProblem and toRequest", () => {
 
   it("round-trips through what the server stores", () => {
     const form: DivisionForm = { ...base, mode: "column", column: 4, groups: { Oruro: ["u2"] }, order: "mixed", overlap: true, overlapPercent: "15" };
-    const back = initialForm(toDistribution(JSON.parse(JSON.stringify(toRequest(form, columns)))), [], members);
+    const back = initialForm(stored(toRequest(form, columns)), [], members);
     expect(back).toEqual(form);
   });
 });
 
 describe("withSeed", () => {
   const mixed = { mode: "even" as const, people: ["u1"], order: "mixed" as const };
+  const previewed = { ...mixed, overlapPercent: 0 };
   it("sends back the seed of the preview for mixed plots", () => {
-    expect(withSeed(mixed, { ...mixed, seed: 42 })).toEqual({ ...mixed, seed: 42 });
+    expect(withSeed(mixed, { ...previewed, seed: 42 })).toEqual({ ...mixed, seed: 42 });
   });
   it("otherwise the request as it is", () => {
     expect(withSeed(mixed, null)).toEqual(mixed);
-    expect(withSeed(mixed, { ...mixed })).toEqual(mixed);
-    expect(withSeed({ ...mixed, order: "file" }, { ...mixed, seed: 42 })).toEqual({ ...mixed, order: "file" });
-    expect(withSeed(mixed, { mode: "column", column: 1, groups: [], order: "mixed", seed: 1 })).toEqual(mixed);
-  });
-});
-
-describe("server answers", () => {
-  it("reads a distribution state, whatever is missing", () => {
-    expect(toDistributionState(null)).toEqual({ distribution: null, plotCount: 0, unassigned: 0, people: [] });
-    expect(
-      toDistributionState({
-        distribution: { mode: "even", people: ["u1"], order: "mixed", seed: 3 },
-        plotCount: "120",
-        unassigned: 2,
-        people: [{ userId: "u1", username: "ana", plots: 40, overlap: 4 }],
-      }),
-    ).toEqual({
-      distribution: { mode: "even", people: ["u1"], order: "mixed", seed: 3 },
-      plotCount: 120,
-      unassigned: 2,
-      people: [{ userId: "u1", username: "ana", plots: 40, overlap: 4, sampled: 0, reference: 0, submitted: 0 }],
-    });
-  });
-  it("unknown or whole modes are a whole file", () => {
-    expect(toDistribution({ mode: "whole" })).toBeNull();
-    expect(toDistribution({ mode: "map" })).toBeNull();
-    expect(toDistribution({ mode: "manual", extra: 1 })).toEqual({ mode: "manual" });
+    expect(withSeed(mixed, previewed)).toEqual(mixed);
+    expect(withSeed({ ...mixed, order: "file" }, { ...previewed, seed: 42 })).toEqual({ ...mixed, order: "file" });
+    expect(withSeed(mixed, { mode: "column", column: 1, groups: [], order: "mixed", overlapPercent: 0, seed: 1 })).toEqual(mixed);
   });
 });
 
@@ -275,7 +241,7 @@ describe("evenly by percent", () => {
   it("sends one percent per person ticked, and round-trips", () => {
     expect(formProblem(even, columns)).toBeNull();
     expect(toRequest(even, columns)).toEqual({ mode: "even", people: ["u1", "u2"], percents: [70, 30], order: "file" });
-    const back = initialForm(toDistribution(JSON.parse(JSON.stringify(toRequest(even, columns)))), [], members);
+    const back = initialForm(stored(toRequest(even, columns)), [], members);
     expect(back).toMatchObject({ mode: "even", byPercent: true, percents: { u1: "70", u2: "30" } });
     // Not by percent: no percents sent.
     expect(toRequest({ ...even, byPercent: false }, columns)).not.toHaveProperty("percents");

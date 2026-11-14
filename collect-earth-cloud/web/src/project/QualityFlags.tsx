@@ -26,18 +26,21 @@ import {
   NO_FLAGS_FILTER,
   saveFastSeconds,
   type FlagKind,
-  type FlagsData,
+  type FlagsAnswer,
   type FlagsFilter,
 } from "../api";
 import { useApp, useLocalMode } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Explain } from "../components/Explain";
 import { Loading } from "../components/Loading";
-import { FLAG_KIND_KEYS, flagText, parseSeconds, PROBLEM_KINDS } from "../flagsView";
+import { FoldingCard } from "../components/FoldingCard";
+import { FLAG_KIND_KEYS, flagSaysMore, flagText, parseSeconds, PROBLEM_KINDS } from "../flagsView";
 import { formatDate, formatNumber } from "../format";
 import { useT } from "../i18n";
 import { linkProps, pathFor } from "../router";
 import { useLoad } from "../useLoad";
+import { onceVisibleAfter } from "../visibility";
+import { queryClient } from "../queryClient";
 
 /** The select value for "everyone" / "all kinds" (an empty value would leave the field looking blank). */
 const ALL = "__all__";
@@ -60,33 +63,42 @@ function SelectField({ label, value, onChange, children }: { label: string; valu
   );
 }
 
-/** The "very fast" threshold: coordinators change it, reviewers read it. */
-function Threshold({ projectId, data, canEdit, onSaved }: { projectId: string; data: FlagsData; canEdit: boolean; onSaved: () => void }) {
+/** The "very fast" threshold as the flags use it; coordinators change it in Setup's Quality rules. */
+function Threshold({ projectId, fastSeconds, canEdit }: { projectId: string; fastSeconds: number; canEdit: boolean }) {
+  const t = useT();
+  return (
+    <Typography variant="body2" color="text.secondary">
+      {fastSeconds === 1 ? t("flags.fastReadOnlyOne") : t("flags.fastReadOnly", { n: fastSeconds })}
+      {canEdit && (
+        <>
+          {" "}
+          <Link {...linkProps(pathFor({ name: "project", projectId, tab: "setup", view: "quality" }))}>{t("setup.change")}</Link>
+        </>
+      )}
+    </Typography>
+  );
+}
+
+/** The "very fast" threshold's field (Setup's Quality rules): saved, the flags of every screen are asked again. */
+export function FastSecondsField({ projectId, fastSeconds, onSaved }: { projectId: string; fastSeconds: number; onSaved: (fastSeconds: number) => void }) {
   const t = useT();
   const local = useLocalMode();
-  const [text, setText] = useState(String(data.fastSeconds));
+  const [text, setText] = useState(String(fastSeconds));
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<unknown>(null);
-  useEffect(() => setText(String(data.fastSeconds)), [data.fastSeconds]);
-  if (!canEdit) {
-    return (
-      <Typography variant="body2" color="text.secondary">
-        {data.fastSeconds === 1 ? t("flags.fastReadOnlyOne") : t("flags.fastReadOnly", { n: data.fastSeconds })}
-      </Typography>
-    );
-  }
+  useEffect(() => setText(String(fastSeconds)), [fastSeconds]);
   const value = parseSeconds(text, MIN_FAST_SECONDS, MAX_FAST_SECONDS);
   const range = { min: MIN_FAST_SECONDS, max: MAX_FAST_SECONDS };
   const save = async () => {
-    if (saving || value === null || value === data.fastSeconds) return;
+    if (saving || value === null || value === fastSeconds) return;
     setSaving(true);
     setError(null);
     setSaved(false);
     try {
-      await saveFastSeconds(projectId, value);
+      onSaved(await saveFastSeconds(projectId, value));
+      void queryClient.invalidateQueries({ queryKey: ["project", projectId, "getFlags"] });
       setSaved(true);
-      onSaved();
     } catch (err) {
       setError(err);
     } finally {
@@ -107,12 +119,7 @@ function Threshold({ projectId, data, canEdit, onSaved }: { projectId: string; d
           sx={{ maxWidth: { sm: 320 } }}
         />
         {/* Never disabled (a disabled button drops the keyboard focus once saved): it does nothing until there is a new value. */}
-        <Button
-          variant="outlined"
-          onClick={() => void save()}
-          aria-disabled={saving || value === null || value === data.fastSeconds}
-          sx={{ mt: { sm: 0.25 } }}
-        >
+        <Button variant="contained" onClick={() => void save()} aria-disabled={saving || value === null || value === fastSeconds} sx={{ mt: { sm: 0.25 } }}>
           {t("flags.fastSave")}
         </Button>
       </Stack>
@@ -126,7 +133,7 @@ function Threshold({ projectId, data, canEdit, onSaved }: { projectId: string; d
   );
 }
 
-function PeopleCounts({ data, onPerson }: { data: FlagsData; onPerson: (username: string) => void }) {
+function PeopleCounts({ data, onPerson }: { data: FlagsAnswer; onPerson: (username: string) => void }) {
   const t = useT();
   const { language } = useApp();
   const kinds = FLAG_KINDS.filter((k) => data.people.some((p) => p.counts[k] > 0));
@@ -177,7 +184,12 @@ function PeopleCounts({ data, onPerson }: { data: FlagsData; onPerson: (username
  * collectors, never My work): plots found from how they were collected, without any
  * check. A reason to open the plot, never a verdict: nothing is blocked or changed.
  */
-export function QualityFlags({ projectId, canEdit }: { projectId: string; canEdit: boolean }) {
+export function QualityFlags({ projectId, canEdit, folded = false }: {
+  projectId: string;
+  canEdit: boolean;
+  /** Folded to one line under its count (Review: the queue comes first) */
+  folded?: boolean;
+}) {
   const t = useT();
   const { language } = useApp();
   // The local mode (one person): every flag is yours, so no person filter, names or counts per person.
@@ -185,15 +197,13 @@ export function QualityFlags({ projectId, canEdit }: { projectId: string; canEdi
   const perPerson = canEdit && !local;
   const [filter, setFilter] = useState<FlagsFilter>(NO_FLAGS_FILTER);
   const [all, setAll] = useState(false);
-  const key = JSON.stringify(filter);
-  const flags = useLoad(() => getFlags(projectId, filter), [projectId, key]);
+  const flags = useLoad(["project", projectId, "getFlags", filter], () => getFlags(projectId, filter));
   const { data, error, loading, reload } = flags;
   const busy = error instanceof ApiError && error.code === "busy";
   // Newer figures are being worked out (or the server is busy): ask again in a while.
   useEffect(() => {
     if (loading || !(data?.stale || busy)) return;
-    const id = window.setTimeout(reload, busy ? 15_000 : 20_000);
-    return () => window.clearTimeout(id);
+    return onceVisibleAfter(busy ? 15_000 : 20_000, document, reload);
   }, [loading, data?.stale, busy, reload]);
 
   const filtered = filter.person !== null || filter.kind !== null;
@@ -201,12 +211,8 @@ export function QualityFlags({ projectId, canEdit }: { projectId: string; canEdi
   const shown = data ? (all ? data.flags : data.flags.slice(0, FLAGS_SHOWN)) : [];
   const problems = data ? PROBLEM_KINDS.reduce((sum, k) => sum + data.counts[k], 0) : 0;
 
-  return (
-    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section" aria-labelledby="flags-title">
+  const body = (
       <Stack spacing={2}>
-        <Typography variant="h2" id="flags-title">
-          {t("flags.title")}
-        </Typography>
         <Explain text={t(local ? "flags.explainLocal.short" : "flags.explain.short")} more={t(local ? "flags.explainLocal" : "flags.explain")} />
         {!data && loading && <Loading />}
         {busy && (
@@ -218,7 +224,7 @@ export function QualityFlags({ projectId, canEdit }: { projectId: string; canEdi
         {data && (
           <Box sx={{ opacity: loading ? 0.6 : 1, transition: "opacity 120ms" }} aria-busy={loading}>
             <Stack spacing={2}>
-              <Threshold projectId={projectId} data={data} canEdit={canEdit} onSaved={reload} />
+              <Threshold projectId={projectId} fastSeconds={data.fastSeconds} canEdit={canEdit} />
               {data.requiredQuestions > 0 ? (
                 <Explain variant="body2" text={t("flags.requiredNote.short")} more={t("flags.requiredNote")} />
               ) : (
@@ -284,7 +290,7 @@ export function QualityFlags({ projectId, canEdit }: { projectId: string; canEdi
                           {" · "}
                           {t(FLAG_KIND_KEYS[f.kind])}
                         </Typography>
-                        <Typography variant="body2">{flagText(t, f, language, { local })}</Typography>
+                        {flagSaysMore(f.kind) && <Typography variant="body2">{flagText(t, f, language, { local })}</Typography>}
                       </Box>
                     ))}
                   </Stack>
@@ -309,6 +315,16 @@ export function QualityFlags({ projectId, canEdit }: { projectId: string; canEdi
           </Box>
         )}
       </Stack>
+  );
+  if (folded) {
+    return <FoldingCard title={data && !filtered ? t("flags.titleCount", { n: formatNumber(data.total, language) }) : t("flags.title")}>{body}</FoldingCard>;
+  }
+  return (
+    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section" aria-labelledby="flags-title">
+      <Typography variant="h2" id="flags-title" sx={{ mb: 2 }}>
+        {t("flags.title")}
+      </Typography>
+      {body}
     </Paper>
   );
 }

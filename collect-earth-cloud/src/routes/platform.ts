@@ -1,7 +1,8 @@
 import type { FastifyBaseLogger, FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { isUuid, publicBaseUrl } from '../accountRules.js';
 import { audit, noteActivity } from '../activity.js';
-import { addNote, addRound, CepError, noteColumn, roundInfoOf, withBundledPlotFile, type NoteInfo, type NoteRefusal, type RefusalCode } from '../cep.js';
+import {
+  addPeriodStatus, addNote, addRound, CepError, noteColumn, roundInfoOf, withBundledPlotFile, type NoteInfo, type NoteRefusal, type RefusalCode } from '../cep.js';
 import type { Config } from '../config.js';
 import { cepForCollector } from '../collectorCep.js';
 import { checkUploadFits } from '../limits.js';
@@ -11,6 +12,8 @@ import { invitesFor } from './people.js';
 import { requireProjectMembership, requireSession } from '../plugins/projectAuth.js';
 import type { Store } from '../store/store.js';
 import type { Role, RoundInfo } from '../types.js';
+import type { CepUploadAnswer, MembersAnswer, ProjectListAnswer, RoundAnswer } from '../wire/projects.js';
+import type { InvitesAnswer, JoinPreview, NewInvite } from '../wire/account.js';
 
 interface InviteBody {
   role?: Role;
@@ -181,7 +184,7 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
     '/v1/projects',
     { preHandler: requireSession(store) },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      return reply.send({ projects: await store.listMemberships(request.userId!) });
+      return reply.send({ projects: await store.listMemberships(request.userId!) } satisfies ProjectListAnswer);
     },
   );
 
@@ -222,7 +225,7 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
         role,
         maxUses,
         expiresAt,
-      });
+      } satisfies NewInvite);
     },
   );
 
@@ -235,7 +238,7 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
       const [invites, members] = await Promise.all([store.listInvites(projectId, Date.now()), store.listMembers(projectId)]);
       // A link made on a person's page (for the new project file) names whom it is for.
       const forOf = await invitesFor(store, projectId, invites, new Map(members.map((m) => [m.userId, m.username])));
-      return reply.send({ invites: invites.map((i) => ({ ...i, forUsername: forOf.get(i.id) ?? null })) });
+      return reply.send({ invites: invites.map((i) => ({ ...i, forUsername: forOf.get(i.id) ?? null })) } satisfies InvitesAnswer);
     },
   );
 
@@ -269,7 +272,7 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
       projectName: invite.projectName,
       role: invite.role,
       valid: !expired && !exhausted && !invite.revoked,
-    });
+    } satisfies JoinPreview);
   });
 
   // CEP upload (admin). Raw zip body (application/zip or octet-stream).
@@ -296,7 +299,7 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
       if (!accepted.ok) return reply.code(accepted.status).send(accepted.body);
       const { info, noteColumnChanged } = accepted;
       await audit(store, request, 'cep.replaced', { bytes: cep.length });
-      return reply.send({ ok: true, bytes: cep.length, round: info, ...(noteColumnChanged ? { noteColumnChanged } : {}) });
+      return reply.send({ ok: true, bytes: cep.length, round: info, ...(noteColumnChanged ? { noteColumnChanged } : {}) } satisfies CepUploadAnswer);
     },
   );
 
@@ -318,7 +321,7 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
     '/v1/projects/:pid/round',
     { preHandler: requireProjectMembership(store, 'admin') },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      return reply.send(await store.getRoundInfo(request.membership!.projectId));
+      return reply.send((await store.getRoundInfo(request.membership!.projectId)) satisfies RoundAnswer);
     },
   );
 
@@ -346,7 +349,7 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
       }
       await store.setReassessmentCode(projectId, code);
       await audit(store, request, 'settings.changed', { setting: 'round' });
-      return reply.send({ ...info, reassessmentCode: code });
+      return reply.send({ ...info, reassessmentCode: code } satisfies RoundInfo);
     },
   );
 
@@ -384,7 +387,7 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
     '/v1/projects/:pid/members',
     { preHandler: requireProjectMembership(store, 'admin') },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      return reply.send({ members: await store.listMembers(request.membership!.projectId) });
+      return reply.send({ members: await store.listMembers(request.membership!.projectId) } satisfies MembersAnswer);
     },
   );
 
@@ -533,6 +536,14 @@ export async function acceptCep(store: Store, projectId: string, cep: Buffer, lo
       original ??= cep;
     }
     info = { ...info, note: note.info };
+    // A repeat survey's period status (docs/plans/2026-11-11-repeat-survey.md): asked in the form's header
+    if (await store.getRepeatSettings(projectId)) {
+      const status = addPeriodStatus(served, date);
+      if (status.added) {
+        served = status.cep;
+        original ??= cep;
+      }
+    }
     // The plot file the project file brings (Collect Earth opens it until an assigned one is
     // chosen) gets the round and note columns as the served plot files have them (Task 22's real run).
     // One that does not read back as it should is served as it came (logged): Collect Earth then only

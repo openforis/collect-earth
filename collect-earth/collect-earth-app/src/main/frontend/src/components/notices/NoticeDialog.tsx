@@ -13,7 +13,7 @@ import Typography from "@mui/material/Typography";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutlineOutlined";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
-import { APP_INFO_CHANGED, changesAppInfo, nextNotice, NOTICES_POLL_MILLIS, opensSendToCloud, SEND_TO_CLOUD, splitOptions, type Notice } from "../../notices";
+import { APP_INFO_CHANGED, changesAppInfo, nextNotice, NOTICES_POLL_MILLIS, opensSendToCloud, sanitizeNoticeHtml, SEND_TO_CLOUD, splitOptions, type Notice } from "../../notices";
 import { answerNotice, readNotices } from "../../noticesApi";
 
 /**
@@ -68,8 +68,8 @@ export function NoticeDialog() {
       </DialogTitle>
       <DialogContent>
         {notice.html
-          // The HTML comes from Collect Earth's own server and the Open Foris announcements, as the Swing dialogs showed it
-          ? <Box sx={{ "& p": { mt: 0 }, "& h2": { fontSize: "1.1rem", mt: 0 } }} dangerouslySetInnerHTML={{ __html: notice.message }} />
+          // The HTML comes from Collect Earth's own server and the Open Foris announcements, cut down to plain formatting
+          ? <Box sx={{ "& p": { mt: 0 }, "& h2": { fontSize: "1.1rem", mt: 0 } }} dangerouslySetInnerHTML={{ __html: sanitizeNoticeHtml(notice.message) }} />
           : <Typography component="pre" variant="body2" sx={{ m: 0, whiteSpace: "pre-wrap", fontFamily: notice.kind === "error" ? "monospace" : "inherit", maxHeight: 360, overflow: "auto" }}>{notice.message}</Typography>}
         {choices.length > 0 && (
           <List dense data-testid="notice-choices" sx={{ mt: 1.5, border: 1, borderColor: "divider", borderRadius: 1, maxHeight: 280, overflow: "auto", py: 0 }}>

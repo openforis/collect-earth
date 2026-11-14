@@ -33,6 +33,14 @@ public class GoogleEarthWebGroundAltitudeTest {
 		assertEquals(Double.valueOf(320), gew.groundAltitudeNear(10, 10));
 	}
 
+	@Test
+	public void theGroundAcrossTheAntimeridianIsNear() {
+		GoogleEarthWebService gew = new GoogleEarthWebService();
+		gew.plotUrl(plot(-17.5, 180, 100), GoogleEarthWebUrls.PLOT_DISTANCE);
+		gew.learnGroundAltitude(camera(-17.5, 180, 320));
+		assertEquals(Double.valueOf(320), gew.groundAltitudeNear(-17.5, -180));
+	}
+
 	/**
 	 * The ground of a survey area is kept while plots far away are looked at: back from a plot on another continent,
 	 * the plots of the area were aimed at sea level, under hills of 1000 m and more, and Google Earth Web showed black.

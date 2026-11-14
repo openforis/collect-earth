@@ -1,5 +1,6 @@
 import type { PlotUnits } from './progress.js';
 import type { DecisionKind } from './types.js';
+import type { MapFile, MapStatus } from './wire/map.js';
 
 /**
  * The map of progress (Task 9, monitoring Phase 5), pure: every plot of the plot files with
@@ -17,8 +18,8 @@ import type { DecisionKind } from './types.js';
  *   queue's rule, resubmittedAfterRecheck), from the figures at hand only (else 4).
  * Codes 2 to 6 together are the plots the Progress tab counts as submitted.
  */
-export const GEO_STATUSES = ['notStarted', 'started', 'submitted', 'accepted', 'recheck', 'differs', 'resubmitted'] as const;
-export type GeoStatus = (typeof GEO_STATUSES)[number];
+export const GEO_STATUSES = ['notStarted', 'started', 'submitted', 'accepted', 'recheck', 'differs', 'resubmitted'] as const satisfies readonly MapStatus[];
+export type GeoStatus = MapStatus;
 
 /** Plots in one page of GET /map/plots. */
 export const GEO_PAGE_SIZE = 20_000;
@@ -68,16 +69,8 @@ export interface GeoInput {
   person?: string | null;
 }
 
-export interface GeoFileRow {
-  id: string;
-  filename: string;
-  /** Its plots. */
-  plots: number;
-  /** Of those, the ones with a place. */
-  onMap: number;
-  /** Coordinators: whether its plots are divided between people (a whole file's plots do not move one by one). */
-  divided?: boolean;
-}
+/** A plot file of the map (wire/map.ts). */
+export type GeoFileRow = MapFile;
 
 export interface GeoMap {
   /** The plots on the map (those with a place), in the files' order, each once. */

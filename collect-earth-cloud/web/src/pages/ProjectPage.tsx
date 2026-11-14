@@ -23,12 +23,8 @@ import { ProjectNav } from "../components/ProjectNav";
 import { RoleChip } from "../components/Roles";
 import { useT } from "../i18n";
 import { AttentionBell } from "../components/AttentionBell";
-import { FileTab } from "../project/FileTab";
-import { OverviewTab } from "../project/OverviewTab";
-import { PlotsTab } from "../project/PlotsTab";
-import { SettingsTab } from "../project/SettingsTab";
-import { projectTabs } from "../localMode";
-import { linkProps, navigate, pathFor, type ProjectTab } from "../router";
+import { projectTabs, setupSectionOf } from "../localMode";
+import { linkProps, navigate, pathFor, viewOf, type ProjectTab } from "../router";
 import { useLoad } from "../useLoad";
 
 // Each tab is loaded when first opened (the map and the charts are most of the code).
@@ -41,7 +37,7 @@ const MapTab = lazy(() => import("../project/MapTab").then((m) => ({ default: m.
 const PeopleTab = lazy(() => import("../project/PeopleTab").then((m) => ({ default: m.PeopleTab })));
 const PersonPage = lazy(() => import("./PersonPage").then((m) => ({ default: m.PersonPage })));
 const PlotPage = lazy(() => import("./PlotPage").then((m) => ({ default: m.PlotPage })));
-const PlotFilePage = lazy(() => import("../project/PlotFilePage").then((m) => ({ default: m.PlotFilePage })));
+const SetupTab = lazy(() => import("../project/SetupTab").then((m) => ({ default: m.SetupTab })));
 const ProgressTab = lazy(() => import("../project/ProgressTab").then((m) => ({ default: m.ProgressTab })));
 const QualityAnswers = lazy(() => import("../project/QualityAnswers").then((m) => ({ default: m.QualityAnswers })));
 const QualityFlags = lazy(() => import("../project/QualityFlags").then((m) => ({ default: m.QualityFlags })));
@@ -52,16 +48,13 @@ const ReviewQueue = lazy(() => import("../project/ReviewQueue").then((m) => ({ d
 
 const TAB_LABELS = {
   progress: "tab.progress",
-  setup: "tab.setup",
-  file: "tab.file",
-  people: "tab.people",
-  plots: "tab.plots",
   map: "tab.map",
-  data: "tab.data",
+  people: "tab.people",
   quality: "tab.quality",
   training: "tab.training",
+  data: "tab.data",
   activity: "tab.activity",
-  settings: "tab.settings",
+  setup: "tab.setup",
 } as const;
 
 /** The tabs a reviewer has. */
@@ -124,7 +117,7 @@ function StatusNote({ status }: { status: ProjectStatus }) {
 }
 
 /**
- * fileId: one plot file's page, shown under the Plot files tab; personId: one person's page, under
+ * fileId: one plot file's page, shown in Setup's Plots section; personId: one person's page, under
  * the People tab; plot: one plot's page (plot search), under the Quality tab.
  */
 export function ProjectPage({
@@ -134,9 +127,12 @@ export function ProjectPage({
   personId,
   plot,
   trainingSetId,
+  view,
 }: {
   projectId: string;
   tab: ProjectTab;
+  /** A view of a tab split into views (router.ts, PROJECT_VIEWS) */
+  view?: string;
   fileId?: string;
   personId?: string;
   plot?: string;
@@ -147,7 +143,7 @@ export function ProjectPage({
   // The local mode (one person, on their own computer): no People, Plot files, Setup or project
   // file tabs, no bell (its cards are about other people) and no plot files' pages.
   const local = useLocalMode();
-  const project = useLoad(() => getProject(projectId), [projectId]);
+  const project = useLoad(["project", projectId, "getProject"], () => getProject(projectId));
   const tabsRef = useRef<HTMLDivElement>(null);
   const loaded = project.data !== null && project.data !== undefined;
   // The selected tab in sight: a scrollable row of tabs shows only its first ones on a phone,
@@ -195,7 +191,7 @@ export function ProjectPage({
   }
 
   const info = project.data;
-  const go = (next: ProjectTab) => navigate(pathFor({ name: "project", projectId, tab: next }));
+  const go = (next: ProjectTab, nextView?: string) => navigate(pathFor({ name: "project", projectId, tab: next, view: nextView }));
   // A reviewer follows the progress (without the cards that name people), the map (without who
   // holds each plot) and the answers per person (the Quality tab's Answers section); the other
   // tabs are the coordinators'.
@@ -279,31 +275,20 @@ export function ProjectPage({
 
   const content = {
     progress: <ProgressTab projectId={projectId} onGo={go} />,
-    setup: <OverviewTab projectId={projectId} onGo={go} />,
-    file: <FileTab projectId={projectId} />,
-    people: personId ? <PersonPage key={personId} projectId={projectId} userId={personId} onGo={go} /> : <PeopleTab projectId={projectId} />,
-    plots: fileId ? <PlotFilePage key={fileId} projectId={projectId} fileId={fileId} onGo={go} /> : <PlotsTab projectId={projectId} onGo={go} />,
+    setup: <SetupTab projectId={projectId} name={info.name} status={info.status} section={setupSectionOf(view, local)} fileId={fileId} onGo={go} />,
+    people: personId ? <PersonPage key={personId} projectId={projectId} userId={personId} onGo={go} /> : <PeopleTab projectId={projectId} view={viewOf("people", view)} />,
     map: <MapTab projectId={projectId} coordinator={!local} />,
-    data: <DataTab projectId={projectId} onGo={go} />,
-    quality: plot ? <PlotPage key={plot} projectId={projectId} plot={plot} canOpenFiles={!local} /> : <QualityTab projectId={projectId} />,
+    data: <DataTab projectId={projectId} />,
+    quality: plot ? <PlotPage key={plot} projectId={projectId} plot={plot} canOpenFiles={!local} /> : <QualityTab projectId={projectId} view={viewOf("quality", view)} />,
     training: <TrainingTab key={trainingSetId ?? "list"} projectId={projectId} setId={trainingSetId} />,
     activity: <ActivityTab projectId={projectId} />,
-    settings: (
-      <SettingsTab
-        projectId={projectId}
-        name={info.name}
-        status={info.status}
-        onRenamed={(name) => project.setData({ ...info, name })}
-        onStatus={(status) => project.setData({ ...info, status })}
-      />
-    ),
   }[tab];
 
   return (
     <AppShell wide>
       {/* On a desktop the sections are a sidebar (ProjectNav); on smaller screens, the row of tabs */}
       <Box sx={{ display: "flex", gap: 4 }}>
-        <ProjectNav projectId={projectId} tab={tab} tabs={projectTabs(local)} labels={TAB_LABELS} />
+        <ProjectNav projectId={projectId} tab={tab} view={view} tabs={projectTabs(local)} labels={TAB_LABELS} />
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Header projectId={projectId} name={info.name} role={info.role} bell={!local} />
           <StatusNote status={info.status} />

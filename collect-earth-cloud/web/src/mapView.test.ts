@@ -14,7 +14,10 @@ function map(): MapPlots {
       [0, 0, 2, 0],
     ],
     plots: ["1", "2", "3", "4"],
-    counts: [1, 0, 2, 0, 0, 1],
+    next: null,
+    names: null,
+    statuses: MAP_STATUSES,
+    counts: [1, 0, 2, 0, 0, 1, 0],
     notOnMap: 2,
     files: [
       { id: "a", filename: "a.csv", plots: 4, onMap: 4 },
@@ -22,6 +25,8 @@ function map(): MapPlots {
     ],
     people: ["ana", "ben"],
     holders: [["ana"], ["ana", "ben"]],
+    figures: null,
+    asOf: null,
   });
 }
 
@@ -72,11 +77,38 @@ describe("map of progress", () => {
   });
 
   it("lists the files with plots off the map", () => {
-    expect(filesOffMap(map())).toEqual([{ id: "b", filename: "b.csv", plots: 2, onMap: 0, divided: false }]);
+    expect(filesOffMap(map())).toEqual([{ id: "b", filename: "b.csv", plots: 2, onMap: 0 }]);
   });
 
   it("writes the attribution as the tile source asks, escaped", () => {
     expect(attributionHtml(OSM_TILES)).toBe('<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a>');
     expect(attributionHtml({ ...OSM_TILES, attribution: '<b>"Mine" & co</b>', attributionUrl: null })).toBe("&lt;b&gt;&quot;Mine&quot; &amp; co&lt;/b&gt;");
+  });
+});
+
+describe("a repeat survey's change on the map", () => {
+  // three plots on the map, in its order
+  const map = { total: 4, plots: ["1", "2", "3", "9"] };
+
+  it("gives each plot its change, and 'not compared' to a plot the comparison does not have", async () => {
+    const { CHANGE_KINDS, changeCodes, changeCounts, shownByCodes } = await import("./mapView");
+    const codes = changeCodes(map, [
+      { plot: "1", outcome: "unchanged" },
+      { plot: "2", outcome: "changed" },
+      { plot: "3", outcome: "corrected" },
+      { plot: "7", outcome: "new" },
+    ]);
+    expect([...codes].map((c) => CHANGE_KINDS[c])).toEqual(["unchanged", "changed", "corrected", "none"]);
+    expect(changeCounts(codes)).toMatchObject({ unchanged: 1, changed: 1, corrected: 1, new: 0, pending: 0, none: 1 });
+    // only the changed and corrected plots shown
+    const shown = CHANGE_KINDS.map((k) => k === "changed" || k === "corrected");
+    expect([...shownByCodes(codes, shown)]).toEqual([1, 2]);
+  });
+
+  it("draws every change apart from the others", async () => {
+    const { CHANGE_KINDS, CHANGE_STYLE, styleSvg } = await import("./mapView");
+    const looks = new Set(CHANGE_KINDS.map((k) => JSON.stringify(CHANGE_STYLE[k])));
+    expect(looks.size).toBe(CHANGE_KINDS.length);
+    expect(styleSvg(CHANGE_STYLE.changed)).toContain('stroke="#D55E00"');
   });
 });

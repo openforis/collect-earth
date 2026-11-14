@@ -31,6 +31,7 @@ import Typography from "@mui/material/Typography";
 import ArrowBack from "@mui/icons-material/ArrowBack";
 import Print from "@mui/icons-material/Print";
 import Download from "@mui/icons-material/Download";
+import Add from "@mui/icons-material/Add";
 import { useEffect, useState, type ReactNode } from "react";
 import {
   createTrainingSet,
@@ -79,76 +80,87 @@ function Section({ title, children, explain, more, pageHeading = false }: { titl
 
 /**
  * Training (coordinators): calibration and learning plot sets, kept apart from the project's data.
- * The list and a form to add a set; a set opens in place.
+ * The list, and "Add a training set" for the form; a set opens in place.
  */
 export function TrainingTab({ projectId, setId }: { projectId: string; setId?: string }) {
   const t = useT();
   const { language } = useApp();
-  const state = useLoad(() => getTraining(projectId), [projectId]);
+  const state = useLoad(["project", projectId, "getTraining"], () => getTraining(projectId));
   const n = (v: number) => formatNumber(v, language);
   // A set has its own address, so Back (the browser's or the report's) returns to it.
   const setOpen = (id: string) => navigate(pathFor({ name: "trainingSet", projectId, setId: id }));
+  // Adding a set: a dialog opened by "Add a training set" (the list comes first)
+  const [adding, setAdding] = useState(false);
 
   if (setId) {
     return <SetPage projectId={projectId} setId={setId} members={state.data?.members ?? []} onBack={() => navigate(pathFor({ name: "project", projectId, tab: "training" }))} />;
   }
   return (
-    <Stack spacing={3}>
-      <Section title={t("training.title")} explain={t("training.explain.short")} more={t("training.explain")}>
-        <AddSet projectId={projectId} onAdded={setOpen} />
-      </Section>
+    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section">
+      <Stack direction="row" spacing={2} useFlexGap sx={{ alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", mb: 1 }}>
+        <Typography variant="h2">{t("training.title")}</Typography>
+        <Button variant="contained" startIcon={<Add />} onClick={() => setAdding(true)}>
+          {t("training.newTitle")}
+        </Button>
+      </Stack>
+      <Explain sx={{ mb: 2 }} text={t("training.explain.short")} more={t("training.explain")} />
       {state.loading && !state.data ? (
         <Loading />
       ) : state.error || !state.data ? (
         <ErrorAlert error={state.error} onRetry={state.reload} />
       ) : state.data.sets.length === 0 ? (
-        <Paper variant="outlined">
-          <EmptyState title={t("training.none")} />
-        </Paper>
+        <EmptyState title={t("training.none")} />
       ) : (
-        <Section title={t("training.setsTitle")}>
-          <TableContainer sx={tableFrame}>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>{t("training.colName")}</TableCell>
-                  <TableCell>{t("training.kind")}</TableCell>
-                  <TableCell align="right">{t("training.colPlots")}</TableCell>
-                  <TableCell align="right">{t("training.colPeople")}</TableCell>
-                  <TableCell align="right">{t("training.colGolden")}</TableCell>
-                  <TableCell>{t("training.colProgress")}</TableCell>
-                  <TableCell />
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {state.data.sets.map((set) => {
-                  const finished = set.progress.filter((p) => p.submitted >= set.plotCount).length;
-                  return (
-                    <TableRow key={set.id} hover>
-                      <TableCell component="th" scope="row" sx={{ overflowWrap: "anywhere" }}>
-                        {set.name}
-                      </TableCell>
-                      <TableCell>
-                        <Chip size="small" variant="outlined" color={set.kind === "learning" ? "primary" : "default"} label={t(set.kind === "learning" ? "training.kindLearning" : "training.kindCalibration")} />
-                      </TableCell>
-                      <TableCell align="right">{n(set.plotCount)}</TableCell>
-                      <TableCell align="right">{n(set.participants.length)}</TableCell>
-                      <TableCell align="right">{n(set.golden)}</TableCell>
-                      <TableCell>{set.participants.length > 0 ? t("training.progressCell", { done: n(finished), people: n(set.participants.length) }) : "–"}</TableCell>
-                      <TableCell align="right">
-                        <Button size="small" {...linkProps(pathFor({ name: "trainingSet", projectId, setId: set.id }))} aria-label={t("training.openLabel", { name: set.name })}>
-                          {t("training.open")}
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Section>
+        <TableContainer sx={tableFrame}>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>{t("training.colName")}</TableCell>
+                <TableCell>{t("training.kind")}</TableCell>
+                <TableCell align="right">{t("training.colPlots")}</TableCell>
+                <TableCell align="right">{t("training.colPeople")}</TableCell>
+                <TableCell align="right">{t("training.colGolden")}</TableCell>
+                <TableCell>{t("training.colProgress")}</TableCell>
+                <TableCell />
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {state.data.sets.map((set) => {
+                const finished = set.progress.filter((p) => p.submitted >= set.plotCount).length;
+                return (
+                  <TableRow key={set.id} hover>
+                    <TableCell component="th" scope="row" sx={{ overflowWrap: "anywhere" }}>
+                      {set.name}
+                    </TableCell>
+                    <TableCell>
+                      <Chip size="small" variant="outlined" color={set.kind === "learning" ? "primary" : "default"} label={t(set.kind === "learning" ? "training.kindLearning" : "training.kindCalibration")} />
+                    </TableCell>
+                    <TableCell align="right">{n(set.plotCount)}</TableCell>
+                    <TableCell align="right">{n(set.participants.length)}</TableCell>
+                    <TableCell align="right">{n(set.golden)}</TableCell>
+                    <TableCell>{set.participants.length > 0 ? t("training.progressCell", { done: n(finished), people: n(set.participants.length) }) : "–"}</TableCell>
+                    <TableCell align="right">
+                      <Button size="small" {...linkProps(pathFor({ name: "trainingSet", projectId, setId: set.id }))} aria-label={t("training.openLabel", { name: set.name })}>
+                        {t("training.open")}
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </TableContainer>
       )}
-    </Stack>
+      <Dialog open={adding} onClose={() => setAdding(false)} fullWidth maxWidth="sm" aria-labelledby="training-add-title">
+        <DialogTitle id="training-add-title">{t("training.newTitle")}</DialogTitle>
+        <DialogContent>
+          <AddSet projectId={projectId} onAdded={(id) => (setAdding(false), setOpen(id))} />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAdding(false)}>{t("common.cancel")}</Button>
+        </DialogActions>
+      </Dialog>
+    </Paper>
   );
 }
 
@@ -183,13 +195,31 @@ function AddSet({ projectId, onAdded }: { projectId: string; onAdded: (setId: st
   };
 
   return (
-    <Stack spacing={2}>
-      <Typography variant="h3">{t("training.newTitle")}</Typography>
+    <Stack spacing={2} sx={{ pt: 0.5 }}>
       <FormControl>
         <FormLabel id="training-kind">{t("training.kind")}</FormLabel>
-        <RadioGroup row aria-labelledby="training-kind" value={kind} onChange={(e) => setKind(e.target.value as TrainingKind)}>
-          <FormControlLabel value="calibration" control={<Radio />} label={t("training.kindCalibration")} />
-          <FormControlLabel value="learning" control={<Radio />} label={t("training.kindLearning")} />
+        <RadioGroup aria-labelledby="training-kind" value={kind} onChange={(e) => setKind(e.target.value as TrainingKind)}>
+          {(
+            [
+              ["calibration", "training.kindCalibration", "training.kindCalibrationHelp"],
+              ["learning", "training.kindLearning", "training.kindLearningHelp"],
+            ] as const
+          ).map(([value, label, help]) => (
+            <FormControlLabel
+              key={value}
+              value={value}
+              control={<Radio />}
+              sx={{ alignItems: "flex-start", mt: 0.5, "& .MuiRadio-root": { pt: 0.5 } }}
+              label={
+                <Box sx={{ pt: 0.75 }}>
+                  <Typography>{t(label)}</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {t(help)}
+                  </Typography>
+                </Box>
+              }
+            />
+          ))}
         </RadioGroup>
       </FormControl>
       <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
@@ -234,7 +264,7 @@ function ClashAlert({ error, language }: { error: unknown; language: string }) {
 /** One set: its settings and participants, the calibration figures, the golden answers and the scores. */
 function SetPage({ projectId, setId, members, onBack }: { projectId: string; setId: string; members: TrainingPerson[]; onBack: () => void }) {
   const t = useT();
-  const state = useLoad(() => getTrainingSet(projectId, setId), [projectId, setId]);
+  const state = useLoad(["project", projectId, "getTrainingSet", setId], () => getTrainingSet(projectId, setId));
   const data = state.data;
   return (
     <Stack spacing={3}>

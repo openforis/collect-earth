@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { Me, Role, ServerInfo } from "./api";
 import { AppContext, type AppState } from "./appContext";
-import { ROLE_MATRIX, ROLE_ORDER, RoleBadge, RoleChip, RolesContent, ServerAdminChip } from "./components/Roles";
+import { ROLE_MATRIX, ROLE_ORDER, RoleChip, RolesContent, ServerAdminChip } from "./components/Roles";
 import { I18nContext, translator, type Language } from "./i18n";
 
 /** The markup of a component, for someone signed in (a server administrator or not), on a server or in the local mode. */
@@ -32,10 +32,6 @@ describe("the role chip in a project's header", () => {
 
   it("is not there in the local mode: one person, no accounts or roles", () => {
     for (const role of ROLE_ORDER) expect(render(createElement(RoleChip, { role }), { local: true })).toBe("");
-  });
-
-  it("the projects list shows the same words on each project", () => {
-    expect(render(createElement(RoleBadge, { role: "reviewer" }))).toContain("You: Reviewer");
   });
 });
 

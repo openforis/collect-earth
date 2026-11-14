@@ -1,5 +1,5 @@
 // Survey health's texts (Task 6), built from the figures the server sends: pure, tested.
-import type { HealthCodes, HealthReason, HealthRow, SurveyHealthData } from "./api";
+import type { HealthCodes, HealthReason, HealthRow, SurveyHealthAnswer } from "./api";
 import { formatNumber } from "./format";
 import type { MessageKey, Translate } from "./i18n";
 import { formatRate } from "./qualityView";
@@ -17,7 +17,7 @@ export function otherAnswersText(row: HealthRow): string {
 }
 
 /** Why a question is worth rewording, one sentence, from its figures. */
-export function reasonText(t: Translate, reason: HealthReason, row: HealthRow, data: SurveyHealthData, language: string): string {
+export function reasonText(t: Translate, reason: HealthReason, row: HealthRow, data: SurveyHealthAnswer, language: string): string {
   const n = (v: number) => formatNumber(v, language);
   const r = (v: number) => formatRate(v, language);
   switch (reason) {
@@ -40,7 +40,7 @@ export function reasonText(t: Translate, reason: HealthReason, row: HealthRow, d
  * "30% (30 of 100) · 900 do not say"; "Not enough records that say what was left empty
  * (12 of 20)"; for a question in a group, that it is never known.
  */
-export function emptyText(t: Translate, row: HealthRow, data: SurveyHealthData, language: string): string {
+export function emptyText(t: Translate, row: HealthRow, data: SurveyHealthAnswer, language: string): string {
   if (row.emptyWhy === "group") return t("health.inGroup");
   const counts = { n: formatNumber(row.emptyBlank, language), known: formatNumber(row.emptyBase, language) };
   const main =
@@ -78,13 +78,13 @@ export function agreementText(t: Translate, row: HealthRow, language: string): s
 }
 
 /** "3 of 4 plots"; "—" when no plot was decided for the check. */
-export function changedText(t: Translate, row: HealthRow, data: SurveyHealthData, language: string): string {
+export function changedText(t: Translate, row: HealthRow, data: SurveyHealthAnswer, language: string): string {
   if (data.decidedForCheck === 0) return "—";
   return t("health.changed", { n: formatNumber(row.decisions.changed, language), decided: formatNumber(data.decidedForCheck, language) });
 }
 
 /** The rule of the order, with the thresholds the server used. `local`: the local mode (no checks nor decisions to order by). */
-export function orderText(t: Translate, data: SurveyHealthData, language: string, options: { local?: boolean } = {}): string {
+export function orderText(t: Translate, data: SurveyHealthAnswer, language: string, options: { local?: boolean } = {}): string {
   const th = data.thresholds;
   if (options.local) {
     return t("health.noteOrderLocal", { other: formatRate(th.oftenOther, language), empty: formatRate(th.oftenEmpty, language), min: formatNumber(th.minPlots, language) });

@@ -23,6 +23,7 @@ import { plotFileCsv, type DesignedPlot } from '../plotDesign.js';
 import { isNumber, parsePlotFile } from '../plots.js';
 import { requireSession } from '../plugins/projectAuth.js';
 import type { Store } from '../store/store.js';
+import type { BackupImportAnswer, BackupImportPreview } from '../wire/projects.js';
 import { acceptCep } from './platform.js';
 import { plotFileFormat, type PlotFileFormat } from './plotDesign.js';
 import { creationRefusal } from './projects.js';
@@ -164,7 +165,7 @@ function collectorsOf(records: readonly BackupRecord[]): { name: string; records
 }
 
 /** What the dashboard shows before anything is made. */
-function preview(read: ReadBackup, plotFile: GivenPlotFile | null, firstRound: string | null) {
+function preview(read: ReadBackup, plotFile: GivenPlotFile | null, firstRound: string | null): BackupImportPreview {
   const survey = read.zip.survey;
   const { withRecords, done, noPlace } = plotsOf(read, firstRound);
   const inFile = plotFile ? new Set(plotFile.rows.map((r) => r.plot)) : null;
@@ -276,151 +277,157 @@ export async function registerBackupImportRoutes(app: FastifyInstance, store: St
       new Date(),
     );
     const { projectId } = await store.createProject({ name });
-    await store.addMembership(projectId, user.id, 'admin');
-    const accepted = await acceptCep(store, projectId, cep, request.log);
-    if (!accepted.ok) {
-      await store.deleteProject(projectId);
-      return reply.code(accepted.status).send(accepted.body);
-    }
+    // Nothing half made: the project goes when anything fails
+    try {
+      await store.addMembership(projectId, user.id, 'admin');
+      const accepted = await acceptCep(store, projectId, cep, request.log);
+      if (!accepted.ok) {
+        await store.deleteProject(projectId);
+        return reply.code(accepted.status).send(accepted.body);
+      }
 
-    // The survey as served (a round, a note added): the records are read against it
-    const stored = readCep((await store.getCep(projectId)) as Buffer);
-    const servedXml = new TextDecoder().decode(stored.entries.get(stored.surveyPath)!);
-    const info = accepted.info;
-    const firstRound = firstRoundOf(info);
-    const format = await plotFileFormat(store, projectId, request.log);
-    const plotFile = givenPlotFile(body.plotFile, format?.keys ?? null);
-    if (typeof plotFile === 'string') {
-      await store.deleteProject(projectId);
-      return reply.code(400).send({ error: 'plot_file_unreadable', reason: plotFile });
-    }
-    const { withRecords, done } = plotsOf(read, firstRound);
+      // The survey as served (a round, a note added): the records are read against it
+      const stored = readCep((await store.getCep(projectId)) as Buffer);
+      const servedXml = new TextDecoder().decode(stored.entries.get(stored.surveyPath)!);
+      const info = accepted.info;
+      const firstRound = firstRoundOf(info);
+      const format = await plotFileFormat(store, projectId, request.log);
+      const plotFile = givenPlotFile(body.plotFile, format?.keys ?? null);
+      if (typeof plotFile === 'string') {
+        await store.deleteProject(projectId);
+        return reply.code(400).send({ error: 'plot_file_unreadable', reason: plotFile });
+      }
+      const { withRecords, done } = plotsOf(read, firstRound);
 
-    // The plot files: the plots with a submitted record, made from the records; the others, from the original file
-    // (its rows as they are) or, without it, from the records
-    type StoredFile = { csvFileId: string; filename: string; plots: number };
-    const storeFile = async (filename: string, data: Buffer): Promise<StoredFile | 'over'> => {
-      const over = await checkUploadFits(store, projectId, { kind: 'csv', filename }, data.length);
+      // The plot files: the plots with a submitted record, made from the records; the others, from the original file
+      // (its rows as they are) or, without it, from the records
+      type StoredFile = { csvFileId: string; filename: string; plots: number };
+      const storeFile = async (filename: string, data: Buffer): Promise<StoredFile | 'over'> => {
+        const over = await checkUploadFits(store, projectId, { kind: 'csv', filename }, data.length);
+        if (over) {
+          await store.deleteProject(projectId);
+          void reply.code(413).send(over);
+          return 'over';
+        }
+        const meta = await store.putCsvFile(projectId, filename, data, parsePlotFile(data, format?.keys.count ?? 1).plotIds);
+        return { csvFileId: meta.id, filename, plots: meta.plotCount };
+      };
+      const base = original.surveyName.replace(/[^\w.-]+/g, '_') || 'backup';
+      let doneFile: StoredFile | null = null;
+      let toDoFile: StoredFile | null = null;
+      if (format) {
+        const csv = (plots: (DesignedPlot & { id: string })[]) => Buffer.from(plotFileCsv(plots, format.keys, format.extra), 'utf8');
+        const donePlots = [...withRecords.values()].filter((p) => done.has(p.id));
+        // A done plot its records do not place keeps its row of the original plot file: else it is in no plot file
+        const n = format.keys.count;
+        const placed = new Set(donePlots.map((p) => p.id));
+        for (const r of plotFile?.rows ?? []) {
+          if (!done.has(r.plot) || placed.has(r.plot)) continue;
+          placed.add(r.plot);
+          const columns = Object.fromEntries((format.extra ?? []).map((c, i) => [c.toLowerCase(), r.fields[n + 2 + i] ?? '']));
+          donePlots.push({ id: r.plot, lat: Number(r.fields[n]), lon: Number(r.fields[n + 1]), columns });
+        }
+        if (donePlots.length > 0) {
+          const kept = await storeFile(`${base}_plots_done.csv`, csv(donePlots));
+          if (kept === 'over') return reply;
+          doneFile = kept;
+        }
+        let toDo: Buffer | null = null;
+        if (plotFile) {
+          const rows = plotFile.rows.filter((r) => !done.has(r.plot));
+          if (rows.length > 0) {
+            toDo = Buffer.concat([
+              ...(plotFile.header ? [plotFile.data.subarray(plotFile.header.start, plotFile.header.next)] : []),
+              ...rows.map((r) => plotFile.data.subarray(r.start, r.next)),
+            ]);
+          }
+        } else {
+          const rest = [...withRecords.values()].filter((p) => !done.has(p.id));
+          if (rest.length > 0) toDo = csv(rest);
+        }
+        if (toDo) {
+          const asked = typeof body.plotFileName === 'string' ? body.plotFileName.trim().replace(/[^\w.-]+/g, '_') : '';
+          const kept = await storeFile(plotFile && asked ? asked : `${base}_plots.csv`, toDo);
+          if (kept === 'over') return reply;
+          toDoFile = kept;
+        }
+      }
+
+      // The records fit the project's storage, as an import into a project must (routes/collectImport.ts)
+      const over = await checkUploadFits(store, projectId, { kind: 'records' }, read.records.reduce((sum, r) => sum + r.bytes, 0));
       if (over) {
         await store.deleteProject(projectId);
-        void reply.code(413).send(over);
-        return 'over';
+        return reply.code(413).send(over);
       }
-      const meta = await store.putCsvFile(projectId, filename, data, parsePlotFile(data, format?.keys.count ?? 1).plotIds);
-      return { csvFileId: meta.id, filename, plots: meta.plotCount };
-    };
-    const base = original.surveyName.replace(/[^\w.-]+/g, '_') || 'backup';
-    let doneFile: StoredFile | null = null;
-    let toDoFile: StoredFile | null = null;
-    if (format) {
-      const csv = (plots: (DesignedPlot & { id: string })[]) => Buffer.from(plotFileCsv(plots, format.keys, format.extra), 'utf8');
-      const donePlots = [...withRecords.values()].filter((p) => done.has(p.id));
-      // A done plot its records do not place keeps its row of the original plot file: else it is in no plot file
-      const n = format.keys.count;
-      const placed = new Set(donePlots.map((p) => p.id));
-      for (const r of plotFile?.rows ?? []) {
-        if (!done.has(r.plot) || placed.has(r.plot)) continue;
-        placed.add(r.plot);
-        const columns = Object.fromEntries((format.extra ?? []).map((c, i) => [c.toLowerCase(), r.fields[n + 2 + i] ?? '']));
-        donePlots.push({ id: r.plot, lat: Number(r.fields[n]), lon: Number(r.fields[n + 1]), columns });
+
+      // The records, as a sync stores them (last write wins, record events), each read against the served survey (with
+      // the round, when the server added it) and stored one at a time
+      for (const { userId } of operators.values()) {
+        if (userId && !(await store.listMemberships(userId)).some((m) => m.projectId === projectId)) await store.addMembership(projectId, userId, 'operator');
       }
-      if (donePlots.length > 0) {
-        const kept = await storeFile(`${base}_plots_done.csv`, csv(donePlots));
-        if (kept === 'over') return reply;
-        doneFile = kept;
+      const readServed = backupReader(servedXml, info);
+      let records = 0;
+      const receivedAt = Date.now();
+      for (const entry of read.zip.records) {
+        const r = readServed({ name: entry.name, step: stepOf(entry.name), xml: new TextDecoder().decode(entry.read()) });
+        if ('problem' in r) continue;
+        const operator = operators.get(r.operator.trim())?.username;
+        if (operator === undefined) continue;
+        const recordKey = r.recordKey;
+        const modifiedOn = r.modifiedOn ?? receivedAt;
+        const envelope = {
+          recordKey,
+          surveyUri: original.uri,
+          operator,
+          modifiedOn,
+          activelySaved: r.activelySaved,
+          step: r.step,
+          xml: r.xml,
+          summary: r.summary,
+          deleted: false,
+          payloadVersion: 1,
+          activeSeconds: null,
+        };
+        const kept = await store.putRecordWithEvent(projectId, recordKey, operator, (existing, submittedBefore) => {
+          // Received when it was saved: it did not come late (the Progress tab's "work that arrives late")
+          const { row, status } = applyLww(envelope, existing, modifiedOn);
+          if (status !== 'stored') return null;
+          const next = { ...row, projectId };
+          return { row: next, event: recordEventOf(existing, next, submittedBefore) };
+        });
+        if (kept) records++;
       }
-      let toDo: Buffer | null = null;
-      if (plotFile) {
-        const rows = plotFile.rows.filter((r) => !done.has(r.plot));
-        if (rows.length > 0) {
-          toDo = Buffer.concat([
-            ...(plotFile.header ? [plotFile.data.subarray(plotFile.header.start, plotFile.header.next)] : []),
-            ...rows.map((r) => plotFile.data.subarray(r.start, r.next)),
-          ]);
+
+      try {
+        await store.appendAudit(projectId, {
+          actorUserId: user.id,
+          action: 'project.imported',
+          details: { source: 'backup', surveyUri: original.uri, records, collectors: operators.size, plotsWithRecords: withRecords.size, plotFile: plotFile !== null },
+        });
+        for (const file of [toDoFile, doneFile]) {
+          if (file) await store.appendAudit(projectId, { actorUserId: user.id, action: 'csv.uploaded', details: { csvFileId: file.csvFileId, plots: file.plots } });
         }
-      } else {
-        const rest = [...withRecords.values()].filter((p) => !done.has(p.id));
-        if (rest.length > 0) toDo = csv(rest);
+      } catch (err) {
+        request.log.error({ err }, 'audit log write failed');
       }
-      if (toDo) {
-        const asked = typeof body.plotFileName === 'string' ? body.plotFileName.trim().replace(/[^\w.-]+/g, '_') : '';
-        const kept = await storeFile(plotFile && asked ? asked : `${base}_plots.csv`, toDo);
-        if (kept === 'over') return reply;
-        toDoFile = kept;
-      }
-    }
-
-    // The records fit the project's storage, as an import into a project must (routes/collectImport.ts)
-    const over = await checkUploadFits(store, projectId, { kind: 'records' }, read.records.reduce((sum, r) => sum + r.bytes, 0));
-    if (over) {
+      request.log.info({ projectId, records, round: info.state }, 'project made from a Collect Earth backup');
+      return reply.code(201).send({
+        projectId,
+        name,
+        round: info.state,
+        layout,
+        plotFile: toDoFile,
+        doneFile,
+        records,
+        // the plot files cannot be written when the survey identifies a plot by several keys (plotFileFormat)
+        plotFilesMade: format !== null,
+        collectors: [...operators].map(([typed, o]) => ({ name: typed, username: o.username, account: o.userId !== null })),
+        // what the preview showed, for the report
+        backup: preview(read, plotFile, firstRound),
+      } satisfies BackupImportAnswer);
+    } catch (e) {
       await store.deleteProject(projectId);
-      return reply.code(413).send(over);
+      throw e;
     }
-
-    // The records, as a sync stores them (last write wins, record events), each read against the served survey (with
-    // the round, when the server added it) and stored one at a time
-    for (const { userId } of operators.values()) {
-      if (userId && !(await store.listMemberships(userId)).some((m) => m.projectId === projectId)) await store.addMembership(projectId, userId, 'operator');
-    }
-    const readServed = backupReader(servedXml, info);
-    let records = 0;
-    const receivedAt = Date.now();
-    for (const entry of read.zip.records) {
-      const r = readServed({ name: entry.name, step: stepOf(entry.name), xml: new TextDecoder().decode(entry.read()) });
-      if ('problem' in r) continue;
-      const operator = operators.get(r.operator.trim())?.username;
-      if (operator === undefined) continue;
-      const recordKey = r.recordKey;
-      const modifiedOn = r.modifiedOn ?? receivedAt;
-      const envelope = {
-        recordKey,
-        surveyUri: original.uri,
-        operator,
-        modifiedOn,
-        activelySaved: r.activelySaved,
-        step: r.step,
-        xml: r.xml,
-        summary: r.summary,
-        deleted: false,
-        payloadVersion: 1,
-        activeSeconds: null,
-      };
-      const kept = await store.putRecordWithEvent(projectId, recordKey, operator, (existing, submittedBefore) => {
-        // Received when it was saved: it did not come late (the Progress tab's "work that arrives late")
-        const { row, status } = applyLww(envelope, existing, modifiedOn);
-        if (status !== 'stored') return null;
-        const next = { ...row, projectId };
-        return { row: next, event: recordEventOf(existing, next, submittedBefore) };
-      });
-      if (kept) records++;
-    }
-
-    try {
-      await store.appendAudit(projectId, {
-        actorUserId: user.id,
-        action: 'project.imported',
-        details: { source: 'backup', surveyUri: original.uri, records, collectors: operators.size, plotsWithRecords: withRecords.size, plotFile: plotFile !== null },
-      });
-      for (const file of [toDoFile, doneFile]) {
-        if (file) await store.appendAudit(projectId, { actorUserId: user.id, action: 'csv.uploaded', details: { csvFileId: file.csvFileId, plots: file.plots } });
-      }
-    } catch (err) {
-      request.log.error({ err }, 'audit log write failed');
-    }
-    request.log.info({ projectId, records, round: info.state }, 'project made from a Collect Earth backup');
-    return reply.code(201).send({
-      projectId,
-      name,
-      round: info.state,
-      layout,
-      plotFile: toDoFile,
-      doneFile,
-      records,
-      // the plot files cannot be written when the survey identifies a plot by several keys (plotFileFormat)
-      plotFilesMade: format !== null,
-      collectors: [...operators].map(([typed, o]) => ({ name: typed, username: o.username, account: o.userId !== null })),
-      // what the preview showed, for the report
-      backup: preview(read, plotFile, firstRound),
-    });
   });
 }

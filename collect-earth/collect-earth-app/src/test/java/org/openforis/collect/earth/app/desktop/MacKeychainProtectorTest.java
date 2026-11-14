@@ -112,6 +112,17 @@ public class MacKeychainProtectorTest {
 	}
 
 	@Test
+	public void aMissingItemIsAskedForOnceUntilProtected() {
+		FakeSecurity security = new FakeSecurity();
+		MacKeychainProtector protector = new MacKeychainProtector(security);
+		assertNull(protector.reveal("keychain:cloud_sync_token"));
+		assertNull(protector.reveal("keychain:cloud_sync_token"));
+		assertEquals(1, security.reads);
+		protector.protect("tok");
+		assertEquals("tok", protector.reveal("keychain:cloud_sync_token"));
+	}
+
+	@Test
 	public void whatIsNotATokenIsNotPassedAndAKeychainThatDidNotKeepItIsAFailure() {
 		FakeSecurity security = new FakeSecurity();
 		MacKeychainProtector protector = new MacKeychainProtector(security);

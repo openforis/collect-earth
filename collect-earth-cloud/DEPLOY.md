@@ -29,7 +29,7 @@ managed Postgres (Option B).
 | `SENTRY_DSN` | no | `https://key@o1.ingest.sentry.io/2` | With `TELEMETRY`: where the server and the dashboard send error reports. Default: the desktop app's Sentry project |
 | `SENTRY_ENVIRONMENT` | no | `staging` | With `TELEMETRY`: the reports' environment (default `production`) |
 | `GA_API_SECRET` | with GA | *(secret)* | With `TELEMETRY`: the Measurement Protocol API secret of the Google Analytics property. Without it no usage event is sent (it cannot be in this public repository) |
-| `GA_MEASUREMENT_ID` | no | `G-XXXXXXX` | With `TELEMETRY` and `GA_API_SECRET`: the property. Default: the desktop app's (`G-8K943HZKJZ`) |
+| `GA_MEASUREMENT_ID` | no | `G-XXXXXXX` | With `TELEMETRY` and `GA_API_SECRET`: the property. Default: Collect Earth Cloud's (`G-LRHVV8FNZB`) |
 | `TRUST_PROXY_HOPS` | no | `1` | Proxies in front of the server that add to `x-forwarded-for` (see below) |
 | `SESSION_IDLE_DAYS` | no | `90` | A sign-in (in Collect Earth or the dashboard) unused for this many days stops working; each use keeps it alive. A coordinator can also sign a person out everywhere (their page, *Sign out everywhere*), and anyone their other devices (*My account*) |
 | `MIGRATE_ON_BOOT` | optional | `true` | Apply pending migrations on startup (see below); `true` or `1` |
@@ -38,6 +38,7 @@ managed Postgres (Option B).
 | `QUALITY_WORKER_MAX_MB` | no | `256` | Memory (MB, at least 64) the thread that works out the quality figures may use on Postgres. A project too big for it gets a plain error instead of the figures. Keep it below the container's memory (see "Quality figures and memory") |
 | `NODE_HEAP_MB` | no | `224` | The server's heap in MB (the image passes it to Node as `--max-old-space-size`). 224 for 512 MiB, 448 for 1 GiB (see "Memory") |
 | `PARSED_FILES_CACHE_MB`, `SERVED_FILES_CACHE_MB` | no | `96`, `32` | Memory (MB, at least 8) for parsed plot files and for the plot files built for people; 384 and 128 with 1 GiB (see "Memory") |
+| `PG_POOL_MAX` | no | `10` | The most connections the server opens to PostgreSQL at once. Each sync (records:batch) holds one while it is written, so people syncing at the same moment wait for one beyond it: 20-30 suits a mapathon of 60 to 100 people, within the database's `max_connections` less its other clients' (Cloud SQL's smallest plans allow 25 to 50; keep a few for migrations and for you). With several server instances, each opens up to this many |
 | `PROJECT_STATES_KEPT`, `MAP_BUILDS_KEPT` | no | `3`, `4` | Projects whose Progress state, and maps whose next pages, each instance keeps; 6 and 8 with 1 GiB (see "Memory") |
 | `AI_VERTEX_API_KEY` | no | (secret) | Optional AI assistant: a Vertex AI API key, restricted to the Vertex AI API. Wins over `AI_VERTEX_PROJECT` when both are set. See "AI assistant (optional)" |
 | `AI_VERTEX_PROJECT` | no | `my-project` | Optional AI assistant without a key: the Google Cloud project whose Vertex AI the server's service account calls |
@@ -736,8 +737,10 @@ A billing budget alert (*AI assistant*, step 4) is the third one worth having.
 
 People can ask for a weekly email on their account page (**off by default**):
 coordinators the weekly summary of the projects they coordinate (plots done that week
-and in all, who has been quiet with plots left to do, the plots waiting for a
-decision, a link to the weekly page), collectors their own week (My work's numbers
+and in all, who has been quiet with plots left to do, a link to the weekly page, and
+the plots waiting for a decision only when the instance sending it already has the
+project's quality figures at hand: on Cloud Run usually not, so that line is mostly
+left out), collectors their own week (My work's numbers
 and the plots sent back to them; never anyone else's name, never which plots are
 checks, never an answer). Each mail is in the language the person chose, with their
 time zone's days, as plain text and simple HTML, and carries a one-click unsubscribe

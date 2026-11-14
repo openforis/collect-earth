@@ -11,6 +11,7 @@ import { useRef, useState } from "react";
 import { getNotifications, sendEmailConfirmation, setEmail, setNotifications, type DigestKind, type Notifications } from "../api";
 import { useApp } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { MoreInfo } from "../components/Explain";
 import { FormCard } from "../components/FormCard";
 import { PasswordField } from "../components/PasswordField";
 import { Loading } from "../components/Loading";
@@ -27,15 +28,54 @@ function browserTimeZone(): string | null {
   }
 }
 
-/** The weekly emails (Task 19): the account's address, its confirmation and the digests, off by default. */
-export function MailCard() {
-  const t = useT();
-  const { language } = useApp();
-  const loaded = useLoad(getNotifications, []);
-  const [address, setAddress] = useState<string | null>(null);
+/** One change at a time, its outcome said in the card (a refusal reloads what is stored). */
+function useRun(reload: () => void) {
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
+  // The buttons and switches stay enabled (a disabled control drops the keyboard focus).
+  const run = async (action: () => Promise<string | null>) => {
+    if (busy) return;
+    setError(null);
+    setStatus(null);
+    setBusy(true);
+    try {
+      setStatus(await action());
+    } catch (err) {
+      setError(err);
+      // A refusal may come after a change (an address saved, its mail not sent): show what is stored.
+      reload();
+    } finally {
+      setBusy(false);
+    }
+  };
+  return { status, error, busy, run };
+}
+
+/** What a change said: a live region mounted from the start, so screen readers announce what is put in it. */
+function Outcome({ status, error }: { status: string | null; error: unknown }) {
+  return (
+    <>
+      <Box role="status" aria-live="polite">
+        {/* role none: the box around it is the live region (an Alert is one of its own, said twice). */}
+        {status && (
+          <Alert severity="success" role="none">
+            {status}
+          </Alert>
+        )}
+      </Box>
+      <ErrorAlert error={error} />
+    </>
+  );
+}
+
+/** The account's email address (password resets, the weekly emails) and its confirmation. */
+export function EmailCard() {
+  const t = useT();
+  const { language } = useApp();
+  const loaded = useLoad(["app", "getNotifications"], getNotifications);
+  const { status, error, busy, run } = useRun(loaded.reload);
+  const [address, setAddress] = useState<string | null>(null);
   // A change of address asks for the password (the reset links go to it); Remove first asks for it too.
   const [password, setPassword] = useState("");
   const [removing, setRemoving] = useState(false);
@@ -49,23 +89,6 @@ export function MailCard() {
   const typed = address ?? n.email ?? "";
   const changed = typed.trim() !== (n.email ?? "");
   const askPassword = changed || removing;
-
-  // One change at a time; the buttons and switches stay enabled (a disabled control drops the keyboard focus).
-  const run = async (action: () => Promise<string | null>) => {
-    if (busy) return;
-    setError(null);
-    setStatus(null);
-    setBusy(true);
-    try {
-      setStatus(await action());
-    } catch (err) {
-      setError(err);
-      // A refusal may come after a change (an address saved, its mail not sent): show what is stored.
-      loaded.reload();
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const saveAddress = (remove: boolean) => {
     if (!remove && !changed) return Promise.resolve();
@@ -97,31 +120,15 @@ export function MailCard() {
       return t("mail.resent", { email: n.email ?? "" });
     });
 
-  const toggle = (kind: DigestKind, on: boolean) =>
-    run(async () => {
-      // No zone from the browser: none is sent, and the stored one stays.
-      loaded.setData(await setNotifications({ [kind]: on, language, timeZone: browserTimeZone() ?? undefined }));
-      return t("mail.changed");
-    });
-
-  const kinds: { kind: DigestKind; label: string; help: string }[] = [
-    { kind: "coordinator", label: t("mail.coordinator"), help: t("mail.coordinatorHelp") },
-    { kind: "collector", label: t("mail.collector"), help: t("mail.collectorHelp") },
-  ];
-  const shown = kinds.filter((k) => n.roles[k.kind] || n.digests[k.kind].on || n.digests[k.kind].stopped);
-  const anyOn = n.digests.coordinator.on || n.digests.collector.on;
-  const writtenIn = n.language && isLanguage(n.language) ? LANGUAGE_NAMES[n.language] : LANGUAGE_NAMES.en;
-
   return (
-    <FormCard title={t("mail.title")} intro={t("mail.intro")} onSubmit={() => void saveAddress(false)} level={2}>
-      {!n.sends && <Alert severity="info">{t("mail.notSending")}</Alert>}
+    <FormCard title={t("mail.emailLabel")} onSubmit={() => void saveAddress(false)} level={2}>
       <TextField
         label={t("mail.emailLabel")}
         type="email"
         autoComplete="email"
         value={typed}
         onChange={(e) => setAddress(e.target.value)}
-        helperText={t("mail.emailHelp")}
+        helperText={<>{t("mail.emailHelp.short")}<MoreInfo text={t("mail.emailHelp")} /></>}
         inputRef={emailRef}
         slotProps={{ htmlInput: { maxLength: 254 } }}
       />
@@ -143,7 +150,7 @@ export function MailCard() {
         </Alert>
       )}
       <Stack direction="row" sx={{ gap: 1, flexWrap: "wrap" }}>
-        <Button type="submit" variant="contained" aria-disabled={busy || typed.trim() === (n.email ?? "")}>
+        <Button type="submit" variant="outlined" aria-disabled={busy || typed.trim() === (n.email ?? "")}>
           {t("mail.save")}
         </Button>
         {n.email !== null && n.emailValid && !n.emailConfirmed && (
@@ -157,7 +164,40 @@ export function MailCard() {
           </Button>
         )}
       </Stack>
+      <Outcome status={status} error={error} />
+    </FormCard>
+  );
+}
 
+/** The weekly emails (Task 19), off by default; they go to the address of EmailCard. */
+export function MailCard() {
+  const t = useT();
+  const { language } = useApp();
+  const loaded = useLoad(["app", "getNotifications"], getNotifications);
+  const { status, error, run } = useRun(loaded.reload);
+
+  if (loaded.loading && !loaded.data) return <Loading />;
+  if (loaded.error || !loaded.data) return <ErrorAlert error={loaded.error} onRetry={loaded.reload} />;
+  const n: Notifications = loaded.data;
+
+  const toggle = (kind: DigestKind, on: boolean) =>
+    run(async () => {
+      // No zone from the browser: none is sent, and the stored one stays.
+      loaded.setData(await setNotifications({ [kind]: on, language, timeZone: browserTimeZone() ?? undefined }));
+      return t("mail.changed");
+    });
+
+  const kinds: { kind: DigestKind; label: string; help: string }[] = [
+    { kind: "coordinator", label: t("mail.coordinator"), help: t("mail.coordinatorHelp") },
+    { kind: "collector", label: t("mail.collector"), help: t("mail.collectorHelp") },
+  ];
+  const shown = kinds.filter((k) => n.roles[k.kind] || n.digests[k.kind].on || n.digests[k.kind].stopped);
+  const anyOn = n.digests.coordinator.on || n.digests.collector.on;
+  const writtenIn = n.language && isLanguage(n.language) ? LANGUAGE_NAMES[n.language] : LANGUAGE_NAMES.en;
+
+  return (
+    <FormCard title={t("mail.title")} intro={t("mail.intro")} onSubmit={() => undefined} level={2}>
+      {!n.sends && <Alert severity="info">{t("mail.notSending")}</Alert>}
       <Box component="fieldset" sx={{ border: 0, p: 0, m: 0 }}>
         <Typography component="legend" variant="h3" sx={{ mb: 1 }}>
           {t("mail.choose")}
@@ -196,16 +236,7 @@ export function MailCard() {
           {t("mail.written", { language: writtenIn, zone: n.timeZone ?? "UTC" })} {t("mail.stopAny")}
         </Typography>
       )}
-      {/* Mounted from the start, so screen readers announce what is put in it. */}
-      <Box role="status" aria-live="polite">
-        {/* role none: the box around it is the live region (an Alert is one of its own, said twice). */}
-        {status && (
-          <Alert severity="success" role="none">
-            {status}
-          </Alert>
-        )}
-      </Box>
-      <ErrorAlert error={error} />
+      <Outcome status={status} error={error} />
     </FormCard>
   );
 }

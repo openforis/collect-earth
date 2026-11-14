@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { AnalysisData, AnalysisModelData } from "./api";
-import { codesCsv, cubeOf, defaultView, fitToCube, labelIn, parseSavedViews, readCsvSql, tableChoices, translateView, withSavedView } from "./analysisView";
+import type { AnalysisAnswer, AnalysisModel } from "./api";
+import { codesCsv, cubeOf, defaultView, fitToCube, labelIn, parseSavedViews, pivotCsv, readCsvSql, tableChoices, translateView, withSavedView } from "./analysisView";
+import { recordsCsv } from "./csv";
 import { translator } from "./i18n";
 
-const col = (name: string, over: Partial<AnalysisModelData["tables"][number]["columns"][number]> = {}) => ({
+const col = (name: string, over: Partial<AnalysisModel["tables"][number]["columns"][number]> = {}) => ({
   name,
   key: `collect_text_${name}`,
   labels: {},
@@ -12,10 +13,13 @@ const col = (name: string, over: Partial<AnalysisModelData["tables"][number]["co
   calculated: false,
   multiple: false,
   fromPlotFile: false,
+  keyAttr: false,
+  parent: null,
+  relevantIf: null,
   ...over,
 });
 
-const model: AnalysisModelData = {
+const model: AnalysisModel = {
   languages: ["en", "es"],
   tables: [
     {
@@ -49,7 +53,7 @@ const model: AnalysisModelData = {
     empty: [],
   },
 };
-const data = (over: Partial<AnalysisData> = {}): AnalysisData => ({ model, scope: "project", areas: { source: "region_areas.csv", plots: 3, unmatched: 0 }, tables: [], ...over });
+const data = (over: Partial<AnalysisAnswer> = {}): AnalysisAnswer => ({ model, scope: "project", areas: { source: "region_areas.csv", unknownColumns: [], noStratum: { plots: 0, examples: [] }, plots: 3, unmatched: 0 }, tables: [], ...over });
 const en = translator("en");
 const es = translator("es");
 
@@ -245,5 +249,18 @@ it("fits a view to the table it opens on: a collector's has no assessment, a coo
     aggregates: { "Number of plots": "sum" },
     filter: [["Land use", "==", "Forest"]],
     sort: [],
+  });
+});
+
+describe("the analysis downloads escape formulas", () => {
+  it("prefixes a drill-through cell a spreadsheet would run", () => {
+    const rows = [{ Plot: '=HYPERLINK("http://x")', Area: 1.5, Done: true }, { Plot: "p2", Area: null }];
+    expect(recordsCsv(["Plot", "Area", "Done"], rows, "es")).toBe(`Plot;Area;Done\r\n"'=HYPERLINK(""http://x"")";1,5;true\r\np2;;\r\n`);
+  });
+
+  it("writes the pivot from its columns: the group by first, dates as days, formulas prefixed", () => {
+    const columns = { __ROW_PATH__: [[], ["=cmd()"], ["Forest"]], "2026|Count": [3, 1, 2], Saved: [null, Date.UTC(2026, 0, 2), Date.UTC(2026, 0, 3)] };
+    const schema = { "Land use": "string", Count: "integer", Saved: "date" };
+    expect(pivotCsv(columns, schema, ["Land use"], "en")).toBe("Land use,2026|Count,Saved\r\n,3,\r\n'=cmd(),1,2026-01-02\r\nForest,2,2026-01-03\r\n");
   });
 });

@@ -64,7 +64,7 @@ export function ReportFrame({
   children: ReactNode;
 }) {
   const t = useT();
-  const project = useLoad(() => getProject(projectId), [projectId]);
+  const project = useLoad(["project", projectId, "getProject"], () => getProject(projectId));
   return (
     <AppShell>
       <Stack spacing={3}>
@@ -172,7 +172,7 @@ function ConfusionItem({ confusion, text, plots, options }: { confusion: ReportC
 export function MyQualityPage({ projectId }: { projectId: string }) {
   const t = useT();
   const { language } = useApp();
-  const mine = useLoad(() => getMyQuality(projectId), [projectId]);
+  const mine = useLoad(["project", projectId, "getMyQuality"], () => getMyQuality(projectId));
   useRefreshWhileStale(mine);
   const data = mine.data;
   return (
@@ -189,13 +189,13 @@ export function MyQualityPage({ projectId }: { projectId: string }) {
         <>
           <FiguresTime computedAt={data.computedAt} stale={data.stale} />
           <Block title={t("myQuality.checked")}>
-            {data.asFirst.compared === 0 ? (
+            {data.asFirst.checks === 0 ? (
               <Alert severity="info">{t("myQuality.none")}</Alert>
             ) : (
               <Typography sx={{ fontSize: "1.25rem", fontVariantNumeric: "tabular-nums" }}>{rateText(t, data.asFirst, language)}</Typography>
             )}
           </Block>
-          {data.asFirst.compared > 0 && (
+          {data.asFirst.checks > 0 && (
             <Block title={t("myQuality.confusionsTitle")}>
               {data.confusions.length === 0 && <Typography>{t("myQuality.confusionsNone")}</Typography>}
               {data.confusions.map((c) => (
@@ -227,7 +227,7 @@ export function MyQualityPage({ projectId }: { projectId: string }) {
 export function MyWorkPage({ projectId }: { projectId: string }) {
   const t = useT();
   const timeZone = browserTimeZone();
-  const mine = useLoad(() => getMyWork(projectId, timeZone), [projectId, timeZone]);
+  const mine = useLoad(["project", projectId, "getMyWork", timeZone], () => getMyWork(projectId, timeZone));
   const data = mine.data;
   return (
     <ReportFrame projectId={projectId} title={t("myWork.title")} back="progress">
@@ -288,7 +288,7 @@ function YourData() {
 export function TeamReportPage({ projectId }: { projectId: string }) {
   const t = useT();
   const { language } = useApp();
-  const report = useLoad(() => getTeamReport(projectId), [projectId]);
+  const report = useLoad(["project", projectId, "getTeamReport"], () => getTeamReport(projectId));
   useRefreshWhileStale(report);
   const data = report.data;
   const labels = new Map((data?.questions ?? []).map((q) => [q.key, q.label]));
@@ -331,7 +331,7 @@ export function TeamReportPage({ projectId }: { projectId: string }) {
                         <TableRow key={q.key} sx={{ verticalAlign: "top", breakInside: "avoid" }}>
                           <TableCell component="th" scope="row" sx={{ wordBreak: "break-word", minWidth: 140 }}>
                             {q.label}
-                            {q.kind === "number" && q.margin !== null && (
+                            {q.kind === "number" && q.margin !== undefined && (
                               <Typography variant="body2" color="text.secondary">
                                 {t("quality.withinMargin", { margin: q.margin })}
                               </Typography>

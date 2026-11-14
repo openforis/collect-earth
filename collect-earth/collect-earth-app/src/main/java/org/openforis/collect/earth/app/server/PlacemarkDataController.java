@@ -64,7 +64,7 @@ public class PlacemarkDataController extends AbstractPlacemarkDataController {
 		try{
 			work(updateRequest.getPlacemarkId());
 			super.saveDataExpanded(updateRequest, response);
-			if( "true".equals(updateRequest.getValues().get("collect_boolean_actively_saved"))) {
+			if( updateRequest.getValues() != null && "true".equals(updateRequest.getValues().get("collect_boolean_actively_saved"))) {
 				GAlogger.logGAnalytics("PlotSavedCollectEarth");
 			}
 		}catch(Exception e){

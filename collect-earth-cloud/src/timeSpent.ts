@@ -6,6 +6,10 @@
 // "Much quicker" is relative to the team (decided by the owner, 4 Nov 2026): under QUICK_SHARE of the team's median,
 // so no number has to be set and it follows the survey (a long form takes longer for everyone).
 
+import type { PersonTime, TimeSpent } from './wire/people.js';
+
+export type { PersonTime, QuickPlot, TimeSpent } from './wire/people.js';
+
 /** A plot is quick when its active time is under this share of the team's median. */
 export const QUICK_SHARE = 0.25;
 /** The team's median says what usual is only from this many timed plots on: fewer, and nothing is called quick. */
@@ -23,48 +27,6 @@ export interface TimedRecord {
   seconds: number | null;
   /** When it was (first) submitted, ms. */
   submittedAt: number;
-}
-
-export interface PersonTime {
-  username: string;
-  /** Submitted plots with a time, and without. */
-  timed: number;
-  untimed: number;
-  medianSeconds: number | null;
-  /** The middle half of their plots: the first and third quartiles. */
-  q1Seconds: number | null;
-  q3Seconds: number | null;
-  totalSeconds: number;
-  /** Their plots under the quick limit (0 while there is no limit). */
-  quick: number;
-  /** How many of their timed plots fall in each band of TIME_BANDS (one more than the bands: the last is open). */
-  bands: number[];
-}
-
-export interface QuickPlot {
-  plot: string;
-  operator: string;
-  seconds: number;
-  submittedAt: number;
-}
-
-export interface TimeSpent {
-  timed: number;
-  untimed: number;
-  medianSeconds: number | null;
-  q1Seconds: number | null;
-  q3Seconds: number | null;
-  /** Plots under this many seconds are quick; null while fewer than MIN_TIMED_FOR_QUICK plots are timed. */
-  quickBelowSeconds: number | null;
-  quickShare: number;
-  minTimed: number;
-  bands: number[];
-  bandLimits: readonly number[];
-  people: PersonTime[];
-  /** All quick plots, counted. */
-  quickCount: number;
-  /** The quick plots, quickest first (at most MAX_LISTED_QUICK). */
-  quick: QuickPlot[];
 }
 
 /** The value at a share (0..1) of sorted numbers, interpolated; null for none. */

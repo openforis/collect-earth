@@ -9,6 +9,7 @@
 // shown to the model with the reason, once; a blocked answer fails the run. A failed run
 // gives no result. People and plots are pseudonyms throughout; real names and plot ids
 // come back only through withRealNames, for the dashboard.
+import type { AiAnswer, AiFinding, AiReport, FindingCause } from '../wire/ai.js';
 import { AiError, modelTurn, type AiClient, type AiRequest, type AiResponse, type AiResult, type AiTurn } from './client.js';
 import {
   ANSWER_CHECK_SYSTEM,
@@ -30,6 +31,8 @@ import {
 import { withQuestionLabels } from '../questionLabels.js';
 import { AI_INTERRUPTED } from '../types.js';
 import { PlotNames, Pseudonyms, ToolBox, TOOL_NAMES, TOOLS, usernamesOf, type ToolData } from './tools.js';
+
+export type { AiAnswer, AiFinding, AiReport, FindingCause } from '../wire/ai.js';
 
 export interface AiRunLimits {
   /** Tool calls in all, per run. */
@@ -107,35 +110,7 @@ export interface AiRunContext extends ToolData {
   onProgress?: (progress: RunProgress) => void | Promise<void>;
 }
 
-export type FindingCause = 'unclear_question' | 'overlapping_options' | 'person_habit' | 'number_typing' | 'other';
 export const FINDING_CAUSES: readonly FindingCause[] = ['unclear_question', 'overlapping_options', 'person_habit', 'number_typing', 'other'];
-
-export interface AiFinding {
-  title: string;
-  explanation: string;
-  cause: FindingCause;
-  questions: string[];
-  /** Pseudonyms in a stored result; usernames after withRealNames. */
-  persons: string[];
-  /** Plot names ("Plot 1") in a stored result; plot ids after withRealNames. */
-  plots: string[];
-  /** A draft guidance note: never names a person. */
-  suggestedNote: string | null;
-}
-
-export interface AiReport {
-  summary: string;
-  findings: AiFinding[];
-  recheckPlots: string[];
-  surveyChanges: { question: string; suggestion: string }[];
-}
-
-export interface AiAnswer {
-  text: string;
-  plots: string[];
-  /** A draft guidance note: never names a person. */
-  note: string | null;
-}
 
 /**
  * A result as stored: pseudonymous, with the mappings to show real names and plot ids

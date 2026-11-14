@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.junit.jupiter.api.Test;
 
@@ -57,6 +58,31 @@ public class RestartServiceTest {
 		// Give a second thread, if there were one, the time to add its steps
 		Thread.sleep(100);
 		assertEquals(List.of("restart"), steps);
+	}
+
+	@Test
+	public void aQuitDuringTheRestartDoesNotStopTheServerAgain() throws Exception {
+		AtomicBoolean shared = new AtomicBoolean();
+		CountDownLatch release = new CountDownLatch(1);
+		new RestartService(() -> await(release), this::restart, shared).run();
+		new QuitService(() -> steps.add("stop"), () -> steps.add("exit"), 100, shared).run();
+		release.countDown();
+		assertTrue(restarted.await(2, TimeUnit.SECONDS));
+		Thread.sleep(100);
+		assertEquals(List.of("restart"), steps);
+		// EarthApp.restart then exits instead of relaunching
+		assertTrue(QuitService.isQuitAsked());
+	}
+
+	@Test
+	public void noRestartOnceQuitting() throws Exception {
+		AtomicBoolean shared = new AtomicBoolean();
+		CountDownLatch exited = new CountDownLatch(1);
+		new QuitService(() -> steps.add("stop"), exited::countDown, 100, shared).run();
+		new RestartService(() -> steps.add("prepare"), this::restart, shared).run();
+		assertTrue(exited.await(2, TimeUnit.SECONDS));
+		Thread.sleep(100);
+		assertEquals(List.of("stop"), steps);
 	}
 
 	private static void await(CountDownLatch latch) {

@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { byId, changedAfterSubmit, countStatuses, indexPlots, labelOfFeature, leftUnsubmitted, matchesFilter, neighbour, nextUnfinished, normalizeStatus, plotsNear,
-  MAX_VIEW_HEIGHT, matchesElsewhere, plotLabel, previousMessage, previousPlot, previousStands, surveyView, visibleIds } from "./plots";
-import type { PlotStatus } from "./types";
+  MAX_VIEW_HEIGHT, matchesElsewhere, plotLabel, previousMessage, previousPlot, previousStands, surveyView, visibleIds,
+  countPeriods, matchesPeriod, periodAnswer } from "./plots";
+import type { PeriodAnswer, PlotStatus } from "./types";
 
 const order = ["p1", "p2", "p3", "p4", "p10"];
 const statuses: Record<string, PlotStatus> = { p1: "saved", p2: "partial", p3: "saved", p4: "empty", p10: "saved" };
@@ -231,5 +232,33 @@ describe("surveyView", () => {
     const view = surveyView([[-40, -70], [60, 140]]);
     expect(view.heightMeters).toBe(MAX_VIEW_HEIGHT);
     expect(view.heightMeters).toBeLessThanOrEqual(2.0e7);
+  });
+});
+
+describe("a repeat survey's filter by the earlier period", () => {
+  const periods = Object.assign(byId<PeriodAnswer>(), { p1: "same", p2: "changed", p3: "corrected" } as const);
+
+  it("shows the plots of one answer, or those not answered yet, and the search and the status chip still apply", () => {
+    expect(visibleIds(order, statuses, "all", "", byId(), { periods, filter: "all" })).toEqual(order);
+    expect(visibleIds(order, statuses, "all", "", byId(), { periods, filter: "changed" })).toEqual(["p2"]);
+    expect(visibleIds(order, statuses, "all", "", byId(), { periods, filter: "none" })).toEqual(["p4", "p10"]);
+    expect(visibleIds(order, statuses, "saved", "", byId(), { periods, filter: "none" })).toEqual(["p10"]);
+    expect(visibleIds(order, statuses, "all", "1", byId(), { periods, filter: "same" })).toEqual(["p1"]);
+    // a project that repeats no survey is not filtered by it
+    expect(visibleIds(order, statuses, "all", "", byId(), null)).toEqual(order);
+    expect(matchesPeriod(undefined, "same")).toBe(false);
+    expect(matchesPeriod("corrected", "corrected")).toBe(true);
+  });
+
+  it("counts the plots of each answer", () => {
+    expect(countPeriods(order, periods)).toEqual({ all: 5, same: 1, changed: 1, corrected: 1, none: 2 });
+  });
+
+  it("reads the answers the server sends: anything else is not answered", () => {
+    expect(["same", "changed", "corrected", "", "other", null].map(periodAnswer)).toEqual(["same", "changed", "corrected", null, null, null]);
+  });
+
+  it("offers the plots of the other status chip the search finds, filtered by the earlier period too", () => {
+    expect(matchesElsewhere(order, statuses, "pending", "p", byId(), { periods, filter: "same" })).toEqual({ count: 1, filter: "saved" });
   });
 });

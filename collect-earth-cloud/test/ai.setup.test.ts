@@ -188,8 +188,8 @@ describe('the AI switch of a project', () => {
     await putSettings(ctx.app, owner.token, { aiEnabled: true });
     const on = await project('PUT', { enabled: true });
     expect(on.statusCode, on.body).toBe(200);
-    expect(on.json()).toEqual({ enabled: true, available: true });
-    // where the data is processed, for the coordinator's decision
+    // where the data is processed, for the coordinator's decision: in the switch's answer too, as in GET's
+    expect(on.json()).toMatchObject({ enabled: true, available: true, where: { provider: 'Google Gemini (Vertex AI)', region: 'global' } });
     expect((await project('GET')).json()).toMatchObject({ enabled: true, available: true, where: { provider: 'Google Gemini (Vertex AI)', region: 'global' } });
     expect(await ctx.store.isAiEnabled(pid)).toBe(true);
 
@@ -197,7 +197,7 @@ describe('the AI switch of a project', () => {
     await putSettings(ctx.app, owner.token, { aiEnabled: false });
     expect((await project('GET')).json()).toEqual({ enabled: true, available: false, where: null });
 
-    expect((await project('PUT', { enabled: false })).json()).toEqual({ enabled: false, available: false });
+    expect((await project('PUT', { enabled: false })).json()).toEqual({ enabled: false, available: false, where: null });
     expect(await ctx.store.isAiEnabled(pid)).toBe(false);
   });
 

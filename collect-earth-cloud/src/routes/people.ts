@@ -8,6 +8,7 @@ import { remember, type QualityService } from '../qualityService.js';
 import { sentBackTo } from '../sendBack.js';
 import type { Store } from '../store/store.js';
 import type { InviteSummary, MemberActivity } from '../types.js';
+import type { PeopleAnswer, PersonAnswer } from '../wire/people.js';
 
 /** My work is worked out at most once in this long per person; asked again sooner, the last answer is given. */
 export const MY_WORK_MIN_INTERVAL_MS = 5_000;
@@ -157,7 +158,7 @@ export async function registerPeopleRoutes(
   const admin = { preHandler: requireProjectMembership(store, 'admin') };
   const member = { preHandler: requireProjectMembership(store) };
   /** `${projectId} ${userId} ${tz}` -> the last My work answer and when it was made. */
-  const myWork = new Map<string, { at: number; body: unknown }>();
+  const myWork = new Map<string, { at: number; body: PersonAnswer }>();
 
   app.get('/v1/projects/:pid/people', admin, async (request: FastifyRequest, reply: FastifyReply) => {
     const projectId = request.membership!.projectId;
@@ -167,7 +168,8 @@ export async function registerPeopleRoutes(
     const table = peopleTable(input);
     // Who is left out of the results, as the members are now.
     const excluded = new Map(served.members.filter((m) => m.excluded).map((m) => [m.userId, m.excluded]));
-    return reply.send({ ...table, people: table.people.map((p) => (excluded.has(p.userId) ? { ...p, excluded: excluded.get(p.userId) } : p)), asOf: asOf(served) });
+    const answer: PeopleAnswer = { ...table, people: table.people.map((p) => (excluded.has(p.userId) ? { ...p, excluded: excluded.get(p.userId) } : p)), asOf: asOf(served) };
+    return reply.send(answer);
   });
 
   app.get('/v1/projects/:pid/people/:userId', admin, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -183,7 +185,8 @@ export async function registerPeopleRoutes(
       return reply.code(404).send({ error: 'not_found', reason: 'no such person in this project' });
     }
     const excluded = served.members.find((m) => m.userId === userId)?.excluded;
-    return reply.send({ ...detail, ...(excluded ? { person: { ...detail.person, excluded } } : {}), asOf: asOf(served) });
+    const answer: PersonAnswer = { ...detail, ...(excluded ? { person: { ...detail.person, excluded } } : {}), asOf: asOf(served) };
+    return reply.send(answer);
   });
 
   app.get('/v1/projects/:pid/my-work', member, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -203,7 +206,7 @@ export async function registerPeopleRoutes(
     if (!detail) {
       return reply.code(404).send({ error: 'not_found' });
     }
-    const body = { ...detail, asOf: asOf(served) };
+    const body: PersonAnswer = { ...detail, asOf: asOf(served) };
     remember(myWork, key, { at, body }, MAX_MY_WORK_ANSWERS);
     return reply.send(body);
   });

@@ -80,8 +80,10 @@ export interface Column {
   value: number;
   /** What hovering says, e.g. "Tue 27 Oct: 12 plots". */
   title: string;
-  /** Show this column's label even when labels are thinned out. */
+  /** Show this column's label even when labels are thinned out (the labels too close to it are left out). */
   always?: boolean;
+  /** Show this column's value on its cap even when the columns are too thin for values. */
+  showValue?: boolean;
   /** Drawn in the warning colour (e.g. "very fast"). */
   warn?: boolean;
 }
@@ -145,12 +147,12 @@ export function ColumnChart({ columns, height = 160, ariaLabel }: { columns: rea
             return (
               <g key={i}>
                 {path && <path d={path} fill={c.warn ? warn : mark} opacity={active === null || active === i ? 1 : 0.55} />}
-                {c.value > 0 && band >= 18 && (
+                {c.value > 0 && (band >= 18 || c.showValue) && (
                   <text x={cx} y={y - 4} textAnchor="middle" fontSize={11} fill={ink}>
                     {c.value}
                   </text>
                 )}
-                {(c.always || i % every === 0) && (
+                {(c.always || (i % every === 0 && !columns.some((o, j) => o.always && j !== i && Math.abs(j - i) < every))) && (
                   <text x={cx} y={box.height - 6} textAnchor="middle" fontSize={11} fill={ink}>
                     {c.label}
                   </text>
@@ -216,7 +218,7 @@ export function CalendarHeatMap({
   cellTitle,
   ariaLabel,
 }: {
-  days: readonly { date: string; plots: number; checks: number }[];
+  days: readonly { date: string; plots: number; checks?: number }[];
   today: string;
   language: string;
   cellTitle: (cell: CalendarCell) => string;

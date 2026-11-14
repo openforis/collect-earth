@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ApiError, type AiRunSummary, type QuestionAgreement } from "./api";
+import { ApiError, type AiRunListed, type QuestionAgreement } from "./api";
 import {
   AI_LIMIT_MAX,
   causeMessageKey,
@@ -7,7 +7,6 @@ import {
   findingFigures,
   followedKind,
   followUpsOf,
-  limitTexts,
   LOST_CONTACT_AFTER,
   MAX_QUESTION_CHARS,
   parseLimit,
@@ -117,13 +116,15 @@ describe("why a run did not start", () => {
   });
 });
 
-const summary = (id: string, over: Partial<AiRunSummary> = {}): AiRunSummary => ({
+const summary = (id: string, over: Partial<AiRunListed> = {}): AiRunListed => ({
   id,
   kind: "report",
   status: "running",
   startedAt: 0,
   finishedAt: null,
   startedBy: "ana",
+  inputTokens: 0,
+  outputTokens: 0,
   tokens: 0,
   parentRunId: null,
   findingIndex: null,
@@ -174,15 +175,6 @@ describe("following a run", () => {
   });
 });
 
-describe("the AI limits on the server's page", () => {
-  const settings = { aiReportsPerDay: 5, aiFollowUpsPerDay: 50, aiMonthlyTokens: 2_000_000 };
-  it("show the server's values, and what is being typed over them until it is saved", () => {
-    expect(limitTexts(settings, {})).toEqual({ aiReportsPerDay: "5", aiFollowUpsPerDay: "50", aiMonthlyTokens: "2000000" });
-    expect(limitTexts({ ...settings, aiReportsPerDay: 7 }, {})).toMatchObject({ aiReportsPerDay: "7" });
-    expect(limitTexts({ ...settings, aiReportsPerDay: 7 }, { aiReportsPerDay: "9" })).toMatchObject({ aiReportsPerDay: "9", aiFollowUpsPerDay: "50" });
-  });
-});
-
 describe("the panel's helpers", () => {
   it("asks for a run's progress only while it runs and the page is visible", () => {
     expect(shouldPollRun("running", false)).toBe(true);
@@ -199,7 +191,7 @@ describe("the panel's helpers", () => {
   });
 
   it("shows the server's figures for a finding's questions, not the model's", () => {
-    const questions: QuestionAgreement[] = [{ key: "q1", label: "Land use", kind: "choice", compared: 50, agreeing: 41, rate: 0.82, margin: null }];
+    const questions: QuestionAgreement[] = [{ key: "q1", label: "Land use", kind: "choice", compared: 50, agreeing: 41, rate: 0.82 }];
     expect(findingFigures(["q1", "q9"], questions)).toEqual([
       { key: "q1", label: "Land use", rate: { compared: 50, agreeing: 41, rate: 0.82 } },
       { key: "q9", label: "q9", rate: null },
@@ -216,13 +208,15 @@ describe("the panel's helpers", () => {
   });
 
   it("groups a report's follow-ups by finding, and its questions", () => {
-    const run = (id: string, kind: AiRunSummary["kind"], parentRunId: string | null, findingIndex: number | null): AiRunSummary => ({
+    const run = (id: string, kind: AiRunListed["kind"], parentRunId: string | null, findingIndex: number | null): AiRunListed => ({
       id,
       kind,
       status: "done",
       startedAt: 0,
       finishedAt: 0,
       startedBy: null,
+      inputTokens: 0,
+      outputTokens: 0,
       tokens: 0,
       parentRunId,
       findingIndex,

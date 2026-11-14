@@ -21,14 +21,15 @@ import {
   startAiRun,
   type AiAnswer,
   type AiFinding,
-  type AiRun,
+  type AiRunAnswer,
   type AiRunKind,
-  type AiRunSummary,
+  type AiRunListed,
   type AiStart,
   type FollowUpAction,
-  type QualityData,
+  type QualityAnswer,
 } from "../api";
 import {
+  answerOf,
   causeMessageKey,
   failureMessageKey,
   findingFigures,
@@ -39,6 +40,7 @@ import {
   plotLinks,
   progressMessageKey,
   questionCounter,
+  reportOf,
   RUN_POLL_MS,
   runPollFailure,
   runRetryDelay,
@@ -68,7 +70,7 @@ const ACTION_LABEL: Record<FollowUpAction, MessageKey> = {
   recheck: "ai.whichPlots",
 };
 
-const STATUS_LABEL: Record<AiRunSummary["status"], MessageKey> = {
+const STATUS_LABEL: Record<AiRunListed["status"], MessageKey> = {
   running: "ai.status.running",
   done: "ai.status.done",
   failed: "ai.status.failed",
@@ -133,18 +135,18 @@ function Plots({ plots, existing, onShowPlot }: { plots: string[]; existing: Rea
 }
 
 /** The progress of a running run, and the reminder to keep the page open. */
-function Progress({ run, hidden }: { run: AiRun | undefined; hidden: boolean }) {
+function Progress({ run, hidden }: { run: AiRunAnswer | undefined; hidden: boolean }) {
   const t = useT();
   return (
     <Alert severity="info" role="status" icon={<CircularProgress size={20} />}>
-      <Typography sx={{ fontWeight: 500 }}>{t("ai.working", { step: t(progressMessageKey(run?.tools ?? [])) })}</Typography>
+      <Typography sx={{ fontWeight: 500 }}>{t("ai.working", { step: t(progressMessageKey(run?.progress.tools ?? [])) })}</Typography>
       <Typography variant="body2">{hidden ? t("ai.paused") : t("ai.keepOpen")}</Typography>
     </Alert>
   );
 }
 
 /** Why a run did not finish: its code in words (a refusal is the off-topic sentence). */
-function NotFinished({ run }: { run: AiRunSummary }) {
+function NotFinished({ run }: { run: AiRunListed }) {
   const t = useT();
   return (
     <Alert severity={run.status === "refused" ? "info" : "warning"}>
@@ -195,8 +197,8 @@ function Child({
   onShowPlot,
   onUseNote,
 }: {
-  summary: AiRunSummary;
-  run: AiRun | undefined;
+  summary: AiRunListed;
+  run: AiRunAnswer | undefined;
   hidden: boolean;
   heading: string;
   existing: ReadonlySet<string>;
@@ -204,6 +206,7 @@ function Child({
   onUseNote: (text: string) => void;
 }) {
   const status = run?.status ?? summary.status;
+  const answer = answerOf(run);
   return (
     <Box sx={{ bgcolor: "action.hover", borderRadius: 1, p: { xs: 1.5, sm: 2 } }}>
       <Stack spacing={1}>
@@ -213,7 +216,7 @@ function Child({
         {status === "running" ? (
           <Progress run={run} hidden={hidden} />
         ) : status === "done" ? (
-          run?.answer ? <Answer answer={run.answer} existing={existing} onShowPlot={onShowPlot} onUseNote={onUseNote} /> : <Loading />
+          answer ? <Answer answer={answer} existing={existing} onShowPlot={onShowPlot} onUseNote={onUseNote} /> : <Loading />
         ) : (
           <NotFinishedOf summary={summary} run={run} />
         )}
@@ -222,7 +225,7 @@ function Child({
   );
 }
 
-function NotFinishedOf({ summary, run }: { summary: AiRunSummary; run: AiRun | undefined }) {
+function NotFinishedOf({ summary, run }: { summary: AiRunListed; run: AiRunAnswer | undefined }) {
   return <NotFinished run={run ?? summary} />;
 }
 
@@ -242,9 +245,9 @@ function Finding({
 }: {
   finding: AiFinding;
   index: number;
-  data: QualityData;
-  followUps: AiRunSummary[];
-  details: ReadonlyMap<string, AiRun>;
+  data: QualityAnswer;
+  followUps: AiRunListed[];
+  details: ReadonlyMap<string, AiRunAnswer>;
   hidden: boolean;
   canRun: boolean;
   existing: ReadonlySet<string>;
@@ -367,11 +370,11 @@ function Report({
   onWriteNote,
   onShowPlot,
 }: {
-  summary: AiRunSummary;
-  run: AiRun | undefined;
-  runs: AiRunSummary[];
-  details: ReadonlyMap<string, AiRun>;
-  data: QualityData;
+  summary: AiRunListed;
+  run: AiRunAnswer | undefined;
+  runs: AiRunListed[];
+  details: ReadonlyMap<string, AiRunAnswer>;
+  data: QualityAnswer;
   hidden: boolean;
   canRun: boolean;
   busy: boolean;
@@ -406,8 +409,8 @@ function Report({
       </Stack>
     );
   }
-  if (!run?.report) return <Loading />;
-  const report = run.report;
+  const report = reportOf(run);
+  if (!report) return <Loading />;
   return (
     <Stack spacing={2}>
       {heading}
@@ -490,16 +493,16 @@ export function QualityAssistant({
   onShowPlot,
 }: {
   projectId: string;
-  data: QualityData;
+  data: QualityAnswer;
   onWriteNote: (draft: NoteDraft) => void;
   onShowPlot: (plot: string) => void;
 }) {
   const t = useT();
   const { language } = useApp();
-  const ai = useLoad(() => getProjectAi(projectId), [projectId]);
-  const runs = useLoad(() => listAiRuns(projectId), [projectId]);
+  const ai = useLoad(["project", projectId, "getProjectAi"], () => getProjectAi(projectId));
+  const runs = useLoad(["project", projectId, "listAiRuns"], () => listAiRuns(projectId));
   const hidden = usePageHidden();
-  const [details, setDetails] = useState<Map<string, AiRun>>(new Map());
+  const [details, setDetails] = useState<Map<string, AiRunAnswer>>(new Map());
   const [selected, setSelected] = useState<string | null>(null);
   /** The run followed, with its kind when it was started here (so its progress shows at once). */
   const [active, setActive] = useState<{ id: string; kind?: AiRunKind } | null>(null);
@@ -556,12 +559,13 @@ export function QualityAssistant({
           const draft = draftFor.current;
           if (draft && draft.runId === run.id) {
             draftFor.current = null;
-            if (run.answer?.note) {
+            const note = answerOf(run)?.note;
+            if (note) {
               onWriteNote({
                 questionKey: draft.finding.questions.find((k) => data.questions.some((q) => q.key === k)) ?? "",
                 firstValue: null,
                 checkValue: null,
-                text: withQuestionLabels(run.answer.note, labels),
+                text: withQuestionLabels(note, labels),
               });
             }
           }
@@ -628,6 +632,8 @@ export function QualityAssistant({
   const startText = startError ? startErrorText(t, startError, language) : null;
   const activeRun = activeId ? details.get(activeId) : undefined;
   const reportRunning = followedKind(active, list, details) === "report";
+  // Not set up on this server: no card at all, unless reviews made before are still there to read.
+  if (ai.data && !ai.data.available && reports.length === 0) return null;
 
   return (
     <QuestionLabels.Provider value={labels}>
@@ -647,7 +653,7 @@ export function QualityAssistant({
             <Alert
               severity="info"
               action={
-                <Button color="inherit" size="small" {...linkProps(pathFor({ name: "project", projectId, tab: "settings" }))}>
+                <Button color="inherit" size="small" {...linkProps(pathFor({ name: "project", projectId, tab: "setup", view: "sharing" }))}>
                   {t("ai.openSettings")}
                 </Button>
               }

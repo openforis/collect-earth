@@ -1,4 +1,4 @@
-import type { RoundCode, RoundInfo } from "./api";
+import type { CodeItem, RoundInfo } from "./api";
 import type { MessageKey } from "./i18n";
 
 /** Why the server did not add round (RoundInfo.refusal), as the sentence to show. */
@@ -77,7 +77,7 @@ export function noteMessage(info: RoundInfo): { severity: "success" | "info"; ke
 }
 
 /** A round code as shown in the list: "2 – Re-assessment", or the code alone without a label. */
-export function roundCodeLabel(code: RoundCode): string {
+export function roundCodeLabel(code: CodeItem): string {
   return code.label && code.label !== code.code ? `${code.code} – ${code.label}` : code.code;
 }
 

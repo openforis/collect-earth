@@ -3,6 +3,7 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Divider from "@mui/material/Divider";
 import LinearProgress from "@mui/material/LinearProgress";
+import Link from "@mui/material/Link";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
@@ -20,7 +21,7 @@ import CheckCircleOutline from "@mui/icons-material/CheckCircleOutlineOutlined";
 import Refresh from "@mui/icons-material/Refresh";
 import WarningAmber from "@mui/icons-material/WarningAmber";
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from "react";
-import { getProgress, type AttentionItem, type ProgressData } from "../api";
+import { getProgress, type AttentionItem, type ProgressAnswer } from "../api";
 import { useApp, useLocalMode } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Explain, MoreInfo } from "../components/Explain";
@@ -39,6 +40,7 @@ import {
   forecastTargetKey,
   fromFirstWork,
   percentText,
+  peopleOf,
   personDetail,
   progressChart,
   REFRESH_MS,
@@ -75,7 +77,7 @@ export function useNow(everyMs: number): number {
 }
 
 /** What the headline numbers, the chart and the forecast are drawn from (the Progress tab's data, or a progress link's). */
-export type ProgressFigures = Pick<ProgressData, "timeZone" | "totals" | "daily" | "forecast">;
+export type ProgressFigures = Pick<ProgressAnswer, "timeZone" | "totals" | "daily" | "forecast">;
 
 export function Section({ title, children, id }: { title: string; children: ReactNode; id: string }) {
   return (
@@ -132,8 +134,9 @@ export function Totals({ data, local = false }: { data: ProgressFigures; local?:
           <Stat
             label={t("progress.assigned")}
             value={n(totals.assigned)}
-            share={share(totals.assigned)}
-            help={totals.notAssigned > 0 ? t("progress.notAssignedHelp", { n: n(totals.notAssigned) }) : t("progress.allAssignedHelp")}
+            // All given: one line says so (not "100% of the plots" as well).
+            share={totals.notAssigned > 0 ? share(totals.assigned) : { value: barValue(totals.assigned, totals.plots), text: t("progress.allAssignedHelp") }}
+            help={totals.notAssigned > 0 ? t("progress.notAssignedHelp", { n: n(totals.notAssigned) }) : undefined}
           />
         );
       default:
@@ -141,10 +144,13 @@ export function Totals({ data, local = false }: { data: ProgressFigures; local?:
     }
   };
   return (
-    // One row of equal tiles on a desktop, wrapping to fewer per row on smaller screens
-    <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))" }}>
-      {stats.map((stat) => (
-        <Box key={stat}>{card(stat)}</Box>
+    // One row of equal tiles on a desktop, wrapping to fewer per row on smaller screens; two per row on a phone,
+    // the last one across both when they are odd (no tile alone in half a row).
+    <Box sx={{ display: "grid", gap: { xs: 1.5, sm: 2 }, gridTemplateColumns: { xs: "1fr 1fr", sm: "repeat(auto-fit, minmax(170px, 1fr))" } }}>
+      {stats.map((stat, i) => (
+        <Box key={stat} sx={{ minWidth: 0, gridColumn: { xs: i === stats.length - 1 && stats.length % 2 === 1 ? "1 / -1" : "auto", sm: "auto" } }}>
+          {card(stat)}
+        </Box>
       ))}
     </Box>
   );
@@ -314,14 +320,20 @@ export function OverTime({ data }: { data: ProgressFigures }) {
 }
 
 /** `publicView`: a progress link's page (no Settings tab to point to); `local`: the local mode (one person). */
-export function ForecastSection({ data, publicView, local }: { data: ProgressFigures; publicView?: boolean; local?: boolean }) {
+export function ForecastSection({ data, publicView, local, onSchedule }: {
+  data: ProgressFigures;
+  publicView?: boolean;
+  local?: boolean;
+  /** Opens Setup's Schedule, where the deadline and the target are set (only for someone who can change them) */
+  onSchedule?: () => void;
+}) {
   const t = useT();
   const { language } = useApp();
   const f = data.forecast;
   const targetKey = forecastTargetKey(f, { publicView, local });
   const sentences = forecastSentences(t, f, language, { publicView, local });
   // How the forecast is worked out and where its target and deadline are set: for the project's own dashboard
-  // (a progress link has no Settings tab; the local mode's target comes from Settings only).
+  // (a progress link has no Setup; the local mode's target comes from Setup only).
   const more = !publicView && !local;
   return (
     <Section title={t("progress.forecastTitle")} id="progress-forecast">
@@ -332,9 +344,17 @@ export function ForecastSection({ data, publicView, local }: { data: ProgressFig
             {more && i === sentences.length - 1 && <MoreInfo text={t("progress.forecastTitle.more")} />}
           </Typography>
         ))}
-        {targetKey !== null && (
+        {(targetKey !== null || onSchedule) && (
           <Typography variant="body2" color="text.secondary">
-            {t(targetKey, { target: formatNumber(f.target, language) })}
+            {targetKey !== null && t(targetKey, { target: formatNumber(f.target, language) })}
+            {onSchedule && (
+              <>
+                {targetKey !== null && " "}
+                <Link component="button" type="button" variant="body2" onClick={onSchedule} sx={{ verticalAlign: "baseline" }}>
+                  {t("progress.changeSchedule")}
+                </Link>
+              </>
+            )}
           </Typography>
         )}
       </Stack>
@@ -342,12 +362,13 @@ export function ForecastSection({ data, publicView, local }: { data: ProgressFig
   );
 }
 
-function AttentionCard({ item, onGo }: { item: AttentionItem; onGo: (tab: ProjectTab) => void }) {
+function AttentionCard({ item, onGo }: { item: AttentionItem; onGo: (tab: ProjectTab, view?: string) => void }) {
   const t = useT();
   const { language } = useApp();
   const { title, text, more: fullText } = attentionText(t, item, language);
   const action = attentionAction(t, item.kind);
-  const more = item.count - item.people.length;
+  const people = peopleOf(item);
+  const more = item.count - people.length;
   return (
     // A row of the list (not a card in the card): what is wrong, its details, and the way to it on the right
     <Box sx={{ display: "flex", gap: 1.5, py: 2, flexDirection: { xs: "column", sm: "row" }, alignItems: { sm: "flex-start" } }}>
@@ -362,9 +383,9 @@ function AttentionCard({ item, onGo }: { item: AttentionItem; onGo: (tab: Projec
             {fullText && i === text.length - 1 && <MoreInfo text={fullText} />}
           </Typography>
         ))}
-        {item.people.length > 0 && (
+        {people.length > 0 && (
           <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
-            {item.people.map((person) => {
+            {people.map((person) => {
               const detail = personDetail(t, item, person, language, (ms) => formatDay(ms, language));
               return (
                 <Typography component="li" variant="body2" key={person.username} sx={{ wordBreak: "break-word" }}>
@@ -387,7 +408,7 @@ function AttentionCard({ item, onGo }: { item: AttentionItem; onGo: (tab: Projec
         )}
       </Box>
       <Box sx={{ flexShrink: 0 }}>
-        <Button size="small" variant="outlined" endIcon={<ArrowForward />} onClick={() => onGo(action.tab)}>
+        <Button size="small" variant="outlined" endIcon={<ArrowForward />} onClick={() => onGo(action.tab, action.view)}>
           {action.label}
         </Button>
       </Box>
@@ -395,7 +416,7 @@ function AttentionCard({ item, onGo }: { item: AttentionItem; onGo: (tab: Projec
   );
 }
 
-function Attention({ items, onGo }: { items: AttentionItem[]; onGo: (tab: ProjectTab) => void }) {
+function Attention({ items, onGo }: { items: AttentionItem[]; onGo: (tab: ProjectTab, view?: string) => void }) {
   const t = useT();
   return (
     <Section title={t("progress.attentionTitle")} id="progress-attention">
@@ -420,12 +441,12 @@ function Attention({ items, onGo }: { items: AttentionItem[]; onGo: (tab: Projec
  * done, and (for coordinators) what needs attention. Reloaded every minute while the
  * page is visible.
  */
-export function ProgressTab({ projectId, onGo }: { projectId: string; onGo: (tab: ProjectTab) => void }) {
+export function ProgressTab({ projectId, onGo }: { projectId: string; onGo: (tab: ProjectTab, view?: string) => void }) {
   const t = useT();
   // The local mode (one person): no cards about other people, nor plots given to someone.
   const local = useLocalMode();
   const timeZone = browserTimeZone();
-  const state = useLoad(() => getProgress(projectId, timeZone), [projectId, timeZone]);
+  const state = useLoad(["project", projectId, "getProgress", timeZone], () => getProgress(projectId, timeZone));
   const [loadedAt, setLoadedAt] = useState(() => Date.now());
   const now = useNow(5_000);
   const { data, loading, reload } = state;
@@ -457,14 +478,15 @@ export function ProgressTab({ projectId, onGo }: { projectId: string; onGo: (tab
       <AsOf asOf={data.asOf} />
       {data.totals.plots === 0 ? (
         // Only coordinators can open Setup (reviewers get no cards either); Collect Earth sends the local mode's plot files.
-        <Alert severity="info" action={!local && data.attention !== null ? <Button onClick={() => onGo("plots")}>{t("tab.plots")}</Button> : undefined}>
+        <Alert severity="info" action={!local && data.attention !== null ? <Button onClick={() => onGo("setup", "plots")}>{t("tab.plots")}</Button> : undefined}>
           {t(local ? "progress.noPlotsLocal" : "progress.noPlots")}
         </Alert>
       ) : (
         <Totals data={data} local={local} />
       )}
       {attention !== null && <Attention items={attention} onGo={onGo} />}
-      <ForecastSection data={data} local={local} />
+      {/* A coordinator (who gets the cards) or the one person of the local mode sets the deadline and target */}
+      <ForecastSection data={data} local={local} onSchedule={local || attention !== null ? () => onGo("setup", "schedule") : undefined} />
       <OverTime data={data} />
     </Stack>
   );

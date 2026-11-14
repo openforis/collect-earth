@@ -1,7 +1,7 @@
 // The stand-alone analysis: the analysis page's pivot over a copy of the data, in one HTML file that opens from the disk
 // in any browser, with no server, no internet and no installation (what replaces the stand-alone Saiku tool). Built by
 // web/standalone.config.ts; the server puts the data in it when it is downloaded (src/routes/analysis.ts):
-// window.__CE_ANALYSIS, the gzipped JSON of StandaloneAnalysisData in base64.
+// window.__CE_ANALYSIS, the gzipped JSON of StandaloneAnalysis in base64.
 // The scripts of its four languages only: every font is inside the file
 import "@fontsource/roboto/latin-400.css";
 import "@fontsource/roboto/latin-500.css";
@@ -19,8 +19,9 @@ import Toolbar from "@mui/material/Toolbar";
 import Typography from "@mui/material/Typography";
 import { ThemeProvider } from "@mui/material/styles";
 import { StrictMode, useEffect, useMemo, useState } from "react";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { createRoot } from "react-dom/client";
-import type { ServerInfo, StandaloneAnalysisData } from "./api";
+import type { ServerInfo, StandaloneAnalysis } from "./api";
 import { AppContext, type AppState } from "./appContext";
 import { LanguageMenu } from "./components/AppShell";
 import { Explain } from "./components/Explain";
@@ -31,6 +32,7 @@ import { storeLanguage } from "./storage";
 import { theme } from "./theme";
 import { collectEarthAppBar } from "./shared/collectEarthTheme";
 import logo from "./shared/collect-earth-logo.png";
+import { queryClient } from "./queryClient";
 
 declare global {
   interface Window {
@@ -39,13 +41,13 @@ declare global {
 }
 
 /** The data the file holds, or null when it holds none (the template itself, or a file cut short). */
-async function readData(): Promise<StandaloneAnalysisData | null> {
+async function readData(): Promise<StandaloneAnalysis | null> {
   const base64 = window.__CE_ANALYSIS;
   if (!base64) return null;
   try {
     const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
     const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
-    return JSON.parse(await new Response(stream).text()) as StandaloneAnalysisData;
+    return JSON.parse(await new Response(stream).text()) as StandaloneAnalysis;
   } catch {
     return null;
   }
@@ -57,7 +59,7 @@ const INFO = { localMode: true } as ServerInfo;
 function Standalone() {
   const [language, setLanguage] = useState<Language>(initialLanguage);
   const t = useMemo(() => translator(language), [language]);
-  const [data, setData] = useState<StandaloneAnalysisData | null | undefined>(undefined);
+  const [data, setData] = useState<StandaloneAnalysis | null | undefined>(undefined);
   useEffect(() => void readData().then(setData), []);
   useEffect(() => {
     document.documentElement.lang = language;
@@ -131,6 +133,8 @@ function Standalone() {
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <Standalone />
+    <QueryClientProvider client={queryClient}>
+      <Standalone />
+    </QueryClientProvider>
   </StrictMode>,
 );

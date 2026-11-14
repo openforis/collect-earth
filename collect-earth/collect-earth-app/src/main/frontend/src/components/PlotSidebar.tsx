@@ -7,6 +7,7 @@ import IconButton from "@mui/material/IconButton";
 import InputAdornment from "@mui/material/InputAdornment";
 import LinearProgress from "@mui/material/LinearProgress";
 import ListItemButton from "@mui/material/ListItemButton";
+import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
@@ -18,10 +19,10 @@ import MenuOpenIcon from "@mui/icons-material/MenuOpen";
 import SearchIcon from "@mui/icons-material/Search";
 import SkipNextIcon from "@mui/icons-material/SkipNext";
 import type { MapController, UiState } from "../controller";
-import { countStatuses, matchesElsewhere, plotLabel, visibleIds } from "../plots";
+import { countPeriods, countStatuses, matchesElsewhere, plotLabel, visibleIds, type PeriodView } from "../plots";
 import { useT } from "../i18n";
 import { HANDS_FOCUS } from "../shortcuts";
-import type { ListFilter, PlotStatus } from "../types";
+import { PERIOD_FILTERS, type ListFilter, type PeriodFilter, type PlotStatus } from "../types";
 import { Kbd, StatusDot } from "./common";
 import { useUiScale } from "../uiScale";
 
@@ -35,7 +36,11 @@ export function PlotSidebar({ controller, state, onHide }: { controller: MapCont
   const t = useT();
   const { order, labels, statuses, filter, query, activeId, loaded } = state;
   const counts = useMemo(() => countStatuses(order, statuses), [order, statuses]);
-  const visible = useMemo(() => visibleIds(order, statuses, filter, query, labels), [order, statuses, filter, query, labels]);
+  const { repeat, periods, periodFilter } = state;
+  // a repeat survey's filter by what the collector said against the earlier period (see MapController.periodView)
+  const period = useMemo<PeriodView | null>(() => (repeat ? { periods, filter: periodFilter } : null), [repeat, periods, periodFilter]);
+  const periodCounts = useMemo(() => countPeriods(order, periods), [order, periods]);
+  const visible = useMemo(() => visibleIds(order, statuses, filter, query, labels, period), [order, statuses, filter, query, labels, period]);
 
   // Debounced search: typing stays responsive with thousands of plots
   const [text, setText] = useState(query);
@@ -45,8 +50,8 @@ export function PlotSidebar({ controller, state, onHide }: { controller: MapCont
   }, [text, controller]);
   // the search cleared elsewhere (its chip in the form's header): the box too
   useEffect(() => { if (query === "") setText(""); }, [query]);
-  const elsewhere = useMemo(() => (visible.length ? null : matchesElsewhere(order, statuses, filter, query, labels)),
-    [visible, order, statuses, filter, query, labels]);
+  const elsewhere = useMemo(() => (visible.length ? null : matchesElsewhere(order, statuses, filter, query, labels, period)),
+    [visible, order, statuses, filter, query, labels, period]);
 
   const pct = counts.total ? Math.round((counts.saved * 100) / counts.total) : 0;
   return (
@@ -98,6 +103,16 @@ export function PlotSidebar({ controller, state, onHide }: { controller: MapCont
           <ToggleButton value="pending" data-filter="pending">{t("filter.pending")}&nbsp;<Count n={counts.pending} /></ToggleButton>
           <ToggleButton value="saved" data-filter="saved">{t("filter.saved")}&nbsp;<Count n={counts.saved} /></ToggleButton>
         </ToggleButtonGroup>
+
+        {repeat && (
+          <TextField select size="small" label={t("periodFilter.label")} value={periodFilter}
+            onChange={(e) => controller.setPeriodFilter(e.target.value as PeriodFilter)}
+            slotProps={{ htmlInput: { "data-testid": "period-filter" } }}>
+            {PERIOD_FILTERS.map((f) => (
+              <MenuItem key={f} value={f} data-period={f}>{t(`periodFilter.${f}`)}&nbsp;<Count n={periodCounts[f]} /></MenuItem>
+            ))}
+          </TextField>
+        )}
 
         <Button variant="contained" disableElevation fullWidth startIcon={<SkipNextIcon />}
           endIcon={<Kbd>N</Kbd>} onClick={controller.goToNextUnfinished} disabled={!counts.total}

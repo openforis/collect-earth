@@ -17,7 +17,7 @@ import Typography from "@mui/material/Typography";
 import ArrowBack from "@mui/icons-material/ArrowBack";
 import Calculate from "@mui/icons-material/Calculate";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ApiError, getAnalysis, getProject, getProjectAi, proposeAnalysisViews, type AnalysisData, type ProposedView } from "../api";
+import { ApiError, getAnalysis, getProject, getProjectAi, proposeAnalysisViews, type AnalysisAnswer, type ProposedView } from "../api";
 import { useApp } from "../appContext";
 import { AppShell } from "../components/AppShell";
 import { EmptyState } from "../components/EmptyState";
@@ -51,6 +51,11 @@ import { startErrorText } from "../aiView";
 import { cubeOf, defaultView, fitToCube, parseSavedViews, tableChoices, translateView, withSavedView, type Cube, type SavedView, type ViewConfig } from "../analysisView";
 import type { AnalysisEngine, Step, Viewer } from "../analysisEngine";
 import Breadcrumbs from "@mui/material/Breadcrumbs";
+import Collapse from "@mui/material/Collapse";
+import useMediaQuery from "@mui/material/useMediaQuery";
+import type { Theme } from "@mui/material/styles";
+import ExpandLess from "@mui/icons-material/ExpandLess";
+import ExpandMore from "@mui/icons-material/ExpandMore";
 import Link from "@mui/material/Link";
 import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
@@ -65,6 +70,7 @@ import { DrillDialog } from "../components/analysis/DrillDialog";
 import { FilterBar } from "../components/analysis/FilterBar";
 import { QuestionBar } from "../components/analysis/QuestionBar";
 import { linkProps, pathFor } from "../router";
+import { csvBlob } from "../csv";
 import { saveBlob } from "../saveBlob";
 import { getAnalysisViews, storeAnalysisViews } from "../storage";
 import { useLoad } from "../useLoad";
@@ -75,8 +81,8 @@ type EngineModule = typeof import("../analysisEngine");
 export function AnalysisPage({ projectId }: { projectId: string }) {
   const t = useT();
   const { language } = useApp();
-  const project = useLoad(() => getProject(projectId), [projectId]);
-  const data = useLoad(() => getAnalysis(projectId), [projectId]);
+  const project = useLoad(["project", projectId, "getProject"], () => getProject(projectId));
+  const data = useLoad(["project", projectId, "getAnalysis"], () => getAnalysis(projectId));
 
   const back =
     project.data?.role === "admin" ? pathFor({ name: "project", projectId, tab: "data" }) : pathFor({ name: "myWork", projectId });
@@ -148,7 +154,7 @@ function keepable(config: ViewConfig): ViewConfig {
  * The pivot and its bars. `standalone`: in the stand-alone file (src/standalone.tsx), with no server: no team views, no
  * links to share or to the plots' pages, and no stand-alone download of itself.
  */
-export function Pivot({ projectId, projectName, role, data, language, standalone = false }: { projectId: string; projectName: string; role: Role; data: AnalysisData; language: string; standalone?: boolean }) {
+export function Pivot({ projectId, projectName, role, data, language, standalone = false }: { projectId: string; projectName: string; role: Role; data: AnalysisAnswer; language: string; standalone?: boolean }) {
   const t = useT();
   const local = useLocalMode() || standalone;
   const coordinator = role === "admin";
@@ -166,11 +172,14 @@ export function Pivot({ projectId, projectName, role, data, language, standalone
   const [step, setStep] = useState<Step | "ready">("database");
   const [error, setError] = useState<unknown>(null);
   const [rows, setRows] = useState<number | null>(null);
+  // on a phone: the view's controls (Show, By, filters…) folded until asked for
+  const narrow = useMediaQuery((theme: Theme) => theme.breakpoints.down("sm"));
+  const [viewOpen, setViewOpen] = useState(false);
   const [table, setTable] = useState("plot");
   const [shown, setShown] = useState<Shown | null>(null);
   const [config, setConfig] = useState<ViewConfig | null>(null);
   const [mine, setMine] = useState<SavedView[]>(() => parseSavedViews(getAnalysisViews(projectId)));
-  const team = useLoad(() => (local ? Promise.resolve([]) : getSharedAnalysisViews(projectId)), [projectId, local]);
+  const team = useLoad(["project", projectId, "AnalysisPage.team", local], () => (local ? Promise.resolve([]) : getSharedAnalysisViews(projectId)));
   const [selected, setSelected] = useState<ViewKey>("tpl:default");
   const [changed, setChanged] = useState(false);
   const [saving, setSaving] = useState<"mine" | "team" | null>(null);
@@ -184,7 +193,7 @@ export function Pivot({ projectId, projectName, role, data, language, standalone
   const [trail, setTrail] = useState<{ question: Question; label: string }[]>([]);
   const tables = useMemo(() => tableChoices(data.model, language, t), [data, language, t]);
   // The AI assistant's views: for coordinators of a project where it is on (never in the local mode, which has none)
-  const ai = useLoad(() => (coordinator && !local ? getProjectAi(projectId).catch(() => null) : Promise.resolve(null)), [projectId, coordinator, local]);
+  const ai = useLoad(["project", projectId, "AnalysisPage.ai", coordinator, local], () => (coordinator && !local ? getProjectAi(projectId).catch(() => null) : Promise.resolve(null)));
   const canAskAi = !!ai.data?.enabled && !!ai.data.available;
   const [proposals, setProposals] = useState<{ table: string; views: ProposedView[] } | null>(null);
   const proposalsRef = useRef(proposals);
@@ -518,8 +527,7 @@ export function Pivot({ projectId, projectName, role, data, language, standalone
       const e = engine.current;
       const v = viewer.current;
       if (!e || !v) return;
-      const csv = await e.viewCsv(v);
-      saveBlob(new Blob(["﻿", csv], { type: "text/csv;charset=utf-8" }), `${fileBase()}.csv`);
+      saveBlob(csvBlob(await e.viewCsv(v, language)), `${fileBase()}.csv`);
     });
   const fileBase = () => {
     const label = selectedLabel() || t("analysis.title");
@@ -691,11 +699,21 @@ export function Pivot({ projectId, projectName, role, data, language, standalone
           </IconButton>
         </Tooltip>
       </Box>
+      {shown && question && narrow && (
+        <Box>
+          <Button size="small" variant="outlined" onClick={() => setViewOpen((o) => !o)} aria-expanded={viewOpen} aria-controls="analysis-view-controls" endIcon={viewOpen ? <ExpandLess /> : <ExpandMore />}>
+            {t("analysis.changeView")}
+          </Button>
+        </Box>
+      )}
       {shown && question && (
-        <>
-          <QuestionBar cube={shown.cube} measures={shown.measures} question={question} onChange={(q) => void ask(q)} disabled={!ready} />
-          <FilterBar cube={shown.cube} filters={question.filters} onChange={(filters) => void ask({ ...question, filters })} loadValues={loadValues} disabled={!ready} suggested={suggested} />
-        </>
+        // On a phone the view's controls are folded, so the chart comes first
+        <Collapse in={!narrow || viewOpen} id="analysis-view-controls">
+          <Stack spacing={1.5}>
+            <QuestionBar cube={shown.cube} measures={shown.measures} question={question} onChange={(q) => void ask(q)} disabled={!ready} />
+            <FilterBar cube={shown.cube} filters={question.filters} onChange={(filters) => void ask({ ...question, filters })} loadValues={loadValues} disabled={!ready} suggested={suggested} />
+          </Stack>
+        </Collapse>
       )}
     </Stack>
   );
@@ -710,7 +728,16 @@ export function Pivot({ projectId, projectName, role, data, language, standalone
         <Explain text={t("analysis.explain.short", { count: formatNumber(plotRows, language) })} more={t("analysis.explain", { count: formatNumber(plotRows, language) })} />
       )}
       {!data.areas && data.scope === "project" && (
-        <Alert severity="info">
+        <Alert
+          severity="info"
+          action={
+            standalone ? undefined : (
+              <Button color="inherit" size="small" {...linkProps(pathFor({ name: "project", projectId, tab: "setup", view: "areas" }))}>
+                {t("view.setup.areas")}
+              </Button>
+            )
+          }
+        >
           {t("analysis.noAreas.short")}
           <MoreInfo text={t("analysis.noAreas")} />
         </Alert>

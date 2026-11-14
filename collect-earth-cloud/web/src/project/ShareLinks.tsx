@@ -8,10 +8,11 @@ import Typography from "@mui/material/Typography";
 import AddLink from "@mui/icons-material/AddLink";
 import LinkOff from "@mui/icons-material/LinkOff";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { createShareLink, listShareLinks, revokeShareLink, type NewShareLink, type ShareLink } from "../api";
+import { createShareLink, listShareLinks, revokeShareLink, type NewShareLinkAnswer, type ShareLink } from "../api";
 import { useApp } from "../appContext";
 import { CopyField } from "../components/CopyField";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { CardFrame } from "../components/FoldingCard";
 import { Explain } from "../components/Explain";
 import { Loading } from "../components/Loading";
 import { formatDate } from "../format";
@@ -92,14 +93,14 @@ function LinkRow({ link, onRevoke }: { link: ShareLink; onRevoke: (link: ShareLi
  */
 export function ShareLinksCard({ projectId }: { projectId: string }) {
   const t = useT();
-  const links = useLoad(() => listShareLinks(projectId), [projectId]);
+  const links = useLoad(["project", projectId, "listShareLinks"], () => listShareLinks(projectId));
   const [label, setLabel] = useState("");
-  const [made, setMade] = useState<NewShareLink | null>(null);
+  const [made, setMade] = useState<NewShareLinkAnswer | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   // After a revoke the row is gone: the keyboard goes to the card's heading.
-  const heading = useRef<HTMLHeadingElement>(null);
+  const heading = useRef<HTMLDivElement>(null);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -133,11 +134,11 @@ export function ShareLinksCard({ projectId }: { projectId: string }) {
   };
 
   return (
-    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section" aria-labelledby="share-links-title">
-      <Stack spacing={2}>
-        <Typography variant="h2" id="share-links-title" ref={heading} tabIndex={-1} sx={{ outline: "none" }}>
-          {t("shareLinks.title")}
-        </Typography>
+    <CardFrame
+      title={t("shareLinks.title")}
+      fold={!links.data ? "" : links.data.length === 0 ? t("shareLinks.none") : links.data.length === 1 ? t("fold.linksOne") : t("fold.links", { count: links.data.length })}
+    >
+      <Stack spacing={2} ref={heading} tabIndex={-1} sx={{ outline: "none" }}>
         <Explain color="text.primary" text={t("shareLinks.intro.short")} more={t("shareLinks.intro")} />
         <Explain variant="body2" text={t("shareLinks.never.short")} more={`${t("shareLinks.never")} ${t("shareLinks.logs")}`} />
         <Stack component="form" direction={{ xs: "column", sm: "row" }} spacing={1} onSubmit={submit} noValidate sx={{ alignItems: { sm: "flex-start" } }}>
@@ -181,6 +182,6 @@ export function ShareLinksCard({ projectId }: { projectId: string }) {
           </Stack>
         )}
       </Stack>
-    </Paper>
+    </CardFrame>
   );
 }

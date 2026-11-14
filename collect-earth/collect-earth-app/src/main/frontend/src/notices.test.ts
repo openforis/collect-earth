@@ -1,5 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { changesAppInfo, nextNotice, opensSendToCloud, type Notice, splitOptions } from "./notices";
+import { changesAppInfo, nextNotice, opensSendToCloud, sanitizeNoticeHtml, type Notice, splitOptions } from "./notices";
+
+describe("the HTML of a notice", () => {
+  it("keeps the formatting and links the notices use", () => {
+    expect(sanitizeNoticeHtml("<html><b>New version!</b><br/>How do you want to proceed?</html>"))
+      .toBe("<b>New version!</b><br>How do you want to proceed?");
+    expect(sanitizeNoticeHtml('<h2>Hi</h2><p class="x">See <a href="https://openforis.org/?a=1&amp;b=2" target="_blank">this</a> &amp; <i>that</i></p><ul><li>one</li></ul>'))
+      .toBe('<h2>Hi</h2><p>See <a href="https://openforis.org/?a=1&amp;b=2">this</a> &amp; <i>that</i></p><ul><li>one</li></ul>');
+    expect(sanitizeNoticeHtml("<a href='mailto:x@y.org'>mail</a> 1 < 2")).toBe('<a href="mailto:x@y.org">mail</a> 1 &lt; 2');
+  });
+  it("takes out scripts, event handlers and javascript: links", () => {
+    expect(sanitizeNoticeHtml("a<script>alert(1)</script>b<style>p{}</style>")).toBe("ab");
+    expect(sanitizeNoticeHtml('<img src=x onerror="alert(1)"><b onclick="alert(1)">x</b>')).toBe("<b>x</b>");
+    expect(sanitizeNoticeHtml('<a href="javascript:alert(1)">x</a><a href=" JaVaScRiPt:alert(1)">y</a>')).toBe("<a>x</a><a>y</a>");
+    expect(sanitizeNoticeHtml('<a href="https://a" title=">"<img src=x onerror=alert(1)>">z</a>')).not.toMatch(/<img|<script/);
+    expect(sanitizeNoticeHtml("<!-- <script>alert(1)</script> -->ok<scr<script>ipt>alert(1)</script>")).not.toContain("<script");
+  });
+});
 
 describe("the offer to send this computer's records after joining a cloud project", () => {
   const offer = { id: "1", kind: "cloudSendRecords", severity: "info", title: "", message: "", html: false, options: [] } as Notice;

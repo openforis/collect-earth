@@ -2,6 +2,7 @@ import { telemetryConfigOf, type TelemetryConfig } from './telemetry.js';
 import { resolve } from 'node:path';
 import { isUuid } from './accountRules.js';
 import { isMailFrom, parseSmtpUrl } from './mail.js';
+import type { MapTiles } from './wire/account.js';
 
 export interface Config {
   port: number;
@@ -62,6 +63,12 @@ export interface Config {
    */
   parsedCacheMb?: number;
   servedCacheMb?: number;
+  /**
+   * The most connections the server opens to PostgreSQL at once (PG_POOL_MAX); undefined = the driver's 10. Each
+   * records:batch holds one while it is written, so a mapathon whose people sync at the same moment queues behind
+   * them: raise it within what the database plan allows (its max_connections, less the other clients').
+   */
+  dbPoolMax?: number;
   mapBuildsKept?: number;
   projectStatesKept?: number;
   /**
@@ -155,15 +162,7 @@ export const LOCAL_HOST = '127.0.0.1';
 /** The shortest DIGEST_SECRET accepted. */
 export const MIN_DIGEST_SECRET_LENGTH = 32;
 
-/** A base map's tiles, as Leaflet asks for them: `{z}/{x}/{y}` (and optionally `{s}`, `{r}`) in the URL. */
-export interface MapTiles {
-  url: string;
-  /** Shown on the map, as the tile source asks (plain text). */
-  attribution: string;
-  /** Where the attribution links to; null for none. */
-  attributionUrl: string | null;
-  maxZoom: number;
-}
+export type { MapTiles } from './wire/account.js';
 
 /**
  * OpenStreetMap's own tiles: no key, with the attribution its tile usage policy asks for
@@ -221,6 +220,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     servedCacheMb: wholeAtLeast('SERVED_FILES_CACHE_MB', env.SERVED_FILES_CACHE_MB, 8),
     mapBuildsKept: wholeAtLeast('MAP_BUILDS_KEPT', env.MAP_BUILDS_KEPT, 1),
     projectStatesKept: wholeAtLeast('PROJECT_STATES_KEPT', env.PROJECT_STATES_KEPT, 1),
+    dbPoolMax: wholeAtLeast('PG_POOL_MAX', env.PG_POOL_MAX, 1),
     ...aiConfigOf(env, storeBackend),
     mapTiles: mapTilesOf(env),
     ...mailConfigOf(env),

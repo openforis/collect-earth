@@ -203,13 +203,11 @@ public class ExportService {
 		return survey == null ? "" : survey.getName();
 	}
 
-	/** Whether the format offers this choice of records: the Swing menu had the four for XML, two for the backup, one for the rest. */
+	/** Whether the format offers this choice of records: the four for XML, all for the rest (the backup ignores dates). */
 	public static boolean allows(Format format, Records records) {
 		switch (format) {
 		case XML:
 			return true;
-		case BACKUP:
-			return records == Records.ALL || records == Records.FROM_DATE;
 		default:
 			return records == Records.ALL;
 		}
@@ -301,6 +299,9 @@ public class ExportService {
 		File file = new File(request.path.trim());
 		return context -> {
 			long records = 0;
+			// the records still in memory are exported too, and the time is taken before reading any
+			surveys.flushAll();
+			Date startedAt = now.get();
 			if (request.format == Format.KML) {
 				// The records go to a CSV first, which reports its progress as the other exports do; the KML generated
 				// from it then reports none, as KmlGenerator is one call
@@ -347,7 +348,7 @@ public class ExportService {
 				}
 			}
 			if (request.format == Format.XML && request.records == Records.SINCE_LAST_EXPORT) {
-				properties.setLastExportedDate(surveyName());
+				properties.setLastExportedDate(surveyName(), startedAt);
 			}
 			return result(file, records);
 		};

@@ -27,7 +27,7 @@ import { Loading } from "./Loading";
  */
 export function TrainingFigures({ projectId }: { projectId: string }) {
   const t = useT();
-  const state = useLoad(() => getTrainingFigures(projectId), [projectId]);
+  const state = useLoad(["project", projectId, "getTrainingFigures"], () => getTrainingFigures(projectId));
   if (state.loading && !state.data) return <Loading />;
   if (state.error || !state.data) return <ErrorAlert error={state.error} onRetry={state.reload} />;
   return (

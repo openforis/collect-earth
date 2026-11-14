@@ -1,6 +1,11 @@
 export type LatLng = [number, number];
 export type PlotStatus = "empty" | "partial" | "saved";
 export type ListFilter = "all" | "pending" | "saved";
+/** What the collector said of a plot of a repeat survey against its earlier period (the survey's period_status) */
+export type PeriodAnswer = "same" | "changed" | "corrected";
+/** The plots of a repeat survey shown by that answer: all, those of one answer, or those not answered yet */
+export type PeriodFilter = "all" | PeriodAnswer | "none";
+export const PERIOD_FILTERS: PeriodFilter[] = ["all", "same", "changed", "corrected", "none"];
 
 export interface PlotFeature {
   type: "Feature";

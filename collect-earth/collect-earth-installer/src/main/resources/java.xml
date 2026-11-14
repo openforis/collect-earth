@@ -90,8 +90,10 @@
 		<isTrue value="${java_install_jre}" />
 	    </ruleList>
         </folder>
+        <!-- macOS: the one installer carries the Intel and the Apple silicon JRE and installs the one of the machine,
+             by the node_osx_arch that node.xml sets (both installers include node.xml) -->
         <folder>
-            <description>Java binaries - Mac OS X</description>
+            <description>Java binaries - Mac OS X, Intel</description>
             <destination>${installdir}/java</destination>
             <name>java_osx</name>
             <platforms>osx</platforms>
@@ -103,6 +105,23 @@
             </distributionFileList>
 	    <ruleList>
 		<isTrue value="${java_install_jre}" />
+		<compareText text="${node_osx_arch}" logic="does_not_equal" value="arm64"/>
+	    </ruleList>
+        </folder>
+        <folder>
+            <description>Java binaries - Mac OS X, Apple silicon</description>
+            <destination>${installdir}/java</destination>
+            <name>java_osx_arm64</name>
+            <platforms>osx</platforms>
+            <distributionFileList>
+                <distributionFile>
+                    <allowWildcards>1</allowWildcards>
+                    <origin>jre_files/jreJAVA_VERSION_SET_POM-osx-aarch64/java-osx-aarch64/*</origin>
+                </distributionFile>
+            </distributionFileList>
+	    <ruleList>
+		<isTrue value="${java_install_jre}" />
+		<compareText text="${node_osx_arch}" logic="equals" value="arm64"/>
 	    </ruleList>
         </folder>
     </folderList>
@@ -112,7 +131,10 @@
 		<stringParameter name="java_launcher_destination" value="${installdir}" ask="0" />
 		<stringParameter name="java_launcher_binary_name" value="" ask="0" />
 		<stringParameter name="java_launcher_arguments" value="" ask="0" />
-		<stringParameter name="java_launcher_vm_parameters" value="-Duser.country=US -Duser.language=en" ask="0"/>
+		<!-- Class-data sharing: the JVM keeps the classes it loaded in CollectEarth.jsa, in the working folder (the
+		     installation's, which the installation asks to be writable), and maps them at the next starts. It makes the
+		     archive again when the jar or the Java changes. EarthApp.relaunch passes the flags on to a restart. -->
+		<stringParameter name="java_launcher_vm_parameters" value="-Duser.country=US -Duser.language=en -XX:+IgnoreUnrecognizedVMOptions -XX:+AutoCreateSharedArchive -XX:SharedArchiveFile=CollectEarth.jsa" ask="0"/>
 		<stringParameter name="java_launcher_jar" value="" ask="0" />
 		<stringParameter name="java_launcher_mainClass" value="" ask="0" />
 		<stringParameter name="java_launcher_classpath" value="" ask="0" />
@@ -181,6 +203,37 @@
 						<processTest name="${java_launcher_binary_name}" logic="is_running" />
 				    </conditionRuleList>
 				</while>
+				<!-- On macOS the process is java, which processTest above never finds: pgrep (exit 0 = found) looks for the
+				     Java of this installation or its launcher, the same warning while it runs -->
+				<actionGroup>
+				    <actionList>
+						<setInstallerVariable name="program_exit_code" value="1" />
+						<runProgram program="/usr/bin/pgrep" programArguments="-f &quot;${installdir}/(java/bin/java|${java_launcher_binary_name}/)&quot;" abortOnError="0" showMessageOnError="0" />
+						<while>
+						    <actionList>
+								<showWarning>
+								    <text>Please QUIT THE COLLECT EARTH WINDOW before proceeding with the update! The update will fail if Collect Earth is running!</text>
+								    <ruleList>
+									<compareText text="${installer_ui}" logic="does_not_equal" value="unattended" />
+								    </ruleList>
+								</showWarning>
+								<throwError>
+								    <text>Collect Earth is running: quit it, then run the installation again.</text>
+								    <ruleList>
+									<compareText text="${installer_ui}" logic="equals" value="unattended" />
+								    </ruleList>
+								</throwError>
+								<runProgram program="/usr/bin/pgrep" programArguments="-f &quot;${installdir}/(java/bin/java|${java_launcher_binary_name}/)&quot;" abortOnError="0" showMessageOnError="0" />
+						    </actionList>
+						    <conditionRuleList>
+								<compareText text="${program_exit_code}" logic="equals" value="0" />
+						    </conditionRuleList>
+						</while>
+				    </actionList>
+				    <ruleList>
+						<platformTest type="osx" />
+				    </ruleList>
+				</actionGroup>
 				<deleteFile path="${installdir}/java.old" abortOnError="0" showMessageOnError="0" />
 				<!-- A rename, not a delete: it fails as a whole while any of the files is in use (a Collect Earth that
 				     crashed may leave a process running on it), so the old JRE is never left half deleted, and the installation stops with it intact. The project's installationAbortedActionList
@@ -205,7 +258,7 @@
         <!-- The old JRE, set aside before the files were copied -->
         <deleteFile path="${installdir}/java.old" abortOnError="0" showMessageOnError="0" />
         <!-- change permissions of all binaries -->
-        <changePermissions files="${installdir}/java/bin/*" permissions="0755" abortOnError="0" showMessageOnError="0">
+        <changePermissions files="${installdir}/java/bin/*;${installdir}/java/lib/jspawnhelper;${installdir}/java/lib/jexec" permissions="0755" abortOnError="0" showMessageOnError="0">
             <ruleList>
                 <fileExists path="${installdir}/java/bin" />
                 <platformTest negate="1" type="windows" />

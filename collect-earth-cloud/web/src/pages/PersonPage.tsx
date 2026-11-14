@@ -12,6 +12,8 @@ import Grid from "@mui/material/Grid";
 import InputLabel from "@mui/material/InputLabel";
 import LinearProgress from "@mui/material/LinearProgress";
 import Link from "@mui/material/Link";
+import ListItemIcon from "@mui/material/ListItemIcon";
+import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Select from "@mui/material/Select";
@@ -27,6 +29,7 @@ import ArrowBack from "@mui/icons-material/ArrowBack";
 import Delete from "@mui/icons-material/Delete";
 import InsertLink from "@mui/icons-material/Link";
 import Logout from "@mui/icons-material/Logout";
+import MoreVert from "@mui/icons-material/MoreVert";
 import WarningAmber from "@mui/icons-material/WarningAmber";
 import { useState, type ReactNode } from "react";
 import {
@@ -40,7 +43,7 @@ import {
   setMemberRole,
   type Member,
   type NewInvite,
-  type PersonData,
+  type PersonAnswer,
   type PersonFile,
   type PlotStatus,
   type Role,
@@ -57,7 +60,7 @@ import { movedText } from "../division";
 import { countsText, totalOf } from "../flagsView";
 import { formatDate, formatNumber } from "../format";
 import { useT, type Translate } from "../i18n";
-import { agoText, bucketLabel, durationText, perDayText, veryFastText, removalText, statusChip, statusSyncLevel } from "../peopleView";
+import { agoText, bucketLabel, durationText, medianGapText, veryFastText, removalText, statusChip, statusSyncLevel } from "../peopleView";
 import { browserTimeZone, dayText, percentText } from "../progressView";
 import { rateText } from "../qualityView";
 import { accuracyText, weakestQuestions } from "../referenceView";
@@ -94,8 +97,8 @@ function Figure({ label, value, help }: { label: string; value: string; help?: s
   );
 }
 
-/** The headline numbers: plots given, submitted, started, left; checks; the last 7 days; the pace. */
-export function PersonNumbers({ data, self = false }: { data: PersonData; self?: boolean }) {
+/** The headline numbers: plots given, submitted, left to do, the last 7 days. */
+export function PersonNumbers({ data, self = false }: { data: PersonAnswer; self?: boolean }) {
   const t = useT();
   const { language } = useApp();
   const n = (v: number) => formatNumber(v, language);
@@ -110,22 +113,10 @@ export function PersonNumbers({ data, self = false }: { data: PersonData; self?:
           <Figure label={t("person.submitted")} value={n(r.plots.submitted)} help={t(self ? "person.submittedHelpSelf" : "person.submittedHelp")} />
         </Grid>
         <Grid size={{ xs: 6, md: 3 }}>
-          <Figure label={t("person.started")} value={n(r.plots.started)} />
+          <Figure label={t("person.left")} value={n(r.plots.remaining)} />
         </Grid>
         <Grid size={{ xs: 6, md: 3 }}>
-          <Figure label={t("person.left")} value={n(r.plots.remaining)} help={t("person.leftHelp")} />
-        </Grid>
-        {/* Never on My work: checks are blind (copies are counted as plots there). */}
-        {r.checks && r.checks.assigned + r.checks.submitted > 0 && (
-          <Grid size={{ xs: 12, md: 4 }}>
-            <Figure label={t("person.checks")} value={`${n(r.checks.submitted)} / ${n(r.checks.assigned)}`} help={t("person.checksHelp")} />
-          </Grid>
-        )}
-        <Grid size={{ xs: 6, md: 4 }}>
           <Figure label={t("person.last7")} value={n(r.submittedLast7)} help={t("person.last7Help", { zone: data.timeZone })} />
-        </Grid>
-        <Grid size={{ xs: 6, md: 4 }}>
-          <Figure label={t("person.pace")} value={perDayText(r.medianPerDay, language)} help={t("person.paceHelp")} />
         </Grid>
       </Grid>
       {r.plots.done !== null && (
@@ -143,7 +134,7 @@ export function PersonNumbers({ data, self = false }: { data: PersonData; self?:
 const plural = (t: Translate, count: number, one: Parameters<Translate>[0], many: Parameters<Translate>[0], language: string) => t(count === 1 ? one : many, { n: formatNumber(count, language) });
 
 /** The activity calendar and the hours of the day. */
-export function ActivitySection({ data, self = false }: { data: PersonData; self?: boolean }) {
+export function ActivitySection({ data, self = false }: { data: PersonAnswer; self?: boolean }) {
   const t = useT();
   const { language } = useApp();
   const n = (v: number) => formatNumber(v, language);
@@ -176,7 +167,7 @@ export function ActivitySection({ data, self = false }: { data: PersonData; self
                       <TableRow>
                         <TableCell>{t("progress.dayColumn")}</TableCell>
                         <TableCell align="right">{t("person.plotsColumn")}</TableCell>
-                        <TableCell align="right">{t("person.checksColumn")}</TableCell>
+                        {!self && <TableCell align="right">{t("person.checksColumn")}</TableCell>}
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -186,7 +177,7 @@ export function ActivitySection({ data, self = false }: { data: PersonData; self
                             {dayText(d.date, language)}
                           </TableCell>
                           <TableCell align="right">{n(d.plots)}</TableCell>
-                          <TableCell align="right">{n(d.checks)}</TableCell>
+                          {!self && <TableCell align="right">{n(d.checks ?? 0)}</TableCell>}
                         </TableRow>
                       ))}
                     </TableBody>
@@ -227,7 +218,7 @@ export function ActivitySection({ data, self = false }: { data: PersonData; self
 }
 
 /** The speed estimate: the time between consecutive submissions in a working session. */
-export function SpeedSection({ data }: { data: PersonData }) {
+export function SpeedSection({ data, warning = true }: { data: PersonAnswer; /** false when the page shows it at the top */ warning?: boolean }) {
   const t = useT();
   const { language } = useApp();
   const s = data.speed;
@@ -242,12 +233,12 @@ export function SpeedSection({ data }: { data: PersonData }) {
           <>
             <Typography sx={{ fontSize: "1.15rem" }}>
               {t("person.speedMedian", {
-                d: durationText(t, s.medianGapMs ?? 0),
+                d: medianGapText(t, s.medianGapMs ?? 0),
                 gaps: plural(t, s.gaps, "person.gapsOne", "person.gapsMany", language),
                 sessions: plural(t, s.sessions, "person.sessionsOne", "person.sessionsMany", language),
               })}
             </Typography>
-            {s.veryFast > 0 && (
+            {warning && s.veryFast > 0 && (
               <Alert severity="warning" icon={<WarningAmber />}>
                 {veryFastText(t, s, language)}
               </Alert>
@@ -286,7 +277,7 @@ function Line({ label, children }: { label: string; children: ReactNode }) {
 }
 
 /** When they last synced and downloaded, whether their project file is old, their Collect Earth. */
-export function SyncSection({ data, self }: { data: PersonData; self: boolean }) {
+export function SyncSection({ data, self }: { data: PersonAnswer; self: boolean }) {
   const t = useT();
   const { language } = useApp();
   const s = data.sync;
@@ -344,7 +335,7 @@ export function SyncSection({ data, self }: { data: PersonData; self: boolean })
 }
 
 /** Their agreement in the quality checks, and the plots the coordinator asked them to look at again. */
-export function QualitySection({ data, self, projectId }: { data: PersonData; self: boolean; projectId: string }) {
+export function QualitySection({ data, self, projectId }: { data: PersonAnswer; self: boolean; projectId: string }) {
   const t = useT();
   const { language } = useApp();
   const q = data.quality;
@@ -357,7 +348,7 @@ export function QualitySection({ data, self, projectId }: { data: PersonData; se
             {self ? (
               <Link {...linkProps(pathFor({ name: "myQuality", projectId }))}>{t("myQuality.link")}</Link>
             ) : (
-              <Link {...linkProps(pathFor({ name: "project", projectId, tab: "quality" }))}>{t("person.openQuality")}</Link>
+              <Link {...linkProps(pathFor({ name: "project", projectId, tab: "quality", view: "figures" }))}>{t("person.openQuality")}</Link>
             )}
           </Typography>
         ) : (
@@ -450,7 +441,7 @@ function FilePlots({ file }: { file: PersonFile }) {
   const t = useT();
   const [open, setOpen] = useState(false);
   // My work never says which plots are checks (the server leaves the kind out there).
-  const showKind = file.list.some((p) => p.kind !== null);
+  const showKind = file.list.some((p) => p.kind !== undefined);
   return (
     <Box>
       <Button size="small" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
@@ -498,7 +489,7 @@ export function FilesSection({
   members,
   onMoved,
 }: {
-  data: PersonData;
+  data: PersonAnswer;
   projectId: string;
   /** The project's people, to move plots to (coordinators); absent on My work. */
   members?: Member[];
@@ -600,7 +591,7 @@ export function FilesSection({
 }
 
 /** Change their role, remove them, or make them a new invitation link (to join again with the new project file). */
-function PersonActions({ projectId, data, onChanged }: { projectId: string; data: PersonData; onChanged: () => void }) {
+function PersonActions({ projectId, data, onChanged }: { projectId: string; data: PersonAnswer; onChanged: () => void }) {
   const t = useT();
   const { me, language } = useApp();
   const person = data.person;
@@ -608,6 +599,7 @@ function PersonActions({ projectId, data, onChanged }: { projectId: string; data
   const [notice, setNotice] = useState<string | null>(null);
   const [removing, setRemoving] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [more, setMore] = useState<HTMLElement | null>(null);
   const [invite, setInvite] = useState<NewInvite | null>(null);
   const [busy, setBusy] = useState(false);
   // One change at a time; the controls stay enabled (a disabled one drops the keyboard focus).
@@ -673,17 +665,33 @@ function PersonActions({ projectId, data, onChanged }: { projectId: string; data
           >
             {t("person.newLink")}
           </Button>
+          {/* The rarer, heavier actions out of the way, in a menu */}
           {person.userId !== me?.userId && (
-            <Button variant="outlined" startIcon={<Logout />} aria-disabled={busy} onClick={() => !busy && setSigningOut(true)}>
-              {t("person.signOut")}
-            </Button>
-          )}
-          {person.userId !== me?.userId && (
-            <Button color="error" variant="outlined" startIcon={<Delete />} aria-disabled={busy} onClick={() => !busy && setRemoving(true)}>
-              {t("people.remove", { name: person.username })}
+            <Button
+              endIcon={<MoreVert />}
+              aria-label={t("person.moreActionsLabel", { name: person.username })}
+              aria-haspopup="menu"
+              aria-expanded={more !== null}
+              onClick={(e) => setMore(e.currentTarget)}
+            >
+              {t("person.moreActions")}
             </Button>
           )}
         </Stack>
+        <Menu anchorEl={more} open={more !== null} onClose={() => setMore(null)}>
+          <MenuItem onClick={() => (setMore(null), !busy && setSigningOut(true))}>
+            <ListItemIcon>
+              <Logout fontSize="small" />
+            </ListItemIcon>
+            {t("person.signOut")}
+          </MenuItem>
+          <MenuItem onClick={() => (setMore(null), !busy && setRemoving(true))} sx={{ color: "error.main" }}>
+            <ListItemIcon>
+              <Delete fontSize="small" color="error" />
+            </ListItemIcon>
+            {t("people.remove", { name: person.username })}
+          </MenuItem>
+        </Menu>
         <Explain variant="body2" text={t("person.newLinkHelp.short")} more={t("person.newLinkHelp")} />
         {invite && (
           <Box>
@@ -755,7 +763,7 @@ function PersonActions({ projectId, data, onChanged }: { projectId: string; data
 }
 
 /** The status chip and the role, under the name. */
-export function PersonHeading({ data, title }: { data: PersonData; title?: string }) {
+export function PersonHeading({ data, title }: { data: PersonAnswer; title?: string }) {
   const t = useT();
   const chip = statusChip(t, data.person.status);
   return (
@@ -778,9 +786,10 @@ export function PersonHeading({ data, title }: { data: PersonData; title?: strin
 /** One person's page (coordinators), under the People tab: /projects/<id>/people/<userId>. */
 export function PersonPage({ projectId, userId, onGo }: { projectId: string; userId: string; onGo: (tab: ProjectTab) => void }) {
   const t = useT();
+  const { language } = useApp();
   const timeZone = browserTimeZone();
-  const state = useLoad(() => getPerson(projectId, userId, timeZone), [projectId, userId, timeZone]);
-  const members = useLoad(() => listMembers(projectId), [projectId]);
+  const state = useLoad(["project", projectId, "getPerson", userId, timeZone], () => getPerson(projectId, userId, timeZone));
+  const members = useLoad(["project", projectId, "listMembers"], () => listMembers(projectId));
   const data = state.data;
   return (
     <Stack spacing={3}>
@@ -806,14 +815,20 @@ export function PersonPage({ projectId, userId, onGo }: { projectId: string; use
                 : t("person.excluded", { name: data.person.username })}
             </Alert>
           )}
+          {/* What needs attention first: the speed warning and the quality (plots worth a look) */}
+          {data.speed.veryFast > 0 && (
+            <Alert severity="warning" icon={<WarningAmber />}>
+              {veryFastText(t, data.speed, language)}
+            </Alert>
+          )}
+          <QualitySection data={data} self={false} projectId={projectId} />
           <PersonNumbers data={data} />
           <PersonActions projectId={projectId} data={data} onChanged={state.reload} />
           <FilesSection data={data} projectId={projectId} members={members.data ?? []} onMoved={state.reload} />
           <ActivitySection data={data} />
-          <SpeedSection data={data} />
+          <SpeedSection data={data} warning={false} />
           <PersonTimeSpent projectId={projectId} username={data.person.username} />
           <SyncSection data={data} self={false} />
-          <QualitySection data={data} self={false} projectId={projectId} />
         </>
       )}
     </Stack>

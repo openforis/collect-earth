@@ -272,7 +272,7 @@ public class GoogleEarthWebService {
 
 		double metresTo(double lat, double lon) {
 			double north = (lat - latitude) * 111320;
-			double east = (lon - longitude) * 111320 * Math.cos(Math.toRadians(lat));
+			double east = GoogleEarthWebUrls.wrapLongitude(lon - longitude) * 111320 * Math.cos(Math.toRadians(lat));
 			return Math.hypot(north, east);
 		}
 	}
@@ -1282,22 +1282,29 @@ public class GoogleEarthWebService {
 				view = GoogleEarthWebUrls.cameraView(href, ((Number) page.get(1)).doubleValue(), ((Number) page.get(2)).doubleValue(),
 						camera == null ? null : groundAltitudeNear(camera[0], camera[1]));
 				if (state == State.WAITING) {
+					// A plot clicked meanwhile takes the lock at once, not after this one's page loads
+					BooleanSupplier superseded = this::isSuperseded;
 					String flightUrl = null;
 					if (plot != null && seeksGround(plot) && groundSoughtFor != showCount.get()) {
 						// The first plot after a start mostly comes this way (the page was not Google Earth Web yet when
 						// it was shown): flown to twice as well (see flyTwice)
-						tab().load(aboveTheGroundUrl(plot), false, PAGE_LOAD_TIMEOUT);
+						if (!tab().load(aboveTheGroundUrl(plot), false, PAGE_LOAD_TIMEOUT, superseded) && superseded.getAsBoolean()) {
+							return;
+						}
 						inPage.pageLoaded();
-						flightUrl = awaitCameraAt(plot, () -> false) ? flyTwice(plot, true, () -> false) : null;
+						flightUrl = awaitCameraAt(plot, superseded) ? flyTwice(plot, true, superseded) : null;
 						if (flightUrl != null && flightUrl.isEmpty()) {
 							flightUrl = null;
 						}
 					} else if (plot != null && !GoogleEarthWebUrls.isCameraAt(href, Double.parseDouble(plot.getCoord().getLatitude()),
 							Double.parseDouble(plot.getCoord().getLongitude()))) {
 						// Through consent / sign-in: Google may have dropped the camera position
-						tab().load(plotUrl(plot, plotDistance(plot)), false, PAGE_LOAD_TIMEOUT);
+						if (!tab().load(plotUrl(plot, plotDistance(plot)), false, PAGE_LOAD_TIMEOUT, superseded)
+								&& superseded.getAsBoolean()) {
+							return;
+						}
 					}
-					if (plot == null || injectOverlay(plot, flightUrl, () -> false) == Outline.DRAWN) {
+					if (plot == null || injectOverlay(plot, flightUrl, superseded) == Outline.DRAWN) {
 						setState(State.READY, plotId, null);
 					}
 				} else if (plot != null && (!armed || contextChangedFor(plot))) {
@@ -1340,8 +1347,10 @@ public class GoogleEarthWebService {
 			// The overlay hides until the camera has flown there
 			tab().evaluate(CAMERA_MOVE_SCRIPT, url);
 		} else {
-			tab().load(url, false, PAGE_LOAD_TIMEOUT);
-			injectOverlay(plot);
+			BooleanSupplier superseded = this::isSuperseded;
+			if (tab().load(url, false, PAGE_LOAD_TIMEOUT, superseded) || !superseded.getAsBoolean()) {
+				injectOverlay(plot, null, superseded);
+			}
 		}
 		return true;
 	}

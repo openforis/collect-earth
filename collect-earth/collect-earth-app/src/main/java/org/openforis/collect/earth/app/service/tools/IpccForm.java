@@ -166,7 +166,7 @@ public final class IpccForm {
 
 	/**
 	 * Puts the answers on the subdivisions, as the wizard's combo boxes did, and checks them: every subdivision needs a
-	 * management type its category offers; the country must be one of the list and the region attribute one of the
+	 * management type its category offers, forests and grasslands a forest or vegetation type too; the country must be one of the list and the region attribute one of the
 	 * survey's.
 	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
@@ -183,24 +183,35 @@ public final class IpccForm {
 				byGuid.put(answer.guid, answer);
 			}
 		}
-		for (AbstractLandUseSubdivision subdivision : subdivisions) {
-			Subdivision answer = byGuid.get(subdivision.getGuid());
-			String management = answer == null ? null : answer.managementType;
-			Enum<?> type = constant(managementTypes(subdivision.getCategory()), management);
-			if (type == null) {
-				throw new InvalidToolRequestException("ipcc.subdivision",
-						String.format(Messages.getString("ToolsPage.ipcc.noManagement"), subdivision.getCategory().getCode() + " / " + subdivision.getCode()));
-			}
-			((AbstractLandUseSubdivision) subdivision).setManagementType(type);
-			Extra extra = extraOf(subdivision.getCategory());
-			if (extra != null) {
-				Enum<?> extraValue = constant(extra.options, answer.type);
-				if (subdivision instanceof ForestSubdivision) {
-					((ForestSubdivision) subdivision).setForestType((ForestTypeEnum) extraValue);
-				} else if (subdivision instanceof CroplandSubdivision) {
-					((CroplandSubdivision) subdivision).setPerennialCropType(extraValue == null ? PerennialCropTypesEnum.ALL : (PerennialCropTypesEnum) extraValue);
-				} else if (subdivision instanceof GrasslandSubdivision) {
-					((GrasslandSubdivision) subdivision).setVegetationType((VegetationTypeEnum) extraValue);
+		// Checked whole before anything is set, so that a refused answer leaves the subdivisions as they were
+		for (boolean write : new boolean[] { false, true }) {
+			for (AbstractLandUseSubdivision subdivision : subdivisions) {
+				Subdivision answer = byGuid.get(subdivision.getGuid());
+				String management = answer == null ? null : answer.managementType;
+				Enum<?> type = constant(managementTypes(subdivision.getCategory()), management);
+				String name = subdivision.getCategory().getCode() + " / " + subdivision.getCode();
+				if (type == null) {
+					throw new InvalidToolRequestException("ipcc.subdivision",
+							String.format(Messages.getString("ToolsPage.ipcc.noManagement"), name));
+				}
+				Extra extra = extraOf(subdivision.getCategory());
+				Enum<?> extraValue = extra == null ? null : constant(extra.options, answer.type);
+				if (extraValue == null && (subdivision instanceof ForestSubdivision || subdivision instanceof GrasslandSubdivision)) {
+					throw new InvalidToolRequestException("ipcc.subdivision",
+							String.format(Messages.getString("ToolsPage.ipcc.noType"), Messages.getString(extra.labelKey), name));
+				}
+				if (!write) {
+					continue;
+				}
+				((AbstractLandUseSubdivision) subdivision).setManagementType(type);
+				if (extra != null) {
+					if (subdivision instanceof ForestSubdivision) {
+						((ForestSubdivision) subdivision).setForestType((ForestTypeEnum) extraValue);
+					} else if (subdivision instanceof CroplandSubdivision) {
+						((CroplandSubdivision) subdivision).setPerennialCropType(extraValue == null ? PerennialCropTypesEnum.ALL : (PerennialCropTypesEnum) extraValue);
+					} else if (subdivision instanceof GrasslandSubdivision) {
+						((GrasslandSubdivision) subdivision).setVegetationType((VegetationTypeEnum) extraValue);
+					}
 				}
 			}
 		}

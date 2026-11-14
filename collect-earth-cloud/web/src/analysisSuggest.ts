@@ -1,4 +1,4 @@
-import type { AnalysisColumnModel, AnalysisData, AnalysisModelData, ProposedView } from "./api";
+import type { AnalysisColumn, AnalysisAnswer, AnalysisModel, ProposedView } from "./api";
 import type { Translate } from "./i18n";
 import type { Filter, Measure, Question } from "./analysisQuestion";
 import { isYearList, type Cube, type CubeColumn } from "./analysisView";
@@ -38,7 +38,7 @@ const IPCC: { code: string; words: RegExp }[] = [
 ];
 
 /** A question someone answered (not a key, not Collect Earth's own, not from the plot file, not worked out). */
-function answered(c: AnalysisColumnModel): boolean {
+function answered(c: AnalysisColumn): boolean {
   return !c.fromPlotFile && !c.calculated && !c.keyAttr && !CE_OWN.has(c.name) && !c.multiple;
 }
 
@@ -50,7 +50,7 @@ export function ipccCategory(code: string, label: string): string | null {
 }
 
 /** A list of land categories: four of the six IPCC ones at least among its top level. */
-export function isLandUseList(model: Pick<AnalysisModelData, "lists">, list: string | null | undefined): boolean {
+export function isLandUseList(model: Pick<AnalysisModel, "lists">, list: string | null | undefined): boolean {
   const top = (list ? model.lists[list] : undefined)?.filter((i) => i.level === 0) ?? [];
   const found = new Set(top.map((i) => ipccCategory(i.code, Object.values(i.labels)[0] ?? "")).filter((x) => x));
   return found.size >= 4;
@@ -61,10 +61,10 @@ export function isLandUseList(model: Pick<AnalysisModelData, "lists">, list: str
  * Collect Earth's own surveys, else the first code question answered on a list of land categories, else the first
  * code question answered: neither a key (the assessment phase is one), nor the plot file's, nor a code refining another.
  */
-export function mainQuestion(model: AnalysisModelData): AnalysisColumnModel | undefined {
+export function mainQuestion(model: AnalysisModel): AnalysisColumn | undefined {
   const plot = model.tables.find((x) => x.name === "plot");
   if (!plot) return undefined;
-  const isCode = (c: AnalysisColumnModel) => c.type === "code" && !!c.list && !!model.lists[c.list]?.length && !c.multiple && !c.parent && c.list !== "assessment_phases";
+  const isCode = (c: AnalysisColumn) => c.type === "code" && !!c.list && !!model.lists[c.list]?.length && !c.multiple && !c.parent && c.list !== "assessment_phases";
   const named = plot.columns.find((c) => c.name === "land_use_category" && isCode(c) && !c.fromPlotFile);
   if (named) return named;
   const codes = plot.columns.filter((c) => isCode(c) && answered(c));
@@ -73,20 +73,20 @@ export function mainQuestion(model: AnalysisModelData): AnalysisColumnModel | un
 
 /** The parts of a survey the ready-made views are made of, by the model's column names. */
 export interface SurveyRoles {
-  main?: AnalysisColumnModel;
+  main?: AnalysisColumn;
   /** The code refining the main one (its subdivision). */
-  child?: AnalysisColumnModel;
+  child?: AnalysisColumn;
   /** The land use before, on the main question's list: the "from" of a change. */
-  from?: AnalysisColumnModel;
+  from?: AnalysisColumn;
   /** A question of years (the year of the change). */
-  year?: AnalysisColumnModel;
+  year?: AnalysisColumn;
   /** Other questions with a few options each (the disturbance…). */
-  few: AnalysisColumnModel[];
+  few: AnalysisColumn[];
   /** Yes/no questions worth crossing with the main one (the confidence; whether it changed). */
-  yesNo: AnalysisColumnModel[];
+  yesNo: AnalysisColumn[];
 }
 
-export function surveyRoles(model: AnalysisModelData): SurveyRoles {
+export function surveyRoles(model: AnalysisModel): SurveyRoles {
   const plot = model.tables.find((x) => x.name === "plot");
   const main = mainQuestion(model);
   if (!plot || !main) return { main, few: [], yesNo: [] };
@@ -94,9 +94,9 @@ export function surveyRoles(model: AnalysisModelData): SurveyRoles {
   const child = plot.columns.find((c) => c.type === "code" && c.parent === main.name);
   const from = cols.find((c) => c.type === "code" && c.list === main.list && c !== main && c !== child && !c.parent);
   const year = cols.find((c) => (c.type === "code" && isYearList(model, c.list)) || (c.type === "integer" && /year|año|année/i.test(`${c.name} ${Object.values(c.labels).join(" ")}`)));
-  const labelOf = (c: AnalysisColumnModel) => (Object.values(c.labels)[0] ?? c.name).trim().toLowerCase();
+  const labelOf = (c: AnalysisColumn) => (Object.values(c.labels)[0] ?? c.name).trim().toLowerCase();
   const seen = new Set<string>();
-  const few: AnalysisColumnModel[] = [];
+  const few: AnalysisColumn[] = [];
   // what disturbed or drove the land first (a survey asks many small questions; these are the ones analysed)
   const ranked = [...cols.filter((c) => DRIVERS.test(`${c.name} ${Object.values(c.labels).join(" ")}`)), ...cols];
   for (const c of new Set(ranked)) {
@@ -109,7 +109,7 @@ export function surveyRoles(model: AnalysisModelData): SurveyRoles {
   }
   const booleans = cols.filter((c) => c.type === "boolean");
   const yesNo = [booleans.find((c) => CONFIDENCE.test(`${c.name} ${Object.values(c.labels).join(" ")}`)), from?.relevantIf ? booleans.find((c) => c.name === from.relevantIf) : undefined].filter(
-    (c, i, all): c is AnalysisColumnModel => !!c && all.indexOf(c) === i,
+    (c, i, all): c is AnalysisColumn => !!c && all.indexOf(c) === i,
   );
   return { main, child, from, year, few, yesNo };
 }
@@ -120,7 +120,7 @@ export function surveyRoles(model: AnalysisModelData): SurveyRoles {
  * that changed when the survey asks), the year of the change (bars over the years), the other questions of a few
  * options, the yes/no questions by the main one; the region, an average; and the work by collector and over time.
  */
-export function templatesOf(data: Pick<AnalysisData, "model" | "scope" | "areas">, cube: Cube, measures: readonly Measure[], t: Translate): Template[] {
+export function templatesOf(data: Pick<AnalysisAnswer, "model" | "scope" | "areas">, cube: Cube, measures: readonly Measure[], t: Translate): Template[] {
   const nested = cube.table !== "plot";
   const has = new Set(measures.map((m) => m.id));
   const byId = new Map(cube.columns.map((c) => [c.id, c]));

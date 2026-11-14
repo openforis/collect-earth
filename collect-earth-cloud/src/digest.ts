@@ -18,7 +18,7 @@ import { errorSummary, isPermanentFailure, isSenderLimit, type Mailer, type Mail
 import { writeUnsubscribeToken } from './mailLinks.js';
 import { personDetail } from './people.js';
 import { PACE_DAYS, progressReport, type AttentionItem } from './progress.js';
-import type { ProjectStateCache } from './projectState.js';
+import type { ProjectStateCache, ServedState } from './projectState.js';
 import type { QualityService } from './qualityService.js';
 import { weeklyOf } from './routes/activity.js';
 import { loadPeopleFor } from './routes/people.js';
@@ -33,6 +33,8 @@ export const MAX_DIGEST_PROJECTS = 20;
 export const MAX_QUIET_NAMED = 20;
 /** Subscriptions read from the store at a time. */
 const PAGE = 50;
+/** The project states a digest run keeps besides the shared cache's. */
+const RUN_STATES_KEPT = 6;
 /** Defaults of one run: what Cloud Run's request timeout leaves room for. */
 export const DEFAULT_BUDGET_MS = 60_000;
 export const DEFAULT_MAX_MAILS = 500;
@@ -217,7 +219,7 @@ export function confirmMail(ctx: ConfirmContext, to: string): MailMessage {
 export interface DigestDeps {
   store: Store;
   quality: QualityService;
-  states: ProjectStateCache;
+  states: Pick<ProjectStateCache, 'get'>;
   mailer: Mailer;
   secret: Buffer;
   log: FastifyBaseLogger;
@@ -251,7 +253,27 @@ export interface DigestRunResult {
 }
 
 /** Runs the weekly job over the due subscriptions, within `budgetMs` and `maxMails`. */
-export async function runDigests(deps: DigestDeps, options: { baseUrl: string; budgetMs?: number; maxMails?: number }): Promise<DigestRunResult> {
+export async function runDigests(shared: DigestDeps, options: { baseUrl: string; budgetMs?: number; maxMails?: number }): Promise<DigestRunResult> {
+  // Each project's state is read once per run: subscribers come in user order, and the shared cache keeps only a few projects.
+  const kept = new Map<string, Promise<ServedState>>();
+  const deps: DigestDeps = {
+    ...shared,
+    states: {
+      get: (projectId, log) => {
+        let served = kept.get(projectId);
+        if (served) {
+          kept.delete(projectId); // moved last: the least recently used goes first
+        } else {
+          served = shared.states.get(projectId, log);
+          served.catch(() => kept.delete(projectId));
+        }
+        kept.set(projectId, served);
+        // shortcut: a fixed count, as the shared cache (a state of 100,000 records is tens of MB); order the subscriptions by project if digests still rebuild too often
+        if (kept.size > RUN_STATES_KEPT) kept.delete(kept.keys().next().value!);
+        return served;
+      },
+    },
+  };
   const started = deps.now();
   const budget = Math.min(options.budgetMs ?? DEFAULT_BUDGET_MS, MAX_BUDGET_MS);
   const maxMails = options.maxMails ?? DEFAULT_MAX_MAILS;

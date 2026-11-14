@@ -21,8 +21,9 @@ import { useApp, useLocalMode } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { MoreInfo } from "../components/Explain";
 import { Loading } from "../components/Loading";
-import { FLAG_KIND_KEYS, flagText } from "../flagsView";
+import { FLAG_KIND_KEYS, flagSaysMore, flagText } from "../flagsView";
 import { formatDate } from "../format";
+import { EarlierPeriods } from "../project/RepeatSurvey";
 import { useT, type MessageKey } from "../i18n";
 import { plotPageParts } from "../localMode";
 import { answerRows, hasCheck, recordKindKey, recordStateKey } from "../plotView";
@@ -127,7 +128,8 @@ function Decision({ projectId, data, onChange }: { projectId: string; data: Plot
             slotProps={{ htmlInput: { maxLength: 2000 } }}
           />
           <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
-            {DECISIONS.map((d) => (
+            {/* Without a check, "Check is right" has nothing to keep: not offered. */}
+            {DECISIONS.filter((d) => d.kind !== "check" || withCheck || decision?.decision === "check").map((d) => (
               <Button key={d.kind} variant={decision?.decision === d.kind ? "contained" : "outlined"} onClick={() => void decide(d.kind)} disabled={busy || (d.kind === "check" && !withCheck)}>
                 {t(d.label)}
               </Button>
@@ -151,7 +153,7 @@ export function PlotPage({ projectId, plot, canOpenFiles }: { projectId: string;
   // The local mode (one person): no decision, differences or holders, and every record is yours.
   const local = useLocalMode();
   const parts = plotPageParts(local);
-  const loaded = useLoad(() => getPlotPage(projectId, plot), [projectId, plot]);
+  const loaded = useLoad(["project", projectId, "getPlotPage", plot], () => getPlotPage(projectId, plot));
   const quality = pathFor({ name: "project", projectId, tab: "quality" });
   const back = (
     <Button startIcon={<ArrowBack />} {...linkProps(quality)} sx={{ alignSelf: "flex-start" }}>
@@ -174,6 +176,82 @@ export function PlotPage({ projectId, plot, canOpenFiles }: { projectId: string;
   const label = (key: string) => data.labels[key] ?? key;
   const rows = answerRows(data.questions, data.records);
   const live = data.records.filter((r) => !r.deleted);
+  const calm = !hasCheck(data.records) && data.flags !== null && data.flags.length === 0;
+  // Nothing flagged and no check differs: one line, not two near-empty cards.
+  const nothingFound = data.flags !== null && data.flags.length === 0 && parts.differences && data.differences !== null && data.differences.length === 0;
+  // A reference plot is never decided: its other assessments are measured against it.
+  const decision = !data.reference && parts.decision && (
+    <Section title={t("plot.decisionHeading")}>
+      <Decision key={data.plot} projectId={projectId} data={data} onChange={(next) => loaded.setData(next)} />
+    </Section>
+  );
+  const records = (
+    <Section title={t("plot.records")}>
+      {data.records.length === 0 ? (
+        <Typography color="text.secondary">{t("plot.noRecords")}</Typography>
+      ) : (
+        <Stack spacing={1.5}>
+          <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
+            {data.records.map((r) => (
+              <Box component="li" key={`${r.operator}\u0000${r.recordKey}`} sx={{ wordBreak: "break-word", mb: 0.5 }}>
+                <Typography component="span" sx={{ fontWeight: 500 }}>
+                  {t(recordKindKey(r.assessment))}
+                  {parts.names ? ` · ${r.operator}` : ""}
+                </Typography>
+                <Typography component="span" color="text.secondary">
+                  {" · "}
+                  {t("plot.round", { round: r.round })}
+                  {" · "}
+                  {t(recordStateKey(r))}
+                  {r.modifiedOn !== null ? ` · ${t(local ? "plot.savedLocal" : "plot.saved", { time: formatDate(r.modifiedOn, language) })}` : ""}
+                </Typography>
+              </Box>
+            ))}
+          </Box>
+          {live.length > 0 &&
+            (rows.length === 0 ? (
+              <Typography color="text.secondary">{t("plot.noAnswers")}</Typography>
+            ) : (
+              <>
+                <Typography variant="body2" color="text.secondary">
+                  {t("plot.answers")}
+                  {rows.some((row) => row.differs) ? ` · ${t("plot.differsNote")}` : ""}
+                </Typography>
+                <TableContainer sx={{ border: 1, borderColor: "divider", borderRadius: 1, overflowX: "auto" }}>
+                  <Table size="small" sx={{ "& th, & td": { overflowWrap: "anywhere", px: { xs: 1, sm: 2 }, verticalAlign: "top" } }}>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell sx={{ minWidth: 120 }}>{t("quality.question")}</TableCell>
+                        {data.records.map((r) => (
+                          <TableCell key={`${r.operator}\u0000${r.recordKey}`} sx={{ minWidth: 100 }}>
+                            {t(recordKindKey(r.assessment))}
+                            <Box component="span" sx={{ display: "block", color: "text.secondary", fontWeight: 400 }}>
+                              {[parts.names ? r.operator : null, r.deleted ? t("plot.deleted") : !r.submitted ? t("plot.draft") : null].filter((x) => x !== null).join(" · ")}
+                            </Box>
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {rows.map((row) => (
+                        <TableRow key={row.key} sx={row.differs ? { bgcolor: "action.hover" } : undefined}>
+                          <TableCell component="th" scope="row">
+                            {row.label}
+                          </TableCell>
+                          {row.values.map((value, i) => (
+                            <TableCell key={i}>{value === null ? "—" : answerText(t, row.key, value, data.options)}</TableCell>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </>
+            ))}
+        </Stack>
+      )}
+    </Section>
+  );
   return (
     <Stack spacing={2}>
       {back}
@@ -216,79 +294,31 @@ export function PlotPage({ projectId, plot, canOpenFiles }: { projectId: string;
         </Alert>
       )}
 
-      {/* A reference plot is never decided: its other assessments are measured against it. */}
-      {!data.reference && parts.decision && (
-        <Section title={t("plot.decisionHeading")}>
-          <Decision key={data.plot} projectId={projectId} data={data} onChange={(next) => loaded.setData(next)} />
-        </Section>
+      {/* Nothing to decide on (no check, nothing flagged): the answers first, then the decision. */}
+      {calm ? (
+        <>
+          {records}
+          {decision}
+        </>
+      ) : (
+        <>
+          {decision}
+          {records}
+        </>
       )}
 
-      <Section title={t("plot.records")}>
-        {data.records.length === 0 ? (
-          <Typography color="text.secondary">{t("plot.noRecords")}</Typography>
-        ) : (
-          <Stack spacing={1.5}>
-            <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
-              {data.records.map((r) => (
-                <Box component="li" key={`${r.operator}\u0000${r.recordKey}`} sx={{ wordBreak: "break-word", mb: 0.5 }}>
-                  <Typography component="span" sx={{ fontWeight: 500 }}>
-                    {t(recordKindKey(r.assessment))}
-                    {parts.names ? ` · ${r.operator}` : ""}
-                  </Typography>
-                  <Typography component="span" color="text.secondary">
-                    {" · "}
-                    {t("plot.round", { round: r.round })}
-                    {" · "}
-                    {t(recordStateKey(r))}
-                    {r.modifiedOn !== null ? ` · ${t(local ? "plot.savedLocal" : "plot.saved", { time: formatDate(r.modifiedOn, language) })}` : ""}
-                  </Typography>
-                </Box>
-              ))}
-            </Box>
-            {live.length > 0 &&
-              (rows.length === 0 ? (
-                <Typography color="text.secondary">{t("plot.noAnswers")}</Typography>
-              ) : (
-                <>
-                  <Typography variant="body2" color="text.secondary">
-                    {t("plot.answers")}
-                    {rows.some((row) => row.differs) ? ` · ${t("plot.differsNote")}` : ""}
-                  </Typography>
-                  <TableContainer sx={{ border: 1, borderColor: "divider", borderRadius: 1, overflowX: "auto" }}>
-                    <Table size="small" sx={{ "& th, & td": { overflowWrap: "anywhere", px: { xs: 1, sm: 2 }, verticalAlign: "top" } }}>
-                      <TableHead>
-                        <TableRow>
-                          <TableCell sx={{ minWidth: 120 }}>{t("quality.question")}</TableCell>
-                          {data.records.map((r) => (
-                            <TableCell key={`${r.operator}\u0000${r.recordKey}`} sx={{ minWidth: 100 }}>
-                              {t(recordKindKey(r.assessment))}
-                              <Box component="span" sx={{ display: "block", color: "text.secondary", fontWeight: 400 }}>
-                                {[parts.names ? r.operator : null, r.deleted ? t("plot.deleted") : !r.submitted ? t("plot.draft") : null].filter((x) => x !== null).join(" · ")}
-                              </Box>
-                            </TableCell>
-                          ))}
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {rows.map((row) => (
-                          <TableRow key={row.key} sx={row.differs ? { bgcolor: "action.hover" } : undefined}>
-                            <TableCell component="th" scope="row">
-                              {row.label}
-                            </TableCell>
-                            {row.values.map((value, i) => (
-                              <TableCell key={i}>{value === null ? "—" : answerText(t, row.key, value, data.options)}</TableCell>
-                            ))}
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                </>
-              ))}
-          </Stack>
-        )}
-      </Section>
+      {/* A repeat survey: the plot's answers in the earlier periods (docs/plans/2026-11-11-repeat-survey.md) */}
+      {!local && <EarlierPeriods projectId={projectId} plot={plot} labels={data.labels} options={data.options} />}
 
+      {nothingFound ? (
+        <Paper variant="outlined" sx={{ p: { xs: 1.5, sm: 2 } }}>
+          <Typography color="text.secondary">
+            {t("plot.nothingFound")}
+            {data.figures?.stale ? ` ${t("quality.stale", { time: formatDate(data.figures.computedAt, language) })}` : ""}
+          </Typography>
+        </Paper>
+      ) : (
+      <>
       <Section title={t("plot.flagsHeading")}>
         {data.flags === null ? (
           <Alert severity="info" role="note">
@@ -312,11 +342,13 @@ export function PlotPage({ projectId, plot, canOpenFiles }: { projectId: string;
                       {t(FLAG_KIND_KEYS[f.kind])}
                       {parts.names ? ` · ${f.operator}` : ""}
                       {f.at !== null ? ` · ${formatDate(f.at, language)}` : ""}
-                      {": "}
+                      {flagSaysMore(f.kind) ? ": " : ""}
                     </Typography>
-                    <Typography variant="body2" component="span">
-                      {flagText(t, f, language, { local })}
-                    </Typography>
+                    {flagSaysMore(f.kind) && (
+                      <Typography variant="body2" component="span">
+                        {flagText(t, f, language, { local })}
+                      </Typography>
+                    )}
                   </Box>
                 ))}
               </Box>
@@ -344,8 +376,10 @@ export function PlotPage({ projectId, plot, canOpenFiles }: { projectId: string;
           )}
         </Section>
       )}
+      </>
+      )}
 
-      <Section title={t(parts.holders && data.files.some((f) => f.main !== null) ? "plot.files" : "tab.plots")}>
+      <Section title={t(parts.holders && data.files.some((f) => f.main !== undefined) ? "plot.files" : "tab.plots")}>
         <Stack spacing={1.5}>
           {data.files.map((f) => (
             <Box key={f.id}>
@@ -359,12 +393,12 @@ export function PlotPage({ projectId, plot, canOpenFiles }: { projectId: string;
                 )}
                 {parts.holders && <Chip size="small" variant="outlined" label={t(f.divided ? "plot.fileDivided" : "plot.fileWhole")} />}
               </Stack>
-              {f.main !== null && parts.holders && (
+              {f.main !== undefined && parts.holders && (
                 <Typography variant="body2" sx={{ wordBreak: "break-word" }}>
                   {f.main.length > 0 ? t("plot.holders", { names: f.main.join(", ") }) : t("plot.nobody")}
                 </Typography>
               )}
-              {f.copies !== null && f.copies.length > 0 && parts.holders && (
+              {f.copies !== undefined && f.copies.length > 0 && parts.holders && (
                 <Typography variant="body2" sx={{ wordBreak: "break-word" }}>
                   {t("plot.copies", { names: f.copies.join(", ") })}
                 </Typography>

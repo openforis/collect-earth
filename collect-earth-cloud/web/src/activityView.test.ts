@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ActivityPage, LogItem } from "./api";
-import { answerLabel, dailyCsv, dayAfterMs, dayStartMs, decisionsCsv, differencesCsv, isIsoWeek, isoWeekOf, logSentence, shiftWeek, weekMonday, weekRangeText, weeklyNotForRole } from "./activityView";
+import { answerLabel, dailyCsv, dayAfterMs, dayStartMs, decisionsCsv, differencesCsv, isIsoWeek, isoWeekOf, logSentence, logSentenceParts, shiftWeek, weekMonday, weekRangeText, weeklyNotForRole } from "./activityView";
 import { ApiError, errorMessageKey } from "./api";
 import { csvText } from "./csv";
 import { translator } from "./i18n";
@@ -30,10 +30,15 @@ const audit = (action: string, details: Record<string, string | number | boolean
   person,
   action,
   details,
-  plotName: typeof details.plot === "string" ? details.plot : null,
+  ...(typeof details.plot === "string" ? { plotName: details.plot } : {}),
 });
 
 describe("the log's sentences", () => {
+  it("split around the plot, which becomes the link", () => {
+    expect(logSentenceParts(t, record("submitted"), page, "en")).toEqual({ before: "maria submitted plot ", plot: "17", after: "" });
+    expect(logSentenceParts(t, record("created"), page, "en")).toEqual({ before: "maria started plot ", plot: "17", after: " (saved, not submitted)" });
+    expect(logSentenceParts(t, audit("invite.revoked", {}), page, "en").plot).toBeNull();
+  });
   it("what Collect Earth did, with the id the collector sees; checks named for coordinators", () => {
     expect(logSentence(t, record("submitted"), page, "en")).toBe("maria submitted plot 17");
     expect(logSentence(t, record("resubmitted"), page, "en")).toBe("maria submitted plot 17 again");

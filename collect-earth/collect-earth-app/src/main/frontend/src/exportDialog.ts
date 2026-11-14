@@ -19,12 +19,11 @@ export interface ExportRequest {
   path: string;
 }
 
-export const EXTENSIONS: Record<ExportFormat, string> = { CSV: "csv", XML: "zip", BACKUP: "collect-data", KML: "kml" };
+export const EXTENSIONS: Record<ExportFormat, string> = { CSV: "csv", XML: "zip", BACKUP: "csv", KML: "kml" };
 
 /** The choices of records the Swing menu offered per format. */
 export function recordsFor(format: ExportFormat): ExportRecords[] {
   if (format === "XML") return ["ALL", "SINCE_LAST_EXPORT", "FROM_DATE", "BY_ATTRIBUTE"];
-  if (format === "BACKUP") return ["ALL", "FROM_DATE"];
   return ["ALL"];
 }
 

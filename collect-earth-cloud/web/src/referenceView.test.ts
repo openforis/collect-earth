@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { toPersonData, toPlotPage, toReferenceView, toSamplingView } from "./api";
+import type { ReferenceFiguresAnswer } from "./api";
 import { CATALOGUES, translator } from "./i18n";
 import { accuracyText, parsePlotIds, refusalKey, sortedPeople, weakestQuestions } from "./referenceView";
 
@@ -28,51 +28,32 @@ describe("the Reference plots section", () => {
   });
 
   it("lists the lowest accuracy first, too few plots last; the weakest questions", () => {
-    const view = toReferenceView({
-      coordinator: true,
-      count: 2,
-      figures: {
-        plots: 2,
-        assessed: 2,
-        checks: 3,
-        questions: [{ key: "q", label: "Land use", kind: "choice", compared: 3, agreeing: 2, rate: null }],
-        people: [
-          { username: "zoe", plots: { compared: 25, agreeing: 20, rate: 0.8 }, questions: [] },
-          { username: "ana", plots: { compared: 5, agreeing: 5, rate: null }, questions: [] },
-          {
-            username: "ben",
-            plots: { compared: 30, agreeing: 15, rate: 0.5 },
-            questions: [
-              { key: "a", compared: 30, agreeing: 30, rate: 1 },
-              { key: "b", compared: 30, agreeing: 20, rate: 0.667 },
-              { key: "c", compared: 30, agreeing: 15, rate: 0.5 },
-              { key: "d", compared: 4, agreeing: 1, rate: null },
-            ],
-          },
-        ],
-        computedAt: 5,
-        stale: false,
-      },
-      plots: [{ csvFileId: "f", filename: "north.csv", plot: "1", assessor: "coord", assessorUserId: "u", addedAt: 1, assessed: true, copies: 3, checked: 2 }],
-    });
-    expect(sortedPeople(view.figures!).map((p) => p.username)).toEqual(["ben", "zoe", "ana"]);
-    expect(weakestQuestions(view.figures!.people[2]).map((q) => q.key)).toEqual(["c", "b", "d"]);
-    expect(view.plots[0]).toMatchObject({ plot: "1", assessorInProject: true, copies: 3, checked: 2 });
-    expect(view.max).toBe(500);
-    // A reviewer's answer: no plots, no files.
-    expect(toReferenceView({ coordinator: false, count: 2, figures: null })).toMatchObject({ coordinator: false, count: 2, plots: [], files: [], figures: null });
-  });
-
-  it("reads the person page's accuracy, the plot page's reference and the reference copies of the Checks section", () => {
-    expect(toPlotPage({ plot: "1", reference: { assessor: "coord" } }).reference).toEqual({ assessor: "coord" });
-    expect(toPlotPage({ plot: "1", reference: {} }).reference).toEqual({ assessor: null });
-    expect(toPlotPage({ plot: "1", reference: null }).reference).toBeNull();
-    expect(toSamplingView({ files: [{ csvFileId: "f", referenceCopies: 6 }] }).files[0].referenceCopies).toBe(6);
-    const person = toPersonData({ person: { userId: "u" }, quality: { reference: { username: "ana", plots: { compared: 3, agreeing: 2, rate: null }, questions: [] } } });
-    expect(person.quality.reference).toEqual({ username: "ana", plots: { compared: 3, agreeing: 2, rate: null }, questions: [] });
-    expect(toPersonData({ person: { userId: "u" }, quality: { reference: null } }).quality.reference).toBeNull();
-    // No reference plot in the project: no line at all.
-    expect(toPersonData({ person: { userId: "u" }, quality: {} }).quality.reference).toBeUndefined();
-    expect(toPersonData({ person: { userId: "u" }, plots: [] }).quality).toBeDefined();
+    const figures: ReferenceFiguresAnswer = {
+      plots: 2,
+      assessed: 2,
+      checks: 3,
+      questions: [{ key: "q", label: "Land use", kind: "choice", compared: 3, agreeing: 2, rate: null }],
+      byPlot: [{ plot: "1", assessor: "coord", assessed: true, checks: 3 }],
+      people: [
+        { username: "zoe", plots: { compared: 25, agreeing: 20, rate: 0.8 }, questions: [] },
+        { username: "ana", plots: { compared: 5, agreeing: 5, rate: null }, questions: [] },
+        {
+          username: "ben",
+          plots: { compared: 30, agreeing: 15, rate: 0.5 },
+          questions: [
+            { key: "a", label: "A", compared: 30, agreeing: 30, rate: 1 },
+            { key: "b", label: "B", compared: 30, agreeing: 20, rate: 0.667 },
+            { key: "c", label: "C", compared: 30, agreeing: 15, rate: 0.5 },
+            { key: "d", label: "D", compared: 4, agreeing: 1, rate: null },
+          ],
+        },
+      ],
+      computedAt: 5,
+      stale: false,
+    };
+    expect(sortedPeople(figures).map((p) => p.username)).toEqual(["ben", "zoe", "ana"]);
+    expect(weakestQuestions(figures.people![2]).map((q) => q.key)).toEqual(["c", "b", "d"]);
+    // A reviewer's figures name nobody.
+    expect(sortedPeople({ ...figures, people: undefined })).toEqual([]);
   });
 });

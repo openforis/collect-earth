@@ -11,7 +11,7 @@ import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import ChevronLeft from "@mui/icons-material/ChevronLeft";
 import ChevronRight from "@mui/icons-material/ChevronRight";
-import { getWeekly, type FlagCounts, type WeeklyData } from "../api";
+import { getWeekly, type FlagCounts, type WeeklyAnswer } from "../api";
 import { useApp, useLocalMode } from "../appContext";
 import { dayStartMs, isoWeekOf, localDay, shiftWeek, weeklyNotForRole } from "../activityView";
 import { AsOf } from "../components/PeopleCharts";
@@ -31,7 +31,7 @@ import { Block, FiguresTime, ReportFrame } from "./ReportPages";
 
 const dayText = (date: string, language: string) => formatDay(dayStartMs(date), language);
 
-function WeekNav({ projectId, data }: { projectId: string; data: WeeklyData }) {
+function WeekNav({ projectId, data }: { projectId: string; data: WeeklyAnswer }) {
   const t = useT();
   const thisWeek = isoWeekOf(localDay(new Date()));
   const go = (week: string) => linkProps(pathFor({ name: "weekly", projectId, week: week === thisWeek ? null : week }));
@@ -51,11 +51,15 @@ function WeekNav({ projectId, data }: { projectId: string; data: WeeklyData }) {
 }
 
 /** `local`: the local mode (one person), with no quality checks to count. */
-function Progress({ data, local }: { data: WeeklyData; local: boolean }) {
+function Progress({ data, local }: { data: WeeklyAnswer; local: boolean }) {
   const t = useT();
   const { language } = useApp();
   const n = (v: number) => formatNumber(v, language);
   const p = data.progress;
+  // No day after today (the current week): nothing can be in it yet.
+  const today = localDay(new Date());
+  const days = p.days.filter((d) => d.date <= today);
+  const checks = !local && days.some((d) => d.checks > 0);
   return (
     <Block title={t("weekly.progressTitle")}>
       <Typography>{t("weekly.submitted", { n: n(p.submitted) })}</Typography>
@@ -69,15 +73,15 @@ function Progress({ data, local }: { data: WeeklyData; local: boolean }) {
             <TableRow>
               <TableCell>{t("weekly.day")}</TableCell>
               <TableCell align="right">{t("weekly.plots")}</TableCell>
-              {!local && <TableCell align="right">{t("weekly.checksCol")}</TableCell>}
+              {checks && <TableCell align="right">{t("weekly.checksCol")}</TableCell>}
             </TableRow>
           </TableHead>
           <TableBody>
-            {p.days.map((d) => (
+            {days.map((d) => (
               <TableRow key={d.date}>
-                <TableCell>{dayText(d.date, language)}</TableCell>
+                <TableCell sx={{ whiteSpace: "nowrap" }}>{dayText(d.date, language)}</TableCell>
                 <TableCell align="right">{n(d.submitted)}</TableCell>
-                {!local && <TableCell align="right">{n(d.checks)}</TableCell>}
+                {checks && <TableCell align="right">{n(d.checks)}</TableCell>}
               </TableRow>
             ))}
           </TableBody>
@@ -87,12 +91,13 @@ function Progress({ data, local }: { data: WeeklyData; local: boolean }) {
   );
 }
 
-function People({ data }: { data: WeeklyData }) {
+function People({ data }: { data: WeeklyAnswer }) {
   const t = useT();
   const { language } = useApp();
   const n = (v: number) => formatNumber(v, language);
   // People with plots, or who did something that week (a coordinator who checked plots).
   const rows = data.people.filter((p) => p.plots.assigned > 0 || p.submitted > 0 || p.checks > 0);
+  const checks = rows.some((p) => p.checks > 0);
   return (
     <Block title={t("weekly.peopleTitle")}>
       {rows.length === 0 ? (
@@ -105,7 +110,7 @@ function People({ data }: { data: WeeklyData }) {
               <TableRow>
                 <TableCell>{t("peopleTable.name")}</TableCell>
                 <TableCell align="right">{t("weekly.plots")}</TableCell>
-                <TableCell align="right">{t("weekly.checksCol")}</TableCell>
+                {checks && <TableCell align="right">{t("weekly.checksCol")}</TableCell>}
                 <TableCell align="right">{t("weekly.doneNow")}</TableCell>
                 <TableCell>{t("weekly.statusNow")}</TableCell>
               </TableRow>
@@ -115,10 +120,10 @@ function People({ data }: { data: WeeklyData }) {
                 const chip = statusChip(t, p.status);
                 return (
                   <TableRow key={p.userId}>
-                    <TableCell sx={{ wordBreak: "break-word" }}>{p.username}</TableCell>
+                    <TableCell sx={{ whiteSpace: "nowrap" }}>{p.username}</TableCell>
                     <TableCell align="right">{n(p.submitted)}</TableCell>
-                    <TableCell align="right">{n(p.checks)}</TableCell>
-                    <TableCell align="right">{p.plots.assigned > 0 ? t("weekly.doneOf", { done: n(p.plots.assigned - p.plots.remaining), total: n(p.plots.assigned) }) : "—"}</TableCell>
+                    {checks && <TableCell align="right">{n(p.checks)}</TableCell>}
+                    <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>{p.plots.assigned > 0 ? t("weekly.doneOf", { done: n(p.plots.assigned - p.plots.remaining), total: n(p.plots.assigned) }) : "—"}</TableCell>
                     <TableCell>
                       <Chip size="small" label={chip.label} color={chip.color} variant="outlined" />
                     </TableCell>
@@ -134,7 +139,7 @@ function People({ data }: { data: WeeklyData }) {
   );
 }
 
-function Quality({ projectId, data }: { projectId: string; data: WeeklyData }) {
+function Quality({ projectId, data }: { projectId: string; data: WeeklyAnswer }) {
   const t = useT();
   const { language } = useApp();
   const n = (v: number) => formatNumber(v, language);
@@ -151,7 +156,7 @@ function Quality({ projectId, data }: { projectId: string; data: WeeklyData }) {
         <Alert
           severity="info"
           action={
-            <Button className="no-print" {...linkProps(pathFor({ name: "project", projectId, tab: "quality" }))}>
+            <Button className="no-print" {...linkProps(pathFor({ name: "project", projectId, tab: "quality", view: "figures" }))}>
               {t("weekly.openQuality")}
             </Button>
           }
@@ -179,7 +184,7 @@ function Quality({ projectId, data }: { projectId: string; data: WeeklyData }) {
 }
 
 /** The local mode's quality for the week: the plots worth a look (pattern flags) saved in it. */
-function Flags({ projectId, data }: { projectId: string; data: WeeklyData }) {
+function Flags({ projectId, data }: { projectId: string; data: WeeklyAnswer }) {
   const t = useT();
   const { language } = useApp();
   const q = data.quality;
@@ -189,7 +194,7 @@ function Flags({ projectId, data }: { projectId: string; data: WeeklyData }) {
         <Alert
           severity="info"
           action={
-            <Button className="no-print" {...linkProps(pathFor({ name: "project", projectId, tab: "quality" }))}>
+            <Button className="no-print" {...linkProps(pathFor({ name: "project", projectId, tab: "quality", view: "figures" }))}>
               {t("weekly.openQuality")}
             </Button>
           }
@@ -217,7 +222,7 @@ export function WeeklyPage({ projectId, week }: { projectId: string; week: strin
   const local = useLocalMode();
   const blocks = weeklyBlocks(local);
   const timeZone = browserTimeZone();
-  const state = useLoad(() => getWeekly(projectId, week, timeZone), [projectId, week, timeZone]);
+  const state = useLoad(["project", projectId, "getWeekly", week, timeZone], () => getWeekly(projectId, week, timeZone));
   const data = state.data;
   const title = data ? t("weekly.title", { n: String(Number(data.week.slice(6))), year: data.week.slice(0, 4), start: dayText(data.start, language), end: dayText(data.end, language) }) : t("weekly.titleLoading");
   return (

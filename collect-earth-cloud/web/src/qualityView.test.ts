@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Difference, GuidanceNote, QualityData, QualityDecision, QuestionAgreement } from "./api";
+import type { Difference, GuidanceNote, QualityDecision, QuestionAgreement } from "./api";
 import { translator } from "./i18n";
 import {
   barPercent,
@@ -7,7 +7,6 @@ import {
   formatRate,
   googleEarthUrl,
   groupDifferences,
-  keepLocalChanges,
   labelMap,
   marginKey,
   marginRows,
@@ -27,14 +26,14 @@ import {
   withQuestionLabels,
 } from "./qualityView";
 
-const question = (key: string, label: string, kind: "choice" | "number", margin: number | null = null): QuestionAgreement => ({
+const question = (key: string, label: string, kind: "choice" | "number", margin?: number): QuestionAgreement => ({
   key,
   label,
   kind,
   compared: 30,
   agreeing: 24,
   rate: 0.8,
-  margin,
+  ...(margin === undefined ? {} : { margin }),
 });
 
 describe("rates as text", () => {
@@ -187,7 +186,7 @@ describe("the differences", () => {
 
   it("keeps the notes in the server's order: by question, then the pair", () => {
     const note = (id: string, questionKey: string, firstValue: string | null): GuidanceNote => ({
-      id, questionKey, firstValue, checkValue: null, text: id, updatedBy: null, updatedAt: null,
+      id, questionKey, firstValue, checkValue: null, text: id, updatedBy: null, updatedAt: 1,
     });
     const notes = [note("a", "q1", null), note("b", "q2", "F")];
     expect(withNote(notes, note("c", "q1", "G")).map((n) => n.id)).toEqual(["a", "c", "b"]);
@@ -310,11 +309,3 @@ describe("question keys in texts", () => {
   });
 });
 
-describe("a load that started before a change made here", () => {
-  const prev = { decisions: ["mine"], notes: ["mine"], margins: { a: 1 }, plotsChecked: 1 } as unknown as QualityData;
-  const fresh = { decisions: [], notes: [], margins: {}, plotsChecked: 2 } as unknown as QualityData;
-
-  it("keeps the decisions, notes and margins changed here, and takes the rest", () => {
-    expect(keepLocalChanges(fresh, prev)).toEqual({ decisions: ["mine"], notes: ["mine"], margins: { a: 1 }, plotsChecked: 2 });
-  });
-});

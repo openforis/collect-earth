@@ -489,6 +489,47 @@ public class CloudService {
 	/** The wait between two asks (shorter in tests) */
 	long waitMs = FEEDBACK_WAIT_MS;
 
+	/** How long a plot's earlier answers are kept (the coordinator may change the header's questions meanwhile) */
+	static final long PERIODS_KEPT_MS = 10L * 60 * 1000;
+	private static final int PERIODS_KEPT = 200;
+	private final Map<String, Object[]> periodsByPlot = Collections.synchronizedMap(new LinkedHashMap<String, Object[]>(16, 0.75f, true) {
+		private static final long serialVersionUID = 1L;
+
+		@Override
+		protected boolean removeEldestEntry(Map.Entry<String, Object[]> eldest) {
+			return size() > PERIODS_KEPT;
+		}
+	});
+
+	/**
+	 * A plot's answers in the earlier periods of a repeat survey, for the header of its form (docs/plans/2026-11-11-repeat-
+	 * survey.md): as the server gives them, kept a few minutes per plot. No periods when the project is not on the cloud,
+	 * repeats no survey, or the server cannot be reached: the form is then shown as for any project.
+	 */
+	public Map<String, Object> plotPeriods(String placemarkId) {
+		Map<String, Object> none = Collections.singletonMap("periods", Collections.emptyList());
+		if (!properties.isCloudSyncEnabled() || StringUtils.isBlank(placemarkId)) {
+			return none;
+		}
+		String key = properties.getCloudProjectId() + "\u0000" + placemarkId;
+		Object[] kept = periodsByPlot.get(key);
+		long now = System.currentTimeMillis();
+		if (kept != null && now - (Long) kept[0] < PERIODS_KEPT_MS) {
+			@SuppressWarnings("unchecked")
+			Map<String, Object> answer = (Map<String, Object>) kept[1];
+			return answer;
+		}
+		try {
+			@SuppressWarnings("unchecked")
+			Map<String, Object> answer = new com.fasterxml.jackson.databind.ObjectMapper().convertValue(api.getPlotPeriods(placemarkId), Map.class);
+			periodsByPlot.put(key, new Object[] { now, answer });
+			return answer;
+		} catch (IOException | RuntimeException e) {
+			logger.warn("Could not get the earlier answers of {}: {}", placemarkId, e.getMessage());
+			return none;
+		}
+	}
+
 	/** The status of the sync, as CloudSyncStatusDialog showed it */
 	public Map<String, Object> status() {
 		Map<String, Object> answer = new LinkedHashMap<>();

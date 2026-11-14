@@ -20,8 +20,14 @@ describe("matchRoute", () => {
     ["/projects/p-1/overview", { name: "project", projectId: "p-1", tab: "setup" }],
     ["/projects/p-1/people", { name: "project", projectId: "p-1", tab: "people" }],
     ["/projects/p-1/quality", { name: "project", projectId: "p-1", tab: "quality" }],
+    ["/projects/p-1/quality/checks", { name: "project", projectId: "p-1", tab: "quality", view: "checks" }],
+    ["/projects/p-1/people/team", { name: "project", projectId: "p-1", tab: "people", view: "team" }],
     ["/projects/p-1/map", { name: "project", projectId: "p-1", tab: "map" }],
-    ["/projects/p-1/plots?x=1", { name: "project", projectId: "p-1", tab: "plots" }],
+    // The tabs that became Setup's sections: their old addresses open the section
+    ["/projects/p-1/plots?x=1", { name: "project", projectId: "p-1", tab: "setup", view: "plots" }],
+    ["/projects/p-1/file", { name: "project", projectId: "p-1", tab: "setup", view: "survey" }],
+    ["/projects/p-1/settings", { name: "project", projectId: "p-1", tab: "setup", view: "project" }],
+    ["/projects/p-1/setup/sharing", { name: "project", projectId: "p-1", tab: "setup", view: "sharing" }],
     ["/projects/p-1/plots/f-9", { name: "plotFile", projectId: "p-1", fileId: "f-9" }],
     ["/join/AbC_123", { name: "join", token: "AbC_123" }],
     ["/join/a%2Bb", { name: "join", token: "a+b" }],
@@ -79,6 +85,8 @@ describe("matchRoute", () => {
     for (const route of routes) expect(matchRoute(pathFor(route))).toEqual(route);
     expect(pathFor({ name: "project", projectId: "p", tab: "progress" })).toBe("/projects/p");
     expect(pathFor({ name: "project", projectId: "p", tab: "setup" })).toBe("/projects/p/setup");
+    expect(pathFor({ name: "project", projectId: "p", tab: "setup", view: "overview" })).toBe("/projects/p/setup");
+    expect(pathFor({ name: "project", projectId: "p", tab: "setup", view: "layout" })).toBe("/projects/p/setup/layout");
     expect(pathFor({ name: "myQuality", projectId: "p" })).toBe("/projects/p/my-quality");
     expect(pathFor({ name: "teamReport", projectId: "p" })).toBe("/projects/p/quality/team-report");
     expect(pathFor({ name: "trainingReport", projectId: "p", setId: "s 1" })).toBe("/projects/p/training/s%201/report");

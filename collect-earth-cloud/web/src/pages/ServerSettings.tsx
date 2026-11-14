@@ -13,8 +13,8 @@ import Stack from "@mui/material/Stack";
 import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import { useState, type FormEvent, type ReactNode } from "react";
-import { getServerSettings, saveServerSettings, testAlertWebhook, type ProjectCreation, type ServerSettings } from "../api";
+import { useState, type FormEvent, type MouseEvent, type ReactNode } from "react";
+import { getServerSettings, saveServerSettings, testAlertWebhook, type ProjectCreation, type ServerSettings, type SettingsChange } from "../api";
 import { isWebhookUrl, signupDomainsOf, wholeIn } from "../serverSafetyView";
 import { AI_LIMIT_MAX, parseLimit as parseAiLimit } from "../aiView";
 import { fromLocalInput, toLocalInput } from "../announcement";
@@ -28,19 +28,18 @@ import { draftOf, readDraft, type SettingsDraft } from "../settingsForm";
 import { useUnsaved } from "../unsavedChanges";
 import { useLoad } from "../useLoad";
 
-type Save = (changes: Partial<ServerSettings>) => Promise<void>;
+type Save = (changes: SettingsChange) => Promise<void>;
 
 /**
- * One group of the server's settings: its title, what it affects, its fields, and its own Save and Discard, so that
- * what is saved is always what the group shows. Its changes not saved are named to the page (useUnsaved), which warns
+ * One group of the server's settings: its title, one line on what it is for, its fields, and its own Save and Discard
+ * (shown once something is changed), so that what is saved is always what the group shows. Its changes not saved are named to the page (useUnsaved), which warns
  * before leaving.
  */
-function SettingsGroup({ id, title, intro, more, affects, unsaved, invalid, onSave, onDiscard, extra, children }: {
+function SettingsGroup({ id, title, intro, more, unsaved, invalid, onSave, onDiscard, extra, children }: {
   id: string;
   title: string;
   intro?: string;
   more?: string;
-  affects: string;
   unsaved: boolean;
   invalid?: boolean;
   onSave: () => Promise<void>;
@@ -69,7 +68,7 @@ function SettingsGroup({ id, title, intro, more, affects, unsaved, invalid, onSa
     }
   };
   return (
-    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section" aria-labelledby={`server-group-${id}`}>
+    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 }, scrollMarginTop: { xs: 16, md: 136 } }} component="section" id={`server-settings-${id}`} aria-labelledby={`server-group-${id}`}>
       <Stack component="form" spacing={2} onSubmit={(e) => void submit(e)} noValidate>
         <div>
           <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
@@ -77,16 +76,17 @@ function SettingsGroup({ id, title, intro, more, affects, unsaved, invalid, onSa
             {unsaved && <Chip size="small" color="warning" variant="outlined" label={t("server.unsaved")} />}
           </Stack>
           {intro && (more ? <Explain variant="body2" text={intro} more={more} /> : <Typography variant="body2" color="text.secondary">{intro}</Typography>)}
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>{affects}</Typography>
         </div>
         {children}
         {saved && !unsaved && <Alert severity="success" role="status">{t("server.groupSaved")}</Alert>}
         <ErrorAlert error={error} />
-        <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-          <Button type="submit" variant="contained" disabled={busy || !unsaved || invalid}>{t("common.save")}</Button>
-          <Button variant="outlined" disabled={busy || !unsaved} onClick={() => { onDiscard(); setError(null); }}>{t("server.discard")}</Button>
-          {extra}
-        </Box>
+        {(unsaved || extra) && (
+          <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+            {unsaved && <Button type="submit" variant="contained" disabled={busy || invalid}>{t("common.save")}</Button>}
+            {unsaved && <Button variant="outlined" disabled={busy} onClick={() => { onDiscard(); setError(null); }}>{t("server.discard")}</Button>}
+            {extra}
+          </Box>
+        )}
       </Stack>
     </Paper>
   );
@@ -101,7 +101,7 @@ function AccessGroup({ settings, onSave }: { settings: ServerSettings; onSave: S
   const draft = edited ?? initial;
   const unsaved = (Object.keys(initial) as (keyof typeof initial)[]).some((k) => draft[k] !== initial[k]);
   return (
-    <SettingsGroup id="access" title={t("server.group.access")} affects={t("server.affects.access")} unsaved={unsaved}
+    <SettingsGroup id="access" title={t("server.group.access")} intro={t("server.affects.access")} unsaved={unsaved}
       onSave={async () => { await onSave(draft); setDraft(null); }} onDiscard={() => setDraft(null)}>
       <FormControl>
         <FormControlLabel control={<Switch checked={draft.signupOpen} onChange={(e) => setDraft({ ...draft, signupOpen: e.target.checked })} />} label={t("server.signupOpen")} />
@@ -129,14 +129,13 @@ function AccessGroup({ settings, onSave }: { settings: ServerSettings; onSave: S
 }
 
 /** Text fields of the limits and the server's details, read with the rules the server applies (settingsForm.ts). */
-function DraftFields({ settings, keys, fields, group, title, intro, affects, onSave }: {
+function DraftFields({ settings, keys, fields, group, title, intro, onSave }: {
   settings: ServerSettings;
   keys: (keyof SettingsDraft)[];
   fields: { key: keyof SettingsDraft; label: MessageKey; help: MessageKey; more?: MessageKey; type?: string; numeric?: boolean }[];
   group: string;
   title: string;
   intro: string;
-  affects: string;
   onSave: Save;
 }) {
   const t = useT();
@@ -148,22 +147,21 @@ function DraftFields({ settings, keys, fields, group, title, intro, affects, onS
   const unsaved = keys.some((k) => draft[k].trim() !== initial[k].trim());
   const invalid = keys.some((k) => problems[k] !== undefined);
   return (
-    <SettingsGroup id={group} title={title} intro={intro} affects={affects} unsaved={unsaved} invalid={invalid}
-      onSave={async () => { await onSave(Object.fromEntries(keys.map((k) => [k, changes[k as keyof typeof changes]])) as Partial<ServerSettings>); setDraft(null); }}
+    <SettingsGroup id={group} title={title} intro={intro} unsaved={unsaved} invalid={invalid}
+      onSave={async () => { await onSave(Object.fromEntries(keys.map((k) => [k, changes[k as keyof typeof changes]])) as SettingsChange); setDraft(null); }}
       onDiscard={() => setDraft(null)}>
       {fields.map(({ key, label, help, more, type, numeric }) => (
-        <Stack key={key} spacing={0.75}>
-          <FormLabel htmlFor={`server-setting-${key}`} sx={{ color: "text.primary" }}>{t(label)}</FormLabel>
-          <TextField
-            id={`server-setting-${key}`}
-            value={draft[key]}
-            onChange={(e) => setDraft({ ...draft, [key]: e.target.value })}
-            error={shown[key] !== undefined}
-            helperText={shown[key] ? t(shown[key]!) : <>{t(help)}{more && <MoreInfo text={t(more)} />}</>}
-            type={type}
-            slotProps={numeric ? { htmlInput: { inputMode: "numeric" } } : undefined}
-          />
-        </Stack>
+        <TextField
+          key={key}
+          id={`server-setting-${key}`}
+          label={t(label)}
+          value={draft[key]}
+          onChange={(e) => setDraft({ ...draft, [key]: e.target.value })}
+          error={shown[key] !== undefined}
+          helperText={shown[key] ? t(shown[key]!) : <>{t(help)}{more && <MoreInfo text={t(more)} />}</>}
+          type={type}
+          slotProps={numeric ? { htmlInput: { inputMode: "numeric" } } : undefined}
+        />
       ))}
     </SettingsGroup>
   );
@@ -183,7 +181,7 @@ function AnnouncementGroup({ settings, onSave }: { settings: ServerSettings; onS
   const end = fromLocalInput(until);
   const past = text.trim() !== "" && end !== null && end <= Date.now();
   const unsaved = text !== initialText || until !== initialUntil;
-  const save = async (changes: Partial<ServerSettings>) => {
+  const save = async (changes: SettingsChange) => {
     await onSave(changes);
     await refreshMe();
   };
@@ -198,8 +196,7 @@ function AnnouncementGroup({ settings, onSave }: { settings: ServerSettings; onS
     }
   };
   return (
-    <SettingsGroup id="announcement" title={t("server.announcementTitle")} intro={t("server.announcementHelp.short")} more={t("server.announcementHelp")}
-      affects={t("server.affects.announcement")} unsaved={unsaved} invalid={past}
+    <SettingsGroup id="announcement" title={t("server.announcementTitle")} intro={t("server.announcementHelp.short")} more={t("server.announcementHelp")} unsaved={unsaved} invalid={past}
       onSave={async () => { await save({ announcement: text.trim() || null, announcementUntil: text.trim() ? end : null }); setText(null); setUntil(null); }}
       onDiscard={() => { setText(null); setUntil(null); }}
       extra={settings.announcement ? <Button color="error" disabled={clearing} onClick={() => void clear()}>{t("server.announcementClear")}</Button> : undefined}>
@@ -235,9 +232,9 @@ function AiGroup({ settings, onSave }: { settings: ServerSettings; onSave: Save 
   const invalid = AI_LIMIT_FIELDS.some(({ key }) => values[key] === null);
   const unsaved = draft.aiEnabled !== initial.aiEnabled || AI_LIMIT_FIELDS.some(({ key }) => draft[key].trim() !== initial[key]);
   return (
-    <SettingsGroup id="ai" title={t("server.aiTitle")} intro={t("server.aiIntro.short")} more={t("server.aiIntro")} affects={t("server.affects.ai")}
+    <SettingsGroup id="ai" title={t("server.aiTitle")} intro={t("server.aiIntro.short")} more={t("server.aiIntro")}
       unsaved={unsaved} invalid={invalid}
-      onSave={async () => { await onSave({ aiEnabled: draft.aiEnabled, ...(Object.fromEntries(AI_LIMIT_FIELDS.map(({ key }) => [key, values[key]])) as Partial<ServerSettings>) }); setDraft(null); }}
+      onSave={async () => { await onSave({ aiEnabled: draft.aiEnabled, ...(Object.fromEntries(AI_LIMIT_FIELDS.map(({ key }) => [key, values[key]])) as SettingsChange) }); setDraft(null); }}
       onDiscard={() => setDraft(null)}>
       <FormControl>
         <FormControlLabel
@@ -325,11 +322,11 @@ function AlertsGroup({ settings, onSave }: { settings: ServerSettings; onSave: S
     }
   };
   return (
-    <SettingsGroup id="alerts" title={t("server.group.alerts")} intro={t("server.alertsGroupIntro")} affects={t("server.affects.alerts")}
+    <SettingsGroup id="alerts" title={t("server.group.alerts")} intro={t("server.alertsGroupIntro")}
       unsaved={unsaved} invalid={numbers.invalid || badWebhook}
       onSave={async () => {
         await onSave({
-          ...(Object.fromEntries(keys.map((k) => [k, numbers.values[k]])) as Partial<ServerSettings>),
+          ...(Object.fromEntries(keys.map((k) => [k, numbers.values[k]])) as SettingsChange),
           ...(webhook.trim() !== "" ? { alertWebhookUrl: webhook.trim() } : removing ? { alertWebhookUrl: null } : {}),
         });
         numbers.reset();
@@ -371,10 +368,10 @@ function SignupRulesGroup({ settings, onSave }: { settings: ServerSettings; onSa
   const parsed = signupDomainsOf(typed);
   const unsaved = numbers.unsaved || typed.trim() !== initialDomains;
   return (
-    <SettingsGroup id="signup-rules" title={t("server.group.signupRules")} intro={t("server.signupRulesIntro")} affects={t("server.affects.signupRules")}
+    <SettingsGroup id="signup-rules" title={t("server.group.signupRules")} intro={t("server.signupRulesIntro")}
       unsaved={unsaved} invalid={numbers.invalid || parsed === undefined}
       onSave={async () => {
-        await onSave({ ...(Object.fromEntries(keys.map((k) => [k, numbers.values[k]])) as Partial<ServerSettings>), signupDomains: parsed ?? null });
+        await onSave({ ...(Object.fromEntries(keys.map((k) => [k, numbers.values[k]])) as SettingsChange), signupDomains: parsed ?? null });
         numbers.reset();
         setDomains(null);
       }}
@@ -391,6 +388,17 @@ function SignupRulesGroup({ settings, onSave }: { settings: ServerSettings; onSa
   );
 }
 
+/** The groups in page order, for the row of links at the top: the id of each group's card, and its title. */
+const SETTINGS_GROUPS: [string, MessageKey][] = [
+  ["access", "server.group.access"],
+  ["signup-rules", "server.group.signupRules"],
+  ["limits", "server.limits"],
+  ["about", "server.about"],
+  ["announcement", "server.announcementTitle"],
+  ["ai", "server.aiTitle"],
+  ["alerts", "server.group.alerts"],
+];
+
 /**
  * The Settings section of the server page: the groups of settings, each saved on its own; saving one keeps what is
  * changed and not saved in the others.
@@ -398,26 +406,35 @@ function SignupRulesGroup({ settings, onSave }: { settings: ServerSettings; onSa
 export function ServerSettingsSection() {
   const t = useT();
   const { refreshInfo } = useApp();
-  const settings = useLoad(getServerSettings, []);
+  const settings = useLoad(["app", "getServerSettings"], getServerSettings);
   if (settings.loading && !settings.data) return <Loading />;
   if (settings.error || !settings.data) return <ErrorAlert error={settings.error} onRetry={settings.reload} />;
   const current = settings.data;
   const save: Save = async (changes) => {
-    const next = await saveServerSettings(current, changes);
+    const next = await saveServerSettings(changes);
     settings.setData(next);
     void refreshInfo();
   };
+  const jump = (id: string) => document.getElementById(`server-settings-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
   return (
     <Stack spacing={3}>
+      <Box component="nav" aria-label={t("server.settingsJump")}
+        sx={{ position: { md: "sticky" }, top: { md: 56 }, zIndex: 2, bgcolor: "background.default", py: 1, mb: { xs: -1.5, md: -1 },
+          display: "flex", gap: 1, flexWrap: { xs: "nowrap", md: "wrap" }, overflowX: { xs: "auto", md: "visible" } }}>
+        {SETTINGS_GROUPS.map(([id, title]) => (
+          <Chip key={id} component="a" href={`#server-settings-${id}`} clickable variant="outlined" label={t(title)} sx={{ flexShrink: 0 }}
+            onClick={(e: MouseEvent) => { e.preventDefault(); jump(id); }} />
+        ))}
+      </Box>
       <AccessGroup settings={current} onSave={save} />
       <SignupRulesGroup settings={current} onSave={save} />
-      <DraftFields settings={current} onSave={save} group="limits" title={t("server.limits")} intro={t("server.limitsIntro")} affects={t("server.affects.limits")}
+      <DraftFields settings={current} onSave={save} group="limits" title={t("server.limits")} intro={t("server.limitsIntro")}
         keys={["maxProjectsPerUser", "maxProjectStorageMb"]}
         fields={[
           { key: "maxProjectsPerUser", label: "server.maxProjects", help: "server.maxProjectsHelp", numeric: true },
           { key: "maxProjectStorageMb", label: "server.maxStorage", help: "server.maxStorageHelp.short", more: "server.maxStorageHelp", numeric: true },
         ]} />
-      <DraftFields settings={current} onSave={save} group="about" title={t("server.about")} intro={t("server.aboutIntro")} affects={t("server.affects.about")}
+      <DraftFields settings={current} onSave={save} group="about" title={t("server.about")} intro={t("server.aboutIntro")}
         keys={["serverName", "termsUrl", "contactEmail"]}
         fields={[
           { key: "serverName", label: "server.serverName", help: "server.serverNameHelp" },

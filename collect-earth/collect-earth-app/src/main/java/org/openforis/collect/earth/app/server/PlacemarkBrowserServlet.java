@@ -8,6 +8,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import javax.annotation.PreDestroy;
 import javax.servlet.http.HttpServletRequest;
@@ -73,6 +75,9 @@ public class PlacemarkBrowserServlet {
 	private final Logger logger = LoggerFactory.getLogger( PlacemarkBrowserServlet.class );
 
 	private final ExecutorService executor = Executors.newCachedThreadPool();
+	/** The latest camera move of the plots map not yet passed on, and whether a thread passes it on. */
+	private final AtomicReference<double[]> cameraMove = new AtomicReference<>();
+	private final AtomicBoolean moveQueued = new AtomicBoolean();
 
 	@PreDestroy
 	public void shutdown() {
@@ -235,8 +240,25 @@ public class PlacemarkBrowserServlet {
 			response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
 			return;
 		}
-		executor.submit(() -> googleEarthWebService.moveCamera(latitude, longitude, heightMeters));
+		cameraMove.set(new double[] { latitude, longitude, heightMeters });
+		// One thread at most: the moves made while it waits for a page load to end are merged into the latest
+		if (moveQueued.compareAndSet(false, true)) {
+			executor.submit(this::passCameraMoves);
+		}
 		response.setStatus(HttpServletResponse.SC_OK);
+	}
+
+	private void passCameraMoves() {
+		do {
+			double[] move = cameraMove.getAndSet(null);
+			try {
+				if (move != null) {
+					googleEarthWebService.moveCamera(move[0], move[1], move[2]);
+				}
+			} finally {
+				moveQueued.set(false);
+			}
+		} while (cameraMove.get() != null && moveQueued.compareAndSet(false, true));
 	}
 
 	// ---------- The imagery window (a tab per source) ----------

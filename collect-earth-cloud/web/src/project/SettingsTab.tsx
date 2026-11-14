@@ -30,17 +30,17 @@ import {
 } from "../api";
 import { useApp, useLocalMode } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { CardFrame } from "../components/FoldingCard";
 import { Explain, MoreInfo } from "../components/Explain";
 import { Loading } from "../components/Loading";
 import { useT } from "../i18n";
-import { settingsCards } from "../localMode";
 import { progressDraftOf, readProgressDraft, type ProgressDraft, type ProgressProblems } from "../progressView";
 import { linkProps, navigate, pathFor } from "../router";
 import { useLoad } from "../useLoad";
 import type { MessageKey } from "../i18n";
-import { ShareLinksCard } from "./ShareLinks";
+import { projectChanged } from "../queryClient";
 
-function RenameCard({ projectId, name, onRenamed }: { projectId: string; name: string; onRenamed: (name: string) => void }) {
+export function RenameCard({ projectId, name }: { projectId: string; name: string }) {
   const t = useT();
   const { refreshMe } = useApp();
   const [value, setValue] = useState(name);
@@ -61,7 +61,7 @@ function RenameCard({ projectId, name, onRenamed }: { projectId: string; name: s
     setBusy(true);
     try {
       await renameProject(projectId, next);
-      onRenamed(next);
+      projectChanged(projectId, { name: next });
       setDone(true);
       void refreshMe();
     } catch (err) {
@@ -195,10 +195,10 @@ function ProgressSettingsForm({ projectId, saved, onSaved }: { projectId: string
   );
 }
 
-function ProgressCard({ projectId }: { projectId: string }) {
+export function ProgressCard({ projectId }: { projectId: string }) {
   const t = useT();
   const local = useLocalMode();
-  const settings = useLoad(() => getProgressSettings(projectId), [projectId]);
+  const settings = useLoad(["project", projectId, "getProgressSettings"], () => getProgressSettings(projectId));
   return (
     <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section" aria-labelledby="settings-progress">
       <Stack spacing={2}>
@@ -222,9 +222,9 @@ function ProgressCard({ projectId }: { projectId: string }) {
  * The AI assistant's switch for this project, off by default, with what it sends. It can
  * be switched on only while the server owner has it set up and allowed; off always.
  */
-function AiCard({ projectId }: { projectId: string }) {
+export function AiCard({ projectId }: { projectId: string }) {
   const t = useT();
-  const ai = useLoad(() => getProjectAi(projectId), [projectId]);
+  const ai = useLoad(["project", projectId, "getProjectAi"], () => getProjectAi(projectId));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [changed, setChanged] = useState(false);
@@ -247,12 +247,15 @@ function AiCard({ projectId }: { projectId: string }) {
     }
   };
 
+  // Not offered by this server: nothing to switch on, so no card (one still on keeps it, to switch it off)
+  if (ai.loading && !ai.data) return null;
+  if (ai.data && !ai.data.available && !ai.data.enabled) return null;
   return (
-    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section" aria-labelledby="settings-ai">
+    <CardFrame
+      title={t("settings.aiTitle")}
+      fold={!ai.data ? "" : ai.data.enabled ? t("fold.aiOn") : t("fold.aiOff")}
+    >
       <Stack spacing={2}>
-        <Typography variant="h2" id="settings-ai">
-          {t("settings.aiTitle")}
-        </Typography>
         <Explain color="text.primary" text={t("settings.aiIntro.short")} more={t("settings.aiIntro")} />
         <Explain color="text.primary" text={t("settings.aiSent.short")} more={t("settings.aiSent")} />
         {ai.loading && !ai.data ? (
@@ -314,7 +317,7 @@ function AiCard({ projectId }: { projectId: string }) {
         )}
         <ErrorAlert error={error} />
       </Stack>
-    </Paper>
+    </CardFrame>
   );
 }
 
@@ -326,17 +329,20 @@ function moveLabel(from: ProjectStatus, to: ProjectStatus): MessageKey {
 }
 
 /** The project's lifecycle: what its status means, and the moves it can make (publish, close, reopen, archive, restore). */
-function StatusCard({ projectId, status, onStatus }: { projectId: string; status: ProjectStatus; onStatus: (status: ProjectStatus) => void }) {
+export function StatusCard({ projectId, status }: { projectId: string; status: ProjectStatus }) {
   const t = useT();
   const { refreshMe } = useApp();
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
+  // Closing ends the collection for everyone: asked first
+  const [confirmClose, setConfirmClose] = useState(false);
 
   const move = async (to: ProjectStatus) => {
+    setConfirmClose(false);
     setError(null);
     setBusy(true);
     try {
-      onStatus(await setProjectStatus(projectId, to));
+      projectChanged(projectId, { status: await setProjectStatus(projectId, to) });
       void refreshMe();
     } catch (err) {
       setError(err);
@@ -354,19 +360,39 @@ function StatusCard({ projectId, status, onStatus }: { projectId: string; status
         <Typography>{t(`status.intro.${status}`)}</Typography>
         <ErrorAlert error={error} />
         <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-          {STATUS_MOVES[status].map((to, i) => (
-            <Button key={to} variant={i === 0 ? "contained" : "outlined"} disabled={busy} onClick={() => void move(to)}>
-              {t(moveLabel(status, to))}
-            </Button>
-          ))}
+          {STATUS_MOVES[status].map((to, i) =>
+            status === "active" && to === "closed" ? (
+              <Button key={to} variant="outlined" color="warning" disabled={busy} onClick={() => setConfirmClose(true)}>
+                {t(moveLabel(status, to))}
+              </Button>
+            ) : (
+              <Button key={to} variant={i === 0 ? "contained" : "outlined"} disabled={busy} onClick={() => void move(to)}>
+                {t(moveLabel(status, to))}
+              </Button>
+            ),
+          )}
         </Box>
       </Stack>
+      <Dialog open={confirmClose} onClose={() => !busy && setConfirmClose(false)} aria-labelledby="close-project-title">
+        <DialogTitle id="close-project-title">{t("status.closeConfirmTitle")}</DialogTitle>
+        <DialogContent>
+          <Typography>{t("status.closeConfirmText")}</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmClose(false)} disabled={busy} autoFocus>
+            {t("common.cancel")}
+          </Button>
+          <Button variant="contained" color="warning" onClick={() => void move("closed")} disabled={busy}>
+            {t("status.move.closed")}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Paper>
   );
 }
 
 /** A new project from this one (a template), as a draft: the coordinator lands on its getting-started checklist. */
-function CopyCard({ projectId, name }: { projectId: string; name: string }) {
+export function CopyCard({ projectId, name }: { projectId: string; name: string }) {
   const t = useT();
   const { refreshMe } = useApp();
   const [value, setValue] = useState(() => t("copy.defaultName", { name }));
@@ -390,11 +416,8 @@ function CopyCard({ projectId, name }: { projectId: string; name: string }) {
   };
 
   return (
-    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section" aria-labelledby="settings-copy">
+    <CardFrame title={t("copy.title")} fold={t("copy.intro.short")}>
       <Stack component="form" spacing={2} onSubmit={submit} noValidate>
-        <Typography variant="h2" id="settings-copy">
-          {t("copy.title")}
-        </Typography>
         <Explain color="text.primary" text={t("copy.intro.short")} more={t("copy.intro")} />
         <TextField
           label={t("copy.nameLabel")}
@@ -413,12 +436,12 @@ function CopyCard({ projectId, name }: { projectId: string; name: string }) {
           </Button>
         </Box>
       </Stack>
-    </Paper>
+    </CardFrame>
   );
 }
 
 /** The danger zone: deleting the project, confirmed by typing its name. */
-function DeleteCard({ projectId, name }: { projectId: string; name: string }) {
+export function DeleteCard({ projectId, name }: { projectId: string; name: string }) {
   const t = useT();
   const { refreshMe } = useApp();
   const [typed, setTyped] = useState("");
@@ -442,11 +465,8 @@ function DeleteCard({ projectId, name }: { projectId: string; name: string }) {
   };
 
   return (
-    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 }, borderColor: "error.main" }}>
+    <CardFrame title={t("settings.deleteTitle")} fold={t("fold.delete")} danger keepFolded>
       <Stack component="form" spacing={2} onSubmit={submit} noValidate>
-        <Typography variant="h2" color="error">
-          {t("settings.deleteTitle")}
-        </Typography>
         <Typography>{t("settings.deleteText")}</Typography>
         <Alert severity="warning">
           {t("settings.deleteDataFirst")} <Link {...linkProps(pathFor({ name: "project", projectId, tab: "data" }))}>{t("settings.deleteGoData")}</Link>
@@ -465,44 +485,6 @@ function DeleteCard({ projectId, name }: { projectId: string; name: string }) {
           </Button>
         </Box>
       </Stack>
-    </Paper>
-  );
-}
-
-/** The project's settings; in the local mode (one person), the progress settings only (src/localMode.ts, settingsCards). */
-export function SettingsTab({
-  projectId,
-  name,
-  status,
-  onRenamed,
-  onStatus,
-}: {
-  projectId: string;
-  name: string;
-  status: ProjectStatus;
-  onRenamed: (name: string) => void;
-  onStatus: (status: ProjectStatus) => void;
-}) {
-  const cards = settingsCards(useLocalMode());
-  return (
-    <Stack spacing={3}>
-      {cards.map((card) =>
-        card === "rename" ? (
-          <RenameCard key={card} projectId={projectId} name={name} onRenamed={onRenamed} />
-        ) : card === "progress" ? (
-          <ProgressCard key={card} projectId={projectId} />
-        ) : card === "shareLinks" ? (
-          <ShareLinksCard key={card} projectId={projectId} />
-        ) : card === "ai" ? (
-          <AiCard key={card} projectId={projectId} />
-        ) : card === "copy" ? (
-          <CopyCard key={card} projectId={projectId} name={name} />
-        ) : card === "status" ? (
-          <StatusCard key={card} projectId={projectId} status={status} onStatus={onStatus} />
-        ) : (
-          <DeleteCard key={card} projectId={projectId} name={name} />
-        ),
-      )}
-    </Stack>
+    </CardFrame>
   );
 }

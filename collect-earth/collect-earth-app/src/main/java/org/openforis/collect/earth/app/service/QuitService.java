@@ -24,22 +24,37 @@ public class QuitService implements Runnable {
 	private final Runnable stopServer;
 	private final Runnable exit;
 	private final long serverStopMillis;
-	private final AtomicBoolean quitting = new AtomicBoolean();
+	private final AtomicBoolean stopping;
+
+	/** Taken by the first of quitting and restarting, so the server is stopped once (RestartService shares it). */
+	static final AtomicBoolean STOPPING = new AtomicBoolean();
+	private static volatile boolean quitAsked;
 
 	public QuitService() {
-		this(EarthApp::quitServer, () -> System.exit(0), SERVER_STOP_MILLIS);
+		this(EarthApp::quitServer, () -> System.exit(0), SERVER_STOP_MILLIS, STOPPING);
 	}
 
 	/** For the tests, which cannot let the process exit. */
 	QuitService(Runnable stopServer, Runnable exit, long serverStopMillis) {
+		this(stopServer, exit, serverStopMillis, new AtomicBoolean());
+	}
+
+	QuitService(Runnable stopServer, Runnable exit, long serverStopMillis, AtomicBoolean stopping) {
 		this.stopServer = stopServer;
 		this.exit = exit;
 		this.serverStopMillis = serverStopMillis;
+		this.stopping = stopping;
+	}
+
+	/** Whether the user asked to quit: a restart under way then exits instead of relaunching. */
+	public static boolean isQuitAsked() {
+		return quitAsked;
 	}
 
 	@Override
 	public void run() {
-		if (!quitting.compareAndSet(false, true)) {
+		quitAsked = true;
+		if (!stopping.compareAndSet(false, true)) {
 			return;
 		}
 		new Thread(() -> {

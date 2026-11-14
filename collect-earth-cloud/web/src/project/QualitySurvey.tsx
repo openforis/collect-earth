@@ -11,7 +11,7 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import { useEffect, useState } from "react";
-import { ApiError, getSurveyHealth, type HealthRow, type SurveyHealthData } from "../api";
+import { ApiError, getSurveyHealth, type HealthRow, type SurveyHealthAnswer } from "../api";
 import { useApp, useLocalMode } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Explain } from "../components/Explain";
@@ -20,12 +20,13 @@ import { formatDate, formatNumber } from "../format";
 import { agreementText, changedText, emptyText, noneText, orderText, otherText, reasonText } from "../healthView";
 import { useT } from "../i18n";
 import { useLoad } from "../useLoad";
+import { onceVisibleAfter } from "../visibility";
 
 /** Tables fit a phone: they scroll inside their own frame. */
 const tableFrame = { border: 1, borderColor: "divider", borderRadius: 1, overflowX: "auto", maxHeight: 560 } as const;
 
 /** `checks`: the columns about quality checks and decisions (none in the local mode). */
-function Row({ row, data, showNone, checks }: { row: HealthRow; data: SurveyHealthData; showNone: boolean; checks: boolean }) {
+function Row({ row, data, showNone, checks }: { row: HealthRow; data: SurveyHealthAnswer; showNone: boolean; checks: boolean }) {
   const t = useT();
   const { language } = useApp();
   return (
@@ -86,13 +87,12 @@ export function QualitySurvey({ projectId }: { projectId: string }) {
   const local = useLocalMode();
   const checks = !local;
   const [all, setAll] = useState(false);
-  const { data, error, loading, reload } = useLoad(() => getSurveyHealth(projectId), [projectId]);
+  const { data, error, loading, reload } = useLoad(["project", projectId, "getSurveyHealth"], () => getSurveyHealth(projectId));
   const busy = error instanceof ApiError && error.code === "busy";
   // Newer figures are being worked out (or the server is busy): ask again in a while.
   useEffect(() => {
     if (loading || !(data?.stale || busy)) return;
-    const id = window.setTimeout(reload, busy ? 15_000 : 20_000);
-    return () => window.clearTimeout(id);
+    return onceVisibleAfter(busy ? 15_000 : 20_000, document, reload);
   }, [loading, data?.stale, busy, reload]);
 
   const worth = data ? data.questions.filter((q) => q.reasons.length > 0) : [];
@@ -153,7 +153,7 @@ export function QualitySurvey({ projectId }: { projectId: string }) {
                   {data.questions.length > worth.length && (
                     <Box>
                       <Button size="small" onClick={() => setAll(!all)} aria-expanded={all} aria-controls={shown.length > 0 ? "health-table" : undefined}>
-                        {all ? t("health.showFewer") : t("health.showAll", { n: n(data.questions.length) })}
+                        {all ? t("health.showFewer") : data.questions.length === 1 ? t("health.showAllOne") : t("health.showAll", { n: n(data.questions.length) })}
                       </Button>
                     </Box>
                   )}

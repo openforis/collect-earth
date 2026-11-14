@@ -8,7 +8,6 @@ import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import ArrowForward from "@mui/icons-material/ArrowForward";
 import Download from "@mui/icons-material/Download";
 import PivotTableChart from "@mui/icons-material/PivotTableChart";
 import { useState } from "react";
@@ -22,11 +21,12 @@ import { Loading } from "../components/Loading";
 import { formatDate, formatNumber } from "../format";
 import { useT } from "../i18n";
 import { dataSections } from "../localMode";
-import { linkProps, pathFor, type ProjectTab } from "../router";
+import { linkProps, pathFor } from "../router";
 import { saveBlob } from "../saveBlob";
 import { useLoad } from "../useLoad";
 import { CollectBackup } from "./CollectBackup";
 import { CollectImport } from "./CollectImport";
+import { ChangeCard } from "./RepeatSurvey";
 import { IpccExports } from "./IpccExports";
 
 const FORMAT_LABELS = { csv: "data.formatCsv", geojson: "data.formatGeojson", kml: "data.formatKml", "shp.zip": "data.formatShp" } as const;
@@ -51,42 +51,24 @@ function Analysis({ projectId }: { projectId: string }) {
   );
 }
 
-/** The comparison of first assessments and checks moved to the Quality tab: a pointer to it. */
-function QualityCheck({ onGo }: { onGo: (tab: ProjectTab) => void }) {
-  const t = useT();
-  return (
-    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
-      <Stack spacing={2}>
-        <Typography variant="h2">{t("data.checkTitle")}</Typography>
-        <Typography color="text.secondary">{t("data.checkMoved")}</Typography>
-        <Box>
-          <Button variant="outlined" endIcon={<ArrowForward />} onClick={() => onGo("quality")}>
-            {t("data.checkOpen")}
-          </Button>
-        </Box>
-      </Stack>
-    </Paper>
-  );
-}
-
-export function DataTab({ projectId, onGo }: { projectId: string; onGo: (tab: ProjectTab) => void }) {
+export function DataTab({ projectId }: { projectId: string }) {
   const t = useT();
   const { language } = useApp();
   // The local mode (one person): the data download only (src/localMode.ts, dataSections).
   const local = useLocalMode();
   const sections = dataSections(local);
-  const overview = useLoad(() => getOverview(projectId), [projectId]);
+  const overview = useLoad(["project", projectId, "getOverview"], () => getOverview(projectId));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [done, setDone] = useState(false);
   const [format, setFormat] = useState<ExportFormat>("csv");
   const [noPositions, setNoPositions] = useState(false);
   // People left out of the results: their records are not in the download unless asked for.
-  const excluded = useLoad(() => (local ? Promise.resolve([]) : listMembers(projectId).then((ms) => ms.filter((m) => m.excluded))), [projectId, local]);
+  const excluded = useLoad(["project", projectId, "DataTab.excluded", local], () => (local ? Promise.resolve([]) : listMembers(projectId).then((ms) => ms.filter((m) => m.excluded))));
   const [includeExcluded, setIncludeExcluded] = useState(false);
   const [labels, setLabels] = useState(false);
   // Records to download: your last download and the survey's questions come from the server.
-  const choices = useLoad(() => getExportChoices(projectId), [projectId]);
+  const choices = useLoad(["project", projectId, "getExportChoices"], () => getExportChoices(projectId));
   const [which, setWhich] = useState<RecordsChoice>("all");
   const [from, setFrom] = useState("");
   const [questionKey, setQuestionKey] = useState("");
@@ -119,6 +101,8 @@ export function DataTab({ projectId, onGo }: { projectId: string; onGo: (tab: Pr
   return (
     <Stack spacing={3}>
       <Analysis projectId={projectId} />
+      {/* A repeat survey: how the land changed since the earlier period (docs/plans/2026-11-11-repeat-survey.md) */}
+      {!local && <ChangeCard projectId={projectId} />}
       <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
         <Stack spacing={2}>
           <Typography variant="h2">{t("data.title")}</Typography>
@@ -194,30 +178,27 @@ export function DataTab({ projectId, onGo }: { projectId: string; onGo: (tab: Pr
               {t("data.labelsHelp")}
             </Typography>
           </Box>
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ alignItems: { sm: "center" } }}>
-            <TextField select size="small" label={t("data.format")} value={format} onChange={(e) => setFormat(e.target.value as ExportFormat)} sx={{ minWidth: 240 }}>
-              {EXPORT_FORMATS.map((f) => (
-                <MenuItem key={f} value={f}>
-                  {t(FORMAT_LABELS[f])}
-                </MenuItem>
-              ))}
-            </TextField>
-            <Box>
-              <Button variant="contained" size="large" startIcon={<Download />} onClick={download} disabled={busy || !chosen}>
-                {busy ? t("data.downloading") : t("data.download")}
-              </Button>
-            </Box>
-          </Stack>
-          {format === "csv" ? (
+          {format === "csv" && (
             <Box>
               <FormControlLabel control={<Checkbox checked={noPositions} onChange={(e) => setNoPositions(e.target.checked)} />} label={t("data.noPositions")} />
               <Typography variant="body2" color="text.secondary">
                 {t("data.noPositionsHelp")}
               </Typography>
             </Box>
-          ) : (
-            <Explain variant="body2" text={t("data.formatHint.short")} more={t("data.formatHint")} />
           )}
+          <TextField select size="small" label={t("data.format")} value={format} onChange={(e) => setFormat(e.target.value as ExportFormat)} sx={{ minWidth: 240 }}>
+            {EXPORT_FORMATS.map((f) => (
+              <MenuItem key={f} value={f}>
+                {t(FORMAT_LABELS[f])}
+              </MenuItem>
+            ))}
+          </TextField>
+          {format !== "csv" && <Explain variant="body2" text={t("data.formatHint.short")} more={t("data.formatHint")} />}
+          <Box>
+            <Button variant="contained" size="large" startIcon={<Download />} onClick={download} disabled={busy || !chosen} sx={{ whiteSpace: "nowrap" }}>
+              {busy ? t("data.downloading") : t("data.download")}
+            </Button>
+          </Box>
           {done && (
             <Alert severity="success" role="status">
               {t("data.downloaded")}
@@ -229,7 +210,6 @@ export function DataTab({ projectId, onGo }: { projectId: string; onGo: (tab: Pr
       {sections.includes("ipcc") && <IpccExports projectId={projectId} />}
       {sections.includes("backup") && <CollectBackup projectId={projectId} />}
       {sections.includes("import") && <CollectImport projectId={projectId} />}
-      {sections.includes("qualityCheck") && <QualityCheck onGo={onGo} />}
     </Stack>
   );
 }

@@ -1,4 +1,4 @@
-import type { GroundView, LatLng, ListFilter, PlotStatus } from "./types";
+import type { GroundView, LatLng, ListFilter, PeriodAnswer, PeriodFilter, PlotStatus } from "./types";
 
 // Pure plot-list logic shared by the store and the UI (unit tested in plots.test.ts).
 
@@ -59,10 +59,39 @@ export function matchesFilter(label: string, status: PlotStatus, filter: ListFil
   return !q || label.toLowerCase().includes(q);
 }
 
-/** The ids of the plots in the list, searched by their labels (see {@link plotLabel}). */
+/**
+ * A repeat survey's filter by what the collector said of each plot against the earlier period: the answers by plot id
+ * (a plot not answered has none) and the filter. Null for a project that repeats no survey: nothing filtered.
+ */
+export interface PeriodView {
+  periods: Record<string, PeriodAnswer>;
+  filter: PeriodFilter;
+}
+
+/** Whether a plot answered `answer` (none: not answered yet) is shown by the filter by the earlier period. */
+export function matchesPeriod(answer: PeriodAnswer | undefined, filter: PeriodFilter): boolean {
+  if (filter === "all") return true;
+  if (filter === "none") return answer === undefined;
+  return answer === filter;
+}
+
+/** The ids of the plots in the list, searched by their labels (see {@link plotLabel}), and by the earlier period when given. */
 export function visibleIds(order: string[], statuses: Record<string, PlotStatus>,
-    filter: ListFilter, query: string, labels: Record<string, string>): string[] {
-  return order.filter((id) => matchesFilter(plotLabel(labels, id), statuses[id] ?? "empty", filter, query));
+    filter: ListFilter, query: string, labels: Record<string, string>, period: PeriodView | null = null): string[] {
+  return order.filter((id) => matchesFilter(plotLabel(labels, id), statuses[id] ?? "empty", filter, query)
+    && (period === null || matchesPeriod(period.periods[id], period.filter)));
+}
+
+/** A period status as the server sends it ("" or anything else: not answered). */
+export function periodAnswer(value: unknown): PeriodAnswer | null {
+  return value === "same" || value === "changed" || value === "corrected" ? value : null;
+}
+
+/** The plots of each answer against the earlier period, those not answered ("none") and all of them. */
+export function countPeriods(order: string[], periods: Record<string, PeriodAnswer>): Record<PeriodFilter, number> {
+  const counts: Record<PeriodFilter, number> = { all: order.length, same: 0, changed: 0, corrected: 0, none: 0 };
+  for (const id of order) counts[periods[id] ?? "none"]++;
+  return counts;
 }
 
 /** First plot after `fromId` (wrapping around, CSV order) that is not completed. */
@@ -120,10 +149,10 @@ export function previousMessage(previous: PreviousPlot | null, plotId: string, s
  * offered them when it finds none in the list shown; null when it finds none there either, or nothing is filtered.
  */
 export function matchesElsewhere(order: string[], statuses: Record<string, PlotStatus>, filter: ListFilter, query: string,
-  labels: Record<string, string>): { count: number; filter: Exclude<ListFilter, "all"> } | null {
+  labels: Record<string, string>, period: PeriodView | null = null): { count: number; filter: Exclude<ListFilter, "all"> } | null {
   if (filter === "all" || !query.trim()) return null;
   const other = filter === "pending" ? "saved" : "pending";
-  const count = visibleIds(order, statuses, other, query, labels).length;
+  const count = visibleIds(order, statuses, other, query, labels, period).length;
   return count ? { count, filter: other } : null;
 }
 

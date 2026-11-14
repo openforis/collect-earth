@@ -69,11 +69,12 @@ import { useApp } from "../appContext";
 import { CopyField } from "../components/CopyField";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { MoreInfo } from "../components/Explain";
 import { Loading } from "../components/Loading";
 import { formatDate, formatDay, formatNumber } from "../format";
 import { useT } from "../i18n";
 import { saveBlob } from "../saveBlob";
-import { accountsToMake, sinceText } from "../serverAccountsView";
+import { accountsToMake, chipsToShow, sinceText } from "../serverAccountsView";
 import { useLoad } from "../useLoad";
 import { MessageDialog } from "./ServerMessage";
 
@@ -219,13 +220,14 @@ export function AccountsSection({ onAccountChanged }: { onAccountChanged: () => 
     const timer = window.setTimeout(() => setQuery((q) => (q.q === search.trim() ? q : { ...q, q: search.trim(), page: 1 })), 300);
     return () => window.clearTimeout(timer);
   }, [search]);
-  const users = useLoad(() => listUsers(query), [query]);
+  const users = useLoad(["app", "listUsers", query], () => listUsers(query));
   const [menu, setMenu] = useState<{ anchor: HTMLElement; user: AdminUser } | null>(null);
   const [confirm, setConfirm] = useState<Confirm | null>(null);
   const [typed, setTyped] = useState("");
   const [link, setLink] = useState<{ user: AdminUser; reset: ResetLink } | null>(null);
   const [adding, setAdding] = useState(false);
   const [writing, setWriting] = useState(false);
+  const [more, setMore] = useState<HTMLElement | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [confirmError, setConfirmError] = useState<ReactNode | null>(null);
@@ -345,15 +347,28 @@ export function AccountsSection({ onAccountChanged }: { onAccountChanged: () => 
   return (
     <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section" aria-labelledby="server-accounts">
       <Stack spacing={2}>
-        <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ justifyContent: "space-between", alignItems: { sm: "center" } }}>
-          <Typography variant="h2" id="server-accounts">{t("server.users")}</Typography>
-          <Stack direction="row" spacing={1}>
-            <Button variant="outlined" startIcon={<Download />} onClick={() => void download()}>{t("accounts.csv")}</Button>
-            <Button variant="outlined" startIcon={<Campaign />} onClick={() => setWriting(true)}>{t("message.button")}</Button>
+        <Stack direction="row" spacing={1} sx={{ justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", rowGap: 1 }}>
+          <Typography variant="h2" id="server-accounts">
+            {t("server.users")}
+            <MoreInfo text={t("server.privacy")} />
+          </Typography>
+          <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
             <Button variant="contained" startIcon={<PersonAdd />} onClick={() => setAdding(true)}>{t("accounts.add")}</Button>
+            <IconButton aria-label={t("server.moreActions")} aria-haspopup="menu" onClick={(e) => setMore(e.currentTarget)}>
+              <MoreVert />
+            </IconButton>
           </Stack>
         </Stack>
-        <Typography color="text.secondary" variant="body2">{t("server.privacy")}</Typography>
+        <Menu anchorEl={more} open={more !== null} onClose={() => setMore(null)}>
+          {(!page || page.total > 0) && (
+            <MenuItem onClick={() => { setMore(null); void download(); }}>
+              <ListItemIcon><Download fontSize="small" /></ListItemIcon>{t("accounts.csv")}
+            </MenuItem>
+          )}
+          <MenuItem onClick={() => { setMore(null); setWriting(true); }}>
+            <ListItemIcon><Campaign fontSize="small" /></ListItemIcon>{t("message.button")}
+          </MenuItem>
+        </Menu>
         <Stack direction={{ xs: "column", md: "row" }} spacing={2} sx={{ alignItems: { md: "center" } }}>
           <TextField
             size="small"
@@ -378,7 +393,7 @@ export function AccountsSection({ onAccountChanged }: { onAccountChanged: () => 
           </TextField>
         </Stack>
         <Stack direction="row" sx={{ gap: 1, flexWrap: "wrap" }} role="group" aria-label={t("accounts.filters")}>
-          {ACCOUNT_FILTERS.map((f) => (
+          {chipsToShow(ACCOUNT_FILTERS, query.filter, page?.counts).map((f) => (
             <Chip
               key={f}
               label={`${t(`accounts.filter.${f}`)} ${page ? n(page.counts[f]) : ""}`.trim()}
@@ -538,16 +553,14 @@ export function AccountsSection({ onAccountChanged }: { onAccountChanged: () => 
             <DialogTitle>{t("server.resetTitle", { name: link.user.username })}</DialogTitle>
             <DialogContent>
               <Stack spacing={2} sx={{ pt: 1 }}>
-                {link.reset.mailed ? (
+                {"mailed" in link.reset ? (
                   <DialogContentText>{t("server.resetMailed", { name: link.user.username })}</DialogContentText>
                 ) : (
                   <>
                     <DialogContentText>
-                      {link.reset.expiresAt !== null
-                        ? t("server.resetText", { name: link.user.username, date: formatDate(link.reset.expiresAt, language) })
-                        : t("server.resetTextNoDate", { name: link.user.username })}
+                      {t("server.resetText", { name: link.user.username, date: formatDate(link.reset.expiresAt, language) })}
                     </DialogContentText>
-                    <CopyField value={link.reset.resetUrl ?? ""} label={t("server.resetLink")} />
+                    <CopyField value={link.reset.resetUrl} label={t("server.resetLink")} />
                   </>
                 )}
               </Stack>

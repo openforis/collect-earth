@@ -29,9 +29,39 @@ export function getToken(): string | null {
   return memoryToken ?? read(TOKEN_KEY);
 }
 
+const tokenListeners = new Set<() => void>();
+
+/** Told whenever the session changes, here or in another tab (the cached answers belong to the session before). */
+export function onTokenChange(listener: () => void): () => void {
+  tokenListeners.add(listener);
+  return () => tokenListeners.delete(listener);
+}
+
+function tokenChanged(): void {
+  for (const listener of tokenListeners) listener();
+}
+
 export function setToken(token: string | null): void {
+  const before = getToken();
   memoryToken = token;
   write(TOKEN_KEY, token);
+  if (token !== before) tokenChanged();
+}
+
+/**
+ * Another tab of this browser logged out (null) or in (its token): `listener` is told, and this tab's copy of the
+ * token follows. Returns the unsubscribe.
+ */
+export function onOtherTabToken(listener: (token: string | null) => void): () => void {
+  const handle = (event: StorageEvent) => {
+    // key null: the whole storage was cleared
+    if (event.key !== TOKEN_KEY && event.key !== null) return;
+    memoryToken = read(TOKEN_KEY);
+    tokenChanged();
+    listener(memoryToken);
+  };
+  window.addEventListener("storage", handle);
+  return () => window.removeEventListener("storage", handle);
 }
 
 export function getStoredLanguage(): string | null {

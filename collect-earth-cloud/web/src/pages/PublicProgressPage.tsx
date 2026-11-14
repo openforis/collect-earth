@@ -8,7 +8,7 @@ import Typography from "@mui/material/Typography";
 import LinkOff from "@mui/icons-material/LinkOff";
 import Print from "@mui/icons-material/Print";
 import { useEffect, useState } from "react";
-import { ApiError, getPublicProgress, type PublicProgressData } from "../api";
+import { ApiError, getPublicProgress, type PublicProgress } from "../api";
 import { useApp } from "../appContext";
 import { AppShell } from "../components/AppShell";
 import { EmptyState } from "../components/EmptyState";
@@ -60,7 +60,7 @@ function usePrivatePage(title: string | null) {
   }, [title, t]);
 }
 
-function QualitySection({ data }: { data: PublicProgressData }) {
+function QualitySection({ data }: { data: PublicProgress }) {
   const t = useT();
   const { language } = useApp();
   const q = data.quality;
@@ -90,11 +90,11 @@ function QualitySection({ data }: { data: PublicProgressData }) {
 export function PublicProgressPage({ token }: { token: string }) {
   const t = useT();
   const timeZone = browserTimeZone();
-  const state = useLoad(() => getPublicProgress(token, timeZone), [token, timeZone]);
+  const state = useLoad(["app", "getPublicProgress", token, timeZone], () => getPublicProgress(token, timeZone));
   const { data, loading, reload, error } = state;
   const [loadedAt, setLoadedAt] = useState(() => Date.now());
   const now = useNow(15_000);
-  usePrivatePage(data?.projectName ?? null);
+  usePrivatePage(data?.project.name ?? null);
 
   useEffect(() => {
     if (data) setLoadedAt(Date.now());
@@ -126,7 +126,7 @@ export function PublicProgressPage({ token }: { token: string }) {
             {t("publicProgress.kicker")}
           </Typography>
           <Typography variant="h1" sx={{ wordBreak: "break-word" }}>
-            {data.projectName}
+            {data.project.name}
           </Typography>
           <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap", mt: 1 }}>
             <Typography variant="body2" color="text.secondary" sx={{ mr: "auto" }}>

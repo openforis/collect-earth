@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAP_STATUSES, type Forecast, type LogItem, type MapPlots, type MapStatus, type PatternFlag, type SurveyHealthData } from "./api";
+import { MAP_STATUSES, type Forecast, type LogItem, type MapPlots, type MapStatus, type PatternFlag, type SurveyHealthAnswer } from "./api";
 import { COORDINATOR_LOG_KINDS, logSentence } from "./activityView";
 import { flagText } from "./flagsView";
 import { orderText } from "./healthView";
@@ -17,14 +17,15 @@ import {
   plotPageParts,
   projectTabs,
   qualitySections,
-  settingsCards,
+  setupSectionOf,
+  setupSections,
   totalStats,
   weeklyBlocks,
 } from "./localMode";
 import { plotPopup, statusLabelKey } from "./mapView";
 import { choosePage } from "./pageChoice";
 import { forecastSentences, forecastTargetKey } from "./progressView";
-import { PROJECT_TABS, type Route } from "./router";
+import { PROJECT_TABS, PROJECT_VIEWS, type Route } from "./router";
 
 // The single-person view (the server's LOCAL_MODE, plan 2026-11-03-desktop-dashboard Task 4):
 // what each tab shows with serverInfo.localMode, and that the cloud's view is unchanged without it.
@@ -34,10 +35,10 @@ const local = { needsSetup: false, localMode: true };
 const cloud = { needsSetup: false, localMode: false };
 
 describe("local mode: pages and tabs", () => {
-  it("has the Progress, Map, Data, Quality, Activity and Settings tabs, in the cloud's order", () => {
-    expect(projectTabs(true)).toEqual(["progress", "map", "data", "quality", "activity", "settings"]);
+  it("has the Progress, Map, Quality, Data, Activity and Setup tabs, in the cloud's order", () => {
+    expect(projectTabs(true)).toEqual(["progress", "map", "quality", "data", "activity", "setup"]);
     expect(PROJECT_TABS.filter((tab) => isLocalTab(tab))).toEqual([...LOCAL_TABS]);
-    for (const hidden of ["people", "plots", "setup", "file"] as const) expect(isLocalTab(hidden)).toBe(false);
+    for (const hidden of ["people", "training"] as const) expect(isLocalTab(hidden)).toBe(false);
     expect(projectTabs(false)).toBe(PROJECT_TABS);
   });
 
@@ -68,9 +69,12 @@ describe("local mode: pages and tabs", () => {
 
   it("sends pages about other people to Progress, and account, mail and invitation pages home", () => {
     const toProgress = { kind: "redirect", to: "/projects/p1" };
-    for (const tab of ["people", "plots", "setup", "file"] as const) {
+    for (const tab of ["people", "training"] as const) {
       expect(choosePage({ name: "project", projectId: "p1", tab }, local, true, "p1")).toEqual(toProgress);
     }
+    // Setup's sections of the cloud (the survey, the plot files...) lead to Setup's first section here
+    expect(choosePage({ name: "project", projectId: "p1", tab: "setup", view: "plots" }, local, true, "p1")).toEqual({ kind: "redirect", to: "/projects/p1/setup/quality" });
+    expect(choosePage({ name: "project", projectId: "p1", tab: "setup", view: "schedule" }, local, true, "p1")).toEqual({ kind: "route", route: { name: "project", projectId: "p1", tab: "setup", view: "schedule" } });
     for (const route of [
       { name: "plotFile", projectId: "p1", fileId: "f" },
       { name: "person", projectId: "p1", userId: "u" },
@@ -128,14 +132,14 @@ describe("local mode: Progress", () => {
     expect(attentionShown(false, null)).toBeNull();
   });
 
-  it("asks for a target in the Settings tab, not for plots given to someone", () => {
+  it("asks for a target in Setup › Schedule, not for plots given to someone", () => {
     const [sentence] = forecastSentences(t, forecast(), "en", { local: true });
-    expect(sentence).toContain("Settings tab");
+    expect(sentence).toContain("Setup › Schedule");
     expect(sentence).not.toMatch(/given to/);
     expect(forecastSentences(t, forecast(), "en")[0]).toBe(t("progress.forecastNoTarget"));
   });
 
-  it("names the target only when it was set in Settings", () => {
+  it("names the target only when it was set in Setup", () => {
     expect(forecastTargetKey(forecast({ target: 300, targetFrom: "setting" }), { local: true })).toBe("progress.forecastTargetSet");
     expect(forecastTargetKey(forecast({ target: 300, targetFrom: "assigned" }), { local: true })).toBeNull();
     expect(forecastTargetKey(forecast({ target: 0 }), { local: true })).toBeNull();
@@ -165,7 +169,6 @@ describe("local mode: Map", () => {
     holders: [["ana"]],
     figures: null,
     asOf: null,
-    unsupportedSrs: null,
   });
 
   it("lists the statuses reachable alone (no decisions, no checks), and any other with plots", () => {
@@ -188,7 +191,7 @@ describe("local mode: Map", () => {
 describe("local mode: Data", () => {
   it("has the data download only (no Collect Earth backup, no pointer to checks)", () => {
     expect(dataSections(true)).toEqual(["download"]);
-    expect(dataSections(false)).toEqual(["download", "ipcc", "backup", "import", "qualityCheck"]);
+    expect(dataSections(false)).toEqual(["download", "ipcc", "backup", "import"]);
     expect(t("data.explainLocal")).not.toMatch(/person/);
   });
 });
@@ -202,34 +205,27 @@ describe("local mode: Quality", () => {
     }
   });
 
-  const flag = (over: Partial<PatternFlag>): PatternFlag => ({
-    kind: "very_fast",
+  const flag = (details: PatternFlag["details"] = { gapMs: 4000, previousPlot: "16" }, kind: PatternFlag["kind"] = "very_fast"): PatternFlag => ({
+    kind,
     plot: "17",
     operator: "ana",
     at: null,
-    gapMs: 4000,
-    previousPlot: "16",
-    runLength: null,
-    firstPlot: null,
-    questions: [],
-    decision: null,
-    decidedAt: null,
-    ...over,
+    details,
   });
 
   it("says 'your previous plot' in the flags", () => {
-    expect(flagText(t, flag({}), "en", { local: true })).toBe("Submitted 4 s after your previous plot (16).");
-    expect(flagText(t, flag({ previousPlot: null }), "en", { local: true })).toBe("Submitted 4 s after your previous plot.");
-    expect(flagText(t, flag({ kind: "same_as_before", runLength: 3, firstPlot: "14" }), "en", { local: true })).toBe(
+    expect(flagText(t, flag(), "en", { local: true })).toBe("Submitted 4 s after your previous plot (16).");
+    expect(flagText(t, flag({ gapMs: 4000, previousPlot: null }), "en", { local: true })).toBe("Submitted 4 s after your previous plot.");
+    expect(flagText(t, flag({ previousPlot: "16", runLength: 3, firstPlot: "14", answers: 4 }, "same_as_before"), "en", { local: true })).toBe(
       "Every answer is the same as on your previous plot (16): 3 plots in a row from plot 14.",
     );
-    expect(flagText(translator("fr"), flag({}), "fr", { local: true })).toContain("votre parcelle précédente");
+    expect(flagText(translator("fr"), flag(), "fr", { local: true })).toContain("votre parcelle précédente");
     // The cloud's are unchanged.
-    expect(flagText(t, flag({}), "en")).toBe("Submitted 4 s after their previous plot (16).");
+    expect(flagText(t, flag(), "en")).toBe("Submitted 4 s after their previous plot (16).");
   });
 
   it("orders the survey's health without checks or decisions", () => {
-    const data = { thresholds: { lowAgreement: 0.7, oftenOther: 0.2, oftenEmpty: 0.1, minPlots: 20, minChanged: 3, oftenChanged: 0.3 } } as unknown as SurveyHealthData;
+    const data = { thresholds: { lowAgreement: 0.7, oftenOther: 0.2, oftenEmpty: 0.1, minPlots: 20, minChanged: 3, oftenChanged: 0.3 } } as unknown as SurveyHealthAnswer;
     const text = orderText(t, data, "en", { local: true });
     expect(text).toContain("20 plots");
     expect(text).not.toMatch(/check|decided/);
@@ -242,7 +238,7 @@ describe("local mode: Activity", () => {
     type: "record",
     id: "1",
     at: 0,
-    receivedAt: null,
+    receivedAt: 0,
     person: "ana",
     change,
     plot: "17",
@@ -257,7 +253,6 @@ describe("local mode: Activity", () => {
     person: "ana",
     action,
     details,
-    plotName: null,
   });
   const page = { people: {}, files: { f1: "plots.csv" } };
 
@@ -290,10 +285,14 @@ describe("local mode: Activity", () => {
   });
 });
 
-describe("local mode: Settings", () => {
-  it("has the progress settings only (deadline and target: quiet days are about a team)", () => {
-    expect(settingsCards(true)).toEqual(["progress"]);
-    expect(settingsCards(false)).toEqual(["rename", "status", "progress", "shareLinks", "ai", "copy", "delete"]);
+describe("local mode: Setup", () => {
+  it("has the quality rules (the very fast threshold) and the schedule only (deadline and target: quiet days are about a team)", () => {
+    expect(setupSections(true)).toEqual(["quality", "schedule"]);
+    expect(setupSections(false)).toEqual(PROJECT_VIEWS.setup);
+    expect(setupSectionOf(undefined, true)).toBe("quality");
+    expect(setupSectionOf("plots", true)).toBe("quality");
+    expect(setupSectionOf(undefined, false)).toBe("overview");
+    expect(setupSectionOf("sharing", false)).toBe("sharing");
     expect(t("progressSettings.targetHelpLocal")).not.toMatch(/given to/);
   });
 });

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -6,6 +7,7 @@ import fastifyStatic from '@fastify/static';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import { generateSetupCode } from './accountRules.js';
 import { ActivityRecorder, registerActivity } from './activity.js';
+import { registerCompression } from './compress.js';
 import type { AiClient } from './ai/client.js';
 import { createFakeClient } from './ai/fake.js';
 import { createGeminiClient } from './ai/gemini.js';
@@ -43,12 +45,13 @@ import { registerUncertaintyRoutes } from './routes/uncertainty.js';
 import { registerAreaRoutes } from './routes/areas.js';
 import { registerIpccRoutes } from './routes/ipcc.js';
 import { PlotPlaceReader } from './routes/plotPlaces.js';
-import { registerPlotLayoutRoutes } from './routes/plotLayout.js';
 import { PlotIndexCache, registerPlotSearchRoutes } from './routes/plotSearch.js';
 import { registerPlotsGeoRoutes } from './routes/plotsGeo.js';
 import { registerProgressRoutes } from './routes/progress.js';
 import { registerBackupImportRoutes } from './routes/backupImport.js';
 import { registerCeoImportRoutes } from './routes/ceoImport.js';
+import { registerRepeatSurveyRoutes } from './routes/repeatSurvey.js';
+import { registerPlotLayoutRoutes } from './routes/plotLayout.js';
 import { registerCeoShapesRoutes } from './routes/ceoShapes.js';
 import { registerProjectRoutes } from './routes/projects.js';
 import { registerPlotDesignRoutes } from './routes/plotDesign.js';
@@ -65,6 +68,7 @@ import { registerSamplingRoutes } from './routes/sampling.js';
 import { SamplingService } from './samplingService.js';
 import { disableLocalOffRoutes, registerLocalRoutes, type LocalSetup } from './local.js';
 import { InMemoryStore } from './store/memory.js';
+import type { AlertsMarkedAnswer, OwnerAlertsPage, WebhookTestAnswer } from './wire/serverAdmin.js';
 
 export interface BuildServerOptions {
   store: Store;
@@ -120,6 +124,18 @@ const LOGIN_FAILURES_PER_MINUTE = 10;
 // Wrong passwords for one account from all addresses together, per 15 minutes: guessing from many
 // addresses, each under the limit above, is stopped there (security review, 2026-11).
 const ACCOUNT_LOGIN_FAILURES = 100;
+/**
+ * The requests not logged when they answer well and in time (the onResponse hook): Collect Earth's sync, a save every
+ * few seconds and its settings every 2 minutes for each person working, and the platform's health checks.
+ */
+const QUIET_ROUTES = new Set([
+  'POST /v1/projects/:pid/records:batch',
+  'GET /v1/projects/:pid/plot-layout',
+  'GET /v1/projects/:pid/imagery',
+  'GET /health',
+]);
+/** A quiet request slower than this is logged all the same: something to look at */
+const SLOW_REQUEST_MS = 1000;
 const ACCOUNT_LOGIN_WINDOW_MS = 15 * 60_000;
 
 /**
@@ -134,6 +150,9 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     logger: options.logger
       ? { ...(typeof options.logger === 'object' ? options.logger : {}), serializers: { req: requestSerializer } }
       : false,
+    // One line per request, after it (the onResponse hook below), instead of Fastify's two; none for Collect Earth's
+    // routine sync calls that went well (QUIET_ROUTES)
+    disableRequestLogging: true,
     // Record XML batches are small KBs each but a project sync can carry 50; allow headroom.
     bodyLimit: 32 * 1024 * 1024,
     // A plot id is a path parameter of the quality decisions (up to 1000 characters,
@@ -195,6 +214,8 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
 
   // Members' activity (member_activity), coalesced; written when the app closes too.
   registerActivity(app, new ActivityRecorder(store, { onError: (err) => app.log.error({ err }, 'member activity write failed') }));
+  // The answers compressed for the clients that ask; not in local mode, where Collect Earth's dashboard is on the same computer
+  if (!config.localMode) registerCompression(app);
 
   // The mail routes, registered later, put their confirmation sender and the password notice here.
   const accountMail: AccountMailHooks = {};
@@ -219,8 +240,14 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   counters.onCount = (kind) => {
     if (kind === 'failedLogin') ownerAlerts.note('failedLogin');
   };
-  app.addHook('onResponse', async (_request, reply) => {
+  app.addHook('onResponse', async (request, reply) => {
     if (reply.statusCode >= 500) ownerAlerts.note('serverError');
+    if (!options.logger) return;
+    const ms = reply.elapsedTime;
+    // Every Collect Earth syncs every few seconds while its person works: hundreds of lines a minute in a mapathon, said
+    // again by the activity they leave. Those are written only when they fail or are slow.
+    if (reply.statusCode < 400 && ms < SLOW_REQUEST_MS && QUIET_ROUTES.has(`${request.method} ${request.routeOptions?.url ?? ''}`)) return;
+    request.log.info({ req: request, res: { statusCode: reply.statusCode }, responseTime: ms }, 'request completed');
   });
   if (!local) {
     // Each project's storage against the server's limit, every hour
@@ -257,7 +284,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
       pageSize,
       thresholds: thresholdsOf(settings),
       webhook: webhook ? { kind: webhook.kind, host: webhook.host } : null,
-    });
+    } satisfies OwnerAlertsPage);
   });
   // Marks alerts seen ({ids}), or every one not seen yet (no ids): the health line stops naming them.
   app.post('/v1/admin/alerts/seen', { preHandler: requirePlatformAdmin(store) }, async (request, reply) => {
@@ -267,7 +294,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     }
     const marked = await store.markOwnerAlertsSeen((ids as string[] | undefined) ?? null, request.userId!, Date.now());
     if (marked > 0) await logServerAction(store, request, { action: 'alerts.seen', details: { count: marked } });
-    return reply.send({ marked });
+    return reply.send({ marked } satisfies AlertsMarkedAnswer);
   });
   // A test message to the webhook given ({url}, before it is saved) or the one set: whether the channel got it.
   app.post('/v1/admin/alerts/webhook-test', { preHandler: requirePlatformAdmin(store) }, async (request, reply) => {
@@ -279,7 +306,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     const { title } = alertForChannel({ kind: 'server_errors', count: 0 }, 'en', server);
     const posted = await postWebhook(url, title.replace(/:.*$/, ': a test of the alerts'), 'This is a test: the server\'s alerts will be posted here.', options.webhookFetch);
     if (!posted.sent) return reply.code(502).send({ error: 'webhook_refused', status: posted.status });
-    return reply.send({ sent: true });
+    return reply.send({ sent: true } satisfies WebhookTestAnswer);
   });
   const twoFactorKeyBuf = twoFactorKey(config);
   if (!local) {
@@ -309,6 +336,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   await registerAdminRoutes(app, store, config, limiter, {
     setupCode,
     version: VERSION,
+    dashboardBuild: dashboardBuildOf(webDir),
     now,
     counters,
     startedAt: STARTED_AT,
@@ -323,6 +351,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   await registerProjectRoutes(app, store, config, places);
   await registerCeoImportRoutes(app, store);
   await registerBackupImportRoutes(app, store);
+  await registerRepeatSurveyRoutes(app, store);
   await registerCeoShapesRoutes(app, store);
   await registerCollectImportRoutes(app, store);
   await registerPlotDesignRoutes(app, store);
@@ -413,6 +442,19 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
  * /join/<token>, /setup, /reset/<token>, /projects/... work on a direct visit or
  * reload. Everything else that matches no route is a JSON 404, as before.
  */
+/**
+ * The served dashboard's build: a hash of its index.html, which names the build's files by their content's hash, so
+ * it changes with every build. Read once: a new build comes with a new server process.
+ */
+export function dashboardBuildOf(webDir: string | null): string | null {
+  if (webDir === null) return null;
+  try {
+    return createHash('sha256').update(readFileSync(join(webDir, 'index.html'))).digest('hex').slice(0, 16);
+  } catch {
+    return null;
+  }
+}
+
 async function registerDashboard(app: FastifyInstance, webDir: string | null): Promise<void> {
   const serveSpa = webDir !== null && existsSync(join(webDir, 'index.html'));
   if (serveSpa) {

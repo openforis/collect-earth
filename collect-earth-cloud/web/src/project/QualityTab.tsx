@@ -22,7 +22,7 @@ import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Typography from "@mui/material/Typography";
 import ExpandMore from "@mui/icons-material/ExpandMore";
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from "react";
-import { ApiError, getQuality, saveQualityMargins, type AnswerOptions, type GuidanceNote, type QualityData, type Rate } from "../api";
+import { ApiError, getQuality, saveQualityMargins, type AnswerOptions, type GuidanceNote, type QualityAnswer, type Rate } from "../api";
 import { useApp, useLocalMode } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Explain, MoreInfo } from "../components/Explain";
@@ -35,7 +35,6 @@ import {
   barPercent,
   canWriteNote,
   formatRate,
-  keepLocalChanges,
   labelMap,
   marginRows,
   marginsToSave,
@@ -53,10 +52,10 @@ import {
   type WeekPoint,
 } from "../qualityView";
 import { qualitySections } from "../localMode";
-import { linkProps, pathFor } from "../router";
+import { linkProps, navigate, pathFor, type ProjectView } from "../router";
+import { ViewTabs } from "../components/ViewTabs";
 import { useLoad } from "../useLoad";
 import { QualityAnswers } from "./QualityAnswers";
-import { QualityChecks } from "./QualityChecks";
 import { QualityFlags } from "./QualityFlags";
 import { QualitySurvey } from "./QualitySurvey";
 import { QualityReference } from "./QualityReference";
@@ -119,7 +118,7 @@ function Figure({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Counts({ data, stillWorking }: { data: QualityData; stillWorking: boolean }) {
+function Counts({ projectId, data, stillWorking }: { projectId: string; data: QualityAnswer; stillWorking: boolean }) {
   const t = useT();
   const { language } = useApp();
   return (
@@ -136,7 +135,14 @@ function Counts({ data, stillWorking }: { data: QualityData; stillWorking: boole
         </Typography>
       )}
       {data.plotsChecked === 0 ? (
-        <Alert severity="info">
+        <Alert
+          severity="info"
+          action={
+            <Button color="inherit" size="small" {...linkProps(pathFor({ name: "project", projectId, tab: "setup", view: "quality" }))}>
+              {t("quality.openWhere", { where: `${t("tab.setup")} › ${t("view.setup.quality")}` })}
+            </Button>
+          }
+        >
           {t("quality.none.short")}
           <MoreInfo text={t("quality.none")} />
         </Alert>
@@ -150,9 +156,9 @@ function Counts({ data, stillWorking }: { data: QualityData; stillWorking: boole
   );
 }
 
-function Margins({ projectId, data, onSaved }: { projectId: string; data: QualityData; onSaved: (margins: Record<string, number>) => void }) {
+function Margins({ projectId, data, onSaved }: { projectId: string; data: QualityAnswer; onSaved: (margins: Record<string, number>) => void }) {
   const t = useT();
-  const rows = useMemo(() => marginRows(data.questions, data.margins), [data.questions, data.margins]);
+  const rows = useMemo(() => marginRows(data.questions, data.settings.margins), [data.questions, data.settings.margins]);
   const [texts, setTexts] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -170,7 +176,7 @@ function Margins({ projectId, data, onSaved }: { projectId: string; data: Qualit
     try {
       // The server replaces the whole set: the saved margins are sent too, those shown over them.
       const shown = Object.fromEntries(parsed.map((p) => [p.row.key, p.value as number]));
-      onSaved(await saveQualityMargins(projectId, marginsToSave(data.margins, shown)));
+      onSaved(await saveQualityMargins(projectId, marginsToSave(data.settings.margins, shown)));
       setTexts({});
       setSaved(true);
     } catch (err) {
@@ -229,7 +235,7 @@ function Margins({ projectId, data, onSaved }: { projectId: string; data: Qualit
   );
 }
 
-function Questions({ projectId, data, onMargins }: { projectId: string; data: QualityData; onMargins: (m: Record<string, number>) => void }) {
+function Questions({ projectId, data, onMargins }: { projectId: string; data: QualityAnswer; onMargins: (m: Record<string, number>) => void }) {
   const t = useT();
   return (
     <Section title={t("quality.questionsTitle")} explain={t("quality.questionsExplain.short")} more={t("quality.questionsExplain")}>
@@ -249,7 +255,7 @@ function Questions({ projectId, data, onMargins }: { projectId: string; data: Qu
                 <TableRow key={q.key} sx={{ verticalAlign: "top" }}>
                   <TableCell component="th" scope="row" sx={{ wordBreak: "break-word", minWidth: 140 }}>
                     {q.label}
-                    {q.kind === "number" && q.margin !== null && (
+                    {q.kind === "number" && q.margin !== undefined && (
                       <Typography variant="body2" color="text.secondary">
                         {t("quality.withinMargin", { margin: q.margin })}
                       </Typography>
@@ -281,7 +287,7 @@ function Answer({ questionKey, value, options }: { questionKey: string; value: s
   );
 }
 
-function Confusions({ data, onWriteNote }: { data: QualityData; onWriteNote: (draft: NoteDraft) => void }) {
+function Confusions({ data, onWriteNote }: { data: QualityAnswer; onWriteNote: (draft: NoteDraft) => void }) {
   const t = useT();
   const { language } = useApp();
   const label = labelMap(data.questions);
@@ -388,7 +394,7 @@ const stickyFirst = {
   minWidth: 96,
 } as const;
 
-function People({ data }: { data: QualityData }) {
+function People({ data }: { data: QualityAnswer }) {
   const t = useT();
   const label = labelMap(data.questions);
   return (
@@ -453,7 +459,7 @@ function useWidth<T extends HTMLElement>(): [RefObject<T | null>, number] {
 
 const CHART_HEIGHT = 200;
 
-function WeekLineChart({ data }: { data: QualityData }) {
+function WeekLineChart({ data }: { data: QualityAnswer }) {
   const t = useT();
   const { language } = useApp();
   const [ref, width] = useWidth<HTMLDivElement>();
@@ -572,7 +578,7 @@ function WeekLineChart({ data }: { data: QualityData }) {
     </Box>
   );
 }
-function Weeks({ data }: { data: QualityData }) {
+function Weeks({ data }: { data: QualityAnswer }) {
   const t = useT();
   const { language } = useApp();
   const [view, setView] = useState<"chart" | "table">("chart");
@@ -619,7 +625,7 @@ function Weeks({ data }: { data: QualityData }) {
   );
 }
 
-function Problems({ data }: { data: QualityData }) {
+function Problems({ data }: { data: QualityAnswer }) {
   const t = useT();
   const { language } = useApp();
   const count = data.problemsTotal;
@@ -687,8 +693,8 @@ function LocalQualityTab({ projectId }: { projectId: string }) {
 }
 
 /** The Quality tab; in the local mode, LocalQualityTab. */
-export function QualityTab({ projectId }: { projectId: string }) {
-  return useLocalMode() ? <LocalQualityTab projectId={projectId} /> : <TeamQualityTab projectId={projectId} />;
+export function QualityTab({ projectId, view = "review" }: { projectId: string; view?: ProjectView<"quality"> }) {
+  return useLocalMode() ? <LocalQualityTab projectId={projectId} /> : <TeamQualityTab projectId={projectId} view={view} />;
 }
 
 /**
@@ -696,10 +702,10 @@ export function QualityTab({ projectId }: { projectId: string }) {
  * assessments, by question, person and week; the mixed-up answers; each difference to
  * decide; guidance notes for collectors; and records that could not be compared.
  */
-function TeamQualityTab({ projectId }: { projectId: string }) {
+function TeamQualityTab({ projectId, view }: { projectId: string; view: ProjectView<"quality"> }) {
   const t = useT();
   // A load that started before a decision, a note or margins were saved here keeps those as saved.
-  const quality = useLoad(() => getQuality(projectId), [projectId], { merge: keepLocalChanges });
+  const quality = useLoad(["project", projectId, "getQuality"], () => getQuality(projectId));
   const { data, error, loading, reload, setData } = quality;
   const [note, setNote] = useState<NoteDraft | null>(null);
   const sectionsRef = useRef<HTMLDivElement>(null);
@@ -770,61 +776,80 @@ function TeamQualityTab({ projectId }: { projectId: string }) {
 
   // Changes made here apply to the data as it is when they land (not as it was when they
   // started), so a load or another change in between is not undone.
-  const update = (change: (prev: QualityData) => Partial<QualityData>) => setData((prev) => ({ ...prev, ...change(prev) }));
+  const update = (change: (prev: QualityAnswer) => Partial<QualityAnswer>) => setData((prev) => ({ ...prev, ...change(prev) }));
   const savedNote = (saved: GuidanceNote) => update((prev) => ({ notes: withNote(prev.notes, saved) }));
 
+  const onDecision = (plot: string, decision: Parameters<typeof withDecision>[2]) => update((prev) => ({ decisions: withDecision(prev.decisions, plot, decision) }));
+  const reports = (
+    <>
+      <Button variant="outlined" size="small" {...linkProps(pathFor({ name: "teamReport", projectId }))}>
+        {t("teamReport.link")}
+      </Button>
+      <Button variant="outlined" size="small" {...linkProps(pathFor({ name: "myQuality", projectId }))}>
+        {t("myQuality.link")}
+      </Button>
+    </>
+  );
+
   return (
-    // Headings land below the app bar and the sticky "On this page" row.
+    // Headings land below the app bar and the sticky "On this page" row (Figures).
     <Stack spacing={3} ref={sectionsRef} sx={{ "& h2": { scrollMarginTop: { xs: 72, sm: 150 } } }}>
-      <SectionNav root={sectionsRef} label={t("quality.onThisPage")} prefix="quality-section" />
-      <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
-        <Button variant="outlined" size="small" {...linkProps(pathFor({ name: "teamReport", projectId }))}>
-          {t("teamReport.link")}
-        </Button>
-        <Button variant="outlined" size="small" {...linkProps(pathFor({ name: "myQuality", projectId }))}>
-          {t("myQuality.link")}
-        </Button>
-      </Stack>
+      <ViewTabs projectId={projectId} tab="quality" current={view} label={t("quality.views")} extra={reports} />
       {data.excluded.length > 0 && (
         <Alert severity="info">
           {t("quality.excludedNote", { names: data.excluded.map((x) => (x.reason ? `${x.username} (${x.reason})` : x.username)).join(", ") })}
         </Alert>
       )}
-      <Counts data={data} stillWorking={busy} />
       {error !== null && !busy && <ErrorAlert error={error} onRetry={reload} />}
-      <ReviewQueue
-        projectId={projectId}
-        canBulk
-        onDecision={(plot, decision) => update((prev) => ({ decisions: withDecision(prev.decisions, plot, decision) }))}
-        onBulk={reload}
-      />
-      <QualityChecks projectId={projectId} />
-      <QualityReference projectId={projectId} canEdit />
-      {data.plotsChecked > 0 && (
+      {view === "review" && (
         <>
-          <Questions projectId={projectId} data={data} onMargins={(margins) => (update(() => ({ margins })), reload())} />
-          <Confusions data={data} onWriteNote={setNote} />
-          <People data={data} />
-          <Weeks data={data} />
-          <QualityDifferences
+          {/* the plots to decide, one at a time; then the checks that differ, and the plots worth a look */}
+          <ReviewQueue projectId={projectId} canBulk onDecision={onDecision} onBulk={reload} />
+          {data.plotsChecked > 0 && <QualityDifferences projectId={projectId} data={data} focus={focus} onDecision={onDecision} />}
+          <QualityFlags projectId={projectId} canEdit folded />
+        </>
+      )}
+      {/* How many plots are checked twice is set in Setup's Quality rules; the reference plots stay here with their figures */}
+      {view === "checks" && <QualityReference projectId={projectId} canEdit />}
+      {view === "figures" && (
+        <>
+          <SectionNav root={sectionsRef} label={t("quality.onThisPage")} prefix="quality-section" />
+          {/* Data problems to fix come first; with none, last (folded, "Data problems: 0"). */}
+          {data.problemsTotal > 0 && <Problems data={data} />}
+          <Counts projectId={projectId} data={data} stillWorking={busy} />
+          {data.plotsChecked > 0 && (
+            <>
+              <Questions projectId={projectId} data={data} onMargins={(margins) => (update((prev) => ({ settings: { ...prev.settings, margins } })), reload())} />
+              <Confusions data={data} onWriteNote={setNote} />
+              <People data={data} />
+              <Weeks data={data} />
+            </>
+          )}
+          <QualityAnswers projectId={projectId} />
+          <QualitySurvey projectId={projectId} />
+          {data.problemsTotal === 0 && <Problems data={data} />}
+        </>
+      )}
+      {view === "notes" && (
+        <>
+          <QualityNotes
             projectId={projectId}
             data={data}
-            focus={focus}
-            onDecision={(plot, decision) => update((prev) => ({ decisions: withDecision(prev.decisions, plot, decision) }))}
+            onEdit={setNote}
+            onDeleted={(id) => update((prev) => ({ notes: prev.notes.filter((n) => n.id !== id) }))}
+          />
+          <QualityAssistant
+            projectId={projectId}
+            data={data}
+            onWriteNote={setNote}
+            onShowPlot={(plot) => {
+              // the plot is shown among the differences, on Review
+              setFocus({ plot, at: Date.now() });
+              navigate(pathFor({ name: "project", projectId, tab: "quality", view: "review" }));
+            }}
           />
         </>
       )}
-      <QualityFlags projectId={projectId} canEdit />
-      <QualityAnswers projectId={projectId} />
-      <QualitySurvey projectId={projectId} />
-      <QualityNotes
-        projectId={projectId}
-        data={data}
-        onEdit={setNote}
-        onDeleted={(id) => update((prev) => ({ notes: prev.notes.filter((n) => n.id !== id) }))}
-      />
-      <Problems data={data} />
-      <QualityAssistant projectId={projectId} data={data} onWriteNote={setNote} onShowPlot={(plot) => setFocus({ plot, at: Date.now() })} />
       {note && (
         <NoteDialog projectId={projectId} data={data} draft={note} onClose={() => setNote(null)} onSaved={(saved) => (savedNote(saved), setNote(null))} />
       )}

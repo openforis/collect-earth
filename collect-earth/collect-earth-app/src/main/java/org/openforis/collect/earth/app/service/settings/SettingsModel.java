@@ -4,6 +4,7 @@ import static org.openforis.collect.earth.app.service.settings.Condition.all;
 import static org.openforis.collect.earth.app.service.settings.Condition.any;
 import static org.openforis.collect.earth.app.service.settings.Condition.atLeast;
 import static org.openforis.collect.earth.app.service.settings.Condition.in;
+import static org.openforis.collect.earth.app.service.settings.Condition.not;
 import static org.openforis.collect.earth.app.service.settings.Condition.notBlank;
 
 import java.time.LocalDate;
@@ -33,8 +34,6 @@ public final class SettingsModel {
 	public static final String PLOT = "plot";
 	public static final String IMAGERY = "imagery";
 	public static final String STORAGE = "storage";
-	public static final String COLLABORATION = "collaboration";
-	public static final String ADVANCED = "advanced";
 
 	/** The plot shapes laid out as a square, with a grid of points inside a margin */
 	static final Condition SQUARE_PLOT = in(EarthProperty.SAMPLE_SHAPE, SAMPLE_SHAPE.SQUARE, SAMPLE_SHAPE.SQUARE_WITH_LARGE_CENTRAL_PLOT);
@@ -49,8 +48,10 @@ public final class SettingsModel {
 	/** A cloud project: a local one has no server, project or token to show */
 	static final Condition CLOUD_PROJECT = in(EarthProperty.DB_DRIVER, CollectDBDriver.CLOUD);
 	static final Condition GEE_APP = in(EarthProperty.OPEN_GEE_APP, "true");
-	/** Planet is offered once its key is set: without one it shows nothing */
-	static final Condition PLANET = notBlank(EarthProperty.PLANET_MAPS_KEY);
+	/** Planet's switch on, as LocalPropertiesService.isPlanetMapsOpen reads it (on unless false): its key is asked for */
+	static final Condition PLANET_OPEN = not(in(EarthProperty.OPEN_PLANET_MAPS, "false"));
+	/** Planet on and its key set: which imagery it shows is asked for */
+	static final Condition PLANET = all(PLANET_OPEN, notBlank(EarthProperty.PLANET_MAPS_KEY));
 	static final Condition PLANET_TFO = all(PLANET, in(EarthProperty.PLANET_MAPS_USE_TFO, "true"));
 
 	private final List<Section> sections;
@@ -62,7 +63,7 @@ public final class SettingsModel {
 	}
 
 	public SettingsModel(LocalDate today) {
-		sections = Collections.unmodifiableList(Arrays.asList(project(), plot(), imagery(today), storage(), collaboration(), advanced()));
+		sections = Collections.unmodifiableList(Arrays.asList(project(), plot(), imagery(today), storage()));
 		for (Section section : sections) {
 			for (Setting setting : section.getSettings()) {
 				byKey.put(setting.key(), setting);
@@ -120,6 +121,13 @@ public final class SettingsModel {
 
 	private static Section project() {
 		return new Section(PROJECT, "SettingsPage.section.project",
+				// Blank, as in a new installation, is no choice: BrowserService tries the installed browsers in its own order.
+				// First, above the plots file and its preview: it was the only setting of a section of its own (Advanced)
+				Setting.choice(EarthProperty.BROWSER_TO_USE, "OptionWizard.1").tooltip("SettingsPage.browser.tooltip").restart()
+						.option("", "SettingsPage.browser.automatic")
+						.option(EarthConstants.FIREFOX_BROWSER, "SettingsPage.browser.firefox")
+						.option(EarthConstants.CHROME_BROWSER, "SettingsPage.browser.chrome")
+						.option(EarthConstants.EDGE_BROWSER, "SettingsPage.browser.edge"),
 				Setting.file(EarthProperty.SAMPLE_FILE, "OptionWizard.49", "csv", "ced").tooltip("SettingsPage.sampleFile.tooltip"),
 				// Its choices are the versions of the survey loaded, given with the settings (SettingsController); a survey
 				// with one version or none does not show it. The records and the form of a version differ: restart
@@ -179,9 +187,9 @@ public final class SettingsModel {
 	}
 
 	private static Section imagery(LocalDate today) {
-		Setting from = Setting.choice(EarthProperty.PLANET_TFO_DATE_FROM, "OptionWizard.142").tooltip("OptionWizard.1040")
+		Setting from = Setting.choice(EarthProperty.PLANET_TFO_DATE_FROM, "SettingsPage.planet.from").tooltip("SettingsPage.planet.from.tooltip")
 				.visibleWhen(PLANET_TFO).option("", "PlanetMonthlyObject.1");
-		Setting to = Setting.choice(EarthProperty.PLANET_TFO_DATE_TO, "OptionWizard.143").tooltip("OptionWizard.1041")
+		Setting to = Setting.choice(EarthProperty.PLANET_TFO_DATE_TO, "SettingsPage.planet.to").tooltip("SettingsPage.planet.to.tooltip")
 				.visibleWhen(PLANET_TFO).option("", "PlanetMonthlyObject.2");
 		for (Month month : PlanetMonths.available(today)) {
 			from.optionText(month.getValue(), month.getLabel());
@@ -193,9 +201,15 @@ public final class SettingsModel {
 				Setting.date(EarthProperty.GEEAPP_TO_DATE, "OptionWizard.122").tooltip("OptionWizard.1039").visibleWhen(GEE_APP),
 				Setting.bool(EarthProperty.OPEN_EARTH_MAP, "OptionWizard.105").tooltip("SettingsPage.earthMap.tooltip").defaultValue("false"),
 				Setting.bool(EarthProperty.OPEN_ESRI_WAYBACK, "OptionWizard.144").tooltip("SettingsPage.esriWayback.tooltip").defaultValue("false"),
-				Setting.password(EarthProperty.PLANET_MAPS_KEY, "OptionWizard.101").tooltip("OptionWizard.1053"),
-				Setting.bool(EarthProperty.PLANET_MAPS_USE_TFO, "OptionWizard.140").tooltip("SettingsPage.planetTfo.tooltip").defaultValue("false")
-						.visibleWhen(PLANET),
+				// A switch as the other windows have; the key, each person's own, is kept when it is off
+				Setting.bool(EarthProperty.OPEN_PLANET_MAPS, "SettingsPage.planet.open").tooltip("SettingsPage.planet.open.tooltip").defaultValue("true"),
+				Setting.password(EarthProperty.PLANET_MAPS_KEY, "OptionWizard.101").tooltip("OptionWizard.1053").visibleWhen(PLANET_OPEN),
+				// Which Planet imagery, as a choice between the two rather than a switch named after the mosaics: once a key is set
+				// Planet is on, and this says what it shows (SettingsService shows a stored "TRUE" or blank as one of the two)
+				Setting.choice(EarthProperty.PLANET_MAPS_USE_TFO, "SettingsPage.planet.mode").tooltip("SettingsPage.planetTfo.tooltip")
+						.defaultValue("false").visibleWhen(PLANET)
+						.option("false", "SettingsPage.planet.daily")
+						.option("true", "SettingsPage.planet.monthly"),
 				from,
 				to,
 				Setting.text(EarthProperty.EXTRA_MAP_URL, "OptionWizard.103").tooltip("OptionWizard.1042"));
@@ -215,27 +229,14 @@ public final class SettingsModel {
 						.visibleWhen(POSTGRESQL),
 				Setting.text(EarthProperty.DB_NAME, "OptionWizard.9").tooltip("OptionWizard.1034").required().restart().visibleWhen(POSTGRESQL),
 				Setting.text(EarthProperty.DB_USERNAME, "OptionWizard.7").tooltip("OptionWizard.1032").required().restart().visibleWhen(POSTGRESQL),
-				Setting.password(EarthProperty.DB_PASSWORD, "OptionWizard.8").tooltip("OptionWizard.1033").restart().visibleWhen(POSTGRESQL));
-	}
-
-	private static Section collaboration() {
-		return new Section(COLLABORATION, "SettingsPage.section.collaboration", "SettingsPage.collaboration.hint",
+				Setting.password(EarthProperty.DB_PASSWORD, "OptionWizard.8").tooltip("OptionWizard.1033").restart().visibleWhen(POSTGRESQL),
+				// The cloud project the records are synchronised with, under the choice that stores them there (it was a
+				// section of its own, Collaboration, empty but for a cloud project)
 				Setting.text(EarthProperty.CLOUD_SYNC_URL, "DatabaseServerPanel.cloudUrlLabel").tooltip("DatabaseServerPanel.cloudUrlTooltip")
 						.visibleWhen(CLOUD_PROJECT),
 				Setting.text(EarthProperty.CLOUD_PROJECT_ID, "DatabaseServerPanel.cloudProjectLabel").tooltip("DatabaseServerPanel.cloudProjectTooltip")
 						.visibleWhen(CLOUD_PROJECT),
 				Setting.password(EarthProperty.CLOUD_SYNC_TOKEN, "DatabaseServerPanel.cloudTokenLabel").tooltip("DatabaseServerPanel.cloudTokenTooltip")
 						.visibleWhen(CLOUD_PROJECT));
-	}
-
-	/** The port and the form (web_form=balloon) are left to earth.properties: the page cannot fix a port in use, as it is served on it */
-	private static Section advanced() {
-		return new Section(ADVANCED, "SettingsPage.section.advanced",
-				// Blank, as in a new installation, is no choice: BrowserService tries the installed browsers in its own order
-				Setting.choice(EarthProperty.BROWSER_TO_USE, "OptionWizard.1").tooltip("SettingsPage.browser.tooltip").restart()
-						.option("", "SettingsPage.browser.automatic")
-						.option(EarthConstants.FIREFOX_BROWSER, "SettingsPage.browser.firefox")
-						.option(EarthConstants.CHROME_BROWSER, "SettingsPage.browser.chrome")
-						.option(EarthConstants.EDGE_BROWSER, "SettingsPage.browser.edge"));
 	}
 }

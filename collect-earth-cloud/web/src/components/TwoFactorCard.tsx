@@ -64,8 +64,9 @@ export function TwoFactorCard() {
   const begin = () => run(async () => setStep({ kind: "scan", ...(await startTwoFactor()), qr: null }));
   const confirm = () =>
     run(async () => {
-      const codes = await enableTwoFactor(code.replace(/\s/g, ""));
+      const codes = await enableTwoFactor(code.replace(/\s/g, ""), password);
       setCode("");
+      setPassword("");
       setStep({ kind: "codes", codes });
       await refreshMe();
     });
@@ -87,8 +88,8 @@ export function TwoFactorCard() {
     );
 
   return (
-    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
-      <Stack spacing={2}>
+    <Paper variant="outlined" sx={{ p: { xs: 2.5, sm: 4 } }}>
+      <Stack spacing={2.5}>
         <Typography variant="h2" sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           <Security color="primary" /> {t("twoFactor.title")}
         </Typography>
@@ -126,16 +127,16 @@ export function TwoFactorCard() {
               }}
               sx={{ display: "flex", gap: 2, flexWrap: "wrap", alignItems: "flex-start" }}
             >
+              <PasswordField label={t("account.current")} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" autoFocus required />
               <TextField
                 label={t("twoFactor.firstCode")}
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
                 autoComplete="one-time-code"
                 slotProps={{ htmlInput: { inputMode: "numeric", maxLength: 7 } }}
-                autoFocus
                 sx={{ width: 200 }}
               />
-              <Button type="submit" variant="contained" disabled={busy || code.replace(/\s/g, "").length !== 6} sx={{ mt: 1 }}>
+              <Button type="submit" variant="contained" disabled={busy || !password || code.replace(/\s/g, "").length !== 6} sx={{ mt: 1 }}>
                 {t("twoFactor.confirm")}
               </Button>
               <Button onClick={() => setStep({ kind: "idle" })} sx={{ mt: 1 }}>

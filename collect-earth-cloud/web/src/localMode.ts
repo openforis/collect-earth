@@ -1,6 +1,6 @@
 import type { ExportKind, LogKind, MapPlots, MapStatus } from "./api";
 import { MAP_STATUSES } from "./api";
-import { pathFor, PROJECT_TABS, type ProjectTab, type Route } from "./router";
+import { pathFor, PROJECT_TABS, PROJECT_VIEWS, type ProjectTab, type ProjectView, type Route } from "./router";
 
 // The single-person view (docs/plans/2026-11-03-desktop-dashboard.md, Task 4): the dashboard that
 // Collect Earth runs on the person's own computer (the server's LOCAL_MODE, src/local.ts there),
@@ -9,8 +9,24 @@ import { pathFor, PROJECT_TABS, type ProjectTab, type Route } from "./router";
 // or about the server (accounts, the server panel, other projects) is left out, and the server
 // answers 404 for it: nothing here may ask for it. Pure, so each tab's choices are tested.
 
-/** The tabs, in their order: People, Plot files, Setup and the project file's tab are left out. */
-export const LOCAL_TABS = ["progress", "map", "data", "quality", "activity", "settings"] as const satisfies readonly ProjectTab[];
+/** The tabs, in their order: People and Training are left out, and Setup has only its sections for one person. */
+export const LOCAL_TABS = ["progress", "map", "quality", "data", "activity", "setup"] as const satisfies readonly ProjectTab[];
+
+/**
+ * Setup's sections in this mode. Alone: the "very fast" threshold (Quality rules) and the forecast's deadline and target
+ * (Schedule). The survey, the plot files and the project itself are the desktop's; checks, sharing and the AI are off.
+ */
+export const LOCAL_SETUP_SECTIONS = ["quality", "schedule"] as const satisfies readonly ProjectView<"setup">[];
+
+export function setupSections(localMode: boolean): readonly ProjectView<"setup">[] {
+  return localMode ? LOCAL_SETUP_SECTIONS : PROJECT_VIEWS.setup;
+}
+
+/** The Setup section an address asks for, in this mode: its first one when none, or one this mode does not have. */
+export function setupSectionOf(view: string | undefined, localMode: boolean): ProjectView<"setup"> {
+  const sections = setupSections(localMode);
+  return sections.find((s) => s === view) ?? sections[0];
+}
 
 /** The project's tabs in this mode. */
 export function projectTabs(localMode: boolean): readonly ProjectTab[] {
@@ -33,7 +49,12 @@ export function localPage(route: Route, projectId: string | null): { kind: "rout
     case "home":
       return projectId ? progress(projectId) : { kind: "route", route };
     case "project":
-      return isLocalTab(route.tab) ? { kind: "route", route } : progress(route.projectId);
+      if (!isLocalTab(route.tab)) return progress(route.projectId);
+      // A Setup section of the cloud's (the survey, plot files...): Setup's first one here
+      if (route.tab === "setup" && route.view !== undefined && setupSectionOf(route.view, true) !== route.view) {
+        return { kind: "redirect", to: pathFor({ name: "project", projectId: route.projectId, tab: "setup", view: setupSectionOf(undefined, true) }) };
+      }
+      return { kind: "route", route };
     case "plot":
     case "weekly":
     case "analysis":
@@ -91,7 +112,7 @@ export function localMapPlots(map: MapPlots): MapPlots {
 
 // --- Data ---------------------------------------------------------------------------
 
-export type DataSection = "download" | "ipcc" | "backup" | "import" | "qualityCheck";
+export type DataSection = "download" | "ipcc" | "backup" | "import";
 
 /**
  * The Data tab's cards. Alone: the data download only. The Collect Earth backup is for opening a
@@ -101,7 +122,7 @@ export type DataSection = "download" | "ipcc" | "backup" | "import" | "qualityCh
  * is about checks.
  */
 export function dataSections(localMode: boolean): readonly DataSection[] {
-  return localMode ? ["download"] : ["download", "ipcc", "backup", "import", "qualityCheck"];
+  return localMode ? ["download"] : ["download", "ipcc", "backup", "import"];
 }
 
 // --- Quality ------------------------------------------------------------------------
@@ -150,17 +171,6 @@ export function weeklyBlocks(localMode: boolean): readonly ("progress" | "people
 }
 
 // --- Settings -----------------------------------------------------------------------
-
-export type SettingsCard = "rename" | "status" | "progress" | "shareLinks" | "ai" | "copy" | "delete";
-
-/**
- * The Settings tab's cards. Alone: the progress settings (where the forecast's deadline and target
- * are set). The project's name and its deletion are the desktop's, and progress links and the AI
- * are off in this mode.
- */
-export function settingsCards(localMode: boolean): readonly SettingsCard[] {
-  return localMode ? ["progress"] : ["rename", "status", "progress", "shareLinks", "ai", "copy", "delete"];
-}
 
 // --- One plot's page ----------------------------------------------------------------
 

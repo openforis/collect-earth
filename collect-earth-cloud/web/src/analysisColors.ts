@@ -1,4 +1,4 @@
-import type { AnalysisModelData } from "./api";
+import type { AnalysisModel } from "./api";
 import { ipccCategory, isLandUseList } from "./analysisSuggest";
 import type { Cube, CubeColumn, ViewConfig } from "./analysisView";
 
@@ -41,7 +41,7 @@ function colourOfText(text: string): string {
  * The colour of one value of a field of the cube: by the code it stands for (its label is looked up in the field's
  * values), whatever chart it is in.
  */
-export function valueColour(column: CubeColumn | undefined, value: unknown, model: Pick<AnalysisModelData, "lists">): string {
+export function valueColour(column: CubeColumn | undefined, value: unknown, model: Pick<AnalysisModel, "lists">): string {
   if (value === null || value === undefined || value === "") return NO_ANSWER_COLOUR;
   const text = String(value);
   const values = column?.values;
@@ -122,7 +122,7 @@ export function withoutChartColours(columnsConfig: unknown): Record<string, Reco
 export function chartStyle(
   config: ViewConfig,
   cube: Cube,
-  model: Pick<AnalysisModelData, "lists">,
+  model: Pick<AnalysisModel, "lists">,
   series: readonly unknown[] | null,
   colourValues: readonly unknown[] | null,
 ): StylePatch | null {

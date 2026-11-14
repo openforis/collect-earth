@@ -3,6 +3,9 @@ import type { RoundInfo } from './cep.js';
 import type { PlotFile } from './plots.js';
 import { copyUnitsByUser, keyShape, recordRound, unitOfRecord } from './rounds.js';
 import { inRankOrder } from './nearby.js';
+import type { DistributionSummary, PersonShare, RebalanceMove } from './wire/plotFiles.js';
+
+export type { DistributionSummary, PersonShare, RebalanceMove } from './wire/plotFiles.js';
 
 /**
  * Dividing one plot file's plots between people: validating a request, computing
@@ -616,13 +619,6 @@ export interface RebalanceShare {
   weight: number;
 }
 
-/** A move of a rebalance: `count` plots to assess from `from` to `to`. */
-export interface RebalanceMove {
-  from: string;
-  to: string;
-  count: number;
-}
-
 /**
  * What a rebalance moves: the plots still to assess (main, not done, not copies) of the people of
  * `shares`, shared again by their weights (largest remainder, so the shares add up). Each person
@@ -805,26 +801,6 @@ export function copiesSubmittedAsMain(
   const units = new Set([...plots.plotKeys, ...plots.copyKeys]);
   const submitted = submittedByPlot(mine, units, new Map([[username, userId]]), info, copyHolders);
   return new Set(plots.copyKeys.filter((k) => submitted.get(k)?.main.has(userId) === true));
-}
-
-export interface PersonShare {
-  userId: string;
-  username: string;
-  /** Includes the overlap copies. */
-  plots: number;
-  overlap: number;
-  /** Of the copies, those the check sampling drew (Task 13); the others came with the division. */
-  sampled: number;
-  /** Of the copies, those of reference plots (Task 14): every collector has them, they are no checks to decide. */
-  reference: number;
-  submitted: number;
-}
-
-export interface DistributionSummary {
-  distribution: StoredDistribution | null;
-  plotCount: number;
-  unassigned: number;
-  people: PersonShare[];
 }
 
 /**

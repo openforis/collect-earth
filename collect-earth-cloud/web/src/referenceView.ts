@@ -1,5 +1,5 @@
 // Pure helpers of the "Reference plots" section (Task 14).
-import type { ExternalReferenceView, Rate, ReferenceFiguresView, ReferencePerson } from "./api";
+import type { ExternalReferenceFigures, Rate, ReferencePerson } from "./api";
 import type { MessageKey, Translate } from "./i18n";
 import { formatRate, MIN_CHECKS } from "./qualityView";
 
@@ -52,8 +52,8 @@ export function refusalKey(code: unknown): MessageKey | null {
 }
 
 /** People with the lowest accuracy first (those with a rate), then those with too few plots, by name. */
-export function sortedPeople(figures: ReferenceFiguresView): ReferencePerson[] {
-  return [...figures.people].sort((a, b) => {
+export function sortedPeople(figures: { people?: readonly ReferencePerson[] }): ReferencePerson[] {
+  return [...(figures.people ?? [])].sort((a, b) => {
     const ra = a.plots.rate;
     const rb = b.plots.rate;
     if (ra !== null && rb !== null && ra !== rb) return ra - rb;
@@ -95,8 +95,8 @@ export function overallRate(questions: readonly Rate[]): Rate {
 }
 
 /** The plots with differing answers, the largest share differing first (then the most differing), at most `max`. */
-export function mostDiffering(byPlot: ExternalReferenceView["byPlot"], max = 50): ExternalReferenceView["byPlot"] {
-  const share = (p: ExternalReferenceView["byPlot"][number]) => (p.compared - p.agreeing) / p.compared;
+export function mostDiffering(byPlot: ExternalReferenceFigures["byPlot"], max = 50): ExternalReferenceFigures["byPlot"] {
+  const share = (p: ExternalReferenceFigures["byPlot"][number]) => (p.compared - p.agreeing) / p.compared;
   return byPlot
     .filter((p) => p.agreeing < p.compared)
     .sort((a, b) => share(b) - share(a) || b.compared - b.agreeing - (a.compared - a.agreeing) || a.plot.localeCompare(b.plot, "en", { numeric: true }))

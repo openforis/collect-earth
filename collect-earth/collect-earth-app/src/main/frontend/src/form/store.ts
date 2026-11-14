@@ -3,6 +3,7 @@ import type { PanelKey } from "../shortcuts";
 import type { MessageKey } from "../i18n";
 import { ACTIVELY_SAVED, type Field, type FieldError, type FieldInfo, type FormModel, type LoadResult, answersToRemember, draftErrors,
   errorList, fieldsByName, isTabVisible, mergeInfos, saveBody, updateRequired } from "./model";
+import { PERIOD_STATUS_FIELD, toPlotPeriods, withoutPeriodStatus, type PeriodStatus, type PlotPeriods } from "./period";
 
 const REQUEST_TIMEOUT = 20000;
 /** Collect Earth's JSON API (server.api, under /earth/api) answers only requests that say they are its pages' (ApiHeaderFilter) */
@@ -117,6 +118,13 @@ export interface FormState {
   training: TrainingFeedback | null;
   /** The training feedback is being asked for */
   trainingLoading: boolean;
+  /**
+   * A repeat survey's plot: its main characteristics in the earlier period, for the header that asks whether it is still
+   * the same, has changed, or was interpreted wrongly then (see period.ts); null for any other plot or survey
+   */
+  period: PlotPeriods | null;
+  /** Submit was pressed with the header's question not answered */
+  periodMissing: boolean;
 }
 
 /** The answers of a plot submitted, by question (see answersToRemember) */
@@ -223,7 +231,7 @@ export class FormStore {
     this.state = {
       phase: "loading", failure: null, model: null, placemarkId, infos: {}, pending: {}, tab: 0, saveState: "idle",
       serverDown: false, saveError: null, retrying: false, submitted: false, alreadyFilled: false, unsubmitted: false, submitErrors: null, submitting: false, attempted: false, training: null, trainingLoading: false,
-      entityBusy: null, entityFailure: null, incomplete: false, previous: null, drafts: {},
+      entityBusy: null, entityFailure: null, incomplete: false, previous: null, drafts: {}, period: null, periodMissing: false,
     };
   }
 
@@ -289,7 +297,10 @@ export class FormStore {
         getJson<FormModel>(earthBase() + "surveyForm"),
         getJson<{ values: Record<string, string> }>(earthBase() + "surveyForm/plot?id=" + encodeURIComponent(id)),
       ]);
-      model = m;
+      // A repeat survey's period status is asked in the plot's header, never among the questions (see period.ts)
+      const stripped = withoutPeriodStatus(m);
+      model = stripped.model;
+      if (stripped.had) void this.checkPeriods(id);
       this.plotValues = Object.fromEntries(Object.entries(plot.values ?? {}).filter(([, v]) => v != null)) as Record<string, string>;
       // the plots map answers with the answers of the plot submitted before in this survey (see receive)
       this.survey = model.survey;
@@ -536,6 +547,11 @@ export class FormStore {
       this.set({ submitErrors: drafts, attempted: true, tab: drafts[0].tab });
       return false;
     }
+    // A repeat survey's plot is not submitted before the collector said how it compares with the earlier period
+    if (this.state.period && !this.value(PERIOD_STATUS_FIELD)) {
+      this.set({ periodMissing: true, attempted: true, tab: this.firstVisibleTab(0) });
+      return false;
+    }
     // submitted on the map, if not complete; changed after it was submitted only when it was, complete
     const wasSubmitted = this.state.submitted || this.state.incomplete;
     const wasComplete = this.state.submitted;
@@ -574,6 +590,25 @@ export class FormStore {
     const errors = errorList(this.state.model, this.state.infos);
     this.set({ submitErrors: errors, tab: errors.length ? errors[0].tab : this.state.tab });
     return false;
+  };
+
+  /** Asks Collect Earth for the plot's earlier period (a repeat survey's, in cloud mode); none when it cannot be had. */
+  checkPeriods = async (id: string): Promise<void> => {
+    let period: PlotPeriods | null = null;
+    try {
+      const r = await fetchWithTimeout(`${earthBase()}api/cloud/plot-periods?plot=${encodeURIComponent(id)}`, { headers: LOCAL_API_HEADERS }, 20000);
+      if (r.ok) period = toPlotPeriods(await r.json());
+    } catch {
+      period = null;
+    }
+    // another plot opened meanwhile: that answer is not this form's
+    if (this.state.placemarkId === id && period) this.set({ period });
+  };
+
+  /** The header's answer: still the same, changed, or wrongly interpreted then */
+  setPeriodStatus = (status: PeriodStatus): void => {
+    this.set({ periodMissing: false });
+    this.setValue(PERIOD_STATUS_FIELD, status);
   };
 
   /**

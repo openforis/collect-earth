@@ -68,6 +68,11 @@ public class EarthConstants {
 	public static final String ACTIVELY_SAVED_ON_PARAMETER = "collect_date_" + ACTIVELY_SAVED_ON_ATTRIBUTE_NAME; //$NON-NLS-1$
 	public static final String ACTIVELY_SAVED_ON_PARAMETER_OLD = "collect_text_" + ACTIVELY_SAVED_ON_ATTRIBUTE_NAME; //$NON-NLS-1$
 	public static final String OPERATOR_ATTRIBUTE_NAME = "operator"; //$NON-NLS-1$
+	/**
+	 * What the collector says of a plot of a repeat survey against its earlier period (same, changed, corrected): a code
+	 * attribute the cloud adds to the survey of a repeat survey (collect-earth-cloud src/cep.ts, addPeriodStatus)
+	 */
+	public static final String PERIOD_STATUS_ATTRIBUTE_NAME = "period_status"; //$NON-NLS-1$
 	public static final String OPERATOR_PARAMETER = "collect_text_operator"; //$NON-NLS-1$
 	public static final String SKIP_FILLED_PLOT_PARAMETER = "jump_to_next_plot"; //$NON-NLS-1$
 

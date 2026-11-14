@@ -74,7 +74,9 @@ import {
   type ReferenceChange,
   type ReferenceChangeResult,
   type ReferencePlot,
+  type PeriodAnswer,
   type ReferenceAnswer,
+  type RepeatSettings,
   type RoundInfo,
   type SampledCopy,
   type SamplingDraw,
@@ -91,6 +93,7 @@ import {
   TrainingKind,
   TrainingSet,
 } from '../types.js';
+import type { OwnerAlertKind } from '../wire/serverAdmin.js';
 import {
   checkCursor,
   type CreateInviteInput,
@@ -100,6 +103,7 @@ import {
   type TrainingSetChange,
   type TrainingSetInput,
   type UserPlots,
+  type RecordUpload,
 } from './store.js';
 import type { UncertaintySettings } from '../uncertainty.js';
 import type { AreaSettings } from '../areas.js';
@@ -436,6 +440,116 @@ export class PostgresStore implements Store {
         await insertRecordEvent(client, { ...out.event, projectId });
       }
       return true;
+    });
+  }
+
+  /**
+   * A batch in one transaction and a few statements, where putRecordWithEvent takes six or more per record: the
+   * records' locks (the same advisory locks, taken in one fixed order so that two batches cannot wait on each other),
+   * the rows stored before and whether each record was submitted, read at once; the items applied in order in memory,
+   * an item seeing the row an earlier one gave its record; then every row and every event written at once.
+   */
+  async putRecordsWithEvents(projectId: string, items: RecordUpload[]): Promise<boolean[]> {
+    if (items.length === 0) return [];
+    return this.withProject(projectId, async (client) => {
+      const id = (recordKey: string, operator: string) => `${recordKey}\u0000${operator}`;
+      const records = new Map<string, { recordKey: string; operator: string }>();
+      for (const item of items) records.set(id(item.recordKey, item.operator), { recordKey: item.recordKey, operator: item.operator });
+      const keys = [...records.values()].map((r) => r.recordKey);
+      const operators = [...records.values()].map((r) => r.operator);
+      await client.query(
+        `SELECT pg_advisory_xact_lock(h) FROM (
+           SELECT hashtextextended('collect-earth-cloud:record:' || $1 || ' ' || k || ' ' || o, 0) AS h
+             FROM unnest($2::text[], $3::text[]) AS t(k, o)
+            ORDER BY 1) AS locks`,
+        [projectId, keys, operators],
+      );
+      const existing = await client.query(
+        `SELECT project_id, record_key, operator, modified_on, received_at, actively_saved, step, xml, summary,
+                deleted, deleted_on, active_seconds
+           FROM records
+          WHERE project_id = $1 AND (record_key, operator) IN (SELECT * FROM unnest($2::text[], $3::text[]))
+            FOR UPDATE`,
+        [projectId, keys, operators],
+      );
+      const submitted = await client.query(
+        `SELECT DISTINCT record_key, operator FROM record_events
+          WHERE project_id = $1 AND (record_key, operator) IN (SELECT * FROM unnest($2::text[], $3::text[]))
+            AND change IN ('submitted', 'resubmitted')`,
+        [projectId, keys, operators],
+      );
+      const rows = new Map<string, RecordRow>(existing.rows.map((r) => [id(r.record_key as string, r.operator as string), mapRecord(r)]));
+      const submittedBefore = new Set<string>(submitted.rows.map((r) => id(r.record_key as string, r.operator as string)));
+      const changed = new Map<string, RecordRow>();
+      const events: RecordEventInput[] = [];
+      const stored = items.map((item) => {
+        const key = id(item.recordKey, item.operator);
+        const before = rows.get(key);
+        const out = item.apply(before ? { ...before } : null, submittedBefore.has(key));
+        if (out === null) return false;
+        const row = { ...out.row, projectId };
+        rows.set(key, row);
+        changed.set(id(row.recordKey, row.operator), row);
+        if (out.event) {
+          events.push({ ...out.event, projectId });
+          if (out.event.change === 'submitted' || out.event.change === 'resubmitted') submittedBefore.add(key);
+        }
+        return true;
+      });
+      if (changed.size > 0) {
+        const list = [...changed.values()];
+        await client.query(
+          `INSERT INTO records (project_id, record_key, operator, modified_on, received_at, actively_saved, step,
+                                xml, summary, deleted, deleted_on, active_seconds)
+           SELECT $1, * FROM unnest($2::text[], $3::text[], $4::timestamptz[], $5::timestamptz[], $6::boolean[], $7::int[],
+                                    $8::text[], $9::jsonb[], $10::boolean[], $11::timestamptz[], $12::int[])
+           ON CONFLICT (project_id, record_key, operator) DO UPDATE SET
+             active_seconds = EXCLUDED.active_seconds,
+             modified_on = EXCLUDED.modified_on,
+             received_at = EXCLUDED.received_at,
+             actively_saved = EXCLUDED.actively_saved,
+             step = EXCLUDED.step,
+             xml = EXCLUDED.xml,
+             summary = EXCLUDED.summary,
+             deleted = EXCLUDED.deleted,
+             deleted_on = EXCLUDED.deleted_on`,
+          [
+            projectId,
+            list.map((r) => r.recordKey),
+            list.map((r) => r.operator),
+            list.map((r) => new Date(r.modifiedOn)),
+            list.map((r) => new Date(r.receivedAt)),
+            list.map((r) => r.activelySaved),
+            list.map((r) => r.step),
+            list.map((r) => r.xml),
+            list.map((r) => JSON.stringify(r.summary)),
+            list.map((r) => r.deleted),
+            list.map((r) => (r.deletedOn === null ? null : new Date(r.deletedOn))),
+            list.map((r) => r.activeSeconds ?? null),
+          ],
+        );
+      }
+      if (events.length > 0) {
+        await client.query(
+          `INSERT INTO record_events (project_id, record_key, operator, modified_on, received_at, actively_saved, step,
+                                      deleted, change, summary)
+           SELECT $1, * FROM unnest($2::text[], $3::text[], $4::timestamptz[], $5::timestamptz[], $6::boolean[], $7::int[],
+                                    $8::boolean[], $9::text[], $10::jsonb[])`,
+          [
+            projectId,
+            events.map((e) => e.recordKey),
+            events.map((e) => e.operator),
+            events.map((e) => new Date(e.modifiedOn)),
+            events.map((e) => new Date(e.receivedAt)),
+            events.map((e) => e.activelySaved),
+            events.map((e) => e.step),
+            events.map((e) => e.deleted),
+            events.map((e) => e.change),
+            events.map((e) => (e.summary === null ? null : JSON.stringify(e.summary))),
+          ],
+        );
+      }
+      return stored;
     });
   }
 
@@ -1323,7 +1437,7 @@ export class PostgresStore implements Store {
     };
   }
 
-  async appendOwnerAlert(alert: { kind: string; at: number; count: number; projectId: string | null }): Promise<string> {
+  async appendOwnerAlert(alert: { kind: OwnerAlertKind; at: number; count: number; projectId: string | null }): Promise<string> {
     const res = await this.pool.query('INSERT INTO owner_alerts (at, kind, count, project_id) VALUES ($1, $2, $3, $4) RETURNING id', [
       new Date(alert.at),
       alert.kind,
@@ -1347,7 +1461,7 @@ export class PostgresStore implements Store {
       alerts: rows.rows.map((r) => ({
         id: String(r.id),
         at: (r.at as Date).getTime(),
-        kind: r.kind as string,
+        kind: r.kind as OwnerAlertKind,
         count: Number(r.count),
         projectId: (r.project_id as string | null) ?? null,
         seenAt: r.seen_at ? (r.seen_at as Date).getTime() : null,
@@ -1644,6 +1758,8 @@ export class PostgresStore implements Store {
   }
 
   async getMembership(projectId: string, userId: string): Promise<TokenMembership | null> {
+    // A user id from the path (member routes): not a uuid is no member, not a cast error (500)
+    if (!isUuid(projectId) || !isUuid(userId)) return null;
     const res = await this.pool.query(
       'SELECT role FROM project_members WHERE project_id = $1 AND user_id = $2',
       [projectId, userId],
@@ -1737,6 +1853,13 @@ export class PostgresStore implements Store {
       await client.query('DELETE FROM attention_reads WHERE project_id = $1 AND user_id = $2', [projectId, userId]);
       await client.query('UPDATE audit_log SET actor_user_id = NULL WHERE project_id = $1 AND actor_user_id = $2', [projectId, userId]);
       await client.query('DELETE FROM project_members WHERE project_id = $1 AND user_id = $2', [projectId, userId]);
+      // deleteUser only sees the account's current projects: records left behind here retire the name now
+      // (harmless while the account lives, its name being taken anyway; usernames never change)
+      await client.query(
+        `INSERT INTO retired_usernames (username) SELECT u.username FROM users u WHERE u.id = $2
+           AND EXISTS (SELECT 1 FROM records r WHERE r.project_id = $1 AND r.operator = u.username) ON CONFLICT DO NOTHING`,
+        [projectId, userId],
+      );
       return 'ok';
     });
   }
@@ -2522,6 +2645,54 @@ export class PostgresStore implements Store {
     });
   }
 
+  async replacePeriodAnswers(projectId: string, label: string, rows: readonly Omit<PeriodAnswer, 'label'>[]): Promise<void> {
+    await this.withProject(projectId, async (client) => {
+      await client.query('DELETE FROM period_answers WHERE project_id = $1 AND label = $2', [projectId, label]);
+      // In slices: one statement per 5,000 plots
+      for (let i = 0; i < rows.length; i += 5000) {
+        const slice = rows.slice(i, i + 5000);
+        await client.query(
+          `INSERT INTO period_answers (project_id, label, plot_key, operator, answers, saved_at)
+           SELECT $1, $2, k, o, a, s FROM unnest($3::text[], $4::text[], $5::jsonb[], $6::timestamptz[]) AS t(k, o, a, s)`,
+          [projectId, label, slice.map((r) => r.plotKey), slice.map((r) => r.operator), slice.map((r) => JSON.stringify(r.answers)), slice.map((r) => new Date(r.savedAt))],
+        );
+      }
+    });
+  }
+
+  async listPeriodAnswers(projectId: string, label?: string): Promise<PeriodAnswer[]> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query(
+        `SELECT label, plot_key, operator, answers, saved_at FROM period_answers WHERE project_id = $1${label === undefined ? '' : ' AND label = $2'}`,
+        label === undefined ? [projectId] : [projectId, label],
+      );
+      return res.rows.map(periodAnswerOf);
+    });
+  }
+
+  async getPlotPeriodAnswers(projectId: string, plotKey: string): Promise<PeriodAnswer[]> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query(
+        'SELECT label, plot_key, operator, answers, saved_at FROM period_answers WHERE project_id = $1 AND plot_key = $2 ORDER BY saved_at, label',
+        [projectId, plotKey],
+      );
+      return res.rows.map(periodAnswerOf);
+    });
+  }
+
+  async getRepeatSettings(projectId: string): Promise<RepeatSettings | null> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query('SELECT repeat_settings FROM projects WHERE id = $1', [projectId]);
+      return (res.rows[0]?.repeat_settings as RepeatSettings | null | undefined) ?? null;
+    });
+  }
+
+  async setRepeatSettings(projectId: string, settings: RepeatSettings): Promise<void> {
+    await this.withProject(projectId, async (client) => {
+      await client.query('UPDATE projects SET repeat_settings = $2 WHERE id = $1', [projectId, JSON.stringify(settings)]);
+    });
+  }
+
   async listReferenceAnswers(projectId: string): Promise<ReferenceAnswer[]> {
     return this.withProject(projectId, async (client) => {
       const res = await client.query('SELECT plot_key, answers, uploaded_at FROM reference_answers WHERE project_id = $1', [projectId]);
@@ -3014,16 +3185,16 @@ export class PostgresStore implements Store {
     return this.withProject(projectId, (client) => failStaleRuns(client, projectId, before, code, message, now));
   }
 
-  async listAiRuns(projectId: string, limit: number): Promise<AiRunSummary[]> {
+  async listAiRuns(projectId: string, limit: number, options: { exceptViews?: boolean } = {}): Promise<AiRunSummary[]> {
     return this.withProject(projectId, async (client) => {
       const res = await client.query(
         `SELECT a.id, a.kind, a.status, a.started_at, a.finished_at, a.model, a.input_tokens, a.output_tokens,
                 a.parent_run, a.finding_index, a.action, a.error_code, u.username
            FROM ai_runs a LEFT JOIN users u ON u.id = a.started_by
-          WHERE a.project_id = $1
+          WHERE a.project_id = $1 AND (NOT $3::boolean OR a.kind <> 'views')
           ORDER BY a.started_at DESC, a.id DESC
           LIMIT $2`,
-        [projectId, limit],
+        [projectId, limit, options.exceptViews === true],
       );
       return res.rows.map(mapAiRunSummary);
     });
@@ -3428,14 +3599,26 @@ export class PostgresStore implements Store {
   }
 }
 
-/** Fails one project's runs still running that started before `before`; how many. */
+/**
+ * Fails one project's runs still running that started before `before`; how many. Their tokens so far go to the
+ * person's month (ai_token_ledger), as finishAiRun does; a later finishAiRun finds them not running and adds nothing.
+ */
 async function failStaleRuns(client: pg.PoolClient, projectId: string, before: number, code: string, message: string, now: number): Promise<number> {
   const res = await client.query(
-    `UPDATE ai_runs SET status = 'failed', error_code = $3, error = $4, finished_at = $5
-      WHERE project_id = $1 AND status = 'running' AND started_at < $2`,
+    `WITH failed AS (
+       UPDATE ai_runs SET status = 'failed', error_code = $3, error = $4, finished_at = $5
+        WHERE project_id = $1 AND status = 'running' AND started_at < $2
+        RETURNING started_by, started_at, input_tokens + output_tokens AS tokens),
+     spent AS (
+       INSERT INTO ai_token_ledger (user_id, month, tokens)
+       SELECT started_by, date_trunc('month', started_at AT TIME ZONE 'UTC')::date, sum(tokens)
+         FROM failed WHERE started_by IS NOT NULL AND tokens > 0
+        GROUP BY 1, 2
+       ON CONFLICT (user_id, month) DO UPDATE SET tokens = ai_token_ledger.tokens + EXCLUDED.tokens)
+     SELECT count(*)::int AS n FROM failed`,
     [projectId, new Date(before), code, message, new Date(now)],
   );
-  return res.rowCount ?? 0;
+  return res.rows[0].n as number;
 }
 
 function mapAiRunSummary(r: Record<string, unknown>): AiRunSummary {
@@ -3451,7 +3634,7 @@ function mapAiRunSummary(r: Record<string, unknown>): AiRunSummary {
     outputTokens: Number(r.output_tokens),
     parentRun: (r.parent_run as string | null) ?? null,
     findingIndex: (r.finding_index as number | null) ?? null,
-    action: (r.action as string | null) ?? null,
+    action: (r.action as AiRunSummary['action']) ?? null,
     errorCode: (r.error_code as string | null) ?? null,
   };
 }
@@ -3710,4 +3893,9 @@ function mapRecord(r: Record<string, unknown>): RecordRow {
  */
 async function lockUsername(client: pg.PoolClient, username: string): Promise<void> {
   await client.query("SELECT pg_advisory_xact_lock(hashtext('collect-earth-cloud:username:' || $1))", [username]);
+}
+
+/** A row of period_answers */
+function periodAnswerOf(r: Record<string, unknown>): PeriodAnswer {
+  return { label: r.label as string, plotKey: r.plot_key as string, operator: r.operator as string, answers: r.answers as Record<string, string>, savedAt: (r.saved_at as Date).getTime() };
 }

@@ -1,4 +1,4 @@
-import type { AttentionItem, AttentionKind, Forecast, ProgressDay, ProgressSettings, PublicProgressData } from "./api";
+import type { AttentionItem, AttentionKind, AttentionPerson, Forecast, ProgressDay, ProgressSettings, PublicProgress } from "./api";
 import { formatNumber } from "./format";
 import type { MessageKey, Translate } from "./i18n";
 import { rateText } from "./qualityView";
@@ -14,7 +14,7 @@ export const REFRESH_MS = 60_000;
  * A progress link's quality figure in words: how often the checks agreed with the first
  * assessment so far, or why there is no figure (none at hand on the server, no check yet, too few).
  */
-export function publicQualityText(t: Translate, q: PublicProgressData["quality"], language: string): string {
+export function publicQualityText(t: Translate, q: PublicProgress["quality"], language: string): string {
   if (!q.available || q.agreement === null) return t("publicProgress.qualityNone");
   if (q.agreement.compared === 0) return t("publicProgress.qualityNoChecks");
   return rateText(t, q.agreement, language);
@@ -126,36 +126,26 @@ export function forecastTargetKey(f: Pick<Forecast, "target" | "targetFrom">, op
   return options.local ? null : "progress.forecastTarget";
 }
 
-/** Where each card's problem is fixed. */
-export const ATTENTION_TAB: Record<AttentionKind, ProjectTab> = {
-  quiet: "people",
-  neverDownloaded: "people",
-  notAssigned: "plots",
-  oldUnsentWork: "people",
-  differencesWaiting: "quality",
-  storage: "setup",
-  oldProjectFile: "people",
-  oldCollectEarth: "people",
-  trainingFinished: "training",
+// People's problems (quiet, late, old files) are in the table of how each person is doing
+const PEOPLE = { tab: "people", view: "team", go: "progress.goPeople" } as const;
+
+/** Where each card's problem is fixed: a tab and, for a tab split into views, the view; and the button's words. */
+export const ATTENTION_PLACE: Record<AttentionKind, { tab: ProjectTab; view?: string; go: MessageKey }> = {
+  quiet: PEOPLE,
+  neverDownloaded: PEOPLE,
+  notAssigned: { tab: "setup", view: "plots", go: "progress.goPlots" },
+  oldUnsentWork: PEOPLE,
+  differencesWaiting: { tab: "quality", go: "progress.goQuality" },
+  // The space used is on Setup's overview
+  storage: { tab: "setup", go: "progress.goSetup" },
+  oldProjectFile: PEOPLE,
+  oldCollectEarth: PEOPLE,
+  trainingFinished: { tab: "training", go: "tab.training" },
 };
 
-const GO: Record<ProjectTab, MessageKey> = {
-  progress: "tab.progress",
-  setup: "progress.goSetup",
-  file: "tab.file",
-  people: "progress.goPeople",
-  plots: "progress.goPlots",
-  map: "tab.map",
-  data: "tab.data",
-  quality: "progress.goQuality",
-  training: "tab.training",
-  activity: "tab.activity",
-  settings: "tab.settings",
-};
-
-export function attentionAction(t: Translate, kind: AttentionKind): { tab: ProjectTab; label: string } {
-  const tab = ATTENTION_TAB[kind];
-  return { tab, label: t(GO[tab]) };
+export function attentionAction(t: Translate, kind: AttentionKind): { tab: ProjectTab; view?: string; label: string } {
+  const { tab, view, go } = ATTENTION_PLACE[kind];
+  return { tab, ...(view ? { view } : {}), label: t(go) };
 }
 
 const DAY_MS = 86_400_000;
@@ -205,14 +195,19 @@ export function attentionText(t: Translate, item: AttentionItem, language: strin
   }
 }
 
+/** The people an item names (none for the kinds about plots or the server: not given, differences, storage). */
+export function peopleOf(item: AttentionItem): AttentionPerson[] {
+  return "people" in item ? item.people : [];
+}
+
 /** What is said next to a person in a card: their last sync (or, never synced, when they got their plots), how late their work arrives. */
-export function personDetail(t: Translate, item: AttentionItem, person: AttentionItem["people"][number], language: string, formatDate: (ms: number) => string): string | null {
-  if (item.kind === "quiet" && person.lastSyncAt !== null) return t("attention.lastSync", { date: formatDate(person.lastSyncAt) });
-  if (item.kind === "quiet" && person.lastPlotsDownloadAt !== null) return t("attention.lastDownload", { date: formatDate(person.lastPlotsDownloadAt) });
+export function personDetail(t: Translate, item: AttentionItem, person: AttentionPerson, language: string, formatDate: (ms: number) => string): string | null {
+  if (item.kind === "quiet" && person.lastSyncAt != null) return t("attention.lastSync", { date: formatDate(person.lastSyncAt) });
+  if (item.kind === "quiet" && person.lastPlotsDownloadAt != null) return t("attention.lastDownload", { date: formatDate(person.lastPlotsDownloadAt) });
   if (item.kind === "trainingFinished" && person.set) {
     return t(person.passed === true ? "attention.trainingPassed" : person.passed === false ? "attention.trainingNotPassed" : "attention.trainingDone", { set: person.set });
   }
-  if (item.kind === "oldUnsentWork" && person.medianDelayMs !== null) {
+  if (item.kind === "oldUnsentWork" && person.medianDelayMs !== undefined) {
     const days = Math.round((person.medianDelayMs / DAY_MS) * 10) / 10;
     return t(days === 1 ? "attention.dayLate" : "attention.daysLate", { n: formatNumber(days, language) });
   }

@@ -4,7 +4,6 @@ import Button from "@mui/material/Button";
 import Checkbox from "@mui/material/Checkbox";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import MenuItem from "@mui/material/MenuItem";
-import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import ToggleButton from "@mui/material/ToggleButton";
@@ -17,6 +16,7 @@ import { useApp } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Explain } from "../components/Explain";
 import { FileDrop } from "../components/FileDrop";
+import { FoldingCard } from "../components/FoldingCard";
 import { formatNumber } from "../format";
 import { useT } from "../i18n";
 import { bytesToBase64, designOf, plotFileName, type DesignForm } from "../plotDesignView";
@@ -28,7 +28,7 @@ const km2 = (n: number, language: string) => formatNumber(Math.round(n * 10) / 1
  * Plot design: an area of interest in, a plot file out. The plot file goes to `onFile`, the plot
  * tab's own upload (replacing a file of the same name is asked there, as for any upload).
  */
-export function PlotDesign({ projectId, busy, onFile }: { projectId: string; busy: boolean; onFile: (file: File) => Promise<boolean> }) {
+export function PlotDesign({ projectId, busy, onFile, defaultOpen = true }: { projectId: string; busy: boolean; onFile: (file: File) => Promise<boolean>; defaultOpen?: boolean }) {
   const t = useT();
   const { language } = useApp();
   const [area, setArea] = useState<{ name: string; sent: DesignArea; facts: DesignFacts } | null>(null);
@@ -118,20 +118,14 @@ export function PlotDesign({ projectId, busy, onFile }: { projectId: string; bus
   );
   if (source === "sigrid") {
     return (
-      <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
-        <Typography variant="h2" gutterBottom>
-          {t("design.title")}
-        </Typography>
+      <FoldingCard title={t("design.title")} summary={t("design.summary")} defaultOpen>
         {sourceChoice}
         <SigridDesign projectId={projectId} busy={busy} onFile={onFile} />
-      </Paper>
+      </FoldingCard>
     );
   }
   return (
-    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
-      <Typography variant="h2" gutterBottom>
-        {t("design.title")}
-      </Typography>
+    <FoldingCard title={t("design.title")} summary={t(defaultOpen ? "design.explain.short" : "design.summary")} defaultOpen={defaultOpen}>
       {sourceChoice}
       <Explain sx={{ mb: 2 }} text={t("design.explain.short")} more={t("design.explain")} />
       <Stack spacing={2}>
@@ -211,6 +205,6 @@ export function PlotDesign({ projectId, busy, onFile }: { projectId: string; bus
         )}
         <ErrorAlert error={error} />
       </Stack>
-    </Paper>
+    </FoldingCard>
   );
 }

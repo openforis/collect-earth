@@ -268,4 +268,34 @@ public class SettingsServiceTest {
 		changes.put("db_driver", "SQLITE");
 		assertTrue(service.validate(changes).isValid());
 	}
+
+	@Test
+	public void aPasswordSentAsNullIsLeftAsItIs() throws Exception {
+		Map<String, String> changes = new HashMap<>();
+		changes.put("planet_maps_key", null);
+		changes.put("use_browser", "chrome");
+		service.save(changes);
+		verify(properties).setValues(Collections.singletonMap("use_browser", "chrome"));
+	}
+
+	@Test
+	public void aPlotsFileThePageWouldRefuseIsRefused() throws Exception {
+		Map<String, Object> problem = new HashMap<>();
+		problem.put("blocking", true);
+		problem.put("message", "not a plots file");
+		java.util.List<String> checked = new java.util.ArrayList<>();
+		SettingsService checking = new SettingsService(properties,
+				new SettingsValidator(new SettingsModel(LocalDate.of(2026, 10, 30)), () -> LocalDate.of(2026, 10, 30)),
+				restarts::incrementAndGet, reloads::incrementAndGet, path -> {
+					checked.add(path);
+					return Collections.singletonMap("problems", Collections.singletonList(problem));
+				});
+		InvalidSettingsException refused = assertThrows(InvalidSettingsException.class,
+				() -> checking.save(Collections.singletonMap("csv", " C:/photo.jpg ")));
+		assertEquals("not a plots file", refused.getErrors().get("csv"));
+		verify(properties, never()).setValues(anyMap());
+		// the file in use, unchanged, is not read again
+		checking.save(Collections.singletonMap("csv", "C:/plots.csv"));
+		assertEquals(Collections.singletonList("C:/photo.jpg"), checked);
+	}
 }

@@ -221,12 +221,6 @@ function NoteChip({ icon, label, ariaLabel, role, children, sx }: { icon: ReactE
   );
 }
 
-/** The reader's role in a project, as a static chip (inside a link: the projects list). */
-export function RoleBadge({ role }: { role: Role }) {
-  const t = useT();
-  return <Chip size="small" icon={ROLE_ICONS[role]} label={t("roles.you", { role: t(`role.${role}`) })} color={role === "admin" ? "primary" : "default"} />;
-}
-
 /**
  * "You: Coordinator" in a project's header, opening what the role means. None in the local mode (one person, no
  * accounts or roles: the desktop's own data).

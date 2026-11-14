@@ -26,10 +26,6 @@ export function clearUnsaved(): void {
 }
 
 /** The names of the groups holding changes not saved, in the order they were changed. */
-export function unsavedGroups(): readonly string[] {
-  return snapshot;
-}
-
 export function useUnsavedGroups(): readonly string[] {
   return useSyncExternalStore(
     (l) => {

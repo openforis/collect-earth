@@ -75,7 +75,7 @@ export function VersionsCard({ versions }: { versions: Loaded<CollectEarthVersio
       ) : versions.error || !v ? (
         <ErrorAlert error={versions.error} onRetry={versions.reload} />
       ) : v.versions.length === 0 ? (
-        <Typography>{t("versions.none", { days: n(v.days) })}</Typography>
+        <EmptyState title={t("versions.none", { days: n(v.days) })} />
       ) : (
         <>
           {v.outdatedAccounts > 0 ? (
@@ -117,7 +117,7 @@ export function VersionsCard({ versions }: { versions: Loaded<CollectEarthVersio
 export function MailCard() {
   const t = useT();
   const { language } = useApp();
-  const check = useLoad(() => getMailCheck(), []);
+  const check = useLoad(["app", "getMailCheck"], () => getMailCheck());
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<{ severity: "success" | "error"; text: string } | null>(null);
   const m = check.data;
@@ -203,7 +203,7 @@ export function ActivityCard() {
   const t = useT();
   const { language } = useApp();
   const [query, setQuery] = useState<ServerActivityQuery>({ actor: "", kind: "", page: 1, pageSize: ACTIVITY_PAGE });
-  const log = useLoad(() => getServerActivity(query), [query]);
+  const log = useLoad(["app", "getServerActivity", query], () => getServerActivity(query));
   const [error, setError] = useState<unknown>(null);
   const page = log.data;
   const n = (x: number) => formatNumber(x, language);
@@ -220,7 +220,7 @@ export function ActivityCard() {
 
   return (
     <Card id="server-activity" title={t("serverLog.title")} intro={t("serverLog.intro")}
-      action={<Button variant="outlined" startIcon={<Download />} onClick={() => void download()} disabled={!page || page.total === 0}>{t("serverLog.csv")}</Button>}>
+      action={page && page.total > 0 ? <Button variant="outlined" startIcon={<Download />} onClick={() => void download()}>{t("serverLog.csv")}</Button> : undefined}>
       <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
         <TextField select size="small" label={t("serverLog.by")} value={query.actor} onChange={(e) => setQuery({ ...query, actor: e.target.value, page: 1 })} sx={{ minWidth: 200 }}
           slotProps={{ inputLabel: { shrink: true }, select: { displayEmpty: true } }}>

@@ -4,7 +4,7 @@ import { emptyRequest, lastExportText, missing, nameKey, recordsFor, replaceFile
 describe("export dialog", () => {
   it("offers the records the Swing menu offered per format", () => {
     expect(recordsFor("XML")).toEqual(["ALL", "SINCE_LAST_EXPORT", "FROM_DATE", "BY_ATTRIBUTE"]);
-    expect(recordsFor("BACKUP")).toEqual(["ALL", "FROM_DATE"]);
+    expect(recordsFor("BACKUP")).toEqual(["ALL"]);
     expect(recordsFor("CSV")).toEqual(["ALL"]);
     expect(recordsFor("KML")).toEqual(["ALL"]);
   });
@@ -12,7 +12,7 @@ describe("export dialog", () => {
   it("keeps the records on a format change when the format offers them, else all", () => {
     const byAttribute = { ...emptyRequest(), records: "BY_ATTRIBUTE" as const };
     expect(withFormat(byAttribute, "BACKUP").records).toBe("ALL");
-    expect(withFormat({ ...emptyRequest(), records: "FROM_DATE" }, "BACKUP").records).toBe("FROM_DATE");
+    expect(withFormat({ ...emptyRequest(), records: "FROM_DATE" }, "BACKUP").records).toBe("ALL");
     expect(withFormat(byAttribute, "XML").records).toBe("BY_ATTRIBUTE");
     expect(withFormat(byAttribute, "CSV").format).toBe("CSV");
   });

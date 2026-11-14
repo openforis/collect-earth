@@ -22,12 +22,11 @@ import {
   getUncertaintySetup,
   IPCC_CATEGORIES,
   saveUncertaintySettings,
-  type UncertaintyData,
+  type UncertaintyAnswer,
   type UncertaintySetup,
 } from "../api";
 import { labelIn } from "../analysisView";
 import { useApp } from "../appContext";
-import { shownArea, typedArea } from "../areasView";
 import { AppShell } from "../components/AppShell";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Loading } from "../components/Loading";
@@ -41,8 +40,8 @@ import { useLoad } from "../useLoad";
 /** The IPCC uncertainty of the land areas (coordinators and reviewers): the setup, then the tables, to download. */
 export function UncertaintyPage({ projectId }: { projectId: string }) {
   const t = useT();
-  const project = useLoad(() => getProject(projectId), [projectId]);
-  const setup = useLoad(() => getUncertaintySetup(projectId), [projectId]);
+  const project = useLoad(["project", projectId, "getProject"], () => getProject(projectId));
+  const setup = useLoad(["project", projectId, "getUncertaintySetup"], () => getUncertaintySetup(projectId));
   const [editing, setEditing] = useState(false);
   const forbidden = setup.error instanceof ApiError && setup.error.status === 403;
   const settings = setup.data?.settings ?? null;
@@ -103,7 +102,6 @@ function SetupForm({ projectId, setup, onSaved, onCancel }: { projectId: string;
   const [final, setFinal] = useState(named(s?.final ?? "land_use_category"));
   const [initialYear, setInitialYear] = useState(s?.initialYear ?? "");
   const [finalYear, setFinalYear] = useState(s?.finalYear ?? "");
-  const [totalArea, setTotalArea] = useState(s?.totalArea ? shownArea(s.totalArea, language) : "");
   // the person's choices, over the saved ones (the rows are worked out again when the questions change)
   const [chosen, setChosen] = useState<Record<string, CodeChoice>>({});
   const [saving, setSaving] = useState(false);
@@ -112,22 +110,36 @@ function SetupForm({ projectId, setup, onSaved, onCancel }: { projectId: string;
     () => codeRows(setup.questions, setup.lists, [initial, final], s?.codes ?? {}, (i) => labelIn(i.labels, language, setup, i.code)).map((r) => ({ ...r, choice: chosen[`${r.list}\u0000${r.code}`] ?? r.choice })),
     [setup, initial, final, s, language, chosen],
   );
-  const area = typedArea(totalArea, language) ?? Number.NaN;
+  // The areas are set in one place, Setup › Areas: the figures wait for them, the settings do not
   const needsArea = setup.areas === null;
-  const ready = initial !== "" && final !== "" && (!needsArea || (Number.isFinite(area) && area > 0));
+  // the button stays on: a click with a question not chosen marks it
+  const [tried, setTried] = useState(false);
   const save = async () => {
+    if (initial === "" || final === "") {
+      setTried(true);
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
-      onSaved(await saveUncertaintySettings(projectId, { initial, final, initialYear, finalYear, codes: codesOf(rows), totalArea: needsArea ? area : null }));
+      onSaved(await saveUncertaintySettings(projectId, { initial, final, initialYear, finalYear, codes: codesOf(rows), totalArea: null }));
     } catch (e) {
       setError(e);
     } finally {
       setSaving(false);
     }
   };
-  const question = (value: string, onChange: (v: string) => void, label: MessageKey) => (
-    <TextField select size="small" label={t(label)} value={value} onChange={(e) => onChange(e.target.value)} sx={{ minWidth: 240, flex: 1 }}>
+  const question = (value: string, onChange: (v: string) => void, label: MessageKey, missing: MessageKey) => (
+    <TextField
+      select
+      size="small"
+      label={t(label)}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      error={tried && value === ""}
+      helperText={tried && value === "" ? t(missing) : undefined}
+      sx={{ minWidth: 240, flex: 1 }}
+    >
       {setup.questions.map((q) => (
         <MenuItem key={q.name} value={q.name}>
           {labelIn(q.labels, language, setup, q.name)} ({q.name})
@@ -140,25 +152,26 @@ function SetupForm({ projectId, setup, onSaved, onCancel }: { projectId: string;
       <Typography variant="h2" sx={{ mb: 2 }}>
         {t("uncertainty.setup")}
       </Typography>
-      <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mb: 2 }}>
-        {question(initial, setInitial, "uncertainty.initialQuestion")}
+      <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mb: 2, alignItems: { sm: "flex-start" } }}>
+        {question(initial, setInitial, "uncertainty.initialQuestion", "uncertainty.chooseInitial")}
         <TextField size="small" label={t("uncertainty.initialYear")} value={initialYear} onChange={(e) => setInitialYear(e.target.value)} slotProps={{ htmlInput: { maxLength: 20 } }} />
       </Stack>
-      <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mb: 2 }}>
-        {question(final, setFinal, "uncertainty.finalQuestion")}
+      <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mb: 2, alignItems: { sm: "flex-start" } }}>
+        {question(final, setFinal, "uncertainty.finalQuestion", "uncertainty.chooseFinal")}
         <TextField size="small" label={t("uncertainty.finalYear")} value={finalYear} onChange={(e) => setFinalYear(e.target.value)} slotProps={{ htmlInput: { maxLength: 20 } }} />
       </Stack>
       {needsArea ? (
-        <TextField
-          size="small"
-          label={t("uncertainty.totalArea")}
-          value={totalArea}
-          onChange={(e) => setTotalArea(e.target.value)}
-          slotProps={{ htmlInput: { inputMode: "decimal" } }}
-          helperText={t("uncertainty.totalAreaHelp")}
-          sx={{ mb: 2, maxWidth: 420 }}
-          fullWidth
-        />
+        <Alert
+          severity="info"
+          sx={{ mb: 2 }}
+          action={
+            <Button color="inherit" size="small" {...linkProps(pathFor({ name: "project", projectId, tab: "setup", view: "areas" }))}>
+              {t("view.setup.areas")}
+            </Button>
+          }
+        >
+          {t("uncertainty.noAreas")}
+        </Alert>
       ) : (
         <Typography variant="body2" sx={{ mb: 2 }}>
           {setup.areas === "strata" || setup.areas === "total" ? t("uncertainty.areasSetting") : t("uncertainty.areasFile", { file: setup.areas! })}
@@ -213,7 +226,7 @@ function SetupForm({ projectId, setup, onSaved, onCancel }: { projectId: string;
       )}
       {error ? <ErrorAlert error={error} /> : null}
       <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-        <Button variant="contained" disabled={!ready || saving} onClick={save}>
+        <Button variant="contained" disabled={saving} onClick={save}>
           {t("uncertainty.save")}
         </Button>
         {onCancel && <Button onClick={onCancel}>{t("uncertainty.cancel")}</Button>}
@@ -227,7 +240,7 @@ const ERROR_KEYS: Record<string, MessageKey> = { not_set_up: "uncertainty.notSet
 function Results({ projectId, projectName }: { projectId: string; projectName: string }) {
   const t = useT();
   const { language } = useApp();
-  const data = useLoad(() => getUncertainty(projectId), [projectId]);
+  const data = useLoad(["project", projectId, "getUncertainty"], () => getUncertainty(projectId));
   const sheets = useMemo(() => (data.data ? uncertaintySheets(data.data, t) : []), [data.data, t]);
   if (data.loading && !data.data) return <Loading />;
   if (data.error) {
@@ -256,7 +269,7 @@ function Results({ projectId, projectName }: { projectId: string; projectName: s
   );
 }
 
-function Summary({ d }: { d: UncertaintyData }) {
+function Summary({ d }: { d: UncertaintyAnswer }) {
   const t = useT();
   const { language } = useApp();
   const n = (v: number, digits = 0) => new Intl.NumberFormat(language, { maximumFractionDigits: digits }).format(v);

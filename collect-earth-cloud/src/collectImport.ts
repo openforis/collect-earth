@@ -5,45 +5,14 @@
 // (DataUnmarshaller, then RecordUpdater.initializeRecord: every attribute of the root entity has a node, every item of
 // an enumerated entity's list a row). test/collectImport.test.ts compares it with summaries the Java code made.
 import { XMLValidator } from 'fast-xml-parser';
-import { attr, CepError, childrenOf, elements, parser, parseSurvey, readZip, surveyInfo, tagOf, textOf, type RoundInfo, type XmlNode } from './cep.js';
+import { attr, childrenOf, elements, parser, parseSurvey, surveyInfo, tagOf, textOf, type RoundInfo, type XmlNode } from './cep.js';
 import { prefixOf, QUALIFIER_SEPARATOR, SUMMARY_VALUES_SEPARATOR } from './surveyOutline.js';
-
-/** Why a backup cannot be imported, in plain words. */
-export class BackupImportError extends Error {}
-
-const MB = 1024 * 1024;
-/** A backup holds one file per record: more entries than a project file, unzipped within a server's memory. */
-const BACKUP_LIMITS = { maxEntries: 65_000, maxTotalBytes: 256 * MB, maxRatio: 30, minAllowanceBytes: 20 * MB };
 
 export interface BackupFile {
   name: string;
   /** Collect's workflow step: the folder (1 entry, 2 cleansing, 3 analysis). */
   step: number;
   xml: string;
-}
-
-/** The survey and the records of a backup zip. Throws BackupImportError. */
-export function readBackup(zip: Buffer): { surveyXml: string; files: BackupFile[] } {
-  let entries: Map<string, Uint8Array>;
-  try {
-    entries = readZip(zip, BACKUP_LIMITS);
-  } catch (e) {
-    if (!(e instanceof CepError)) throw e;
-    throw new BackupImportError(
-      e.code === 'too_large'
-        ? 'The file is larger than the server reads at once: export the records in smaller parts.'
-        : 'The file is not a zip file: in Collect Earth, use Data Import/Export > Export data with the format "XML (compressed)".',
-    );
-  }
-  const survey = entries.get('idml.xml');
-  if (!survey) throw new BackupImportError('The zip has no idml.xml: it is not the "XML (compressed)" export of Collect Earth.');
-  const decoder = new TextDecoder();
-  const files: BackupFile[] = [];
-  for (const [name, data] of entries) {
-    const m = /^([123])\/[^/]+\.xml$/.exec(name);
-    if (m) files.push({ name, step: Number(m[1]), xml: decoder.decode(data) });
-  }
-  return { surveyXml: decoder.decode(survey), files };
 }
 
 /** The survey's <uri>, or null. */

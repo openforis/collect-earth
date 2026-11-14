@@ -34,9 +34,10 @@ import {
   markReference,
   unmarkReference,
   uploadReferenceAnswers,
+  type ReferenceAnswer,
   type ReferenceAnswersReport,
-  type ReferenceFiguresView,
-  type ReferenceView,
+  type ReferenceFiguresAnswer,
+  type ReferenceSet,
 } from "../api";
 import { FileDrop } from "../components/FileDrop";
 import { useApp } from "../appContext";
@@ -48,13 +49,15 @@ import { useT } from "../i18n";
 import { aboveHalf, accuracyText, disagreementText, mostDiffering, overallRate, parsePlotIds, refusalKey, sortedPeople, weakestQuestions } from "../referenceView";
 import { linkProps, pathFor } from "../router";
 import { useLoad } from "../useLoad";
+import { onceVisibleAfter } from "../visibility";
 import { wholeNumber } from "../checksView";
 
 /** Tables fit a phone: they scroll inside their own frame. */
 const tableFrame = { border: 1, borderColor: "divider", borderRadius: 1, overflowX: "auto" } as const;
 
 /** The accuracy figures: per person (lowest first) and per question. */
-function Accuracy({ figures }: { figures: ReferenceFiguresView }) {
+function Accuracy({ figures }: { figures: ReferenceFiguresAnswer }) {
+  const people = figures.people ?? [];
   const t = useT();
   const { language } = useApp();
   const n = (v: number) => formatNumber(v, language);
@@ -75,11 +78,11 @@ function Accuracy({ figures }: { figures: ReferenceFiguresView }) {
         <>
           <Explain
             variant="body2"
-            text={t(figures.people.length > 0 ? "reference.accuracyExplain.short" : "reference.accuracyExplainQuestions.short", { checks: n(figures.checks) })}
-            more={t(figures.people.length > 0 ? "reference.accuracyExplain" : "reference.accuracyExplainQuestions", { checks: n(figures.checks) })}
+            text={t(people.length > 0 ? "reference.accuracyExplain.short" : "reference.accuracyExplainQuestions.short", { checks: n(figures.checks) })}
+            more={t(people.length > 0 ? "reference.accuracyExplain" : "reference.accuracyExplainQuestions", { checks: n(figures.checks) })}
           />
           {/* Reviewers get no one's accuracy by name (Decision 3): the people's table is the coordinators'. */}
-          {figures.people.length > 0 && (
+          {people.length > 0 && (
           <TableContainer sx={tableFrame}>
             <Table size="small">
               <TableHead>
@@ -146,15 +149,15 @@ function Accuracy({ figures }: { figures: ReferenceFiguresView }) {
  * set of answers keyed by plot id, and everyone's latest records of those plots are compared with
  * it, for the project, per question, per person (above half differing is flagged) and per plot.
  */
-function ExternalReference({ projectId, view, canEdit, onChanged }: { projectId: string; view: ReferenceView; canEdit: boolean; onChanged: (text: string) => void }) {
+function ExternalReference({ projectId, figures: all, set, onChanged }: { projectId: string; figures: ReferenceFiguresAnswer; set: ReferenceSet | null; onChanged: (text: string) => void }) {
   const t = useT();
   const { language } = useApp();
   const n = (v: number) => formatNumber(v, language);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [report, setReport] = useState<ReferenceAnswersReport | null>(null);
-  const figures = view.figures?.external ?? null;
-  if (!canEdit && !figures) return null;
+  const figures = all.external ?? null;
+  if (!set && !figures) return null;
   const run = async (action: () => Promise<string>) => {
     setBusy(true);
     setError(null);
@@ -186,16 +189,16 @@ function ExternalReference({ projectId, view, canEdit, onChanged }: { projectId:
         {t("reference.ext.title")}
       </Typography>
       <Explain variant="body2" text={t("reference.ext.explain.short")} more={t("reference.ext.explain")} />
-      {canEdit && (
+      {set && (
         <>
-          {view.external.count > 0 && (
+          {set.external.count > 0 && (
             <Typography variant="body2">
-              {t("reference.ext.count", { count: n(view.external.count) })}
-              {view.external.uploadedAt !== null && ` ${t("reference.ext.uploadedAt", { time: formatDate(view.external.uploadedAt, language) })}`}
+              {t("reference.ext.count", { count: n(set.external.count) })}
+              {set.external.uploadedAt !== null && ` ${t("reference.ext.uploadedAt", { time: formatDate(set.external.uploadedAt, language) })}`}
             </Typography>
           )}
           <FileDrop label={t("reference.ext.drop")} buttonLabel={t("reference.ext.choose")} accept=".csv,.json,text/csv,application/json" disabled={busy} onFiles={upload} />
-          {view.external.count > 0 && (
+          {set.external.count > 0 && (
             <Box>
               <Button color="error" variant="outlined" onClick={remove} disabled={busy}>
                 {t("reference.ext.delete")}
@@ -228,7 +231,7 @@ function ExternalReference({ projectId, view, canEdit, onChanged }: { projectId:
               <Typography>
                 {t("reference.ext.overall", { plots: n(figures.assessed), records: n(figures.checks) })} {disagreementText(t, overall, language)}
               </Typography>
-              {figures.people.length > 0 && (
+              {figures.people && figures.people.length > 0 && (
                 <TableContainer sx={tableFrame}>
                   <Table size="small">
                     <TableHead>
@@ -282,7 +285,7 @@ function ExternalReference({ projectId, view, canEdit, onChanged }: { projectId:
                   </TableBody>
                 </Table>
               </TableContainer>
-              {mostDiffering(figures.byPlot).length > 0 && (
+              {mostDiffering(figures.byPlot ?? []).length > 0 && (
                 <>
                   <Typography variant="h3" sx={{ fontSize: "1rem", fontWeight: 600 }}>
                     {t("reference.ext.plotsTitle")}
@@ -296,7 +299,7 @@ function ExternalReference({ projectId, view, canEdit, onChanged }: { projectId:
                         </TableRow>
                       </TableHead>
                       <TableBody>
-                        {mostDiffering(figures.byPlot).map((p) => (
+                        {mostDiffering(figures.byPlot ?? []).map((p) => (
                           <TableRow key={p.plot}>
                             <TableCell component="th" scope="row">
                               <Link {...linkProps(pathFor({ name: "plot", projectId, plot: p.plot }))}>{p.plot}</Link>
@@ -320,7 +323,7 @@ function ExternalReference({ projectId, view, canEdit, onChanged }: { projectId:
 type How = "random" | "list";
 
 /** Adding reference plots: a divided file, the reference assessor, and the plots (at random or by id). */
-function AddForm({ projectId, view, onDone }: { projectId: string; view: ReferenceView; onDone: (next: ReferenceView, marked: number) => void }) {
+function AddForm({ projectId, view, onDone }: { projectId: string; view: ReferenceSet; onDone: (next: ReferenceSet, marked: number) => void }) {
   const t = useT();
   const { language } = useApp();
   const idBase = useId();
@@ -366,9 +369,9 @@ function AddForm({ projectId, view, onDone }: { projectId: string; view: Referen
     }
     setBusy(true);
     try {
-      const { marked, view: next } = await markReference(projectId, body);
+      const { result, ...next } = await markReference(projectId, body);
       setIds("");
-      onDone(next, marked);
+      onDone(next, result.marked);
     } catch (err) {
       const key = err instanceof ApiError ? refusalKey(err.details.code) : null;
       if (key) {
@@ -472,7 +475,7 @@ function AddForm({ projectId, view, onDone }: { projectId: string; view: Referen
 }
 
 /** The reference plots, each removable, and each collector's progress through them. */
-function PlotList({ projectId, view, onDone }: { projectId: string; view: ReferenceView; onDone: (next: ReferenceView, removed: number) => void }) {
+function PlotList({ projectId, view, onDone }: { projectId: string; view: ReferenceSet; onDone: (next: ReferenceSet, removed: number) => void }) {
   const t = useT();
   const { language } = useApp();
   const n = (v: number) => formatNumber(v, language);
@@ -485,9 +488,9 @@ function PlotList({ projectId, view, onDone }: { projectId: string; view: Refere
     setBusy(true);
     setError(null);
     try {
-      const { unmarked, view: next } = await unmarkReference(projectId, confirm.plots);
+      const { result, ...next } = await unmarkReference(projectId, confirm.plots);
       setConfirm(null);
-      onDone(next, unmarked);
+      onDone(next, result.unmarked);
       // The row (or the list) pressed is gone: the list's heading takes the focus.
       window.setTimeout(() => document.getElementById(headingId)?.focus(), 0);
     } catch (err) {
@@ -606,19 +609,18 @@ const visuallyHidden = { position: "absolute", width: "1px", height: "1px", over
 export function QualityReference({ projectId, canEdit }: { projectId: string; canEdit: boolean }) {
   const t = useT();
   const { language } = useApp();
-  const { data, error, loading, reload, setData } = useLoad(() => getReference(projectId), [projectId]);
+  const { data, error, loading, reload, setData } = useLoad(["project", projectId, "getReference"], () => getReference(projectId));
   const [message, setMessage] = useState<string | null>(null);
   const busy = error instanceof ApiError && error.code === "busy";
-  const stale = data?.figures?.stale === true;
+  const stale = data?.figures.stale === true;
   // Newer figures are being worked out (or the server is busy): ask again in a while.
   useEffect(() => {
     if (loading || !(stale || busy)) return;
-    const id = window.setTimeout(reload, busy ? 15_000 : 20_000);
-    return () => window.clearTimeout(id);
+    return onceVisibleAfter(busy ? 15_000 : 20_000, document, reload);
   }, [loading, stale, busy, reload]);
-  const changed = (next: ReferenceView, text: string) => {
+  const changed = (next: ReferenceSet, text: string) => {
     // The change's answer has the set as it is now; the figures follow with the next load.
-    setData((prev) => ({ ...next, figures: prev.figures }));
+    setData((prev): ReferenceAnswer => ({ coordinator: true, ...next, figures: prev.figures }));
     setMessage(text);
     reload();
   };
@@ -651,12 +653,31 @@ export function QualityReference({ projectId, canEdit }: { projectId: string; ca
               {!(data.count === 0 && canEdit && data.coordinator) && (
                 <Typography variant="body2" color="text.secondary">
                   {data.count === 0 ? t("reference.none") : t("reference.count", { count: n(data.count), max: n(data.max) })}
-                  {data.figures?.computedAt != null && data.count > 0 && ` ${t(data.figures.stale ? "answers.asOfStale" : "answers.asOf", { time: formatDate(data.figures.computedAt, language) })}`}
+                  {data.count > 0 && ` ${t(data.figures.stale ? "answers.asOfStale" : "answers.asOf", { time: formatDate(data.figures.computedAt, language) })}`}
                 </Typography>
               )}
-              {data.figures && data.count > 0 && <Accuracy figures={data.figures} />}
-              <ExternalReference projectId={projectId} view={data} canEdit={canEdit && data.coordinator} onChanged={(text) => (setMessage(text), reload())} />
-              {canEdit && data.coordinator && (
+              {data.count > 0 && <Accuracy figures={data.figures} />}
+              {canEdit && data.coordinator && data.files.length === 0 && data.plots.length === 0 ? (
+                // Nothing can be done here before a plot file is divided: one notice, the way to Setup › Plots.
+                <>
+                  <Alert
+                    severity="info"
+                    action={
+                      <Button color="inherit" size="small" {...linkProps(pathFor({ name: "project", projectId, tab: "setup", view: "plots" }))}>
+                        {t("quality.openWhere", { where: `${t("tab.setup")} › ${t("view.setup.plots")}` })}
+                      </Button>
+                    }
+                  >
+                    {data.wholeFiles.length > 0
+                      ? t("reference.needDivided", { files: data.wholeFiles.map((f) => f.filename).join(", "), where: `${t("tab.setup")} › ${t("view.setup.plots")}` })
+                      : t("reference.needFile", { where: `${t("tab.setup")} › ${t("view.setup.plots")}` })}
+                  </Alert>
+                  {data.external.count > 0 && <ExternalReference projectId={projectId} figures={data.figures} set={data} onChanged={(text) => (setMessage(text), reload())} />}
+                </>
+              ) : (
+                <ExternalReference projectId={projectId} figures={data.figures} set={canEdit && data.coordinator ? data : null} onChanged={(text) => (setMessage(text), reload())} />
+              )}
+              {canEdit && data.coordinator && (data.files.length > 0 || data.plots.length > 0) && (
                 <>
                   <PlotList projectId={projectId} view={data} onDone={(next, removed) => changed(next, t("reference.removed", { count: n(removed) }))} />
                   <AddForm projectId={projectId} view={data} onDone={(next, marked) => changed(next, t("reference.added", { count: n(marked) }))} />

@@ -21,7 +21,7 @@ export function statusChip(t: Translate, status: PersonStatus): { label: string;
     case "neverStarted":
       return { label: t("peopleTable.statusNeverStarted"), color: "info" };
     case "quiet": {
-      const days = status.days ?? 0;
+      const days = status.days;
       return { label: t(days === 1 ? "peopleTable.statusQuietOne" : "peopleTable.statusQuiet", { n: days }), color: status.level === "red" ? "error" : "warning" };
     }
     case "working":
@@ -37,7 +37,7 @@ export function statusChip(t: Translate, status: PersonStatus): { label: string;
  * that). Finished people, people without plots or who never started get none.
  */
 export function statusSyncLevel(status: PersonStatus): "amber" | "red" | null {
-  return status.kind === "quiet" ? (status.level ?? "amber") : null;
+  return status.kind === "quiet" ? status.level : null;
 }
 
 /** "just now", "3 hours ago", "2 days ago" (how long ago a time was, in plain words). */
@@ -66,7 +66,7 @@ function sortValue(row: PersonRow, key: SortKey): string | number | null {
       return row.role;
     case "status":
       // The most worrying first: red quiet, amber quiet (the longest first), never started…
-      return STATUS_ORDER[row.status.kind] * 100_000 - (row.status.days ?? 0);
+      return STATUS_ORDER[row.status.kind] * 100_000 - (row.status.kind === "quiet" ? row.status.days : 0);
     case "assigned":
       return row.plots.assigned;
     case "submitted":
@@ -207,7 +207,7 @@ const weekday = (date: string) => (new Date(Date.parse(`${date}T00:00:00Z`)).get
  * The calendar from the first day with a submission (at most `maxWeeks` weeks back) to
  * today, as week columns. Without any submission: the last 4 weeks.
  */
-export function calendarWeeks(days: readonly { date: string; plots: number; checks: number }[], today: string, maxWeeks = 53): CalendarWeeks {
+export function calendarWeeks(days: readonly { date: string; plots: number; checks?: number }[], today: string, maxWeeks = 53): CalendarWeeks {
   const earliest = addDays(today, -(maxWeeks * 7 - 1));
   const first = days.length > 0 ? days[0].date : addDays(today, -27);
   const from = first < earliest ? earliest : first;
@@ -250,6 +250,11 @@ export function durationText(t: Translate, ms: number): string {
   return rest === 0 || minutes >= 10 ? t("person.minutes", { n: minutes }) : t("person.minutesSeconds", { m: minutes, s: rest });
 }
 
+/** The usual time between two submissions: "under 1 s" rather than "0 s" when it rounds to nothing. */
+export function medianGapText(t: Translate, ms: number): string {
+  return Math.round(ms / 1000) === 0 ? t("person.under", { d: durationText(t, 1000) }) : durationText(t, ms);
+}
+
 /** A speed bin's words: "under 15 s", "15 s to 30 s", … */
 export function bucketLabel(t: Translate, buckets: readonly { upToMs: number }[], index: number): string {
   const upTo = durationText(t, buckets[index].upToMs);
@@ -276,7 +281,7 @@ export function perDayText(value: number | null, language: string): string {
 }
 
 /** What the remove dialog says removing someone leaves behind (removeMember drops their plots and copies). */
-export function removalText(t: Translate, removal: { plots: number; copies: number } | null, language: string): string[] {
+export function removalText(t: Translate, removal: { plots: number; copies: number } | undefined, language: string): string[] {
   if (!removal) return [];
   const out: string[] = [];
   const n = (v: number) => formatNumber(v, language);
@@ -389,6 +394,18 @@ export function finishWhen(t: Translate, w: Pick<Workload, "left" | "daysLeft">,
   if (w.daysLeft <= 0) return t("peopleTable.title.workloadToday");
   if (w.daysLeft === 1) return t("peopleTable.title.workloadTomorrow");
   return t("peopleTable.title.workloadInDays", { n: formatNumber(w.daysLeft, language) });
+}
+
+/** One person's workload in a line, for narrow screens: "27 left to do · 0.7 a day · about 22 Dec 2026". */
+export function workloadLine(t: Translate, w: Workload, language: string, dayText: (date: string) => string): string {
+  const parts = [t("peopleTable.leftCount", { n: formatNumber(w.left, language) })];
+  if (w.left > 0) {
+    parts.push(w.pace === null ? t("peopleTable.title.workloadNoPaceTip") : t("peopleTable.title.workloadPerDay", { n: perDayText(w.pace, language) }));
+    if (w.finish !== null) parts.push(t("peopleTable.title.workloadAbout", { date: dayText(w.finish) }));
+  } else if (w.daysLeft === 0) {
+    parts.push(t("peopleTable.title.workloadFinished"));
+  }
+  return parts.join(" · ");
 }
 
 /** Under the plots left: "and 3 copies to compare", "and 1 copy to compare". */

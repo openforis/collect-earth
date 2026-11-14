@@ -1,6 +1,6 @@
 import { telemetry } from '../telemetry.js';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import type { Store } from '../store/store.js';
+import type { RecordUpload, Store } from '../store/store.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import { audit, noteActivity } from '../activity.js';
 import { isServerMadeName } from '../anonymize.js';
@@ -70,6 +70,8 @@ export async function registerRecordRoutes(app: FastifyInstance, store: Store, s
       // The plots of training sets: their records go to training_records (read once per batch).
       let training: { units: Set<string>; info: RoundInfo | null } | null = null;
       let trainingStored = 0;
+      // The project's records of the batch, written together once all are read (putRecordsWithEvents): where each answer goes
+      const uploads: { index: number; recordKey: string; operator: string; apply: RecordUpload['apply']; submitted: () => boolean }[] = [];
 
       for (const raw of envelopes) {
         const envelope = normalizeEnvelope(raw);
@@ -117,25 +119,57 @@ export async function registerRecordRoutes(app: FastifyInstance, store: Store, s
           // before, read under the record's lock: a crash cannot keep one without the
           // other, and two uploads of the record at once cannot both log the same change.
           let submitted = false;
-          const stored = await store.putRecordWithEvent(projectId, envelope.recordKey, operator, (existing, submittedBefore) => {
-            const { row, status } = applyLww(envelope, existing, receivedAt);
-            if (status !== 'stored') {
-              return null;
-            }
-            const next = { ...row, projectId };
-            const event = recordEventOf(existing, next, submittedBefore);
-            submitted = event?.change === 'submitted';
-            return { row: next, event };
+          uploads.push({
+            index: results.length,
+            recordKey: envelope.recordKey,
+            operator,
+            apply: (existing, submittedBefore) => {
+              const { row, status } = applyLww(envelope, existing, receivedAt);
+              if (status !== 'stored') {
+                return null;
+              }
+              const next = { ...row, projectId };
+              const event = recordEventOf(existing, next, submittedBefore);
+              submitted = event?.change === 'submitted';
+              return { row: next, event };
+            },
+            submitted: () => submitted,
           });
-          if (stored) {
-            storedCount += 1;
-            firstSubmission ||= submitted;
-          }
-          results.push({ recordKey: envelope.recordKey, status: stored ? 'stored' : 'stale' });
+          results.push({ recordKey: envelope.recordKey, status: 'error', reason: 'internal error' }); // until written below
         } catch (err) {
           request.log.error({ err, recordKey: envelope.recordKey }, 'record store failed');
           telemetry.captureError(err, { route: 'records:batch', project: projectId });
           results.push({ recordKey: envelope.recordKey, status: 'error', reason: 'internal error' });
+        }
+      }
+
+      // The batch's records in one transaction (a few statements, not six or more per record). Should it fail, each
+      // record on its own, so that one the store refuses does not take the others with it.
+      const settle = (u: (typeof uploads)[number], stored: boolean) => {
+        results[u.index] = { recordKey: u.recordKey, status: stored ? 'stored' : 'stale' };
+        if (stored) {
+          storedCount += 1;
+          firstSubmission ||= u.submitted();
+        }
+      };
+      if (uploads.length > 0) {
+        let together: boolean[] | null = null;
+        try {
+          together = await store.putRecordsWithEvents(projectId, uploads);
+        } catch (err) {
+          request.log.warn({ err, records: uploads.length }, 'the batch could not be stored at once: one record at a time');
+        }
+        if (together) {
+          uploads.forEach((u, i) => settle(u, together![i]));
+        } else {
+          for (const u of uploads) {
+            try {
+              settle(u, await store.putRecordWithEvent(projectId, u.recordKey, u.operator, u.apply));
+            } catch (err) {
+              request.log.error({ err, recordKey: u.recordKey }, 'record store failed');
+              telemetry.captureError(err, { route: 'records:batch', project: projectId });
+            }
+          }
         }
       }
 

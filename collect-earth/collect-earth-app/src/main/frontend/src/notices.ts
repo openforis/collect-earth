@@ -54,3 +54,34 @@ export function opensSendToCloud(notice: Notice, option: string): boolean {
 export function nextNotice(notices: Notice[], answered: Set<string>): Notice | null {
   return notices.find((n) => !answered.has(n.id)) ?? null;
 }
+
+const ALLOWED_TAGS = new Set(["p", "h1", "h2", "h3", "h4", "b", "strong", "i", "em", "u", "ul", "ol", "li", "br", "a"]);
+
+/**
+ * The HTML of a notice reduced to plain formatting and http(s)/mailto links: announcements come from openforis.org and
+ * would otherwise run on this page, whose API takes no credentials. Fails closed: the output holds only the tags made
+ * here and escaped text, so markup this does not understand shows as text, never as markup. (A string scan, not
+ * DOMParser, so that the tests, which run without a DOM, check the real thing.)
+ */
+export function sanitizeNoticeHtml(html: string): string {
+  const escape = (text: string) => text.replace(/&(?!#?\w+;)/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const cleaned = html.replace(/<!--[\s\S]*?(-->|$)/g, "")
+    .replace(/<(script|style|iframe|object|embed|template|svg|math|noscript|textarea|title)\b[\s\S]*?(<\/\1\s*>|$)/gi, "");
+  let out = "";
+  let last = 0;
+  for (const m of cleaned.matchAll(/<(\/?)([a-zA-Z][a-zA-Z0-9]*)([^>]*)>/g)) {
+    out += escape(cleaned.slice(last, m.index));
+    last = m.index + m[0].length;
+    const [, closing, name, attrs] = m;
+    const tag = name.toLowerCase();
+    if (!ALLOWED_TAGS.has(tag)) continue;
+    if (tag === "br") out += closing ? "" : "<br>";
+    else if (closing) out += `</${tag}>`;
+    else if (tag === "a") {
+      const href = /\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/i.exec(attrs);
+      const url = href ? (href[1] ?? href[2] ?? href[3]).trim() : "";
+      out += /^(https?:|mailto:)/i.test(url) ? `<a href="${escape(url)}">` : "<a>";
+    } else out += `<${tag}>`;
+  }
+  return out + escape(cleaned.slice(last));
+}

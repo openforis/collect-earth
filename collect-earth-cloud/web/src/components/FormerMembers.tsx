@@ -27,7 +27,7 @@ import { Explain } from "./Explain";
 export function FormerMembers({ projectId }: { projectId: string }) {
   const t = useT();
   const { language } = useApp();
-  const list = useLoad(() => getFormerMembers(projectId), [projectId]);
+  const list = useLoad(["project", projectId, "getFormerMembers"], () => getFormerMembers(projectId));
   const [asking, setAsking] = useState<FormerMember | null>(null);
   const [done, setDone] = useState<string | null>(null);
   const [error, setError] = useState<unknown>(null);

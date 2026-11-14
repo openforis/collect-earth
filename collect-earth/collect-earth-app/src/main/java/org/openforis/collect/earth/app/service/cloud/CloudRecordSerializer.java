@@ -1,7 +1,6 @@
 package org.openforis.collect.earth.app.service.cloud;
 
 import java.io.IOException;
-import java.io.StringReader;
 import java.io.StringWriter;
 import java.util.Collections;
 import java.util.Date;
@@ -10,10 +9,7 @@ import java.util.Map;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.core.handlers.BalloonInputFieldsUtils;
 import org.openforis.collect.model.CollectRecord;
-import org.openforis.collect.model.CollectSurvey;
 import org.openforis.collect.persistence.xml.DataMarshaller;
-import org.openforis.collect.persistence.xml.DataUnmarshaller;
-import org.openforis.collect.persistence.xml.DataUnmarshaller.ParseRecordResult;
 import org.openforis.collect.earth.app.service.PlotTimeService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -145,14 +141,5 @@ public class CloudRecordSerializer {
 	public static RecordEnvelope tombstone(String recordKey, String surveyUri, String operator, Date deletedOn) {
 		return new RecordEnvelope(recordKey, surveyUri, operator, deletedOn, false, 0, null,
 				Collections.<String, String> emptyMap(), true);
-	}
-
-	/** Parses record XML (as downloaded from the cloud) back into a CollectRecord. */
-	public CollectRecord deserialize(String xml, CollectSurvey survey) throws IOException {
-		ParseRecordResult result = new DataUnmarshaller(survey).parse(new StringReader(xml));
-		if (!result.isSuccess() || result.getRecord() == null) {
-			throw new IOException("Error parsing record XML: " + result.getFailures()); //$NON-NLS-1$
-		}
-		return result.getRecord();
 	}
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { accountsToMake, sinceText } from "./serverAccountsView";
+import { accountsToMake, chipsToShow, shortId, sinceText } from "./serverAccountsView";
 
 describe("the accounts to make, as typed", () => {
   it("reads one per line, with or without an address, whatever is between them", () => {
@@ -35,5 +35,19 @@ describe("how long ago", () => {
     expect(sinceText(now - 86400_000, now, "en")).toBe("yesterday");
     expect(sinceText(now - 40 * 86400_000, now, "es")).toBe("el mes pasado");
     expect(sinceText(now - 2 * 365 * 86400_000, now, "fr")).toBe("il y a 2 ans");
+  });
+});
+
+describe("the lists' short ids and filter chips", () => {
+  it("shortens a project id to its first 8 characters", () => {
+    expect(shortId("3f2a9c1e-7b4d-4e2a-9c1e-7b4d4e2a9c1e")).toBe("3f2a9c1e");
+    expect(shortId("abc")).toBe("abc");
+  });
+
+  it("hides the chips that would find nothing, but never All or the one chosen", () => {
+    const filters = ["all", "admins", "disabled", "locked"] as const;
+    expect(chipsToShow(filters, "all", { all: 5, admins: 1, disabled: 0, locked: 0 })).toEqual(["all", "admins"]);
+    expect(chipsToShow(filters, "locked", { all: 5, admins: 1, disabled: 0, locked: 0 })).toEqual(["all", "admins", "locked"]);
+    expect(chipsToShow(filters, "all", undefined)).toEqual(filters);
   });
 });

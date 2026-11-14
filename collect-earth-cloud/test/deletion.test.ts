@@ -237,6 +237,19 @@ describe('deleting my account', () => {
     expect((await signup(ctx.app, 'coord')).statusCode).toBe(201);
   });
 
+  it('keeps a project where I am the only member when it holds records: deleted on purpose first', async () => {
+    const alone = await project(coord.token, 'Just me');
+    await batchRequest(ctx.app, alone, coord.token, [envelope({ operator: 'coord' })]);
+    expect((await preview(coord.token)).json()).toEqual({
+      soleCoordinator: [{ projectId: alone, name: 'Just me' }],
+      deletedWithAccount: [],
+      lastPlatformAdmin: false,
+    });
+    expect((await deleteMe(ctx.app, coord.token, 'coord-password')).statusCode).toBe(409);
+    expect(await ctx.store.getProject(alone)).not.toBeNull();
+    expect(await ctx.store.getUserById(coord.userId)).not.toBeNull();
+  });
+
   it("removes a collector's assignments but keeps their records", async () => {
     const pid = await project(coord.token, 'Bolivia NFI');
     const juan = (await register(ctx.app, 'juan', await invite(ctx.app, pid, coord.token))).json();
@@ -263,6 +276,18 @@ describe('deleting my account', () => {
     const again = await signup(ctx.app, 'juan');
     expect(again.statusCode).toBe(409);
     expect(again.json().error).toBe('username_taken');
+  });
+
+  it('keeps the name of a collector removed from a project that holds their records, once the account goes', async () => {
+    const pid = await project(coord.token, 'Bolivia NFI');
+    const juan = (await register(ctx.app, 'juan', await invite(ctx.app, pid, coord.token))).json();
+    await batchRequest(ctx.app, pid, juan.token, [envelope({ operator: 'juan' })]);
+    const removed = await ctx.app.inject({ method: 'DELETE', url: `/v1/projects/${pid}/members/${juan.userId}`, headers: bearer(coord.token) });
+    expect(removed.statusCode).toBeLessThan(300);
+
+    expect((await deleteMe(ctx.app, juan.token, 'juan-password')).statusCode).toBe(204);
+    expect(await ctx.store.listRecords(pid)).toHaveLength(1);
+    expect((await signup(ctx.app, 'juan')).json().error).toBe('username_taken');
   });
 });
 

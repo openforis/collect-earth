@@ -8,23 +8,12 @@
 // A plot whose code is left out (no data: clouds, no imagery) stays in its stratum's n_h and stands for its share as "no
 // data", in no category: each year's categories and no data add up to the total (docs/plans/2026-11-11-strata-areas.md).
 
-export const IPCC_CATEGORIES = ['forest', 'cropland', 'grassland', 'wetland', 'settlement', 'other'] as const;
-export type IpccCategory = (typeof IPCC_CATEGORIES)[number];
-const Z95 = 1.96;
+import type { Estimate, ForestRow, IpccCategory, UncertaintyResult, UncertaintySettings } from './wire/data.js';
 
-/** What a coordinator sets up once per project (projects.uncertainty_settings). */
-export interface UncertaintySettings {
-  /** The plot table's code columns of the land use at the start and at the end (src/analysis.ts column names). */
-  initial: string;
-  final: string;
-  /** Labels of the two years ("2000", "2024"). */
-  initialYear: string;
-  finalYear: string;
-  /** Per code list, each code's IPCC category; null: left out on purpose. A code not here is unmapped. */
-  codes: Record<string, Record<string, IpccCategory | null>>;
-  /** The area in hectares when the project file has no areas file (every plot then stands for the same area). */
-  totalArea: number | null;
-}
+export type { Estimate, ForestRow, IpccCategory, UncertaintyResult, UncertaintySettings } from './wire/data.js';
+
+export const IPCC_CATEGORIES = ['forest', 'cropland', 'grassland', 'wetland', 'settlement', 'other'] as const satisfies readonly IpccCategory[];
+const Z95 = 1.96;
 
 /** A plot's two categories; null: its code is left out (no data). */
 type Pair = { from: IpccCategory | null; to: IpccCategory | null };
@@ -37,45 +26,7 @@ export interface UncertaintyPlot {
   stratum: string | null;
 }
 
-export interface Estimate {
-  plots: number;
-  /** Of the total area, 0–1. */
-  proportion: number;
-  area: number;
-  se: number;
-  ci: number;
-  /** CI / area · 100; null when the area is 0. */
-  uncertainty: number | null;
-}
-
-export type ForestRow = 'forestStable' | 'nonForestToForest' | 'forestToNonForest' | 'nonForestStable' | 'initiallyForest' | 'initiallyNonForest' | 'currentlyForest' | 'currentlyNonForest';
 export const FOREST_ROWS: ForestRow[] = ['forestStable', 'nonForestToForest', 'forestToNonForest', 'nonForestStable', 'initiallyForest', 'initiallyNonForest', 'currentlyForest', 'currentlyNonForest'];
-
-export interface UncertaintyResult {
-  /** "simple": one stratum, every plot standing for the same area; "stratified": the areas file's strata. */
-  estimator: 'simple' | 'stratified';
-  totalArea: number;
-  /** The plots used. */
-  plots: number;
-  strata: { key: string; area: number; plots: number }[];
-  /** Strata with fewer than 2 plots used: no variance (n_h − 1 = 0). With 1 plot its area counts, with none it does not. */
-  notEstimable: { key: string; area: number; plots: number }[];
-  /** Plots not used, by why. A plot unmapped in both years is counted once (initial first). */
-  skipped: { missing: number; unmapped: number; noArea: number };
-  /** The plots of a code left out (no data), each year: in their stratum's count, in no category. */
-  noData: { initial: Estimate; final: Estimate };
-  unmapped: { which: 'initial' | 'final'; code: string; plots: number }[];
-  categories: { category: IpccCategory; initial: Estimate; final: Estimate }[];
-  total: Estimate;
-  forest: { row: ForestRow; estimate: Estimate }[];
-  /** Every pair, initial category by final category, in IPCC_CATEGORIES order. */
-  transitions: { from: IpccCategory; to: IpccCategory; estimate: Estimate }[];
-  /**
-   * Hectares: cells[from][to], with the row and column totals, and each row's share of its initial category (%). Over
-   * the plots with a category both years: its total is the total area less the no data of either year.
-   */
-  matrix: { cells: number[][]; rowTotals: number[]; columnTotals: number[]; total: number; rowPercent: (number | null)[][] };
-}
 
 /** The tables of the uncertainty analysis. `strata`: the area in hectares of each stratum. */
 export function uncertainty(plots: readonly UncertaintyPlot[], strata: ReadonlyMap<string, number>, settings: Pick<UncertaintySettings, 'codes'> & { initialList: string; finalList: string }): UncertaintyResult {
@@ -161,6 +112,26 @@ export function uncertainty(plots: readonly UncertaintyPlot[], strata: ReadonlyM
     transitions,
     matrix: { cells, rowTotals, columnTotals, total: rowTotals.reduce((a, b) => a + b, 0), rowPercent: cells.map((row, i) => row.map((v) => (rowTotals[i] > 0 ? (v / rowTotals[i]) * 100 : null))) },
   };
+}
+
+/**
+ * The stratified estimate of the total of a plot variable y over the area (each stratum h of area A_h, its n_h plots'
+ * values y): T = Σ_h A_h·ȳ_h, Var(T) = Σ_h A_h²·s_h²/n_h, s_h² = Σ(y − ȳ_h)²/(n_h − 1). For y in {0, 1} (a plot in
+ * a class or not) it is the estimate of uncertainty() above: A_h²·p(1 − p)/(n_h − 1). A stratum of fewer than 2 plots
+ * adds its area but no variance; one of none adds nothing. y can be negative (a net change: +1 gained, −1 lost).
+ */
+export function stratifiedTotal(strata: readonly { area: number; values: readonly number[] }[]): { total: number; se: number; ci: number } {
+  let total = 0;
+  let variance = 0;
+  for (const { area, values } of strata) {
+    const n = values.length;
+    if (n === 0) continue;
+    const mean = values.reduce((a, b) => a + b, 0) / n;
+    total += area * mean;
+    if (n > 1) variance += (area * area * (values.reduce((sum, y) => sum + (y - mean) * (y - mean), 0) / (n - 1))) / n;
+  }
+  const se = Math.sqrt(variance);
+  return { total, se, ci: Z95 * se };
 }
 
 /** The settings sent by a coordinator, checked, or a message saying what is wrong. `codeColumns`: the plot table's code columns and their lists. */

@@ -1,17 +1,33 @@
 // Strata and areas (docs/plans/2026-11-11-strata-areas.md, step 2): the area each plot stands for, set on the dashboard.
 // A project's setting is either strata (the plot-file columns whose values make a stratum, each stratum's area in
-// hectares) or one total area. Without one, the project file's areas file is read as before (analysis.ts), then the
-// Uncertainty page's total area. The expansion factor of a plot is its stratum's area divided by the stratum's plots
+// hectares) or one total area. Without one, the project file's areas file is read as before (analysis.ts), then a total
+// area typed before on another page (earlierTotalArea). Every figure reads them in that one order. The expansion factor of a plot is its stratum's area divided by the stratum's plots
 // with a submitted first assessment, as Collect Earth's RegionCalculationUtils works it out.
 import { areaOf, csvSeparatorOf, parseCsv, type Factors } from './analysis.js';
+import type { Store } from './store/store.js';
+import type { AreaSettings, StrataAreas } from './wire/plotFiles.js';
 
-export interface StrataAreas {
-  /** The columns whose values make a stratum: questions of the survey or columns of the plot files. */
-  columns: string[];
-  strata: { values: string[]; area: number }[];
+export type { AreaSettings, StrataAreas } from './wire/plotFiles.js';
+
+/**
+ * A total area typed before the areas had one place (Setup › Areas): on the Uncertainty page, else for a repeat survey's
+ * change areas. Read only, and only when nothing else gives the areas (analysis.ts projectFactors): every figure then uses
+ * the same one. Saving the areas (routes/areas.ts) clears both, so neither comes back later.
+ */
+export async function earlierTotalArea(store: Store, projectId: string): Promise<number | null> {
+  const [uncertainty, repeat] = await Promise.all([store.getUncertaintySettings(projectId), store.getRepeatSettings(projectId)]);
+  return uncertainty?.totalArea || repeat?.totalArea || null;
 }
 
-export type AreaSettings = ({ mode: 'strata' } & StrataAreas) | { mode: 'total'; area: number };
+/** Forgets the totals typed before (earlierTotalArea): the areas are now set in Setup › Areas, or on purpose left to the project file. */
+export async function clearEarlierTotalAreas(store: Store, projectId: string): Promise<void> {
+  const [uncertainty, repeat] = await Promise.all([store.getUncertaintySettings(projectId), store.getRepeatSettings(projectId)]);
+  if (uncertainty?.totalArea) await store.setUncertaintySettings(projectId, { ...uncertainty, totalArea: null });
+  if (repeat?.totalArea !== undefined) {
+    const { totalArea: _earlier, ...rest } = repeat;
+    await store.setRepeatSettings(projectId, rest);
+  }
+}
 
 /** What a setting may hold. */
 export const AREA_LIMITS = { columns: 5, strata: 20_000, valueChars: 500, area: 1e12 };

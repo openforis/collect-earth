@@ -4,7 +4,10 @@ import { parseClientAgent } from './clientVersion.js';
 import { addDays, daysBetween, localDate } from './days.js';
 import { recordResolver } from './quality.js';
 import { keyShape, splitKey } from './rounds.js';
-import type { CepInfo, Member, MemberActivity, ProgressSettings } from './types.js';
+import type { CepInfo, Member, MemberActivity } from './types.js';
+import type { AttentionItem, AttentionPerson, Forecast, Progress, ProgressDay, ProgressSettings, ProgressTotals } from './wire/progress.js';
+
+export type { AttentionItem, AttentionPerson, Forecast, Progress, ProgressDay, ProgressTotals } from './wire/progress.js';
 
 /**
  * The Progress tab's figures (monitoring Phase 2), pure: the totals per plot unit, the
@@ -76,82 +79,6 @@ export interface ProgressInput {
   attention?: AttentionInput;
   /** The records already resolved (ProjectStateCache); else worked out here from `records`. */
   prepared?: PlotUnits;
-}
-
-export interface ProgressTotals {
-  /** Plot units of the plot files, checks (the reassessment round of an own round) left out. */
-  plots: number;
-  assigned: number;
-  notAssigned: number;
-  /** Plots whose first assessment is submitted now. */
-  submitted: number;
-  /** Plots with a first assessment saved but not submitted. */
-  started: number;
-  notStarted: number;
-}
-
-export interface ProgressDay {
-  date: string;
-  /** Plots (submitted now) whose first assessment was first submitted that day. */
-  submitted: number;
-  /** Plots submitted by the end of the day, of those submitted now. */
-  cumulative: number;
-}
-
-export interface Forecast {
-  target: number;
-  /** Where the target comes from: the project setting, or every assigned plot. */
-  targetFrom: 'setting' | 'assigned';
-  remaining: number;
-  /** Plots a day over the last paceDays days. */
-  pacePerDay: number;
-  /** PACE_DAYS, or fewer when the first plot was submitted less than PACE_DAYS days ago. */
-  paceDays: number;
-  /** Days until the rest is done at that pace; 0 when done; null without a pace. */
-  daysLeft: number | null;
-  /** today + daysLeft; null without a pace. */
-  endDate: string | null;
-  deadline: string | null;
-  /** Days from today to the deadline (negative once it has passed). */
-  daysToDeadline: number | null;
-  /** endDate − deadline in days: over 0 is late. Null without a deadline or a pace. */
-  daysOver: number | null;
-  /** Plots a day needed to finish by the deadline; null when done, without a deadline or once it has passed. */
-  neededPerDay: number | null;
-}
-
-export interface AttentionPerson {
-  username: string;
-  /** quiet: their last sync and their last plot download (the later one is what counts). */
-  lastSyncAt?: number | null;
-  lastPlotsDownloadAt?: number | null;
-  /** oldUnsentWork: the median wait between saving and the server receiving it. */
-  medianDelayMs?: number;
-  /** trainingFinished: the learning set they finished, and whether they passed (null: no pass mark). */
-  set?: string;
-  passed?: boolean | null;
-}
-
-export type AttentionItem =
-  | { kind: 'quiet'; count: number; quietDays: number; people: AttentionPerson[] }
-  | { kind: 'neverDownloaded'; count: number; people: AttentionPerson[] }
-  | { kind: 'notAssigned'; count: number }
-  | { kind: 'oldUnsentWork'; count: number; people: AttentionPerson[] }
-  | { kind: 'differencesWaiting'; count: number }
-  | { kind: 'storage'; count: number; level: 'nearlyFull' | 'over'; usedBytes: number; limitBytes: number }
-  | { kind: 'oldProjectFile'; count: number; people: AttentionPerson[] }
-  | { kind: 'oldCollectEarth'; count: number; unknownVersion: number; people: AttentionPerson[] }
-  | { kind: 'trainingFinished'; count: number; people: AttentionPerson[] };
-
-export interface Progress {
-  timeZone: string;
-  today: string;
-  totals: ProgressTotals;
-  daily: ProgressDay[];
-  forecast: Forecast;
-  /** Null for a reviewer. */
-  attention: AttentionItem[] | null;
-  settings: ProgressSettings;
 }
 
 export function progressReport(input: ProgressInput): Progress {

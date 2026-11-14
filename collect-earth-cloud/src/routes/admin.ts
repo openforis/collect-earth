@@ -15,11 +15,23 @@ import { migrationFiles } from '../store/migrate.js';
 import { UsernameTakenError } from '../store/memory.js';
 import { isStoredTime, type Store } from '../store/store.js';
 import { MAIL_LANGUAGES, SETTING_BOUNDS, type MailLanguage, type ProjectCreation, type ServerSettings } from '../types.js';
+import type { AiUsageAnswer } from '../wire/ai.js';
 import type { AccountMailHooks } from './mail.js';
 import { accountDeletionPlan } from './auth.js';
 import { accountsCsv, parseAccountQuery, parseNewAccounts, queryAccounts } from '../accounts.js';
 import { generateToken } from '../auth.js';
 import { logServerAction } from '../serverActivity.js';
+import type { ServerInfo, Session, SignupAnswer } from '../wire/account.js';
+import type {
+  AccountAnswer,
+  AccountDeletedAnswer,
+  MadeAccount,
+  MadeAccountsAnswer,
+  ResetLinkAnswer,
+  ShownSettings,
+  SignedOutAnswer,
+  UnlockAnswer,
+} from '../wire/serverAdmin.js';
 
 /** How long the link of an account a server administrator made works: a week, for its person to find it. */
 const WELCOME_TTL_MS = 7 * 24 * 3600 * 1000;
@@ -105,6 +117,8 @@ export interface AdminRouteOptions {
   now?: () => number;
   /** Failed logins and refused requests (the server owner's panel); none counted when absent. */
   counters?: ServerCounters;
+  /** The dashboard's build (ServerInfo.dashboardBuild): a hash of the served index.html, null when none is served. */
+  dashboardBuild?: string | null;
   /** When this process started (epoch ms). */
   startedAt?: number;
   /** The mail routes' confirmation sender, for an address given at sign-up, and the notice after a reset. */
@@ -114,10 +128,10 @@ export interface AdminRouteOptions {
 }
 
 /** The settings as an administrator reads them: the alerts' webhook only as whether one is set and its host. */
-export function shownSettings(settings: ServerSettings) {
+export function shownSettings(settings: ServerSettings, aiConfigured: boolean): ShownSettings {
   const { alertWebhookUrl, ...rest } = settings;
   const parsed = alertWebhookUrl ? parseWebhookUrl(alertWebhookUrl) : null;
-  return { ...rest, alertWebhook: parsed ? { kind: parsed.kind, host: parsed.host } : null };
+  return { ...rest, alertWebhook: parsed ? { kind: parsed.kind, host: parsed.host } : null, aiConfigured };
 }
 
 /**
@@ -150,11 +164,16 @@ export async function registerAdminRoutes(
         serverName: null,
         aiAvailable: false,
         selfServiceReset: false,
+        minPasswordLength: (await store.getSettings()).minPasswordLength,
+        signupDomains: null,
         mapTiles: config.mapTiles ?? OSM_TILES,
-      });
+        telemetry: null,
+        dashboardBuild: options.dashboardBuild ?? null,
+      } satisfies ServerInfo);
     }
     const settings = await store.getSettings();
     return reply.send({
+      localMode: false,
       needsSetup: !(await store.hasPlatformAdmin()),
       signupOpen: settings.signupOpen,
       projectCreation: settings.projectCreation,
@@ -173,7 +192,8 @@ export async function registerAdminRoutes(
       mapTiles: config.mapTiles ?? OSM_TILES,
       // The dashboard's error reports (Sentry), when the server sends them: its public DSN only.
       telemetry: telemetry.dashboardConfig(),
-    });
+      dashboardBuild: options.dashboardBuild ?? null,
+    } satisfies ServerInfo);
   });
 
   // First-run setup: creates the platform admin. Gated by the setup code so a
@@ -207,7 +227,7 @@ export async function registerAdminRoutes(
       return reply.code(409).send({ error: 'already_set_up' });
     }
     const token = await store.createSession(user.id);
-    return reply.code(201).send({ token, userId: user.id, username: user.username });
+    return reply.code(201).send({ token, userId: user.id, username: user.username } satisfies Session);
   });
 
   // Open sign-up (only when the platform admin turned it on). Accounts made through
@@ -247,7 +267,6 @@ export async function registerAdminRoutes(
       }
       throw err;
     }
-    const token = await store.createSession(userId);
     // An address given here gets its confirmation link, as one given on the account page does: the
     // account page says a link was sent. A refused or failed send leaves the account made; the
     // person can send it again from there.
@@ -260,7 +279,10 @@ export async function registerAdminRoutes(
         // logged by sendConfirmation
       }
     }
-    return reply.code(201).send({ token, userId, username });
+    // Limited to some domains: the address must be shown to be the person's before any session (login checks it too)
+    if (settings.signupDomains) return reply.code(202).send({ userId, username, emailConfirmationRequired: true } satisfies SignupAnswer);
+    const token = await store.createSession(userId);
+    return reply.code(201).send({ token, userId, username } satisfies SignupAnswer);
   });
 
   // Whether a reset link still works, checked when its page opens (so a used or expired link says
@@ -307,7 +329,7 @@ export async function registerAdminRoutes(
     '/v1/admin/settings',
     { preHandler: requirePlatformAdmin(store) },
     // aiConfigured: only whether the AI configuration is there (never the key or the Vertex settings).
-    async (_request: FastifyRequest, reply: FastifyReply) => reply.send({ ...shownSettings(await store.getSettings()), aiConfigured: config.aiConfigured === true }),
+    async (_request: FastifyRequest, reply: FastifyReply) => reply.send(shownSettings(await store.getSettings(), config.aiConfigured === true)),
   );
 
   app.put(
@@ -423,7 +445,7 @@ export async function registerAdminRoutes(
       }
       if (Object.keys(changed).length > 0) await logServerAction(store, request, { action: 'settings.changed', details: changed });
       request.server.ownerAlerts?.setThresholds(thresholdsOf(after));
-      return reply.send({ ...shownSettings(after), aiConfigured: config.aiConfigured === true });
+      return reply.send(shownSettings(after, config.aiConfigured === true));
     },
   );
 
@@ -462,14 +484,7 @@ export async function registerAdminRoutes(
       const accounts = parseNewAccounts(request.body);
       if (!Array.isArray(accounts)) return reply.code(400).send({ error: 'bad_request', ...accounts });
       const body = (request.body ?? {}) as { mail?: unknown; language?: unknown };
-      const results: {
-        username: string;
-        status: 'created' | 'taken';
-        userId?: string;
-        mailed?: boolean;
-        setPasswordUrl?: string;
-        expiresAt?: number;
-      }[] = [];
+      const results: MadeAccount[] = [];
       for (const a of accounts) {
         if (await store.isAccountUsername(a.username)) {
           results.push({ username: a.username, status: 'taken' });
@@ -494,7 +509,7 @@ export async function registerAdminRoutes(
         await logServerAction(store, request, { action: 'account.created', targetUserId: user.id, targetName: user.username, details: { mailed } });
       }
       kept = null;
-      return reply.code(201).send({ results });
+      return reply.code(201).send({ results } satisfies MadeAccountsAnswer);
     },
   );
 
@@ -514,8 +529,9 @@ export async function registerAdminRoutes(
       if (result === 'last_platform_admin') return reply.code(409).send({ error: 'last_enabled_admin', reason: 'the server must keep one enabled platform admin' });
       kept = null;
       const user = (await store.listUsers()).find((u) => u.userId === uid);
-      await logServerAction(store, request, { action: on ? 'account.admin_granted' : 'account.admin_removed', targetUserId: uid, targetName: user?.username ?? null });
-      return reply.send({ user });
+      if (!user) return reply.code(404).send({ error: 'not_found' });
+      await logServerAction(store, request, { action: on ? 'account.admin_granted' : 'account.admin_removed', targetUserId: uid, targetName: user.username });
+      return reply.send({ user } satisfies AccountAnswer);
     },
   );
 
@@ -530,7 +546,7 @@ export async function registerAdminRoutes(
       if (uid === request.userId) return reply.code(409).send({ error: 'own_account', reason: 'sign out of your own sessions from your account page' });
       await store.deleteUserSessions(uid);
       await logServerAction(store, request, { action: 'account.signed_out', targetUserId: uid, targetName: target.username });
-      return reply.send({ signedOut: true });
+      return reply.send({ signedOut: true } satisfies SignedOutAnswer);
     },
   );
 
@@ -544,7 +560,7 @@ export async function registerAdminRoutes(
       if (!target) return reply.code(404).send({ error: 'not_found' });
       const was = await store.clearLoginFailures(uid);
       if (was) await logServerAction(store, request, { action: 'account.unlocked', targetUserId: uid, targetName: target.username });
-      return reply.send({ unlocked: was });
+      return reply.send({ unlocked: was } satisfies UnlockAnswer);
     },
   );
 
@@ -573,7 +589,7 @@ export async function registerAdminRoutes(
       for (const p of plan.deletedWithAccount) await store.deleteProject(p.projectId);
       kept = null;
       await logServerAction(store, request, { action: 'account.deleted', targetName: user.username, details: { projectsDeleted: plan.deletedWithAccount.length } });
-      return reply.send({ deleted: true, projectsDeleted: plan.deletedWithAccount.length });
+      return reply.send({ deleted: true, projectsDeleted: plan.deletedWithAccount.length } satisfies AccountDeletedAnswer);
     },
   );
 
@@ -606,7 +622,7 @@ export async function registerAdminRoutes(
           outputTokens: sum('outputTokens'),
           tokens: sum('tokens'),
         },
-      });
+      } satisfies AiUsageAnswer);
     },
   );
 
@@ -671,7 +687,8 @@ export async function registerAdminRoutes(
       const disabled = (await store.listUsers()).find((u) => u.userId === uid);
       await logServerAction(store, request, { action: 'account.disabled', targetUserId: uid, targetName: disabled?.username ?? null });
       await syncProjectsOf(request, uid);
-      return reply.send({ user: disabled });
+      if (!disabled) return reply.code(404).send({ error: 'not_found' });
+      return reply.send({ user: disabled } satisfies AccountAnswer);
     },
   );
 
@@ -687,7 +704,8 @@ export async function registerAdminRoutes(
       const enabled = (await store.listUsers()).find((u) => u.userId === uid);
       await logServerAction(store, request, { action: 'account.enabled', targetUserId: uid, targetName: enabled?.username ?? null });
       await syncProjectsOf(request, uid);
-      return reply.send({ user: enabled });
+      if (!enabled) return reply.code(404).send({ error: 'not_found' });
+      return reply.send({ user: enabled } satisfies AccountAnswer);
     },
   );
 
@@ -710,7 +728,7 @@ export async function registerAdminRoutes(
       }
       if (await options.accountMail?.mailResetLink?.(request, user.id)) {
         await logServerAction(store, request, { action: 'account.reset_mailed', targetUserId: user.id, targetName: user.username });
-        return reply.code(202).send({ mailed: true });
+        return reply.code(202).send({ mailed: true } satisfies ResetLinkAnswer);
       }
       const expiresAt = Date.now() + RESET_TTL_MS;
       // Null when the account was disabled meanwhile: the store checks it in the same statement.
@@ -719,7 +737,7 @@ export async function registerAdminRoutes(
         return reply.code(409).send({ error: 'account_disabled', reason: 'enable the account first' });
       }
       await logServerAction(store, request, { action: 'account.reset_link', targetUserId: user.id, targetName: user.username });
-      return reply.code(201).send({ resetUrl: `${publicBaseUrl(config, request)}/reset/${token}`, expiresAt });
+      return reply.code(201).send({ resetUrl: `${publicBaseUrl(config, request)}/reset/${token}`, expiresAt } satisfies ResetLinkAnswer);
     },
   );
 }

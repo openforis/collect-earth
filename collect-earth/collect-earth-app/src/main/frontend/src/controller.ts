@@ -1,11 +1,11 @@
 import { fetchGewStatus, fetchImageryStatus, fetchMapConfig, fetchPlots, fetchStatuses, formUrl, gewMoveCamera,
   openAuxiliaryWindows, postGewContext, showImagerySource } from "./api";
 import { byId, changedAfterSubmit, type FormMessage, indexPlots, leftUnsubmitted, neighbour, nextUnfinished, normalizeStatus, plotsNear, surveyView,
-  previousMessage, previousPlot, previousStands, type PreviousPlot, visibleIds } from "./plots";
+  periodAnswer, type PeriodView, previousMessage, previousPlot, previousStands, type PreviousPlot, visibleIds } from "./plots";
 import { imageryForNumber, reconcileImagery, sameImageryStatus, type ImageryExpectation } from "./imagery";
 import { loadPrefs, savePrefs, type Prefs } from "./prefs";
 import { formWindow, isFormMessage } from "./shortcuts";
-import type { ImagerySource, ImageryStatus, LatLng, ListFilter, MapConfig, PlotFeature, PlotStatus } from "./types";
+import type { ImagerySource, ImageryStatus, LatLng, ListFilter, MapConfig, PeriodAnswer, PeriodFilter, PlotFeature, PlotStatus } from "./types";
 
 const POLL_MILLIS = 5000;
 /** Google Earth Web's state, read until it is ready to be moved over the survey area. */
@@ -33,6 +33,12 @@ export interface UiState {
   formUrl: string | null;
   filter: ListFilter;
   query: string;
+  /** Whether the project is a repeat survey: its plots have a period status, which the list can filter by */
+  repeat: boolean;
+  /** What the collector said of each plot against the earlier period, by id (a plot not answered has none) */
+  periods: Record<string, PeriodAnswer>;
+  /** The plots the list shows by that answer (a repeat survey's only) */
+  periodFilter: PeriodFilter;
   /** Collect Earth UI language (catalogues in i18n.ts; others fall back to English) */
   language: string;
   /** The tabs of the imagery window and the one shown: the source buttons. */
@@ -83,7 +89,7 @@ export class MapController {
   constructor() {
     this.state = {
       order: [], labels: byId(), statuses: byId(), loaded: false, activeId: null, selected: 0, formUrl: null,
-      filter: this.prefs.filter ?? "all", query: "", language: "en",
+      filter: this.prefs.filter ?? "all", query: "", repeat: false, periods: byId(), periodFilter: this.prefs.periodFilter ?? "all", language: "en",
       imagery: { sources: [], visible: null }, submitted: null, unsubmitted: null,
     };
   }
@@ -188,6 +194,8 @@ export class MapController {
       for (const [id, status] of Object.entries(data.statuses)) {
         if (id in this.plots) updates[id] = normalizeStatus(status);
       }
+      if (data.periods) this.applyPeriods(data.periods);
+      else if (this.state.repeat) this.set({ repeat: false, periods: byId() });
       this.applyStatuses(updates);
     } catch { /* transient - the next poll retries */ }
     window.setTimeout(() => this.pollStatuses(), POLL_MILLIS);
@@ -197,6 +205,27 @@ export class MapController {
     const changed = Object.keys(updates).filter((id) => this.state.statuses[id] !== updates[id]);
     if (!changed.length) return;
     this.set({ statuses: Object.assign(byId<PlotStatus>(), this.state.statuses, updates) });
+  }
+
+  /** A repeat survey's period statuses of the plots saved since the last poll ("" for a plot not answered). */
+  private applyPeriods(received: Record<string, string>): void {
+    const periods = Object.assign(byId<PeriodAnswer>(), this.state.periods);
+    let changed = false;
+    for (const [id, value] of Object.entries(received)) {
+      if (!(id in this.plots)) continue;
+      const answer = periodAnswer(value);
+      if ((periods[id] ?? null) === answer) continue;
+      if (answer === null) delete periods[id];
+      else periods[id] = answer;
+      changed = true;
+    }
+    if (this.state.repeat && !changed) return;
+    this.set({ repeat: true, periods });
+  }
+
+  /** The filter by the earlier period, for a repeat survey only: null for any other project, whatever was chosen */
+  periodView(): PeriodView | null {
+    return this.state.repeat ? { periods: this.state.periods, filter: this.state.periodFilter } : null;
   }
 
   // Same-origin messages from the web form in the iframe, and from its window only
@@ -276,7 +305,7 @@ export class MapController {
   /** Previous/next plot among those currently shown in the list (all plots if none). */
   neighbourOf(id: string | null, step: 1 | -1): string | null {
     const { order, labels, statuses, filter, query } = this.state;
-    const visible = visibleIds(order, statuses, filter, query, labels);
+    const visible = visibleIds(order, statuses, filter, query, labels, this.periodView());
     return neighbour(visible.length ? visible : order, id, step);
   }
 
@@ -361,4 +390,6 @@ export class MapController {
   // ---------- list ----------
   setFilter = (filter: ListFilter): void => { this.set({ filter }); this.savePref("filter", filter); };
   setQuery = (query: string): void => this.set({ query });
+  /** The plots the list shows by what the collector said against the earlier period */
+  setPeriodFilter = (periodFilter: PeriodFilter): void => { this.set({ periodFilter }); this.savePref("periodFilter", periodFilter); };
 }

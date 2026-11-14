@@ -16,9 +16,9 @@ import { fill, renderHtml, renderText, type MailLine } from './digestText.js';
 import type { Mailer } from './mail.js';
 import type { Store } from './store/store.js';
 import type { MailLanguage } from './types.js';
+import type { AlertSignal, AlertThresholds, OwnerAlertKind as AlertKind } from './wire/serverAdmin.js';
 
-export type AlertKind = 'failed_logins' | 'server_errors' | 'sync_errors' | 'storage' | 'two_factor_keys';
-export type AlertSignal = 'failedLogin' | 'serverError' | 'syncError';
+export type { AlertSignal, AlertThresholds, OwnerAlertKind as AlertKind } from './wire/serverAdmin.js';
 
 export interface OwnerAlert {
   kind: AlertKind;
@@ -34,9 +34,6 @@ export interface OwnerAlert {
 export const THRESHOLDS: Record<AlertSignal, number> = { failedLogin: 50, serverError: 20, syncError: 50 };
 /** A project's storage alert, in percent of its limit, by default (alertStoragePercent). */
 export const STORAGE_PERCENT = 90;
-
-/** The thresholds in force: the signals' per hour and a project's storage in percent. */
-export type AlertThresholds = Record<AlertSignal, number> & { storagePercent: number };
 
 /** The thresholds the server settings say. */
 export function thresholdsOf(settings: { alertFailedLogins: number; alertServerErrors: number; alertSyncErrors: number; alertStoragePercent: number }): AlertThresholds {

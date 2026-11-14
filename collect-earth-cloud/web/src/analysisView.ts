@@ -1,7 +1,8 @@
-import type { AnalysisData, AnalysisModelData, AnalysisTableModel } from "./api";
+import type { AnalysisAnswer, AnalysisModel, AnalysisTable } from "./api";
 import type { MessageKey, Translate } from "./i18n";
 import { applyQuestion, measuresOf } from "./analysisQuestion";
 import { templatesOf } from "./analysisSuggest";
+import { csvText, csvTime } from "./csv";
 
 // The analysis page (docs/plans/2026-11-05-node-and-arena.md, stage 6a: what replaces Saiku). The server sends the
 // survey's model and the rows of its tables (src/analysis.ts there); the browser loads them into DuckDB and pivots
@@ -45,7 +46,7 @@ export interface Cube {
 }
 
 /** A label in a language: the survey's own in that language, else its default language's, else any, else the name. */
-export function labelIn(labels: Record<string, string> | undefined, language: string, model: Pick<AnalysisModelData, "languages">, fallback: string): string {
+export function labelIn(labels: Record<string, string> | undefined, language: string, model: Pick<AnalysisModel, "languages">, fallback: string): string {
   if (!labels) return fallback;
   const pick = labels[language] || labels[model.languages[0] ?? ""] || labels[""] || Object.values(labels).find((l) => l);
   return pick?.trim() || fallback;
@@ -57,7 +58,7 @@ export const quoteIdent = (name: string) => `"${name.replace(/"/g, '""')}"`;
 export const quoteString = (value: string) => `'${value.replace(/'/g, "''")}'`;
 
 /** A list whose codes are all years (the year of a change): an axis over time. */
-export function isYearList(model: Pick<AnalysisModelData, "lists">, list: string | null | undefined): boolean {
+export function isYearList(model: Pick<AnalysisModel, "lists">, list: string | null | undefined): boolean {
   const items = list ? model.lists[list] : undefined;
   return !!items && items.length > 0 && items.every((i) => /^\d{4}$/.test(i.code) && Number(i.code) >= 1900 && Number(i.code) <= 2100);
 }
@@ -66,7 +67,7 @@ export function isYearList(model: Pick<AnalysisModelData, "lists">, list: string
 const YEAR_WORDS = /year|año|\bano\b|année|annee/i;
 
 /** The deepest level of each list (0 for a flat list). */
-export function listDepths(model: AnalysisModelData): Record<string, number> {
+export function listDepths(model: AnalysisModel): Record<string, number> {
   const out: Record<string, number> = {};
   for (const [list, items] of Object.entries(model.lists)) out[list] = items.reduce((m, i) => Math.max(m, i.level), 0);
   return out;
@@ -76,7 +77,7 @@ export function listDepths(model: AnalysisModelData): Record<string, number> {
  * The code tables, as one CSV for DuckDB: for every item of every list, its label in the language and the label of
  * the item at each level above it (or its own, at its own level). A code's label is then one join, whatever the depth.
  */
-export function codesCsv(model: AnalysisModelData, language: string): { csv: string; columns: [string, string][] } {
+export function codesCsv(model: AnalysisModel, language: string): { csv: string; columns: [string, string][] } {
   const depth = Math.max(0, ...Object.values(listDepths(model)));
   const columns: [string, string][] = [["list", "VARCHAR"], ["code", "VARCHAR"], ["label", "VARCHAR"]];
   for (let k = 0; k < depth; k++) columns.push([`level_${k}`, "VARCHAR"]);
@@ -98,7 +99,27 @@ export function codesCsv(model: AnalysisModelData, language: string): { csv: str
   return { csv: lines.join("\n") + "\n", columns };
 }
 
-export function csvField(value: string): string {
+/**
+ * The pivot as the viewer shows it, as CSV (Perspective's own to_csv leaves cells that are formulas as they are): its
+ * to_columns (with __ROW_PATH__ when grouped, split columns named "a|b|measure"), its schema and group by.
+ */
+export function pivotCsv(columns: Record<string, unknown[]>, schema: Record<string, string>, groupBy: readonly string[], language: string): string {
+  const paths = columns.__ROW_PATH__ as unknown[][] | undefined;
+  const names = Object.keys(columns).filter((k) => k !== "__ROW_PATH__");
+  const levels = paths ? groupBy : [];
+  // Perspective gives dates and times as milliseconds
+  const value = (v: unknown, type: string | undefined): string | number | null =>
+    v === null || v === undefined ? null : type === "date" ? new Date(v as number).toISOString().slice(0, 10) : type === "datetime" ? csvTime(v as number) : typeof v === "number" ? v : String(v);
+  const count = paths?.length ?? columns[names[0]]?.length ?? 0;
+  const rows = Array.from({ length: count }, (_, i) => [
+    ...levels.map((g, l) => value(paths![i][l], schema[g])),
+    ...names.map((n) => value(columns[n][i], schema[n.split("|").pop()!])),
+  ]);
+  return csvText([...levels, ...names], rows, language);
+}
+
+// For the code tables DuckDB reads (not a download): no formula escaping, the codes must stay as they are
+function csvField(value: string): string {
   return /[",\n\r]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
 }
 
@@ -127,7 +148,7 @@ const FIXED: { id: string; key: MessageKey; sql: (alias: string, t: Translate) =
  * The cube of a table: for the plot, its columns; for a multiple entity, its columns and then the plot's (each row is
  * an entity, with the answers of the plot it is in, as Saiku's cube of a nested entity).
  */
-export function cubeOf(data: Pick<AnalysisData, "model" | "scope" | "areas">, tableName: string, language: string, t: Translate): Cube {
+export function cubeOf(data: Pick<AnalysisAnswer, "model" | "scope" | "areas">, tableName: string, language: string, t: Translate): Cube {
   const { model } = data;
   const plot = model.tables.find((x) => x.name === "plot");
   const table = model.tables.find((x) => x.name === tableName) ?? plot;
@@ -151,7 +172,7 @@ export function cubeOf(data: Pick<AnalysisData, "model" | "scope" | "areas">, ta
   const noneSql = quoteString(none);
   const labelsOfList = (list: string) => ({ ...Object.fromEntries(model.lists[list].map((i) => [i.code, labelIn(i.labels, language, model, i.code)])), "": none });
 
-  const answers = (tm: AnalysisTableModel, alias: string, idPrefix: string, ownGroup: ColumnGroup) => {
+  const answers = (tm: AnalysisTable, alias: string, idPrefix: string, ownGroup: ColumnGroup) => {
     for (const c of tm.columns) {
       const group: ColumnGroup = c.fromPlotFile ? "plotFile" : ownGroup;
       const label = labelIn(c.labels, language, model, c.name);
@@ -198,7 +219,7 @@ export function cubeOf(data: Pick<AnalysisData, "model" | "scope" | "areas">, ta
 }
 
 /** The tables the person can choose: the plots, then each multiple entity, by their labels. */
-export function tableChoices(model: AnalysisModelData, language: string, t: Translate): { name: string; label: string }[] {
+export function tableChoices(model: AnalysisModel, language: string, t: Translate): { name: string; label: string }[] {
   return model.tables.map((x) => ({ name: x.name, label: x.name === "plot" ? t("analysis.table.plot") : labelIn(x.labels, language, model, x.name) }));
 }
 
@@ -221,7 +242,7 @@ export interface ViewConfig {
  * quality checks are other people's answers for the same plots. Perspective's panel starts closed: the question bar
  * above it is the way in.
  */
-export function defaultView(data: Pick<AnalysisData, "model" | "scope" | "areas">, cube: Cube, t: Translate): ViewConfig {
+export function defaultView(data: Pick<AnalysisAnswer, "model" | "scope" | "areas">, cube: Cube, t: Translate): ViewConfig {
   const measures = measuresOf(cube, t);
   const [first] = templatesOf(data, cube, measures, t);
   return applyQuestion({ plugin: "Datagrid", settings: false, group_by: [], split_by: [], columns: [], aggregates: {}, filter: [], sort: [], expressions: {} }, first.question, measures, cube);

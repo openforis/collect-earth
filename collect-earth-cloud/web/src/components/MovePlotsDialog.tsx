@@ -55,7 +55,7 @@ export function MovePlotsDialog({
   const n = (v: number) => formatNumber(v, language);
   const day = (date: string) => dayText(date, language);
   const timeZone = browserTimeZone();
-  const person = useLoad(() => getPerson(projectId, from.userId, timeZone), [projectId, from.userId, timeZone]);
+  const person = useLoad(["project", projectId, "getPerson", from.userId, timeZone], () => getPerson(projectId, from.userId, timeZone));
   const files = (person.data?.files ?? []).filter((f) => fileLeft(f) > 0);
   const others = sortWorkload(
     people.filter((p) => p.userId !== from.userId && p.status.kind !== "disabled").map((p) => workloadOf(p, today)),

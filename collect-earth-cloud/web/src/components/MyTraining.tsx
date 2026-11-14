@@ -11,7 +11,7 @@ import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import CheckCircle from "@mui/icons-material/CheckCircle";
 import Cancel from "@mui/icons-material/Cancel";
-import { getMyTraining, type MyTrainingSet, type ScoredPlot } from "../api";
+import { getMyTraining, type MyTrainingSet, type MyScoredPlot } from "../api";
 import { useApp } from "../appContext";
 import { formatDate, formatNumber } from "../format";
 import { useT } from "../i18n";
@@ -27,7 +27,7 @@ import { MoreInfo } from "./Explain";
  */
 export function MyTraining({ projectId }: { projectId: string }) {
   const t = useT();
-  const state = useLoad(() => getMyTraining(projectId), [projectId]);
+  const state = useLoad(["project", projectId, "getMyTraining"], () => getMyTraining(projectId));
   if (state.error) return <ErrorAlert error={state.error} onRetry={state.reload} />;
   if (!state.data || state.data.length === 0) return null;
   return (
@@ -101,7 +101,7 @@ function MySet({ set }: { set: MyTrainingSet }) {
   );
 }
 
-function MyPlot({ plot }: { plot: ScoredPlot }) {
+function MyPlot({ plot }: { plot: MyScoredPlot }) {
   const t = useT();
   const { language } = useApp();
   return (

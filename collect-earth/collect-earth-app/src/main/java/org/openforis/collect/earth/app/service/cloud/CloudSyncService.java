@@ -93,6 +93,8 @@ public class CloudSyncService implements ApplicationListener<ContextRefreshedEve
 	/** surveyUri whose definition has been successfully uploaded; null until the first success. */
 	private volatile String uploadedSurveyUri = null;
 	private ScheduledExecutorService executor;
+	/** A cloud project is joined or switched to with a restart, so this is when its first reconcile starts from */
+	private final Date startedOn = new Date();
 
 	@Override
 	public void onApplicationEvent(ContextRefreshedEvent event) {
@@ -282,7 +284,10 @@ public class CloudSyncService implements ApplicationListener<ContextRefreshedEve
 					localPropertiesService.getCloudProjectId());
 		} catch (IOException e) {
 			String message = e.getMessage() == null ? "" : e.getMessage();
-			if (message.contains("HTTP 403") || message.contains("HTTP 401")) {
+			int status = e instanceof CloudApiException ? ((CloudApiException) e).getStatus() : 0;
+			if (status == 401) {
+				signedOut(); // uploaded once logged in again
+			} else if (status == 403) {
 				// This token may not upload the survey (e.g. an operator in a project whose
 				// coordinator already published the CEP). That is expected: mark done so we
 				// stop retrying every cycle. Record sync is unaffected.
@@ -321,7 +326,8 @@ public class CloudSyncService implements ApplicationListener<ContextRefreshedEve
 			String cloudProjectId = localPropertiesService.getCloudProjectId();
 			Date watermark = queueDao.getReconciliationWatermark(surveyUri, cloudProjectId);
 			if (watermark == null) {
-				watermark = new Date(0L);
+				// Not the records from before: sending those is CloudRecordsSender's offer, which the person may have declined
+				watermark = startedOn;
 			}
 			List<CollectRecordSummary> summaries = earthSurveyService.getRecordSummariesSavedSince(watermark);
 			for (CollectRecordSummary summary : summaries) {

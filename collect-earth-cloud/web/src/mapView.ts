@@ -47,7 +47,11 @@ export function statusDrawnKey(status: MapStatus): MessageKey {
 
 /** The legend's symbol for a status, drawn as on the map (an inline SVG). */
 export function symbolSvg(status: MapStatus, size = 20): string {
-  const s = STATUS_STYLE[status];
+  return styleSvg(STATUS_STYLE[status], size);
+}
+
+/** A style's symbol, drawn as on the map (an inline SVG). */
+export function styleSvg(s: StatusStyle, size = 20): string {
   const r = Math.min(size / 2 - s.weight, s.radius + 2);
   const dash = s.dashArray ? ` stroke-dasharray="${s.dashArray}"` : "";
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" aria-hidden="true" focusable="false"><circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="${s.color}" fill-opacity="${s.fillOpacity}" stroke="${s.color}" stroke-width="${s.weight}"${dash}/></svg>`;
@@ -117,8 +121,9 @@ export const LIST_PAGE = 100;
  * the plots the map shows (its filters and the statuses switched on), in the map's order, the
  * first `limit` of them, each with its status and its page.
  */
-export function plotList(map: MapPlots, shown: ReadonlySet<MapStatus>, projectId: string, limit: number): { rows: PlotPopup[]; total: number } {
-  const indexes = shownIndexes(map, shown);
+export function plotList(map: MapPlots, shown: ReadonlySet<MapStatus>, projectId: string, limit: number, only: Uint32Array | null = null): { rows: PlotPopup[]; total: number } {
+  // `only`: the plots another colouring shows (a repeat survey's change), instead of the statuses switched on
+  const indexes = only ?? shownIndexes(map, shown);
   const rows: PlotPopup[] = [];
   for (let k = 0; k < Math.min(limit, indexes.length); k++) rows.push(plotPopup(map, indexes[k], projectId));
   return { rows, total: indexes.length };
@@ -137,4 +142,56 @@ export function escapeHtml(text: string): string {
 export function attributionHtml(tiles: MapTiles): string {
   const text = escapeHtml(tiles.attribution);
   return tiles.attributionUrl ? `<a href="${escapeHtml(tiles.attributionUrl)}" target="_blank" rel="noopener noreferrer">${text}</a>` : text;
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// A repeat survey's change since the earlier period (docs/plans/2026-11-11-repeat-survey.md), as another colouring
+
+/** How a plot compares with the earlier period; "none": not compared (no earlier answer and not collected). */
+export const CHANGE_KINDS = ["unchanged", "changed", "corrected", "new", "pending", "none"] as const;
+export type ChangeKind = (typeof CHANGE_KINDS)[number];
+
+/** Okabe–Ito colours as the statuses, told apart by their fill, outline and size too. */
+export const CHANGE_STYLE: Record<ChangeKind, StatusStyle> = {
+  // A full dot.
+  unchanged: { color: "#0072B2", fillOpacity: 0.85, weight: 1, radius: 5 },
+  // A larger full dot with a thick outline: what to see first.
+  changed: { color: "#D55E00", fillOpacity: 0.9, weight: 3, radius: 7 },
+  // A dashed ring, lightly filled.
+  corrected: { color: "#CC79A7", fillOpacity: 0.4, weight: 3, dashArray: "3 2", radius: 6 },
+  // A full dot.
+  new: { color: "#009E73", fillOpacity: 0.85, weight: 1, radius: 5 },
+  // A hollow ring.
+  pending: { color: "#616161", fillOpacity: 0, weight: 2, radius: 5 },
+  // A small dotted ring.
+  none: { color: "#9E9E9E", fillOpacity: 0, weight: 1, dashArray: "1 2", radius: 4 },
+};
+
+/** Each plot's change (index in CHANGE_KINDS), in the map's order, from the comparison's rows. */
+export function changeCodes(map: Pick<MapPlots, "total" | "plots">, rows: readonly { plot: string; outcome: string }[]): Uint8Array {
+  const byPlot = new Map(rows.map((r) => [r.plot, CHANGE_KINDS.indexOf(r.outcome as ChangeKind)]));
+  const none = CHANGE_KINDS.indexOf("none");
+  const codes = new Uint8Array(map.total);
+  for (let i = 0; i < map.total; i++) {
+    const code = byPlot.get(map.plots[i]);
+    codes[i] = code === undefined || code < 0 ? none : code;
+  }
+  return codes;
+}
+
+/** The plots whose code is shown, in the map's order. */
+export function shownByCodes(codes: Uint8Array, shown: readonly boolean[]): Uint32Array {
+  let n = 0;
+  for (let i = 0; i < codes.length; i++) if (shown[codes[i]]) n++;
+  const out = new Uint32Array(n);
+  let k = 0;
+  for (let i = 0; i < codes.length; i++) if (shown[codes[i]]) out[k++] = i;
+  return out;
+}
+
+/** The plots on the map of each change. */
+export function changeCounts(codes: Uint8Array): Record<ChangeKind, number> {
+  const counts = Object.fromEntries(CHANGE_KINDS.map((k) => [k, 0])) as Record<ChangeKind, number>;
+  for (let i = 0; i < codes.length; i++) counts[CHANGE_KINDS[codes[i]]] += 1;
+  return counts;
 }

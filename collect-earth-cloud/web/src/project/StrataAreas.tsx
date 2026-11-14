@@ -2,7 +2,6 @@ import Alert from "@mui/material/Alert";
 import Autocomplete from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
@@ -15,7 +14,7 @@ import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Typography from "@mui/material/Typography";
 import Download from "@mui/icons-material/Download";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { downloadAreasFile, getAreas, saveAreas, uploadAreasFile } from "../api";
 import { useApp } from "../appContext";
 import { areasOf, shownArea, strataSettings, stratumKey, typedArea } from "../areasView";
@@ -23,6 +22,7 @@ import { csvText } from "../backupImportView";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Explain } from "../components/Explain";
 import { FileDrop } from "../components/FileDrop";
+import { FoldingCard } from "../components/FoldingCard";
 import { Loading } from "../components/Loading";
 import { formatNumber } from "../format";
 import { useT, type MessageKey } from "../i18n";
@@ -42,12 +42,20 @@ const SOURCE_KEYS: Record<string, MessageKey> = {
  * (the values of the columns chosen, as the plot files have them) or one total area. `version`: changes when the plot
  * files do, to count their plots again.
  */
-export function StrataAreas({ projectId, version }: { projectId: string; version: unknown }) {
+export function StrataAreas({ projectId, version, defaultOpen = false }: { projectId: string; version?: unknown; defaultOpen?: boolean }) {
   const t = useT();
   const { language } = useApp();
   // null: the saved columns; a choice previews the strata those columns make
   const [chosen, setChosen] = useState<string[] | null>(null);
-  const state = useLoad(() => getAreas(projectId, chosen ?? undefined), [projectId, version, chosen?.join("\u0000")]);
+  const state = useLoad(["project", projectId, "getAreas", chosen], () => getAreas(projectId, chosen ?? undefined));
+  // The plot files changed (another file, other values): their strata are asked again
+  const { reload } = state;
+  const shown = useRef(version);
+  useEffect(() => {
+    if (shown.current === version) return;
+    shown.current = version;
+    reload();
+  }, [version, reload]);
   const [mode, setMode] = useState<"strata" | "total" | null>(null);
   const [typed, setTyped] = useState<Record<string, string>>({});
   const [total, setTotal] = useState<string | null>(null);
@@ -102,10 +110,7 @@ export function StrataAreas({ projectId, version }: { projectId: string; version
   const canSave = d.canEdit && !busy && !state.loading && !state.error && (shownMode === "total" ? totalArea !== null && totalArea > 0 : columns.length > 0 && !wrong && strataSetting.strata.some((s) => s.area > 0));
 
   return (
-    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section" aria-labelledby="strata-areas">
-      <Typography variant="h2" id="strata-areas" gutterBottom>
-        {t("areas.title")}
-      </Typography>
+    <FoldingCard title={t("areas.title")} summary={d.source ? t(SOURCE_KEYS[d.source]) : t("areas.source.none")} defaultOpen={defaultOpen}>
       <Explain sx={{ mb: 2 }} text={t("areas.explain.short")} more={t("areas.explain")} />
       <Typography sx={{ mb: 2 }}>{d.source ? t(SOURCE_KEYS[d.source]) : t("areas.source.none")}</Typography>
       {d.canEdit && (
@@ -226,7 +231,8 @@ export function StrataAreas({ projectId, version }: { projectId: string; version
             {t("areas.download")}
           </Button>
         )}
-        {d.canEdit && (d.source === "strata" || d.source === "total") && (
+        {/* A total typed before on another page can be cleared too: the areas then come from the project file, if any */}
+        {d.canEdit && (d.source === "strata" || d.source === "total" || d.source === "uncertainty") && (
           <Button color="inherit" onClick={() => void run(() => saveAreas(projectId, null))} disabled={busy}>
             {t("areas.reset")}
           </Button>
@@ -237,6 +243,6 @@ export function StrataAreas({ projectId, version }: { projectId: string; version
           <FileDrop label={t("areas.drop")} buttonLabel={t("areas.choose")} accept=".csv,text/csv" disabled={busy} onFiles={(files) => void upload(files)} />
         </Box>
       )}
-    </Paper>
+    </FoldingCard>
   );
 }

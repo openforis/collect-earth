@@ -17,7 +17,7 @@ import { Loading } from "../components/Loading";
 import { PasswordField } from "../components/PasswordField";
 import { useT, type MessageKey } from "../i18n";
 import { linkProps, pathFor, type ProjectTab } from "../router";
-import { MailCard } from "./MailCard";
+import { EmailCard, MailCard } from "./MailCard";
 import { TwoFactorCard } from "../components/TwoFactorCard";
 import { useLoad } from "../useLoad";
 import { passwordProblem } from "../validation";
@@ -70,6 +70,7 @@ export function AccountPage() {
           </Stack>
         </Box>
         <TwoFactorCard />
+        <EmailCard />
         <FormCard title={t("account.changeTitle")} onSubmit={submit} level={2}>
           <PasswordField
             label={t("account.current")}
@@ -105,7 +106,7 @@ export function AccountPage() {
           )}
           <ErrorAlert error={error} />
           <Box>
-            <Button type="submit" variant="contained" disabled={busy}>
+            <Button type="submit" variant="outlined" disabled={busy}>
               {t("account.changeSubmit")}
             </Button>
           </Box>
@@ -174,7 +175,7 @@ function OtherDevicesCard() {
 function DeleteAccountCard() {
   const t = useT();
   const { logOut } = useApp();
-  const plan = useLoad(getAccountDeletion, []);
+  const plan = useLoad(["app", "getAccountDeletion"], getAccountDeletion);
   const [password, setPassword] = useState("");
   const [missing, setMissing] = useState(false);
   const [error, setError] = useState<unknown>(null);

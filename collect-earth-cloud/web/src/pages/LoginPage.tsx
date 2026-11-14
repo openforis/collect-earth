@@ -49,6 +49,8 @@ export function LoginPage({ mode, sessionEnded }: { mode: "login" | "signup"; se
   const [needsCode, setNeedsCode] = useState(false);
   const [code, setCode] = useState("");
   const codeRef = useRef<HTMLInputElement>(null);
+  // Sign-up limited to some domains: the account is made, and signs in once the mailed link is opened
+  const [checkMail, setCheckMail] = useState(false);
 
   const submit = async () => {
     setError(null);
@@ -65,7 +67,8 @@ export function LoginPage({ mode, sessionEnded }: { mode: "login" | "signup"; se
       const session = signingUp
         ? await signup(username.trim(), password, email.trim() || undefined, needsTerms && acceptTerms, language)
         : await login(username.trim(), password, needsCode ? code.trim() : undefined);
-      await loggedIn(session);
+      if (session) await loggedIn(session);
+      else setCheckMail(true);
     } catch (err) {
       if (err instanceof ApiError && err.code === "second_step_required") {
         // Not an error: the password was right, the code comes next
@@ -176,7 +179,12 @@ export function LoginPage({ mode, sessionEnded }: { mode: "login" | "signup"; se
             </Alert>
           )}
           <ErrorAlert error={error} />
-          <Button type="submit" variant="contained" size="large" disabled={busy} sx={WEBSITE_BUTTON}>
+          {checkMail && signingUp && (
+            <Alert severity="success" role="status">
+              {t("signup.checkEmail", { email: email.trim() })}
+            </Alert>
+          )}
+          <Button type="submit" variant="contained" size="large" disabled={busy || (checkMail && signingUp)} sx={WEBSITE_BUTTON}>
             {signingUp ? t("signup.submit") : t("login.submit")}
           </Button>
           {signingUp ? (

@@ -1,9 +1,12 @@
 import { addDays } from './days.js';
 import type { FlagCounts } from './flags.js';
-import type { PeopleTable, PersonRow, PersonStatus } from './people.js';
-import { dayInZone, type PlotUnits, type ProgressTotals } from './progress.js';
+import type { PeopleTable } from './people.js';
+import { dayInZone, type PlotUnits } from './progress.js';
 import { isoWeek, MIN_PLOTS, overallAgreement, type QualityReport, type Rate } from './quality.js';
-import type { DecisionKind, QualityDecision, Role } from './types.js';
+import type { QualityDecision } from './types.js';
+import type { WeeklyPerson, WeeklySummary } from './wire/activity.js';
+
+export type { WeeklyPerson, WeeklySummary } from './wire/activity.js';
 
 /**
  * The weekly summary (Task 10, monitoring Phase 6), pure: one ISO week (Monday to Sunday) of the
@@ -33,60 +36,6 @@ export function weekMonday(week: string): string {
   const weekday = (jan4.getUTCDay() + 6) % 7; // Monday 0
   const monday1 = addDays(`${year}-01-04`, -weekday);
   return addDays(monday1, (n - 1) * 7);
-}
-
-export interface WeeklyPerson {
-  userId: string;
-  username: string;
-  role: Role;
-  /** Plots (not checks) first submitted in the week. */
-  submitted: number;
-  /** Checks first submitted in the week, reference plots' left out (they are measurements, Decision 8). */
-  checks: number;
-  /** Their checks of reference plots first submitted in the week (measurements against the reference, counted apart). */
-  referenceMeasurements: number;
-  /** As the People table has it now. */
-  status: PersonStatus;
-  plots: PersonRow['plots'];
-}
-
-export interface WeeklySummary {
-  week: string;
-  timeZone: string;
-  /** Monday and Sunday of the week. */
-  start: string;
-  end: string;
-  /** Whether the week is the viewer's current one (its figures are still growing). */
-  current: boolean;
-  progress: {
-    /** Each day of the week: plots first submitted that day (as the Progress tab's bars), and checks (reference plots' apart). */
-    days: { date: string; submitted: number; checks: number }[];
-    submitted: number;
-    /** Checks of the week, reference plots' left out. */
-    checks: number;
-    /** Checks of reference plots in the week: measurements against the reference, never decided (Decision 8). */
-    referenceMeasurements: number;
-    /** Plots submitted before the week, and by its end (each plot once, on the day of its first submission). */
-    before: number;
-    byEnd: number;
-    /** The project's totals now. */
-    totals: ProgressTotals;
-  };
-  people: WeeklyPerson[];
-  quality: {
-    /** False when no quality figures were at hand (nobody opened the Quality tab since the server started). */
-    available: boolean;
-    computedAt: number | null;
-    stale: boolean;
-    /** Checks of the week compared with their first assessment (the report's week: the check's last save, in UTC). */
-    week: Rate | null;
-    /** Every check so far. */
-    overall: Rate | null;
-    /** Decisions made in the week, by kind (decisions changed since keep only their last time; none of a reference plot). */
-    decided: Record<DecisionKind, number> & { total: number };
-    /** Plots worth a look found in the week (their time in the week), by kind; null without figures. */
-    flags: { counts: FlagCounts; total: number } | null;
-  };
 }
 
 export interface WeeklyInput {

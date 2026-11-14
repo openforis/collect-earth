@@ -87,6 +87,20 @@ class LocalPropertiesSecretTest {
 	}
 
 	@Test
+	void aReferenceOfAnotherProtectorIsNoToken() {
+		Properties file = new Properties();
+		file.setProperty("cloud_sync_token", "keyring:cloud_sync_token");
+		LocalPropertiesService service = new LocalPropertiesService(file);
+		// no protector (a Linux without its keyring now): not sent as the token, the login is asked for
+		assertEquals("", service.getCloudSyncToken());
+		// another protector: neither revealed nor protected as if it were the token
+		LocalPropertiesService.setSecretProtector(new FakeProtector());
+		assertEquals("", service.getCloudSyncToken());
+		service.protectSecrets();
+		assertEquals("keyring:cloud_sync_token", file.getProperty("cloud_sync_token"));
+	}
+
+	@Test
 	void theSettingsFileIsTheOwnersOnlyOnLinuxAndMacOs(@org.junit.jupiter.api.io.TempDir java.nio.file.Path folder) throws Exception {
 		java.nio.file.Path file = folder.resolve("earth.properties");
 		java.nio.file.Files.write(file, "cloud_sync_token=x\n".getBytes());
@@ -164,6 +178,11 @@ class LocalPropertiesSecretTest {
 		service.setValue(EarthProperty.PLANET_MAPS_KEY, "  ");
 		assertEquals(false, service.isPlanetMapsSupported());
 		service.setValue(EarthProperty.PLANET_MAPS_KEY, "PLAK123");
+		assertEquals(true, service.isPlanetMapsSupported());
+		// Its switch: on unless it says false, and off whatever the key
+		service.setValue(EarthProperty.OPEN_PLANET_MAPS, "false");
+		assertEquals(false, service.isPlanetMapsSupported());
+		service.setValue(EarthProperty.OPEN_PLANET_MAPS, "true");
 		assertEquals(true, service.isPlanetMapsSupported());
 		// the sample points numbered: a project that answers per point asks for it
 		assertEquals(false, service.isSamplePointNumbers());

@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { answersQuery, NO_ANSWERS_FILTER, toAnswersData, type AnswerFlag, type ChoiceAnswers } from "./api";
+import { answersQuery, NO_ANSWERS_FILTER, type AnswerFlag, type ChoiceStats } from "./api";
 import { answerQuestions, chanceText, choiceRows, datesInOrder, flagText, syncedDays, hasFilter, numberText, restOfTeam, shownQuestion, spreadScale, spreadText } from "./answersView";
 import { translator } from "./i18n";
 
-const land: ChoiceAnswers = {
+const land: ChoiceStats = {
   key: "land",
   label: "Land use",
   multiple: false,
@@ -72,13 +72,10 @@ describe("answersView", () => {
   });
 
   it("the questions to choose, the one shown first being the first with a flag", () => {
-    const data = toAnswersData({
-      choices: [{ key: "a", label: "A", codes: [], people: [] }, land],
-      numbers: [{ key: "n", label: "N", team: {}, people: [] }],
-      // Only one listed: the counts per question are the server's.
-      flags: [flag],
+    const questions = answerQuestions({
+      choices: [{ key: "a", label: "A", multiple: false, answered: 0, blank: 0, codes: [], people: [], flags: 0 }, land],
+      numbers: [{ key: "n", label: "N", team: { values: 0, nonNumeric: 0, median: null, q1: null, q3: null }, people: [] }],
     });
-    const questions = answerQuestions(data);
     expect(questions.map((q) => [q.key, q.kind, q.flags])).toEqual([
       ["a", "choice", 0],
       ["land", "choice", 2],

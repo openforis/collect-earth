@@ -66,3 +66,11 @@ describe('the memory caches (B6)', () => {
     }
   });
 });
+
+describe('the PostgreSQL connections (PG_POOL_MAX)', () => {
+  it("is unset (the driver's 10) unless given; a whole number of at least 1", () => {
+    expect(loadConfig({}).dbPoolMax).toBeUndefined();
+    expect(loadConfig({ PG_POOL_MAX: '25' }).dbPoolMax).toBe(25);
+    for (const value of ['0', 'x', '2.5']) expect(() => loadConfig({ PG_POOL_MAX: value }), value).toThrow(/PG_POOL_MAX/);
+  });
+});

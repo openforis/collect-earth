@@ -6,6 +6,9 @@ import { CepError, readZip } from './cep.js';
 import { prng } from './division.js';
 import { degreesPerMetre } from './plotShape.js';
 import { readDbf, readShpPolygons, signedArea2 } from './shapefile.js';
+import type { PlotDesign as Design, DesignStratum as Stratum } from './wire/plotFiles.js';
+
+export type { PlotDesign as Design, DesignStratum as Stratum } from './wire/plotFiles.js';
 
 /** Most plots one design may make. */
 export const MAX_DESIGN_PLOTS = 50_000;
@@ -36,11 +39,6 @@ export interface AreaOfInterest {
   /** The attribute names, in the order first met. */
   fields: string[];
 }
-
-export type Design =
-  | { method: 'random'; count: number }
-  | { method: 'grid'; spacingMeters: number; randomOffset: boolean }
-  | { method: 'stratified'; field: string; allocation: 'equal' | 'proportional'; count: number };
 
 export interface DesignedPlot {
   lon: number;
@@ -283,12 +281,6 @@ function gridPoints(shapes: readonly Shape[], spacing: number, offset: [number, 
     }
   }
   return out;
-}
-
-export interface Stratum {
-  value: string;
-  areaKm2: number;
-  plots: number;
 }
 
 /** The strata of `field` (by value, numbers in order) with their areas and the plots each gets. */

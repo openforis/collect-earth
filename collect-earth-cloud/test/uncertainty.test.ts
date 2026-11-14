@@ -214,7 +214,7 @@ describe('the uncertainty routes', () => {
     }
   });
 
-  it('ask for the total area without an areas file, then work it out from the first assessments', async () => {
+  it('ask for the areas without an areas file (set in Setup › Areas), then work it out from the first assessments', async () => {
     await upload();
     await send('1,1', 'F', 'F');
     await send('2,1', 'F', 'C');
@@ -224,8 +224,12 @@ describe('the uncertainty routes', () => {
     const asked = await call('GET', '', owner.token);
     expect(asked.statusCode).toBe(409);
     expect(asked.json().error).toBe('needs_total_area');
+    // The settings no longer take a total area: the areas have one place, Setup › Areas
+    expect((await call('PUT', '/settings', owner.token, { ...setup, totalArea: 900 })).json().settings.totalArea).toBeNull();
+    expect((await call('GET', '', owner.token)).statusCode).toBe(409);
 
-    await call('PUT', '/settings', owner.token, { ...setup, totalArea: 900 });
+    const areas = await ctx.app.inject({ method: 'PUT', url: `/v1/projects/${pid}/areas`, headers: bearer(owner.token), payload: { settings: { mode: 'total', area: 900 } } });
+    expect(areas.statusCode, areas.body).toBe(200);
     const res = await call('GET', '', people.rev);
     expect(res.statusCode, res.body).toBe(200);
     const body = res.json();
@@ -235,6 +239,25 @@ describe('the uncertainty routes', () => {
     // 2 of 3 plots: 600 ha, SE = 900·√((2/9)/2) = 300
     expect(forest.initial.area).toBeCloseTo(600, 9);
     expect(forest.initial.se).toBeCloseTo(300, 9);
+  });
+
+  it('read a total typed here before as every figure does, keep it when the settings are saved, and drop it once the areas are', async () => {
+    await upload();
+    await send('1,1', 'F', 'F');
+    await send('2,1', 'G', 'G');
+    await call('PUT', '/settings', owner.token, setup);
+    // A total typed on this page before the areas had one place
+    await ctx.store.setUncertaintySettings(pid, { ...(await ctx.store.getUncertaintySettings(pid))!, totalArea: 400 });
+    expect((await call('GET', '', owner.token)).json()).toMatchObject({ areas: 'total', totalArea: 400 });
+    expect((await call('GET', '/settings', owner.token)).json().areas).toBe('total');
+    // Saving these settings keeps it (the page no longer sends one)
+    await call('PUT', '/settings', owner.token, { ...setup, totalArea: null });
+    expect((await ctx.store.getUncertaintySettings(pid))!.totalArea).toBe(400);
+    // Saving the areas makes them the one place: going back to the project file's (none here) leaves no area at all
+    const reset = await ctx.app.inject({ method: 'PUT', url: `/v1/projects/${pid}/areas`, headers: bearer(owner.token), payload: { settings: null } });
+    expect(reset.statusCode, reset.body).toBe(200);
+    expect((await ctx.store.getUncertaintySettings(pid))!.totalArea).toBeNull();
+    expect((await call('GET', '', owner.token)).statusCode).toBe(409);
   });
 
   it('use the areas file\'s strata when there is one', async () => {

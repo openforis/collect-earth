@@ -20,6 +20,7 @@ import type { Config } from './config.js';
 import { hashPassword } from './password.js';
 import { requireSession } from './plugins/projectAuth.js';
 import type { InMemoryStore } from './store/memory.js';
+import type { SignInLink } from './wire/account.js';
 
 /** What startLocal made: the one account, the one project and the desktop's credential. */
 export interface LocalSetup {
@@ -93,6 +94,8 @@ export const LOCAL_OFF_ROUTES: readonly string[] = [
   'POST /v1/projects/from-ceo',
   'POST /v1/projects/from-backup/preview',
   'POST /v1/projects/from-backup',
+  'POST /v1/projects/:pid/repeat/preview',
+  'POST /v1/projects/:pid/repeat',
   'GET /v1/projects/:pid/ceo-shapes',
   'POST /v1/projects/:pid/ceo-shapes/step',
   'DELETE /v1/projects/:pid',
@@ -359,6 +362,6 @@ export async function registerLocalRoutes(app: FastifyInstance, store: InMemoryS
       return reply.code(404).send({ error: 'not_found' });
     }
     const token = local.signIn.issue();
-    return reply.code(201).send({ path: signInPath(token), url: signInUrl(app, token, request), expiresInMs: SIGN_IN_TTL_MS });
+    return reply.code(201).send({ path: signInPath(token), url: signInUrl(app, token, request), expiresInMs: SIGN_IN_TTL_MS } satisfies SignInLink);
   });
 }

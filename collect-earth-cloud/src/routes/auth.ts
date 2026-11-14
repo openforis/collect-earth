@@ -10,6 +10,7 @@ import type { ServerCounters } from '../serverCounters.js';
 import { UsernameTakenError } from '../store/memory.js';
 import type { Store } from '../store/store.js';
 import type { AccountMailHooks } from './mail.js';
+import type { AccountDeletion, JoinedProject, LoginAnswer, Me, RegisterAnswer } from '../wire/account.js';
 
 interface RegisterBody {
   username?: string;
@@ -36,23 +37,9 @@ interface PasswordChangeBody {
   language?: string;
 }
 
-interface ProjectRef {
-  projectId: string;
-  name: string;
-}
-
 /** What deleting an account would do, worked out from its memberships. */
-interface AccountDeletionPlan {
-  /** Projects the user is the only coordinator of while others are in them: refusal. */
-  soleCoordinator: ProjectRef[];
-  /** Projects where the user is the only member and coordinator: deleted with the account. */
-  deletedWithAccount: ProjectRef[];
-  /** The last platform admin cannot leave: the server would have no owner. */
-  lastPlatformAdmin: boolean;
-}
-
-export async function accountDeletionPlan(store: Store, userId: string, isPlatformAdmin: boolean): Promise<AccountDeletionPlan> {
-  const plan: AccountDeletionPlan = { soleCoordinator: [], deletedWithAccount: [], lastPlatformAdmin: false };
+export async function accountDeletionPlan(store: Store, userId: string, isPlatformAdmin: boolean): Promise<AccountDeletion> {
+  const plan: AccountDeletion = { soleCoordinator: [], deletedWithAccount: [], lastPlatformAdmin: false };
   for (const m of await store.listMemberships(userId)) {
     if (m.role !== 'admin') {
       // Not a coordinator: leaving takes nothing away from the project.
@@ -60,7 +47,8 @@ export async function accountDeletionPlan(store: Store, userId: string, isPlatfo
     }
     const members = await store.listMembers(m.projectId);
     const ref = { projectId: m.projectId, name: m.projectName };
-    if (members.length <= 1) {
+    // Only an empty project goes with the account: one with records is deleted on purpose, or handed over
+    if (members.length <= 1 && !(await store.hasRecords(m.projectId))) {
       plan.deletedWithAccount.push(ref);
     } else if (members.filter((x) => x.role === 'admin').length <= 1) {
       plan.soleCoordinator.push(ref);
@@ -69,6 +57,15 @@ export async function accountDeletionPlan(store: Store, userId: string, isPlatfo
   plan.lastPlatformAdmin = isPlatformAdmin && (await store.countPlatformAdmins()) <= 1;
   return plan;
 }
+
+/** What login answers (403) for an account made by a domain-limited sign-up whose address is not confirmed yet. */
+export const EMAIL_NOT_CONFIRMED = {
+  error: 'email_not_confirmed',
+  reason: 'Confirm your email address first: open the link mailed to it (a new one has just been sent).',
+};
+
+/** Wrong second-step codes in a row that lock the account when the server's own lock (loginLockFailures) is off. */
+const SECOND_STEP_LOCK_FAILURES = 10;
 
 /** What a disabled account's login answers (403), shown as it is by Collect Earth's login dialog. */
 export const ACCOUNT_DISABLED = {
@@ -157,7 +154,7 @@ export async function registerAuthRoutes(
       projectId: invite.projectId,
       projectName: invite.projectName,
       role: invite.role,
-    });
+    } satisfies RegisterAnswer);
   });
 
   app.post('/v1/auth/login', { preHandler: limiter.guard('login') }, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -183,19 +180,21 @@ export async function registerAuthRoutes(
     // holds on every instance, and said before the password is checked (a guess during the lock tells nothing)
     const lock = user ? (await store.getSettings()) : null;
     const lockMax = lock?.loginLockFailures ?? 0;
-    if (user && lockMax > 0) {
+    const lockMs = (lock?.loginLockMinutes ?? 15) * 60_000;
+    // Checked whatever the setting: wrong second-step codes lock the account even with it off (below)
+    if (user) {
       const until = await store.loginLockedUntil(user.id, Date.now());
       if (until !== null) {
         const retryAfter = Math.max(1, Math.ceil((until - Date.now()) / 1000));
         return reply.code(429).header('retry-after', String(retryAfter)).send({ error: 'account_locked', reason: 'too many failed sign-ins: try again later, or reset the password', retryAfter });
       }
     }
-    const failed = async () => {
+    const failed = async (max = lockMax) => {
       loginFailures.hit(failureKey);
       accountFailures?.hit(accountKey);
       counters?.count('failedLogin');
-      if (user && lockMax > 0) {
-        const lockedUntil = await store.noteLoginFailure(user.id, Date.now(), lockMax, (lock?.loginLockMinutes ?? 15) * 60_000);
+      if (user && max > 0) {
+        const lockedUntil = await store.noteLoginFailure(user.id, Date.now(), max, lockMs);
         if (lockedUntil !== null) request.log.warn({ action: 'account.locked', userId: user.id, lockedUntil }, 'account locked after failed sign-ins');
       }
     };
@@ -207,6 +206,16 @@ export async function registerAuthRoutes(
     if (user.disabledAt) {
       return reply.code(403).send(ACCOUNT_DISABLED);
     }
+    // Sign-up limited to some email domains: an account it made (in no project yet) waits for its address to be
+    // confirmed. A new link goes with the refusal: without a session the person cannot ask for one. The server's
+    // administrators and the people of a project (an invitation, a coordinator) came another way and sign in.
+    if (lock?.signupDomains && !user.isPlatformAdmin) {
+      const mail = await store.getAccountMail(user.id);
+      if (mail?.email && mail.emailConfirmedAt === null && (await store.listMemberships(user.id)).length === 0) {
+        await accountMail?.sendConfirmation?.(request, user.id, mail.email, mail.language ?? 'en').catch(() => undefined);
+        return reply.code(403).send(EMAIL_NOT_CONFIRMED);
+      }
+    }
     // Two-step sign-in: the password was right; without a code, say a code is needed (the dashboard and Collect Earth
     // then ask for it and send both again); a wrong code counts as a failed login, as a wrong password does
     if (await twoFactorEnabled(store, user.id)) {
@@ -214,7 +223,8 @@ export async function registerAuthRoutes(
       if (!code.trim()) return reply.code(401).send({ error: 'second_step_required' });
       const check = await checkSecondStep(store, twoFactorKeyBuf, user.id, code);
       if (check !== 'ok') {
-        await failed();
+        // Whoever gets here knows the password: wrong codes lock the account on every instance, the setting off or not
+        await failed(lockMax > 0 ? lockMax : SECOND_STEP_LOCK_FAILURES);
         return reply.code(401).send({ error: check === 'unreadable' ? 'second_step_unreadable' : 'invalid_second_step' });
       }
     }
@@ -223,7 +233,7 @@ export async function registerAuthRoutes(
     // could sign in learns whether a link is good. A member already keeps their role, and the link is not used up
     // (a coordinator's link to bring a member the new project file).
     const inviteToken = typeof body.inviteToken === 'string' ? body.inviteToken.trim() : '';
-    let joined: { projectId: string; projectName: string; role: string } | null = null;
+    let joined: JoinedProject | null = null;
     if (inviteToken) {
       const invite = await store.getInvite(inviteToken);
       if (!invite || invite.revoked) return reply.code(400).send({ error: 'invalid_invite' });
@@ -237,7 +247,7 @@ export async function registerAuthRoutes(
     }
     await store.clearLoginFailures(user.id);
     const token = await store.createSession(user.id);
-    return reply.send({ token, userId: user.id, username: user.username, ...(joined ?? {}) });
+    return reply.send({ token, userId: user.id, username: user.username, ...(joined ?? {}) } satisfies LoginAnswer);
   });
 
   app.post(
@@ -287,7 +297,7 @@ export async function registerAuthRoutes(
         announcement: settings.announcement && (settings.announcementUntil === null || settings.announcementUntil > Date.now())
           ? { text: settings.announcement, until: settings.announcementUntil }
           : null,
-      });
+      } satisfies Me);
     },
   );
 

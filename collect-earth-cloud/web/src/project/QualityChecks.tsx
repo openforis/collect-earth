@@ -21,6 +21,7 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import ArrowForward from "@mui/icons-material/ArrowForward";
 import { useEffect, useId, useRef, useState } from "react";
 import { drawSamplingNow, getSampling, saveSampling, type SamplingView } from "../api";
 import { useApp } from "../appContext";
@@ -30,6 +31,7 @@ import { Explain, MoreInfo } from "../components/Explain";
 import { Loading } from "../components/Loading";
 import { formatDate, formatNumber } from "../format";
 import { useT } from "../i18n";
+import { linkProps, pathFor } from "../router";
 import { useLoad } from "../useLoad";
 
 /** Tables fit a phone: they scroll inside their own frame. */
@@ -274,7 +276,7 @@ function DrawStatus({ projectId, view, onDrawn }: { projectId: string; view: Sam
     setDone(null);
     try {
       const result = await drawSamplingNow(projectId);
-      setDone(result.drawn);
+      setDone(result.draw.drawn);
       onDrawn(result.view);
     } catch (err) {
       setFailure(err);
@@ -383,7 +385,7 @@ function Load({ view }: { view: SamplingView }) {
  */
 export function QualityChecks({ projectId }: { projectId: string }) {
   const t = useT();
-  const { data, error, loading, reload, setData } = useLoad(() => getSampling(projectId), [projectId]);
+  const { data, error, loading, reload, setData } = useLoad(["project", projectId, "getSampling"], () => getSampling(projectId));
   return (
     <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section">
       <Stack spacing={2}>
@@ -395,9 +397,20 @@ export function QualityChecks({ projectId }: { projectId: string }) {
           ) : (
             <ErrorAlert error={error} onRetry={reload} />
           )
+        ) : data.files.length === 0 ? (
+          // Nothing can be drawn before a file is divided: the way there, and no controls that cannot work
+          <Alert
+            severity="info"
+            action={
+              <Button color="inherit" size="small" endIcon={<ArrowForward />} {...linkProps(pathFor({ name: "project", projectId, tab: "setup", view: "plots" }))}>
+                {t("checks.goPlots")}
+              </Button>
+            }
+          >
+            {t("checks.noFiles")}
+          </Alert>
         ) : (
           <>
-            {data.files.length === 0 && <Alert severity="info">{t("checks.noFiles")}</Alert>}
             {data.wholeFiles.length > 0 && (
               <Alert severity="info">
                 {t("checks.whole.short", { files: data.wholeFiles.map((f) => f.filename).join(", ") })}

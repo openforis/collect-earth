@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { bearer, createProject, makeContext, type TestContext } from './helpers.js';
 import { divide, fileAssignment, parseDivisionRequest, percentSizes } from '../src/division.js';
-import { parsePlotFile, withoutColumns } from '../src/plots.js';
+import { parsePlotFile, withoutColumns, withRowsOnly } from '../src/plots.js';
 
 const ids = (n: number) => Array.from({ length: n }, (_, i) => String(i + 1));
 
@@ -156,6 +156,22 @@ describe('a plot file with a user column (routes)', () => {
     expect(JSON.stringify(log)).toContain('division.applied');
   });
 
+  it('uploaded again, keeps the copies the check sampling drew, unless the file gives their checker the plot', async () => {
+    const content = 'id,lat,lon,user\n1,0,0,maria\n2,0,0,maria\n3,0,0,jose\n';
+    const fileId = (await upload(content)).json().id;
+    const held = await ctx.store.listPlotAssignments(pid, fileId);
+    // jose was drawn to check plots 1 and 2
+    const drawn = ['1', '2'].map((plotKey) => ({ plotKey, userId: jose.userId, overlap: true, sampledAt: 1_000 }));
+    await ctx.store.setDivision(pid, fileId, { mode: 'manual' }, [...held, ...drawn]);
+    expect((await upload(content.replace('2,0,0,maria', '2,0,0,jose'))).statusCode).toBe(201);
+    const after = await ctx.store.listPlotAssignments(pid, fileId);
+    expect(after.filter((a) => a.userId === jose.userId).map(({ plotKey, overlap, sampledAt }) => [plotKey, overlap, sampledAt]).sort()).toEqual([
+      ['1', true, 1_000],
+      ['2', false, undefined],
+      ['3', false, undefined],
+    ]);
+  });
+
   it('a file without a user column is stored as it is and stays whole', async () => {
     const res = await upload('id,lat,lon,reviewers\n1,0,0,jose\n');
     expect(res.json()).not.toHaveProperty('assignment');
@@ -180,5 +196,18 @@ describe('a plot file with a user column (routes)', () => {
       payload: { mode: 'even', people: [maria.userId, jose.userId], percents: [80, 30] },
     });
     expect(bad.statusCode).toBe(400);
+  });
+});
+
+describe('withRowsOnly', () => {
+  it('keeps the header and the rows of the plots taken, each as it was', () => {
+    const file = parsePlotFile(Buffer.from('\uFEFFid;lat;lon;note\r\n1;0;0;"a;b"\r\n2;0;0;x\r\n3;0;0;y'));
+    expect(withRowsOnly(file, (id) => id !== '2')!.toString()).toBe('\uFEFFid;lat;lon;note\r\n1;0;0;"a;b"\r\n3;0;0;y');
+    // the last line, without a line ending, before another one
+    expect(withRowsOnly(file, (id) => id !== '1')!.toString()).toBe('\uFEFFid;lat;lon;note\r\n2;0;0;x\r\n3;0;0;y');
+    expect(withRowsOnly(parsePlotFile(Buffer.from('3,0,0\n1,0,0\n')), (id) => id === '1')!.toString()).toBe('1,0,0\n');
+    // keys of two columns: the plot id joins them
+    expect(withRowsOnly(parsePlotFile(Buffer.from('a,1,0,0\na,2,0,0\n'), 2), (id) => id === 'a,2')!.toString()).toBe('a,2,0,0\n');
+    expect(withRowsOnly(file, () => false)).toBeNull();
   });
 });

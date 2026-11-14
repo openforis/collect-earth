@@ -44,7 +44,8 @@ public class UpdateService {
 		}
 	}
 
-	static final String INSTALLER_URL = "https://ossrh-staging-api.central.sonatype.com/service/local/artifact/maven/redirect?r=releases&g=org.openforis.collect.earth&a=collect-earth-installer&v=LATEST&c=osx&e=dmg";
+	// The installers are assets of the GitHub release (the autoupdate manifest points there too)
+	static final String INSTALLER_URL = "https://github.com/openforis/collect-earth/releases/latest";
 
 	private final Logger logger = LoggerFactory.getLogger(UpdateService.class);
 	private final NoticeService notices;
@@ -123,13 +124,18 @@ public class UpdateService {
 		}
 	}
 
-	/** Starts the updater of the platform, next to Collect Earth or in its autoupdate folder. */
+	/** Starts the updater of the platform, next to Collect Earth or in its autoupdate folder; on a Mac, opens the download page of the installer. */
 	public void runUpdater() throws UpdaterMissingException, IOException {
 		runUpdater(new File("."));
 	}
 
 	/** @param base where Collect Earth runs from: the working folder, where the installer put the updater */
 	void runUpdater(File base) throws UpdaterMissingException, IOException {
+		if (mac) {
+			// The updater does not work on a Mac: the installer is downloaded instead, as the offer does
+			openUrl.accept(URI.create(INSTALLER_URL));
+			return;
+		}
 		String name = updaterName();
 		File updater = new File(base, name);
 		if (!updater.exists()) {

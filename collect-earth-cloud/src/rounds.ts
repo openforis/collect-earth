@@ -1,4 +1,7 @@
 import type { RoundInfo } from './cep.js';
+import type { Assessment } from './wire/review.js';
+
+export type { Assessment } from './wire/review.js';
 
 /**
  * Plots, records and rounds: which plot (assignment unit) a record belongs to, and
@@ -44,7 +47,6 @@ export function splitKey(key: string, parts: number, roundIndex: number | null):
   return { plot: fields.join(','), round };
 }
 
-export type Assessment = 'main' | 'check' | 'other';
 
 export interface RecordRound {
   plot: string;

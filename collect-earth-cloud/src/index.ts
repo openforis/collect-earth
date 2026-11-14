@@ -28,7 +28,7 @@ async function main(): Promise<void> {
 
   const store: Store =
     config.storeBackend === 'postgres'
-      ? new PostgresStore(config.databaseUrl!)
+      ? new PostgresStore(config.databaseUrl!, config.dbPoolMax ? { max: config.dbPoolMax } : {})
       : new InMemoryStore();
 
   // Before listening: with a separate app role asked for, a role RLS does not bind stops the start.

@@ -18,13 +18,12 @@ import {
   pickReference,
   referenceCopyPlan,
   type MarkRefusal,
-  type ExternalReferenceFigures,
-  type ReferenceFigures,
 } from '../reference.js';
 import type { Store } from '../store/store.js';
 import type { Member, PlotAssignment, ReferencePlot } from '../types.js';
 import { served } from './quality.js';
 import { fileKeyCount } from '../rounds.js';
+import type { ReferenceAnswer, ReferenceAnswersReport, ReferenceChangeAnswer, ReferenceFiguresAnswer, ReferenceSet } from '../wire/checks.js';
 
 /** Why a mark was refused, in plain words (the page has its own texts by `code`). */
 const REASONS: Record<MarkRefusal['code'], string> = {
@@ -51,12 +50,7 @@ function recordsOf(state: ProjectState): (username: string, unit: string) => boo
 }
 
 /** What the figures say of the reference plots, for the page: everything for coordinators, no plot list for reviewers. */
-function figuresOf(
-  f: ServedReport | null,
-  coordinator: boolean,
-): (Omit<ReferenceFigures, 'byPlot' | 'people' | 'external'> &
-  Partial<Pick<ReferenceFigures, 'byPlot' | 'people'>> & { external?: Partial<ExternalReferenceFigures>; computedAt: number; stale: boolean }) | null {
-  if (!f) return null;
+function figuresOf(f: ServedReport, coordinator: boolean): ReferenceFiguresAnswer {
   const { byPlot, people, external, ...rest } = f.reference;
   // Reviewers: the figures per question only (Decision 3: no one's accuracy by name, no plot list).
   const ext = external && !coordinator ? (({ byPlot: _b, people: _p, ...e }) => e)(external) : external;
@@ -116,7 +110,7 @@ export async function registerReferenceRoutes(app: FastifyInstance, store: Store
   const admin = { preHandler: requireProjectMembership(store, 'admin') };
 
   /** The coordinator's view of the reference set, from the project state and the store. */
-  async function view(projectId: string, request: FastifyRequest, figures: ServedReport | null, fresh = false) {
+  async function view(projectId: string, request: FastifyRequest, figures: ServedReport | null, fresh = false): Promise<ReferenceSet> {
     const [served, references, answers] = await Promise.all([states.get(projectId, request.log, { fresh }), store.listReferencePlots(projectId), store.listReferenceAnswers(projectId)]);
     const { state, members } = served;
     const done = state.units.checksDone;
@@ -176,9 +170,9 @@ export async function registerReferenceRoutes(app: FastifyInstance, store: Store
     const figures = await served(quality, projectId, request, reply);
     if (!figures) return reply;
     if (!coordinator) {
-      return reply.send({ coordinator: false, count: figures.reference.plots, figures: figuresOf(figures, false) });
+      return reply.send({ coordinator: false, count: figures.reference.plots, max: MAX_REFERENCE_PLOTS, figures: figuresOf(figures, false) } satisfies ReferenceAnswer);
     }
-    return reply.send({ coordinator: true, ...(await view(projectId, request, figures)), figures: figuresOf(figures, true) });
+    return reply.send({ coordinator: true, ...(await view(projectId, request, figures)), figures: figuresOf(figures, true) } satisfies ReferenceAnswer);
   });
 
   // Reference answers from a file (coordinators): a CSV (text/csv: the plot id, then a column per
@@ -208,7 +202,7 @@ export async function registerReferenceRoutes(app: FastifyInstance, store: Store
     await store.replaceReferenceAnswers(projectId, parsed.rows, now());
     await audit(store, request, 'reference.changed', { external: 'uploaded', plots: parsed.rows.length });
     const { rows, ...report } = parsed;
-    return reply.send({ plots: rows.length, ...report });
+    return reply.send({ plots: rows.length, ...report } satisfies ReferenceAnswersReport);
   });
 
   app.delete('/v1/projects/:pid/reference/answers', admin, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -320,7 +314,7 @@ export async function registerReferenceRoutes(app: FastifyInstance, store: Store
       copiesAdded: result.copiesAdded,
       copiesDropped: result.copiesDropped,
     });
-    return reply.send({ result, ...(await view(projectId, request, null, true)) });
+    return reply.send({ result, ...(await view(projectId, request, null, true)) } satisfies ReferenceChangeAnswer);
   });
 
   app.post('/v1/projects/:pid/reference/remove', admin, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -343,7 +337,7 @@ export async function registerReferenceRoutes(app: FastifyInstance, store: Store
       }
       chosen = references.filter((r) => wanted.has(`${r.csvFileId}\n${r.plotKey}`));
     }
-    if (chosen.length === 0) return reply.send({ result: { unmarked: 0, marked: 0, copiesAdded: 0, copiesDropped: 0 }, ...(await view(projectId, request, null, true)) });
+    if (chosen.length === 0) return reply.send({ result: { unmarked: 0, marked: 0, copiesAdded: 0, copiesDropped: 0 }, ...(await view(projectId, request, null, true)) } satisfies ReferenceChangeAnswer);
     const { state, members } = await states.get(projectId, request.log, { fresh: true });
     const has = recordsOf(state);
     const usernames = new Map(members.map((m) => [m.userId, m.username]));
@@ -378,6 +372,6 @@ export async function registerReferenceRoutes(app: FastifyInstance, store: Store
       copiesAdded: result.copiesAdded,
       copiesDropped: result.copiesDropped,
     });
-    return reply.send({ result, ...(await view(projectId, request, null, true)) });
+    return reply.send({ result, ...(await view(projectId, request, null, true)) } satisfies ReferenceChangeAnswer);
   });
 }

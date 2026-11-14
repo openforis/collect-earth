@@ -71,7 +71,9 @@ import {
   type ReferenceChange,
   type ReferenceChangeResult,
   type ReferencePlot,
+  type PeriodAnswer,
   type ReferenceAnswer,
+  type RepeatSettings,
   type RoundInfo,
   type Role,
   type SampledCopy,
@@ -87,6 +89,7 @@ import {
   TrainingGolden,
   TrainingSet,
 } from '../types.js';
+import type { OwnerAlertKind } from '../wire/serverAdmin.js';
 import {
   checkCursor,
   type CreateInviteInput,
@@ -96,6 +99,7 @@ import {
   type TrainingSetChange,
   type TrainingSetInput,
   type UserPlots,
+  type RecordUpload,
 } from './store.js';
 import type { UncertaintySettings } from '../uncertainty.js';
 import type { AreaSettings } from '../areas.js';
@@ -152,6 +156,9 @@ interface ProjectEntry {
   references: Map<string, StoredReference>;
   /** Reference answers uploaded, by plot unit. */
   referenceAnswers: Map<string, ReferenceAnswer>;
+  /** A repeat survey's earlier answers, by label then plot (migration 037) */
+  periodAnswers: Map<string, Map<string, PeriodAnswer>>;
+  repeatSettings: RepeatSettings | null;
 }
 
 interface StoredReference {
@@ -468,6 +475,8 @@ export class InMemoryStore implements Store {
       sampling: null,
       references: new Map(),
       referenceAnswers: new Map(),
+      periodAnswers: new Map(),
+      repeatSettings: null,
     });
 
     const adminToken = generateToken();
@@ -557,7 +566,8 @@ export class InMemoryStore implements Store {
     entry.cep = Buffer.from(served);
     entry.cepOriginal = original === null ? null : Buffer.from(original);
     entry.roundInfo = structuredClone(info);
-    entry.cepUpdatedAt = Date.now();
+    // Always later than the last one (two uploads in one millisecond): caches key on it.
+    entry.cepUpdatedAt = Math.max(Date.now(), (entry.cepUpdatedAt ?? 0) + 1);
   }
 
   async getOriginalCep(projectId: string): Promise<Buffer | null> {
@@ -1234,7 +1244,7 @@ export class InMemoryStore implements Store {
     return { entries: kept.slice(q.offset, q.offset + q.limit), total: kept.length };
   }
 
-  async appendOwnerAlert(alert: { kind: string; at: number; count: number; projectId: string | null }): Promise<string> {
+  async appendOwnerAlert(alert: { kind: OwnerAlertKind; at: number; count: number; projectId: string | null }): Promise<string> {
     const id = String(this.ownerAlerts.length + 1);
     this.ownerAlerts.push({ id, ...alert, seenAt: null, seenByUserId: null });
     return id;
@@ -1475,6 +1485,9 @@ export class InMemoryStore implements Store {
       }
       InMemoryStore.dropPlotAssignments(entry, userId);
       InMemoryStore.dropActivity(entry, userId);
+      // As deleteUser does: records left behind here keep the name retired once the account goes
+      const username = this.users.get(userId)?.username;
+      if (username !== undefined && [...entry.records.values()].some((r) => r.operator === username)) this.retiredUsernames.add(username);
     }
     return 'ok';
   }
@@ -1913,6 +1926,32 @@ export class InMemoryStore implements Store {
     return [...(this.projects.get(projectId)?.referenceAnswers.values() ?? [])].map((r) => ({ ...r, answers: { ...r.answers } }));
   }
 
+  async replacePeriodAnswers(projectId: string, label: string, rows: readonly Omit<PeriodAnswer, 'label'>[]): Promise<void> {
+    const entry = this.requireProject(projectId);
+    entry.periodAnswers.set(label, new Map(rows.map((r) => [r.plotKey, { ...r, label, answers: { ...r.answers } }])));
+  }
+
+  async listPeriodAnswers(projectId: string, label?: string): Promise<PeriodAnswer[]> {
+    const periods = this.projects.get(projectId)?.periodAnswers;
+    if (!periods) return [];
+    const of = label === undefined ? [...periods.values()] : periods.has(label) ? [periods.get(label)!] : [];
+    return of.flatMap((byPlot) => [...byPlot.values()].map((r) => ({ ...r, answers: { ...r.answers } })));
+  }
+
+  async getPlotPeriodAnswers(projectId: string, plotKey: string): Promise<PeriodAnswer[]> {
+    const periods = this.projects.get(projectId)?.periodAnswers;
+    const found = [...(periods?.values() ?? [])].map((byPlot) => byPlot.get(plotKey)).filter((r): r is PeriodAnswer => r !== undefined);
+    return found.map((r) => ({ ...r, answers: { ...r.answers } })).sort((a, b) => a.savedAt - b.savedAt || a.label.localeCompare(b.label));
+  }
+
+  async getRepeatSettings(projectId: string): Promise<RepeatSettings | null> {
+    return structuredClone(this.projects.get(projectId)?.repeatSettings ?? null);
+  }
+
+  async setRepeatSettings(projectId: string, settings: RepeatSettings): Promise<void> {
+    this.requireProject(projectId).repeatSettings = structuredClone(settings);
+  }
+
   async replaceReferenceAnswers(projectId: string, rows: readonly { plotKey: string; answers: Record<string, string> }[], at: number): Promise<void> {
     const entry = this.requireProject(projectId);
     entry.referenceAnswers = new Map(rows.map((r) => [r.plotKey, { plotKey: r.plotKey, answers: { ...r.answers }, uploadedAt: at }]));
@@ -2171,7 +2210,7 @@ export class InMemoryStore implements Store {
     const entry = this.requireProject(projectId);
     this.requireUserOrNull(start.startedBy);
     // One thread: nothing runs between the checks and the insert, as the lock does in Postgres.
-    InMemoryStore.failStale(entry, w.staleBefore, AI_INTERRUPTED.code, AI_INTERRUPTED.message, w.now);
+    this.failStale(entry, w.staleBefore, AI_INTERRUPTED.code, AI_INTERRUPTED.message, w.now);
     const runs = entry.aiRuns;
     const limit = aiLimitReached(
       start.kind,
@@ -2230,23 +2269,28 @@ export class InMemoryStore implements Store {
       return false;
     }
     Object.assign(run, structuredClone(end));
+    this.spend(run);
+    return true;
+  }
+
+  /** Adds an ended run's tokens to its starter's month (ai_token_ledger): once, as it leaves 'running'. */
+  private spend(run: AiRunRow): void {
     const tokens = run.inputTokens + run.outputTokens;
     if (run.startedBy && tokens > 0) {
       const key = `${run.startedBy} ${monthOf(run.startedAt)}`;
       this.aiTokenLedger.set(key, (this.aiTokenLedger.get(key) ?? 0) + tokens);
     }
-    return true;
   }
 
   async failStaleAiRuns(projectId: string, before: number, code: string, message: string, now: number): Promise<number> {
     const entry = this.projects.get(projectId);
-    return entry ? InMemoryStore.failStale(entry, before, code, message, now) : 0;
+    return entry ? this.failStale(entry, before, code, message, now) : 0;
   }
 
-  async listAiRuns(projectId: string, limit: number): Promise<AiRunSummary[]> {
+  async listAiRuns(projectId: string, limit: number, options: { exceptViews?: boolean } = {}): Promise<AiRunSummary[]> {
     const runs = this.projects.get(projectId)?.aiRuns ?? [];
     return runs
-      .slice()
+      .filter((r) => !options.exceptViews || r.kind !== 'views')
       .reverse()
       .slice(0, limit)
       .map((r) => {
@@ -2283,6 +2327,13 @@ export class InMemoryStore implements Store {
   }
 
   // --- Activity data ---
+
+  async putRecordsWithEvents(projectId: string, items: RecordUpload[]): Promise<boolean[]> {
+    // One after the other, each seeing the ones before: what the transaction of the Postgres store does
+    const stored: boolean[] = [];
+    for (const item of items) stored.push(await this.putRecordWithEvent(projectId, item.recordKey, item.operator, item.apply));
+    return stored;
+  }
 
   async putRecordWithEvent(
     projectId: string,
@@ -2474,11 +2525,12 @@ export class InMemoryStore implements Store {
     entry.attentionReads.set(userId, new Set(keys));
   }
 
-  private static failStale(entry: ProjectEntry, before: number, code: string, message: string, now: number): number {
+  private failStale(entry: ProjectEntry, before: number, code: string, message: string, now: number): number {
     let n = 0;
     for (const r of entry.aiRuns) {
       if (r.status === 'running' && r.startedAt < before) {
         Object.assign(r, { status: 'failed', errorCode: code, error: message, finishedAt: now });
+        this.spend(r);
         n++;
       }
     }

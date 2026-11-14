@@ -4,16 +4,38 @@ import { useSyncExternalStore, type MouseEvent } from "react";
 // path <-> route table is all it needs. The server returns index.html for every
 // app path (/join/<token>, /projects/..., /setup, /reset/<token>), so deep links work.
 
-// Progress is the first tab (its path is the project's own); Setup is the getting-started checklist.
-export const PROJECT_TABS = ["progress", "setup", "file", "people", "plots", "map", "data", "quality", "training", "activity", "settings"] as const;
+// Progress is the first tab (its path is the project's own). The tabs are what is used day to day; Setup holds the
+// project's configuration, section by section (PROJECT_VIEWS.setup), starting with the getting-started checklist.
+export const PROJECT_TABS = ["progress", "map", "people", "quality", "training", "data", "activity", "setup"] as const;
 export type ProjectTab = (typeof PROJECT_TABS)[number];
+
+/**
+ * The tabs split into views, each with its own address (/projects/<id>/quality/checks); the first is the tab's own
+ * address. A tab not listed has one page.
+ */
+export const PROJECT_VIEWS = {
+  quality: ["review", "checks", "figures", "notes"],
+  people: ["members", "team"],
+  setup: ["overview", "survey", "plots", "areas", "layout", "quality", "schedule", "sharing", "next", "project"],
+} as const satisfies Partial<Record<ProjectTab, readonly string[]>>;
+export type ViewTab = keyof typeof PROJECT_VIEWS;
+export type ProjectView<T extends ViewTab = ViewTab> = (typeof PROJECT_VIEWS)[T][number];
+
+/** Tabs of before, now Setup's sections: their old addresses open the section. */
+const MOVED_TABS: Record<string, ProjectView<"setup">> = { overview: "overview", file: "survey", plots: "plots", settings: "project" };
+
+/** A tab's view from an address part: the first view when none or not one of them. */
+export function viewOf<T extends ViewTab>(tab: T, view: string | undefined): ProjectView<T> {
+  const views = PROJECT_VIEWS[tab] as readonly string[];
+  return (view && views.includes(view) ? view : views[0]) as ProjectView<T>;
+}
 
 export type Route =
   | { name: "home" }
   | { name: "setup" }
   | { name: "login" }
   | { name: "signup" }
-  | { name: "project"; projectId: string; tab: ProjectTab }
+  | { name: "project"; projectId: string; tab: ProjectTab; view?: string }
   /** One plot file of a project, where its plots are divided between people (under the Plot files tab). */
   | { name: "plotFile"; projectId: string; fileId: string }
   /** One training set's page (coordinators), under the Training tab. */
@@ -122,6 +144,11 @@ export function matchRoute(pathname: string): Route {
     const projectId = decode(second);
     if (projectId) return { name: "uncertainty", projectId };
   }
+  // A view of a tab split into views (before /people/<id>, a person's page: their ids are never a view's name)
+  if (first === "projects" && parts.length === 4 && third in PROJECT_VIEWS && (PROJECT_VIEWS[third as ViewTab] as readonly string[]).includes(fourth)) {
+    const projectId = decode(second);
+    if (projectId) return { name: "project", projectId, tab: third as ProjectTab, view: fourth };
+  }
   if (first === "projects" && parts.length === 4 && third === "people") {
     const projectId = decode(second);
     const userId = decode(fourth);
@@ -148,8 +175,10 @@ export function matchRoute(pathname: string): Route {
   }
   if (first === "projects" && (parts.length === 2 || parts.length === 3)) {
     const projectId = decode(second);
-    // "overview" is Setup's old name: old links still open it.
-    const tab = (third === "overview" ? "setup" : (third ?? "progress")) as ProjectTab;
+    // The tabs that became Setup's sections, and "overview" (Setup's old name): old links still open them.
+    const moved = third ? MOVED_TABS[third] : undefined;
+    if (projectId && moved) return { name: "project", projectId, tab: "setup", ...(moved === "overview" ? {} : { view: moved }) };
+    const tab = (third ?? "progress") as ProjectTab;
     if (projectId && PROJECT_TABS.includes(tab)) return { name: "project", projectId, tab };
   }
   if (first === "projects" && parts.length === 4 && third === "plots") {
@@ -171,7 +200,9 @@ export function pathFor(route: Route): string {
     case "home":
       return "/";
     case "project":
-      return `/projects/${encodeURIComponent(route.projectId)}${route.tab === "progress" ? "" : `/${route.tab}`}`;
+      return `/projects/${encodeURIComponent(route.projectId)}${route.tab === "progress" ? "" : `/${route.tab}`}${
+        route.view && route.tab in PROJECT_VIEWS && route.view !== PROJECT_VIEWS[route.tab as ViewTab][0] ? `/${route.view}` : ""
+      }`;
     case "plotFile":
       return `/projects/${encodeURIComponent(route.projectId)}/plots/${encodeURIComponent(route.fileId)}`;
     case "trainingSet":

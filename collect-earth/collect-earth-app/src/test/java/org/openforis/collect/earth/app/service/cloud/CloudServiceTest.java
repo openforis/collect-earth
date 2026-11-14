@@ -363,6 +363,35 @@ public class CloudServiceTest {
 	}
 
 	@Test
+	public void aPlotsEarlierAnswersComeFromTheCloudOnceThenFromMemory() throws Exception {
+		com.fasterxml.jackson.databind.ObjectMapper json = new com.fasterxml.jackson.databind.ObjectMapper();
+		// Not a cloud project: no periods, the cloud not asked
+		when(properties.isCloudSyncEnabled()).thenReturn(false);
+		assertEquals(java.util.Collections.emptyList(), service.plotPeriods("17,1").get("periods"));
+		verify(api, never()).getPlotPeriods(any());
+
+		when(properties.isCloudSyncEnabled()).thenReturn(true);
+		when(properties.getCloudProjectId()).thenReturn("p1");
+		when(api.getPlotPeriods("17,1")).thenReturn(json.readTree(
+				"{\"periods\":[{\"label\":\"2020\",\"answers\":{\"collect_code_land_use\":\"F\"}}],\"label\":\"2025\",\"header\":[\"collect_code_land_use\"]}"));
+		Map<String, Object> answer = service.plotPeriods("17,1");
+		assertEquals("2025", answer.get("label"));
+		assertEquals(1, ((java.util.List<?>) answer.get("periods")).size());
+		// a second time from memory
+		assertEquals(answer, service.plotPeriods("17,1"));
+		verify(api, org.mockito.Mockito.times(1)).getPlotPeriods("17,1");
+		// another project's plot of the same id is asked again
+		when(properties.getCloudProjectId()).thenReturn("p2");
+		service.plotPeriods("17,1");
+		verify(api, org.mockito.Mockito.times(2)).getPlotPeriods("17,1");
+
+		// The server cannot be reached: no periods, never an error in the form
+		when(api.getPlotPeriods("18,1")).thenThrow(new IOException("offline"));
+		assertEquals(java.util.Collections.emptyList(), service.plotPeriods("18,1").get("periods"));
+		assertEquals(java.util.Collections.emptyList(), service.plotPeriods(" ").get("periods"));
+	}
+
+	@Test
 	public void thePlotKeysAreTheFirstColumnsWhateverTheSeparator() throws Exception {
 		File csv = new File(folder, "p.csv");
 		java.nio.file.Files.write(csv.toPath(), "\uFEFFid,lat,lon\n12,1,2\n\n13,3,4\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));

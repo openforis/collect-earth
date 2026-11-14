@@ -39,7 +39,7 @@ const owner = (await post('/v1/setup', null, { setupCode: 'X', username: 'owner'
 
 const setup = await post('/v1/me/two-factor/setup', owner.token);
 const secret = setup.json().secret as string;
-const enabled = await post('/v1/me/two-factor/enable', owner.token, { code: codeAt(secret, stepOf(Date.now())) });
+const enabled = await post('/v1/me/two-factor/enable', owner.token, { code: codeAt(secret, stepOf(Date.now())), password: 'owner-password' });
 check('set up and turned on (028 as the app role)', enabled.statusCode === 200 && enabled.json().recoveryCodes.length === 10, enabled.body);
 const codes = enabled.json().recoveryCodes as string[];
 const raw = new pg.Client({ connectionString: ownerUrl });

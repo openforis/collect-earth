@@ -1,7 +1,8 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { backupReader, javaDouble, readBackup, surveyUriOf } from '../src/collectImport.js';
+import { openBackup, stepOf } from '../src/backupImport.js';
+import { backupReader, javaDouble, surveyUriOf } from '../src/collectImport.js';
 
 const fixture = (path: string) => fileURLToPath(new URL(`./fixtures/${path}`, import.meta.url));
 const json = (path: string) => JSON.parse(readFileSync(fixture(path), 'utf8')) as Record<string, Record<string, string>>;
@@ -11,11 +12,12 @@ const json = (path: string) => JSON.parse(readFileSync(fixture(path), 'utf8')) a
 // the same survey and record files, by a small Java program run against collect-core 4.0.110 and collect-earth-core.
 describe('the summary of a backup record', () => {
   it('is the one Collect Earth makes, for records the desktop exported', () => {
-    const { surveyXml, files } = readBackup(readFileSync(fixture('desktop-xml-export.zip')));
+    const { survey, records } = openBackup(readFileSync(fixture('desktop-xml-export.zip')));
     const expected = json('collect-import/desktop-xml-export.summaries.json');
-    const read = backupReader(surveyXml, null);
-    expect(files).toHaveLength(Object.keys(expected).length);
-    for (const file of files) {
+    const read = backupReader(survey.xml, null);
+    expect(records).toHaveLength(Object.keys(expected).length);
+    for (const entry of records) {
+      const file = { name: entry.name, step: stepOf(entry.name), xml: new TextDecoder().decode(entry.read()) };
       const record = read(file);
       if ('problem' in record) throw new Error(record.problem);
       expect(record.summary, file.name).toEqual(expected[file.name]);

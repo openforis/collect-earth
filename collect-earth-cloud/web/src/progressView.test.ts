@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { toProgressData, type AttentionItem, type Forecast } from "./api";
+import type { AttentionItem, Forecast } from "./api";
 import { translator } from "./i18n";
 import {
   fromFirstWork,
@@ -34,17 +34,9 @@ const forecast = (over: Partial<Forecast> = {}): Forecast => ({
   neededPerDay: null,
   ...over,
 });
-const item = (over: Partial<AttentionItem>): AttentionItem => ({
-  kind: "quiet",
-  count: 2,
-  people: [],
-  quietDays: 3,
-  unknownVersion: 0,
-  level: null,
-  usedBytes: null,
-  limitBytes: null,
-  ...over,
-});
+/** An item as the server sends it: each kind has its own fields (the ones a test leaves out get a plain value). */
+const item = (over: Record<string, unknown>): AttentionItem =>
+  ({ kind: "quiet", count: 2, people: [], quietDays: 3, unknownVersion: 0, level: "nearlyFull", usedBytes: 0, limitBytes: 0, ...over }) as AttentionItem;
 
 describe("updated text", () => {
   it("just now, seconds, minutes", () => {
@@ -120,7 +112,7 @@ describe("attention cards", () => {
       expect(text.text.length, kind).toBeGreaterThan(0);
       expect(attentionAction(t, kind).label, kind).toMatch(/^Go to /);
     }
-    expect(attentionAction(t, "notAssigned").tab).toBe("plots");
+    expect(attentionAction(t, "notAssigned")).toMatchObject({ tab: "setup", view: "plots" });
     expect(attentionAction(t, "differencesWaiting").tab).toBe("quality");
     expect(attentionAction(t, "storage").tab).toBe("setup");
   });
@@ -145,13 +137,13 @@ describe("attention cards", () => {
 
   it("what is said by each person", () => {
     const quiet = item({});
-    expect(personDetail(t, quiet, { username: "ana", lastSyncAt: 5, lastPlotsDownloadAt: 9, medianDelayMs: null }, "en", () => "Oct 28")).toBe("last sync Oct 28");
-    expect(personDetail(t, quiet, { username: "ana", lastSyncAt: null, lastPlotsDownloadAt: 9, medianDelayMs: null }, "en", () => "Oct 28")).toBe(
+    expect(personDetail(t, quiet, { username: "ana", lastSyncAt: 5, lastPlotsDownloadAt: 9 }, "en", () => "Oct 28")).toBe("last sync Oct 28");
+    expect(personDetail(t, quiet, { username: "ana", lastSyncAt: null, lastPlotsDownloadAt: 9 }, "en", () => "Oct 28")).toBe(
       "never synced; plots downloaded Oct 28",
     );
     const late = item({ kind: "oldUnsentWork" });
     expect(personDetail(t, late, { username: "ana", lastSyncAt: null, lastPlotsDownloadAt: null, medianDelayMs: 3.26 * 86_400_000 }, "en", String)).toBe("about 3.3 days late");
-    expect(personDetail(t, item({ kind: "neverDownloaded" }), { username: "ana", lastSyncAt: null, lastPlotsDownloadAt: null, medianDelayMs: null }, "en", String)).toBeNull();
+    expect(personDetail(t, item({ kind: "neverDownloaded" }), { username: "ana", lastSyncAt: null, lastPlotsDownloadAt: null }, "en", String)).toBeNull();
   });
 });
 
@@ -224,24 +216,6 @@ describe("the settings form", () => {
   });
 });
 
-describe("toProgressData", () => {
-  it("fills what is missing and keeps only the cards it knows", () => {
-    const d = toProgressData({
-      totals: { plots: 4, submitted: "2" },
-      daily: [{ date: "2026-11-01", submitted: 2, cumulative: 2 }, { date: "bad" }],
-      attention: [{ kind: "quiet", count: 1, people: [{ username: "ana", lastSyncAt: 5 }], quietDays: 3 }, { kind: "future" }],
-      settings: { deadline: "2026-12-31", targetPlots: 0 },
-    });
-    expect(d.totals).toEqual({ plots: 4, assigned: 0, notAssigned: 0, submitted: 2, started: 0, notStarted: 0 });
-    expect(d.daily).toEqual([{ date: "2026-11-01", submitted: 2, cumulative: 2 }]);
-    expect(d.attention).toHaveLength(1);
-    expect(d.attention![0].people[0]).toEqual({ username: "ana", lastSyncAt: 5, lastPlotsDownloadAt: null, medianDelayMs: null });
-    expect(d.settings).toEqual({ deadline: "2026-12-31", targetPlots: null, quietDays: 3 });
-    expect(toProgressData({ attention: null }).attention).toBeNull();
-    expect(toProgressData({}).forecast.paceDays).toBe(7);
-  });
-});
-
 describe("the days the chart draws", () => {
   const day = (i: number, cumulative: number) => ({ date: `d${i}`, submitted: 0, cumulative });
   it("start the day before the first submission, at least a week back", () => {
@@ -260,7 +234,7 @@ describe("the training card", () => {
     const { attentionText, personDetail } = await import("./progressView");
     const { translator } = await import("./i18n");
     const tr = translator("en");
-    const item = { kind: "trainingFinished" as const, count: 1, people: [{ username: "ana", lastSyncAt: null, lastPlotsDownloadAt: null, medianDelayMs: null, set: "Week 1", passed: false }], quietDays: null, unknownVersion: 0, level: null, usedBytes: null, limitBytes: null };
+    const item = { kind: "trainingFinished" as const, count: 1, people: [{ username: "ana", set: "Week 1", passed: false }] };
     expect(attentionText(tr, item, "en").title).toBe("Learning plots finished");
     expect(personDetail(tr, item, item.people[0], "en", String)).toBe("Week 1: not passed");
   });

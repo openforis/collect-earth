@@ -107,6 +107,32 @@ class UntouchedPlotTest {
 	}
 
 	@Test
+	void thePeriodStatusOfARepeatSurveyIsReadFromTheRecord() {
+		// the plots map filters a repeat survey's plots by what the collector said against the earlier period
+		assertTrue(service.hasPeriodStatus());
+		open();
+		assertEquals(null, AbstractEarthSurveyService.getPeriodStatus(save("collect_code_land_use", "F").getCollectRecord()));
+		PlacemarkLoadResult result = save("collect_code_period_status", "changed");
+		assertEquals("changed", AbstractEarthSurveyService.getPeriodStatus(result.getCollectRecord()));
+		assertEquals(PlotStatus.IN_PROGRESS, AbstractEarthSurveyService.getPlotStatus(result.getCollectRecord()));
+		assertEquals(null, AbstractEarthSurveyService.getPeriodStatus((CollectRecord) null));
+	}
+
+	@Test
+	void aSurveyWithoutThePeriodStatusIsNoRepeatSurvey() {
+		// most surveys: Collect's lookup of a missing child throws, which failed every poll of the plot statuses
+		EntityDefinition plot = service.getCollectSurvey().getSchema().getRootEntityDefinition("plot");
+		plot.removeChildDefinition(plot.getChildDefinition("period_status"));
+		assertFalse(service.hasPeriodStatus());
+	}
+
+	@Test
+	void noSurveyIsNoRepeatSurvey() {
+		assertFalse(new AbstractEarthSurveyService() {
+		}.hasPeriodStatus());
+	}
+
+	@Test
 	void theFirstAnswerStoresTheRecordOnceAndStartsThePlot() {
 		open();
 		PlacemarkLoadResult result = save("collect_code_land_use", "F");

@@ -9,60 +9,9 @@
 import { attr, childrenOf, elements, parseSurvey, tagOf, textOf, type XmlNode } from './cep.js';
 import { withWeights } from './areas.js';
 import { prefixOf, QUALIFIER_SEPARATOR } from './surveyOutline.js';
+import type { AnalysisColumn, AnalysisModel, AnalysisTable, ColumnType, Labels, ListItem, TableData } from './wire/analysis.js';
 
-/** A label per language: the survey's languages, "" for a label without xml:lang. */
-export type Labels = Record<string, string>;
-
-export type ColumnType = 'code' | 'boolean' | 'integer' | 'real' | 'text' | 'date' | 'time';
-
-export interface AnalysisColumn {
-  /** The column's name in its table (the attribute's name; an attribute of a single entity: entity_attribute). */
-  name: string;
-  /** The summary key it is read from (for a multiple entity, the part after `[key].`). */
-  key: string;
-  labels: Labels;
-  type: ColumnType;
-  /** For a code: its list. */
-  list: string | null;
-  calculated: boolean;
-  /** Several values (the summary joins them with "==="): kept as text. */
-  multiple: boolean;
-  /** Filled from the plot file (collectearth:fromcsv): province, elevation… */
-  fromPlotFile: boolean;
-  /** A key attribute of the survey (the plot's id, the assessment round): what identifies a record, not an answer. */
-  keyAttr: boolean;
-  /** For a code: the column of the code it depends on (`parent` in the survey: a land use's subdivision), else null. */
-  parent: string | null;
-  /**
-   * The yes/no column the question is asked after (its `relevant` expression starts with it: "change2", "change2 and
-   * …"), else null: the analysis page counts such answers among the plots where it is yes (the year of a change…).
-   */
-  relevantIf: string | null;
-}
-
-export interface AnalysisTable {
-  /** "plot" for the root entity, else the multiple entity's name. */
-  name: string;
-  labels: Labels;
-  /** For a multiple entity: the column holding the entity's key (the code or number in `[…]` of its summary keys). */
-  keyColumn: string | null;
-  columns: AnalysisColumn[];
-}
-
-export interface ListItem {
-  code: string;
-  labels: Labels;
-  /** The code of the item above it in a hierarchical list, else null. */
-  parent: string | null;
-  level: number;
-}
-
-export interface AnalysisModel {
-  /** The survey's languages; the first is the default one (labels without xml:lang). */
-  languages: string[];
-  tables: AnalysisTable[];
-  lists: Record<string, ListItem[]>;
-}
+export type { AnalysisColumn, AnalysisModel, AnalysisTable, ColumnType, Labels, ListItem, TableData } from './wire/analysis.js';
 
 /** The fixed columns of every row, before the survey's (and their DuckDB types). */
 export const ROW_COLUMNS = [
@@ -265,15 +214,6 @@ export interface AnalysisRecord {
   submitted: boolean;
   modifiedOn: number;
   summary: Record<string, string>;
-}
-
-/** A table's rows, as CSV text with a header (RFC 4180), and their count. */
-export interface TableData {
-  name: string;
-  /** Column name → DuckDB type, in order: the browser reads the CSV with these types. */
-  columns: [string, string][];
-  rows: number;
-  csv: string;
 }
 
 /** Whether a raw answer is usable for its type: "" is NULL, a number must parse, a boolean be true or false… */

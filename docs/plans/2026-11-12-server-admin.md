@@ -92,9 +92,9 @@ admin-only cases, the page in en/es/fr/pt/tr, a run in a browser, this file's "a
 
 - **Accounts' dates and address**: `UserSummary` has `createdAt`, `lastActiveAt` (a sign-in or a session used: the
   dashboard or Collect Earth, written with the session's use at most once per `SESSION_TOUCH_MS`; migration
-  `040_user_last_active.sql`, filled once from the sessions there are), `email` and `emailConfirmed`. (039 is left for
-  the repeat survey's `039_period_answers.sql`, on the working branch until it is merged: the migrations are applied by
-  name, each once, so a database that has 040 to 042 takes 039 when it comes.)
+  `040_user_last_active.sql`, filled once from the sessions there are), `email` and `emailConfirmed`. (039 is the
+  repeat survey's `039_period_answers.sql`, merged after these: the migrations are applied by name, each once, so a
+  database that already has 040 to 042 takes 039 when it comes.)
 - **The list** (`src/accounts.ts`, `GET /v1/admin/users?q=&filter=&sort=&desc=&page=&pageSize=`): searched by name or
   address, filtered (all, administrators, disabled, with or without two-step sign-in, inactive for 90 days, without an
   email), each filter's count, sorted by name, creation, last activity or projects, in pages of up to 200;

@@ -116,17 +116,20 @@ public final class LinuxKeyringProtector implements SecretProtector {
 	public String reveal(String account, String stored) {
 		String known = cached.get(account);
 		if (known != null) {
-			return known;
+			return known.isEmpty() ? null : known;
 		}
 		try {
 			String token = read(account);
 			if (token == null) {
 				logger.info("The cloud token is not in this user's keyring (a settings file from elsewhere, or the keyring locked): the login is asked for again");
+				// "" for none, so the sync's reads every 30 s do not each run the command again (protect and forget clear it)
+				cached.put(account, "");
 				return null;
 			}
 			cached.put(account, token);
 			return token;
 		} catch (IOException e) {
+			cached.put(account, "");
 			logger.warn("The keyring could not be read: {}", e.getMessage());
 			return null;
 		}

@@ -7,7 +7,7 @@ const today = new Date(2026, 10, 12);
 describe("imagery windows card", () => {
   it("shows the stored values as Collect Earth's settings do", () => {
     expect(shownImagery(demo)).toEqual({
-      open_gee_app: "true", open_earth_map: "true", open_esri_wayback: "false", planet_maps_use_tfo: "false",
+      open_gee_app: "true", open_earth_map: "true", open_esri_wayback: "false", open_planet_maps: "true", planet_maps_use_tfo: "false",
       geeapp_date_from: "", geeapp_date_to: "", planet_tfo_date_from: "", planet_tfo_date_to: "", extra_map_url: "http://x/#PLOT_ID",
     });
   });
@@ -17,6 +17,16 @@ describe("imagery windows card", () => {
     expect(isShown("geeapp_date_from", v)).toBe(true);
     expect(isShown("planet_tfo_date_to", v)).toBe(false);
     expect(isShown("planet_tfo_date_to", { ...v, planet_maps_use_tfo: "true" })).toBe(true);
+  });
+
+  it("asks which Planet imagery and its months only with Planet switched on, which it is unless it says false", () => {
+    expect(shownImagery({}).open_planet_maps).toBe("true");
+    expect(shownImagery({ open_planet_maps: "FALSE" }).open_planet_maps).toBe("false");
+    const off = shownImagery({ open_planet_maps: "false", planet_maps_use_tfo: "true" });
+    expect(isShown("open_planet_maps", off)).toBe(true);
+    expect(isShown("planet_maps_use_tfo", off)).toBe(false);
+    expect(isShown("planet_tfo_date_from", off)).toBe(false);
+    expect(isShown("planet_tfo_date_from", { ...off, open_planet_maps: "true" })).toBe(true);
   });
 
   it("offers the Planet mosaics published by today", () => {

@@ -1,5 +1,7 @@
 package org.openforis.collect.earth.app.service.notices;
 
+import java.util.concurrent.atomic.AtomicBoolean;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,6 +24,8 @@ public class StartupNotices implements ApplicationListener<ContextRefreshedEvent
 
 	private final Logger logger = LoggerFactory.getLogger(StartupNotices.class);
 
+	private final AtomicBoolean started = new AtomicBoolean(false);
+
 	@Autowired
 	private AnnouncementService announcements;
 
@@ -30,6 +34,9 @@ public class StartupNotices implements ApplicationListener<ContextRefreshedEvent
 
 	@Override
 	public void onApplicationEvent(ContextRefreshedEvent event) {
+		if (!started.compareAndSet(false, true)) {
+			return; // refreshed twice (the root context and the DispatcherServlet's): offered once
+		}
 		Thread thread = new Thread(this::run, "Announcements and update check"); //$NON-NLS-1$
 		thread.setDaemon(true);
 		thread.start();

@@ -3,14 +3,13 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import MenuItem from "@mui/material/MenuItem";
-import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
-import Typography from "@mui/material/Typography";
 import { useMemo, useState } from "react";
 import { getImagery, setImagery } from "../api";
 import { ErrorAlert } from "../components/ErrorAlert";
+import { CardFrame } from "../components/FoldingCard";
 import { Explain } from "../components/Explain";
 import { Loading } from "../components/Loading";
 import { useT, type MessageKey } from "../i18n";
@@ -20,15 +19,16 @@ import { extraMapWarning, imageryChanges, imageryErrors, isShown, planetMonths, 
 /** The imagery windows of the project file (Collect Earth's Settings > Imagery), which Collect Earth applies by itself. */
 export function ImageryCard({ projectId }: { projectId: string }) {
   const t = useT();
-  const loaded = useLoad(() => getImagery(projectId), [projectId]);
+  const loaded = useLoad(["project", projectId, "getImagery"], () => getImagery(projectId));
   if (loaded.error) return <ErrorAlert error={loaded.error} onRetry={loaded.reload} />;
   if (!loaded.data) return <Loading />;
+  const shown = shownImagery(loaded.data.imagery);
+  const on = (["open_gee_app", "open_earth_map", "open_esri_wayback"] as const).filter((k) => shown[k] === "true").map((k) => t(`file.imagery.${k}` as MessageKey));
   return (
-    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
-      <Typography variant="h2" gutterBottom>{t("file.imagery.title")}</Typography>
+    <CardFrame title={t("file.imagery.title")} fold={on.length > 0 ? on.join(" · ") : t("fold.noImagery")}>
       <Explain sx={{ mb: 2 }} text={t("file.imagery.explain")} />
       <ImageryForm projectId={projectId} stored={loaded.data.imagery} onSaved={loaded.reload} />
-    </Paper>
+    </CardFrame>
   );
 }
 
@@ -92,8 +92,13 @@ function ImageryForm({ projectId, stored, onSaved }: { projectId: string; stored
       )}
       {toggle("open_earth_map")}
       {toggle("open_esri_wayback")}
-      {toggle("planet_maps_use_tfo")}
-      <Typography variant="body2" color="text.secondary">{t("file.imagery.planetNote")}</Typography>
+      {toggle("open_planet_maps")}
+      {/* Which Planet imagery: a choice of two rather than a switch named after the mosaics; it opens for whoever has a key */}
+      {isShown("planet_maps_use_tfo", values) && <TextField select fullWidth label={t("file.imagery.planet_maps_use_tfo")} value={values.planet_maps_use_tfo === "true" ? "true" : "false"}
+        onChange={(e) => set("planet_maps_use_tfo", e.target.value)} helperText={t("file.imagery.planetNote")}>
+        <MenuItem value="false">{t("file.imagery.planetDaily")}</MenuItem>
+        <MenuItem value="true">{t("file.imagery.planetMonthly")}</MenuItem>
+      </TextField>}
       {isShown("planet_tfo_date_from", values) && (
         <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
           {month("planet_tfo_date_from", "file.imagery.firstAvailable")}

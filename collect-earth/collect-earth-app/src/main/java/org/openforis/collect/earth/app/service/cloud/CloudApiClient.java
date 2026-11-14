@@ -3,7 +3,9 @@ package org.openforis.collect.earth.app.service.cloud;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Date;
@@ -211,18 +213,6 @@ public class CloudApiClient {
 		prepareWith(request, token);
 		JsonNode admin = executeForJson("me", request).get("isPlatformAdmin");
 		return admin != null && admin.isBoolean() ? admin.asBoolean() : null;
-	}
-
-	/** True if the configured project is reachable and the token is accepted. */
-	public boolean ping() {
-		HttpGet request = new HttpGet(baseUrl() + "/v1/projects/" + projectId());
-		prepare(request);
-		try (CloseableHttpResponse response = client().execute(request)) {
-			return isSuccess(response.getStatusLine().getStatusCode());
-		} catch (IOException e) {
-			logger.debug("Cloud sync ping failed: {}", e.getMessage());
-			return false;
-		}
 	}
 
 	/** Uploads the survey IDML definition, base64-encoded, so the cloud project can decode records. */
@@ -568,6 +558,18 @@ public class CloudApiClient {
 	}
 
 	/**
+	 * A plot's answers in the earlier periods of a repeat survey (docs/plans/2026-11-11-repeat-survey.md), with the
+	 * questions' labels, their answers' names, and what the form's header shows: {@code {periods: [{label, savedAt,
+	 * answers}], labels, options, label, header}}; no periods for a project that repeats no survey.
+	 */
+	public JsonNode getPlotPeriods(String placemarkId) throws IOException {
+		HttpGet request = new HttpGet(baseUrl() + "/v1/projects/" + projectId() + "/periods/plots/"
+				+ java.net.URLEncoder.encode(placemarkId, java.nio.charset.StandardCharsets.UTF_8.name()).replace("+", "%20"));
+		prepare(request);
+		return executeForJson("getPlotPeriods", request);
+	}
+
+	/**
 	 * The plot layout of the project file on the server (GET /plot-layout), as the coordinator set it on the dashboard:
 	 * the settings of Settings > Plot it has, by property name.
 	 */
@@ -634,29 +636,40 @@ public class CloudApiClient {
 		if (!dest.toPath().startsWith(targetFolder.getCanonicalFile().toPath())) {
 			throw new IOException("Refusing to write a CSV outside the assignments folder: " + assignment.getFilename());
 		}
-		HttpGet request = new HttpGet(baseUrl() + assignment.getDownloadPath());
-		prepare(request);
-		try (CloseableHttpResponse response = client().execute(request)) {
-			int status = response.getStatusLine().getStatusCode();
-			if (!isSuccess(status)) {
-				throw errorFor("downloadAssignedCsv", status, response);
+		// Written aside and moved in once verified: the plots file in use is never left half-written
+		java.nio.file.Path temp = Files.createTempFile(targetFolder.toPath(), safeName, ".part");
+		try {
+			HttpGet request = new HttpGet(baseUrl() + assignment.getDownloadPath());
+			prepare(request);
+			try (CloseableHttpResponse response = client().execute(request)) {
+				int status = response.getStatusLine().getStatusCode();
+				if (!isSuccess(status)) {
+					throw errorFor("downloadAssignedCsv", status, response);
+				}
+				HttpEntity entity = response.getEntity();
+				if (entity == null) {
+					throw new IOException("The cloud server returned an empty CSV for " + assignment.getFilename());
+				}
+				try (java.io.OutputStream out = Files.newOutputStream(temp)) {
+					entity.writeTo(out);
+				}
 			}
-			HttpEntity entity = response.getEntity();
-			if (entity == null) {
-				throw new IOException("The cloud server returned an empty CSV for " + assignment.getFilename());
+			if (assignment.getChecksum() != null && !assignment.getChecksum().isEmpty()) {
+				String actual;
+				try (java.io.InputStream in = Files.newInputStream(temp)) {
+					actual = org.apache.commons.codec.digest.DigestUtils.sha256Hex(in);
+				}
+				if (!assignment.getChecksum().equalsIgnoreCase(actual)) {
+					throw new IOException("Checksum mismatch for the downloaded CSV " + assignment.getFilename());
+				}
 			}
-			try (java.io.OutputStream out = Files.newOutputStream(dest.toPath())) {
-				entity.writeTo(out);
+			try {
+				Files.move(temp, dest.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+			} catch (AtomicMoveNotSupportedException e) {
+				Files.move(temp, dest.toPath(), StandardCopyOption.REPLACE_EXISTING);
 			}
-		}
-		if (assignment.getChecksum() != null && !assignment.getChecksum().isEmpty()) {
-			String actual;
-			try (java.io.InputStream in = Files.newInputStream(dest.toPath())) {
-				actual = org.apache.commons.codec.digest.DigestUtils.sha256Hex(in);
-			}
-			if (!assignment.getChecksum().equalsIgnoreCase(actual)) {
-				throw new IOException("Checksum mismatch for the downloaded CSV " + assignment.getFilename());
-			}
+		} finally {
+			Files.deleteIfExists(temp);
 		}
 		return dest;
 	}

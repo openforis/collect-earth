@@ -1,4 +1,4 @@
-import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 
 /** Generates a URL-safe opaque token (the plaintext handed to a client once). */
 export function generateToken(): string {
@@ -32,14 +32,6 @@ export const SESSION_TOUCH_MS = 3_600_000;
 export function sessionIdleDays(value: string | undefined): number {
   const n = Number(value);
   return Number.isInteger(n) && n >= 1 && n <= 3650 ? n : 90;
-}
-
-/** Constant-time comparison of two hex hashes of equal length. */
-export function hashesEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) {
-    return false;
-  }
-  return timingSafeEqual(Buffer.from(a, 'utf8'), Buffer.from(b, 'utf8'));
 }
 
 /** Extracts the bearer token from an Authorization header, or null if absent/malformed. */

@@ -39,6 +39,9 @@ public class GoogleEarthWebUrlsTest {
 		assertTrue(GoogleEarthWebUrls.isCameraAt(url, -1.95, 30.06));
 		assertFalse(GoogleEarthWebUrls.isCameraAt(url, -1.96, 30.06));
 		assertFalse(GoogleEarthWebUrls.isCameraAt("https://earth.google.com/web/", -1.95, 30.06));
+		// 180 and -180 are the same meridian
+		assertTrue(GoogleEarthWebUrls.isCameraAt("https://earth.google.com/web/@-17.5,180,1500a,400d,35y,0h,0t,0r", -17.5, -180));
+		assertTrue(GoogleEarthWebUrls.isCameraAt("https://earth.google.com/web/@-17.5,-179.99995,1500a,400d,35y,0h,0t,0r", -17.5, 179.99995));
 	}
 
 	@Test

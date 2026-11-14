@@ -1,6 +1,5 @@
-import { createHash, timingSafeEqual } from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { configuredBaseUrl, isEmailAddress } from '../accountRules.js';
+import { configuredBaseUrl, isEmailAddress, secretsEqual } from '../accountRules.js';
 import type { Config } from '../config.js';
 import { isTimeZone } from '../days.js';
 import { confirmMail, MAX_BUDGET_MS, runDigests } from '../digest.js';
@@ -17,6 +16,8 @@ import { emailChangedMail, longMoment, passwordChangedMail, resetLinkMail,
   adminMessageMail, testMail, welcomeMail, SELF_RESET_TTL_MS, type MessageAudience, type SecurityContext } from '../securityMail.js';
 import type { Store } from '../store/store.js';
 import { DIGEST_KINDS, MAIL_LANGUAGES, type AccountMail, type DigestKind, type MailLanguage } from '../types.js';
+import type { DigestView, Notifications, UnsubscribeAnswer } from '../wire/account.js';
+import type { MailCheck, MessagePreview, MessageSentAnswer, TestMailAnswer } from '../wire/serverAdmin.js';
 
 export { MAX_EMAIL_LENGTH } from '../accountRules.js';
 
@@ -110,13 +111,6 @@ const isLanguage = (v: unknown): v is MailLanguage => (MAIL_LANGUAGES as readonl
 const TOO_MANY = { error: 'too_many_confirmations', reason: 'too many confirmation mails were sent for this account: try again in an hour' } as const;
 const INVALID_STORED = { error: 'invalid_stored_email', reason: 'the address on the account is not one email address: type it again' } as const;
 
-/** Constant-time comparison of two secrets of any length (their sha256 compared). */
-export function secretsMatch(given: string, expected: string): boolean {
-  const a = createHash('sha256').update(given).digest();
-  const b = createHash('sha256').update(expected).digest();
-  return timingSafeEqual(a, b);
-}
-
 /** Headers of the pages and answers a mail's link reaches: not indexed, no referrer, not kept. */
 function linkHeaders(reply: FastifyReply): void {
   reply.header('x-robots-tag', 'noindex, nofollow');
@@ -183,7 +177,7 @@ export async function registerMailRoutes(app: FastifyInstance, store: Store, con
   // Always on (also where the request limits are off): it is what keeps a mailbox from being flooded.
   const resetsPerAccount = new RateLimiter(RESET_MAILS_PER_ACCOUNT_HOUR, deps.now, { windowMs: HOUR_MS });
 
-  const view = async (userId: string, mail: AccountMail) => {
+  const view = async (userId: string, mail: AccountMail): Promise<Notifications> => {
     const memberships = await store.listMemberships(userId);
     // A collector somewhere, or a coordinator given plots in a project of theirs (My week tells them their own).
     const collects = await Promise.all(
@@ -195,7 +189,7 @@ export async function registerMailRoutes(app: FastifyInstance, store: Store, con
       ),
     );
     const digests = Object.fromEntries(
-      DIGEST_KINDS.map((kind) => {
+      DIGEST_KINDS.map((kind): [DigestKind, DigestView] => {
         const d = mail.digests.find((x) => x.kind === kind);
         return [
           kind,
@@ -209,7 +203,7 @@ export async function registerMailRoutes(app: FastifyInstance, store: Store, con
           },
         ];
       }),
-    );
+    ) as Record<DigestKind, DigestView>;
     return {
       email: mail.email,
       // False for an address stored before the rule (not one address): it must be typed again.
@@ -483,7 +477,7 @@ export async function registerMailRoutes(app: FastifyInstance, store: Store, con
       if (!allowed) return reply.code(429).header('retry-after', '60').send(RATE_LIMITED);
       if (!read) return reply.code(404).send({ error: 'not_found', reason: 'the link is not valid' });
       await store.setDigest(read.userId, read.kind, false, deps.now());
-      return reply.send({ unsubscribed: true, kind: read.kind });
+      return reply.send({ unsubscribed: true, kind: read.kind } satisfies UnsubscribeAnswer);
     });
     scope.get('/v1/unsubscribe/:token', async (request: FastifyRequest, reply: FastifyReply) => {
       // Opened in a browser: the dashboard's page asks before turning it off (link checkers only GET).
@@ -494,7 +488,7 @@ export async function registerMailRoutes(app: FastifyInstance, store: Store, con
   /** Whether the job's caller is who DIGEST_SECRET or DIGEST_OIDC_* say. */
   const authorized = async (request: FastifyRequest): Promise<boolean> => {
     const given = request.headers['x-digest-secret'];
-    if (config.digestSecret && typeof given === 'string' && secretsMatch(given, config.digestSecret)) return true;
+    if (config.digestSecret && typeof given === 'string' && secretsEqual(given, config.digestSecret)) return true;
     const auth = request.headers.authorization;
     if (config.digestOidc && typeof auth === 'string' && auth.startsWith('Bearer ')) {
       try {
@@ -563,7 +557,7 @@ export async function registerMailRoutes(app: FastifyInstance, store: Store, con
       ownAddress: own?.email ?? null,
       ownAddressConfirmed: own?.emailConfirmedAt != null,
       stopped: await store.listStoppedDigests(),
-    });
+    } satisfies MailCheck);
   });
 
   // "Send me a test email": to the administrator's own address (confirmed or not), in their language; the mail
@@ -585,7 +579,7 @@ export async function registerMailRoutes(app: FastifyInstance, store: Store, con
       return reply.code(502).send({ error: 'mail_refused', ...summary, senderLimit: isSenderLimit(err) });
     }
     await logServerAction(store, request, { action: 'mail.test', details: { sent: true } });
-    return reply.send({ sent: true, to: own.email });
+    return reply.send({ sent: true, to: own.email } satisfies TestMailAnswer);
   });
 
   // --- A message from the server's administrators to every coordinator, or everyone (stage D) ---
@@ -620,11 +614,13 @@ export async function registerMailRoutes(app: FastifyInstance, store: Store, con
       text: mail.text,
       delivers: deps.mailer.delivers,
       nextAllowedAt: last !== null && deps.now() - last < MESSAGE_INTERVAL_MS ? last + MESSAGE_INTERVAL_MS : null,
-    });
+    } satisfies MessagePreview);
   });
 
-  // Sends it: each person gets it in their language (the closing lines), in the background. `recipients` is the count the
-  // administrator was shown: a different one now (an account changed) asks again. At most one an hour.
+  // Sends it: each person gets it in their language (the closing lines), within the request (Cloud Run throttles the CPU
+  // once the answer is out). `recipients` is the count the administrator was shown: a different one now (an account
+  // changed) asks again. At most one an hour.
+  let sendingUntil = 0;
   app.post('/v1/admin/messages', { preHandler: requirePlatformAdmin(store) }, async (request: FastifyRequest, reply: FastifyReply) => {
     if (!deps.mailer.delivers) return reply.code(409).send({ error: 'mail_not_set_up', reason: 'set SMTP_URL and MAIL_FROM to send mail' });
     const m = readMessage(request.body);
@@ -633,14 +629,16 @@ export async function registerMailRoutes(app: FastifyInstance, store: Store, con
     if (last !== null && deps.now() - last < MESSAGE_INTERVAL_MS) {
       return reply.code(429).send({ error: 'message_too_soon', reason: 'one message an hour', nextAllowedAt: last + MESSAGE_INTERVAL_MS });
     }
+    // The log entry is written once the loop ends: until then this instance refuses a second message itself.
+    if (sendingUntil > deps.now()) return reply.code(429).send({ error: 'message_too_soon', reason: 'one message an hour', nextAllowedAt: sendingUntil });
     const recipients = await recipientsOf(m.audience);
     const shown = ((request.body ?? {}) as { recipients?: unknown }).recipients;
     if (shown !== recipients.length) return reply.code(409).send({ error: 'recipients_changed', recipients: recipients.length });
     if (recipients.length === 0) return reply.code(409).send({ error: 'no_recipients' });
-    await logServerAction(store, request, { action: 'message.sent', details: { audience: m.audience, recipients: recipients.length, subject: m.subject.slice(0, 100) } });
-    work.run(request, `server.message.${m.audience}`, async () => {
-      let sent = 0;
-      let failed = 0;
+    sendingUntil = deps.now() + MESSAGE_INTERVAL_MS;
+    let sent = 0;
+    let failed = 0;
+    try {
       for (const r of recipients) {
         try {
           const mail = await store.getAccountMail(r.userId);
@@ -653,8 +651,10 @@ export async function registerMailRoutes(app: FastifyInstance, store: Store, con
           request.log.warn({ err: errorSummary(err), userId: r.userId }, 'server message: one could not be sent');
         }
       }
-      request.log.info({ action: 'message.delivered', audience: m.audience, sent, failed }, 'server message: sent');
-    });
-    return reply.code(202).send({ recipients: recipients.length });
+      await logServerAction(store, request, { action: 'message.sent', details: { audience: m.audience, recipients: recipients.length, sent, failed, subject: m.subject.slice(0, 100) } });
+    } finally {
+      sendingUntil = 0;
+    }
+    return reply.send({ recipients: recipients.length, sent, failed } satisfies MessageSentAnswer);
   });
 }

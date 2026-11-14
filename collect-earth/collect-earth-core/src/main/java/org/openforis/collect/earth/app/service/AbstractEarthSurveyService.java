@@ -8,6 +8,7 @@ import static org.openforis.collect.earth.app.EarthConstants.ACTIVELY_SAVED_PARA
 import static org.openforis.collect.earth.app.EarthConstants.COLLECT_REASON_BLANK_NOT_SPECIFIED_MESSAGE;
 import static org.openforis.collect.earth.app.EarthConstants.OPERATOR_ATTRIBUTE_NAME;
 import static org.openforis.collect.earth.app.EarthConstants.OPERATOR_PARAMETER;
+import static org.openforis.collect.earth.app.EarthConstants.PERIOD_STATUS_ATTRIBUTE_NAME;
 import static org.openforis.collect.earth.app.EarthConstants.PLACEMARK_FOUND_PARAMETER;
 import static org.openforis.collect.earth.app.EarthConstants.ROOT_ENTITY_NAME;
 import static org.openforis.collect.earth.app.EarthConstants.SKIP_FILLED_PLOT_PARAMETER;
@@ -58,6 +59,7 @@ import org.openforis.collect.model.validation.CollectEarthValidator;
 import org.openforis.collect.model.validation.ValidationMessageBuilder;
 import org.openforis.collect.persistence.RecordPersistenceException;
 import org.openforis.idm.metamodel.AttributeDefinition;
+import org.openforis.idm.metamodel.CodeAttributeDefinition;
 import org.openforis.idm.metamodel.EntityDefinition;
 import org.openforis.idm.metamodel.ModelVersion;
 import org.openforis.idm.metamodel.NodeDefinition;
@@ -67,6 +69,8 @@ import org.openforis.idm.metamodel.SurveyContext;
 import org.openforis.idm.model.Attribute;
 import org.openforis.idm.model.BooleanAttribute;
 import org.openforis.idm.model.BooleanValue;
+import org.openforis.idm.model.Code;
+import org.openforis.idm.model.CodeAttribute;
 import org.openforis.idm.model.DateAttribute;
 import org.openforis.idm.model.Entity;
 import org.openforis.idm.model.Node;
@@ -75,9 +79,10 @@ import org.openforis.idm.model.TextValue;
 import org.openforis.idm.model.Value;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.annotation.Autowired;
 
-public abstract class AbstractEarthSurveyService {
+public abstract class AbstractEarthSurveyService implements DisposableBean {
 
 	private static final String COLLECT_CODE_CROWN_COVER = "collect_code_crown_cover";
 
@@ -149,6 +154,8 @@ public abstract class AbstractEarthSurveyService {
 		private boolean dirty;
 		private long lastChangeAtMs;
 		private String sessionId;
+		/** The failure of its last save was logged: the background flusher retries it every poll */
+		private boolean failureLogged;
 
 		WorkingRecord(CollectRecord record) {
 			this.record = record;
@@ -243,7 +250,7 @@ public abstract class AbstractEarthSurveyService {
 	 * explicit "submit &amp; validate", the record is only marked dirty and a background
 	 * flush is scheduled; otherwise it is saved synchronously right away.
 	 */
-	private void persistOrDefer(String key, CollectRecord record, String sessionId, boolean saveNow) {
+	private void persistOrDefer(String key, CollectRecord record, String sessionId, boolean saveNow) throws RecordPersistenceException {
 		WorkingRecord wr = workingRecords.get(key);
 		if (wr == null) {
 			wr = new WorkingRecord(record);
@@ -253,23 +260,33 @@ public abstract class AbstractEarthSurveyService {
 		wr.dirty = true;
 		wr.lastChangeAtMs = System.currentTimeMillis();
 		if (saveNow || !isDeferredSaveEnabled()) {
-			flush(wr);
+			// the request reports a failed save: a submit must not look saved
+			save(wr);
 		} else {
 			scheduleBackgroundFlusher();
 		}
 	}
 
 	/** Save a single dirty record to the database. Callers must hold this service's monitor. */
-	private void flush(WorkingRecord wr) {
+	private void save(WorkingRecord wr) throws RecordPersistenceException {
 		if (wr == null || !wr.dirty) {
 			return;
 		}
+		recordManager.save(wr.record, wr.sessionId);
+		wr.dirty = false;
+		wr.failureLogged = false;
+		notifyRecordSaved(wr.record);
+	}
+
+	/** {@link #save(WorkingRecord)} in the background: a failure is logged once per record, not at every retry. */
+	private void flush(WorkingRecord wr) {
 		try {
-			recordManager.save(wr.record, wr.sessionId);
-			wr.dirty = false;
-			notifyRecordSaved(wr.record);
+			save(wr);
 		} catch (Exception e) {
-			logger.error("Error flushing record to the database", e); //$NON-NLS-1$
+			if (!wr.failureLogged) {
+				wr.failureLogged = true;
+				logger.error("Error flushing record to the database", e); //$NON-NLS-1$
+			}
 		}
 	}
 
@@ -296,7 +313,30 @@ public abstract class AbstractEarthSurveyService {
 	/** Persist all pending (dirty) records. Called on shutdown and on survey/project change. */
 	public synchronized void flushAll() {
 		for (WorkingRecord wr : workingRecords.values()) {
-			flush(wr);
+			try {
+				save(wr);
+			} catch (Exception e) {
+				logger.error("Error flushing record to the database", e); //$NON-NLS-1$
+			}
+		}
+	}
+
+	/**
+	 * Saves the pending changes and forgets the records kept in memory: called around the jobs that write the database
+	 * without this service (imports, deletions), so an open plot is read again rather than written back over them.
+	 */
+	public synchronized void flushAndForgetWorkingRecords() {
+		flushAll();
+		workingRecords.clear();
+	}
+
+	/** On the close of the context, before the database it depends on: the last changes are saved. */
+	@Override
+	public synchronized void destroy() {
+		flushAll();
+		if (flushExecutor != null) {
+			flushExecutor.shutdownNow();
+			flushExecutor = null;
 		}
 	}
 
@@ -459,6 +499,7 @@ public abstract class AbstractEarthSurveyService {
 	 * @return how many records were deleted
 	 */
 	public synchronized int deleteRecordsSavedBefore(List<String[]> keys, Date before) {
+		flushAndForgetWorkingRecords();
 		int deleted = 0;
 		for (String[] key : keys) {
 			RecordFilter rf = new RecordFilter(getCollectSurvey(), ROOT_ENTITY_NAME);
@@ -589,7 +630,43 @@ public abstract class AbstractEarthSurveyService {
 	 * its keys. The summary alone cannot tell it: whether it is submitted is a value of the record (actively_saved).
 	 */
 	public synchronized PlotStatus getPlotStatus(CollectRecordSummary summary) {
-		return getPlotStatus(recordManager.load(getCollectSurvey(), summary.getId(), Step.ENTRY, false));
+		return getPlotStatus(loadRecordOf(summary));
+	}
+
+	/** The record of a summary already loaded, loaded by its id (null when it is no longer there) */
+	public synchronized CollectRecord loadRecordOf(CollectRecordSummary summary) {
+		return recordManager.load(getCollectSurvey(), summary.getId(), Step.ENTRY, false);
+	}
+
+	/**
+	 * Whether the survey is a repeat survey's: its plot has the period status the cloud adds to it, which the collector
+	 * answers against the plot's earlier period (see {@link #getPeriodStatus(CollectRecord)}).
+	 */
+	public boolean hasPeriodStatus() {
+		CollectSurvey survey = getCollectSurvey();
+		if (survey == null) {
+			return false;
+		}
+		EntityDefinition plot = survey.getSchema().getRootEntityDefinition(ROOT_ENTITY_NAME);
+		// containsChildDefinition first: getChildDefinition throws for a child the survey has not
+		return plot != null && plot.containsChildDefinition(PERIOD_STATUS_ATTRIBUTE_NAME)
+				&& plot.getChildDefinition(PERIOD_STATUS_ATTRIBUTE_NAME) instanceof CodeAttributeDefinition;
+	}
+
+	/**
+	 * What the collector said of the plot against its earlier period, in a repeat survey: its period status's code
+	 * ("same", "changed", "corrected"), or null when not answered, or when the survey has none.
+	 */
+	public static String getPeriodStatus(CollectRecord record) {
+		if (record == null) {
+			return null;
+		}
+		Node<?> node = record.findNodeByPath(ROOT_ENTITY_NAME + "/" + PERIOD_STATUS_ATTRIBUTE_NAME); //$NON-NLS-1$
+		if (!(node instanceof CodeAttribute)) {
+			return null;
+		}
+		Code code = ((CodeAttribute) node).getValue();
+		return code == null || code.getCode() == null || code.getCode().trim().isEmpty() ? null : code.getCode().trim();
 	}
 
 	public static PlotStatus getPlotStatus(CollectRecord record) {
@@ -656,8 +733,7 @@ public abstract class AbstractEarthSurveyService {
 	public synchronized void setCollectSurvey(CollectSurvey collectSurvey) {
 		// Persist any pending changes and drop cached records: they belong to the
 		// previous survey/project and must not leak into the new one.
-		flushAll();
-		workingRecords.clear();
+		flushAndForgetWorkingRecords();
 		this.collectSurvey = collectSurvey;
 		this.collectSurvey.setSurveyContext(createCollectEarthSurveyContext(collectSurvey.getContext()));
 	}

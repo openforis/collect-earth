@@ -19,7 +19,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.StringJoiner;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 
 import org.apache.commons.lang3.StringUtils;
@@ -44,7 +43,6 @@ import org.openforis.collect.model.CollectSurvey;
 import org.openqa.selenium.By;
 import org.openqa.selenium.NoSuchSessionException;
 import org.openqa.selenium.NoSuchWindowException;
-import org.openqa.selenium.WebElement;
 import org.openqa.selenium.bidi.module.Permission;
 import org.openqa.selenium.bidi.permissions.PermissionState;
 import org.openqa.selenium.chrome.ChromeDriver;
@@ -88,7 +86,6 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 
 	// Constants for timeouts and wait durations
 	private static final int ELEMENT_WAIT_TIMEOUT_SECONDS = 60;
-	private static final int WAIT_POLL_INTERVAL_MILLIS = 1000;
 	private static final int PLOT_LOAD_SLEEP_MILLIS = 1000;
 	/** How long the page of a source may take to load in its tab; a slower site is a warning, not a fault. */
 	private static final Duration PAGE_LOAD_TIMEOUT = Duration.ofSeconds(60);
@@ -159,7 +156,6 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	private static final String IMAGERY_FIREFOX_USER_JS = "user_pref(\"toolkit.legacyUserProfileCustomizations.stylesheets\", true);\n";
 	private final Configuration freemarkerConfig = createFreemarkerConfiguration();
 
-	private volatile boolean geeMethodUpdated = false;
 	private volatile boolean isClosing = false;
 	private final List<Runnable> leafletMapOpenedListeners = new CopyOnWriteArrayList<>();
 	private volatile Runnable plotsMapInGoogleEarthWebOpener;
@@ -458,7 +454,14 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 				throw new IllegalStateException("Collect Earth is closing, the imagery browser is not needed");
 			}
 			try {
-				TabDriver tabDriver = new BidiTabDriver(driver); // which quits the driver if it fails
+				TabDriver tabDriver = new BidiTabDriver(driver) { // which quits the driver if it fails
+					@Override
+					public void quit() {
+						// The imagery window quits its browser itself (closed, hung, restarted): not kept for closing
+						super.quit();
+						drivers.remove(driver);
+					}
+				};
 				allowPlotsMapInGoogleEarthWeb(driver);
 				turnGoogleEarthWebAnimationOff(tabDriver);
 				imageryStartFailures.started();
@@ -691,34 +694,6 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	}
 
 	/**
-	 * Checks if an element is present and displayed by ID or name.
-	 *
-	 * @param elementId The ID or name of the element to find
-	 * @param driver The WebDriver instance
-	 * @return true if element is found and displayed, false otherwise
-	 */
-	public static boolean isElementPresentByIdOrName(String elementId, RemoteWebDriver driver) {
-		try {
-			// findElement throws when there is no such element, so the lookup by name was never reached for a page whose
-			// field carries a name and no id, and every wait for it ran to its full timeout
-			return isAnyDisplayed(driver.findElements(By.id(elementId)))
-					|| isAnyDisplayed(driver.findElements(By.name(elementId)));
-		} catch (final Exception e) {
-			// Element not found - this is expected behavior, not an error
-			return false;
-		}
-	}
-
-	private static boolean isAnyDisplayed(List<WebElement> elements) {
-		for (WebElement element : elements) {
-			if (element.isDisplayed()) {
-				return true;
-			}
-		}
-		return false;
-	}
-
-	/**
 	 * Draws the plot over the SecureWatch map of the tab, once the map is there, and unlocks the view if it is locked.
 	 * Everything in the page's own scripts: a classic WebDriver click would select the tab.
 	 */
@@ -877,14 +852,6 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 			sources.add(ImagerySource.SECURE_WATCH);
 		}
 		return sources;
-	}
-
-	public boolean isGeeMethodUpdated() {
-		return geeMethodUpdated;
-	}
-
-	public void setGeeMethodUpdated(boolean geeMethodUpdated) {
-		this.geeMethodUpdated = geeMethodUpdated;
 	}
 
 	public RemoteWebDriver navigateTo(String url, RemoteWebDriver driver) throws BrowserNotFoundException {
@@ -1411,34 +1378,6 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	/** Whether Collect Earth is closing its browsers: no window is to be opened again then. */
 	public boolean isClosing() {
 		return isClosing;
-	}
-
-	/**
-	 * Waits for an element to be present by ID or name.
-	 * Polls at regular intervals until element appears or timeout is reached.
-	 *
-	 * @param elementId The element ID to wait for
-	 * @param driver The WebDriver instance
-	 * @return true if element appears within timeout, false otherwise
-	 */
-	public boolean waitFor(String elementId, RemoteWebDriver driver) {
-		long endTime = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(ELEMENT_WAIT_TIMEOUT_SECONDS);
-
-		while (System.currentTimeMillis() < endTime) {
-			if (isElementPresentByIdOrName(elementId, driver)) {
-				return true;
-			}
-			try {
-				Thread.sleep(WAIT_POLL_INTERVAL_MILLIS);
-			} catch (InterruptedException e) {
-				Thread.currentThread().interrupt();
-				logger.debug("Interrupted while waiting for element: {}", elementId);
-				return false;
-			}
-		}
-
-		logger.debug("Timeout waiting for element: {}", elementId);
-		return false;
 	}
 
 	private Thread getClosingBrowsersThread() {

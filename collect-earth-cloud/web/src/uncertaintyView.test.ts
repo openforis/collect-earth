@@ -1,6 +1,6 @@
 import { strFromU8, unzipSync } from "fflate";
 import { describe, expect, it } from "vitest";
-import type { AnalysisListItem, UncertaintyData, UncertaintyEstimate, UncertaintyQuestion } from "./api";
+import type { ListItem, UncertaintyAnswer, Estimate, UncertaintyQuestion } from "./api";
 import { translator } from "./i18n";
 import { matchRoute, pathFor } from "./router";
 import { codeRows, codesOf, csvOf, guessCategory, uncertaintySheets, xlsxOf } from "./uncertaintyView";
@@ -18,7 +18,7 @@ describe("the setup's guesses", () => {
     expect(guessCategory("9", "Unknown")).toBeNull();
   });
 
-  const item = (code: string, label: string, level = 0, parent: string | null = null): AnalysisListItem => ({ code, labels: { en: label }, parent, level });
+  const item = (code: string, label: string, level = 0, parent: string | null = null): ListItem => ({ code, labels: { en: label }, parent, level });
   const lists = { lu: [item("F", "Forest"), item("1", "Primary", 1, "F"), item("C", "Cropland"), item("X", "Unknown")] };
   const q = (name: string, parent: string | null = null): UncertaintyQuestion => ({ name, labels: {}, list: "lu", parent, fromPlotFile: false, calculated: false });
   const questions = [q("lu2000"), q("lu"), q("lu_sub", "lu")];
@@ -32,11 +32,11 @@ describe("the setup's guesses", () => {
   });
 });
 
-const est = (plots: number, area: number, se: number): UncertaintyEstimate => ({ plots, proportion: area / 1000, area, se, ci: 1.96 * se, uncertainty: area > 0 ? ((1.96 * se) / area) * 100 : null });
+const est = (plots: number, area: number, se: number): Estimate => ({ plots, proportion: area / 1000, area, se, ci: 1.96 * se, uncertainty: area > 0 ? ((1.96 * se) / area) * 100 : null });
 const zero = est(0, 0, 0);
-const data: UncertaintyData = {
+const data: UncertaintyAnswer = {
   settings: { initial: "a", final: "b", initialYear: "2000", finalYear: "2024", codes: {}, totalArea: 1000 },
-  areas: null,
+  areas: "total",
   estimator: "simple",
   totalArea: 1000,
   plots: 10,

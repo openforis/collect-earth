@@ -1,6 +1,8 @@
 // The onboarding checklist on a project's Overview: the steps a new coordinator
 // follows, in order, each one done or not from what the project already has.
 
+import type { ProjectTab } from "./router";
+
 export type StepId = "projectFile" | "plotFiles" | "invite" | "assign" | "progress";
 
 export interface ProjectFacts {
@@ -45,11 +47,11 @@ export function doneCount(steps: ChecklistStep[]): number {
   return steps.filter((s) => s.done).length;
 }
 
-/** The tab where each step is done. */
-export const STEP_TAB: Record<StepId, "file" | "plots" | "people" | "data"> = {
-  projectFile: "file",
-  plotFiles: "plots",
-  invite: "people",
-  assign: "plots",
-  progress: "data",
+/** Where each step is done: a tab and, for Setup, its section. */
+export const STEP_PLACE: Record<StepId, { tab: ProjectTab; view?: string }> = {
+  projectFile: { tab: "setup", view: "survey" },
+  plotFiles: { tab: "setup", view: "plots" },
+  invite: { tab: "people" },
+  assign: { tab: "setup", view: "plots" },
+  progress: { tab: "data" },
 };

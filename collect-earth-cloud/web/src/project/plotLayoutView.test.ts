@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isShown, layoutChanges, layoutErrors, minimumReferenceDistance, numberLabel, shownLayout } from "./plotLayoutView";
+import { isShown, layoutChanges, layoutErrors, minimumReferenceDistance, numberLabel, plotFigures, shownLayout } from "./plotLayoutView";
 
 const demo = { sample_shape: "SQUARE", number_of_sampling_points_in_plot: "49", distance_between_sample_points: "10", distance_to_plot_boundaries: "5", inner_point_side: "2" };
 
@@ -36,5 +36,21 @@ describe("plot layout card", () => {
     expect(layoutChanges(demo, initial, { ...initial, sample_shape: "CIRCLE", distance_between_sample_points: "15" })).toEqual({ sample_shape: "CIRCLE", distance_between_sample_points: "15" });
     // One point: the distance between points is hidden, and blanked
     expect(layoutChanges(demo, initial, { ...initial, number_of_sampling_points_in_plot: "1" })).toEqual({ number_of_sampling_points_in_plot: "1", distance_between_sample_points: "" });
+  });
+
+  it("gives the plot's size and area as Collect Earth computes them", () => {
+    // 7x7 points 10 m apart with a margin of 5: 70 m of side, 0.49 ha; a square reference area at 100 m: 4 ha
+    const square = { sample_shape: "SQUARE", number_of_sampling_points_in_plot: "49", distance_between_sample_points: "10", distance_to_plot_boundaries: "5", buffer_shape: "SQUARE", distance_to_buffers: "100" };
+    expect(plotFigures(square)).toEqual({ side: 70, radius: null, area: 4900, referenceArea: 40000 });
+    expect(plotFigures({ ...square, buffer_shape: "NONE" })?.referenceArea).toBeNull();
+    // One point: the margin alone
+    expect(plotFigures({ ...square, number_of_sampling_points_in_plot: "1" })?.side).toBe(10);
+    const circle = plotFigures({ sample_shape: "CIRCLE", number_of_sampling_points_in_plot: "4", distance_between_sample_points: "15", buffer_shape: "CIRCLE", distance_to_buffers: "50" });
+    expect(circle?.radius).toBe(15);
+    expect(circle?.area).toBeCloseTo(Math.PI * 225);
+    expect(circle?.referenceArea).toBeCloseTo(Math.PI * 2500);
+    expect(plotFigures({ sample_shape: "HEXAGON", distance_between_sample_points: "15", buffer_shape: "NONE" })?.area).toBeCloseTo(((3 * Math.sqrt(3)) / 2) * 225);
+    expect(plotFigures({ sample_shape: "NFI_THREE_CIRCLES" })).toBeNull();
+    expect(plotFigures({ sample_shape: "KML_POLYGON" })).toBeNull();
   });
 });

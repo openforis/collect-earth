@@ -14,6 +14,7 @@ import java.util.Map;
 
 import javax.swing.JOptionPane;
 
+import org.apache.commons.text.StringEscapeUtils;
 import org.eclipse.jetty.server.Connector;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
@@ -154,8 +155,6 @@ public class ServerController {
 		final File jettyAppCtxTemplateSrc = new File("resources/applicationContext.fmt"); //$NON-NLS-1$
 		final File jettyAppCtxDst = new File(EarthConstants.GENERATED_FOLDER + "/applicationContext.xml"); //$NON-NLS-1$
 
-		jettyAppCtxDst.getParentFile().mkdirs();
-
 		final Map<String, String> data = new java.util.HashMap<>();
 
 		data.put("driver", collectDBDriver.getDriverClass()); //$NON-NLS-1$
@@ -171,11 +170,21 @@ public class ServerController {
 		data.put("maxTotal", singleWriter ? "1" : "10"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 		data.put("collectEarthExecutionFolder", System.getProperty("user.dir") + File.separator); //$NON-NLS-1$ //$NON-NLS-2$
 
-		FreemarkerTemplateUtils.applyTemplate(jettyAppCtxTemplateSrc, jettyAppCtxDst, data);
+		writeApplicationContext(jettyAppCtxTemplateSrc, jettyAppCtxDst, data);
 
 
 		return isConnectionTypeSwitched;
 
+	}
+
+	/** The context with the values of data, written private to its owner as it holds the database password. */
+	static void writeApplicationContext(File template, File destination, Map<String, String> data) throws IOException, TemplateException {
+		destination.getParentFile().mkdirs();
+		destination.createNewFile();
+		LocalPropertiesService.ownerOnly(destination.toPath());
+		// Attribute values: a folder like C:\Users\Romeo&Giulietta or a password with & or " made the XML invalid
+		data.replaceAll((key, value) -> StringEscapeUtils.escapeXml10(value));
+		FreemarkerTemplateUtils.applyTemplate(template, destination, data);
 	}
 
 	private boolean isPostgreSQLReachable(CollectDBDriver collectDBDriver) {

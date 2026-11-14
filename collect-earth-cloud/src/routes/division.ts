@@ -23,6 +23,7 @@ import { fileKeyCount, keyShape, splitKey } from '../rounds.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import type { Store } from '../store/store.js';
 import type { PlotAssignment, StoredDistribution } from '../types.js';
+import type { CsvColumns, MoveUnfinishedAnswer, RebalanceAnswer } from '../wire/plotFiles.js';
 
 /** Everything a division route needs about one file and the people of the project. */
 async function loadFile(store: Store, projectId: string, csvFileId: string, log: Log) {
@@ -168,7 +169,7 @@ export async function registerDivisionRoutes(app: FastifyInstance, store: Store,
       columns,
       // Whether order 'nearby' can be chosen, and how many plots have no place (they go last).
       nearby: availability,
-    });
+    } satisfies CsvColumns);
   });
 
   app.get('/v1/projects/:pid/csv-files/:id/distribution', admin, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -294,7 +295,7 @@ export async function registerDivisionRoutes(app: FastifyInstance, store: Store,
     }
     const { holdings, kept } = await movableHoldings(projectId, loaded);
     if (!holdings.some((a) => a.userId === from)) {
-      return reply.send({ ...(await currentSummary(store, projectId, loaded)), moved: 0, notMoved: 0, droppedChecks: 0 });
+      return reply.send({ ...(await currentSummary(store, projectId, loaded)), moved: 0, notMoved: 0, droppedChecks: 0 } satisfies MoveUnfinishedAnswer);
     }
     const result = moveUnfinished(holdings, from, to, keptWith, plotOf, which);
     result.plots.push(...kept);
@@ -310,7 +311,7 @@ export async function registerDivisionRoutes(app: FastifyInstance, store: Store,
       // dropped.
       notMoved: result.notMoved,
       droppedChecks: result.droppedChecks,
-    });
+    } satisfies MoveUnfinishedAnswer);
   });
 
   // Body: {people: [{userId, weight}], dryRun?}. Shares again the plots still to assess of these people,
@@ -345,7 +346,7 @@ export async function registerDivisionRoutes(app: FastifyInstance, store: Store,
     const { holdings, kept } = await movableHoldings(projectId, loaded);
     const plan = rebalancePlan(holdings, keptWith, shares);
     if (body.dryRun === true) {
-      return reply.send({ ...plan, saved: false });
+      return reply.send({ ...plan, saved: false } satisfies RebalanceAnswer);
     }
     let plots = holdings;
     let moved = 0;
@@ -366,6 +367,6 @@ export async function registerDivisionRoutes(app: FastifyInstance, store: Store,
       saved: true,
       moved,
       notMoved,
-    });
+    } satisfies RebalanceAnswer);
   });
 }

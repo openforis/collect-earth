@@ -26,7 +26,7 @@ import {
   getReviewQueue,
   NO_QUEUE_FILTER,
   setQualityDecision,
-  type BulkResult,
+  type BulkDecisionAnswer,
   type BulkRule,
   type DecisionKind,
   type PlotOutline,
@@ -42,7 +42,8 @@ import { useApp } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Explain, MoreInfo } from "../components/Explain";
 import { Loading } from "../components/Loading";
-import { FLAG_KIND_KEYS, flagText } from "../flagsView";
+import { FoldingCard } from "../components/FoldingCard";
+import { FLAG_KIND_KEYS, flagSaysMore, flagText } from "../flagsView";
 import { formatDate, formatNumber } from "../format";
 import { useT, type MessageKey } from "../i18n";
 import { googleEarthUrl } from "../qualityView";
@@ -83,12 +84,12 @@ function SelectField({ label, value, onChange, children }: { label: string; valu
   );
 }
 
-/** The two bulk rules (coordinators): a dry run gives the count, a dialog asks before deciding. */
-function Bulk({ projectId, onDone }: { projectId: string; onDone: (count: number) => void }) {
+/** The two bulk rules (coordinators), folded under its title: a dry run gives the count, a dialog asks before deciding. */
+function Bulk({ projectId, done, onDone }: { projectId: string; done: string | null; onDone: (count: number) => void }) {
   const t = useT();
   const { language } = useApp();
   const [asking, setAsking] = useState<BulkRule | null>(null);
-  const [dry, setDry] = useState<{ rule: BulkRule; result: BulkResult } | null>(null);
+  const [dry, setDry] = useState<{ rule: BulkRule; result: BulkDecisionAnswer } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const ask = async (rule: BulkRule) => {
@@ -120,10 +121,7 @@ function Bulk({ projectId, onDone }: { projectId: string; onDone: (count: number
   const count = dry?.result.count ?? 0;
   const more = dry ? count - dry.result.plots.length : 0;
   return (
-    <Box>
-      <Typography variant="h3" sx={{ mb: 0.5 }}>
-        {t("queue.bulkTitle")}
-      </Typography>
+    <FoldingCard title={t("queue.bulkTitle")}>
       <Explain variant="body2" sx={{ mb: 1 }} text={t("queue.bulkExplain.short")} more={t("queue.bulkExplain")} />
       <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
         {BULK_RULES.map((rule) => (
@@ -134,6 +132,7 @@ function Bulk({ projectId, onDone }: { projectId: string; onDone: (count: number
         ))}
       </Stack>
       {error !== null && dry === null && <ErrorAlert error={error} />}
+      {done !== null && <Alert severity="success" sx={{ mt: 1.5 }}>{done}</Alert>}
       {dry && (
         <Dialog open onClose={() => !busy && setDry(null)} fullWidth maxWidth="sm" aria-labelledby="bulk-title" aria-describedby="bulk-text">
           <DialogTitle id="bulk-title">{count === 0 ? t(BULK_LABEL[dry.rule]) : t("queue.bulkConfirmTitle", { n: formatNumber(count, language) })}</DialogTitle>
@@ -162,7 +161,7 @@ function Bulk({ projectId, onDone }: { projectId: string; onDone: (count: number
           </DialogActions>
         </Dialog>
       )}
-    </Box>
+    </FoldingCard>
   );
 }
 
@@ -268,11 +267,13 @@ function QueueCard({
                   <Typography variant="body2" component="span" color="text.secondary">
                     {t(FLAG_KIND_KEYS[f.kind])} · {f.operator}
                     {f.at !== null ? ` · ${formatDate(f.at, language)}` : ""}
-                    {": "}
+                    {flagSaysMore(f.kind) ? ": " : ""}
                   </Typography>
-                  <Typography variant="body2" component="span">
-                    {flagText(t, f, language)}
-                  </Typography>
+                  {flagSaysMore(f.kind) && (
+                    <Typography variant="body2" component="span">
+                      {flagText(t, f, language)}
+                    </Typography>
+                  )}
                 </Box>
               ))}
             </Box>
@@ -283,12 +284,12 @@ function QueueCard({
             {t("queue.resubmittedBy", { name: r.operator, time: formatDate(r.at, language), decided: formatDate(r.decidedAt, language) })}
           </Typography>
         ))}
-        {decision?.decision === "recheck" && item.waiting !== null && (item.resubmitted.length > 0 || item.waiting.length === 0) && (
+        {decision?.decision === "recheck" && item.waiting !== undefined && (item.resubmitted.length > 0 || item.waiting.length === 0) && (
           <Typography variant="body2">
             {item.waiting.length > 0 ? t("queue.waitingFor", { names: item.waiting.join(", ") }) : t("queue.allSubmittedAgain")}
           </Typography>
         )}
-        {decision?.decision === "recheck" && item.left.length > 0 && (
+        {decision?.decision === "recheck" && item.left !== undefined && item.left.length > 0 && (
           <Typography variant="body2" color="text.secondary">
             {t("queue.leftProject", { names: item.left.join(", ") })}
           </Typography>
@@ -463,7 +464,7 @@ export function ReviewQueue({
     getPlotPlaces(projectId, asked).then(
       (answer) => {
         if (cancelled) return;
-        if (answer.unsupportedSrs !== null) {
+        if (answer.unsupportedSrs !== undefined) {
           setUnsupportedSrs(answer.unsupportedSrs);
           return;
         }
@@ -601,137 +602,140 @@ export function ReviewQueue({
   const left = items.filter((i) => !decidedHere.has(i.plot)).length;
 
   return (
-    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section" aria-labelledby="queue-title" onKeyDown={onKeyDown}>
-      <Stack spacing={2}>
-        <Typography variant="h2" id="queue-title">
-          {t("queue.title")}
-        </Typography>
-        <Explain text={t("queue.explain.short")} more={t("queue.explain")} />
-        <Box component="p" id="queue-keys" sx={{ m: 0, p: 1.5, bgcolor: "action.hover", borderRadius: 1, typography: "body2" }}>
-          {t("queue.keys.short")}
-          <MoreInfo text={t("queue.keys")} />
-        </Box>
-        {/* What was decided, said to screen readers (the page moves on by itself). */}
-        <Box role="status" aria-live="polite" sx={{ position: "absolute", width: "1px", height: "1px", margin: "-1px", padding: 0, border: 0, overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap" }}>
-          {announce}
-        </Box>
-        {!data && loading && <Loading />}
-        {busyFigures && (
-          <Alert severity="info" role="status" action={<Button color="inherit" size="small" onClick={() => load(null)}>{t("common.retry")}</Button>}>
-            {t("quality.busy")}
-          </Alert>
-        )}
-        {loadError !== null && !busyFigures && <ErrorAlert error={loadError} onRetry={() => load(null)} />}
-        {data && (
-          <Stack spacing={2} sx={{ opacity: loading ? 0.6 : 1, transition: "opacity 120ms" }} aria-busy={loading}>
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} useFlexGap sx={{ flexWrap: "wrap" }}>
-              <SelectField label={t("answers.filterPerson")} value={filter.person ?? ALL} onChange={(v) => setFilter({ ...filter, person: v === ALL ? null : v })}>
-                <MenuItem value={ALL}>{t("answers.everyone")}</MenuItem>
-                {people.map((p) => (
-                  <MenuItem key={p} value={p}>
-                    {p}
-                  </MenuItem>
-                ))}
-              </SelectField>
-              <SelectField label={t("queue.filterKind")} value={filter.kind ?? ALL} onChange={(v) => setFilter({ ...filter, kind: v === ALL ? null : (v as QueueKind) })}>
-                <MenuItem value={ALL}>{t("queue.allKinds")}</MenuItem>
-                {kinds.map((k) => (
-                  <MenuItem key={k} value={k}>
-                    {kindLabel(k)}
-                  </MenuItem>
-                ))}
-              </SelectField>
-              {filtered && (
-                <Button size="small" onClick={() => setFilter(NO_QUEUE_FILTER)} sx={{ alignSelf: { sm: "center" } }}>
-                  {t("answers.clear")}
-                </Button>
+    <>
+      <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section" aria-labelledby="queue-title" onKeyDown={onKeyDown}>
+        <Stack spacing={2}>
+          <Typography variant="h2" id="queue-title">
+            {t("queue.title")}
+          </Typography>
+          <Explain text={t("queue.explain.short")} more={t("queue.explain")} />
+          <Box component="p" id="queue-keys" sx={{ display: { xs: "none", sm: "block" }, m: 0, p: 1.5, bgcolor: "action.hover", borderRadius: 1, typography: "body2" }}>
+            {t("queue.keys.short")}
+            <MoreInfo text={t("queue.keys")} />
+          </Box>
+          {/* What was decided, said to screen readers (the page moves on by itself). */}
+          <Box role="status" aria-live="polite" sx={{ position: "absolute", width: "1px", height: "1px", margin: "-1px", padding: 0, border: 0, overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap" }}>
+            {announce}
+          </Box>
+          {!data && loading && <Loading />}
+          {busyFigures && (
+            <Alert severity="info" role="status" action={<Button color="inherit" size="small" onClick={() => load(null)}>{t("common.retry")}</Button>}>
+              {t("quality.busy")}
+            </Alert>
+          )}
+          {loadError !== null && !busyFigures && <ErrorAlert error={loadError} onRetry={() => load(null)} />}
+          {data && (
+            <Stack spacing={2} sx={{ opacity: loading ? 0.6 : 1, transition: "opacity 120ms" }} aria-busy={loading}>
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} useFlexGap sx={{ flexWrap: "wrap" }}>
+                <SelectField label={t("answers.filterPerson")} value={filter.person ?? ALL} onChange={(v) => setFilter({ ...filter, person: v === ALL ? null : v })}>
+                  <MenuItem value={ALL}>{t("answers.everyone")}</MenuItem>
+                  {people.map((p) => (
+                    <MenuItem key={p} value={p}>
+                      {p}
+                    </MenuItem>
+                  ))}
+                </SelectField>
+                <SelectField label={t("queue.filterKind")} value={filter.kind ?? ALL} onChange={(v) => setFilter({ ...filter, kind: v === ALL ? null : (v as QueueKind) })}>
+                  <MenuItem value={ALL}>{t("queue.allKinds")}</MenuItem>
+                  {kinds.map((k) => (
+                    <MenuItem key={k} value={k}>
+                      {kindLabel(k)}
+                    </MenuItem>
+                  ))}
+                </SelectField>
+                {filtered && (
+                  <Button size="small" onClick={() => setFilter(NO_QUEUE_FILTER)} sx={{ alignSelf: { sm: "center" } }}>
+                    {t("answers.clear")}
+                  </Button>
+                )}
+              </Stack>
+              <Typography variant="body2" color="text.secondary">
+                {t(filtered ? "queue.countFiltered" : "queue.count", {
+                  n: formatNumber(data.total, language),
+                  differences: formatNumber(data.counts.difference, language),
+                  flags: formatNumber(data.counts.flag, language),
+                  resubmitted: formatNumber(data.counts.resubmitted, language),
+                })}
+                {decidedHere.size > 0 && ` ${t("queue.decidedHere", { n: formatNumber(decidedHere.size, language), left: formatNumber(left, language) })}`}
+                {data.computedAt !== null && ` ${t(data.stale ? "answers.asOfStale" : "answers.asOf", { time: formatDate(data.computedAt, language) })}`}
+              </Typography>
+              {items.length === 0 ? (
+                <Alert severity="success">{t(filtered ? "queue.noneFiltered" : "queue.none")}</Alert>
+              ) : (
+                current && (
+                  <QueueCard
+                    item={current}
+                    position={Math.min(index, items.length - 1) + 1}
+                    total={data.total}
+                    decision={decisionOf(current)}
+                    place={places.get(current.plot)}
+                    outline={outline}
+                    labels={labels}
+                    data={data}
+                    busy={busy}
+                    comment={comment}
+                    onComment={setComment}
+                    commentRef={commentRef}
+                    cardRef={cardRef}
+                    onDecide={(kind) => void decide(kind)}
+                    onUndo={() => void undo()}
+                    onMove={(step) => move(step, false)}
+                    canMoveBack={index > 0}
+                    canMoveOn={index < items.length - 1}
+                  />
+                )
               )}
+              {error !== null && <ErrorAlert error={error} />}
+              {items.length > 0 && data.next !== null && index >= items.length - 1 && (
+                <Box>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    aria-disabled={loading}
+                    onClick={() => {
+                      if (loading || data.next === null) return;
+                      focusAfterMore.current = true;
+                      load(data.next);
+                    }}
+                  >
+                    {t("queue.loadMore", { loaded: formatNumber(items.length, language), total: formatNumber(data.total, language) })}
+                  </Button>
+                </Box>
+              )}
+              {data.stale && (
+                <Box>
+                  <Button size="small" variant="outlined" onClick={() => load(null)}>
+                    {t("queue.refresh")}
+                  </Button>
+                </Box>
+              )}
+              {data.excludedOwn > 0 && (
+                <Typography variant="body2" color="text.secondary">
+                  {t("queue.ownLeftOut", { n: formatNumber(data.excludedOwn, language) })}
+                </Typography>
+              )}
+              {data.flagsCapped && (
+                <Typography variant="body2" color="text.secondary">
+                  {t("queue.flagsCapped")}
+                </Typography>
+              )}
+              {unsupportedSrs !== null && <Alert severity="info">{t("quality.placesUnsupported", { srs: unsupportedSrs })}</Alert>}
             </Stack>
-            <Typography variant="body2" color="text.secondary">
-              {t(filtered ? "queue.countFiltered" : "queue.count", {
-                n: formatNumber(data.total, language),
-                differences: formatNumber(data.counts.difference, language),
-                flags: formatNumber(data.counts.flag, language),
-                resubmitted: formatNumber(data.counts.resubmitted, language),
-              })}
-              {decidedHere.size > 0 && ` ${t("queue.decidedHere", { n: formatNumber(decidedHere.size, language), left: formatNumber(left, language) })}`}
-              {data.computedAt !== null && ` ${t(data.stale ? "answers.asOfStale" : "answers.asOf", { time: formatDate(data.computedAt, language) })}`}
-            </Typography>
-            {data.stale && (
-              <Box>
-                <Button size="small" variant="outlined" onClick={() => load(null)}>
-                  {t("queue.refresh")}
-                </Button>
-              </Box>
-            )}
-            {data.excludedOwn > 0 && (
-              <Typography variant="body2" color="text.secondary">
-                {t("queue.ownLeftOut", { n: formatNumber(data.excludedOwn, language) })}
-              </Typography>
-            )}
-            {data.flagsCapped && (
-              <Typography variant="body2" color="text.secondary">
-                {t("queue.flagsCapped")}
-              </Typography>
-            )}
-            {unsupportedSrs !== null && <Alert severity="info">{t("quality.placesUnsupported", { srs: unsupportedSrs })}</Alert>}
-            {canBulk && (
-              <Bulk
-                projectId={projectId}
-                onDone={(count) => {
-                  setBulkDone(t("queue.bulkDone", { n: formatNumber(count, language) }));
-                  load(null);
-                  onBulk?.();
-                }}
-              />
-            )}
-            {bulkDone !== null && <Alert severity="success">{bulkDone}</Alert>}
-            {items.length === 0 ? (
-              <Alert severity="success">{t(filtered ? "queue.noneFiltered" : "queue.none")}</Alert>
-            ) : (
-              current && (
-                <QueueCard
-                  item={current}
-                  position={Math.min(index, items.length - 1) + 1}
-                  total={data.total}
-                  decision={decisionOf(current)}
-                  place={places.get(current.plot)}
-                  outline={outline}
-                  labels={labels}
-                  data={data}
-                  busy={busy}
-                  comment={comment}
-                  onComment={setComment}
-                  commentRef={commentRef}
-                  cardRef={cardRef}
-                  onDecide={(kind) => void decide(kind)}
-                  onUndo={() => void undo()}
-                  onMove={(step) => move(step, false)}
-                  canMoveBack={index > 0}
-                  canMoveOn={index < items.length - 1}
-                />
-              )
-            )}
-            {error !== null && <ErrorAlert error={error} />}
-            {items.length > 0 && data.next !== null && index >= items.length - 1 && (
-              <Box>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  aria-disabled={loading}
-                  onClick={() => {
-                    if (loading || data.next === null) return;
-                    focusAfterMore.current = true;
-                    load(data.next);
-                  }}
-                >
-                  {t("queue.loadMore", { loaded: formatNumber(items.length, language), total: formatNumber(data.total, language) })}
-                </Button>
-              </Box>
-            )}
-          </Stack>
-        )}
-      </Stack>
-    </Paper>
+          )}
+        </Stack>
+      </Paper>
+      {/* Deciding many at once, now and then: under the queue, folded. */}
+      {canBulk && data && (
+        <Bulk
+          projectId={projectId}
+          done={bulkDone}
+          onDone={(count) => {
+            setBulkDone(t("queue.bulkDone", { n: formatNumber(count, language) }));
+            load(null);
+            onBulk?.();
+          }}
+        />
+      )}
+    </>
   );
 }

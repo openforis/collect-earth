@@ -323,6 +323,14 @@ describe('a new project from a Collect Earth Online project', () => {
       await javaFixtures(projectId, '37-points');
     });
 
+    it("refuses answers that do not fit the project's storage, and makes nothing", async () => {
+      await ctx.app.inject({ method: 'PUT', url: '/v1/admin/settings', headers: bearer(owner.token), payload: { maxProjectStorageMb: 1 } });
+      const res = await post('', withAnswers({ ceoAnswers: ceoAnswers(20170).replace('river bed gravel', 'x'.repeat(1024 * 1024)) }));
+      expect(res.statusCode, res.body).toBe(413);
+      expect(res.json()).toMatchObject({ error: 'storage_limit_reached' });
+      expect(await ctx.store.listMemberships(owner.userId)).toEqual([]);
+    });
+
     it('refuses an account that does not exist, and makes nothing', async () => {
       const res = await post('', withAnswers({ collectors: { 'ana@example.org': 'nobody' } }));
       expect(res.statusCode).toBe(400);

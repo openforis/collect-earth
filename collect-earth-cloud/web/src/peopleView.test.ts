@@ -8,11 +8,13 @@ import {
   checksLeftText,
   csvCell,
   durationText,
+  medianGapText,
   fileLeft,
   filterPeople,
   finishOf,
   finishPhrase,
   finishWhen,
+  workloadLine,
   lastToFinish,
   moveCount,
   heatLevel,
@@ -46,30 +48,30 @@ function row(username: string, over: Partial<PersonRow> = {}): PersonRow {
     lastPlotsDownloadAt: null,
     lastSubmittedAt: NOW - DAY,
     agreement: null,
-    status: { kind: "working", days: null, level: null },
+    status: { kind: "working" },
     ...over,
   };
 }
 
 describe("status chips and the last sync", () => {
   it("words and colours, quiet amber then red", () => {
-    expect(statusChip(t, { kind: "working", days: null, level: null })).toEqual({ label: "Working", color: "primary" });
+    expect(statusChip(t, { kind: "working" })).toEqual({ label: "Working", color: "primary" });
     expect(statusChip(t, { kind: "quiet", days: 4, level: "amber" })).toEqual({ label: "Quiet for 4 days", color: "warning" });
     expect(statusChip(t, { kind: "quiet", days: 1, level: "amber" }).label).toBe("Quiet for 1 day");
     expect(statusChip(t, { kind: "quiet", days: 9, level: "red" }).color).toBe("error");
-    expect(statusChip(t, { kind: "finished", days: null, level: null }).color).toBe("success");
+    expect(statusChip(t, { kind: "finished" }).color).toBe("success");
   });
 
   it("a disabled account says so, with no sync warning", () => {
-    expect(statusChip(t, { kind: "disabled", days: null, level: null })).toEqual({ label: "Account disabled", color: "default" });
-    expect(statusSyncLevel({ kind: "disabled", days: null, level: null })).toBeNull();
+    expect(statusChip(t, { kind: "disabled" })).toEqual({ label: "Account disabled", color: "default" });
+    expect(statusSyncLevel({ kind: "disabled" })).toBeNull();
   });
 
   it("the last sync's warning follows the status: quiet amber, then red; never for finished people", () => {
     expect(statusSyncLevel({ kind: "quiet", days: 4, level: "amber" })).toBe("amber");
     expect(statusSyncLevel({ kind: "quiet", days: 7, level: "red" })).toBe("red");
-    expect(statusSyncLevel({ kind: "finished", days: null, level: null })).toBeNull();
-    expect(statusSyncLevel({ kind: "working", days: null, level: null })).toBeNull();
+    expect(statusSyncLevel({ kind: "finished" })).toBeNull();
+    expect(statusSyncLevel({ kind: "working" })).toBeNull();
   });
 
   it("how long ago", () => {
@@ -150,7 +152,7 @@ describe("the CSV", () => {
 describe("the CSV in other languages, and the remove dialog", () => {
   it("Spanish, French, Portuguese: a semicolon between cells and a decimal comma; My work rows have no checks", () => {
     const es = translator("es");
-    const csv = peopleCsv(es, [row("ana;b", { medianPerDay: 2.5, checks: null, plots: { assigned: 3, submitted: 1, started: 0, remaining: 2, done: 1 / 3 } })], () => "t", "es");
+    const csv = peopleCsv(es, [row("ana;b", { medianPerDay: 2.5, checks: undefined, plots: { assigned: 3, submitted: 1, started: 0, remaining: 2, done: 1 / 3 } })], () => "t", "es");
     const [head, line] = csv.trimEnd().split(/\r?\n/);
     expect(head.split(";")[0]).toBe("Nombre");
     expect(line.startsWith('"ana;b";Recolector;')).toBe(true);
@@ -160,7 +162,7 @@ describe("the CSV in other languages, and the remove dialog", () => {
   });
 
   it("what removing someone leaves, one or many, numbers in the person's language", () => {
-    expect(removalText(t, null, "en")).toEqual([]);
+    expect(removalText(t, undefined, "en")).toEqual([]);
     expect(removalText(t, { plots: 0, copies: 0 }, "en")).toEqual([]);
     const [plots, copies] = removalText(t, { plots: 1200, copies: 1 }, "en");
     expect(plots.startsWith("1,200 plots that only they hold")).toBe(true);
@@ -195,44 +197,12 @@ describe("speed words", () => {
   it("durations and bins", () => {
     expect(durationText(t, 8_000)).toBe("8 s");
     expect(durationText(t, 90_000)).toBe("1 min 30 s");
+    expect(medianGapText(t, 300)).toBe("under 1 s");
+    expect(medianGapText(t, 8_000)).toBe("8 s");
     expect(durationText(t, 12 * 60_000)).toBe("12 min");
     const buckets = [{ upToMs: 15_000 }, { upToMs: 30_000 }];
     expect(bucketLabel(t, buckets, 0)).toBe("under 15 s");
     expect(bucketLabel(t, buckets, 1)).toBe("15 s to 30 s");
-  });
-});
-
-describe("reading the server's answers", () => {
-  it("people: a status it does not know reads as working; quiet keeps its days and level", async () => {
-    const { toPeopleData, toPersonData } = await import("./api");
-    const data = toPeopleData({
-      today: "2026-11-01",
-      people: [
-        { userId: "u1", username: "ana", role: "operator", status: { kind: "quiet", days: 7, level: "red" }, agreement: null },
-        { userId: "u2", username: "bo", role: "boss", status: { kind: "dancing" }, agreement: { compared: 3, agreeing: 2, rate: null } },
-      ],
-      invites: [{ id: "i", role: "reviewer", maxUses: 2, usedCount: 1 }],
-    });
-    expect(data.people[0].status).toEqual({ kind: "quiet", days: 7, level: "red" });
-    expect(data.people[1]).toMatchObject({ role: "operator", status: { kind: "working", days: null, level: null }, agreement: { compared: 3, rate: null } });
-    expect(data.invites[0]).toMatchObject({ role: "reviewer", maxUses: 2, usedCount: 1 });
-    expect(data.week.days).toEqual([]);
-    const person = toPersonData({
-      hours: [1, 2],
-      quality: { available: true, asFirst: null, sentBack: [{ plot: "7", comment: "x", decidedAt: 5 }, { plot: "8", comment: null, decidedAt: 6, submittedAgain: false, file: "To check again – a.csv" }] },
-    });
-    expect(person.hours).toHaveLength(24);
-    expect(person.hours.slice(0, 3)).toEqual([1, 2, 0]);
-    expect(person.quality).toMatchObject({
-      available: true,
-      asFirst: null,
-      asChecker: null,
-      sentBack: [
-        { plot: "7", comment: "x", decidedAt: 5, decidedBy: null, submittedAgain: false, file: null },
-        { plot: "8", comment: null, decidedAt: 6, submittedAgain: false, file: "To check again – a.csv" },
-      ],
-    });
-    expect(person.sync.collectEarth).toBeNull();
   });
 });
 
@@ -283,6 +253,10 @@ describe("the workload board", () => {
     expect(finishWhen(t, { left: 5, daysLeft: 1 }, "en")).toBe("tomorrow");
     expect(finishWhen(t, { left: 5, daysLeft: null }, "en")).toBe("—");
     expect(finishWhen(t, { left: 0, daysLeft: 0 }, "en")).toBe("Finished");
+    const w = { userId: "u", username: "joao", left: 27, done: 33, assigned: 60, checksLeft: 0, pace: 0.71, daysLeft: 38, finish: "2026-12-22" };
+    expect(workloadLine(t, w, "en", (d) => d)).toBe("27 left to do · 0.7 a day · about 2026-12-22");
+    expect(workloadLine(t, { ...w, pace: null, daysLeft: null, finish: null }, "en", (d) => d)).toBe("27 left to do · Nothing submitted in the last 7 days");
+    expect(workloadLine(t, { ...w, left: 0, daysLeft: 0, finish: null }, "en", (d) => d)).toBe("0 left to do · Finished");
     expect(checksLeftText(t, 3, "en")).toBe("and 3 copies to compare");
     expect(checksLeftText(t, 1, "en")).toBe("and 1 copy to compare");
     expect(checksLeftText(translator("es"), 1, "es")).toBe("y 1 copia para comparar");

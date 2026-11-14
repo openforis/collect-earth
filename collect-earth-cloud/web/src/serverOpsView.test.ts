@@ -4,8 +4,8 @@ import { CATALOGUES, translator } from "./i18n";
 import { activitySentence, SETTING_LABELS, shortId } from "./serverOpsView";
 
 const t = translator("en");
-const entry = (action: string, extra: Partial<ServerActivityEntry> = {}): ServerActivityEntry => ({
-  id: "1", at: 0, actor: "owner", action, target: "ana", projectId: null, details: {}, ...extra,
+const entry = (action: ServerActivityEntry["action"], extra: Partial<ServerActivityEntry> = {}): ServerActivityEntry => ({
+  id: "1", at: 0, actorUserId: "u0", actor: "owner", action, targetUserId: "u1", target: "ana", projectId: null, details: {}, ...extra,
 });
 
 describe("the server activity log in words", () => {
@@ -17,15 +17,15 @@ describe("the server activity log in words", () => {
     expect(activitySentence(t, entry("project.coordinator", { projectId: "3f2a9c1b-0000-4000-8000-000000000000" }), "en")).toBe("owner made ana a coordinator of project 3f2a9c1b…");
     expect(activitySentence(t, entry("mail.test", { details: { sent: false, responseCode: 550 } }), "en")).toBe("owner sent a test email, refused by the mail server (550)");
     expect(activitySentence(t, entry("account.signed_out", { actor: null }), "en")).toBe("An administrator signed ana out everywhere");
-    expect(activitySentence(t, entry("something.new"), "en")).toBe("owner: something.new");
     expect(activitySentence(t, entry("message.sent", { target: null, details: { audience: "coordinators", recipients: 12, subject: "Maintenance" } }), "en")).toBe("owner sent the message “Maintenance” to 12 people");
+    expect(activitySentence(t, entry("message.sent", { target: null, details: { audience: "everyone", recipients: 12, sent: 10, failed: 2, subject: "Maintenance" } }), "en")).toBe("owner sent the message “Maintenance” to 10 people");
     expect(activitySentence(t, entry("alerts.seen", { target: null, details: { count: 3 } }), "en")).toBe("owner marked 3 alerts as seen");
     expect(activitySentence(t, entry("account.unlocked"), "en")).toBe("owner unlocked ana");
   });
 
   it("names the settings changed by their labels", () => {
     const e = entry("settings.changed", { target: null, details: { signupOpen: true, maxProjectsPerUser: 5, serverName: "changed", contactEmail: null } });
-    expect(activitySentence(t, e, "en")).toBe("owner changed Anyone can create an account: on; Most projects one person can coordinate: 5; Server name; Contact email: cleared");
+    expect(activitySentence(t, e, "en")).toBe("owner changed Anyone can create an account: on; Projects per coordinator: 5; Server name; Contact email: cleared");
   });
 
   it("has every setting's label and every sentence in every language", () => {
