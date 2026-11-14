@@ -43,8 +43,8 @@ import { RestartingOverlay } from "./RestartingOverlay";
 import { SampleFileCard } from "./SampleFileCard";
 import { SettingField } from "./SettingField";
 
-/** The fields shown two by two, a from and a to (the other fields go across) */
-const SIDE_BY_SIDE = new Set(["geeapp_date_from", "geeapp_date_to", "planet_tfo_date_from", "planet_tfo_date_to"]);
+/** The fields shown two by two: a from and a to, and Planet's key with the imagery it shows (the other fields go across) */
+const SIDE_BY_SIDE = new Set(["geeapp_date_from", "geeapp_date_to", "planet_maps_key", "planet_maps_use_tfo", "planet_tfo_date_from", "planet_tfo_date_to"]);
 
 /** How long after the last keystroke the values are sent for validation, and the plots file for its check */
 const VALIDATE_AFTER_MILLIS = 300;

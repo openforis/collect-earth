@@ -7,7 +7,7 @@ import type { DashboardTelemetry } from './wire/account.js';
  * server: no cookie and no script in the browser), as the desktop app has them. Off unless the
  * server is started with TELEMETRY=1, so a self-hosted server sends nothing by default. Then:
  * - Sentry: SENTRY_DSN, or the desktop app's project; SENTRY_ENVIRONMENT (default "production").
- * - Google Analytics: GA_MEASUREMENT_ID (default the desktop app's property) and GA_API_SECRET,
+ * - Google Analytics: GA_MEASUREMENT_ID (default Collect Earth Cloud's property) and GA_API_SECRET,
  *   required (it cannot be in a public repository): without it no event is sent.
  * Nothing personal leaves: Sentry gets no request body, header, cookie or user; an event carries a
  * client id hashed from the project and account ids, and only kinds and counts as parameters.
@@ -15,8 +15,8 @@ import type { DashboardTelemetry } from './wire/account.js';
 
 /** The desktop app's Sentry project (EarthApp.initializeSentry), its public key only. */
 export const DESKTOP_SENTRY_DSN = 'https://24dd6a90c1e4461484712db99c3b3bb7@sentry.io/299626';
-/** The desktop app's Google Analytics property (GAlogger). */
-export const DESKTOP_GA_MEASUREMENT_ID = 'G-8K943HZKJZ';
+/** Collect Earth Cloud's Google Analytics property (the desktop app has its own, GAlogger). */
+export const CLOUD_GA_MEASUREMENT_ID = 'G-LRHVV8FNZB';
 
 export interface TelemetryConfig {
   sentryDsn: string | null;
@@ -36,7 +36,7 @@ export function telemetryConfigOf(env: NodeJS.ProcessEnv): TelemetryConfig {
   return {
     sentryDsn: text(env.SENTRY_DSN) ?? DESKTOP_SENTRY_DSN,
     environment: text(env.SENTRY_ENVIRONMENT) ?? 'production',
-    gaMeasurementId: secret ? (text(env.GA_MEASUREMENT_ID) ?? DESKTOP_GA_MEASUREMENT_ID) : null,
+    gaMeasurementId: secret ? (text(env.GA_MEASUREMENT_ID) ?? CLOUD_GA_MEASUREMENT_ID) : null,
     gaApiSecret: secret,
   };
 }

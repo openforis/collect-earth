@@ -114,6 +114,9 @@ public class SettingsService {
 			return String.valueOf(PlotGeometry.of(stored).getPoints());
 		} else if (property == EarthProperty.DISTANCE_TO_BUFFERS) {
 			return String.valueOf(PlotGeometry.of(stored).getReferenceDistance());
+		} else if (property == EarthProperty.PLANET_MAPS_USE_TFO) {
+			// A choice of two whose values are a switch's (LocalPropertiesService.isPlanetMapsUseTfo reads it so)
+			return String.valueOf(Boolean.parseBoolean(value.trim()));
 		}
 		switch (setting.getType()) {
 		case INTEGER:

@@ -3,8 +3,8 @@
      Stable link to the latest macOS installer of Collect Earth. The build substitutes PROJECT_VERSION and
      uploads this beside the autoupdate manifest, so linking to it from openforis.org means never editing the
      link again. The meta refresh does the work and the anchor is there if it is blocked, so the page needs no
-     JavaScript. The only script counts the download in Google Analytics, in the property of openforis.org
-     (G-8K943HZKJZ), as the event CE_Download with os = macos - the same event as download.html sends. The
+     JavaScript. The only script counts the download in Google Analytics, in the property of Collect Earth
+     (G-LRHVV8FNZB), as the event CE_Download with os = macos - the same event as download.html sends. The
      refresh waits one second, to give that event the time to leave; without JavaScript the download starts
      all the same, only uncounted.
 -->
@@ -14,12 +14,12 @@
 <meta http-equiv="refresh" content="1; url=https://github.com/openforis/collect-earth/releases/download/collect-earth-PROJECT_VERSION/collect-earth-installer-PROJECT_VERSION-osx.dmg">
 <link rel="canonical" href="https://github.com/openforis/collect-earth/releases/download/collect-earth-PROJECT_VERSION/collect-earth-installer-PROJECT_VERSION-osx.dmg">
 <title>Downloading Collect Earth PROJECT_VERSION for macOS</title>
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-8K943HZKJZ"></script>
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-LRHVV8FNZB"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
   function gtag() { dataLayer.push(arguments); }
   gtag("js", new Date());
-  gtag("config", "G-8K943HZKJZ");
+  gtag("config", "G-LRHVV8FNZB");
   gtag("event", "CE_Download", { os: "macos", transport_type: "beacon" });
 </script>
 </head>

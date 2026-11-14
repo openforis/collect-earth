@@ -24,7 +24,7 @@ public class GAlogger {
 	private static final Logger logger = LoggerFactory.getLogger(GAlogger.class);
 	// Placeholder left in earth.properties when the installer was built without a ga_api_secret
 	private static final String API_SECRET_TOKEN = "GA_API_SECRET";
-	private static final String MEASUREMENT_ID = "G-8K943HZKJZ";
+	private static final String MEASUREMENT_ID = "G-LRHVV8FNZB";
 	private static String clientId;
 	
 	public static void logGAnalytics(String event) {

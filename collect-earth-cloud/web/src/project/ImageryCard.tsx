@@ -6,7 +6,6 @@ import MenuItem from "@mui/material/MenuItem";
 import Stack from "@mui/material/Stack";
 import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
-import Typography from "@mui/material/Typography";
 import { useMemo, useState } from "react";
 import { getImagery, setImagery } from "../api";
 import { ErrorAlert } from "../components/ErrorAlert";
@@ -93,8 +92,12 @@ function ImageryForm({ projectId, stored, onSaved }: { projectId: string; stored
       )}
       {toggle("open_earth_map")}
       {toggle("open_esri_wayback")}
-      {toggle("planet_maps_use_tfo")}
-      <Typography variant="body2" color="text.secondary">{t("file.imagery.planetNote")}</Typography>
+      {/* Which Planet imagery: a choice of two rather than a switch named after the mosaics; Planet itself is on for whoever has a key */}
+      <TextField select fullWidth label={t("file.imagery.planet_maps_use_tfo")} value={values.planet_maps_use_tfo === "true" ? "true" : "false"}
+        onChange={(e) => set("planet_maps_use_tfo", e.target.value)} helperText={t("file.imagery.planetNote")}>
+        <MenuItem value="false">{t("file.imagery.planetDaily")}</MenuItem>
+        <MenuItem value="true">{t("file.imagery.planetMonthly")}</MenuItem>
+      </TextField>
       {isShown("planet_tfo_date_from", values) && (
         <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
           {month("planet_tfo_date_from", "file.imagery.firstAvailable")}
