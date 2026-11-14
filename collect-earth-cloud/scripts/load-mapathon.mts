@@ -490,7 +490,7 @@ if (OUT) writeFileSync(OUT, JSON.stringify(report, null, 2));
 if (CLEANUP) {
   const left: string[] = [];
   for (const m of mapathons) {
-    const res = await call('clean-up: project', 'DELETE', `/v1/projects/${m.pid}`, ownerToken, { name: m.name });
+    const res = await call('clean-up: project', 'DELETE', `/v1/projects/${m.pid}`, ownerToken, { confirmName: m.name });
     if (res.status >= 300) left.push(`project ${m.name} (${res.status})`);
   }
   let deleted = 0;
