@@ -23,8 +23,14 @@
 //
 // Settings (environment): MAPATHONS (2), PEOPLE per mapathon (30), PLOTS per mapathon (3000), SCALE to shorten every
 // phase (1 = the durations below), SERVER_PID to sample the server's CPU and memory, OUT for the JSON report.
+//
+// Real Collect Earth instances (scripts/load-desktop.mts): DESKTOP people of each mapathon are left to them. They are
+// signed up and given plots with the others, but not simulated: their names, password and an invitation to join with
+// are written to HANDOFF (a JSON file); the phases start once HANDOFF.ready exists (the instances have joined), the
+// end is said with HANDOFF.done, and the check waits for HANDOFF.synced (their saves are all sent). The check here
+// leaves their plots to that script.
 import { gzipSync } from 'node:zlib';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import pg from 'pg';
 import { idOnlyCep } from '../test/fixtures/cep.js';
 
@@ -37,6 +43,9 @@ const SCALE = Number(process.env.SCALE ?? 1);
 const SERVER_PID = process.env.SERVER_PID;
 const DB = process.env.DB;
 const OUT = process.env.OUT;
+const DESKTOP = Number(process.env.DESKTOP ?? 0);
+const HANDOFF = process.env.HANDOFF;
+if (DESKTOP > 0 && !HANDOFF) throw new Error('DESKTOP needs HANDOFF, the file the desktop script reads');
 const PASSWORD = 'load-test-password-12';
 
 const LAND_USE = 'collect_code_land_use_category';
@@ -83,7 +92,8 @@ async function call(label: string, method: string, path: string, token: string |
   }
   const ms = performance.now() - started;
   record(label, ms, status);
-  if (status === 0 || status >= 400) {
+  // A server set up by an earlier run answers 409 to the setup: then the coordinator signs in
+  if ((status === 0 || status >= 400) && !(label === 'setup' && status === 409)) {
     if (errors.length < 200) errors.push(`${phase} ${label} ${status} ${text.slice(0, 200)}`);
   }
   return { status, text, json: () => JSON.parse(text) };
@@ -121,15 +131,15 @@ function watchServer() {
 
 // --- the people --------------------------------------------------------------------------------------------------
 
-interface Person { username: string; userId: string; token: string; plots: string[]; next: number; done: Map<string, number> }
-interface Mapathon { name: string; pid: string; fileId: string; people: Person[] }
+interface Person { username: string; userId: string; token: string; plots: string[]; next: number; done: Map<string, number>; desktop?: boolean }
+interface Mapathon { name: string; pid: string; fileId: string; people: Person[]; desktopInvite?: string }
 let ownerToken = '';
 
-/** A saved plot as Collect Earth sends it: the record's XML (about 3 KB, as a real plot's) and its summary. */
+/** A saved plot as Collect Earth sends it: the record's XML (about 16 KB, as a filled demo survey's) and its summary. */
 function envelope(person: Person, plot: string, modifiedOn: number, activelySaved: boolean) {
   const land = CODES[Math.floor(Math.random() * CODES.length)];
   const forest = String(Math.floor(Math.random() * 101));
-  const points = Array.from({ length: 25 }, (_, i) => `<point><n><value>${i + 1}</value></n><cover><value>${CODES[(i + plot.length) % CODES.length]}</value></cover></point>`).join('');
+  const points = Array.from({ length: 120 }, (_, i) => `<point><n><value>${i + 1}</value></n><cover><value>${CODES[(i + plot.length) % CODES.length]}</value></cover></point>`).join('');
   const xml = `<plot><id><value>${plot}</value></id><round><value>1</value></round><operator><value>${person.username}</value></operator>`
     + `<land_use_category><value>${land}</value></land_use_category><forest_percentage><value>${forest}</value></forest_percentage>`
     + `<confidence><value>${activelySaved ? 'high' : ''}</value></confidence>${points}<comments><value>${'x'.repeat(200)}</value></comments></plot>`;
@@ -180,9 +190,13 @@ async function setup(): Promise<Mapathon[]> {
     const name = `Mapathon ${i} (${runId})`;
     const pid = (await call('create project', 'POST', '/v1/projects', ownerToken, { name })).json().projectId as string;
     await call('upload project file', 'PUT', `/v1/projects/${pid}/cep`, ownerToken, undefined, { data: cep, type: 'application/zip' });
-    // Plots spread over a country-sized box, as a real grid
-    const rows = ['id,lat,lon,elevation,slope,aspect'];
-    for (let p = 1; p <= PLOTS; p++) rows.push(`${p},${(-10 + Math.random() * 8).toFixed(6)},${(30 + Math.random() * 8).toFixed(6)},${Math.floor(between(0, 2500))},${Math.floor(between(0, 40))},${Math.floor(between(0, 360))}`);
+    // Plots spread over a country-sized box, as a real grid, with the columns the demo survey reads from its plot file
+    // (its round column is added by the server); Collect Earth refuses a plot file without them
+    const rows = ['id,YCoordinate,XCoordinate,elevation,slope,aspect,climate,soil,gez,country,province,district'];
+    for (let p = 1; p <= PLOTS; p++) {
+      rows.push(`${p},${(-10 + Math.random() * 8).toFixed(6)},${(30 + Math.random() * 8).toFixed(6)},${Math.floor(between(0, 2500))},${Math.floor(between(0, 40))},`
+        + `${Math.floor(between(0, 360))},${Math.floor(between(1, 12))},${Math.floor(between(1, 8))},${Math.floor(between(1, 30))},Tanzania,Region ${1 + (p % 9)},not set`);
+    }
     const up = await call('upload plot file', 'PUT', `/v1/projects/${pid}/csv-files/plots.csv`, ownerToken, undefined, { data: Buffer.from(rows.join('\n')), type: 'text/csv' });
     const fileId = up.json().id as string;
     const invite = await call('invite', 'POST', `/v1/projects/${pid}/invites`, ownerToken, { role: 'operator', maxUses: PEOPLE });
@@ -200,7 +214,13 @@ async function setup(): Promise<Mapathon[]> {
     }
     const divided = await call('divide plots', 'PUT', `/v1/projects/${pid}/csv-files/${fileId}/distribution`, ownerToken, { mode: 'even', people: people.map((p) => p.userId), order: 'file' });
     if (divided.status !== 200) throw new Error(`divide: ${divided.status} ${divided.text}`);
-    mapathons.push({ name, pid, fileId, people });
+    // The last DESKTOP people are real Collect Earths: they join with a link of their own (members keep their plots)
+    let desktopInvite: string | undefined;
+    if (DESKTOP > 0) {
+      for (const p of people.slice(-DESKTOP)) p.desktop = true;
+      desktopInvite = (await call('invite', 'POST', `/v1/projects/${pid}/invites`, ownerToken, { role: 'operator', maxUses: DESKTOP })).json().inviteToken;
+    }
+    mapathons.push({ name, pid, fileId, people, desktopInvite });
   }
   return mapathons;
 }
@@ -276,7 +296,23 @@ const stopWatching = watchServer();
 const setupStart = performance.now();
 const mapathons = await setup();
 const setupMs = performance.now() - setupStart;
-const everyone = mapathons.flatMap((m) => m.people.map((p) => ({ m, p })));
+const everyone = mapathons.flatMap((m) => m.people.filter((p) => !p.desktop).map((p) => ({ m, p })));
+const desktopNames = new Set(mapathons.flatMap((m) => m.people.filter((p) => p.desktop).map((p) => p.username)));
+const waitFor = async (file: string, what: string, minutes: number) => {
+  const until = Date.now() + minutes * 60_000;
+  process.stderr.write(`${new Date().toISOString()} waiting for ${what} (${file})...\n`);
+  while (!existsSync(file)) {
+    if (Date.now() > until) throw new Error(`gave up waiting for ${what}`);
+    await sleep(2000);
+  }
+};
+if (HANDOFF && DESKTOP > 0) {
+  writeFileSync(HANDOFF, JSON.stringify({
+    base: BASE, password: PASSWORD,
+    mapathons: mapathons.map((m) => ({ name: m.name, pid: m.pid, inviteToken: m.desktopInvite, people: m.people.filter((p) => p.desktop).map((p) => p.username) })),
+  }, null, 2));
+  await waitFor(`${HANDOFF}.ready`, 'the Collect Earth instances to join', 20);
+}
 const coordinators = (ms: number) => mapathons.map((m) => coordinate(m, ms, [3000, 8000]));
 
 // 1. 9:00: everyone opens Collect Earth at the same moment
@@ -314,6 +350,10 @@ await runPhase('5 ceiling (no pause, batches of 10)', () => Promise.all([
   ...mapathons.map((m) => coordinate(m, CEILING, [500, 1500])),
 ]));
 phase = 'check';
+if (HANDOFF && DESKTOP > 0) {
+  writeFileSync(`${HANDOFF}.done`, new Date().toISOString());
+  await waitFor(`${HANDOFF}.synced`, 'the Collect Earth instances to send their saves', 15);
+}
 await sleep(2000);
 stopWatching();
 
@@ -322,11 +362,13 @@ stopWatching();
 const checks: { what: string; ok: boolean; detail?: string }[] = [];
 for (const m of mapathons) {
   const expected = new Map<string, number>(); // "operator recordKey" -> newest modifiedOn
-  for (const p of m.people) for (const [key, at] of p.done) expected.set(`${p.username} ${key}`, at);
+  for (const p of m.people.filter((q) => !q.desktop)) for (const [key, at] of p.done) expected.set(`${p.username} ${key}`, at);
   if (DB) {
     const client = new pg.Client({ connectionString: DB });
     await client.connect();
-    const rows = (await client.query('SELECT operator, record_key, modified_on FROM records WHERE project_id = $1 AND NOT deleted', [m.pid])).rows as { operator: string; record_key: string; modified_on: Date }[];
+    // The Collect Earth instances' plots are load-desktop.mts's to check
+    const rows = ((await client.query('SELECT operator, record_key, modified_on FROM records WHERE project_id = $1 AND NOT deleted', [m.pid])).rows as { operator: string; record_key: string; modified_on: Date }[])
+      .filter((r) => !desktopNames.has(r.operator));
     await client.end();
     const stored = new Map(rows.map((r) => [`${r.operator} ${r.record_key}`, r.modified_on.getTime()]));
     const missing = [...expected.keys()].filter((k) => !stored.has(k));
