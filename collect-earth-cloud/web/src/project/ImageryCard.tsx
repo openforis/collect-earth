@@ -92,12 +92,13 @@ function ImageryForm({ projectId, stored, onSaved }: { projectId: string; stored
       )}
       {toggle("open_earth_map")}
       {toggle("open_esri_wayback")}
-      {/* Which Planet imagery: a choice of two rather than a switch named after the mosaics; Planet itself is on for whoever has a key */}
-      <TextField select fullWidth label={t("file.imagery.planet_maps_use_tfo")} value={values.planet_maps_use_tfo === "true" ? "true" : "false"}
+      {toggle("open_planet_maps")}
+      {/* Which Planet imagery: a choice of two rather than a switch named after the mosaics; it opens for whoever has a key */}
+      {isShown("planet_maps_use_tfo", values) && <TextField select fullWidth label={t("file.imagery.planet_maps_use_tfo")} value={values.planet_maps_use_tfo === "true" ? "true" : "false"}
         onChange={(e) => set("planet_maps_use_tfo", e.target.value)} helperText={t("file.imagery.planetNote")}>
         <MenuItem value="false">{t("file.imagery.planetDaily")}</MenuItem>
         <MenuItem value="true">{t("file.imagery.planetMonthly")}</MenuItem>
-      </TextField>
+      </TextField>}
       {isShown("planet_tfo_date_from", values) && (
         <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
           {month("planet_tfo_date_from", "file.imagery.firstAvailable")}

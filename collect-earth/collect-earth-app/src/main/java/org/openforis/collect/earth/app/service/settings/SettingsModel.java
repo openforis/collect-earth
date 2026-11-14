@@ -4,6 +4,7 @@ import static org.openforis.collect.earth.app.service.settings.Condition.all;
 import static org.openforis.collect.earth.app.service.settings.Condition.any;
 import static org.openforis.collect.earth.app.service.settings.Condition.atLeast;
 import static org.openforis.collect.earth.app.service.settings.Condition.in;
+import static org.openforis.collect.earth.app.service.settings.Condition.not;
 import static org.openforis.collect.earth.app.service.settings.Condition.notBlank;
 
 import java.time.LocalDate;
@@ -47,8 +48,10 @@ public final class SettingsModel {
 	/** A cloud project: a local one has no server, project or token to show */
 	static final Condition CLOUD_PROJECT = in(EarthProperty.DB_DRIVER, CollectDBDriver.CLOUD);
 	static final Condition GEE_APP = in(EarthProperty.OPEN_GEE_APP, "true");
-	/** Planet is offered once its key is set: without one it shows nothing */
-	static final Condition PLANET = notBlank(EarthProperty.PLANET_MAPS_KEY);
+	/** Planet's switch on, as LocalPropertiesService.isPlanetMapsOpen reads it (on unless false): its key is asked for */
+	static final Condition PLANET_OPEN = not(in(EarthProperty.OPEN_PLANET_MAPS, "false"));
+	/** Planet on and its key set: which imagery it shows is asked for */
+	static final Condition PLANET = all(PLANET_OPEN, notBlank(EarthProperty.PLANET_MAPS_KEY));
 	static final Condition PLANET_TFO = all(PLANET, in(EarthProperty.PLANET_MAPS_USE_TFO, "true"));
 
 	private final List<Section> sections;
@@ -198,7 +201,9 @@ public final class SettingsModel {
 				Setting.date(EarthProperty.GEEAPP_TO_DATE, "OptionWizard.122").tooltip("OptionWizard.1039").visibleWhen(GEE_APP),
 				Setting.bool(EarthProperty.OPEN_EARTH_MAP, "OptionWizard.105").tooltip("SettingsPage.earthMap.tooltip").defaultValue("false"),
 				Setting.bool(EarthProperty.OPEN_ESRI_WAYBACK, "OptionWizard.144").tooltip("SettingsPage.esriWayback.tooltip").defaultValue("false"),
-				Setting.password(EarthProperty.PLANET_MAPS_KEY, "OptionWizard.101").tooltip("OptionWizard.1053"),
+				// A switch as the other windows have; the key, each person's own, is kept when it is off
+				Setting.bool(EarthProperty.OPEN_PLANET_MAPS, "SettingsPage.planet.open").tooltip("SettingsPage.planet.open.tooltip").defaultValue("true"),
+				Setting.password(EarthProperty.PLANET_MAPS_KEY, "OptionWizard.101").tooltip("OptionWizard.1053").visibleWhen(PLANET_OPEN),
 				// Which Planet imagery, as a choice between the two rather than a switch named after the mosaics: once a key is set
 				// Planet is on, and this says what it shows (SettingsService shows a stored "TRUE" or blank as one of the two)
 				Setting.choice(EarthProperty.PLANET_MAPS_USE_TFO, "SettingsPage.planet.mode").tooltip("SettingsPage.planetTfo.tooltip")

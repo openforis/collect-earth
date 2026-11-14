@@ -179,6 +179,11 @@ class LocalPropertiesSecretTest {
 		assertEquals(false, service.isPlanetMapsSupported());
 		service.setValue(EarthProperty.PLANET_MAPS_KEY, "PLAK123");
 		assertEquals(true, service.isPlanetMapsSupported());
+		// Its switch: on unless it says false, and off whatever the key
+		service.setValue(EarthProperty.OPEN_PLANET_MAPS, "false");
+		assertEquals(false, service.isPlanetMapsSupported());
+		service.setValue(EarthProperty.OPEN_PLANET_MAPS, "true");
+		assertEquals(true, service.isPlanetMapsSupported());
 		// the sample points numbered: a project that answers per point asks for it
 		assertEquals(false, service.isSamplePointNumbers());
 		service.setValue(EarthProperty.SAMPLE_POINT_NUMBERS, "true");

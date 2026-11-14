@@ -9,6 +9,7 @@ export const IMAGERY_KEYS = [
   'geeapp_date_to',
   'open_earth_map',
   'open_esri_wayback',
+  'open_planet_maps',
   'planet_maps_use_tfo',
   'planet_tfo_date_from',
   'planet_tfo_date_to',
@@ -19,7 +20,7 @@ export type ImageryKey = (typeof IMAGERY_KEYS)[number];
 /** The keys the properties have, with their values as written. */
 export type Imagery = Partial<Record<ImageryKey, string>>;
 
-const SWITCHES: readonly string[] = ['open_gee_app', 'open_earth_map', 'open_esri_wayback', 'planet_maps_use_tfo'];
+const SWITCHES: readonly string[] = ['open_gee_app', 'open_earth_map', 'open_esri_wayback', 'open_planet_maps', 'planet_maps_use_tfo'];
 const DATES: readonly string[] = ['geeapp_date_from', 'geeapp_date_to'];
 const MONTHS: readonly string[] = ['planet_tfo_date_from', 'planet_tfo_date_to'];
 /** SettingsValidator.FIRST_GEE_DATE */

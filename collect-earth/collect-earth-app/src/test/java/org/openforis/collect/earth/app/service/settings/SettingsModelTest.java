@@ -141,11 +141,16 @@ public class SettingsModelTest {
 		assertFalse(sqlite.contains("open_separate_browser_form"));
 		assertFalse(sqlite.contains("viewer_type") || sqlite.contains("window_layout") || sqlite.contains("map_engine"));
 		assertTrue(sqlite.contains("planet_maps_key"));
-		// Left to earth.properties: the port, the form, and the Planet switch (the key is the switch)
-		assertFalse(sqlite.contains("port") || sqlite.contains("web_form") || sqlite.contains("open_planet_maps"));
+		// Left to earth.properties: the port and the form. Planet has its switch, as the other windows, and its key with it
+		assertFalse(sqlite.contains("port") || sqlite.contains("web_form"));
+		assertTrue(sqlite.contains("open_planet_maps"));
+		// Switched off, Planet asks for nothing: neither its key nor which imagery
+		List<String> planetOff = visibleKeys(values("open_planet_maps", "false", "planet_maps_key", "PLAK123"));
+		assertTrue(planetOff.contains("open_planet_maps"));
+		assertFalse(planetOff.contains("planet_maps_key") || planetOff.contains("planet_maps_use_tfo"));
 		assertFalse(sqlite.contains("planet_maps_use_tfo"));
 		List<String> postgres = visibleKeys(values("db_driver", "POSTGRESQL", "open_gee_app", "true",
-				"planet_maps_key", "PLAK123", "planet_maps_use_tfo", "true"));
+				"open_planet_maps", "true", "planet_maps_key", "PLAK123", "planet_maps_use_tfo", "true"));
 		assertFalse(postgres.contains("automatic_backup"));
 		assertTrue(postgres.containsAll(Arrays.asList("db_host", "db_port", "db_name", "db_username", "db_password")));
 		assertTrue(postgres.containsAll(Arrays.asList("geeapp_date_from", "geeapp_date_to",
