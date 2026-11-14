@@ -128,6 +128,28 @@ export function weeklyNotForRole(error: unknown): boolean {
  * (one person, on their own computer), where everything was done by you or sent by your Collect
  * Earth: "You submitted plot 17", "Plot file plots.csv loaded (120 plots)".
  */
+/**
+ * A row's sentence split around its plot, so the plot itself can be the link to its page; `plot: null` when the
+ * sentence names no plot.
+ */
+export function logSentenceParts(
+  t: Translate,
+  item: LogItem,
+  page: Pick<ActivityPage, "people" | "files">,
+  language: string,
+  options: { local?: boolean } = {},
+): { before: string; plot: string | null; after: string } {
+  const OPEN = "\u0001";
+  const CLOSE = "\u0002";
+  const marking: Translate = (key, params) => t(key, params && typeof params.plot === "string" ? { ...params, plot: `${OPEN}${params.plot}${CLOSE}` } : params);
+  const text = logSentence(marking, item, page, language, options);
+  const start = text.indexOf(OPEN);
+  const end = text.lastIndexOf(CLOSE);
+  const clean = (part: string) => part.replaceAll(OPEN, "").replaceAll(CLOSE, "");
+  if (start < 0 || end < start) return { before: clean(text), plot: null, after: "" };
+  return { before: clean(text.slice(0, start)), plot: clean(text.slice(start + 1, end)), after: clean(text.slice(end + 1)) };
+}
+
 export function logSentence(t: Translate, item: LogItem, page: Pick<ActivityPage, "people" | "files">, language: string, options: { local?: boolean } = {}): string {
   const local = options.local === true;
   if (item.type === "record") {

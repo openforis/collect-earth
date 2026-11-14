@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { FlagDetails, FlagKind, PatternFlag } from "./api";
-import { countsText, flagText, gapText, parseSeconds, totalOf } from "./flagsView";
+import { countsText, flagSaysMore, flagText, gapText, parseSeconds, totalOf } from "./flagsView";
 import { CATALOGUES, translator } from "./i18n";
 
 const t = translator("en");
@@ -14,6 +14,11 @@ const flag = (kind: FlagKind, details: FlagDetails = { recordKey: "12" }): Patte
 });
 
 describe("flagsView", () => {
+  it("a sentence that only repeats the kind is not shown", () => {
+    expect(flagSaysMore("two_main")).toBe(false);
+    expect(flagSaysMore("no_plot")).toBe(false);
+    expect(flagSaysMore("very_fast")).toBe(true);
+  });
   it("each kind's sentence, from the figures", () => {
     expect(flagText(t, flag("very_fast", { gapMs: 8_400, previousPlot: "11" }), "en")).toBe("Submitted 8.4 s after their previous plot (11).");
     expect(flagText(t, flag("same_as_before", { previousPlot: "11", runLength: 4, firstPlot: "9", answers: 5 }), "en")).toBe(

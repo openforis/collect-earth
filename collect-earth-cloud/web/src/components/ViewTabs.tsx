@@ -7,7 +7,7 @@ import { linkProps, pathFor, PROJECT_VIEWS, type ProjectView, type ViewTab } fro
 
 /**
  * The views of a project tab split into views (router.ts, PROJECT_VIEWS), as tabs that are links: each view has its own
- * address, so the browser's back button and a shared link land on it. `extra` sits at the row's end (wide screens).
+ * address, so the browser's back button and a shared link land on it. `extra` sits at the row's end (on a phone, under it).
  */
 export function ViewTabs<T extends ViewTab>({ projectId, tab, current, label, extra, views }: {
   projectId: string;
@@ -56,7 +56,8 @@ export function ViewTabs<T extends ViewTab>({ projectId, tab, current, label, ex
           />
         ))}
       </Tabs>
-      {extra && <Box sx={{ display: { xs: "none", sm: "flex" }, gap: 1, pb: 0.5 }}>{extra}</Box>}
+      {/* On a phone the row of views is the screen's width: these go on a line of their own under it. */}
+      {extra && <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, pb: { xs: 1, sm: 0.5 }, width: { xs: "100%", sm: "auto" } }}>{extra}</Box>}
     </Box>
   );
 }

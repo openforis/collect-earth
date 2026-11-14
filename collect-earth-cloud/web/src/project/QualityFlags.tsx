@@ -33,7 +33,8 @@ import { useApp, useLocalMode } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Explain } from "../components/Explain";
 import { Loading } from "../components/Loading";
-import { FLAG_KIND_KEYS, flagText, parseSeconds, PROBLEM_KINDS } from "../flagsView";
+import { FoldingCard } from "../components/FoldingCard";
+import { FLAG_KIND_KEYS, flagSaysMore, flagText, parseSeconds, PROBLEM_KINDS } from "../flagsView";
 import { formatDate, formatNumber } from "../format";
 import { useT } from "../i18n";
 import { linkProps, pathFor } from "../router";
@@ -183,7 +184,12 @@ function PeopleCounts({ data, onPerson }: { data: FlagsAnswer; onPerson: (userna
  * collectors, never My work): plots found from how they were collected, without any
  * check. A reason to open the plot, never a verdict: nothing is blocked or changed.
  */
-export function QualityFlags({ projectId, canEdit }: { projectId: string; canEdit: boolean }) {
+export function QualityFlags({ projectId, canEdit, folded = false }: {
+  projectId: string;
+  canEdit: boolean;
+  /** Folded to one line under its count (Review: the queue comes first) */
+  folded?: boolean;
+}) {
   const t = useT();
   const { language } = useApp();
   // The local mode (one person): every flag is yours, so no person filter, names or counts per person.
@@ -205,12 +211,8 @@ export function QualityFlags({ projectId, canEdit }: { projectId: string; canEdi
   const shown = data ? (all ? data.flags : data.flags.slice(0, FLAGS_SHOWN)) : [];
   const problems = data ? PROBLEM_KINDS.reduce((sum, k) => sum + data.counts[k], 0) : 0;
 
-  return (
-    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section" aria-labelledby="flags-title">
+  const body = (
       <Stack spacing={2}>
-        <Typography variant="h2" id="flags-title">
-          {t("flags.title")}
-        </Typography>
         <Explain text={t(local ? "flags.explainLocal.short" : "flags.explain.short")} more={t(local ? "flags.explainLocal" : "flags.explain")} />
         {!data && loading && <Loading />}
         {busy && (
@@ -288,7 +290,7 @@ export function QualityFlags({ projectId, canEdit }: { projectId: string; canEdi
                           {" · "}
                           {t(FLAG_KIND_KEYS[f.kind])}
                         </Typography>
-                        <Typography variant="body2">{flagText(t, f, language, { local })}</Typography>
+                        {flagSaysMore(f.kind) && <Typography variant="body2">{flagText(t, f, language, { local })}</Typography>}
                       </Box>
                     ))}
                   </Stack>
@@ -313,6 +315,16 @@ export function QualityFlags({ projectId, canEdit }: { projectId: string; canEdi
           </Box>
         )}
       </Stack>
+  );
+  if (folded) {
+    return <FoldingCard title={data && !filtered ? t("flags.titleCount", { n: formatNumber(data.total, language) }) : t("flags.title")}>{body}</FoldingCard>;
+  }
+  return (
+    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section" aria-labelledby="flags-title">
+      <Typography variant="h2" id="flags-title" sx={{ mb: 2 }}>
+        {t("flags.title")}
+      </Typography>
+      {body}
     </Paper>
   );
 }

@@ -657,8 +657,27 @@ export function QualityReference({ projectId, canEdit }: { projectId: string; ca
                 </Typography>
               )}
               {data.count > 0 && <Accuracy figures={data.figures} />}
-              <ExternalReference projectId={projectId} figures={data.figures} set={canEdit && data.coordinator ? data : null} onChanged={(text) => (setMessage(text), reload())} />
-              {canEdit && data.coordinator && (
+              {canEdit && data.coordinator && data.files.length === 0 && data.plots.length === 0 ? (
+                // Nothing can be done here before a plot file is divided: one notice, the way to Setup › Plots.
+                <>
+                  <Alert
+                    severity="info"
+                    action={
+                      <Button color="inherit" size="small" {...linkProps(pathFor({ name: "project", projectId, tab: "setup", view: "plots" }))}>
+                        {t("quality.openWhere", { where: `${t("tab.setup")} › ${t("view.setup.plots")}` })}
+                      </Button>
+                    }
+                  >
+                    {data.wholeFiles.length > 0
+                      ? t("reference.needDivided", { files: data.wholeFiles.map((f) => f.filename).join(", "), where: `${t("tab.setup")} › ${t("view.setup.plots")}` })
+                      : t("reference.needFile", { where: `${t("tab.setup")} › ${t("view.setup.plots")}` })}
+                  </Alert>
+                  {data.external.count > 0 && <ExternalReference projectId={projectId} figures={data.figures} set={data} onChanged={(text) => (setMessage(text), reload())} />}
+                </>
+              ) : (
+                <ExternalReference projectId={projectId} figures={data.figures} set={canEdit && data.coordinator ? data : null} onChanged={(text) => (setMessage(text), reload())} />
+              )}
+              {canEdit && data.coordinator && (data.files.length > 0 || data.plots.length > 0) && (
                 <>
                   <PlotList projectId={projectId} view={data} onDone={(next, removed) => changed(next, t("reference.removed", { count: n(removed) }))} />
                   <AddForm projectId={projectId} view={data} onDone={(next, marked) => changed(next, t("reference.added", { count: n(marked) }))} />

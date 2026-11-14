@@ -14,7 +14,7 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import Add from "@mui/icons-material/Add";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { createGuidanceNote, deleteGuidanceNote, updateGuidanceNote, type AnswerOptions, type GuidanceNote, type GuidanceNoteInput, type QualityAnswer } from "../api";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Explain } from "../components/Explain";
@@ -220,6 +220,9 @@ export function QualityNotes({
   const t = useT();
   const label = labelMap(data.questions);
   const labels = labelsOf(data.questions);
+  const reasonId = useId();
+  // Notes are on questions the checks compared: with none yet, there is nothing to write one on.
+  const noQuestions = data.questions.length === 0 && data.notes.length === 0;
   return (
     <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section">
       <Stack spacing={2}>
@@ -234,16 +237,24 @@ export function QualityNotes({
             ))}
           </Stack>
         )}
-        <Box>
-          <Button
-            variant="outlined"
-            startIcon={<Add />}
-            onClick={() => onEdit({ questionKey: data.questions[0]?.key ?? "", firstValue: null, checkValue: null, text: "" })}
-            disabled={data.questions.length === 0 && data.notes.length === 0}
-          >
-            {t("quality.addNote")}
-          </Button>
-        </Box>
+        <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} sx={{ alignItems: { sm: "center" } }}>
+          <Box>
+            <Button
+              variant="outlined"
+              startIcon={<Add />}
+              onClick={() => onEdit({ questionKey: data.questions[0]?.key ?? "", firstValue: null, checkValue: null, text: "" })}
+              disabled={noQuestions}
+              aria-describedby={noQuestions ? reasonId : undefined}
+            >
+              {t("quality.addNote")}
+            </Button>
+          </Box>
+          {noQuestions && (
+            <Typography variant="body2" color="text.secondary" id={reasonId}>
+              {t("quality.addNoteNone")}
+            </Typography>
+          )}
+        </Stack>
       </Stack>
     </Paper>
   );

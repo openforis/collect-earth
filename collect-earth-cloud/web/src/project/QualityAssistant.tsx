@@ -632,6 +632,8 @@ export function QualityAssistant({
   const startText = startError ? startErrorText(t, startError, language) : null;
   const activeRun = activeId ? details.get(activeId) : undefined;
   const reportRunning = followedKind(active, list, details) === "report";
+  // Not set up on this server: no card at all, unless reviews made before are still there to read.
+  if (ai.data && !ai.data.available && reports.length === 0) return null;
 
   return (
     <QuestionLabels.Provider value={labels}>
