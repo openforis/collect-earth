@@ -60,3 +60,16 @@ export function sinceText(at: number, now: number, language: string): string {
   }
   return format(0, "minute");
 }
+
+/** A project's id as the Projects list shows it: its first 8 characters (the whole id is on hover). */
+export function shortId(id: string): string {
+  return id.length > 8 ? id.slice(0, 8) : id;
+}
+
+/**
+ * The filter chips worth showing: "all", the one chosen, and those that would find something (all of them while the
+ * counts are not loaded).
+ */
+export function chipsToShow<F extends string>(filters: readonly F[], chosen: F, counts: Record<F, number> | undefined): F[] {
+  return filters.filter((f) => f === "all" || f === chosen || !counts || counts[f] > 0);
+}

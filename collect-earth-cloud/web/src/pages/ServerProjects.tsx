@@ -18,7 +18,11 @@ import Pagination from "@mui/material/Pagination";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import Box from "@mui/material/Box";
+import Check from "@mui/icons-material/Check";
+import ContentCopy from "@mui/icons-material/ContentCopy";
 import Archive from "@mui/icons-material/ArchiveOutlined";
 import MoreVert from "@mui/icons-material/MoreVert";
 import PersonAdd from "@mui/icons-material/PersonAddAlt";
@@ -43,10 +47,39 @@ import { ErrorAlert } from "../components/ErrorAlert";
 import { Loading } from "../components/Loading";
 import { formatBytes, formatDay, formatNumber } from "../format";
 import { useT } from "../i18n";
-import { sinceText } from "../serverAccountsView";
+import { chipsToShow, shortId, sinceText } from "../serverAccountsView";
 import { useLoad } from "../useLoad";
 
 const PAGE_SIZE = 25;
+
+/** A project's id, short (its first 8 characters), with the whole id on hover and a button to copy it. */
+function ProjectId({ id }: { id: string }) {
+  const t = useT();
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(id);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // No clipboard (an old browser, or no permission): the whole id stays in the tooltip, to select by hand.
+    }
+  };
+  return (
+    <Stack direction="row" sx={{ alignItems: "center" }}>
+      <Tooltip title={<Box component="span" sx={{ fontFamily: "monospace", wordBreak: "break-all" }}>{id}</Box>}>
+        <Typography component="span" tabIndex={0} aria-label={id} sx={{ fontFamily: "monospace", fontSize: "0.9rem", fontWeight: 600, whiteSpace: "nowrap" }}>
+          {shortId(id)}
+        </Typography>
+      </Tooltip>
+      <Tooltip title={copied ? t("common.copied") : t("serverProjects.copyId")}>
+        <IconButton size="small" aria-label={t("serverProjects.copyId")} onClick={() => void copy()} sx={{ ml: 0.25 }}>
+          {copied ? <Check fontSize="inherit" /> : <ContentCopy fontSize="inherit" />}
+        </IconButton>
+      </Tooltip>
+    </Stack>
+  );
+}
 
 type Pending = { kind: "archive" | "restore"; project: AdminProject } | { kind: "hand"; project: AdminProject };
 
@@ -138,7 +171,7 @@ export function ProjectsDirectory() {
           </TextField>
         </Stack>
         <Stack direction="row" sx={{ gap: 1, flexWrap: "wrap" }} role="group" aria-label={t("serverProjects.filters")}>
-          {PROJECT_FILTERS.map((f) => {
+          {chipsToShow(PROJECT_FILTERS, query.filter, page?.counts).map((f) => {
             const count = page?.counts[f];
             const warn = f === "noCoordinator" && (count ?? 0) > 0;
             return (
@@ -179,10 +212,14 @@ export function ProjectsDirectory() {
                     sx={{ pr: 6 }}
                     primary={
                       <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 0.5 }}>
-                        <Typography component="span" sx={{ fontFamily: "monospace", fontSize: "0.85rem", wordBreak: "break-all" }}>{p.projectId}</Typography>
                         <Chip size="small" variant={p.status === "active" ? "filled" : "outlined"} color={p.status === "active" ? "success" : "default"}
                           label={t(`project.status.${p.status}`)} />
-                        {p.needsCoordinator && <Chip size="small" color="warning" icon={<WarningAmber />} label={t("serverProjects.needsCoordinator")} />}
+                        <ProjectId id={p.projectId} />
+                        {p.needsCoordinator && (
+                          <Tooltip title={t("serverProjects.needsCoordinatorHelp")}>
+                            <Chip size="small" color="warning" icon={<WarningAmber />} label={t("serverProjects.needsCoordinator")} tabIndex={0} />
+                          </Tooltip>
+                        )}
                       </Stack>
                     }
                     secondary={
