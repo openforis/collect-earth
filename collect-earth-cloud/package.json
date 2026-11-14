@@ -21,6 +21,7 @@
     "smoke:pg:panel": "tsx scripts/pg-smoke-server-panel.mts",
     "smoke:pg:accounts": "tsx scripts/pg-smoke-accounts.mts",
     "smoke:pg:sampling": "tsx scripts/pg-smoke-sampling.mts",
+    "load:mapathon": "tsx scripts/load-mapathon.mts",
     "smoke:pg:reference": "tsx scripts/pg-smoke-reference.mts",
     "smoke:pg:backup": "tsx scripts/pg-smoke-backup.mts",
     "smoke:pg:links": "tsx scripts/pg-smoke-share-links.mts",
