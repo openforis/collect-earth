@@ -63,6 +63,12 @@ export interface Config {
    */
   parsedCacheMb?: number;
   servedCacheMb?: number;
+  /**
+   * The most connections the server opens to PostgreSQL at once (PG_POOL_MAX); undefined = the driver's 10. Each
+   * records:batch holds one while it is written, so a mapathon whose people sync at the same moment queues behind
+   * them: raise it within what the database plan allows (its max_connections, less the other clients').
+   */
+  dbPoolMax?: number;
   mapBuildsKept?: number;
   projectStatesKept?: number;
   /**
@@ -214,6 +220,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     servedCacheMb: wholeAtLeast('SERVED_FILES_CACHE_MB', env.SERVED_FILES_CACHE_MB, 8),
     mapBuildsKept: wholeAtLeast('MAP_BUILDS_KEPT', env.MAP_BUILDS_KEPT, 1),
     projectStatesKept: wholeAtLeast('PROJECT_STATES_KEPT', env.PROJECT_STATES_KEPT, 1),
+    dbPoolMax: wholeAtLeast('PG_POOL_MAX', env.PG_POOL_MAX, 1),
     ...aiConfigOf(env, storeBackend),
     mapTiles: mapTilesOf(env),
     ...mailConfigOf(env),

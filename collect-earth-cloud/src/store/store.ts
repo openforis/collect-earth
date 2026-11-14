@@ -132,6 +132,13 @@ export interface CreateInviteInput {
  * as in the auth middleware. Two implementations exist: an in-memory store for
  * development and tests, and a PostgreSQL store for deployment.
  */
+/** One upload of a batch (putRecordsWithEvents): the record and how to apply it, as putRecordWithEvent takes them. */
+export interface RecordUpload {
+  recordKey: string;
+  operator: string;
+  apply: (existing: RecordRow | null, submittedBefore: boolean) => { row: RecordRow; event: RecordEventInput | null } | null;
+}
+
 export interface Store {
   /** A new project is active unless `status` says otherwise (a copy starts as a draft). */
   createProject(input: { name: string; status?: ProjectStatus }): Promise<CreateProjectResult>;
@@ -669,6 +676,12 @@ export interface Store {
     operator: string,
     apply: (existing: RecordRow | null, submittedBefore: boolean) => { row: RecordRow; event: RecordEventInput | null } | null,
   ): Promise<boolean>;
+  /**
+   * putRecordWithEvent for a batch of uploads at once, in one transaction (records:batch): each item gets the row
+   * stored before it, including one stored by an earlier item of the batch for the same record, and whether that
+   * record was ever submitted, and gives its row and event as there. Whether each item was stored, in order.
+   */
+  putRecordsWithEvents(projectId: string, items: RecordUpload[]): Promise<boolean[]>;
   /** Logs one record event by itself (putRecordWithEvent is the intake's way). */
   appendRecordEvent(event: RecordEventInput): Promise<void>;
   /**

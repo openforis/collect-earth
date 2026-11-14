@@ -99,6 +99,7 @@ import {
   type TrainingSetChange,
   type TrainingSetInput,
   type UserPlots,
+  type RecordUpload,
 } from './store.js';
 import type { UncertaintySettings } from '../uncertainty.js';
 import type { AreaSettings } from '../areas.js';
@@ -2326,6 +2327,13 @@ export class InMemoryStore implements Store {
   }
 
   // --- Activity data ---
+
+  async putRecordsWithEvents(projectId: string, items: RecordUpload[]): Promise<boolean[]> {
+    // One after the other, each seeing the ones before: what the transaction of the Postgres store does
+    const stored: boolean[] = [];
+    for (const item of items) stored.push(await this.putRecordWithEvent(projectId, item.recordKey, item.operator, item.apply));
+    return stored;
+  }
 
   async putRecordWithEvent(
     projectId: string,
