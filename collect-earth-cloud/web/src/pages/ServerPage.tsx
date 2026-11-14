@@ -1,4 +1,5 @@
 import Alert from "@mui/material/Alert";
+import Badge from "@mui/material/Badge";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Dialog from "@mui/material/Dialog";
@@ -20,7 +21,7 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import CheckCircleOutline from "@mui/icons-material/CheckCircleOutlineOutlined";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactElement, type ReactNode } from "react";
 import Link from "@mui/material/Link";
 import ListItemButton from "@mui/material/ListItemButton";
 import ListItemIcon from "@mui/material/ListItemIcon";
@@ -59,7 +60,7 @@ import { formatBytes, formatDate, formatNumber } from "../format";
 import { useT, type MessageKey } from "../i18n";
 import { useLoad } from "../useLoad";
 import { linkProps, navigate, pathFor, setLeaveGuard, SERVER_SECTIONS, type ServerSection } from "../router";
-import { serverHealth, type HealthItem } from "../serverView";
+import { attentionBySection, serverHealth, type HealthItem } from "../serverView";
 import { clearUnsaved, useUnsavedGroups } from "../unsavedChanges";
 import { ServerSettingsSection } from "./ServerSettings";
 import { AccountsSection } from "./ServerAccounts";
@@ -96,7 +97,7 @@ function AiUsageCard() {
             {t("server.aiUsageIntro", { month: usage.data.month })}
           </Typography>
           {usage.data.projects.length === 0 ? (
-            <Typography>{t("server.aiUsageEmpty")}</Typography>
+            <EmptyState title={t("server.aiUsageEmpty")} />
           ) : (
             <TableContainer sx={{ border: 1, borderColor: "divider", borderRadius: 1, overflowX: "auto" }}>
               <Table size="small" sx={{ minWidth: 720 }}>
@@ -154,17 +155,18 @@ function utcDayText(ms: number, language: string, style: "medium" | "short" = "m
   }
 }
 
-/** One headline figure with what it counts. */
-function Stat({ label, value, help }: { label: string; value: string; help?: string }) {
+/** One headline figure: what it counts (the details behind the "i"), and an optional short line under it. */
+function Stat({ label, value, sub, more }: { label: string; value: string; sub?: string; more?: string }) {
   return (
-    <Paper variant="outlined" sx={{ p: 2, height: "100%" }}>
+    <Paper variant="outlined" sx={{ p: { xs: 1.5, sm: 2 }, height: "100%" }}>
       <Typography variant="body2" color="text.secondary">
         {label}
+        {more && <MoreInfo text={more} />}
       </Typography>
-      <Typography sx={{ fontSize: "1.75rem", fontWeight: 600, fontVariantNumeric: "tabular-nums", lineHeight: 1.3 }}>{value}</Typography>
-      {help && (
+      <Typography sx={{ fontSize: { xs: "1.5rem", sm: "1.75rem" }, fontWeight: 600, fontVariantNumeric: "tabular-nums", lineHeight: 1.3 }}>{value}</Typography>
+      {sub && (
         <Typography variant="body2" color="text.secondary">
-          {help}
+          {sub}
         </Typography>
       )}
     </Paper>
@@ -173,8 +175,8 @@ function Stat({ label, value, help }: { label: string; value: string; help?: str
 
 type Overview = ReturnType<typeof useLoad<ServerOverview>>;
 
-/** A card of the server's figures: its title, and its body once the figures are in. */
-function FiguresCard({ id, title, overview, children }: { id: string; title: string; overview: Overview; children: (o: ServerOverview) => ReactNode }) {
+/** A card of the server's figures: its title, when they were worked out (with, on Overview, what they leave out), and its body once they are in. */
+function FiguresCard({ id, title, overview, privacy = false, children }: { id: string; title: string; overview: Overview; privacy?: boolean; children: (o: ServerOverview) => ReactNode }) {
   const t = useT();
   const { language } = useApp();
   const o = overview.data;
@@ -190,8 +192,8 @@ function FiguresCard({ id, title, overview, children }: { id: string; title: str
       ) : (
         <Stack spacing={3}>
           <Typography color="text.secondary" variant="body2">
-            {t("server.overviewIntro.short")} {t("server.asOf", { time: formatDate(o.asOf, language) })}
-            <MoreInfo text={t("server.overviewIntro")} />
+            {privacy && `${t("server.overviewIntro.short")} `}{t("server.asOf", { time: formatDate(o.asOf, language) })}
+            {privacy && <MoreInfo text={t("server.overviewIntro")} />}
           </Typography>
           {children(o)}
         </Stack>
@@ -215,24 +217,25 @@ function OverviewFigures({ overview }: { overview: Overview }) {
   const { language } = useApp();
   const n = (value: number) => formatNumber(value, language);
   return (
-    <FiguresCard id="server-overview" title={t("server.overviewTitle")} overview={overview}>
+    <FiguresCard id="server-overview" title={t("server.overviewTitle")} overview={overview} privacy>
       {(o) => (
         <>
-          <Grid container spacing={2}>
-            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <Stat label={t("server.statAccounts")} value={n(o.users.total)} help={t("server.statAccountsHelp", { disabled: n(o.users.disabled), admins: n(o.users.platformAdmins) })} />
+          <Grid container spacing={{ xs: 1.5, sm: 2 }}>
+            <Grid size={{ xs: 6, md: 4 }}>
+              <Stat label={t("server.statAccounts")} value={n(o.users.total)} more={t("server.statAccountsHelp", { disabled: n(o.users.disabled), admins: n(o.users.platformAdmins) })} />
             </Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <Stat label={t("server.statActive")} value={n(o.users.active)} help={t("server.statActiveHelp")} />
+            <Grid size={{ xs: 6, md: 4 }}>
+              <Stat label={t("server.statActive")} value={n(o.users.active)} more={t("server.statActiveHelp")} />
             </Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <Stat label={t("server.statProjects")} value={n(o.projects.total)} help={t("server.statProjectsHelp", { active: n(o.projects.active) })} />
+            <Grid size={{ xs: 6, md: 4 }}>
+              <Stat label={t("server.statProjects")} value={n(o.projects.total)} sub={t("server.statProjectsActive", { active: n(o.projects.active) })}
+                more={t("server.statProjectsHelp", { active: n(o.projects.active) })} />
             </Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 6 }}>
-              <Stat label={t("server.statStorage")} value={formatBytes(o.projects.storageBytes, language)} help={t("server.statStorageHelp")} />
+            <Grid size={{ xs: 6, md: 6 }}>
+              <Stat label={t("server.statStorage")} value={formatBytes(o.projects.storageBytes, language)} more={t("server.statStorageHelp")} />
             </Grid>
             <Grid size={{ xs: 12, md: 6 }}>
-              <Stat label={t("server.statReceived")} value={n(o.records.received)} help={t("server.statReceivedHelp")} />
+              <Stat label={t("server.statReceived")} value={n(o.records.received)} more={t("server.statReceivedHelp")} />
             </Grid>
           </Grid>
 
@@ -250,6 +253,7 @@ function OverviewFigures({ overview }: { overview: Overview }) {
                       value: d.count,
                       title: t(d.count === 1 ? "server.receivedDayOne" : "server.receivedDay", { date: utcDayText(d.day, language), count: n(d.count) }),
                       always: i === all.length - 1,
+                      showValue: i === all.length - 1,
                     }))}
                   />
                 }
@@ -274,6 +278,7 @@ function OverviewFigures({ overview }: { overview: Overview }) {
                       value: w.count,
                       title: t(w.count === 1 ? "server.signupsWeekOne" : "server.signupsWeek", { week: `${w.week.slice(5)} (${utcDayText(w.start, language)})`, count: n(w.count) }),
                       always: i === all.length - 1,
+                      showValue: i === all.length - 1,
                     }))}
                   />
                 }
@@ -415,6 +420,22 @@ function AlertsCard({ onSeen }: { onSeen: () => void }) {
     }
   };
   const th = a?.thresholds;
+  const explain = t("server.alertsExplain", { failedLogins: n(th?.failedLogin ?? 50), serverErrors: n(th?.serverError ?? 20), syncErrors: n(th?.syncError ?? 50), storage: n(th?.storagePercent ?? 90) });
+  if (a && !alerts.error && a.alerts.length === 0 && a.page === 1) {
+    // Nothing kept: one line, the explanation behind the "i"
+    return (
+      <Paper variant="outlined" sx={{ px: { xs: 2, sm: 3 }, py: 1.5 }} component="section" aria-labelledby="server-alerts">
+        <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", flexWrap: "wrap" }}>
+          <Typography variant="h2" id="server-alerts" sx={{ fontSize: "1.1rem" }}>{t("server.alertsTitle")}</Typography>
+          <CheckCircleOutline fontSize="small" color="success" aria-hidden />
+          <Typography color="text.secondary">
+            {t("server.alertsNone")}
+            <MoreInfo text={`${t("server.alertsExplain.short")}\n\n${explain}`} />
+          </Typography>
+        </Stack>
+      </Paper>
+    );
+  }
   return (
     <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section" aria-labelledby="server-alerts">
       <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ justifyContent: "space-between", alignItems: { sm: "center" }, mb: 1 }}>
@@ -424,8 +445,7 @@ function AlertsCard({ onSeen }: { onSeen: () => void }) {
         </Stack>
         {a && a.unseen > 0 && <Button variant="outlined" startIcon={<DoneAll />} onClick={() => void seen()}>{t("server.alertsMarkAll")}</Button>}
       </Stack>
-      <Explain variant="body2" sx={{ mb: 1 }} text={t("server.alertsExplain.short")}
-        more={t("server.alertsExplain", { failedLogins: n(th?.failedLogin ?? 50), serverErrors: n(th?.serverError ?? 20), syncErrors: n(th?.syncError ?? 50), storage: n(th?.storagePercent ?? 90) })} />
+      <Explain variant="body2" sx={{ mb: 1 }} text={t("server.alertsExplain.short")} more={explain} />
       {a?.webhook && <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>{t("server.alertsWebhook", { kind: a.webhook.kind === "slack" ? "Slack" : "Microsoft Teams", host: a.webhook.host })}</Typography>}
       <ErrorAlert error={error} />
       {alerts.loading && !a ? (
@@ -433,7 +453,7 @@ function AlertsCard({ onSeen }: { onSeen: () => void }) {
       ) : alerts.error || !a ? (
         <ErrorAlert error={alerts.error} onRetry={alerts.reload} />
       ) : a.alerts.length === 0 ? (
-        <Alert severity="success">{t("server.alertsNone")}</Alert>
+        <EmptyState title={t("server.alertsNone")} />
       ) : (
         <>
           <List disablePadding sx={{ opacity: alerts.loading ? 0.6 : 1 }}>
@@ -463,8 +483,11 @@ function AlertsCard({ onSeen }: { onSeen: () => void }) {
   );
 }
 
+/** Read by screen readers only. */
+const visuallyHidden = { position: "absolute", width: "1px", height: "1px", overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap" } as const;
+
 /** For the server administrator only: server settings and accounts. */
-const SECTION_ICON: Record<ServerSection, ReactNode> = {
+const SECTION_ICON: Record<ServerSection, ReactElement> = {
   overview: <Insights />,
   accounts: <People />,
   projects: <FolderOpen />,
@@ -472,14 +495,32 @@ const SECTION_ICON: Record<ServerSection, ReactNode> = {
   system: <Dns />,
 };
 
-/** The sections' menu: a list beside the page on wide screens, tabs above it on narrow ones. */
-function ServerNav({ section, wide }: { section: ServerSection; wide: boolean }) {
+/**
+ * The sections' menu: a list beside the page on wide screens, five icon-over-label tabs above it on narrow ones (all
+ * five fit). A section with something needing attention carries its count, except the one shown.
+ */
+function ServerNav({ section, wide, attention }: { section: ServerSection; wide: boolean; attention: Partial<Record<ServerSection, number>> }) {
   const t = useT();
+  const { language } = useApp();
+  const icon = (s: ServerSection): ReactElement => {
+    const count = s === section ? 0 : (attention[s] ?? 0);
+    if (count === 0) return SECTION_ICON[s];
+    return (
+      <Badge color="warning" badgeContent={formatNumber(count, language)} overlap="circular">
+        {SECTION_ICON[s]}
+        <Box component="span" sx={visuallyHidden}>
+          {count === 1 ? t("server.health.attentionOne") : t("server.health.attention", { count: formatNumber(count, language) })}
+        </Box>
+      </Badge>
+    );
+  };
   if (!wide) {
     return (
-      <Tabs value={section} variant="scrollable" allowScrollButtonsMobile aria-label={t("server.nav.label")} sx={{ borderBottom: 1, borderColor: "divider" }}>
+      <Tabs value={section} variant="fullWidth" aria-label={t("server.nav.label")} sx={{ borderBottom: 1, borderColor: "divider", mx: -1 }}>
         {SERVER_SECTIONS.map((s) => (
-          <Tab key={s} value={s} label={t(`server.section.${s}`)} {...linkProps(pathFor({ name: "server", section: s }))} />
+          <Tab key={s} value={s} icon={icon(s)} iconPosition="top" label={t(`server.section.${s}`)}
+            sx={{ minWidth: 0, minHeight: 60, px: 0.25, fontSize: "0.7rem", textTransform: "none", lineHeight: 1.2, overflowWrap: "anywhere" }}
+            {...linkProps(pathFor({ name: "server", section: s }))} />
         ))}
       </Tabs>
     );
@@ -490,7 +531,7 @@ function ServerNav({ section, wide }: { section: ServerSection; wide: boolean })
         {SERVER_SECTIONS.map((s) => (
           <ListItemButton key={s} selected={s === section} aria-current={s === section ? "page" : undefined}
             sx={{ borderRadius: 1, mb: 0.5 }} {...linkProps(pathFor({ name: "server", section: s }))}>
-            <ListItemIcon sx={{ minWidth: 36, color: s === section ? "primary.main" : "text.secondary" }}>{SECTION_ICON[s]}</ListItemIcon>
+            <ListItemIcon sx={{ minWidth: 36, color: s === section ? "primary.main" : "text.secondary" }}>{icon(s)}</ListItemIcon>
             <ListItemText primary={t(`server.section.${s}`)} />
           </ListItemButton>
         ))}
@@ -499,12 +540,14 @@ function ServerNav({ section, wide }: { section: ServerSection; wide: boolean })
   );
 }
 
-/** "All good", or what needs attention, each a link to the section where it is fixed (serverView.ts). */
-function HealthLine({ unseenAlerts, overview, mailReady, outdatedAccounts }: { unseenAlerts: number | null; overview: ServerOverview | null; mailReady: boolean; outdatedAccounts: number | null }) {
+/**
+ * Overview's line: "All good", or what needs attention, each with a link to the section where it is fixed (serverView.ts),
+ * none to the section shown.
+ */
+function HealthLine({ items, ready, section }: { items: HealthItem[]; ready: boolean; section: ServerSection }) {
   const t = useT();
   const { language } = useApp();
-  const items = serverHealth({ unseenAlerts, overview, mailReady, outdatedAccounts });
-  if (unseenAlerts === null || overview === null) return null;
+  if (!ready) return null;
   const n = (v: number) => formatNumber(v, language);
   const text = (item: HealthItem) =>
     item.kind === "alerts" ? t(item.count === 1 ? "server.health.unseenAlertsOne" : "server.health.unseenAlerts", { count: n(item.count) })
@@ -522,8 +565,13 @@ function HealthLine({ unseenAlerts, overview, mailReady, outdatedAccounts }: { u
       <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
         {items.map((item) => (
           <li key={item.kind}>
-            {text(item)}{" "}
-            <Link {...linkProps(pathFor({ name: "server", section: item.section }))}>{t("server.health.see", { section: t(`server.section.${item.section}`) })}</Link>
+            {text(item)}
+            {item.section !== section && (
+              <>
+                {" "}
+                <Link {...linkProps(pathFor({ name: "server", section: item.section }))}>{t("server.health.see", { section: t(`server.section.${item.section}`) })}</Link>
+              </>
+            )}
           </li>
         ))}
       </Box>
@@ -533,7 +581,8 @@ function HealthLine({ unseenAlerts, overview, mailReady, outdatedAccounts }: { u
 
 /**
  * The server administrators' page (only they see it), by section: Overview, Accounts, Projects, Settings, System, each
- * with its own address. The health line tops every section; leaving with settings changed and not saved asks first.
+ * with its own address. The health line tops Overview, and the menu marks the other sections needing attention; leaving
+ * with settings changed and not saved asks first.
  */
 export function ServerPage({ section }: { section: ServerSection }) {
   const t = useT();
@@ -547,6 +596,9 @@ export function ServerPage({ section }: { section: ServerSection }) {
   // The Collect Earth versions in use: the System section's card and the health line
   const versions = useLoad(["app", "ServerPage.versions", admin], () => (admin ? getCollectEarthVersions() : Promise.resolve(null as unknown as CollectEarthVersions)));
   const unsaved = useUnsavedGroups();
+  const health = serverHealth({ unseenAlerts: alerts.data?.unseen ?? null, overview: overview.data ?? null, mailReady: info.selfServiceReset === true,
+    outdatedAccounts: versions.data?.outdatedAccounts ?? null });
+  const attention = attentionBySection(health);
   const [leaving, setLeaving] = useState<string | null>(null);
 
   // Settings changed and not saved: the browser asks before closing or reloading, the app before moving elsewhere
@@ -596,12 +648,11 @@ export function ServerPage({ section }: { section: ServerSection }) {
           <Typography color="text.secondary">{t("server.intro")}</Typography>
         </div>
         <Stack direction={wide ? "row" : "column"} spacing={3} sx={{ alignItems: wide ? "flex-start" : "stretch" }}>
-          <ServerNav section={section} wide={wide} />
+          <ServerNav section={section} wide={wide} attention={attention} />
           <Stack spacing={3} sx={{ flex: 1, minWidth: 0 }} component="main" aria-label={t(`server.section.${section}`)}>
-            <HealthLine unseenAlerts={alerts.data?.unseen ?? null} overview={overview.data ?? null} mailReady={info.selfServiceReset === true}
-              outdatedAccounts={versions.data?.outdatedAccounts ?? null} />
             {section === "overview" && (
               <>
+                <HealthLine items={health} ready={alerts.data != null && overview.data != null} section={section} />
                 <AlertsCard onSeen={alerts.reload} />
                 <OverviewFigures overview={overview} />
               </>
@@ -616,16 +667,11 @@ export function ServerPage({ section }: { section: ServerSection }) {
             {section === "settings" && <ServerSettingsSection />}
             {section === "system" && (
               <>
-                <SystemFigures overview={overview} />
-                <VersionsCard versions={versions} />
                 <MailCard />
                 <ActivityCard />
+                <SystemFigures overview={overview} />
+                <VersionsCard versions={versions} />
               </>
-            )}
-            {info.version && (
-              <Typography variant="body2" color="text.secondary">
-                {t("server.version", { version: info.version })}
-              </Typography>
             )}
           </Stack>
         </Stack>

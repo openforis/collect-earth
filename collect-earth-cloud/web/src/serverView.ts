@@ -1,4 +1,5 @@
-// The view logic of the server administrators' page (pages/ServerPage.tsx): the health line at the top of each section.
+// The view logic of the server administrators' page (pages/ServerPage.tsx): the health line on Overview, and the counts on
+// the menu's sections.
 import type { ServerOverview } from "./api";
 import type { ServerSection } from "./router";
 
@@ -30,4 +31,11 @@ export function serverHealth(input: {
   if (input.mailReady === false) items.push({ kind: "mail", section: "system" });
   if ((input.outdatedAccounts ?? 0) > 0) items.push({ kind: "versions", count: input.outdatedAccounts!, section: "system" });
   return items;
+}
+
+/** How many things need attention in each section, for the counts on the menu (sections with none are left out). */
+export function attentionBySection(items: readonly HealthItem[]): Partial<Record<ServerSection, number>> {
+  const counts: Partial<Record<ServerSection, number>> = {};
+  for (const item of items) counts[item.section] = (counts[item.section] ?? 0) + 1;
+  return counts;
 }

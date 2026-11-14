@@ -25,7 +25,7 @@ describe("the server activity log in words", () => {
 
   it("names the settings changed by their labels", () => {
     const e = entry("settings.changed", { target: null, details: { signupOpen: true, maxProjectsPerUser: 5, serverName: "changed", contactEmail: null } });
-    expect(activitySentence(t, e, "en")).toBe("owner changed Anyone can create an account: on; Most projects one person can coordinate: 5; Server name; Contact email: cleared");
+    expect(activitySentence(t, e, "en")).toBe("owner changed Anyone can create an account: on; Projects per coordinator: 5; Server name; Contact email: cleared");
   });
 
   it("has every setting's label and every sentence in every language", () => {
