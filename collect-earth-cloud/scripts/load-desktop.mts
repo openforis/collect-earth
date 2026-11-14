@@ -10,6 +10,10 @@
 // every instance has joined and taken its plot file, collects until HANDOFF.done, then writes HANDOFF.synced once
 // every instance has sent what it saved.
 //
+// Without DB (a deployed server, whose database is not reachable from here) each completed plot is timed by Collect
+// Earth's own sync state (/api/cloud/recordSync, until "sent"), and checked in the People tab with the coordinator's
+// session load-mapathon.mts hands over.
+//
 // Settings (environment): CE_APP (the collect-earth-app folder, where CollectEarth.jar is built and must run from),
 // CE_HOMES (where the instances' user folders go, emptied first), FIRST_PORT (8031), PACE_S ("20-40": seconds between
 // two plots of one person), XMX (1g), KEEP=1 to leave the instances running, OUT for the JSON report.
@@ -34,7 +38,7 @@ const pct = (sorted: number[], p: number) => (sorted.length ? sorted[Math.min(so
 
 while (!existsSync(HANDOFF)) await sleep(1000);
 const handoff = JSON.parse(readFileSync(HANDOFF, 'utf8')) as {
-  base: string; password: string; mapathons: { name: string; pid: string; inviteToken: string; people: string[] }[];
+  base: string; password: string; coordinatorToken?: string; mapathons: { name: string; pid: string; inviteToken: string; people: string[] }[];
 };
 
 interface Instance {
@@ -43,6 +47,8 @@ interface Instance {
   /** plot -> when its last save made it complete (actively saved, valid) */
   completed: Map<string, number>;
   saves: number[]; failedSaves: number; incomplete: number;
+  /** Without DB: plot -> how long after completing it Collect Earth said it was sent (ms) */
+  sentAfter: Map<string, number>;
 }
 
 const instances: Instance[] = [];
@@ -50,7 +56,7 @@ for (const m of handoff.mapathons) {
   for (const username of m.people) {
     const n = instances.length + 1;
     instances.push({ n, port: FIRST_PORT + n - 1, home: join(CE_HOMES, `ce${n}`), username, pid: m.pid, mapathon: m.name,
-      plots: [], next: 0, completed: new Map(), saves: [], failedSaves: 0, incomplete: 0 });
+      plots: [], next: 0, completed: new Map(), saves: [], failedSaves: 0, incomplete: 0, sentAfter: new Map() });
   }
 }
 
@@ -186,7 +192,9 @@ async function fillPlot(i: Instance, plot: string) {
     }
     if (!result.success) i.failedSaves += 1;
     if (result.activelySaved && result.validData) {
-      i.completed.set(plot, Date.now());
+      const completedAt = Date.now();
+      i.completed.set(plot, completedAt);
+      if (!DB) void timeSent(i, plot, completedAt);
       return;
     }
     for (const [name, info] of Object.entries(result.inputFieldInfoByParameterName ?? {})) {
@@ -196,6 +204,28 @@ async function fillPlot(i: Instance, plot: string) {
     await sleep(between(1500, 4000));
   }
   i.incomplete += 1;
+}
+
+/** Collect Earth's sync state of a plot (local, pending, sent, failed), as its plot form shows it */
+async function syncState(i: Instance, plot: string): Promise<string> {
+  try {
+    return ((await (await api(i, `cloud/recordSync?key=${encodeURIComponent(plot)}`)).json()) as { state: string }).state;
+  } catch {
+    return 'unknown';
+  }
+}
+
+/** Without DB: how long after completing a plot Collect Earth says it is sent (its queue empty of it) */
+async function timeSent(i: Instance, plot: string, completedAt: number) {
+  // The completing save queued the plot: "sent" from here is this save sent (or a later one of the same plot)
+  const until = completedAt + 10 * 60_000;
+  while (Date.now() < until) {
+    if ((await syncState(i, plot)) === 'sent') {
+      if (i.completed.get(plot) === completedAt) i.sentAfter.set(plot, Date.now() - completedAt);
+      return;
+    }
+    await sleep(250);
+  }
 }
 
 async function collect(i: Instance) {
@@ -275,7 +305,27 @@ for (const i of instances) {
     missing = [...i.completed.keys()].filter((k) => !complete.has(k));
     onServer = i.completed.size - missing.length;
   }
-  const latencies = [...i.completed.keys()].map((k) => arrived.get(`${i.username} ${k}`)! - i.completed.get(k)!).filter((x) => Number.isFinite(x)).sort((a, b) => a - b);
+  const latencies = (DB
+    ? [...i.completed.keys()].map((k) => arrived.get(`${i.username} ${k}`)! - i.completed.get(k)!)
+    : [...i.sentAfter.values()]).filter((x) => Number.isFinite(x)).sort((a, b) => a - b);
+  if (!DB) {
+    // Each plot it completed sent, as Collect Earth says; and the server counts them, as the coordinator sees it
+    const states = await Promise.all([...i.completed.keys()].map(async (k) => [k, await syncState(i, k)] as const));
+    const unsent = states.filter(([, st]) => st !== 'sent').map(([k, st]) => `${k} ${st}`);
+    onServer = i.completed.size - unsent.length;
+    missing = unsent;
+    if (handoff.coordinatorToken) {
+      let submitted: number | undefined;
+      for (let attempt = 0; attempt < 30; attempt++) {
+        const res = await fetch(`${handoff.base}/v1/projects/${i.pid}/people`, { headers: { authorization: `Bearer ${handoff.coordinatorToken}` } });
+        const people = await res.json() as { asOf: number | null; people: { username: string; plots: { submitted: number } }[] };
+        submitted = people.people?.find((r) => r.username === i.username)?.plots.submitted;
+        if (people.asOf === null) break;
+        await sleep(2000);
+      }
+      checks.push({ what: `Collect Earth ${i.n}: the People tab counts the plots it completed`, ok: submitted === i.completed.size, detail: `${submitted} shown, ${i.completed.size} completed` });
+    }
+  }
   allLatencies = allLatencies.concat(latencies);
   const saves = [...i.saves].sort((a, b) => a - b);
   const rss = memoryOf(i.home);
@@ -288,9 +338,12 @@ for (const i of instances) {
   report.push(row);
   lines.push(`Collect Earth ${i.n} (${i.username}, port ${i.port}): ${i.completed.size} plots completed in ${saves.length} form saves `
     + `(median ${row.saveMedianMs.toFixed(0)} ms, p95 ${row.saveP95Ms.toFixed(0)} ms, ${i.failedSaves} failed, ${i.incomplete} left incomplete); `
-    + `on the server ${row.syncMedianS.toFixed(1)} s after completing it (median), p95 ${row.syncP95S.toFixed(1)} s, max ${row.syncMaxS.toFixed(1)} s; `
+    + `${DB ? 'on the server' : 'sent'} ${row.syncMedianS.toFixed(1)} s after completing it (median), p95 ${row.syncP95S.toFixed(1)} s, max ${row.syncMaxS.toFixed(1)} s; `
     + `queue at the end ${JSON.stringify(drained.get(i.n))}; processes ${rss.toFixed(0)} MB`);
-  if (client) checks.push({ what: `Collect Earth ${i.n}: every plot it completed is on the server, complete`, ok: missing.length === 0, detail: `${onServer} of ${i.completed.size}${missing.length ? `, missing ${missing.slice(0, 5).join(' ')}` : ''}` });
+  checks.push({
+    what: client ? `Collect Earth ${i.n}: every plot it completed is on the server, complete` : `Collect Earth ${i.n}: every plot it completed is sent, as Collect Earth says`,
+    ok: missing.length === 0, detail: `${onServer} of ${i.completed.size}${missing.length ? `, not: ${missing.slice(0, 5).join(' ')}` : ''}`,
+  });
 }
 allLatencies.sort((a, b) => a - b);
 lines.push(`All instances: ${allLatencies.length} plots timed from completed to on the server: median ${(pct(allLatencies, 50) / 1000).toFixed(1)} s, p95 ${(pct(allLatencies, 95) / 1000).toFixed(1)} s, max ${((allLatencies.at(-1) ?? NaN) / 1000).toFixed(1)} s`);

@@ -9,10 +9,11 @@
 //
 // The phases: everyone signs in at the same moment (a mapathon starting at 9:00); a steady pace; a fast pace; a
 // reconnection burst (everyone's internet comes back with a backlog of saves); a ceiling (saving without pause).
-// At the end every plot each person saved is checked on the server: in the database when its address is given, and
-// in the People tab's counts.
+// At the end every plot each person saved is checked on the server: through the API, each person's submitted plots in
+// the People tab against the plots whose newest save was complete; and row by row in the database when its address is
+// given (DB).
 //
-// Run it against a throwaway server, never a real one: it creates projects and accounts it does not delete.
+// A server of this computer, set up by the script with its setup code:
 //
 //   STORE_BACKEND=postgres ... SETUP_CODE=LOADTEST RATE_LIMIT_PER_MINUTE=0 PORT=8095 node --import tsx src/index.ts
 //   BASE=http://127.0.0.1:8095 SETUP_CODE=LOADTEST DB=postgres://ceown:pw@localhost:55481/ceload \
@@ -21,14 +22,27 @@
 // RATE_LIMIT_PER_MINUTE=0 on the server: every simulated person comes from this one address, where real ones have
 // their own, so the per-address limit on signing in would refuse them.
 //
+// A deployed server (a staging copy, never the one people work on: the ceiling phase pushes it as hard as it goes):
+// signed in with an account of its administrator, made for the test; its sign-ins paced under the per-address limit
+// (AUTH_PER_MINUTE) unless the staging copy runs with a high RATE_LIMIT_PER_MINUTE; everything it made deleted at the end
+// (CLEANUP=1).
+//
+//   BASE=https://staging.example.org ADMIN_USER=loadtest ADMIN_PASSWORD_FILE=~/.loadtest-password AUTH_PER_MINUTE=50 \
+//     CLEANUP=1 npx tsx scripts/load-mapathon.mts
+//
 // Settings (environment): MAPATHONS (2), PEOPLE per mapathon (30), PLOTS per mapathon (3000), SCALE to shorten every
-// phase (1 = the durations below), SERVER_PID to sample the server's CPU and memory, OUT for the JSON report.
+// phase (1 = the durations below), PHASES to run only some ("1,2,3": without the burst and the ceiling), SERVER_PID to
+// sample the server's CPU and memory (a server of this computer), OUT for the JSON report.
+//
+// The people's accounts get a password of this run (written to HANDOFF for the Collect Earth instances), so that no
+// account made on a deployed server has one written here.
 //
 // Real Collect Earth instances (scripts/load-desktop.mts): DESKTOP people of each mapathon are left to them. They are
 // signed up and given plots with the others, but not simulated: their names, password and an invitation to join with
 // are written to HANDOFF (a JSON file); the phases start once HANDOFF.ready exists (the instances have joined), the
 // end is said with HANDOFF.done, and the check waits for HANDOFF.synced (their saves are all sent). The check here
 // leaves their plots to that script.
+import { randomBytes } from 'node:crypto';
 import { gzipSync } from 'node:zlib';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import pg from 'pg';
@@ -46,7 +60,16 @@ const OUT = process.env.OUT;
 const DESKTOP = Number(process.env.DESKTOP ?? 0);
 const HANDOFF = process.env.HANDOFF;
 if (DESKTOP > 0 && !HANDOFF) throw new Error('DESKTOP needs HANDOFF, the file the desktop script reads');
-const PASSWORD = 'load-test-password-12';
+const ADMIN_USER = process.env.ADMIN_USER;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD_FILE ? readFileSync(process.env.ADMIN_PASSWORD_FILE.replace(/^~/, process.env.HOME ?? ''), 'utf8').trim() : process.env.ADMIN_PASSWORD;
+if (ADMIN_USER && !ADMIN_PASSWORD) throw new Error('ADMIN_USER needs ADMIN_PASSWORD or ADMIN_PASSWORD_FILE');
+const AUTH_PER_MINUTE = Number(process.env.AUTH_PER_MINUTE ?? 0);
+const PHASES = new Set((process.env.PHASES ?? '1,2,3,4,5').split(',').map((x) => x.trim()));
+const CLEANUP = process.env.CLEANUP === '1';
+/** The people's password, of this run only */
+const PASSWORD = `load-${randomBytes(12).toString('base64url')}`;
+/** The coordinator of a server the script sets up itself (no ADMIN_USER): its password is the run's too */
+const SETUP_USER = 'coordinator';
 
 const LAND_USE = 'collect_code_land_use_category';
 const FOREST = 'collect_integer_forest_percentage';
@@ -68,7 +91,22 @@ function record(label: string, ms: number, status: number) {
   samples.get(key)!.push({ ms, status });
 }
 
+/** The times of the sign-ups and sign-ins of the last minute, kept under AUTH_PER_MINUTE (the server's per-address limit) */
+const authTimes: number[] = [];
+async function authSlot() {
+  for (;;) {
+    const now = Date.now();
+    while (authTimes.length && authTimes[0] <= now - 60_000) authTimes.shift();
+    if (authTimes.length < AUTH_PER_MINUTE) {
+      authTimes.push(now);
+      return;
+    }
+    await sleep(authTimes[0] + 60_000 - now + 50);
+  }
+}
+
 async function call(label: string, method: string, path: string, token: string | null, body?: unknown, raw?: { data: Buffer; type: string; gzip?: boolean }) {
+  if (AUTH_PER_MINUTE > 0 && (label === 'login' || label === 'register')) await authSlot();
   const headers: Record<string, string> = {};
   if (token) headers.authorization = `Bearer ${token}`;
   let payload: BodyInit | undefined;
@@ -131,7 +169,11 @@ function watchServer() {
 
 // --- the people --------------------------------------------------------------------------------------------------
 
-interface Person { username: string; userId: string; token: string; plots: string[]; next: number; done: Map<string, number>; desktop?: boolean }
+interface Person {
+  username: string; userId: string; token: string; plots: string[]; next: number;
+  /** plot -> the newest save stored (its modifiedOn) and whether it was complete (actively saved) */
+  done: Map<string, number>; complete: Map<string, boolean>; desktop?: boolean;
+}
 interface Mapathon { name: string; pid: string; fileId: string; people: Person[]; desktopInvite?: string }
 let ownerToken = '';
 
@@ -163,7 +205,10 @@ async function send(m: Mapathon, person: Person, saves: { plot: string; actively
     const results = res.json().results as { recordKey: string; status: string }[];
     for (const [i, env] of envelopes.entries()) {
       const r = results?.[i];
-      if (r && r.status !== 'error') person.done.set(env.recordKey, Math.max(person.done.get(env.recordKey) ?? 0, env.modifiedOn));
+      if (r && r.status !== 'error') {
+        if (env.modifiedOn >= (person.done.get(env.recordKey) ?? 0)) person.complete.set(env.recordKey, env.activelySaved);
+        person.done.set(env.recordKey, Math.max(person.done.get(env.recordKey) ?? 0, env.modifiedOn));
+      }
       else if (errors.length < 200) errors.push(`${phase} record ${env.recordKey} ${JSON.stringify(r)}`);
     }
   }
@@ -176,12 +221,21 @@ function nextPlot(p: Person): { plot: string; edit: boolean } {
 }
 
 async function setup(): Promise<Mapathon[]> {
-  let res = await call('setup', 'POST', '/v1/setup', null, { setupCode: SETUP_CODE, username: 'coordinator', password: PASSWORD });
-  if (res.status === 201) ownerToken = res.json().token;
-  else {
-    res = await call('login', 'POST', '/v1/auth/login', null, { username: 'coordinator', password: PASSWORD });
-    if (res.status !== 200) throw new Error(`cannot set up or sign in: ${res.status} ${res.text}`);
+  if (ADMIN_USER) {
+    // A deployed server: its administrator's account, never its setup
+    const res = await call('login', 'POST', '/v1/auth/login', null, { username: ADMIN_USER, password: ADMIN_PASSWORD });
+    if (res.status !== 200) throw new Error(`cannot sign in as ${ADMIN_USER}: ${res.status} ${res.text}`);
     ownerToken = res.json().token;
+  } else {
+    // A server of this computer: set up by the script (or set up by an earlier run, whose coordinator's password was LOADTEST's)
+    const setupPassword = `${SETUP_CODE}-coordinator`;
+    let res = await call('setup', 'POST', '/v1/setup', null, { setupCode: SETUP_CODE, username: SETUP_USER, password: setupPassword });
+    if (res.status === 201) ownerToken = res.json().token;
+    else {
+      res = await call('login', 'POST', '/v1/auth/login', null, { username: SETUP_USER, password: setupPassword });
+      if (res.status !== 200) throw new Error(`cannot set up or sign in: ${res.status} ${res.text} (with ADMIN_USER the script signs in with an existing account)`);
+      ownerToken = res.json().token;
+    }
   }
   const cep = idOnlyCep();
   const runId = Date.now().toString(36);
@@ -208,7 +262,7 @@ async function setup(): Promise<Mapathon[]> {
         const username = `m${i}-${runId}-c${String(start + k + 1).padStart(2, '0')}`;
         const r = await call('register', 'POST', '/v1/auth/register', null, { username, password: PASSWORD, inviteToken });
         if (r.status !== 201 && r.status !== 200) throw new Error(`register ${username}: ${r.status} ${r.text}`);
-        return { username, userId: r.json().userId, token: '', plots: [], next: 0, done: new Map() } as Person;
+        return { username, userId: r.json().userId, token: '', plots: [], next: 0, done: new Map(), complete: new Map() } as Person;
       }));
       people.push(...batch);
     }
@@ -308,7 +362,7 @@ const waitFor = async (file: string, what: string, minutes: number) => {
 };
 if (HANDOFF && DESKTOP > 0) {
   writeFileSync(HANDOFF, JSON.stringify({
-    base: BASE, password: PASSWORD,
+    base: BASE, password: PASSWORD, coordinatorToken: ownerToken,
     mapathons: mapathons.map((m) => ({ name: m.name, pid: m.pid, inviteToken: m.desktopInvite, people: m.people.filter((p) => p.desktop).map((p) => p.username) })),
   }, null, 2));
   await waitFor(`${HANDOFF}.ready`, 'the Collect Earth instances to join', 20);
@@ -316,24 +370,26 @@ if (HANDOFF && DESKTOP > 0) {
 const coordinators = (ms: number) => mapathons.map((m) => coordinate(m, ms, [3000, 8000]));
 
 // 1. 9:00: everyone opens Collect Earth at the same moment
-await runPhase('1 everyone starts at once', () => Promise.all(everyone.map(({ m, p }) => startCollectEarth(m, p))));
+// (Collect Earth signs in and reads its plots in any case: without phase 1 they do it one after the other)
+if (PHASES.has('1')) await runPhase('1 everyone starts at once', () => Promise.all(everyone.map(({ m, p }) => startCollectEarth(m, p))));
+else for (const { m, p } of everyone) await startCollectEarth(m, p);
 
 // 2. A steady pace: a plot every 45-90 s (a real person's minute or so on a plot)
 const STEADY = 5 * 60_000 * SCALE;
-await runPhase('2 steady pace (a plot every 45-90 s)', () => Promise.all([
+if (PHASES.has('2')) await runPhase('2 steady pace (a plot every 45-90 s)', () => Promise.all([
   ...everyone.map(({ m, p }) => collect(m, p, STEADY, [45_000 * SCALE, 90_000 * SCALE])),
   ...coordinators(STEADY),
 ]));
 
 // 3. Fast: a plot every 5-10 s, ten times a real pace (60 people working like 600)
 const FAST = 4 * 60_000 * SCALE;
-await runPhase('3 ten times the pace (a plot every 5-10 s)', () => Promise.all([
+if (PHASES.has('3')) await runPhase('3 ten times the pace (a plot every 5-10 s)', () => Promise.all([
   ...everyone.map(({ m, p }) => collect(m, p, FAST, [5_000 * SCALE, 10_000 * SCALE])),
   ...coordinators(FAST),
 ]));
 
 // 4. The internet comes back: everyone sends a backlog of 50 saves (a batch, as CloudSyncService takes 50) at once, 3 times
-await runPhase(`4 reconnection burst (${everyone.length} people x 50 saves at once, 3 times)`, async () => {
+if (PHASES.has('4')) await runPhase(`4 reconnection burst (${everyone.length} people x 50 saves at once, 3 times)`, async () => {
   for (let round = 0; round < 3; round++) {
     await Promise.all(everyone.map(({ m, p }) => send(m, p, Array.from({ length: 50 }, () => ({ plot: nextPlot(p).plot, activelySaved: true })))));
     await sleep(10_000 * SCALE);
@@ -342,7 +398,7 @@ await runPhase(`4 reconnection burst (${everyone.length} people x 50 saves at on
 
 // 5. The ceiling: no pause, each person sending batches of 10 saves back to back for 60 s, the coordinators clicking fast
 const CEILING = 60_000 * SCALE;
-await runPhase('5 ceiling (no pause, batches of 10)', () => Promise.all([
+if (PHASES.has('5')) await runPhase('5 ceiling (no pause, batches of 10)', () => Promise.all([
   ...everyone.map(async ({ m, p }) => {
     const end = performance.now() + CEILING;
     while (performance.now() < end) await send(m, p, Array.from({ length: 10 }, () => ({ plot: nextPlot(p).plot, activelySaved: true })));
@@ -377,10 +433,22 @@ for (const m of mapathons) {
     checks.push({ what: `${m.name}: database has each saved plot once (${expected.size})`, ok: missing.length === 0 && extra.length === 0 && rows.length === expected.size, detail: `stored ${rows.length}, missing ${missing.length}, unexpected ${extra.length}` });
     checks.push({ what: `${m.name}: database keeps the newest save of each plot`, ok: older.length === 0, detail: older.slice(0, 3).map(([k]) => k).join('; ') });
   }
-  // The People tab: each person's plots done, as the coordinator sees them
-  const people = (await call('dashboard: people', 'GET', `/v1/projects/${m.pid}/people`, ownerToken)).json();
-  const list = (people.people ?? people.rows ?? []) as Record<string, unknown>[];
+  // The People tab, as the coordinator sees it once its figures are those of every record (asOf null): each person's
+  // submitted plots are the plots whose newest save was complete
+  let list: { username: string; plots: { submitted: number } }[] = [];
+  for (let attempt = 0; attempt < 60; attempt++) {
+    const people = (await call('dashboard: people', 'GET', `/v1/projects/${m.pid}/people`, ownerToken)).json() as { asOf: number | null; people: typeof list };
+    list = people.people;
+    if (people.asOf === null) break;
+    await sleep(2000);
+  }
   checks.push({ what: `${m.name}: the People tab lists the ${m.people.length} collectors`, ok: m.people.every((p) => list.some((r) => r.username === p.username)), detail: `${list.length} listed` });
+  const wrong = m.people.filter((p) => !p.desktop).flatMap((p) => {
+    const expectedSubmitted = [...p.complete.values()].filter(Boolean).length;
+    const shown = list.find((r) => r.username === p.username)?.plots.submitted;
+    return shown === expectedSubmitted ? [] : [`${p.username}: ${shown} shown, ${expectedSubmitted} sent`];
+  });
+  checks.push({ what: `${m.name}: the People tab counts each person's submitted plots as sent`, ok: wrong.length === 0, detail: wrong.length ? wrong.slice(0, 3).join('; ') : `${m.people.filter((p) => !p.desktop).length} people` });
 }
 
 // --- the report --------------------------------------------------------------------------------------------------
@@ -417,4 +485,21 @@ if (errors.length) {
 }
 console.log(lines.join('\n'));
 if (OUT) writeFileSync(OUT, JSON.stringify(report, null, 2));
+
+// --- the clean-up: the projects, then the accounts (a server administrator's) -----------------------------------------
+if (CLEANUP) {
+  const left: string[] = [];
+  for (const m of mapathons) {
+    const res = await call('clean-up: project', 'DELETE', `/v1/projects/${m.pid}`, ownerToken, { name: m.name });
+    if (res.status >= 300) left.push(`project ${m.name} (${res.status})`);
+  }
+  let deleted = 0;
+  for (const p of mapathons.flatMap((m) => m.people)) {
+    if (AUTH_PER_MINUTE > 0) await authSlot();
+    const res = await call('clean-up: account', 'DELETE', `/v1/admin/users/${p.userId}`, ownerToken, { confirm: p.username });
+    if (res.status < 300) deleted += 1;
+    else if (left.length < 5) left.push(`account ${p.username} (${res.status}${res.status === 403 || res.status === 404 ? ': not a server administrator?' : ''})`);
+  }
+  console.log(`\nClean-up: ${mapathons.length} projects and ${deleted} accounts deleted${left.length ? `; left: ${left.join(', ')}` : ''}`);
+}
 process.exit(checks.every((c) => c.ok) ? 0 : 1);
