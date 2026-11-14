@@ -51,6 +51,11 @@ import { startErrorText } from "../aiView";
 import { cubeOf, defaultView, fitToCube, parseSavedViews, tableChoices, translateView, withSavedView, type Cube, type SavedView, type ViewConfig } from "../analysisView";
 import type { AnalysisEngine, Step, Viewer } from "../analysisEngine";
 import Breadcrumbs from "@mui/material/Breadcrumbs";
+import Collapse from "@mui/material/Collapse";
+import useMediaQuery from "@mui/material/useMediaQuery";
+import type { Theme } from "@mui/material/styles";
+import ExpandLess from "@mui/icons-material/ExpandLess";
+import ExpandMore from "@mui/icons-material/ExpandMore";
 import Link from "@mui/material/Link";
 import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
@@ -167,6 +172,9 @@ export function Pivot({ projectId, projectName, role, data, language, standalone
   const [step, setStep] = useState<Step | "ready">("database");
   const [error, setError] = useState<unknown>(null);
   const [rows, setRows] = useState<number | null>(null);
+  // on a phone: the view's controls (Show, By, filters…) folded until asked for
+  const narrow = useMediaQuery((theme: Theme) => theme.breakpoints.down("sm"));
+  const [viewOpen, setViewOpen] = useState(false);
   const [table, setTable] = useState("plot");
   const [shown, setShown] = useState<Shown | null>(null);
   const [config, setConfig] = useState<ViewConfig | null>(null);
@@ -691,11 +699,21 @@ export function Pivot({ projectId, projectName, role, data, language, standalone
           </IconButton>
         </Tooltip>
       </Box>
+      {shown && question && narrow && (
+        <Box>
+          <Button size="small" variant="outlined" onClick={() => setViewOpen((o) => !o)} aria-expanded={viewOpen} aria-controls="analysis-view-controls" endIcon={viewOpen ? <ExpandLess /> : <ExpandMore />}>
+            {t("analysis.changeView")}
+          </Button>
+        </Box>
+      )}
       {shown && question && (
-        <>
-          <QuestionBar cube={shown.cube} measures={shown.measures} question={question} onChange={(q) => void ask(q)} disabled={!ready} />
-          <FilterBar cube={shown.cube} filters={question.filters} onChange={(filters) => void ask({ ...question, filters })} loadValues={loadValues} disabled={!ready} suggested={suggested} />
-        </>
+        // On a phone the view's controls are folded, so the chart comes first
+        <Collapse in={!narrow || viewOpen} id="analysis-view-controls">
+          <Stack spacing={1.5}>
+            <QuestionBar cube={shown.cube} measures={shown.measures} question={question} onChange={(q) => void ask(q)} disabled={!ready} />
+            <FilterBar cube={shown.cube} filters={question.filters} onChange={(filters) => void ask({ ...question, filters })} loadValues={loadValues} disabled={!ready} suggested={suggested} />
+          </Stack>
+        </Collapse>
       )}
     </Stack>
   );
@@ -710,7 +728,16 @@ export function Pivot({ projectId, projectName, role, data, language, standalone
         <Explain text={t("analysis.explain.short", { count: formatNumber(plotRows, language) })} more={t("analysis.explain", { count: formatNumber(plotRows, language) })} />
       )}
       {!data.areas && data.scope === "project" && (
-        <Alert severity="info">
+        <Alert
+          severity="info"
+          action={
+            standalone ? undefined : (
+              <Button color="inherit" size="small" {...linkProps(pathFor({ name: "project", projectId, tab: "setup", view: "areas" }))}>
+                {t("view.setup.areas")}
+              </Button>
+            )
+          }
+        >
           {t("analysis.noAreas.short")}
           <MoreInfo text={t("analysis.noAreas")} />
         </Alert>

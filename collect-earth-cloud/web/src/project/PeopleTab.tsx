@@ -25,7 +25,9 @@ import IconButton from "@mui/material/IconButton";
 import InputLabel from "@mui/material/InputLabel";
 import List from "@mui/material/List";
 import ListItem from "@mui/material/ListItem";
+import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
+import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Select from "@mui/material/Select";
@@ -36,6 +38,7 @@ import Typography from "@mui/material/Typography";
 import Delete from "@mui/icons-material/Delete";
 import PersonOffOutlined from "@mui/icons-material/PersonOffOutlined";
 import Undo from "@mui/icons-material/Undo";
+import MoreVert from "@mui/icons-material/MoreVert";
 import Download from "@mui/icons-material/Download";
 import WarningAmber from "@mui/icons-material/WarningAmber";
 import Link from "@mui/icons-material/Link";
@@ -87,6 +90,7 @@ import {
   statusChip,
   statusSyncLevel,
   withoutPace,
+  workloadLine,
   workloadRows,
   type SortKey,
   type StatusFilter,
@@ -216,6 +220,8 @@ function MemberList({ projectId, members, onChanged }: { projectId: string; memb
   const [error, setError] = useState<unknown>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [removing, setRemoving] = useState<Member | null>(null);
+  // The "⋮" menu of a row: leave out of the results (or put back), remove.
+  const [menu, setMenu] = useState<{ anchor: HTMLElement; member: Member } | null>(null);
   // Leaving someone out of the results: who, and the reason being typed.
   const [excluding, setExcluding] = useState<Member | null>(null);
   const [reason, setReason] = useState("");
@@ -265,7 +271,9 @@ function MemberList({ projectId, members, onChanged }: { projectId: string; memb
             <ListItemText
               primary={
                 <>
-                  <Username name={member.username} />
+                  <MuiLink {...linkProps(pathFor({ name: "person", projectId, userId: member.userId }))}>
+                    <Username name={member.username} />
+                  </MuiLink>
                   {member.userId === me?.userId && ` ${t("people.you")}`}
                 </>
               }
@@ -301,28 +309,40 @@ function MemberList({ projectId, members, onChanged }: { projectId: string; memb
                   </MenuItem>
                 ))}
               </Select>
-              {member.excluded ? (
-                <Tooltip title={t("people.include", { name: member.username })}>
-                  <IconButton aria-label={t("people.include", { name: member.username })} onClick={() => void exclude(member, false)}>
-                    <Undo />
-                  </IconButton>
-                </Tooltip>
-              ) : (
-                <Tooltip title={t("people.exclude", { name: member.username })}>
-                  <IconButton aria-label={t("people.exclude", { name: member.username })} onClick={() => (setReason(""), setExcluding(member))}>
-                    <PersonOffOutlined />
-                  </IconButton>
-                </Tooltip>
-              )}
-              <Tooltip title={t("people.remove", { name: member.username })}>
-                <IconButton aria-label={t("people.remove", { name: member.username })} onClick={() => setRemoving(member)}>
-                  <Delete />
-                </IconButton>
-              </Tooltip>
+              <IconButton
+                aria-label={t("people.actionsFor", { name: member.username })}
+                aria-haspopup="menu"
+                onClick={(e) => setMenu({ anchor: e.currentTarget, member })}
+              >
+                <MoreVert />
+              </IconButton>
             </Stack>
           </ListItem>
         ))}
       </List>
+      <Menu anchorEl={menu?.anchor} open={menu !== null} onClose={() => setMenu(null)}>
+        {menu?.member.excluded ? (
+          <MenuItem onClick={() => (setMenu(null), void exclude(menu.member, false))}>
+            <ListItemIcon>
+              <Undo fontSize="small" />
+            </ListItemIcon>
+            {t("people.menuInclude")}
+          </MenuItem>
+        ) : (
+          <MenuItem onClick={() => menu && (setMenu(null), setReason(""), setExcluding(menu.member))}>
+            <ListItemIcon>
+              <PersonOffOutlined fontSize="small" />
+            </ListItemIcon>
+            {t("people.menuExclude")}
+          </MenuItem>
+        )}
+        <MenuItem onClick={() => menu && (setMenu(null), setRemoving(menu.member))} sx={{ color: "error.main" }}>
+          <ListItemIcon>
+            <Delete fontSize="small" color="error" />
+          </ListItemIcon>
+          {t("people.menuRemove")}
+        </MenuItem>
+      </Menu>
       {notice && (
         <Alert severity="success" role="status">
           {notice}
@@ -423,10 +443,16 @@ function WeekSection({ projectId, data }: { projectId: string; data: PeopleAnswe
           <Typography variant="h3" gutterBottom>
             {t("peopleWeek.least")}
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-            {t("peopleWeek.leastHelp")}
-          </Typography>
-          {week.leastActive.length === 0 ? <Typography color="text.secondary">{t("peopleWeek.nobodyLeft")}</Typography> : people(week.leastActive)}
+          {week.leastActive.length === 0 ? (
+            <Typography color="text.secondary">{t("peopleWeek.nobodyLeft")}</Typography>
+          ) : (
+            <>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                {t("peopleWeek.leastHelp")}
+              </Typography>
+              {people(week.leastActive)}
+            </>
+          )}
         </Grid>
       </Grid>
     </Paper>
@@ -481,7 +507,38 @@ function WorkloadSection({ projectId, data, onMoved }: { projectId: string; data
             )}
             {noPace > 0 && <Alert severity="warning">{t("peopleTable.title.workloadNoPace", { n: n(noPace) })}</Alert>}
           </Stack>
-          <TableContainer sx={{ border: 1, borderColor: "divider", borderRadius: 1 }}>
+          {/* On a phone: one stacked row per person (the table does not fit) */}
+          <Box component="ul" sx={{ display: { xs: "block", sm: "none" }, listStyle: "none", m: 0, p: 0, border: 1, borderColor: "divider", borderRadius: 1 }}>
+            {rows.map((w, i) => {
+              const row = data.people.find((p) => p.userId === w.userId) as PersonRow;
+              const isLast = w.left > 0 && w.daysLeft !== null && last !== null && last.last.userId === w.userId;
+              return (
+                <Box component="li" key={w.userId} sx={{ px: 1.5, py: 1, borderTop: i > 0 ? 1 : 0, borderColor: "divider" }}>
+                  <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
+                    <MuiLink {...linkProps(pathFor({ name: "person", projectId, userId: w.userId }))}>
+                      <Username name={w.username} />
+                    </MuiLink>
+                    {isLast && <Chip size="small" color="warning" label={t("peopleTable.title.workloadLast")} />}
+                  </Stack>
+                  <Typography variant="body2" color="text.secondary" sx={{ fontVariantNumeric: "tabular-nums" }}>
+                    {workloadLine(t, w, language, (d) => dayText(d, language))}
+                  </Typography>
+                  {w.left > 0 && (
+                    <Button
+                      size="small"
+                      startIcon={<SwapHoriz />}
+                      onClick={() => (setNotice(null), setMoving(row))}
+                      aria-label={t("peopleTable.title.workloadMoveLabel", { name: w.username })}
+                      sx={{ whiteSpace: "nowrap", ml: -0.5 }}
+                    >
+                      {t("peopleTable.title.workloadMove")}
+                    </Button>
+                  )}
+                </Box>
+              );
+            })}
+          </Box>
+          <TableContainer sx={{ display: { xs: "none", sm: "block" }, border: 1, borderColor: "divider", borderRadius: 1 }}>
             <Table size="small" sx={{ "& th, & td": { px: 1 } }}>
               <TableHead>
                 <TableRow>
