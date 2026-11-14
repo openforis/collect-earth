@@ -37,7 +37,7 @@ import { BackupImportDialog } from "./BackupImportDialog";
 import { CeoImportDialog } from "./CeoImportDialog";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Loading } from "../components/Loading";
-import { RoleBadge, RolesLink } from "../components/Roles";
+import { RoleChip } from "../components/Roles";
 import { useT } from "../i18n";
 import { linkProps, navigate, pathFor } from "../router";
 import { useLoad } from "../useLoad";
@@ -264,31 +264,32 @@ export function ProjectsPage() {
                     <Typography variant="h3" component="h2" gutterBottom sx={{ wordBreak: "break-word" }}>
                       {p.projectName}
                     </Typography>
-                    <Stack direction="row" spacing={1}>
-                      <RoleBadge role={p.role} />
-                      {p.status !== "active" && <Chip size="small" variant="outlined" label={t(`project.status.${p.status}`)} />}
-                    </Stack>
+                    <Chip
+                      size="small"
+                      variant="outlined"
+                      color={p.status === "active" ? "success" : "default"}
+                      label={t(`project.status.${p.status}`)}
+                    />
                   </CardContent>
                 </CardActionArea>
-                {/* Every member can see how their own plots fared in the checks; collectors and reviewers also their work, as on the project page. */}
-                <CardActions sx={{ pt: 0 }}>
+                {/* The role chip opens what the role means (and the table of every role's rights), so it sits out of the
+                    card's link. Collectors and reviewers also get their work and how their own plots fared in the checks. */}
+                <CardActions disableSpacing sx={{ pt: 0, px: 2, pb: 2, flexWrap: "wrap", gap: 1 }}>
+                  <RoleChip role={p.role} />
                   {p.role !== "admin" && (
-                    <Button size="small" {...linkProps(pathFor({ name: "myWork", projectId: p.projectId }))}>
-                      {t("myWork.link")}
-                    </Button>
+                    <>
+                      <Button size="small" {...linkProps(pathFor({ name: "myWork", projectId: p.projectId }))}>
+                        {t("myWork.link")}
+                      </Button>
+                      <Button size="small" {...linkProps(pathFor({ name: "myQuality", projectId: p.projectId }))}>
+                        {t("myQuality.link")}
+                      </Button>
+                    </>
                   )}
-                  <Button size="small" {...linkProps(pathFor({ name: "myQuality", projectId: p.projectId }))}>
-                    {t("myQuality.link")}
-                  </Button>
                 </CardActions>
               </Card>
             </Grid>
           ))}
-          <Grid size={12}>
-            <Typography variant="body2">
-              <RolesLink />
-            </Typography>
-          </Grid>
         </Grid>
       )}
       {choosing && (

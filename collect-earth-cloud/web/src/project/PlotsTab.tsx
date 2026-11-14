@@ -272,6 +272,7 @@ export function PlotsTab({ projectId, onGo }: { projectId: string; onGo: (tab: P
     return byFile;
   }, [data]);
   const nameOf = (userId: string) => data?.members.find((m) => m.userId === userId)?.username ?? "?";
+  const sortedHolders = (fileId: string) => [...(holders.get(fileId) ?? [])].sort((a, b) => nameOf(a).localeCompare(nameOf(b)));
 
   /** Saves who collects one file, the other files' people as they are. */
   const saveHolders = async (fileId: string, userIds: Set<string>) => {
@@ -334,7 +335,41 @@ export function PlotsTab({ projectId, onGo }: { projectId: string; onGo: (tab: P
                   <MoreInfo text={t("plots.assignSaved")} />
                 </Alert>
               )}
-              <TableContainer sx={{ border: 1, borderColor: "divider", borderRadius: 1 }}>
+              {/* Phones: each file as a stacked row (a table's four columns do not fit) */}
+              <Box component="ul" aria-label={t("plots.title")}
+                sx={{ display: { xs: "block", sm: "none" }, listStyle: "none", m: 0, p: 0, border: 1, borderColor: "divider", borderRadius: 1 }}>
+                {data.files.map((file, index) => {
+                  const divided = data.divided.has(file.id);
+                  const ids = sortedHolders(file.id);
+                  const plots = file.plotCount === 1 ? t("plots.rowPlotsOne") : t("plots.rowPlots", { count: formatNumber(file.plotCount, language) });
+                  const who = divided ? null : ids.length === 0 ? t("plots.nobody") : ids.map(nameOf).join(", ");
+                  return (
+                    <Box component="li" key={file.id} sx={{ p: 1.5, borderTop: index === 0 ? 0 : 1, borderColor: "divider" }}>
+                      <Typography sx={{ wordBreak: "break-word", fontWeight: 500 }}>{file.filename}</Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ wordBreak: "break-word" }}>
+                        {who === null ? plots : `${plots} · ${who}`}
+                      </Typography>
+                      <Stack direction="row" sx={{ gap: 1, flexWrap: "wrap", mt: 1 }}>
+                        {divided ? (
+                          <DividedChip projectId={projectId} fileId={file.id} count={data.divided.get(file.id) ?? 0} />
+                        ) : (
+                          <>
+                            <Button size="small" variant="outlined" startIcon={<Edit fontSize="small" />} onClick={() => setEditing(file)}
+                              aria-label={t("plots.changeLabel", { file: file.filename })}>
+                              {t("plots.change")}
+                            </Button>
+                            <Button size="small" variant="outlined" startIcon={<CallSplit />} aria-label={t("plots.divideLabel", { file: file.filename })}
+                              {...linkProps(filePath(projectId, file.id))}>
+                              {t("plots.divide")}
+                            </Button>
+                          </>
+                        )}
+                      </Stack>
+                    </Box>
+                  );
+                })}
+              </Box>
+              <TableContainer sx={{ display: { xs: "none", sm: "block" }, border: 1, borderColor: "divider", borderRadius: 1 }}>
                 <Table size="small">
                   <TableHead>
                     <TableRow>
@@ -347,7 +382,7 @@ export function PlotsTab({ projectId, onGo }: { projectId: string; onGo: (tab: P
                   <TableBody>
                     {data.files.map((file) => {
                       const divided = data.divided.has(file.id);
-                      const ids = [...(holders.get(file.id) ?? [])].sort((a, b) => nameOf(a).localeCompare(nameOf(b)));
+                      const ids = sortedHolders(file.id);
                       return (
                         <TableRow key={file.id} hover>
                           <TableCell component="th" scope="row" sx={{ wordBreak: "break-word", fontWeight: 500 }}>{file.filename}</TableCell>

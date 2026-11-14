@@ -1,19 +1,21 @@
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { getOverview, getQualitySettings } from "../api";
 import { useLocalMode } from "../appContext";
-import { CardFrame } from "../components/FoldingCard";
+import { CardFrame, OpenCards } from "../components/FoldingCard";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Explain } from "../components/Explain";
 import { Loading } from "../components/Loading";
 import { ViewTabs } from "../components/ViewTabs";
-import { useT } from "../i18n";
+import { useT, type MessageKey } from "../i18n";
 import { setupSections } from "../localMode";
-import { linkProps, pathFor, type ProjectTab, type ProjectView } from "../router";
+import { linkProps, navigate, pathFor, type ProjectTab, type ProjectView } from "../router";
 import { useLoad } from "../useLoad";
 import { FileTab } from "./FileTab";
 import { ImageryCard } from "./ImageryCard";
@@ -93,11 +95,11 @@ export function SetupTab({ projectId, name, status, section, fileId, onGo }: {
   const t = useT();
   const local = useLocalMode();
   const body = {
-    overview: <OverviewTab projectId={projectId} onGo={onGo} />,
-    survey: <FileTab projectId={projectId} />,
+    overview: <OverviewTab projectId={projectId} status={status} onGo={onGo} />,
+    survey: <OpenCards><FileTab projectId={projectId} /></OpenCards>,
     plots: fileId ? <PlotFilePage key={fileId} projectId={projectId} fileId={fileId} onGo={onGo} /> : <PlotsTab projectId={projectId} onGo={onGo} />,
-    areas: <StrataAreas projectId={projectId} defaultOpen />,
-    layout: <LayoutSection projectId={projectId} />,
+    areas: <OpenCards><StrataAreas projectId={projectId} defaultOpen /></OpenCards>,
+    layout: <OpenCards><LayoutSection projectId={projectId} /></OpenCards>,
     quality: (
       <Stack spacing={3}>
         {!local && <QualityChecks projectId={projectId} />}
@@ -111,16 +113,20 @@ export function SetupTab({ projectId, name, status, section, fileId, onGo }: {
     ),
     schedule: <ProgressCard projectId={projectId} />,
     sharing: (
-      <Stack spacing={3}>
-        <ShareLinksCard projectId={projectId} />
-        <AiCard projectId={projectId} />
-      </Stack>
+      <OpenCards>
+        <Stack spacing={3}>
+          <ShareLinksCard projectId={projectId} />
+          <AiCard projectId={projectId} />
+        </Stack>
+      </OpenCards>
     ),
     next: (
-      <Stack spacing={3}>
-        <RepeatCard projectId={projectId} name={name} />
-        <CopyCard projectId={projectId} name={name} />
-      </Stack>
+      <OpenCards>
+        <Stack spacing={3}>
+          <RepeatCard projectId={projectId} name={name} />
+          <CopyCard projectId={projectId} name={name} />
+        </Stack>
+      </OpenCards>
     ),
     project: (
       <Stack spacing={3}>
@@ -132,10 +138,25 @@ export function SetupTab({ projectId, name, status, section, fileId, onGo }: {
   }[section];
   return (
     <Stack spacing={3}>
-      {/* Phones and tablets: the sections as tabs (a wide screen lists them in the sidebar) */}
-      <Box sx={{ display: { md: "none" } }}>
+      {/* Tablets: the sections as tabs; phones: as a list to choose from, not a second row of tabs that scrolls
+          sideways under the project's; a wide screen lists them in the sidebar */}
+      <Box sx={{ display: { xs: "none", sm: "block", md: "none" } }}>
         <ViewTabs projectId={projectId} tab="setup" current={section} views={setupSections(local)} label={t("setup.sections")} />
       </Box>
+      <TextField
+        select
+        size="small"
+        label={t("setup.sections")}
+        value={section}
+        onChange={(e) => navigate(pathFor({ name: "project", projectId, tab: "setup", view: e.target.value }))}
+        sx={{ display: { sm: "none" } }}
+      >
+        {setupSections(local).map((view) => (
+          <MenuItem key={view} value={view}>
+            {t(`view.setup.${view}` as MessageKey)}
+          </MenuItem>
+        ))}
+      </TextField>
       {body}
     </Stack>
   );

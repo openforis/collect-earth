@@ -88,8 +88,8 @@ export function TwoFactorCard() {
     );
 
   return (
-    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
-      <Stack spacing={2}>
+    <Paper variant="outlined" sx={{ p: { xs: 2.5, sm: 4 } }}>
+      <Stack spacing={2.5}>
         <Typography variant="h2" sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           <Security color="primary" /> {t("twoFactor.title")}
         </Typography>
