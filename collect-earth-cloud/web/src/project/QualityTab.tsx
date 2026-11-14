@@ -118,7 +118,7 @@ function Figure({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Counts({ data, stillWorking }: { data: QualityAnswer; stillWorking: boolean }) {
+function Counts({ projectId, data, stillWorking }: { projectId: string; data: QualityAnswer; stillWorking: boolean }) {
   const t = useT();
   const { language } = useApp();
   return (
@@ -135,7 +135,14 @@ function Counts({ data, stillWorking }: { data: QualityAnswer; stillWorking: boo
         </Typography>
       )}
       {data.plotsChecked === 0 ? (
-        <Alert severity="info">
+        <Alert
+          severity="info"
+          action={
+            <Button color="inherit" size="small" {...linkProps(pathFor({ name: "project", projectId, tab: "setup", view: "quality" }))}>
+              {t("quality.openWhere", { where: `${t("tab.setup")} › ${t("view.setup.quality")}` })}
+            </Button>
+          }
+        >
           {t("quality.none.short")}
           <MoreInfo text={t("quality.none")} />
         </Alert>
@@ -799,7 +806,7 @@ function TeamQualityTab({ projectId, view }: { projectId: string; view: ProjectV
           {/* the plots to decide, one at a time; then the checks that differ, and the plots worth a look */}
           <ReviewQueue projectId={projectId} canBulk onDecision={onDecision} onBulk={reload} />
           {data.plotsChecked > 0 && <QualityDifferences projectId={projectId} data={data} focus={focus} onDecision={onDecision} />}
-          <QualityFlags projectId={projectId} canEdit />
+          <QualityFlags projectId={projectId} canEdit folded />
         </>
       )}
       {/* How many plots are checked twice is set in Setup's Quality rules; the reference plots stay here with their figures */}
@@ -807,7 +814,9 @@ function TeamQualityTab({ projectId, view }: { projectId: string; view: ProjectV
       {view === "figures" && (
         <>
           <SectionNav root={sectionsRef} label={t("quality.onThisPage")} prefix="quality-section" />
-          <Counts data={data} stillWorking={busy} />
+          {/* Data problems to fix come first; with none, last (folded, "Data problems: 0"). */}
+          {data.problemsTotal > 0 && <Problems data={data} />}
+          <Counts projectId={projectId} data={data} stillWorking={busy} />
           {data.plotsChecked > 0 && (
             <>
               <Questions projectId={projectId} data={data} onMargins={(margins) => (update((prev) => ({ settings: { ...prev.settings, margins } })), reload())} />
@@ -818,7 +827,7 @@ function TeamQualityTab({ projectId, view }: { projectId: string; view: ProjectV
           )}
           <QualityAnswers projectId={projectId} />
           <QualitySurvey projectId={projectId} />
-          <Problems data={data} />
+          {data.problemsTotal === 0 && <Problems data={data} />}
         </>
       )}
       {view === "notes" && (

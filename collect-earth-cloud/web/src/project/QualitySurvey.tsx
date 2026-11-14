@@ -153,7 +153,7 @@ export function QualitySurvey({ projectId }: { projectId: string }) {
                   {data.questions.length > worth.length && (
                     <Box>
                       <Button size="small" onClick={() => setAll(!all)} aria-expanded={all} aria-controls={shown.length > 0 ? "health-table" : undefined}>
-                        {all ? t("health.showFewer") : t("health.showAll", { n: n(data.questions.length) })}
+                        {all ? t("health.showFewer") : data.questions.length === 1 ? t("health.showAllOne") : t("health.showAll", { n: n(data.questions.length) })}
                       </Button>
                     </Box>
                   )}

@@ -16,7 +16,7 @@ import ExpandMore from "@mui/icons-material/ExpandMore";
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { ApiError, getActivity, type ActivityPage, type ExportKind, type LogItem, type LogKind } from "../api";
 import { useApp, useLocalMode } from "../appContext";
-import { COORDINATOR_LOG_KINDS, dayAfterMs, dayStartMs, LOG_KIND_LABELS, logSentence, RECORD_LOG_KINDS } from "../activityView";
+import { COORDINATOR_LOG_KINDS, dayAfterMs, dayStartMs, LOG_KIND_LABELS, logSentenceParts, RECORD_LOG_KINDS } from "../activityView";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Explain, MoreInfo } from "../components/Explain";
 import { Loading } from "../components/Loading";
@@ -64,26 +64,42 @@ function LogRow({ projectId, item, page }: { projectId: string; item: LogItem; p
   const t = useT();
   const { language } = useApp();
   const local = useLocalMode();
-  const sentence = logSentence(t, item, page, language, { local });
+  const parts = logSentenceParts(t, item, page, language, { local });
   const plot = item.type === "record" ? item.plot : item.action.startsWith("decision.") && typeof item.details.plot === "string" ? item.details.plot : null;
+  const link = (text: string) =>
+    plot !== null && (
+      <Link variant="body2" aria-label={t("activity.openPlotLabel", { plot: text })} {...linkProps(pathFor({ name: "plot", projectId, plot }))}>
+        {text}
+      </Link>
+    );
   return (
-    <Box component="li" sx={{ py: 1, borderBottom: 1, borderColor: "divider", display: "flex", gap: 2, flexWrap: { xs: "wrap", sm: "nowrap" } }}>
-      <Typography variant="body2" color="text.secondary" sx={{ minWidth: { sm: 80 }, flexShrink: 0, fontVariantNumeric: "tabular-nums" }} title={formatDate(item.at, language)}>
+    // The time in a column of its own width, the sentence beside it: rows do not wrap under the time on a phone.
+    <Box component="li" sx={{ py: 1, borderBottom: 1, borderColor: "divider", display: "flex", gap: { xs: 1.5, sm: 2 } }}>
+      <Typography variant="body2" color="text.secondary" sx={{ width: { xs: 64, sm: 80 }, flexShrink: 0, fontVariantNumeric: "tabular-nums" }} title={formatDate(item.at, language)}>
         {timeOf(item.at, language)}
       </Typography>
-      <Box sx={{ minWidth: 0, wordBreak: "break-word" }}>
-        <Typography variant="body2" component="span">
-          {sentence}
-        </Typography>
-        {plot !== null && (
+      <Typography variant="body2" sx={{ minWidth: 0, flex: 1, overflowWrap: "anywhere" }}>
+        {/* The plot named in the sentence is the link to its page (or, when the sentence names none, a link after it). */}
+        {plot !== null && parts.plot !== null ? (
           <>
-            {" · "}
-            <Link variant="body2" aria-label={t("activity.openPlotLabel", { plot })} {...linkProps(pathFor({ name: "plot", projectId, plot }))}>
-              {t("activity.openPlot")}
-            </Link>
+            {parts.before}
+            {link(parts.plot)}
+            {parts.after}
+          </>
+        ) : (
+          <>
+            {parts.before}
+            {plot !== null && (
+              <>
+                {" · "}
+                <Link variant="body2" aria-label={t("activity.openPlotLabel", { plot })} {...linkProps(pathFor({ name: "plot", projectId, plot }))}>
+                  {t("activity.openPlot")}
+                </Link>
+              </>
+            )}
           </>
         )}
-      </Box>
+      </Typography>
     </Box>
   );
 }
@@ -172,7 +188,9 @@ function ActivityLog({ projectId }: { projectId: string }) {
             </MenuItem>
           ))}
         </TextField>
-        <TextField type="date" label={t("activity.from")} value={filters.from} onChange={(e) => set({ from: e.target.value })} size="small" fullWidth={false} sx={{ width: { xs: "100%", sm: 180 } }} slotProps={{ inputLabel: { shrink: true } }} />
+        {/* From and To side by side, also on a phone. */}
+        <Stack direction="row" spacing={2} sx={{ alignItems: "flex-start" }}>
+        <TextField type="date" label={t("activity.from")} value={filters.from} onChange={(e) => set({ from: e.target.value })} size="small" fullWidth={false} sx={{ flex: { xs: 1, sm: "none" }, minWidth: 0, width: { sm: 180 } }} slotProps={{ inputLabel: { shrink: true } }} />
         <TextField
           type="date"
           label={t("activity.to")}
@@ -180,11 +198,12 @@ function ActivityLog({ projectId }: { projectId: string }) {
           onChange={(e) => set({ to: e.target.value })}
           size="small"
           fullWidth={false}
-          sx={{ width: { xs: "100%", sm: 180 } }}
+          sx={{ flex: { xs: 1, sm: "none" }, minWidth: 0, width: { sm: 180 } }}
           error={badRange}
           helperText={badRange ? t("activity.badRange") : undefined}
           slotProps={{ inputLabel: { shrink: true } }}
         />
+        </Stack>
         {filtered && (
           <Button onClick={() => setFilters(NO_FILTERS)} sx={{ alignSelf: { sm: "center" } }}>
             {t("activity.clear")}
@@ -272,11 +291,11 @@ function Actions({ projectId }: { projectId: string }) {
   return (
     <Stack spacing={1.5}>
       <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap", alignItems: "center" }}>
-        <Button variant="contained" startIcon={<EventNote />} {...linkProps(pathFor({ name: "weekly", projectId, week: null }))}>
-          {t("activity.weeklyOpen")}
-        </Button>
         <Button variant="outlined" startIcon={<Download />} endIcon={<ExpandMore />} disabled={busy !== null} aria-haspopup="menu" onClick={(e) => setMenu(e.currentTarget)}>
           {t("activity.downloadsTitle")}
+        </Button>
+        <Button variant="outlined" startIcon={<EventNote />} {...linkProps(pathFor({ name: "weekly", projectId, week: null }))}>
+          {t("activity.weeklyOpen")}
         </Button>
         <Typography variant="body2" color="text.secondary" sx={{ flexBasis: { xs: "100%", md: "auto" } }}>
           {t(local ? "activity.weeklyHelpLocal" : "activity.weeklyHelp")}

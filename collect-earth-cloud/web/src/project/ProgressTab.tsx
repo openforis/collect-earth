@@ -134,8 +134,9 @@ export function Totals({ data, local = false }: { data: ProgressFigures; local?:
           <Stat
             label={t("progress.assigned")}
             value={n(totals.assigned)}
-            share={share(totals.assigned)}
-            help={totals.notAssigned > 0 ? t("progress.notAssignedHelp", { n: n(totals.notAssigned) }) : t("progress.allAssignedHelp")}
+            // All given: one line says so (not "100% of the plots" as well).
+            share={totals.notAssigned > 0 ? share(totals.assigned) : { value: barValue(totals.assigned, totals.plots), text: t("progress.allAssignedHelp") }}
+            help={totals.notAssigned > 0 ? t("progress.notAssignedHelp", { n: n(totals.notAssigned) }) : undefined}
           />
         );
       default:
@@ -143,10 +144,13 @@ export function Totals({ data, local = false }: { data: ProgressFigures; local?:
     }
   };
   return (
-    // One row of equal tiles on a desktop, wrapping to fewer per row on smaller screens
-    <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))" }}>
-      {stats.map((stat) => (
-        <Box key={stat}>{card(stat)}</Box>
+    // One row of equal tiles on a desktop, wrapping to fewer per row on smaller screens; two per row on a phone,
+    // the last one across both when they are odd (no tile alone in half a row).
+    <Box sx={{ display: "grid", gap: { xs: 1.5, sm: 2 }, gridTemplateColumns: { xs: "1fr 1fr", sm: "repeat(auto-fit, minmax(170px, 1fr))" } }}>
+      {stats.map((stat, i) => (
+        <Box key={stat} sx={{ minWidth: 0, gridColumn: { xs: i === stats.length - 1 && stats.length % 2 === 1 ? "1 / -1" : "auto", sm: "auto" } }}>
+          {card(stat)}
+        </Box>
       ))}
     </Box>
   );

@@ -28,7 +28,7 @@ import { formatDate, formatNumber } from "../format";
 import { useT, type Translate } from "../i18n";
 import { attributionHtml, boundsOf, CHANGE_KINDS, CHANGE_STYLE, changeCodes, changeCounts, CLUSTER_FROM, filesOffMap, LIST_PAGE, plotList, plotPopup, shownByCodes, shownIndexes, STATUS_STYLE, statusDrawnKey, statusLabelKey, styleSvg, symbolSvg, type StatusStyle } from "../mapView";
 import { legendStatuses, localMapPlots } from "../localMode";
-import { navigate, pathFor } from "../router";
+import { linkProps, navigate, pathFor } from "../router";
 import { EmptyState } from "../components/EmptyState";
 import { clusterIcon, loadLeaflet, type LeafletModule } from "./leaflet";
 import { useLoad } from "../useLoad";
@@ -41,9 +41,52 @@ const HIDDEN = { position: "absolute", width: "1px", height: "1px", overflow: "h
 /** A circle marker that knows which plot it is. */
 type PlotMarker = Leaflet.CircleMarker & { plotIndex: number };
 
-/** The legend's symbol, drawn as on the map (an SVG made from the constant styles only, no data). */
-function Symbol({ status }: { status: MapStatus }) {
-  return <Box component="span" sx={{ display: "inline-flex", verticalAlign: "middle" }} dangerouslySetInnerHTML={{ __html: symbolSvg(status) }} />;
+/**
+ * The legend's symbol, drawn as on the map (an SVG made from the constant styles only, no data). `label`: how it is
+ * drawn, in words, for screen readers (the legend's cue besides the colour).
+ */
+function Symbol({ status, label }: { status: MapStatus; label?: string }) {
+  return (
+    <Box
+      component="span"
+      role={label ? "img" : undefined}
+      aria-label={label}
+      sx={{ display: "inline-flex", verticalAlign: "middle", flexShrink: 0 }}
+      dangerouslySetInnerHTML={{ __html: symbolSvg(status) }}
+    />
+  );
+}
+
+/** The legend on a phone, right under the map: per status its checkbox, symbol, short name and count. */
+function CompactLegend({ statuses, shown, counts, onToggle }: {
+  statuses: readonly MapStatus[];
+  shown: ReadonlySet<MapStatus>;
+  counts: Record<MapStatus, number>;
+  onToggle: (status: MapStatus) => void;
+}) {
+  const t = useT();
+  const { language } = useApp();
+  const local = useLocalMode();
+  return (
+    <Box component="ul" aria-label={t("map.legend")} sx={{ display: { xs: "grid", sm: "none" }, gridTemplateColumns: "1fr 1fr", columnGap: 1, m: 0, p: 0, listStyle: "none" }}>
+      {statuses.map((status) => (
+        <Box component="li" key={status} sx={{ display: "flex", alignItems: "center", gap: 0.5, minWidth: 0 }}>
+          <Checkbox
+            size="small"
+            checked={shown.has(status)}
+            onChange={() => onToggle(status)}
+            sx={{ p: 0.75 }}
+            slotProps={{ input: { "aria-label": t("map.showStatus", { status: t(statusLabelKey(status, local)) }) } }}
+          />
+          <Symbol status={status} label={t(statusDrawnKey(status))} />
+          <Typography variant="body2" sx={{ minWidth: 0, overflowWrap: "anywhere" }}>
+            {t(`map.statusShort.${status}`)}
+            <Box component="span" sx={{ color: "text.secondary", fontVariantNumeric: "tabular-nums" }}>{` ${formatNumber(counts[status], language)}`}</Box>
+          </Typography>
+        </Box>
+      ))}
+    </Box>
+  );
 }
 
 /** A plot's popup, built as DOM (no HTML from data): its id, status, people (coordinators) and a link to its page. */
@@ -471,7 +514,6 @@ function ChangeLegend({ tableId, counts, shown, earlier, question, onToggle }: {
             <TableRow>
               <TableCell padding="checkbox">{t("map.col.show")}</TableCell>
               <TableCell>{t("map.col.change")}</TableCell>
-              <TableCell>{t("map.col.drawn")}</TableCell>
               <TableCell align="right">{t("map.col.plots")}</TableCell>
             </TableRow>
           </TableHead>
@@ -483,11 +525,16 @@ function ChangeLegend({ tableId, counts, shown, earlier, question, onToggle }: {
                 </TableCell>
                 <TableCell component="th" scope="row">
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <Box component="span" sx={{ display: "inline-flex", verticalAlign: "middle" }} dangerouslySetInnerHTML={{ __html: styleSvg(CHANGE_STYLE[kind]) }} />
+                    <Box
+                      component="span"
+                      role="img"
+                      aria-label={t(`map.changeDrawn.${kind}`)}
+                      sx={{ display: "inline-flex", verticalAlign: "middle" }}
+                      dangerouslySetInnerHTML={{ __html: styleSvg(CHANGE_STYLE[kind]) }}
+                    />
                     {t(`map.change.${kind}`, { earlier })}
                   </Box>
                 </TableCell>
-                <TableCell sx={{ color: "text.secondary" }}>{t(`map.changeDrawn.${kind}`)}</TableCell>
                 <TableCell align="right" sx={{ fontVariantNumeric: "tabular-nums" }}>{formatNumber(counts[kind], language)}</TableCell>
               </TableRow>
             ))}
@@ -651,10 +698,36 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
               ))}
             </TextField>
           )}
-          <Button startIcon={<Refresh />} onClick={() => setReload((r) => r + 1)}>
-            {t("map.reload")}
-          </Button>
+          <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", alignItems: "center" }}>
+            <Button startIcon={<Refresh />} onClick={() => setReload((r) => r + 1)}>
+              {t("map.reload")}
+            </Button>
+            {canSelect && (
+              <>
+                <Button variant={selecting ? "contained" : "outlined"} startIcon={<HighlightAlt />} aria-pressed={selecting} onClick={() => setSelecting(!selecting)}>
+                  {t(selecting ? "map.heading.selectStop" : "map.heading.select")}
+                </Button>
+                {selecting && (
+                  <Button
+                    onClick={() => {
+                      const view = viewRef.current?.();
+                      if (view) addArea(view, false);
+                    }}
+                  >
+                    {t("map.heading.selectInView")}
+                  </Button>
+                )}
+                {areas.length > 0 && <Button onClick={() => setAreas([])}>{t("map.heading.selectClear")}</Button>}
+                <MoreInfo text={`${t("map.heading.selectIntro")}\n\n${t("map.heading.selectHelp")}`} />
+              </>
+            )}
+          </Box>
         </Box>
+        {canSelect && selecting && (
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            {t("map.heading.selectHelpShort")}
+          </Typography>
+        )}
 
         {loading !== null && (
           <Box sx={{ mb: 2 }}>
@@ -695,13 +768,7 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
                 <MoreInfo text={t("map.unsupportedSrs", { srs: data.unsupportedSrs })} />
               </Alert>
             )}
-            {/* Alone there are no checks to differ from: the quality figures do not matter here. */}
-            {local ? null : data.figures === null ? (
-              <Alert severity="info" role="note">
-                {t("map.noFigures.short")}
-                <MoreInfo text={t("map.noFigures")} />
-              </Alert>
-            ) : data.figures.stale && data.figures.computedAt !== null ? (
+            {local || data.figures === null ? null : data.figures.stale && data.figures.computedAt !== null ? (
               <Typography variant="body2" color="text.secondary">
                 {t("map.staleFigures", { time: formatDate(data.figures.computedAt, language) })}
               </Typography>
@@ -710,25 +777,6 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
             {data.total > 0 && (
               <>
                 {colourBy === "change" && <ErrorAlert error={change.error} onRetry={change.reload} />}
-                {canSelect && (
-                  <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", alignItems: "center" }}>
-                    <Button variant={selecting ? "contained" : "outlined"} startIcon={<HighlightAlt />} aria-pressed={selecting} onClick={() => setSelecting(!selecting)}>
-                      {t(selecting ? "map.heading.selectStop" : "map.heading.select")}
-                    </Button>
-                    {selecting && (
-                      <Button
-                        onClick={() => {
-                          const view = viewRef.current?.();
-                          if (view) addArea(view, false);
-                        }}
-                      >
-                        {t("map.heading.selectInView")}
-                      </Button>
-                    )}
-                    {areas.length > 0 && <Button onClick={() => setAreas([])}>{t("map.heading.selectClear")}</Button>}
-                    <Explain sx={{ flexBasis: "100%" }} text={t(selecting ? "map.heading.selectHelpShort" : "map.heading.selectIntro")} more={t("map.heading.selectHelp")} />
-                  </Box>
-                )}
                 <PlotMap
                   projectId={projectId}
                   data={data}
@@ -744,6 +792,15 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
                   onArea={addArea}
                   viewRef={viewRef}
                 />
+                {!paint && <CompactLegend statuses={legendStatuses(local, data.counts)} shown={shown} counts={data.counts} onToggle={toggle} />}
+                {/* Alone there are no checks to differ from: the quality figures do not matter here. */}
+                {!local && data.figures === null && (
+                  <Typography variant="body2" color="text.secondary">
+                    {t("map.noFigures.short")}{" "}
+                    <Link {...linkProps(pathFor({ name: "project", projectId, tab: "quality", view: "figures" }))}>{t("map.noFiguresLink", { where: `${t("tab.quality")} › ${t("view.quality.figures")}` })}</Link>
+                    <MoreInfo text={t("map.noFigures")} />
+                  </Typography>
+                )}
                 {canSelect && summary && (
                   <MapSelection projectId={projectId} summary={summary} onGiven={() => setRefresh((r) => r + 1)} />
                 )}
@@ -782,16 +839,16 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
           <Typography variant="h2" id={tableId} gutterBottom>
             {t("map.legend")}
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+          {/* On a phone the statuses are under the map (CompactLegend). */}
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1, display: { xs: "none", sm: "block" } }}>
             {t("map.legendHelp")}
           </Typography>
-          <TableContainer>
+          <TableContainer sx={{ display: { xs: "none", sm: "block" } }}>
             <Table size="small">
               <TableHead>
                 <TableRow>
                   <TableCell padding="checkbox">{t("map.col.show")}</TableCell>
                   <TableCell>{t("map.col.status")}</TableCell>
-                  <TableCell>{t("map.col.drawn")}</TableCell>
                   <TableCell align="right">{t("map.col.plots")}</TableCell>
                 </TableRow>
               </TableHead>
@@ -807,11 +864,10 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
                     </TableCell>
                     <TableCell component="th" scope="row">
                       <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                        <Symbol status={status} />
+                        <Symbol status={status} label={t(statusDrawnKey(status))} />
                         {t(statusLabelKey(status, local))}
                       </Box>
                     </TableCell>
-                    <TableCell sx={{ color: "text.secondary" }}>{t(statusDrawnKey(status))}</TableCell>
                     <TableCell align="right" sx={{ fontVariantNumeric: "tabular-nums" }}>
                       {n(data.counts[status])}
                     </TableCell>
@@ -822,7 +878,6 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
                   <TableCell component="th" scope="row" sx={{ fontWeight: 500 }}>
                     {t("map.total")}
                   </TableCell>
-                  <TableCell />
                   <TableCell align="right" sx={{ fontVariantNumeric: "tabular-nums", fontWeight: 500 }}>
                     {n(totalPlots)}
                   </TableCell>
@@ -858,9 +913,6 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
               ))}
             </Box>
           )}
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
-            {t("map.findOne")}
-          </Typography>
         </Paper>
       )}
     </Stack>

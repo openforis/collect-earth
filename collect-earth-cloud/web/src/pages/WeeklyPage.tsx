@@ -56,6 +56,10 @@ function Progress({ data, local }: { data: WeeklyAnswer; local: boolean }) {
   const { language } = useApp();
   const n = (v: number) => formatNumber(v, language);
   const p = data.progress;
+  // No day after today (the current week): nothing can be in it yet.
+  const today = localDay(new Date());
+  const days = p.days.filter((d) => d.date <= today);
+  const checks = !local && days.some((d) => d.checks > 0);
   return (
     <Block title={t("weekly.progressTitle")}>
       <Typography>{t("weekly.submitted", { n: n(p.submitted) })}</Typography>
@@ -69,15 +73,15 @@ function Progress({ data, local }: { data: WeeklyAnswer; local: boolean }) {
             <TableRow>
               <TableCell>{t("weekly.day")}</TableCell>
               <TableCell align="right">{t("weekly.plots")}</TableCell>
-              {!local && <TableCell align="right">{t("weekly.checksCol")}</TableCell>}
+              {checks && <TableCell align="right">{t("weekly.checksCol")}</TableCell>}
             </TableRow>
           </TableHead>
           <TableBody>
-            {p.days.map((d) => (
+            {days.map((d) => (
               <TableRow key={d.date}>
-                <TableCell>{dayText(d.date, language)}</TableCell>
+                <TableCell sx={{ whiteSpace: "nowrap" }}>{dayText(d.date, language)}</TableCell>
                 <TableCell align="right">{n(d.submitted)}</TableCell>
-                {!local && <TableCell align="right">{n(d.checks)}</TableCell>}
+                {checks && <TableCell align="right">{n(d.checks)}</TableCell>}
               </TableRow>
             ))}
           </TableBody>
@@ -93,6 +97,7 @@ function People({ data }: { data: WeeklyAnswer }) {
   const n = (v: number) => formatNumber(v, language);
   // People with plots, or who did something that week (a coordinator who checked plots).
   const rows = data.people.filter((p) => p.plots.assigned > 0 || p.submitted > 0 || p.checks > 0);
+  const checks = rows.some((p) => p.checks > 0);
   return (
     <Block title={t("weekly.peopleTitle")}>
       {rows.length === 0 ? (
@@ -105,7 +110,7 @@ function People({ data }: { data: WeeklyAnswer }) {
               <TableRow>
                 <TableCell>{t("peopleTable.name")}</TableCell>
                 <TableCell align="right">{t("weekly.plots")}</TableCell>
-                <TableCell align="right">{t("weekly.checksCol")}</TableCell>
+                {checks && <TableCell align="right">{t("weekly.checksCol")}</TableCell>}
                 <TableCell align="right">{t("weekly.doneNow")}</TableCell>
                 <TableCell>{t("weekly.statusNow")}</TableCell>
               </TableRow>
@@ -115,10 +120,10 @@ function People({ data }: { data: WeeklyAnswer }) {
                 const chip = statusChip(t, p.status);
                 return (
                   <TableRow key={p.userId}>
-                    <TableCell sx={{ wordBreak: "break-word" }}>{p.username}</TableCell>
+                    <TableCell sx={{ whiteSpace: "nowrap" }}>{p.username}</TableCell>
                     <TableCell align="right">{n(p.submitted)}</TableCell>
-                    <TableCell align="right">{n(p.checks)}</TableCell>
-                    <TableCell align="right">{p.plots.assigned > 0 ? t("weekly.doneOf", { done: n(p.plots.assigned - p.plots.remaining), total: n(p.plots.assigned) }) : "—"}</TableCell>
+                    {checks && <TableCell align="right">{n(p.checks)}</TableCell>}
+                    <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>{p.plots.assigned > 0 ? t("weekly.doneOf", { done: n(p.plots.assigned - p.plots.remaining), total: n(p.plots.assigned) }) : "—"}</TableCell>
                     <TableCell>
                       <Chip size="small" label={chip.label} color={chip.color} variant="outlined" />
                     </TableCell>

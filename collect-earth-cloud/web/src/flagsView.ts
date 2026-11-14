@@ -76,6 +76,11 @@ export function flagText(t: Translate, flag: PatternFlag, language: string, opti
   }
 }
 
+/** Whether a flag's sentence says more than its kind's label (two first assessments, no plot file: it only repeats it). */
+export function flagSaysMore(kind: FlagKind): boolean {
+  return kind !== "two_main" && kind !== "no_plot";
+}
+
 export function totalOf(counts: FlagCounts): number {
   return FLAG_KINDS.reduce((sum, k) => sum + counts[k], 0);
 }
