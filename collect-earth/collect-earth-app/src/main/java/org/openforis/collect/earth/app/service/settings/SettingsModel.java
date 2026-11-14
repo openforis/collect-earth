@@ -184,9 +184,9 @@ public final class SettingsModel {
 	}
 
 	private static Section imagery(LocalDate today) {
-		Setting from = Setting.choice(EarthProperty.PLANET_TFO_DATE_FROM, "OptionWizard.142").tooltip("OptionWizard.1040")
+		Setting from = Setting.choice(EarthProperty.PLANET_TFO_DATE_FROM, "SettingsPage.planet.from").tooltip("SettingsPage.planet.from.tooltip")
 				.visibleWhen(PLANET_TFO).option("", "PlanetMonthlyObject.1");
-		Setting to = Setting.choice(EarthProperty.PLANET_TFO_DATE_TO, "OptionWizard.143").tooltip("OptionWizard.1041")
+		Setting to = Setting.choice(EarthProperty.PLANET_TFO_DATE_TO, "SettingsPage.planet.to").tooltip("SettingsPage.planet.to.tooltip")
 				.visibleWhen(PLANET_TFO).option("", "PlanetMonthlyObject.2");
 		for (Month month : PlanetMonths.available(today)) {
 			from.optionText(month.getValue(), month.getLabel());
@@ -199,8 +199,12 @@ public final class SettingsModel {
 				Setting.bool(EarthProperty.OPEN_EARTH_MAP, "OptionWizard.105").tooltip("SettingsPage.earthMap.tooltip").defaultValue("false"),
 				Setting.bool(EarthProperty.OPEN_ESRI_WAYBACK, "OptionWizard.144").tooltip("SettingsPage.esriWayback.tooltip").defaultValue("false"),
 				Setting.password(EarthProperty.PLANET_MAPS_KEY, "OptionWizard.101").tooltip("OptionWizard.1053"),
-				Setting.bool(EarthProperty.PLANET_MAPS_USE_TFO, "OptionWizard.140").tooltip("SettingsPage.planetTfo.tooltip").defaultValue("false")
-						.visibleWhen(PLANET),
+				// Which Planet imagery, as a choice between the two rather than a switch named after the mosaics: once a key is set
+				// Planet is on, and this says what it shows (SettingsService shows a stored "TRUE" or blank as one of the two)
+				Setting.choice(EarthProperty.PLANET_MAPS_USE_TFO, "SettingsPage.planet.mode").tooltip("SettingsPage.planetTfo.tooltip")
+						.defaultValue("false").visibleWhen(PLANET)
+						.option("false", "SettingsPage.planet.daily")
+						.option("true", "SettingsPage.planet.monthly"),
 				from,
 				to,
 				Setting.text(EarthProperty.EXTRA_MAP_URL, "OptionWizard.103").tooltip("OptionWizard.1042"));
