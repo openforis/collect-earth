@@ -118,7 +118,7 @@ export function FastSecondsField({ projectId, fastSeconds, onSaved }: { projectI
           sx={{ maxWidth: { sm: 320 } }}
         />
         {/* Never disabled (a disabled button drops the keyboard focus once saved): it does nothing until there is a new value. */}
-        <Button variant="outlined" onClick={() => void save()} aria-disabled={saving || value === null || value === fastSeconds} sx={{ mt: { sm: 0.25 } }}>
+        <Button variant="contained" onClick={() => void save()} aria-disabled={saving || value === null || value === fastSeconds} sx={{ mt: { sm: 0.25 } }}>
           {t("flags.fastSave")}
         </Button>
       </Stack>

@@ -139,7 +139,7 @@ function RoundStatus({ projectId, projectName, info, onChange }: { projectId: st
 
   return (
     // Folded while nothing is asked of the coordinator; open when there is something to read or choose
-    <CardFrame title={t("file.round.title")} fold={message.severity === "success" && (!note || note.severity === "success") && !message.choose ? t("fold.roundOk") : undefined}>
+    <CardFrame title={t("file.round.title")} keepFolded fold={message.severity === "success" && (!note || note.severity === "success") && !message.choose ? t("fold.roundOk") : undefined}>
       <Stack spacing={2}>
         <Alert severity={message.severity}>
           {message.keys.map((key, i) => (

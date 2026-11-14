@@ -297,7 +297,7 @@ function DivideForm({
     <Stack spacing={3}>
       <FormControl>
         <FormLabel id="divide-mode">
-          <Typography variant="h3" component="span">
+          <Typography variant="h2" component="span">
             {t("divide.howTitle")}
           </Typography>
         </FormLabel>
@@ -544,7 +544,7 @@ function CurrentDivision({
                 <TableCell>{t("divide.person")}</TableCell>
                 <TableCell align="right">{t("divide.plots")}</TableCell>
                 <TableCell sx={{ minWidth: 140 }}>{t(shown.some((p) => p.overlap > 0) ? "divide.submittedWithChecks" : "divide.submitted")}</TableCell>
-                <TableCell>
+                <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>
                   <Box component="span" sx={visuallyHidden}>
                     {t("divide.moveButton")}
                   </Box>
@@ -553,6 +553,19 @@ function CurrentDivision({
             </TableHead>
             <TableBody>
               {shown.map((person) => {
+                const moveButton = (sx: object) => (
+                  <Button
+                    size="small"
+                    aria-haspopup="menu"
+                    aria-label={t("divide.moveMenuLabel", { person: person.username })}
+                    disabled={busy || person.submitted >= person.plots || people.length < 2}
+                    onClick={(e) => setMenu({ anchor: e.currentTarget, from: person })}
+                    endIcon={<ArrowForward />}
+                    sx={sx}
+                  >
+                    {t("divide.moveButton")}
+                  </Button>
+                );
                 const label = t(person.plots === 1 ? "divide.progressLabelOne" : "divide.progressLabel", {
                   person: person.username,
                   submitted: formatNumber(person.submitted, language),
@@ -562,6 +575,8 @@ function CurrentDivision({
                   <TableRow key={person.userId}>
                     <TableCell component="th" scope="row" sx={{ wordBreak: "break-word" }}>
                       {person.username}
+                      {/* Phones: the move under the name (a fourth column does not fit) */}
+                      <Box sx={{ display: { sm: "none" }, mt: 0.5, ml: -0.5 }}>{moveButton({ textAlign: "left" })}</Box>
                     </TableCell>
                     <TableCell align="right">
                       {formatNumber(person.plots, language)}
@@ -590,18 +605,8 @@ function CurrentDivision({
                         sx={{ mt: 0.5 }}
                       />
                     </TableCell>
-                    <TableCell align="right">
-                      <Button
-                        size="small"
-                        aria-haspopup="menu"
-                        aria-label={t("divide.moveMenuLabel", { person: person.username })}
-                        disabled={busy || person.submitted >= person.plots || people.length < 2}
-                        onClick={(e) => setMenu({ anchor: e.currentTarget, from: person })}
-                        endIcon={<ArrowForward />}
-                        sx={{ whiteSpace: "nowrap" }}
-                      >
-                        {t("divide.moveButton")}
-                      </Button>
+                    <TableCell align="right" sx={{ display: { xs: "none", sm: "table-cell" } }}>
+                      {moveButton({ whiteSpace: "nowrap" })}
                     </TableCell>
                   </TableRow>
                 );
@@ -711,20 +716,24 @@ export function PlotFilePage({ projectId, fileId, onGo }: { projectId: string; f
             <OnlyYou onGo={onGo} />
           </Box>
         )}
-        <DivideForm projectId={projectId} fileId={fileId} members={members} columns={columns} current={current} onApplied={setCurrent} key={moves} />
-      </Paper>
-      <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
-        <Typography variant="h2" gutterBottom>
+        {/* Where things stand first, then how to change it */}
+        <Typography variant="h3" gutterBottom>
           {t("divide.currentTitle")}
         </Typography>
         <CurrentDivision projectId={projectId} fileId={fileId} members={members} current={current} onChanged={moved} />
       </Paper>
       <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
-        <Typography variant="h2" gutterBottom>
-          {t("divide.move.shareTitle")}
-        </Typography>
-        <RebalanceCard projectId={projectId} fileId={fileId} members={members} current={current} onApplied={moved} />
+        <DivideForm projectId={projectId} fileId={fileId} members={members} columns={columns} current={current} onApplied={setCurrent} key={moves} />
       </Paper>
+      {/* Sharing again what is left needs a divided file: nothing to show for one given whole */}
+      {current.distribution !== null && (
+        <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
+          <Typography variant="h2" gutterBottom>
+            {t("divide.move.shareTitle")}
+          </Typography>
+          <RebalanceCard projectId={projectId} fileId={fileId} members={members} current={current} onApplied={moved} />
+        </Paper>
+      )}
     </Stack>
   );
 }

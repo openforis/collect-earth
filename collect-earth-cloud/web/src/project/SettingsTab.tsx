@@ -247,10 +247,13 @@ export function AiCard({ projectId }: { projectId: string }) {
     }
   };
 
+  // Not offered by this server: nothing to switch on, so no card (one still on keeps it, to switch it off)
+  if (ai.loading && !ai.data) return null;
+  if (ai.data && !ai.data.available && !ai.data.enabled) return null;
   return (
     <CardFrame
       title={t("settings.aiTitle")}
-      fold={!ai.data ? "" : ai.data.enabled ? t("fold.aiOn") : ai.data.available ? t("fold.aiOff") : t("fold.aiUnavailable")}
+      fold={!ai.data ? "" : ai.data.enabled ? t("fold.aiOn") : t("fold.aiOff")}
     >
       <Stack spacing={2}>
         <Explain color="text.primary" text={t("settings.aiIntro.short")} more={t("settings.aiIntro")} />
@@ -331,8 +334,11 @@ export function StatusCard({ projectId, status }: { projectId: string; status: P
   const { refreshMe } = useApp();
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
+  // Closing ends the collection for everyone: asked first
+  const [confirmClose, setConfirmClose] = useState(false);
 
   const move = async (to: ProjectStatus) => {
+    setConfirmClose(false);
     setError(null);
     setBusy(true);
     try {
@@ -354,13 +360,33 @@ export function StatusCard({ projectId, status }: { projectId: string; status: P
         <Typography>{t(`status.intro.${status}`)}</Typography>
         <ErrorAlert error={error} />
         <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-          {STATUS_MOVES[status].map((to, i) => (
-            <Button key={to} variant={i === 0 ? "contained" : "outlined"} disabled={busy} onClick={() => void move(to)}>
-              {t(moveLabel(status, to))}
-            </Button>
-          ))}
+          {STATUS_MOVES[status].map((to, i) =>
+            status === "active" && to === "closed" ? (
+              <Button key={to} variant="outlined" color="warning" disabled={busy} onClick={() => setConfirmClose(true)}>
+                {t(moveLabel(status, to))}
+              </Button>
+            ) : (
+              <Button key={to} variant={i === 0 ? "contained" : "outlined"} disabled={busy} onClick={() => void move(to)}>
+                {t(moveLabel(status, to))}
+              </Button>
+            ),
+          )}
         </Box>
       </Stack>
+      <Dialog open={confirmClose} onClose={() => !busy && setConfirmClose(false)} aria-labelledby="close-project-title">
+        <DialogTitle id="close-project-title">{t("status.closeConfirmTitle")}</DialogTitle>
+        <DialogContent>
+          <Typography>{t("status.closeConfirmText")}</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmClose(false)} disabled={busy} autoFocus>
+            {t("common.cancel")}
+          </Button>
+          <Button variant="contained" color="warning" onClick={() => void move("closed")} disabled={busy}>
+            {t("status.move.closed")}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Paper>
   );
 }
@@ -439,7 +465,7 @@ export function DeleteCard({ projectId, name }: { projectId: string; name: strin
   };
 
   return (
-    <CardFrame title={t("settings.deleteTitle")} fold={t("fold.delete")} danger>
+    <CardFrame title={t("settings.deleteTitle")} fold={t("fold.delete")} danger keepFolded>
       <Stack component="form" spacing={2} onSubmit={submit} noValidate>
         <Typography>{t("settings.deleteText")}</Typography>
         <Alert severity="warning">
