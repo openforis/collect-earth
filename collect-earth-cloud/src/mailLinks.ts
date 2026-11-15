@@ -78,16 +78,20 @@ function unhide(hidden: string, secret: Buffer): string | null {
   }
 }
 
-export function writeUnsubscribeToken(userId: string, kind: DigestKind, secret: Buffer): string {
+/** What an unsubscribe link stops: a weekly digest, or the mail "someone joined your project" (joinMail.ts). */
+export type UnsubscribeKind = DigestKind | 'joined';
+const UNSUBSCRIBE_KINDS: readonly UnsubscribeKind[] = [...DIGEST_KINDS, 'joined'];
+
+export function writeUnsubscribeToken(userId: string, kind: UnsubscribeKind, secret: Buffer): string {
   return write('digest-unsubscribe', { h: hide(userId, secret), k: kind }, secret);
 }
 
 /** The account and kind of an unsubscribe token (the id hidden, or readable in a first-version token), or null when it is none of ours. */
-export function readUnsubscribeToken(token: unknown, secret: Buffer): { userId: string; kind: DigestKind } | null {
+export function readUnsubscribeToken(token: unknown, secret: Buffer): { userId: string; kind: UnsubscribeKind } | null {
   const v = read('digest-unsubscribe', token, secret);
-  if (!v || !(DIGEST_KINDS as readonly unknown[]).includes(v.k)) return null;
+  if (!v || !(UNSUBSCRIBE_KINDS as readonly unknown[]).includes(v.k)) return null;
   const userId = typeof v.h === 'string' ? unhide(v.h, secret) : typeof v.u === 'string' ? v.u : null;
-  return userId === null ? null : { userId, kind: v.k as DigestKind };
+  return userId === null ? null : { userId, kind: v.k as UnsubscribeKind };
 }
 
 const addressHash = (email: string) => createHash('sha256').update(email).digest('base64url').slice(0, 22);

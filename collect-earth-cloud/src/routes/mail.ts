@@ -4,7 +4,7 @@ import type { Config } from '../config.js';
 import { isTimeZone } from '../days.js';
 import { confirmMail, MAX_BUDGET_MS, runDigests } from '../digest.js';
 import { errorSummary, isSenderLimit, type Mailer } from '../mail.js';
-import { mailSecret, readConfirmToken, readUnsubscribeToken, writeConfirmToken } from '../mailLinks.js';
+import { mailSecret, readConfirmToken, readUnsubscribeToken, writeConfirmToken, writeUnsubscribeToken } from '../mailLinks.js';
 import { GoogleKeys, verifyGoogleIdToken, type KeySource } from '../oidc.js';
 import { verifyPassword } from '../password.js';
 import { requirePlatformAdmin, requireSession } from '../plugins/projectAuth.js';
@@ -15,7 +15,8 @@ import { RateLimiter, RATE_LIMITED } from '../rateLimit.js';
 import { emailChangedMail, longMoment, passwordChangedMail, resetLinkMail,
   adminMessageMail, testMail, welcomeMail, SELF_RESET_TTL_MS, type MessageAudience, type SecurityContext } from '../securityMail.js';
 import type { Store } from '../store/store.js';
-import { DIGEST_KINDS, MAIL_LANGUAGES, type AccountMail, type DigestKind, type MailLanguage } from '../types.js';
+import { DIGEST_KINDS, MAIL_LANGUAGES, type AccountMail, type DigestKind, type MailLanguage, type Role } from '../types.js';
+import { joinedMail } from '../joinMail.js';
 import type { DigestView, Notifications, UnsubscribeAnswer } from '../wire/account.js';
 import type { MailCheck, MessagePreview, MessageSentAnswer, TestMailAnswer } from '../wire/serverAdmin.js';
 
@@ -65,6 +66,12 @@ export interface AccountMailHooks {
    * confirmed yet: the account has nothing to protect until the link is used). True when it went.
    */
   mailWelcome?: (request: FastifyRequest, userId: string, email: string, language: unknown, setPasswordUrl: string) => Promise<boolean>;
+  /**
+   * Someone joined a project with an invitation link (registering, or signing in with their account): the mail
+   * "someone joined your project" to each coordinator of it with a confirmed address who has not turned it off (not the
+   * person who joined). In the background: never awaited by the request, never throws (a failure is logged).
+   */
+  memberJoined?: (request: FastifyRequest, projectId: string, userId: string, role: Role) => void;
 }
 
 declare module 'fastify' {
@@ -149,7 +156,8 @@ class HourlyCap {
  *   A change asks for the account's password (401 invalid_credentials without it): the address is where
  *   "Forgot your password?" sends its link, so a session alone, copied from a browser, must not move it.
  * - `POST /v1/email/confirm { token }` (no login): the link's page confirms the address.
- * - `POST /v1/unsubscribe/:token` (no login, RFC 8058 one-click; any body): turns that digest off;
+ * - `POST /v1/unsubscribe/:token` (no login, RFC 8058 one-click; any body): turns that digest off (or the mail
+ *   "someone joined your project", kind `joined`, on by default: `PUT /v1/me/notifications { joined }` too);
  *   `GET` sends the browser to the dashboard's page, which asks before doing it.
  * - `POST /v1/internal/digest`: the weekly job, with `x-digest-secret: DIGEST_SECRET` or Cloud
  *   Scheduler's OIDC token (DIGEST_OIDC_AUDIENCE / DIGEST_OIDC_EMAIL); 404 while neither is set up.
@@ -215,6 +223,7 @@ export async function registerMailRoutes(app: FastifyInstance, store: Store, con
       sends: deps.mailer.delivers,
       roles: { coordinator: memberships.some((m) => m.role === 'admin'), collector: collects.includes(true) },
       digests,
+      joined: mail.joinMail,
     };
   };
 
@@ -289,7 +298,7 @@ export async function registerMailRoutes(app: FastifyInstance, store: Store, con
 
   const mailWelcome = async (request: FastifyRequest, userId: string, email: string, language: unknown, setPasswordUrl: string): Promise<boolean> => {
     if (!deps.mailer.delivers) return false;
-    const ctx = await securityContext(userId, language, { email, emailConfirmedAt: null, language: null, timeZone: null, digests: [] });
+    const ctx = await securityContext(userId, language, { email, emailConfirmedAt: null, language: null, timeZone: null, digests: [], joinMail: true });
     if (!ctx) return false;
     try {
       await deps.mailer.send(welcomeMail(ctx, setPasswordUrl, email));
@@ -301,6 +310,36 @@ export async function registerMailRoutes(app: FastifyInstance, store: Store, con
     return true;
   };
   if (deps.accountMail) deps.accountMail.mailWelcome = mailWelcome;
+
+  const memberJoined = (request: FastifyRequest, projectId: string, userId: string, role: Role): void => {
+    if (!deps.mailer.delivers) return;
+    work.run(request, 'project.joined', async () => {
+      const [project, members, joiner, settings] = await Promise.all([
+        store.getProject(projectId),
+        store.listMembers(projectId),
+        store.getUserById(userId),
+        store.getSettings(),
+      ]);
+      if (!project || !joiner) return;
+      for (const coordinator of members.filter((m) => m.role === 'admin' && m.userId !== userId && !m.disabled)) {
+        const mail = await store.getAccountMail(coordinator.userId);
+        if (!mail?.joinMail || mail.email === null || mail.emailConfirmedAt === null || !isEmailAddress(mail.email)) continue;
+        const message = joinedMail(
+          {
+            serverName: settings.serverName ?? 'Collect Earth Cloud',
+            language: mail.language ?? 'en',
+            baseUrl,
+            unsubscribeUrl: `${baseUrl}/v1/unsubscribe/${writeUnsubscribeToken(coordinator.userId, 'joined', secret)}`,
+          },
+          { projectId, projectName: project.name, username: joiner.username, role, people: members.length },
+          mail.email,
+        );
+        // One coordinator's refused address does not keep the others' mail from going
+        await deps.mailer.send(message).catch((err: unknown) => request.log.warn({ err: errorSummary(err), projectId }, 'the mail "someone joined" could not be sent to a coordinator'));
+      }
+    });
+  };
+  if (deps.accountMail) deps.accountMail.memberJoined = memberJoined;
 
   /**
    * "Forgot your password?" (no login): `{ login, language? }`, a username or an email address. When
@@ -370,10 +409,11 @@ export async function registerMailRoutes(app: FastifyInstance, store: Store, con
 
   app.put('/v1/me/notifications', session, async (request: FastifyRequest, reply: FastifyReply) => {
     const userId = request.userId!;
-    const body = (request.body ?? {}) as Partial<Record<DigestKind, unknown>> & { language?: unknown; timeZone?: unknown };
+    const body = (request.body ?? {}) as Partial<Record<DigestKind, unknown>> & { language?: unknown; timeZone?: unknown; joined?: unknown };
     for (const kind of DIGEST_KINDS) {
       if (body[kind] !== undefined && typeof body[kind] !== 'boolean') return reply.code(400).send(bad(`${kind} must be true or false`));
     }
+    if (body.joined !== undefined && typeof body.joined !== 'boolean') return reply.code(400).send(bad('joined must be true or false'));
     if (!isLanguage(body.language)) return reply.code(400).send(bad(`language must be one of ${MAIL_LANGUAGES.join(', ')}`));
     if (body.timeZone !== undefined && body.timeZone !== null && !isTimeZone(body.timeZone)) return reply.code(400).send(bad('timeZone must be an IANA time zone'));
     const mail = await store.getAccountMail(userId);
@@ -388,6 +428,7 @@ export async function registerMailRoutes(app: FastifyInstance, store: Store, con
     for (const kind of DIGEST_KINDS) {
       if (typeof body[kind] === 'boolean') await store.setDigest(userId, kind, body[kind] as boolean, deps.now());
     }
+    if (typeof body.joined === 'boolean') await store.setJoinMail(userId, body.joined);
     return reply.send(await view(userId, (await store.getAccountMail(userId))!));
   });
 
@@ -476,7 +517,8 @@ export async function registerMailRoutes(app: FastifyInstance, store: Store, con
       const allowed = read ? unsubscribes.hit(`unsubscribe ${request.ip}`) : limiter.hit(`public ${request.ip}`);
       if (!allowed) return reply.code(429).header('retry-after', '60').send(RATE_LIMITED);
       if (!read) return reply.code(404).send({ error: 'not_found', reason: 'the link is not valid' });
-      await store.setDigest(read.userId, read.kind, false, deps.now());
+      if (read.kind === 'joined') await store.setJoinMail(read.userId, false);
+      else await store.setDigest(read.userId, read.kind, false, deps.now());
       return reply.send({ unsubscribed: true, kind: read.kind } satisfies UnsubscribeAnswer);
     });
     scope.get('/v1/unsubscribe/:token', async (request: FastifyRequest, reply: FastifyReply) => {
@@ -604,7 +646,7 @@ export async function registerMailRoutes(app: FastifyInstance, store: Store, con
     const m = readMessage(request.body);
     if ('reason' in m) return reply.code(400).send({ error: 'bad_request', reason: m.reason });
     const language = ((request.body ?? {}) as { language?: unknown }).language;
-    const ctx = await securityContext(request.userId!, language, (await store.getAccountMail(request.userId!)) ?? { email: null, emailConfirmedAt: null, language: null, timeZone: null, digests: [] });
+    const ctx = await securityContext(request.userId!, language, (await store.getAccountMail(request.userId!)) ?? { email: null, emailConfirmedAt: null, language: null, timeZone: null, digests: [], joinMail: true });
     if (!ctx) return reply.code(404).send({ error: 'not_found' });
     const mail = adminMessageMail(ctx, m.audience, m.subject, m.text, 'preview@example.org');
     const last = await lastMessageAt();

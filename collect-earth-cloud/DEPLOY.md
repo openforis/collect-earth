@@ -824,6 +824,11 @@ provider's details):
    checked (the TLS name is sent for a host name, not for an IP address). The server
    refuses to start when `SMTP_URL` is set without `MAIL_FROM`, `PUBLIC_BASE_URL` (or
    `RENDER_EXTERNAL_URL`) or `LINK_SECRET`, or when one is malformed.
+
+   With mail set up, a project's coordinators also get an email **as soon as someone joins the project with an
+   invitation link** (who, as what, and for a collector a reminder to give them plots). It needs no job: it goes when
+   the person registers or signs in with the link, to each coordinator with a confirmed address. It is on by default;
+   each coordinator turns it off on their Account page or with the link in the email (`src/joinMail.ts`).
 3. **The weekly job: Cloud Scheduler calls the endpoint.** This is documented, not
    created by `deploy.sh` (Cloud Scheduler is billed per job beyond the free ones).
    **The better way is Cloud Scheduler's OIDC token**: no shared secret is stored in

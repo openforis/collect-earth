@@ -146,6 +146,8 @@ export async function registerAuthRoutes(
     }
 
     await store.addMembership(invite.projectId, userId, invite.role);
+    // The project's coordinators are told by mail (those who want it: joinMail.ts)
+    accountMail?.memberJoined?.(request, invite.projectId, userId, invite.role);
     const token = await store.createSession(userId);
     return reply.code(201).send({
       token,
@@ -242,6 +244,7 @@ export async function registerAuthRoutes(
       if (!member) {
         if (!(await store.consumeInvite(inviteToken, Date.now()))) return reply.code(410).send({ error: 'invite_exhausted' });
         await store.addMembership(invite.projectId, user.id, invite.role);
+        accountMail?.memberJoined?.(request, invite.projectId, user.id, invite.role);
       }
       joined = { projectId: invite.projectId, projectName: invite.projectName, role: member ? member.role : invite.role };
     }

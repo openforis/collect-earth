@@ -182,12 +182,15 @@ export interface Notifications {
   /** Which digests make sense: coordinating a project, collecting in one. */
   roles: Record<DigestKind, boolean>;
   digests: Record<DigestKind, DigestView>;
+  /** The mail "someone joined your project" (to a coordinator, when a person joins with an invitation link): on unless turned off */
+  joined: boolean;
 }
 
 /** POST /v1/unsubscribe/:token: the digest turned off. */
 export interface UnsubscribeAnswer {
   unsubscribed: true;
-  kind: DigestKind;
+  /** A weekly digest, or `joined`: the mail "someone joined your project" */
+  kind: DigestKind | 'joined';
 }
 
 // --- invites ---

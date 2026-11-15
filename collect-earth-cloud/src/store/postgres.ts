@@ -954,7 +954,7 @@ export class PostgresStore implements Store {
   // account's id or, by the digest job, as the list of subscriptions; no project data. ---
 
   async getAccountMail(userId: string): Promise<AccountMail | null> {
-    const res = await this.pool.query('SELECT email, email_confirmed_at, mail_language, mail_time_zone FROM users WHERE id = $1', [userId]);
+    const res = await this.pool.query('SELECT email, email_confirmed_at, mail_language, mail_time_zone, join_mail_off FROM users WHERE id = $1', [userId]);
     if (res.rowCount === 0) return null;
     const r = res.rows[0];
     const subs = await this.pool.query(
@@ -967,6 +967,7 @@ export class PostgresStore implements Store {
       emailConfirmedAt: r.email_confirmed_at ? (r.email_confirmed_at as Date).getTime() : null,
       language: (r.mail_language as MailLanguage | null) ?? null,
       timeZone: (r.mail_time_zone as string | null) ?? null,
+      joinMail: r.join_mail_off !== true,
       digests: subs.rows.map((s) => ({
         kind: s.kind as DigestKind,
         createdAt: (s.created_at as Date).getTime(),
@@ -1015,6 +1016,10 @@ export class PostgresStore implements Store {
 
   async setMailPreferences(userId: string, prefs: { language: MailLanguage | null; timeZone: string | null }): Promise<void> {
     await this.pool.query('UPDATE users SET mail_language = $2, mail_time_zone = $3 WHERE id = $1', [userId, prefs.language, prefs.timeZone]);
+  }
+
+  async setJoinMail(userId: string, on: boolean): Promise<void> {
+    await this.pool.query('UPDATE users SET join_mail_off = $2 WHERE id = $1', [userId, !on]);
   }
 
   async setDigest(userId: string, kind: DigestKind, on: boolean, at: number): Promise<boolean> {

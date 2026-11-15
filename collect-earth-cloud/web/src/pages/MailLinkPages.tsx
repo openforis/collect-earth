@@ -27,7 +27,7 @@ function linkError(error: unknown, invalid: MessageKey = "mail.linkInvalid"): Me
  */
 export function UnsubscribePage({ token }: { token: string }) {
   const t = useT();
-  const [done, setDone] = useState<DigestKind | null>(null);
+  const [done, setDone] = useState<DigestKind | "joined" | null>(null);
   const [error, setError] = useState<MessageKey | null>(null);
   const [busy, setBusy] = useState(false);
   const submit = async () => {
@@ -47,7 +47,7 @@ export function UnsubscribePage({ token }: { token: string }) {
       <FormCard title={t("mail.unsubscribeTitle")} intro={done ? undefined : t("mail.unsubscribeIntro")} onSubmit={() => void submit()}>
         {done ? (
           <Alert severity="success" role="status" tabIndex={-1} ref={focusOnMount}>
-            {t(done === "coordinator" ? "mail.unsubscribedCoordinator" : "mail.unsubscribedCollector")}
+            {t(done === "coordinator" ? "mail.unsubscribedCoordinator" : done === "joined" ? "mail.unsubscribedJoined" : "mail.unsubscribedCollector")}
           </Alert>
         ) : (
           <Box>

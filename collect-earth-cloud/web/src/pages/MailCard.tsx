@@ -169,7 +169,7 @@ export function EmailCard() {
   );
 }
 
-/** The weekly emails (Task 19), off by default; they go to the address of EmailCard. */
+/** The emails a person chooses: the weekly ones (Task 19), off by default, and, for coordinators, the one when someone joins a project (on by default); they go to the address of EmailCard. */
 export function MailCard() {
   const t = useT();
   const { language } = useApp();
@@ -180,7 +180,7 @@ export function MailCard() {
   if (loaded.error || !loaded.data) return <ErrorAlert error={loaded.error} onRetry={loaded.reload} />;
   const n: Notifications = loaded.data;
 
-  const toggle = (kind: DigestKind, on: boolean) =>
+  const toggle = (kind: DigestKind | "joined", on: boolean) =>
     run(async () => {
       // No zone from the browser: none is sent, and the stored one stays.
       loaded.setData(await setNotifications({ [kind]: on, language, timeZone: browserTimeZone() ?? undefined }));
@@ -192,17 +192,19 @@ export function MailCard() {
     { kind: "collector", label: t("mail.collector"), help: t("mail.collectorHelp") },
   ];
   const shown = kinds.filter((k) => n.roles[k.kind] || n.digests[k.kind].on || n.digests[k.kind].stopped);
-  const anyOn = n.digests.coordinator.on || n.digests.collector.on;
+  // The mail "someone joined": on by default, for coordinators (and anyone who still has it on to turn it off)
+  const showJoined = n.roles.coordinator;
+  const anyOn = n.digests.coordinator.on || n.digests.collector.on || (showJoined && n.joined);
   const writtenIn = n.language && isLanguage(n.language) ? LANGUAGE_NAMES[n.language] : LANGUAGE_NAMES.en;
 
   return (
-    <FormCard title={t("mail.title")} intro={t("mail.intro")} onSubmit={() => undefined} level={2}>
+    <FormCard title={t("mail.title")} intro={t(showJoined ? "mail.introJoined" : "mail.intro")} onSubmit={() => undefined} level={2}>
       {!n.sends && <Alert severity="info">{t("mail.notSending")}</Alert>}
       <Box component="fieldset" sx={{ border: 0, p: 0, m: 0 }}>
         <Typography component="legend" variant="h3" sx={{ mb: 1 }}>
           {t("mail.choose")}
         </Typography>
-        {shown.length === 0 && <Typography color="text.secondary">{t("mail.noProjects")}</Typography>}
+        {shown.length === 0 && !showJoined && <Typography color="text.secondary">{t("mail.noProjects")}</Typography>}
         <Stack spacing={1.5}>
           {shown.map(({ kind, label, help }) => (
             <Box key={kind}>
@@ -229,6 +231,23 @@ export function MailCard() {
               )}
             </Box>
           ))}
+          {showJoined && (
+            <Box>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={n.joined}
+                    onChange={(e) => void toggle("joined", e.target.checked)}
+                    slotProps={{ input: { "aria-describedby": "mail-joined-help" } }}
+                  />
+                }
+                label={t("mail.joined")}
+              />
+              <FormHelperText id="mail-joined-help" sx={{ ml: 0 }}>
+                {n.email === null ? t("mail.needEmail") : t("mail.joinedHelp")}
+              </FormHelperText>
+            </Box>
+          )}
         </Stack>
       </Box>
       {anyOn && (

@@ -242,7 +242,7 @@ export class InMemoryStore implements Store {
   /** Progress links (share_links): token hash -> link. */
   private readonly shareLinks = new Map<string, ShareLinkEntry>();
   /** Email digests (Task 19): userId -> confirmation and the mails' language and zone. */
-  private readonly accountMail = new Map<string, { emailConfirmedAt: number | null; language: MailLanguage | null; timeZone: string | null }>();
+  private readonly accountMail = new Map<string, { emailConfirmedAt: number | null; language: MailLanguage | null; timeZone: string | null; joinMail: boolean }>();
   /** `${userId} ${kind}` -> the subscription (digest_subscriptions). */
   private readonly digests = new Map<string, { userId: string } & DigestState>();
   /** userId -> when confirmation mails were sent (email_confirmation_sends), the last day's. */
@@ -984,7 +984,7 @@ export class InMemoryStore implements Store {
   // --- Email digests (Task 19) ---
 
   private mailOf(userId: string) {
-    return this.accountMail.get(userId) ?? { emailConfirmedAt: null, language: null, timeZone: null };
+    return this.accountMail.get(userId) ?? { emailConfirmedAt: null, language: null, timeZone: null, joinMail: true };
   }
 
   async getAccountMail(userId: string): Promise<AccountMail | null> {
@@ -1032,6 +1032,11 @@ export class InMemoryStore implements Store {
   async setMailPreferences(userId: string, prefs: { language: MailLanguage | null; timeZone: string | null }): Promise<void> {
     if (!this.users.has(userId)) return;
     this.accountMail.set(userId, { ...this.mailOf(userId), language: prefs.language, timeZone: prefs.timeZone });
+  }
+
+  async setJoinMail(userId: string, on: boolean): Promise<void> {
+    if (!this.users.has(userId)) return;
+    this.accountMail.set(userId, { ...this.mailOf(userId), joinMail: on });
   }
 
   async setDigest(userId: string, kind: DigestKind, on: boolean, at: number): Promise<boolean> {

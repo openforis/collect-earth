@@ -240,6 +240,8 @@ export interface Store {
   confirmEmail(userId: string, email: string, at: number): Promise<boolean>;
   /** The language and time zone the mails are written in. */
   setMailPreferences(userId: string, prefs: { language: MailLanguage | null; timeZone: string | null }): Promise<void>;
+  /** Turns the mail "someone joined your project" on or off for the account (AccountMail.joinMail). */
+  setJoinMail(userId: string, on: boolean): Promise<void>;
   /**
    * Turns a digest on (created `at`; one already on is kept as it was, one stopped after failures starts
    * again) or off; off returns whether one was on.

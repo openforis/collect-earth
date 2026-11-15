@@ -124,7 +124,7 @@ export function getNotifications(): Promise<Notifications> {
 }
 
 /** Turns digests on or off, in the language and time zone given (the dashboard's); no zone keeps the stored one. */
-export function setNotifications(change: Partial<Record<DigestKind, boolean>> & { language: string; timeZone?: string | null }): Promise<Notifications> {
+export function setNotifications(change: Partial<Record<DigestKind | "joined", boolean>> & { language: string; timeZone?: string | null }): Promise<Notifications> {
   const { timeZone, ...rest } = change;
   return request<Notifications>("PUT", "/v1/me/notifications", { json: timeZone ? { ...rest, timeZone } : rest });
 }
@@ -152,7 +152,7 @@ export async function confirmEmail(token: string): Promise<void> {
 }
 
 /** The unsubscribe link's page (no login needed): turns that digest off. */
-export async function unsubscribe(token: string): Promise<DigestKind> {
+export async function unsubscribe(token: string): Promise<DigestKind | "joined"> {
   return (await request<UnsubscribeAnswer>("POST", `/v1/unsubscribe/${encodeURIComponent(token)}`, { json: {}, anonymous: true, noSessionEnd: true })).kind;
 }
 

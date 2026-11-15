@@ -736,6 +736,8 @@ export interface AccountMail {
   language: MailLanguage | null;
   timeZone: string | null;
   digests: DigestState[];
+  /** The mail "someone joined your project" (to coordinators): on unless turned off */
+  joinMail: boolean;
 }
 
 /** One subscription as the account page shows it. */
