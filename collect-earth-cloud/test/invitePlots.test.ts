@@ -91,6 +91,17 @@ describe('invitation links that hand out plots', () => {
     expect((await link({ csvFileId: fileId, mode: 'share', count: 2 })).json().error).toBe('file_whole_assigned');
   });
 
+  it('gives plots to collectors only, and a file given whole since is not shared out', async () => {
+    const reviewerLink = await ctx.app.inject({ method: 'POST', url: `/v1/projects/${projectId}/invites`, headers: bearer(coordinator.token), payload: { role: 'reviewer', maxUses: 2, plots: { csvFileId: fileId, mode: 'whole' } } });
+    expect(reviewerLink.statusCode).toBe(400);
+    const token = (await link({ csvFileId: fileId, mode: 'share', count: 2 })).json().inviteToken;
+    // the coordinator gives the whole file to someone after making the link
+    const ana = await join('ana', (await link(null)).json().inviteToken);
+    await ctx.app.inject({ method: 'PUT', url: `/v1/projects/${projectId}/assignments`, headers: bearer(coordinator.token), payload: { assignments: [{ userId: ana.userId, csvFileId: fileId }] } });
+    const bea = await join('bea', token);
+    expect(await plotsOf(bea.token)).toEqual([]);
+  });
+
   it('a divided file is given only by number', async () => {
     await join('ana', (await link({ csvFileId: fileId, mode: 'share', count: 2 })).json().inviteToken);
     expect((await link({ csvFileId: fileId, mode: 'whole' })).json().error).toBe('file_divided');

@@ -26,7 +26,7 @@ import type { PlotAssignment, StoredDistribution } from '../types.js';
 import type { CsvColumns, MoveUnfinishedAnswer, RebalanceAnswer } from '../wire/plotFiles.js';
 
 /** Everything a division route needs about one file and the people of the project. */
-export async function loadFile(store: Store, projectId: string, csvFileId: string, log: Log) {
+async function loadFile(store: Store, projectId: string, csvFileId: string, log: Log) {
   const file = isUuid(csvFileId) ? await store.getCsvFile(projectId, csvFileId) : null;
   if (!file) {
     return null;

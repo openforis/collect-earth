@@ -328,16 +328,16 @@ describe('the digests\' words (Task 19)', () => {
       // An account on the server, never its username (the address may not be theirs).
       expect(mail.text).toContain(intro[language]);
       expect(mail.text).toContain(other[language]);
-      // What confirming does, plainly (M-7): weekly emails about the account's projects on this server.
+      // What confirming does, plainly (M-7): the emails about the account's projects on this server (weekly, and the join emails).
       expect(mail.text, language).toContain(what[language]);
     }
   });
   const what: Record<MailLanguage, string> = {
-    en: 'this address gets the weekly emails that account asks for, about its projects on Cloud',
-    es: 'esta dirección recibe los correos semanales que esa cuenta pida, sobre sus proyectos en Cloud',
-    fr: 'cette adresse reçoive les courriels de la semaine que ce compte demande, sur ses projets sur Cloud',
-    pt: 'este endereço recebe os e-mails semanais que essa conta pedir, sobre os seus projetos em Cloud',
-    tr: 'bu adrese, o hesabın Cloud üzerindeki projeleriyle ilgili istediği haftalık e-postalar gönderilir',
+    en: 'this address gets the emails that account asks for, about its projects on Cloud: the weekly summaries it turns on and, for a coordinator, an email when someone joins a project',
+    es: 'esta dirección recibe los correos que esa cuenta pida, sobre sus proyectos en Cloud: los resúmenes semanales que active y, para quien coordina, un correo cuando alguien se une a un proyecto',
+    fr: 'cette adresse reçoive les courriels que ce compte demande, sur ses projets sur Cloud : les résumés de la semaine qu’il active et, pour qui coordonne, un courriel quand quelqu’un rejoint un projet',
+    pt: 'este endereço recebe os e-mails que essa conta pedir, sobre os seus projetos em Cloud: os resumos semanais que ligar e, para quem coordena, um e-mail quando alguém entra num projeto',
+    tr: 'bu adrese, o hesabın Cloud üzerindeki projeleriyle ilgili istediği e-postalar gönderilir: açtığı haftalık özetler ve koordinatörse bir projeye biri katıldığında bir e-posta',
   };
 
   it('the quiet people: at most 20 named, then how many more', () => {

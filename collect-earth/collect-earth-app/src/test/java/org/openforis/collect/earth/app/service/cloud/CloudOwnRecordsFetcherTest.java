@@ -27,7 +27,7 @@ import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.service.cloud.CloudApiClient.Destination;
 import org.openforis.collect.earth.app.service.cloud.CloudApiClient.OwnRecords;
-import org.openforis.collect.earth.app.service.dashboard.DashboardFeedSource;
+import org.openforis.collect.model.CollectRecordSummary;
 import org.openforis.collect.earth.app.service.notices.Notice;
 import org.openforis.collect.earth.app.service.notices.NoticeService;
 import org.openforis.collect.io.data.DataImportSummary;
@@ -41,10 +41,9 @@ public class CloudOwnRecordsFetcherTest {
 	private final CloudApiClient api = mock(CloudApiClient.class);
 	private final DataImportExportService data = mock(DataImportExportService.class);
 	private final EarthSurveyService surveys = mock(EarthSurveyService.class);
-	private final DashboardFeedSource local = mock(DashboardFeedSource.class);
 	private final NoticeService notices = new NoticeService();
 	private final AtomicInteger reloads = new AtomicInteger();
-	private final CloudOwnRecordsFetcher fetcher = new CloudOwnRecordsFetcher(properties, api, data, surveys, local, notices, reloads::incrementAndGet);
+	private final CloudOwnRecordsFetcher fetcher = new CloudOwnRecordsFetcher(properties, api, data, surveys, notices, reloads::incrementAndGet);
 	private final Destination cloud = new Destination("https://cloud", "p1", "t");
 	private File zip;
 
@@ -62,6 +61,17 @@ public class CloudOwnRecordsFetcherTest {
 		when(process.getSummary()).thenReturn(summary);
 		when(data.getImportSummary(eq(zip), anyBoolean())).thenReturn(process);
 		return process;
+	}
+
+	/** The records this computer has, by their keys */
+	private void here(String... keys) {
+		List<CollectRecordSummary> summaries = new java.util.ArrayList<>();
+		for (String key : keys) {
+			CollectRecordSummary summary = mock(CollectRecordSummary.class);
+			when(summary.getRootEntityKeyValues()).thenReturn(Arrays.asList(key.split(",")));
+			summaries.add(summary);
+		}
+		when(surveys.getRecordSummariesSavedSince(any())).thenReturn(summaries);
 	}
 
 	private List<Object> noticeKinds() {
@@ -118,15 +128,15 @@ public class CloudOwnRecordsFetcherTest {
 	}
 
 	@Test
-	public void atTheOtherStartsOnlyWhenTheServerHasMoreOfTheirRecordsThanThisComputer() throws Exception {
-		when(local.recordIds()).thenReturn(Arrays.asList(1, 2, 3));
-		when(api.ownRecordsCount(cloud)).thenReturn(3);
+	public void atTheOtherStartsOnlyWhenTheServerHasRecordsOfTheirsThisComputerHasNot() throws Exception {
+		here("P1,1", "P2,1", "P3,1");
+		when(api.ownRecordKeys(cloud)).thenReturn(Arrays.asList("P1,1", "P2,1"));
 		assertFalse(fetcher.serverHasMore());
-		// the coordinator gave them a typed name's 2 plots
-		when(api.ownRecordsCount(cloud)).thenReturn(5);
+		// a colleague's copy of P3 here, theirs given now: as many as here, but P4 is new
+		when(api.ownRecordKeys(cloud)).thenReturn(Arrays.asList("P1,1", "P2,1", "P4,1"));
 		assertTrue(fetcher.serverHasMore());
 		// offline: nothing asked, nothing said
-		when(api.ownRecordsCount(cloud)).thenThrow(new IOException("offline"));
+		when(api.ownRecordKeys(cloud)).thenThrow(new IOException("offline"));
 		assertFalse(fetcher.serverHasMore());
 	}
 
@@ -134,13 +144,13 @@ public class CloudOwnRecordsFetcherTest {
 	public void theCheckEveryFewMinutesBringsPlotsGivenMeanwhileAndSaysNoFailure() throws Exception {
 		when(properties.isCloudSyncEnabled()).thenReturn(true);
 		when(surveys.getCollectSurvey()).thenReturn(mock(org.openforis.collect.model.CollectSurvey.class));
-		when(local.recordIds()).thenReturn(Arrays.asList(1, 2));
+		here("P1,1", "P2,1");
 		// nothing new: nothing asked for
-		when(api.ownRecordsCount(cloud)).thenReturn(2);
+		when(api.ownRecordKeys(cloud)).thenReturn(Arrays.asList("P1,1", "P2,1"));
 		fetcher.check();
 		verify(api, never()).downloadOwnRecords(any());
 		// the coordinator gave them two plots meanwhile
-		when(api.ownRecordsCount(cloud)).thenReturn(4);
+		when(api.ownRecordKeys(cloud)).thenReturn(Arrays.asList("P1,1", "P2,1", "P3,1", "P4,1"));
 		when(api.downloadOwnRecords(cloud)).thenReturn(new OwnRecords(zip, 4));
 		summary(2);
 		fetcher.check();

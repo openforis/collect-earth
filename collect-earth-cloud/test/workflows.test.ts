@@ -332,8 +332,8 @@ describe('a person joining gets their own earlier plots on their computer (GET m
     expect(res.headers['content-type']).toBe('application/zip');
     expect(res.headers['x-records']).toBe('2');
     // what Collect Earth asks at each start
-    expect((await ctx.app.inject({ method: 'GET', url: `/v1/projects/${projectId}/my-records`, headers: bearer(marta) })).json()).toEqual({ records: 2 });
-    expect((await ctx.app.inject({ method: 'GET', url: `/v1/projects/${projectId}/my-records`, headers: bearer(rosa) })).json()).toEqual({ records: 0 });
+    expect((await ctx.app.inject({ method: 'GET', url: `/v1/projects/${projectId}/my-records`, headers: bearer(marta) })).json()).toEqual({ records: 2, keys: ['P1,1', 'P1,2'] });
+    expect((await ctx.app.inject({ method: 'GET', url: `/v1/projects/${projectId}/my-records`, headers: bearer(rosa) })).json()).toEqual({ records: 0, keys: [] });
     const zip = unzipSync(new Uint8Array(res.rawPayload));
     const names = Object.keys(zip).sort();
     expect(names[names.length - 1]).toBe('idml.xml');

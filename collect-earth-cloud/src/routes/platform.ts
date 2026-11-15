@@ -215,6 +215,8 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
       // A person's own link (the new project file) gives no plots: they have theirs
       let plots: InvitePlots | null = null;
       if (forUserId === null && body.plots !== undefined && body.plots !== null) {
+        // Plots are for the people who collect: a reviewer or a coordinator gets none from a link
+        if (role !== 'operator') return reply.code(400).send({ error: 'bad_request', reason: 'plots: a link gives plots to collectors only' });
         const checked = await invitePlotsRefusal(store, request.membership!.projectId, body.plots);
         if ('error' in checked) return reply.code(checked.error === 'bad_request' ? 400 : 409).send(checked);
         plots = checked;

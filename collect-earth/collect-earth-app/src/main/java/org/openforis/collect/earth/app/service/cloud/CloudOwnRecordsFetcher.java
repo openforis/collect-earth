@@ -3,6 +3,10 @@ package org.openforis.collect.earth.app.service.cloud;
 import java.io.File;
 import java.text.MessageFormat;
 import java.util.Collections;
+import java.util.Date;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -15,12 +19,11 @@ import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.service.cloud.CloudApiClient.OwnRecords;
-import org.openforis.collect.earth.app.service.dashboard.DashboardFeedSource;
-import org.openforis.collect.earth.app.service.dashboard.EarthDashboardFeedSource;
 import org.openforis.collect.earth.app.service.notices.Notice;
 import org.openforis.collect.earth.app.service.notices.NoticeService;
 import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.io.data.DataImportSummary;
+import org.openforis.collect.model.CollectRecordSummary;
 import org.openforis.collect.io.data.XMLDataImportProcess;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,8 +37,8 @@ import org.springframework.stereotype.Component;
  * another way (an office's database brought in from its backup, a coordinator giving them a typed name's plots,
  * another computer) finds their plots on this one as they left them, instead of empty forms they would do again
  * (docs/plans/2026-11-15-workflow-review.md). At the first start after joining or opening the project; then, at each
- * start and every ten minutes while it runs, when the server has more of the account's records than this computer has
- * of the project (one small request).
+ * start and every ten minutes while it runs, when the server has records of the account this computer has none of (one
+ * small request: their keys).
  * <p>
  * Only plots this computer has no record of are added: a record here is never replaced (it may not be sent yet). The
  * records added are not sent back: they are the cloud's, and the sync only queues what is saved here. A failure keeps
@@ -55,24 +58,22 @@ public class CloudOwnRecordsFetcher implements ApplicationListener<ContextRefres
 	private final CloudApiClient api;
 	private final DataImportExportService data;
 	private final EarthSurveyService surveys;
-	private final DashboardFeedSource local;
 	private final NoticeService notices;
 	private final Runnable reload;
 
 	@Autowired
 	public CloudOwnRecordsFetcher(LocalPropertiesService properties, CloudApiClient api, DataImportExportService data, EarthSurveyService surveys,
-			EarthDashboardFeedSource local, @Autowired(required = false) NoticeService notices) {
-		this(properties, api, data, surveys, local, notices, EarthApp::reloadPlots);
+			@Autowired(required = false) NoticeService notices) {
+		this(properties, api, data, surveys, notices, EarthApp::reloadPlots);
 	}
 
 	/** For the tests: the reload of the plots stood in for. */
 	CloudOwnRecordsFetcher(LocalPropertiesService properties, CloudApiClient api, DataImportExportService data, EarthSurveyService surveys,
-			DashboardFeedSource local, NoticeService notices, Runnable reload) {
+			NoticeService notices, Runnable reload) {
 		this.properties = properties;
 		this.api = api;
 		this.data = data;
 		this.surveys = surveys;
-		this.local = local;
 		this.notices = notices;
 		this.reload = reload;
 	}
@@ -126,14 +127,23 @@ public class CloudOwnRecordsFetcher implements ApplicationListener<ContextRefres
 	/** The context refreshes more than once at a start (the root and the servlet's): one check per start */
 	private volatile boolean started;
 
-	/** Whether the server has more of the account's records than this computer has of the project (quietly false offline) */
+	/**
+	 * Whether the server has records of the account this computer has none of, by their keys (a record here under
+	 * another name, a colleague's copy, counts as there: it is never replaced). Quietly false offline.
+	 */
 	boolean serverHasMore() {
 		try {
-			int there = api.ownRecordsCount(api.cloudDestination());
-			int here = local.recordIds().size();
-			return there > here;
+			List<String> there = api.ownRecordKeys(api.cloudDestination());
+			if (there.isEmpty()) {
+				return false;
+			}
+			Set<String> here = new HashSet<>();
+			for (CollectRecordSummary summary : surveys.getRecordSummariesSavedSince(new Date(0))) {
+				here.add(String.join(",", summary.getRootEntityKeyValues()));
+			}
+			return there.stream().anyMatch(key -> !here.contains(key));
 		} catch (Exception e) {
-			logger.debug("Could not ask the cloud project how many of the account's records it has: {}", e.getMessage()); //$NON-NLS-1$
+			logger.debug("Could not ask the cloud project which of the account's records it has: {}", e.getMessage()); //$NON-NLS-1$
 			return false;
 		}
 	}

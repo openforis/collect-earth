@@ -1,5 +1,5 @@
 // The workflows of Collect Earth, run with real desktops against a real cloud server on PostgreSQL.
-// node run.mjs [scenario...]   (all by default: alone office cloud alone-to-cloud office-to-cloud accounts)
+// node run.mjs [scenario...]   (all by default: alone office cloud alone-to-cloud office-to-cloud accounts mapathon)
 // What it needs and how to start it: README.md beside it.
 import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import {
@@ -158,8 +158,10 @@ const scenarios = {
     const notices = (await desk('GET', '/api/notices')).json;
     const offer = (Array.isArray(notices) ? notices : notices?.notices ?? []).find((n) => n.kind === 'cloudSendRecords' || n.id === 'cloudSendRecords' || JSON.stringify(n).includes('cloudSendRecords'));
     check('alone→cloud: after joining, the desktop offers to send the plots already on it', !!offer, JSON.stringify(offer ?? notices).slice(0, 300));
-    const count = (await desk('GET', '/api/cloud/localRecords')).json?.count;
+    const local = (await desk('GET', '/api/cloud/localRecords')).json;
+    const count = local?.count;
     check('alone→cloud: it counts the plots done alone', count === before && count >= 3, `${before} before, ${count} after`);
+    check('alone→cloud: they are the person’s own (the name typed before joining)', local?.mine === count && local?.others === 0 && (local?.names ?? []).includes('Juan Perez'), JSON.stringify(local));
     const sent = await job('/api/jobs/sendToCloud');
     check('alone→cloud: sending them finishes', sent.state === 'SUCCEEDED' || sent.state === 'DONE' || sent.state === 'FINISHED', JSON.stringify(sent).slice(0, 300));
     const rows = cloudRows(project.pid).filter((r) => r.endsWith(':juan'));
@@ -247,6 +249,34 @@ const scenarios = {
     check('office→cloud: Luis finds his plots on his computer right after joining', his.length === 2 && his.every((p) => onHis.includes(p)), `${his.join(' ')} | here: ${onHis.join(' ')}`);
   },
 
+  // 7. A mapathon: a link that gives each person who joins 5 plots of the file; their Collect Earth opens them at once
+  async mapathon() {
+    const token = await coordinator();
+    const created = await cloud('POST', '/v1/projects', { name: 'Mapathon' }, token);
+    const pid = created.json.projectId;
+    await cloud('PUT', `/v1/projects/${pid}/cep`, readFileSync(CEP), token, 'application/zip');
+    const csv = await cloud('PUT', `/v1/projects/${pid}/csv-files/mapathon.csv`, demoPlotFile(), token, 'text/csv');
+    const fileId = csv.json?.id ?? csv.json?.csvFile?.id;
+    await cloud('PUT', `/v1/projects/${pid}/status`, { status: 'active' }, token);
+    const link = await cloud('POST', `/v1/projects/${pid}/invites`, { role: 'operator', maxUses: 10, plots: { csvFileId: fileId, mode: 'share', count: 5 } }, token);
+    check('mapathon: a link that gives 5 plots each', link.json?.plots?.count === 5, JSON.stringify(link.json?.plots));
+    const theirs = {};
+    for (const who of ['m1', 'm2']) {
+      rmSync(`${E}/home-${who}`, { recursive: true, force: true });
+      await startDesktop(who);
+      const joined = await joinFromDesktop(link.json.joinUrl, who, `${who}-password`, true);
+      check(`mapathon: ${who} joins from the desktop`, joined.join?.status === 200, JSON.stringify(joined.join?.json).slice(0, 200));
+      await waitRestart();
+      await sleep(6000);
+      theirs[who] = await plotIds();
+      check(`mapathon: ${who}'s Collect Earth opens their 5 plots by itself`, theirs[who].length === 5, theirs[who].join(' '));
+    }
+    check('mapathon: nobody has the same plot', !theirs.m1.some((p) => theirs.m2.includes(p)), `${theirs.m1.join(' ')} | ${theirs.m2.join(' ')}`);
+    await savePlot(theirs.m2[0]);
+    const sync = await syncNow();
+    check('mapathon: a plot saved there is in the cloud', cloudRows(pid).includes(`${theirs.m2[0]}:m2`) && sync?.failed === 0, cloudRows(pid).join(' '));
+  },
+
   // 6. Accounts: what people see when something is wrong
   async accounts() {
     const project = state.cloud;
@@ -281,3 +311,5 @@ stopDesktops();
 writeFileSync(`${E}/results-${Date.now()}.json`, JSON.stringify(results, null, 1));
 const failed = results.filter((r) => r.ok === false).length;
 console.log(`\n${results.filter((r) => r.ok).length} passed, ${failed} failed`);
+// For CI (.github/workflows/workflows-e2e.yml): a failed check fails the run
+process.exitCode = failed > 0 ? 1 : 0;

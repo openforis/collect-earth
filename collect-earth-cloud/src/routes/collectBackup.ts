@@ -135,8 +135,9 @@ export async function registerCollectBackupRoutes(
    * whose earlier work came to the cloud another way (an office's backup, another computer) finds their plots as they
    * left them (docs/plans/2026-11-15-workflow-review.md). Every member, their own records only; X-Records says how many.
    * The deleted ones and those the server has no XML of are left out. `GET /v1/projects/:pid/my-records` says only how
-   * many ({ records }), which Collect Earth asks at each start: more than it has means some came to the cloud another way
-   * (a coordinator gave them a typed name's plots), and it fetches the file.
+   * many and their keys ({ records, keys }), which Collect Earth asks at each start and every ten minutes: a key it has no
+   * record of means some came to the cloud another way (a coordinator gave them a typed name's plots), and it fetches the
+   * file.
    */
   const ownRecords = async (request: FastifyRequest, reply: FastifyReply) => {
     const { projectId, userId } = request.membership!;
@@ -158,7 +159,7 @@ export async function registerCollectBackupRoutes(
   app.get('/v1/projects/:pid/my-records', { preHandler: requireProjectMembership(store) }, async (request: FastifyRequest, reply: FastifyReply) => {
     const records = await ownRecords(request, reply);
     if (records === null) return reply;
-    return reply.header('cache-control', 'no-store').send({ records: records.length } satisfies MyRecordsAnswer);
+    return reply.header('cache-control', 'no-store').send({ records: records.length, keys: records.map((r) => r.recordKey) } satisfies MyRecordsAnswer);
   });
   app.get('/v1/projects/:pid/my-records.zip', { preHandler: requireProjectMembership(store) }, async (request: FastifyRequest, reply: FastifyReply) => {
     const projectId = request.membership!.projectId;

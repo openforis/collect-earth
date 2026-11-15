@@ -241,4 +241,6 @@ export interface ChangeAreas extends ChangeAreaEstimates {
 /** GET /v1/projects/:pid/my-records (Collect Earth, at each start): how many of the signed-in person's own records the server has. */
 export interface MyRecordsAnswer {
   records: number;
+  /** Their keys (the key values joined by commas, as Collect Earth makes them) */
+  keys: string[];
 }

@@ -503,11 +503,18 @@ public class CloudApiClient {
 		}
 	}
 
-	/** How many of the signed-in account's own records of the project the server has (GET my-records), asked at each start. */
-	public int ownRecordsCount(Destination destination) throws IOException {
+	/**
+	 * The keys of the signed-in account's own records of the project on the server (GET my-records), asked at each start
+	 * and every few minutes (CloudOwnRecordsFetcher).
+	 */
+	public List<String> ownRecordKeys(Destination destination) throws IOException {
 		HttpGet request = new HttpGet(destination.projectUrl("/my-records"));
 		prepareWith(request, destination.getToken());
-		return executeForJson("ownRecordsCount", request).path("records").asInt(0);
+		List<String> keys = new ArrayList<>();
+		for (JsonNode key : executeForJson("ownRecordKeys", request).path("keys")) {
+			keys.add(key.asText());
+		}
+		return keys;
 	}
 
 	/**

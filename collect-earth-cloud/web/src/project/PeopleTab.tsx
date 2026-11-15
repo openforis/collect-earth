@@ -138,7 +138,7 @@ function InviteForm({ projectId, onCreated }: { projectId: string; onCreated: (i
     }
     setBusy(true);
     try {
-      const given = mode && csvFileId ? { csvFileId, mode, count: mode === "share" ? count : null } : null;
+      const given = role === "operator" && mode && csvFileId ? { csvFileId, mode, count: mode === "share" ? count : null } : null;
       onCreated(await createInvite(projectId, { role, maxUses: uses, expiresInDays: expiry || null, plots: given }));
     } catch (err) {
       setError(err);
@@ -186,7 +186,8 @@ function InviteForm({ projectId, onCreated }: { projectId: string; onCreated: (i
           </Select>
         </FormControl>
       </Stack>
-      {(files.data ?? []).length > 0 && (
+      {/* plots are for the people who collect */}
+      {role === "operator" && (files.data ?? []).length > 0 && (
         <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
           <FormControl fullWidth>
             <InputLabel id="invite-plots">{t("people.plots")}</InputLabel>

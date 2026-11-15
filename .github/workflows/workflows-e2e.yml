@@ -1,0 +1,73 @@
+name: Ways of working (end to end)
+# The ways of working with Collect Earth, run with the real desktop against the cloud server on PostgreSQL:
+# alone, an office team on one PostgreSQL, a big group on the cloud, and the moves between them
+# (collect-earth-cloud/scripts/workflows, docs/plans/2026-11-15-workflow-review.md). About 25 minutes, so nightly and on
+# demand rather than on every push. A scheduled run uses the workflow file of the default branch.
+on:
+  schedule:
+    - cron: '17 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  workflows:
+    name: Desktop + cloud scenarios
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ce
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U ce" --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      WF_DIR: ${{ runner.temp }}/ce-workflows
+      WF_PG_PORT: '55432'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          java-version: 21
+          distribution: temurin
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      - name: Cache Maven packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2
+      - name: A display for the desktop, and psql
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q xvfb postgresql-client
+          Xvfb :99 -screen 0 1280x900x24 &
+      - name: The desktop
+        working-directory: collect-earth
+        run: mvn -B -q install -DskipTests -Dmaven.javadoc.skip=true -pl collect-earth-app -am
+      - name: The cloud server, on its database
+        working-directory: collect-earth-cloud
+        run: |
+          npm ci
+          psql -h localhost -p 55432 -U ce -d postgres -c "create database cloud"
+          STORE_BACKEND=postgres DATABASE_URL=postgres://ce@localhost:55432/cloud MIGRATE_ON_BOOT=1 SETUP_CODE=setup-code-123 \
+            RATE_LIMIT_PER_MINUTE=0 PORT=8080 nohup npx tsx src/index.ts > "$RUNNER_TEMP/cloud.log" 2>&1 &
+          for i in $(seq 1 60); do curl -sf localhost:8080/health && break; sleep 1; done
+      - name: The scenarios
+        working-directory: collect-earth-cloud/scripts/workflows
+        run: node run.mjs
+      - name: Keep the logs and the results
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: workflows-e2e
+          path: |
+            ${{ runner.temp }}/cloud.log
+            ${{ runner.temp }}/ce-workflows/results-*.json
+            ${{ runner.temp }}/ce-workflows/desktop-*.log
+            ${{ runner.temp }}/ce-workflows/home-*/CollectEarth/earth_error.log
+          retention-days: 14

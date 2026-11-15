@@ -5,8 +5,9 @@
 // - `share`: the person takes the next `count` plots of the file, in its order, that nobody holds and nobody has
 //   submitted; the file is divided (manual) when it was whole and nobody had it. Nobody else's plots move. When the
 //   file has no plots left, the person gets none (the coordinator's email says so).
-import { loadFile } from './routes/division.js';
+import { plotFileOf } from './plotFileCache.js';
 import type { Log } from './qualityService.js';
+import { fileKeyCount, unitOfRecord } from './rounds.js';
 import type { Store } from './store/store.js';
 import type { InvitePlots } from './types.js';
 
@@ -42,17 +43,30 @@ export async function invitePlotsRefusal(store: Store, projectId: string, plots:
 /** At the join: gives the person the link's plots. Null when the link gives none or its file is gone. */
 export async function giveInvitePlots(store: Store, projectId: string, userId: string, plots: InvitePlots | null, log: Log): Promise<GivenPlots | null> {
   if (!plots) return null;
-  const loaded = await loadFile(store, projectId, plots.csvFileId, log);
-  if (!loaded) return null;
-  const { file, plotFile, submitted } = loaded;
+  const file = await store.getCsvFile(projectId, plots.csvFileId);
+  if (!file) return null;
+  const info = await store.getRoundInfo(projectId);
+  const plotFile = plotFileOf(file, fileKeyCount(info));
   if (plots.mode === 'whole') {
     const given = await store.addAssignment(projectId, file.id, userId);
     return { csvFileId: file.id, filename: file.filename, mode: 'whole', plots: given ? plotFile.plotIds.length : 0 };
   }
-  // The plots to do, in the file's order: each once, none somebody submitted
-  const candidates = [...new Set(plotFile.plotIds)].filter((id) => !((submitted.get(id)?.main.size ?? 0) > 0));
+  // The plots to do, in the file's order: each once, none anybody submitted (a check too: left for the coordinator).
+  // From the records' states only (no answers): a mapathon's people join many at once, each joining reads them.
+  const units = new Set(plotFile.plotIds);
+  const done = new Set<string>();
+  for (const r of await store.listRecordStates(projectId)) {
+    if (!r.activelySaved || r.deleted) continue;
+    const unit = unitOfRecord(r.recordKey, units, info);
+    if (unit !== null) done.add(unit);
+  }
+  const candidates = [...units].filter((id) => !done.has(id));
   const taken = await store.claimUnheldPlots(projectId, file.id, userId, candidates, plots.count ?? 0);
   if (taken === 'not_found') return null;
-  if (taken === 'whole_assigned') log.warn({ projectId, csvFileId: file.id }, 'invitation plots: the file is given whole to people now; no share taken');
-  return { csvFileId: file.id, filename: file.filename, mode: 'share', plots: typeof taken === 'number' ? taken : 0 };
+  if (taken === 'whole_assigned') {
+    // Given whole to people since the link was made: no share is taken, and the coordinator's email says to give plots
+    log.warn({ projectId, csvFileId: file.id }, 'invitation plots: the file is given whole to people now; no share taken');
+    return null;
+  }
+  return { csvFileId: file.id, filename: file.filename, mode: 'share', plots: taken };
 }
