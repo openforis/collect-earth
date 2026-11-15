@@ -158,6 +158,10 @@ export interface CepUploadAnswer {
   round: RoundInfo;
   /** The coordinator's note moved to another extra column of the served rows (from, to). */
   noteColumnChanged?: { from: number; to: number };
+  /** Keys and passwords the file's settings carried, left out of what is kept (their names: planet_maps_key...). */
+  removedSettings?: string[];
+  /** The extra map's address seems to carry a key, which every collector's Collect Earth receives with it. */
+  keyInExtraMap?: boolean;
 }
 
 /** GET /v1/projects/:pid/round: null before any upload. */

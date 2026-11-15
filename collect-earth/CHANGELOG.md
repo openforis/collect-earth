@@ -5,6 +5,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Security
+- Collect Earth Cloud: what each role sees and takes away, tightened after a review
+  - A reviewer's Analysis page no longer names anybody (the collector column is empty and no per-person chart is offered), leaves out the records of the reference plots, and offers no stand-alone file (the server refuses it)
+  - Keys and passwords are taken out of a project file when it is uploaded (`planet_maps_key`, `planet_maps_ce_key`, `google_maps_api_key`, `ga_api_secret`, `db_username`, `db_password`, the cloud tokens) and out of the file every collector downloads; the Project file tab says which were removed, and warns when the extra map's address carries a key
+  - A collector reads the earlier periods' answers only of the plots given to them or that they assessed
+  - An invitation made without an expiry lasts 30 days (`expiresInDays: 0` for one that never expires, which the dashboard's "never" sends)
+- The Planet key is no longer part of the address sent to openforis.org when the monthly mosaics open: it goes after the `#`, which the browser keeps to itself, and the page takes it out of the address bar and the history. `resources/planet.html` reads both forms and has to be published at openforis.org/fileadmin/planet.html **before** this version is released: the page published today does not find the key after the `#`
 ### Added
 - Collect Earth Cloud: the coordinator sets the plot layout and the imagery windows on the dashboard's Project file tab, and every collector's Collect Earth applies them by itself
   - "Plot layout": the choices of Collect Earth's Settings > Plot (the shape, the sampling points, the distances and the reference area), with the same ranges, the same fields for each shape, the rule that the reference area holds the plot, and the same drawing of the plot. Once data has been collected, saving asks first: plots already collected keep their answers, and answers per point may no longer line up when the number of points changes

@@ -211,7 +211,9 @@
 
 	// URL Parameters:
 	// - latlngs: JSON array of polygon coordinates (required)
-	// - planet_api_key: Planet API key for Tropical Forest Observatory access (required)
+	// - planet_api_key: Planet API key for Tropical Forest Observatory access (required). Collect Earth sends it
+	//   after the # (planet.html?latlngs=...#planet_api_key=KEY), which the browser does not send to the web server;
+	//   in the query (older versions of Collect Earth) it is still read
 	// - planet_date_from: Start date for comparison (optional, defaults to '2016-06_2016-11')
 	// - planet_date_to: End date for comparison (optional, defaults to latest available)
 	// Example: planet.html?latlngs=[[[1,3],[4,4],[4,2],[1,3]]]&planet_api_key=YOUR_API_KEY
@@ -223,7 +225,16 @@
 	var toMonthImage = params.get('planet_date_to' );
 
 	// Planet API key from URL parameter (required for Tropical Forest Observatory access)
-	const apiKey = params.get('planet_api_key');
+	const apiKey = new URLSearchParams(location.hash.replace(/^#/, '')).get('planet_api_key') || params.get('planet_api_key');
+	// Out of the address bar and the browser's history once read
+	if (apiKey && window.history && history.replaceState) {
+		try {
+			const shown = new URL(location.href);
+			shown.hash = '';
+			shown.searchParams.delete('planet_api_key');
+			history.replaceState(null, '', shown.toString());
+		} catch (e) { /* the page works with the key left in the address */ }
+	}
 
 	// Check if API key is provided
 	if (!apiKey) {

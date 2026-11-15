@@ -248,8 +248,12 @@ describe('GET /analysis', () => {
     ]);
     expect(body.areas).toEqual({ source: 'region_areas.csv', plots: 3, unmatched: 0, unknownColumns: [], noStratum: { plots: 0, examples: [] } });
 
+    // A reviewer: every record, of nobody by name (neither the column nor the survey's own operator answer)
     const reviewer = (await call('/analysis', people.rev)).json();
+    expect(reviewer.scope).toBe('team');
     expect(reviewer.tables[0].rows).toBe(3);
+    expect(rowsOf(reviewer.tables[0].csv).map((r) => [r._operator, r._round, r.land_use_category])).toEqual([['', '1', 'F'], ['', '1', 'C'], ['', '1', 'G']]);
+    expect(reviewer.tables[0].csv).not.toMatch(/\bana\b|\bbo\b/);
 
     const ana = (await call('/analysis', people.ana)).json();
     expect(ana.scope).toBe('own');
@@ -257,6 +261,31 @@ describe('GET /analysis', () => {
     expect(own.map((r) => [r._operator, r._round, r._assessment])).toEqual([['ana', '', ''], ['ana', '', '']]);
     // the areas are the plots', worked out over the whole project
     expect(own.map((r) => Number(r.expansion_factor))).toEqual([300, 300]);
+  });
+
+  it('shows a reviewer no reference plot and nobody by name, and gives them no file to take away', async () => {
+    await upload();
+    const fileId = (await call('/csv-files', owner.token)).json().csvFiles[0].id as string;
+    // Reference plots are plots of a divided file
+    const collectors = (await ctx.store.listMembers(pid)).filter((m) => m.role === 'operator').map((m) => m.userId);
+    const divided = await ctx.app.inject({ method: 'PUT', url: `/v1/projects/${pid}/csv-files/${fileId}/distribution`, headers: bearer(owner.token), payload: { mode: 'even', people: collectors, order: 'file' } });
+    expect(divided.statusCode, divided.body).toBe(200);
+    const marked = await ctx.app.inject({ method: 'POST', url: `/v1/projects/${pid}/reference/plots`, headers: bearer(owner.token), payload: { csvFileId: fileId, assessorUserId: owner.userId, plots: ['3'] } });
+    expect(marked.statusCode, marked.body).toBeLessThan(300);
+    // ana's plot, and bo's measurement of the reference plot (its round 2)
+    await send('ana', '1,1', { collect_text_id: '1', collect_text_operator: 'ana', collect_code_land_use_category: 'F' });
+    await send('bo', '3,2', { collect_text_id: '3', collect_text_operator: 'bo', collect_code_land_use_category: 'G' });
+
+    const reviewer = (await call('/analysis', people.rev)).json();
+    const rows = rowsOf(reviewer.tables.find((t: { name: string }) => t.name === 'plot').csv);
+    expect(rows.map((r) => r.id)).toEqual(['1']);
+    expect(JSON.stringify(reviewer.tables)).not.toMatch(/\bana\b|\bbo\b/);
+    // The coordinator keeps both, with their names
+    const coordinator = (await call('/analysis', owner.token)).json();
+    expect(rowsOf(coordinator.tables.find((t: { name: string }) => t.name === 'plot').csv).map((r) => [r.id, r._operator])).toEqual([['1', 'ana'], ['3', 'bo']]);
+
+    const file = await call('/analysis/standalone', people.rev);
+    expect(file.statusCode).toBe(403);
   });
 
   it('puts the area only on the record that counts for its plot, so the areas add up whatever the filter', async () => {

@@ -43,7 +43,8 @@ import {
 } from '../repeatSurvey.js';
 import { copyProject } from '../projectCopy.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
-import { keyShape, splitKey } from '../rounds.js';
+import { fileKeyCount, keyShape, splitKey } from '../rounds.js';
+import { plotIdsOf } from '../plotFileCache.js';
 import type { Store } from '../store/store.js';
 import { surveyOutline, type Question } from '../surveyOutline.js';
 import type { RepeatSettings } from '../types.js';
@@ -123,6 +124,28 @@ export async function servePeriodStatus(store: Store, projectId: string): Promis
 }
 
 const questionList = (outline: ReadonlyMap<string, Question>) => headerCandidates(outline).map((q) => ({ key: q.key, label: q.label, kind: q.kind }));
+
+/**
+ * Whether a plot is one of a collector's: held in a divided file (as a main plot or a copy), in a whole plot file
+ * given to them, or assessed by them already (a record of theirs: a plot sent back to check again, say). `names`: the
+ * plot as asked for and without its round.
+ */
+async function collectorHasPlot(store: Store, projectId: string, userId: string, names: string[], info: Awaited<ReturnType<Store['getRoundInfo']>>): Promise<boolean> {
+  const wanted = new Set(names);
+  for (const held of await store.listPlotHoldings(projectId, userId)) {
+    if (held.plotKeys.some((k) => wanted.has(k)) || held.copyKeys.some((k) => wanted.has(k))) return true;
+  }
+  for (const meta of await store.listAssignmentsForUser(projectId, userId)) {
+    if (meta.distribution != null) continue;
+    const file = await store.getCsvFile(projectId, meta.id);
+    if (file && plotIdsOf(file, fileKeyCount(info)).some((id) => wanted.has(id))) return true;
+  }
+  const user = await store.getUserById(userId);
+  if (user) {
+    for (const name of names) if (await store.getRecord(projectId, name, user.username)) return true;
+  }
+  return false;
+}
 
 export async function registerRepeatSurveyRoutes(app: FastifyInstance, store: Store): Promise<void> {
   const admin = { preHandler: requireProjectMembership(store, 'admin') };
@@ -429,16 +452,17 @@ export async function registerRepeatSurveyRoutes(app: FastifyInstance, store: St
   app.get('/v1/projects/:pid/periods/plots/:plot', member, async (request: FastifyRequest, reply: FastifyReply) => {
     const projectId = request.membership!.projectId;
     const plot = (request.params as { plot: string }).plot;
-    // The plot as the desktop names it ("17,1", with the round of its key) or as the plot files do ("17")
-    let rows = await store.getPlotPeriodAnswers(projectId, plot);
-    if (rows.length === 0) {
-      const info = await store.getRoundInfo(projectId);
-      const { plot: bare } = splitKey(plot, keyShape(info).count, keyShape(info).roundIndex);
-      if (bare !== plot) rows = await store.getPlotPeriodAnswers(projectId, bare);
-    }
-    const settings = await store.getRepeatSettings(projectId);
     const role = request.membership!.role;
     const seesWho = role === 'admin' || role === 'reviewer';
+    const info = await store.getRoundInfo(projectId);
+    const { plot: bare } = splitKey(plot, keyShape(info).count, keyShape(info).roundIndex);
+    // The plot as the desktop names it ("17,1", with the round of its key) or as the plot files do ("17")
+    let rows = await store.getPlotPeriodAnswers(projectId, plot);
+    if (rows.length === 0 && bare !== plot) rows = await store.getPlotPeriodAnswers(projectId, bare);
+    // A collector reads the earlier answers of their own plots (the plot form shows them), not of any plot of the
+    // project: for another one the answer is as for a plot without earlier periods
+    if (!seesWho && request.userId && rows.length > 0 && !(await collectorHasPlot(store, projectId, request.userId, [plot, bare], info))) rows = [];
+    const settings = await store.getRepeatSettings(projectId);
     // The questions' labels and their answers' names, from the survey: the project may have no record of the plot yet
     const outline = rows.length > 0 ? outlineOf(await store.getCep(projectId)) : null;
     const keys = [...new Set(rows.flatMap((r) => Object.keys(r.answers)))];

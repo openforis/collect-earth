@@ -124,9 +124,9 @@ function csvField(value: string): string {
 }
 
 /** The fixed columns: what Collect Earth Cloud knows of each record, beside its answers. */
-const FIXED: { id: string; key: MessageKey; sql: (alias: string, t: Translate) => string; kind: ColumnKind; rounds?: boolean; time?: boolean; values?: (t: Translate) => Record<string, string> }[] = [
+const FIXED: { id: string; key: MessageKey; sql: (alias: string, t: Translate) => string; kind: ColumnKind; rounds?: boolean; people?: boolean; time?: boolean; values?: (t: Translate) => Record<string, string> }[] = [
   { id: "_plot", key: "analysis.col.plot", sql: (a) => `${a}._plot`, kind: "text" },
-  { id: "_operator", key: "analysis.col.operator", sql: (a) => `${a}._operator`, kind: "text" },
+  { id: "_operator", key: "analysis.col.operator", sql: (a) => `${a}._operator`, kind: "text", people: true },
   { id: "_round", key: "analysis.col.round", sql: (a) => `${a}._round`, kind: "text", rounds: true },
   {
     id: "_assessment",
@@ -206,6 +206,8 @@ export function cubeOf(data: Pick<AnalysisAnswer, "model" | "scope" | "areas">, 
   const plotAlias = nested ? "p" : "t";
   for (const f of FIXED) {
     if (f.rounds && data.scope === "own") continue;
+    // A reviewer's data names nobody (the server leaves the column empty)
+    if (f.people && data.scope === "team") continue;
     add(f.id, t(f.key), f.id, f.sql(plotAlias, t), f.kind, "collection", f.values?.(t), f.time ? { time: true } : {});
   }
   answers(plot, plotAlias, nested ? "plot." : "", "survey");

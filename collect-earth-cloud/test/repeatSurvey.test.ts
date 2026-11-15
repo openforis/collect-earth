@@ -325,6 +325,12 @@ describe('repeating a survey in the dashboard', () => {
     const forCollector = await call('GET', '/periods/plots/1', maria.token, undefined, {}, projectId);
     expect(forCollector.json().periods[0]).not.toHaveProperty('operator');
     expect((await call('GET', '/periods/plots/3', owner.token, undefined, {}, projectId)).json().periods).toEqual([]);
+    // someone who joins the new project and holds no plot of it reads nobody's earlier answers
+    const invite = await ctx.app.inject({ method: 'POST', url: `/v1/projects/${projectId}/invites`, headers: bearer(owner.token), payload: { role: 'operator', maxUses: 1 } });
+    const lucia = (await ctx.app.inject({ method: 'POST', url: '/v1/auth/register', payload: { username: 'lucia', password: 'password12', inviteToken: invite.json().inviteToken } })).json().token as string;
+    const forOther = (await call('GET', '/periods/plots/1', lucia, undefined, {}, projectId)).json();
+    expect(forOther.periods).toEqual([]);
+    expect(forOther.labels).toEqual({});
     // as the desktop names the plot (with the round the server added), with what the form's header shows
     const asDesktop = (await call('GET', '/periods/plots/1,1', maria.token, undefined, {}, projectId)).json();
     expect(asDesktop.periods[0].answers[LAND_USE]).toBe('F');

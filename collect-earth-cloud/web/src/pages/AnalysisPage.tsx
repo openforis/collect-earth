@@ -668,7 +668,8 @@ export function Pivot({ projectId, projectName, role, data, language, standalone
             </IconButton>
           </span>
         </Tooltip>
-        {!standalone && (
+        {/* The file to take away is the coordinators' (and a collector's, of their own plots): the server refuses a reviewer */}
+        {!standalone && role !== "reviewer" && (
           <Tooltip title={t("analysis.standalone")}>
             <span>
               <IconButton aria-label={t("analysis.standalone")} onClick={() => setPackOpen(true)} disabled={packing}>
@@ -724,6 +725,8 @@ export function Pivot({ projectId, projectName, role, data, language, standalone
     <Stack spacing={2}>
       {data.scope === "own" ? (
         <Typography color="text.secondary">{t("analysis.explainOwn", { count: formatNumber(plotRows, language) })}</Typography>
+      ) : data.scope === "team" ? (
+        <Typography color="text.secondary">{t("analysis.explainTeam", { count: formatNumber(plotRows, language) })}</Typography>
       ) : (
         <Explain text={t("analysis.explain.short", { count: formatNumber(plotRows, language) })} more={t("analysis.explain", { count: formatNumber(plotRows, language) })} />
       )}

@@ -476,6 +476,17 @@ describe('invites, overview and export', () => {
     }
   });
 
+  it('gives an invitation 30 days unless told otherwise, and no end only when asked', async () => {
+    const day = 24 * 60 * 60 * 1000;
+    const silent = (await invite(ctx.app, project.projectId, project.adminToken, { role: 'operator', maxUses: 5 })).json();
+    expect(silent.expiresAt).toBeGreaterThan(Date.now() + 29 * day);
+    expect(silent.expiresAt).toBeLessThanOrEqual(Date.now() + 30 * day);
+    const week = (await invite(ctx.app, project.projectId, project.adminToken, { role: 'operator', maxUses: 5, expiresInDays: 7 })).json();
+    expect(week.expiresAt).toBeLessThanOrEqual(Date.now() + 7 * day);
+    const never = (await invite(ctx.app, project.projectId, project.adminToken, { role: 'operator', maxUses: 5, expiresInDays: 0 })).json();
+    expect(never.expiresAt).toBeNull();
+  });
+
   it('lists open invites without their tokens and revokes them', async () => {
     const created = await invite(ctx.app, project.projectId, project.adminToken, { role: 'operator', maxUses: 5, expiresInDays: 3 });
     const inviteToken = created.json().inviteToken as string;

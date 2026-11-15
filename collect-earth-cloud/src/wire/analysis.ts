@@ -70,8 +70,12 @@ export type AreasSource = 'region_areas.csv' | 'areas_per_attribute.csv' | 'stra
 /** GET /v1/projects/:pid/analysis (any member): the survey's model and the rows of its tables. */
 export interface AnalysisAnswer {
   model: AnalysisModel;
-  /** "project": every record (coordinators, reviewers); "own": the person's own, without rounds (collectors). */
-  scope: 'project' | 'own';
+  /**
+   * "project": every record (coordinators); "team": every record but those of reference plots, without who made each
+   * (reviewers: no figures per person, and nothing that tells which plots are reference plots); "own": the person's own,
+   * without rounds (collectors).
+   */
+  scope: 'project' | 'team' | 'own';
   /**
    * Where the areas come from, or null: no areas. `unmatched`: lines of the file that matched no plot, or whose area
    * could not be read; `unknownColumns`: the file's columns that are no question of the survey; `noStratum`: plots in no

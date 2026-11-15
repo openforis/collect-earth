@@ -16,7 +16,7 @@ import Typography from "@mui/material/Typography";
 import Download from "@mui/icons-material/Download";
 import InsertDriveFile from "@mui/icons-material/InsertDriveFile";
 import { useState } from "react";
-import { ApiError, cepGridFiles, downloadOriginalCep, getOverview, getRoundInfo, listCsvFiles, mergeGridFiles, setReassessmentCode, uploadCep, uploadCsvFile, type RoundInfo } from "../api";
+import { ApiError, cepGridFiles, downloadOriginalCep, getOverview, getRoundInfo, listCsvFiles, mergeGridFiles, setReassessmentCode, uploadCsvFile, uploadProjectFile, type RoundInfo } from "../api";
 import { useApp } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { CardFrame } from "../components/FoldingCard";
@@ -183,6 +183,7 @@ export function FileTab({ projectId }: { projectId: string }) {
   const [error, setError] = useState<unknown>(null);
   const [wrongType, setWrongType] = useState(false);
   const [uploaded, setUploaded] = useState(false);
+  const [cleaned, setCleaned] = useState<{ removed: string[]; keyInExtraMap: boolean } | null>(null);
   // Counts uploads, so the round section starts again from what the server says about the new file.
   const [uploads, setUploads] = useState(0);
   // The plot files of the project file's grid folder: how many were added, and which were refused (and why).
@@ -234,13 +235,16 @@ export function FileTab({ projectId }: { projectId: string }) {
   const upload = async ([file]: File[]) => {
     setError(null);
     setUploaded(false);
+    setCleaned(null);
     setGrid(null);
     setPendingGrid(null);
     setWrongType(!file.name.toLowerCase().endsWith(".cep"));
     if (!file.name.toLowerCase().endsWith(".cep")) return;
     setProgress(0);
     try {
-      const info = await uploadCep(projectId, file, setProgress);
+      const answer = await uploadProjectFile(projectId, file, setProgress);
+      const info = answer.round;
+      setCleaned({ removed: answer.removedSettings ?? [], keyInExtraMap: answer.keyInExtraMap ?? false });
       setUploaded(true);
       setUploads((n) => n + 1);
       // The new file's plot layout and imagery (Setup's section of them): asked again when it opens, not the old file's
@@ -294,6 +298,11 @@ export function FileTab({ projectId }: { projectId: string }) {
             </div>
           )}
           {wrongType && <Alert severity="warning" role="alert">{t("file.wrongType")}</Alert>}
+          {/* Keys and passwords the file's settings carried: left out by the server, as every person downloads the file */}
+          {cleaned && cleaned.removed.length > 0 && (
+            <Alert severity="warning" role="status">{t("file.secretsRemoved", { settings: cleaned.removed.join(", ") })}</Alert>
+          )}
+          {cleaned?.keyInExtraMap && <Alert severity="warning" role="status">{t("file.keyInExtraMap")}</Alert>}
           {uploaded && (
             <Alert severity="success" role="status">
               {t("file.uploaded.short")}

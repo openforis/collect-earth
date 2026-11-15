@@ -9,6 +9,7 @@
 import { attr, childrenOf, elements, parseSurvey, tagOf, textOf, type XmlNode } from './cep.js';
 import { withWeights } from './areas.js';
 import { prefixOf, QUALIFIER_SEPARATOR } from './surveyOutline.js';
+import { OPERATOR_SUMMARY_KEY } from './anonymize.js';
 import type { AnalysisColumn, AnalysisModel, AnalysisTable, ColumnType, Labels, ListItem, TableData } from './wire/analysis.js';
 
 export type { AnalysisColumn, AnalysisModel, AnalysisTable, ColumnType, Labels, ListItem, TableData } from './wire/analysis.js';
@@ -261,7 +262,7 @@ export function analysisTables(
   model: AnalysisModel,
   records: readonly AnalysisRecord[],
   factors: ReadonlyMap<string, { factor: number; weight: number }> | null,
-  options: { hideRounds?: boolean } = {},
+  options: { hideRounds?: boolean; hidePeople?: boolean } = {},
 ): TableData[] {
   const out: TableData[] = [];
   const fixed = (r: AnalysisRecord): string[] => [
@@ -269,7 +270,7 @@ export function analysisTables(
     r.plot ?? '',
     options.hideRounds ? '' : r.round,
     options.hideRounds ? '' : r.assessment,
-    r.operator,
+    options.hidePeople ? '' : r.operator,
     String(r.submitted),
     isoDay(r.modifiedOn),
   ];
@@ -281,7 +282,8 @@ export function analysisTables(
     let rows = 0;
     if (table.name === 'plot') {
       for (const r of records) {
-        const cells = [...fixed(r), ...table.columns.map((c) => cell(c, r.summary[c.key]))];
+        // Who made the record is also an answer of it (the survey's operator attribute): left out with the people
+        const cells = [...fixed(r), ...table.columns.map((c) => (options.hidePeople && c.key === OPERATOR_SUMMARY_KEY ? '' : cell(c, r.summary[c.key])))];
         if (factors) {
           const f = factors.get(recordId(r.recordKey, r.operator));
           cells.push(f ? String(f.factor) : '', f ? String(f.weight) : '');

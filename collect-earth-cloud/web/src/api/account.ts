@@ -189,7 +189,8 @@ export function createInvite(
   options: { role: Role; maxUses: number; expiresInDays: number | null; forUserId?: string },
 ): Promise<NewInvite> {
   const json: { role: Role; maxUses: number; expiresInDays?: number; forUserId?: string } = { role: options.role, maxUses: options.maxUses };
-  if (options.expiresInDays) json.expiresInDays = options.expiresInDays;
+  // Never to expire (null) is said as 0: the server gives a link without a word about it 30 days
+  json.expiresInDays = options.expiresInDays ?? 0;
   // A link for someone already in the project: the server makes it a one-person, one-week collector link.
   if (options.forUserId) json.forUserId = options.forUserId;
   return request<NewInvite>("POST", `${p(projectId)}/invites`, { json });

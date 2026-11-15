@@ -9,6 +9,7 @@ import { checkUploadFits } from '../limits.js';
 import { servedBundledPlotFile } from './assignments.js';
 import { fileKeyCount } from '../rounds.js';
 import { invitesFor } from './people.js';
+import { withoutSecrets } from '../cepSecrets.js';
 import { requireProjectMembership, requireSession } from '../plugins/projectAuth.js';
 import type { Store } from '../store/store.js';
 import type { Role, RoundInfo } from '../types.js';
@@ -177,6 +178,9 @@ const MAX_EXCLUDED_REASON = 500;
  * public preview, CEP download/upload, and member management. All project-scoped
  * routes go through requireProjectMembership so the §4b tenant boundary holds.
  */
+/** How long an invitation link lasts when its maker does not say (the dashboard's own default) */
+export const DEFAULT_INVITE_DAYS = 30;
+
 export async function registerPlatformRoutes(app: FastifyInstance, store: Store, config: Config): Promise<void> {
   // The logged-in user's projects (dashboard home). Session-only: returns strictly
   // the caller's memberships — there is no global project listing.
@@ -206,8 +210,10 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
       }
       const role: Role = forUserId !== null ? 'operator' : body.role && VALID_ROLES.includes(body.role) ? body.role : 'operator';
       const maxUses = forUserId !== null ? 1 : Number.isInteger(body.maxUses) && body.maxUses! > 0 ? body.maxUses! : 1;
-      const days = forUserId !== null ? 7 : body.expiresInDays;
-      const expiresAt = typeof days === 'number' && days > 0 ? Date.now() + days * 24 * 60 * 60 * 1000 : null;
+      // A link lasts DEFAULT_INVITE_DAYS unless told otherwise; never to expire is asked for (0), not what silence gives:
+      // a forgotten link that still lets anyone in is how a project gets people nobody invited
+      const days = forUserId !== null ? 7 : typeof body.expiresInDays === 'number' && body.expiresInDays >= 0 ? body.expiresInDays : DEFAULT_INVITE_DAYS;
+      const expiresAt = days > 0 ? Date.now() + days * 24 * 60 * 60 * 1000 : null;
       const { token, id: inviteId } = await store.createInvite({
         projectId: request.membership!.projectId,
         role,
@@ -297,9 +303,12 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
       }
       const accepted = await acceptCep(store, projectId, cep, request.log);
       if (!accepted.ok) return reply.code(accepted.status).send(accepted.body);
-      const { info, noteColumnChanged } = accepted;
+      const { info, noteColumnChanged, removedSettings, keyInExtraMap } = accepted;
       await audit(store, request, 'cep.replaced', { bytes: cep.length });
-      return reply.send({ ok: true, bytes: cep.length, round: info, ...(noteColumnChanged ? { noteColumnChanged } : {}) } satisfies CepUploadAnswer);
+      return reply.send({
+        ok: true, bytes: cep.length, round: info, ...(noteColumnChanged ? { noteColumnChanged } : {}),
+        ...(removedSettings.length > 0 ? { removedSettings } : {}), ...(keyInExtraMap ? { keyInExtraMap } : {}),
+      } satisfies CepUploadAnswer);
     },
   );
 
@@ -496,7 +505,7 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
 
 /** What storing an uploaded project file came to: the round information, or the refusal to answer. */
 export type CepAcceptance =
-  | { ok: true; info: RoundInfo; noteColumnChanged?: { from: number; to: number } }
+  | { ok: true; info: RoundInfo; noteColumnChanged?: { from: number; to: number }; removedSettings: string[]; keyInExtraMap: boolean }
   | { ok: false; status: number; body: object };
 
 /**
@@ -504,10 +513,23 @@ export type CepAcceptance =
  * round added before collection or the key shape kept once records exist, the coordinator's note, the project file's own
  * plot file given their columns, the space limit. A refusal is returned, not thrown, for the caller to answer.
  */
-export async function acceptCep(store: Store, projectId: string, cep: Buffer, log: FastifyBaseLogger): Promise<CepAcceptance> {
+export async function acceptCep(store: Store, projectId: string, uploaded: Buffer, log: FastifyBaseLogger): Promise<CepAcceptance> {
   const refuse = (status: number, body: object): CepAcceptance => ({ ok: false, status, body });
   const previous = await store.getRoundInfo(projectId);
   const date = new Date();
+  // Before anything is kept (the file served, and the one "as uploaded"): the keys and passwords its settings carry
+  // are no part of a file every person of the project downloads. A file that cannot be read is refused below, as it is.
+  let cep = uploaded;
+  let removedSettings: string[] = [];
+  let keyInExtraMap = false;
+  try {
+    const clean = withoutSecrets(uploaded, date);
+    ({ cep, keyInExtraMap } = clean);
+    removedSettings = clean.removed;
+    if (removedSettings.length > 0) log.info({ projectId, settings: removedSettings }, 'project file: keys and passwords left out of its settings');
+  } catch {
+    // not a project file that can be read: what follows says why
+  }
   let served = cep;
   let original: Buffer | null = null;
   let info: RoundInfo;
@@ -603,5 +625,5 @@ export async function acceptCep(store: Store, projectId: string, cep: Buffer, lo
   if (keyCountBefore !== keyCountAfter) {
     await store.recountPlots(projectId, keyCountAfter);
   }
-  return { ok: true, info, ...(noteColumnChanged ? { noteColumnChanged } : {}) };
+  return { ok: true, info, ...(noteColumnChanged ? { noteColumnChanged } : {}), removedSettings, keyInExtraMap };
 }

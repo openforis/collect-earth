@@ -72,9 +72,11 @@ export function modelOf(cep: Buffer): Parsed {
  * gzipped when the browser takes it: the model of the survey (tables, columns, labels, code lists) and the rows of every
  * table as CSV with their DuckDB types, plus the expansion factors from the project file's areas file.
  *
- * Who sees what: coordinators and reviewers every record of the project, the round and whether it is a first assessment
- * or a check included; a collector their own records only, without the round (nothing tells them which of their plots are
- * checks, as on My work). Training records are never in it (they are kept apart). The local mode has its one account as
+ * Who sees what: coordinators every record of the project, the round and whether it is a first assessment or a check
+ * included. Reviewers the same without who made each record (no figures per person for them: the plan's Decision 10, as
+ * GET /quality/answers refuses them `person=`) and without the records of reference plots (nothing shows them one,
+ * anywhere: their many checks would give them away); the areas are still those of every plot. A collector their own
+ * records only, without the round (nothing tells them which of their plots are checks, as on My work). Training records are never in it (they are kept apart). The local mode has its one account as
  * coordinator: everything.
  */
 export async function registerAnalysisRoutes(app: FastifyInstance, store: Store, states: ProjectStateCache, webDir: string | null = null): Promise<void> {
@@ -94,9 +96,13 @@ export async function registerAnalysisRoutes(app: FastifyInstance, store: Store,
    * `GET /v1/projects/:pid/analysis/standalone`: the analysis as one HTML file that opens in any browser with no server,
    * no internet and no installation (what replaces the stand-alone Saiku tool): the dashboard's stand-alone page (built
    * into web/dist by web/standalone.config.ts) with the same data as the page above, for whoever asks (a collector their
-   * own records), gzipped inside it.
+   * own records), gzipped inside it. Not for reviewers: the project's data leaves it as a file by its coordinators only
+   * (the Data tab's downloads are theirs); a reviewer works on the page.
    */
   app.get('/v1/projects/:pid/analysis/standalone', member, async (request: FastifyRequest, reply: FastifyReply) => {
+    if (request.membership!.role === 'reviewer') {
+      return reply.code(403).send({ error: 'forbidden', reason: 'the stand-alone analysis file is for coordinators (and collectors, of their own plots)' });
+    }
     const template = standaloneTemplate(webDir);
     if (!template) return reply.code(404).send({ error: 'no_standalone', message: 'This server was installed without the stand-alone analysis page.' });
     // Without plot locations (?coordinates=none): a file to share with whoever only needs the figures
@@ -141,6 +147,9 @@ export async function registerAnalysisRoutes(app: FastifyInstance, store: Store,
     const resolve = recordResolver({ info: context.info, units: context.units, copyHolders: context.copyHolders });
     const everyone = role === 'admin' || role === 'reviewer';
     const username = everyone ? null : (served.members.find((m) => m.userId === request.userId)?.username ?? null);
+    // A reviewer: no reference plot (its unit, or the plot of its key), and nobody's name
+    const team = role === 'reviewer';
+    const hidden = team ? new Set(context.reference.keys()) : null;
 
     // A repeat survey's earlier periods: their answers as columns of the plot table, by the plot as they are kept
     const repeat = await store.getRepeatSettings(projectId);
@@ -160,6 +169,7 @@ export async function registerAnalysisRoutes(app: FastifyInstance, store: Store,
       if (r.deleted) continue;
       if (!everyone && r.operator !== username) continue;
       const { unit, round } = resolve(r);
+      if (hidden && ((unit !== null && hidden.has(unit)) || hidden.has(round.plot))) continue;
       records.push({
         recordKey: r.recordKey,
         operator: r.operator,
@@ -176,10 +186,10 @@ export async function registerAnalysisRoutes(app: FastifyInstance, store: Store,
     const firsts = firstAssessments(rows, resolve);
     const factors = await projectFactors(store, projectId, parsed, firsts, context.info);
 
-    const tables = analysisTables(model, records, factors ? factorsByRecord(factors, firsts) : null, { hideRounds: !everyone });
+    const tables = analysisTables(model, records, factors ? factorsByRecord(factors, firsts) : null, { hideRounds: !everyone, hidePeople: team });
     return {
       model,
-      scope: everyone ? 'project' : 'own',
+      scope: team ? 'team' : everyone ? 'project' : 'own',
       areas: factors
         ? { source: factors.source, plots: factors.byPlot.size, unmatched: factors.unmatched, unknownColumns: factors.unknownColumns, noStratum: factors.noStratum }
         : null,

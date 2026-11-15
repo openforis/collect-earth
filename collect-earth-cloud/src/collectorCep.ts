@@ -1,6 +1,7 @@
 // The project file as a collector downloads it: with its plot files emptied (only their header
 // line kept), so Collect Earth shows a collector no plot but those of the plot files assigned to
 // them. Coordinators and reviewers download it whole.
+import { propertiesWithoutSecrets } from './cepSecrets.js';
 import { createHash } from 'node:crypto';
 import { CEP_PROPERTIES_PATH, CepError, DEFAULT_CEP_LIMITS, namedPlotPath, packEntry, writeZip, zipEntryList, type PackedZipEntry } from './cep.js';
 import { parsePlotFile } from './plots.js';
@@ -64,6 +65,14 @@ export function withPlotFilesEmptied(served: Buffer): Buffer | null {
   const named = namedPlotPath(properties?.read());
   let changed = false;
   const packed: PackedZipEntry[] = list.map((e) => {
+    if (e.name === CEP_PROPERTIES_PATH) {
+      // A file stored before uploads were cleaned of them (cepSecrets): no key or password reaches a collector
+      const clean = propertiesWithoutSecrets(Buffer.from(e.read()));
+      if (clean === null) return e.packed;
+      changed = true;
+      const { dosTime, dosDate } = twoSecondsEarlier(e.packed.dosTime, e.packed.dosDate);
+      return { ...packEntry(e.name, clean, dosTime, dosDate), nameBytes: e.packed.nameBytes, flags: e.packed.flags };
+    }
     if (!isPlotFilePath(e.name, named)) return e.packed;
     const data = Buffer.from(e.read());
     const header = headerOnly(data);

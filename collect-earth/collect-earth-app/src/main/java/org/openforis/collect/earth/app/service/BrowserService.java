@@ -1028,9 +1028,6 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 			String latlngs = getLatLngsForPlanetHtml(placemarkObject);
 			url.append("latlngs=").append(URLEncoder.encode(latlngs, StandardCharsets.UTF_8.toString()));
 
-			// Add API key
-			url.append("&planet_api_key=").append(URLEncoder.encode(apiKey, StandardCharsets.UTF_8.toString()));
-
 			// Add optional date parameters. The "first / latest available" choices of the options dialog are saved as
 			// empty values; properties written by older versions hold the words "Oldest" / "Latest" for the same thing
 			String dateFrom = localPropertiesService.getPlanetTfoDateFrom();
@@ -1042,6 +1039,10 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 			if (StringUtils.isNotBlank(dateTo) && !"Latest".equals(dateTo)) {
 				url.append("&planet_date_to=").append(URLEncoder.encode(dateTo, StandardCharsets.UTF_8.toString()));
 			}
+
+			// The key goes after the #: a browser keeps that part to itself, so the key reaches neither the web server
+			// of the page nor its logs, nor a Referer header. It is last, as everything after the # is the fragment
+			url.append("#planet_api_key=").append(URLEncoder.encode(apiKey, StandardCharsets.UTF_8.toString()));
 
 			loadInTab(ImagerySource.PLANET, selection, url.toString());
 

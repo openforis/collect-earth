@@ -126,7 +126,7 @@ export function templatesOf(data: Pick<AnalysisAnswer, "model" | "scope" | "area
   const byId = new Map(cube.columns.map((c) => [c.id, c]));
   const name = (id: string | undefined) => (id === undefined ? undefined : byId.get(id)?.name);
   const assessment = name("_assessment");
-  const firsts: Filter[] = assessment && data.scope === "project" ? [[assessment, "==", t("analysis.assessment.main")]] : [];
+  const firsts: Filter[] = assessment && data.scope !== "own" ? [[assessment, "==", t("analysis.assessment.main")]] : [];
   const q = (rows: (string | undefined)[], columns: (string | undefined)[], ms: string[], chart = "Datagrid", filters = firsts, order: Question["order"] = "name"): Question => ({
     rows: rows.filter((x): x is string => !!x),
     columns: columns.filter((x): x is string => !!x),
@@ -196,7 +196,10 @@ export function templatesOf(data: Pick<AnalysisAnswer, "model" | "scope" | "area
   const numeric = cube.columns.find((c) => c.group === "survey" && c.kind === "number" && !c.time);
   if (numeric && main) out.push({ id: `avg:${numeric.id}`, label: t("analysis.tpl.avgBy", { measure: numeric.name, field: main }), question: q([main], [], [`avg:${numeric.id}`], "X Bar") });
   // Bars, not lines: a line through a single week (a survey started this week) draws nothing at all
-  if (data.scope === "project") {
+  if (data.scope === "team") {
+    // A reviewer: the weeks by assessment, and nobody by name
+    out.push({ id: "perWeek", label: t("analysis.tpl.perWeek"), question: q([name("_saved_week")], [assessment], ["plots"], "Y Bar", []) });
+  } else if (data.scope === "project") {
     out.push({ id: "byCollector", label: t("analysis.tpl.byCollector"), question: q([name("_operator")], [name("_saved_month")], ["plots"], "Datagrid", []) });
     out.push({ id: "perWeek", label: t("analysis.tpl.perWeek"), question: q([name("_saved_week")], [assessment], ["plots"], "Y Bar", []) });
   } else {

@@ -370,7 +370,7 @@ describe("normalising responses", () => {
     expect(await getAccountDeletion()).toEqual({ soleCoordinator: [], deletedWithAccount: [{ projectId: "p", name: "Mine" }], lastPlatformAdmin: false });
   });
 
-  it("makes an invitation link: an expiry only when one is chosen", async () => {
+  it("makes an invitation link: its expiry in days, 0 for never (the server gives silence 30 days)", async () => {
     fetchMock.mockResolvedValue(jsonResponse(201, { inviteToken: "abc", joinPath: "/join/abc", joinUrl: "https://cloud.org/join/abc", role: "operator", maxUses: 5, expiresAt: 1_700_000_000_000 }));
     const invite = await createInvite("p1", { role: "operator", maxUses: 5, expiresInDays: 7 });
     expect(invite.joinUrl).toBe("https://cloud.org/join/abc");
@@ -378,7 +378,7 @@ describe("normalising responses", () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1]!.body as string)).toEqual({ role: "operator", maxUses: 5, expiresInDays: 7 });
     fetchMock.mockResolvedValue(jsonResponse(201, { inviteToken: "def", joinPath: "/join/def", joinUrl: "https://cloud.org/join/def", role: "admin", maxUses: 1, expiresAt: null }));
     await createInvite("p1", { role: "admin", maxUses: 1, expiresInDays: null, forUserId: "u2" });
-    expect(JSON.parse(fetchMock.mock.calls[1][1]!.body as string)).toEqual({ role: "admin", maxUses: 1, forUserId: "u2" });
+    expect(JSON.parse(fetchMock.mock.calls[1][1]!.body as string)).toEqual({ role: "admin", maxUses: 1, expiresInDays: 0, forUserId: "u2" });
   });
 
   it("lists the open invitations, with whom one was made for", async () => {
