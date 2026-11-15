@@ -57,6 +57,12 @@ public class CloudServiceTest {
 		assertEquals("tok", preview.get("inviteToken"));
 		when(api.getJoinPreview("https://c.org", "old")).thenReturn(new JoinPreview(null, null, null, false));
 		assertEquals("cloud.inviteInvalid", assertThrows(InvalidCloudRequestException.class, () -> service.preview("https://c.org/join/old")).getCode());
+		// a link the server does not know at all (mistyped): 404, said the same way, not as an internal error
+		when(api.getJoinPreview("https://c.org", "typo")).thenThrow(new CloudApiClient.CloudApiException("getJoinPreview failed with HTTP 404", 404, "not_found"));
+		assertEquals("cloud.inviteInvalid", assertThrows(InvalidCloudRequestException.class, () -> service.preview("https://c.org/join/typo")).getCode());
+		// the server not reachable stays an error of its own
+		when(api.getJoinPreview("https://c.org", "down")).thenThrow(new CloudApiClient.CloudApiException("getJoinPreview failed with HTTP 503", 503, null));
+		assertThrows(CloudApiClient.CloudApiException.class, () -> service.preview("https://c.org/join/down"));
 	}
 
 	@Test
@@ -207,6 +213,38 @@ public class CloudServiceTest {
 		e = assertThrows(InvalidCloudRequestException.class, () -> service.join(request));
 		assertEquals("cloud.weakPassword", e.getCode());
 		assertEquals(Messages.getString("CloudLoginDialog.passwordTooShort"), e.getMessage());
+		verify(properties, never()).setCloudSyncEnabled(true);
+	}
+
+	@Test
+	public void theRefusalsOfJoiningAreSaidInPlainWords() throws Exception {
+		JoinRequest request = new JoinRequest();
+		request.baseUrl = "https://c.org";
+		request.inviteToken = "tok";
+		request.projectId = "p1";
+		request.username = "maria";
+		request.password = "password12";
+		// someone registering a name another account has
+		request.register = true;
+		when(api.register("https://c.org", "maria", "password12", "tok")).thenThrow(new CloudApiException(
+				"register failed with HTTP 409: {\"error\":\"username_taken\"}", 409, "username_taken"));
+		InvalidCloudRequestException e = assertThrows(InvalidCloudRequestException.class, () -> service.join(request));
+		assertEquals("cloud.usernameTaken", e.getCode());
+		assertEquals(Messages.getString("CloudLoginDialog.usernameTaken"), e.getMessage());
+		// a wrong password
+		request.register = false;
+		when(api.login("https://c.org", "maria", "password12", null, "tok")).thenThrow(new CloudApiException(
+				"login failed with HTTP 401: {\"error\":\"invalid_credentials\"}", 401, "invalid_credentials"));
+		e = assertThrows(InvalidCloudRequestException.class, () -> service.join(request));
+		assertEquals("cloud.invalidCredentials", e.getCode());
+		assertEquals(Messages.getString("CloudLoginDialog.invalidCredentials"), e.getMessage());
+		// a link used up, or withdrawn, between the preview and the join
+		for (String[] refusal : new String[][] { { "410", "invite_exhausted" }, { "400", "invalid_invite" } }) {
+			request.username = "luis-" + refusal[1];
+			when(api.login("https://c.org", request.username, "password12", null, "tok")).thenThrow(new CloudApiException(
+					"login failed", Integer.parseInt(refusal[0]), refusal[1]));
+			assertEquals("cloud.inviteInvalid", assertThrows(InvalidCloudRequestException.class, () -> service.join(request)).getCode());
+		}
 		verify(properties, never()).setCloudSyncEnabled(true);
 	}
 

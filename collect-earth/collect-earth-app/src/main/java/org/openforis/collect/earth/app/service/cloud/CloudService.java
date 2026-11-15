@@ -119,7 +119,17 @@ public class CloudService {
 	/** What the invitation is for, before the user confirms and logs in */
 	public Map<String, Object> preview(String url) throws InvalidCloudRequestException, IOException {
 		String[] invitation = parseInvitation(url);
-		JoinPreview preview = api.getJoinPreview(invitation[0], invitation[1]);
+		JoinPreview preview;
+		try {
+			preview = api.getJoinPreview(invitation[0], invitation[1]);
+		} catch (CloudApiClient.CloudApiException e) {
+			// The server answers 404 for a link it does not know (mistyped, cut short): said as an invalid invitation, not
+			// as an internal error with no message (found by the workflow runs, docs/plans/2026-11-15-workflow-review.md)
+			if (e.getStatus() == 404) {
+				throw new InvalidCloudRequestException("cloud.inviteInvalid", Messages.getString("CloudJoin.inviteInvalid"));
+			}
+			throw e;
+		}
 		if (preview == null || !preview.isValid()) {
 			throw new InvalidCloudRequestException("cloud.inviteInvalid", Messages.getString("CloudJoin.inviteInvalid"));
 		}
@@ -436,6 +446,17 @@ public class CloudService {
 			// Locked by the server after too many wrong passwords (its sign-in rules)
 			if ("account_locked".equals(e.getErrorCode())) {
 				throw new InvalidCloudRequestException("cloud.accountLocked", Messages.getString("CloudLoginDialog.accountLocked"));
+			}
+			// The refusals of joining, in plain words rather than the server's answer ("register failed with HTTP 409:
+			// {"error":"username_taken"}" was shown as it was; docs/plans/2026-11-15-workflow-review.md)
+			if ("username_taken".equals(e.getErrorCode())) {
+				throw new InvalidCloudRequestException("cloud.usernameTaken", Messages.getString("CloudLoginDialog.usernameTaken"));
+			}
+			if ("invalid_credentials".equals(e.getErrorCode())) {
+				throw new InvalidCloudRequestException("cloud.invalidCredentials", Messages.getString("CloudLoginDialog.invalidCredentials"));
+			}
+			if ("invite_exhausted".equals(e.getErrorCode()) || "invalid_invite".equals(e.getErrorCode())) {
+				throw new InvalidCloudRequestException("cloud.inviteInvalid", Messages.getString("CloudJoin.inviteInvalid"));
 			}
 			throw new InvalidCloudRequestException("cloud.login", StringUtils.defaultIfBlank(e.getMessage(), Messages.getString("CloudLoginDialog.failed")));
 		} catch (IOException | RuntimeException e) {

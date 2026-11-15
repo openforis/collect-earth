@@ -59,6 +59,8 @@ export async function registerRecordRoutes(app: FastifyInstance, store: Store, s
         }
         return known;
       };
+      const ownNameInOtherCase = async (name: string, username: string): Promise<boolean> =>
+        name !== username && name.toLowerCase() === username && (await store.getUserByUsername(name)) === null;
       const body = (request.body ?? {}) as BatchBody;
       const envelopes = Array.isArray(body.records) ? body.records : [];
 
@@ -92,7 +94,10 @@ export async function registerRecordRoutes(app: FastifyInstance, store: Store, s
             // under any account's username, a member's, a former member's or a deleted
             // account's, never a name the server made (former-member-N, ceo-collector-N),
             // and never one the account has already (renameRecordOperator).
-            if (sent !== null && sent !== '' && !isServerMadeName(sent) && !(await accountName(sent))) {
+            // The person's own username in other letter case ("Marta" typed, the account marta) is theirs too, unless
+            // another account has that exact name (usernames are case-sensitive): an office team's backup has the
+            // names as typed, and refusing it here made a second copy of each plot saved again (workflows.test.ts).
+            if (sent !== null && sent !== '' && !isServerMadeName(sent) && (!(await accountName(sent)) || (await ownNameInOtherCase(sent, sessionUsername)))) {
               if (await store.renameRecordOperator(projectId, envelope.recordKey, sent, sessionUsername)) {
                 request.log.info({ projectId, recordKey: envelope.recordKey, from: sent, to: sessionUsername }, 'record moved from a legacy operator name to the username');
               }

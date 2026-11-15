@@ -1,0 +1,256 @@
+// The workflows of Collect Earth, run with real desktops against a real cloud server on PostgreSQL.
+// node run.mjs [scenario...]   (all by default: alone office cloud alone-to-cloud office-to-cloud accounts)
+// What it needs and how to start it: README.md beside it.
+import { readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  APP, E, check, demoPlotFile, cloud, cloudLogin, desk, job, joinFromDesktop, note, plotIds, results, savePlot, setOperator, sleep, sql, sqliteRecords,
+  startDesktop, stopDesktops, syncNow, waitRestart,
+} from './lib.mjs';
+
+const STATE = `${E}/state.json`;
+let state = {};
+try { state = JSON.parse(readFileSync(STATE, 'utf8')); } catch {}
+const save = () => writeFileSync(STATE, JSON.stringify(state, null, 1));
+const CEP = `${APP}/resources/demo_survey.cep`;
+const cloudRows = (projectId) => sql('cloud', `select record_key || ':' || operator from records where project_id='${projectId}' and not deleted order by 1`);
+
+async function coordinator() {
+  if (!state.coordinator) {
+    const setup = await cloud('POST', '/v1/setup', { setupCode: 'setup-code-123', username: 'coordinator', password: 'coordinator-pw' });
+    check('the cloud server is set up by its first account', setup.status === 201, `HTTP ${setup.status}`);
+    state.coordinator = true;
+    save();
+  }
+  return cloudLogin('coordinator', 'coordinator-pw');
+}
+/** A cloud project with the desktop's demo survey and its plot file, active, and a link for 10 people */
+async function cloudProject(token, name) {
+  const created = await cloud('POST', '/v1/projects', { name }, token);
+  const pid = created.json.projectId;
+  const cep = await cloud('PUT', `/v1/projects/${pid}/cep`, readFileSync(CEP), token, 'application/zip');
+  const plots = demoPlotFile();
+  const csv = await cloud('PUT', `/v1/projects/${pid}/csv-files/showcase_plots.csv`, plots, token, 'text/csv');
+  await cloud('PUT', `/v1/projects/${pid}/status`, { status: 'active' }, token);
+  const link = await cloud('POST', `/v1/projects/${pid}/invites`, { role: 'operator', maxUses: 10 }, token);
+  check(`"${name}": project file, plot file and a link`, cep.status < 300 && csv.status < 300 && link.json?.joinUrl, `cep ${cep.status}, plots ${csv.status}`);
+  return { pid, joinUrl: link.json.joinUrl, csvId: csv.json?.id ?? csv.json?.csvFile?.id };
+}
+/** The plot file given out in the cloud, opened on the desktop (Collect Earth's "my plots" download) */
+/** The coordinator gives a plot file to people (Setup › Plots, "who does this file"): every earlier one kept */
+const given = {};
+async function giveFile(token, pid, csvId, username) {
+  const members = (await cloud('GET', `/v1/projects/${pid}/members`, undefined, token)).json;
+  const list = members.members ?? members;
+  given[pid] = [...(given[pid] ?? []), username];
+  const assignments = given[pid].map((u) => ({ userId: list.find((m) => m.username === u)?.userId, csvFileId: csvId })).filter((a) => a.userId);
+  const res = await cloud('PUT', `/v1/projects/${pid}/assignments`, { assignments }, token);
+  return res.status < 300;
+}
+async function openCloudPlots() {
+  const list = (await desk('GET', '/api/cloud/assignments')).json;
+  const file = (list?.files ?? list?.assignments ?? [])[0];
+  if (!file) return false;
+  const got = (await desk('POST', '/api/cloud/assignments/download', { id: file.id ?? file.csvFileId })).json;
+  if (!got?.path) return false;
+  await desk('POST', '/api/settings', { values: { csv: got.path } });
+  await sleep(6000);
+  return true;
+}
+
+const scenarios = {
+  // 1. Someone alone: one desktop, its own SQLite, its own dashboard
+  async alone() {
+    await startDesktop('solo');
+    check('alone: the desktop starts as a local project', (await desk('GET', '/api/cloud/state')).json?.project?.mode === 'local');
+    check('alone: the interpreter types their name', (await setOperator('Juan Perez')).status === 200);
+    const plots = (await plotIds()).slice(0, 3);
+    for (const p of plots) await savePlot(p);
+    await sleep(3000);
+    const stored = sqliteRecords('solo');
+    check('alone: the plots saved are in the computer’s database', plots.every((p) => stored.includes(p)), stored.join(' '));
+    state.soloPlots = plots;
+    save();
+  },
+
+  // 2. An office team on one PostgreSQL: two desktops, one database
+  async office() {
+    sql('postgres', 'drop database if exists office');
+    sql('postgres', 'create database office');
+    const pg = { db_driver: 'POSTGRESQL', db_host: 'localhost', db_port: process.env.WF_PG_PORT ?? '55432', db_name: 'office', db_username: 'ce', db_password: 'ce' };
+    // Found in the first run: on an empty database the desktop does not start (Collect's liquibase needs the schema
+    // "collect"); an office's administrator has to make it. Made here as they would.
+    sql('office', 'create schema collect');
+    for (const [who, name, plots] of [['office-a', 'Marta Lopez', [3, 4]], ['office-b', 'Luis Garcia', [5, 6]]]) {
+      await startDesktop(who); // first start: makes its home folder
+      await startDesktop(who, pg);
+      const s = (await desk('GET', '/api/settings')).json?.values;
+      check(`office: ${who} uses the shared PostgreSQL`, s?.db_driver === 'POSTGRESQL', s?.db_driver);
+      await setOperator(name);
+      const ids = await plotIds();
+      for (const i of plots) await savePlot(ids[i]);
+      await sleep(3000);
+    }
+    const rows = sql('office', 'select key1||\',\'||key2 from collect.ofc_record order by 1');
+    check('office: both people’s plots are in the one database', rows.length === 4, rows.join(' '));
+    // the first one opens again and sees the other's plots as saved
+    await startDesktop('office-a');
+    const ids = await plotIds();
+    const seen = await fetch(`http://localhost:8028/earth/placemark-info-expanded?id=${encodeURIComponent(ids[5])}`).then((r) => r.json());
+    check('office: a person sees a plot their colleague saved', Object.keys(seen.inputFieldInfoByParameterName ?? {}).length > 0);
+    state.officePlots = rows;
+    save();
+  },
+
+  // 3. A big group on the cloud: a coordinator, a link, people with and without an account
+  async cloud() {
+    const token = await coordinator();
+    const project = await cloudProject(token, 'Cloud survey');
+    state.cloud = project;
+    save();
+    // bruno has an account already, from another project
+    const older = await cloudProject(token, 'Older project');
+    const pv = (await cloud('GET', `/v1/join/${older.joinUrl.split('/join/')[1]}`)).json;
+    await cloud('POST', '/v1/auth/register', { username: 'bruno', password: 'bruno-password', inviteToken: older.joinUrl.split('/join/')[1] });
+    check('cloud: the older project’s link is valid', pv?.valid === true);
+
+    // ana has no account: she registers from the desktop with the link
+    await startDesktop('ana');
+    const ana = await joinFromDesktop(project.joinUrl, 'ana', 'ana-password', true);
+    check('cloud: someone without an account joins from the desktop by registering', ana.join?.status === 200, JSON.stringify(ana.join?.json ?? ana.preview?.json).slice(0, 200));
+    await waitRestart();
+    let st = (await desk('GET', '/api/cloud/state')).json;
+    check('cloud: after joining, the desktop is in the cloud project, signed in as ana', st?.project?.mode === 'cloud' && st.project.account === 'ana' && st.project.signedIn, JSON.stringify(st?.project));
+    check('cloud: before the coordinator gives her plots, the desktop has none from the cloud', ((await desk('GET', '/api/cloud/assignments')).json?.assignments ?? []).length === 0);
+    check('cloud: the coordinator gives ana the plot file', await giveFile(token, project.pid, project.csvId, 'ana'));
+    check('cloud: the desktop opens the cloud’s plot file', await openCloudPlots());
+    const ids = await plotIds();
+    for (const p of ids.slice(0, 2)) await savePlot(p);
+    let sync = await syncNow();
+    check('cloud: ana’s plots are sent', sync?.pending === 0 && sync?.failed === 0, JSON.stringify(sync));
+
+    // bruno joins with his account
+    await startDesktop('bruno');
+    const bruno = await joinFromDesktop(project.joinUrl, 'bruno', 'bruno-password', false);
+    check('cloud: someone with an account joins from the desktop by signing in', bruno.join?.status === 200, JSON.stringify(bruno.join?.json).slice(0, 200));
+    await waitRestart();
+    st = (await desk('GET', '/api/cloud/state')).json;
+    check('cloud: bruno’s desktop is signed in as bruno', st?.project?.account === 'bruno');
+    await giveFile(token, project.pid, project.csvId, 'bruno');
+    check('cloud: bruno opens the same plot file', await openCloudPlots());
+    const bids = await plotIds();
+    for (const p of [bids[1], bids[2]]) await savePlot(p, '60');
+    sync = await syncNow();
+    const rows = cloudRows(project.pid);
+    check('cloud: each person’s plots are kept as theirs (the plot both did, once each)', rows.length === 4 && rows.filter((r) => r.endsWith(':ana')).length === 2 && rows.filter((r) => r.endsWith(':bruno')).length === 2, rows.join(' '));
+    const members = (await cloud('GET', `/v1/projects/${project.pid}/members`, undefined, token)).json;
+    check('cloud: the coordinator sees both people', JSON.stringify(members).includes('"ana"') && JSON.stringify(members).includes('"bruno"'));
+  },
+
+  // 4. Alone first, then the cloud: the plots on the computer are offered and sent
+  async 'alone-to-cloud'() {
+    const project = state.cloud;
+    const token = await coordinator();
+    await startDesktop('solo');
+    const before = (await desk('GET', '/api/cloud/localRecords')).json?.count;
+    const joined = await joinFromDesktop(project.joinUrl, 'juan', 'juan-password', true);
+    check('alone→cloud: the person who worked alone joins (new account)', joined.join?.status === 200, JSON.stringify(joined.join?.json).slice(0, 200));
+    await waitRestart();
+    const notices = (await desk('GET', '/api/notices')).json;
+    const offer = (Array.isArray(notices) ? notices : notices?.notices ?? []).find((n) => n.kind === 'cloudSendRecords' || n.id === 'cloudSendRecords' || JSON.stringify(n).includes('cloudSendRecords'));
+    check('alone→cloud: after joining, the desktop offers to send the plots already on it', !!offer, JSON.stringify(offer ?? notices).slice(0, 300));
+    const count = (await desk('GET', '/api/cloud/localRecords')).json?.count;
+    check('alone→cloud: it counts the plots done alone', count === before && count >= 3, `${before} before, ${count} after`);
+    const sent = await job('/api/jobs/sendToCloud');
+    check('alone→cloud: sending them finishes', sent.state === 'SUCCEEDED' || sent.state === 'DONE' || sent.state === 'FINISHED', JSON.stringify(sent).slice(0, 300));
+    const rows = cloudRows(project.pid).filter((r) => r.endsWith(':juan'));
+    check('alone→cloud: they are in the cloud under juan’s account, not "Juan Perez"', rows.length === state.soloPlots.length, rows.join(' '));
+    const again = await job('/api/jobs/sendToCloud');
+    check('alone→cloud: sending again adds nothing', cloudRows(project.pid).filter((r) => r.endsWith(':juan')).length === rows.length, again.state);
+    // a new plot after joining goes by itself
+    await giveFile(token, project.pid, project.csvId, 'juan');
+    await openCloudPlots();
+    await savePlot((await plotIds())[7]);
+    await syncNow();
+    check('alone→cloud: a plot saved after joining is sent by the sync', cloudRows(project.pid).filter((r) => r.endsWith(':juan')).length === rows.length + 1);
+    check('alone→cloud: the operator name is the account now', (await setOperator('Someone Else')).status !== 200);
+  },
+
+  // 5. The office team moves to the cloud: its backup imported, its people joining afterwards
+  async 'office-to-cloud'() {
+    const token = await coordinator();
+    // the backup: "Export data to XML (ZIP)" on the office's database
+    await startDesktop('office-a');
+    const out = `${E}/office-backup.zip`;
+    const exported = await job('/api/jobs/export', { format: 'XML', records: 'ALL', path: out });
+    check('office→cloud: the office database exports its backup', ['SUCCEEDED', 'DONE', 'FINISHED'].includes(exported.state), JSON.stringify(exported).slice(0, 200));
+    // luis has an account (another project) and is named for his plots; marta is not: her plots keep "Marta Lopez"
+    const other = await cloudProject(token, 'Luis older project');
+    await cloud('POST', '/v1/auth/register', { username: 'luis', password: 'luis-password', inviteToken: other.joinUrl.split('/join/')[1] });
+    const backup = readFileSync(out).toString('base64');
+    const preview = await cloud('POST', '/v1/projects/from-backup/preview', { backup }, token);
+    check('office→cloud: the preview lists the typed names', JSON.stringify(preview.json?.collectors ?? '').includes('Marta Lopez'), JSON.stringify(preview.json?.collectors));
+    const imported = await cloud('POST', '/v1/projects/from-backup', { backup, collectors: { 'Luis Garcia': 'luis' }, name: 'Office survey in the cloud' }, token);
+    check('office→cloud: the coordinator makes the cloud project from it', imported.status === 201, JSON.stringify(imported.json).slice(0, 300));
+    const pid = imported.json.projectId;
+    await cloud('PUT', `/v1/projects/${pid}/status`, { status: 'active' }, token);
+    let rows = cloudRows(pid);
+    check('office→cloud: Luis’s plots are his account’s, Marta’s keep her typed name', rows.filter((r) => r.endsWith(':luis')).length === 2 && rows.filter((r) => r.endsWith(':Marta Lopez')).length === 2, rows.join(' '));
+    const link = (await cloud('POST', `/v1/projects/${pid}/invites`, { role: 'operator', maxUses: 10 }, token)).json.joinUrl;
+
+    // Marta joins from her office computer (which used the shared PostgreSQL)
+    let joined = await joinFromDesktop(link, 'marta', 'marta-password', true);
+    if (JSON.stringify(joined.join?.json ?? '').includes('username_taken')) joined = await joinFromDesktop(link, 'marta', 'marta-password', false);
+    check('office→cloud: Marta joins from her office desktop', joined.join?.status === 200, JSON.stringify(joined.join?.json).slice(0, 200));
+    await waitRestart();
+    const s = (await desk('GET', '/api/settings')).json?.values;
+    const local = (await desk('GET', '/api/cloud/localRecords')).json?.count;
+    note(`office→cloud: after joining, Marta's desktop uses ${s?.db_driver} and counts ${local} plots of its own to send`);
+    // she saves one of her plots again: it should become hers, not a second copy
+    const files = (await cloud('GET', `/v1/projects/${pid}/csv-files`, undefined, token)).json.csvFiles;
+    note(`office→cloud: plot files the import made: ${files.map((f) => f.filename).join(', ')}`);
+    await giveFile(token, pid, files[0].id, 'marta');
+    await openCloudPlots();
+    const ids = await plotIds();
+    const hers = state.officePlots.filter((p) => rows.includes(`${p}:Marta Lopez`));
+    if (hers[0] && ids.includes(hers[0])) await savePlot(hers[0], '80');
+    else note(`office→cloud: Marta's plot ${hers[0]} is not in the plot file her desktop got (${ids.length} plots)`);
+    await syncNow();
+    rows = cloudRows(pid);
+    check('office→cloud: a plot Marta saves again becomes hers, without a second copy', rows.includes(`${hers[0]}:marta`) && !rows.includes(`${hers[0]}:Marta Lopez`), rows.join(' '));
+    check('office→cloud: her other plot stays under the typed name until she saves it', rows.filter((r) => r.endsWith(':Marta Lopez')).length === 1, rows.join(' '));
+  },
+
+  // 6. Accounts: what people see when something is wrong
+  async accounts() {
+    const project = state.cloud;
+    rmSync(`${E}/home-mistakes`, { recursive: true, force: true }); // a computer that never joined
+    await startDesktop('mistakes');
+    const taken = await joinFromDesktop(project.joinUrl, 'ana', 'other-password', true);
+    check('accounts: registering a name that is taken is refused in plain words', taken.join?.json?.error === 'cloud.usernameTaken', JSON.stringify(taken.join?.json).slice(0, 200));
+    const wrong = await joinFromDesktop(project.joinUrl, 'bruno', 'not-his-password', false);
+    check('accounts: a wrong password is refused in plain words', wrong.join?.json?.error === 'cloud.invalidCredentials', JSON.stringify(wrong.join?.json).slice(0, 200));
+    const short = await joinFromDesktop(project.joinUrl, 'newperson', 'short', true);
+    check('accounts: a too short password is refused before the server is asked', short.join?.status >= 400, JSON.stringify(short.join?.json).slice(0, 200));
+    const bad = await joinFromDesktop(`${project.joinUrl}x`, 'newperson', 'newperson-pw', true);
+    check('accounts: a wrong link is said to be not valid, at once', bad.preview?.json?.error === 'cloud.inviteInvalid', JSON.stringify(bad.preview?.json).slice(0, 200));
+    const st = (await desk('GET', '/api/cloud/state')).json;
+    check('accounts: after the refusals the desktop is still the local project', st?.project?.mode === 'local');
+    // someone already in the project joins again with the link (a new computer)
+    const again = await joinFromDesktop(project.joinUrl, 'ana', 'ana-password', false);
+    check('accounts: a member joining again on another computer signs in', again.join?.status === 200, JSON.stringify(again.join?.json).slice(0, 200));
+  },
+};
+
+const chosen = process.argv.slice(2).length ? process.argv.slice(2) : Object.keys(scenarios);
+for (const name of chosen) {
+  console.log(`\n=== ${name}`);
+  try {
+    await scenarios[name]();
+  } catch (e) {
+    check(`${name}: ran to the end`, false, e.stack?.split('\n').slice(0, 3).join(' | '));
+  }
+}
+stopDesktops();
+writeFileSync(`${E}/results-${Date.now()}.json`, JSON.stringify(results, null, 1));
+const failed = results.filter((r) => r.ok === false).length;
+console.log(`\n${results.filter((r) => r.ok).length} passed, ${failed} failed`);
