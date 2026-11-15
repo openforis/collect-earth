@@ -10,6 +10,7 @@ import type { ServerCounters } from '../serverCounters.js';
 import { UsernameTakenError } from '../store/memory.js';
 import type { Store } from '../store/store.js';
 import type { AccountMailHooks } from './mail.js';
+import { giveInvitePlots } from '../invitePlots.js';
 import type { AccountDeletion, JoinedProject, LoginAnswer, Me, RegisterAnswer } from '../wire/account.js';
 
 interface RegisterBody {
@@ -146,8 +147,10 @@ export async function registerAuthRoutes(
     }
 
     await store.addMembership(invite.projectId, userId, invite.role);
+    // The link's plots, before the answer: Collect Earth asks for its plot file right after joining
+    const given = await giveInvitePlots(store, invite.projectId, userId, invite.plots, request.log);
     // The project's coordinators are told by mail (those who want it: joinMail.ts)
-    accountMail?.memberJoined?.(request, invite.projectId, userId, invite.role);
+    accountMail?.memberJoined?.(request, invite.projectId, userId, invite.role, given);
     const token = await store.createSession(userId);
     return reply.code(201).send({
       token,
@@ -244,7 +247,8 @@ export async function registerAuthRoutes(
       if (!member) {
         if (!(await store.consumeInvite(inviteToken, Date.now()))) return reply.code(410).send({ error: 'invite_exhausted' });
         await store.addMembership(invite.projectId, user.id, invite.role);
-        accountMail?.memberJoined?.(request, invite.projectId, user.id, invite.role);
+        const given = await giveInvitePlots(store, invite.projectId, user.id, invite.plots, request.log);
+        accountMail?.memberJoined?.(request, invite.projectId, user.id, invite.role, given);
       }
       joined = { projectId: invite.projectId, projectName: invite.projectName, role: member ? member.role : invite.role };
     }

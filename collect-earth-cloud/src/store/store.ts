@@ -30,6 +30,7 @@ import type {
   MemberActivityPatch,
   Membership,
   PlatformStats,
+  InvitePlots,
   PlotAssignment,
   ProgressSettings,
   TwoFactorState,
@@ -124,6 +125,8 @@ export interface CreateInviteInput {
   expiresAt: number | null;
   /** The user who made it; null when made with a Phase-0 project admin token (no user). */
   createdBy: string | null;
+  /** The plots the link gives each person who joins with it */
+  plots?: InvitePlots | null;
 }
 
 /**
@@ -438,6 +441,15 @@ export interface Store {
   listAssignments(projectId: string): Promise<AssignmentDetail[]>;
   listAssignmentsForUser(projectId: string, userId: string): Promise<CsvFile[]>;
   isAssigned(projectId: string, csvFileId: string, userId: string): Promise<boolean>;
+  /** Gives a whole file to one person more (an invitation link's plots): false when the file is gone or divided. */
+  addAssignment(projectId: string, csvFileId: string, userId: string): Promise<boolean>;
+  /**
+   * An invitation link's share: gives the person the first `count` of `candidates` (plot keys in the file's order, the
+   * plots nobody has done) that nobody holds, in one transaction under the division's lock, so two people joining at
+   * once never take the same plots. A whole file nobody has becomes divided (manual); one people have whole is left
+   * as it is ('whole_assigned'). The number of plots given, or 'not_found'.
+   */
+  claimUnheldPlots(projectId: string, csvFileId: string, userId: string, candidates: readonly string[], count: number): Promise<number | 'whole_assigned' | 'not_found'>;
 
   /**
    * Divides a file (distribution set): its holdings become `plots` and its whole-file

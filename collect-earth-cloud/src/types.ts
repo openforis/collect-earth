@@ -1,4 +1,4 @@
-import type { DigestKind, Role } from './wire/account.js';
+import type { DigestKind, InvitePlots, Role } from './wire/account.js';
 import type { ProgressSettings } from './wire/progress.js';
 import type { ProjectStatus } from './wire/projectSettings.js';
 import type { SamplingDraw, SamplingRule } from './wire/checks.js';
@@ -8,7 +8,7 @@ import type { DayCount, ServerAction, ServerActionKind, ServerSettings } from '.
 import type { RecordChange } from './wire/activity.js';
 import type { TrainingKind } from './wire/training.js';
 
-export type { DigestKind, InviteSummary, Membership, ProjectCreation, Role } from './wire/account.js';
+export type { DigestKind, InvitePlots, InviteSummary, Membership, ProjectCreation, Role } from './wire/account.js';
 export type { ProgressSettings } from './wire/progress.js';
 export type { ProjectStatus, ShareLink } from './wire/projectSettings.js';
 /** The project calls' types (src/wire/projects.ts); Role and Membership are in src/wire/account.ts. */
@@ -60,6 +60,8 @@ export interface Invite {
   expiresAt: number | null;
   /** A revoked invite answers like an unknown one on register, and previews as not valid. */
   revoked: boolean;
+  /** The plots the link gives each person who joins with it (null: none) */
+  plots: InvitePlots | null;
 }
 
 /**

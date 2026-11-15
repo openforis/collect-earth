@@ -34,7 +34,8 @@
     "telemetry:check": "tsx scripts/telemetry-check.mts",
     "smoke:pg:ops": "tsx scripts/pg-smoke-ops.mts",
     "smoke:pg:safety": "tsx scripts/pg-smoke-safety.mts",
-    "smoke:pg:give": "tsx scripts/pg-smoke-give.mts"
+    "smoke:pg:give": "tsx scripts/pg-smoke-give.mts",
+    "smoke:pg:invite-plots": "tsx scripts/pg-smoke-invite-plots.mts"
   },
   "dependencies": {
     "@fastify/static": "7.0.4",

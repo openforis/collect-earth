@@ -17,6 +17,7 @@ import { emailChangedMail, longMoment, passwordChangedMail, resetLinkMail,
 import type { Store } from '../store/store.js';
 import { DIGEST_KINDS, MAIL_LANGUAGES, type AccountMail, type DigestKind, type MailLanguage, type Role } from '../types.js';
 import { joinedMail } from '../joinMail.js';
+import type { GivenPlots } from '../invitePlots.js';
 import type { DigestView, Notifications, UnsubscribeAnswer } from '../wire/account.js';
 import type { MailCheck, MessagePreview, MessageSentAnswer, TestMailAnswer } from '../wire/serverAdmin.js';
 
@@ -71,7 +72,7 @@ export interface AccountMailHooks {
    * "someone joined your project" to each coordinator of it with a confirmed address who has not turned it off (not the
    * person who joined). In the background: never awaited by the request, never throws (a failure is logged).
    */
-  memberJoined?: (request: FastifyRequest, projectId: string, userId: string, role: Role) => void;
+  memberJoined?: (request: FastifyRequest, projectId: string, userId: string, role: Role, given?: GivenPlots | null) => void;
 }
 
 declare module 'fastify' {
@@ -311,7 +312,7 @@ export async function registerMailRoutes(app: FastifyInstance, store: Store, con
   };
   if (deps.accountMail) deps.accountMail.mailWelcome = mailWelcome;
 
-  const memberJoined = (request: FastifyRequest, projectId: string, userId: string, role: Role): void => {
+  const memberJoined = (request: FastifyRequest, projectId: string, userId: string, role: Role, given: GivenPlots | null = null): void => {
     if (!deps.mailer.delivers) return;
     work.run(request, 'project.joined', async () => {
       const [project, members, joiner, settings] = await Promise.all([
@@ -331,7 +332,7 @@ export async function registerMailRoutes(app: FastifyInstance, store: Store, con
             baseUrl,
             unsubscribeUrl: `${baseUrl}/v1/unsubscribe/${writeUnsubscribeToken(coordinator.userId, 'joined', secret)}`,
           },
-          { projectId, projectName: project.name, username: joiner.username, role, people: members.length },
+          { projectId, projectName: project.name, username: joiner.username, role, people: members.length, given },
           mail.email,
         );
         // One coordinator's refused address does not keep the others' mail from going

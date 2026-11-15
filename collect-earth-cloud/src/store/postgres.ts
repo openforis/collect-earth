@@ -94,6 +94,7 @@ import {
   TrainingSet,
 } from '../types.js';
 import type { OwnerAlertKind } from '../wire/serverAdmin.js';
+import type { InvitePlots } from '../wire/account.js';
 import {
   checkCursor,
   type CreateInviteInput,
@@ -1955,8 +1956,8 @@ export class PostgresStore implements Store {
     const token = generateToken();
     const id = randomUUID();
     await this.pool.query(
-      `INSERT INTO invites (id, token_hash, project_id, role, max_uses, expires_at, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      `INSERT INTO invites (id, token_hash, project_id, role, max_uses, expires_at, created_by, plots)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
       [
         id,
         hashToken(token),
@@ -1965,6 +1966,7 @@ export class PostgresStore implements Store {
         input.maxUses,
         input.expiresAt === null ? null : new Date(input.expiresAt),
         input.createdBy,
+        input.plots ? JSON.stringify(input.plots) : null,
       ],
     );
     return { token, id };
@@ -1978,7 +1980,7 @@ export class PostgresStore implements Store {
     try {
       await client.query('BEGIN READ ONLY');
       const res = await client.query(
-        'SELECT project_id, role, max_uses, used_count, expires_at, revoked_at FROM invites WHERE token_hash = $1',
+        'SELECT project_id, role, max_uses, used_count, expires_at, revoked_at, plots FROM invites WHERE token_hash = $1',
         [hashToken(token)],
       );
       if (res.rowCount === 0) {
@@ -2007,12 +2009,13 @@ export class PostgresStore implements Store {
       usedCount: r.used_count,
       expiresAt: r.expires_at === null ? null : (r.expires_at as Date).getTime(),
       revoked: r.revoked_at !== null,
+      plots: (r.plots as InvitePlots | null) ?? null,
     };
   }
 
   async listInvites(projectId: string, now: number): Promise<InviteSummary[]> {
     const res = await this.pool.query(
-      `SELECT id, role, max_uses, used_count, expires_at, created_at
+      `SELECT id, role, max_uses, used_count, expires_at, created_at, plots
          FROM invites
         WHERE project_id = $1
           AND revoked_at IS NULL
@@ -2028,6 +2031,7 @@ export class PostgresStore implements Store {
       usedCount: r.used_count,
       expiresAt: r.expires_at === null ? null : (r.expires_at as Date).getTime(),
       createdAt: (r.created_at as Date).getTime(),
+      plots: (r.plots as InvitePlots | null) ?? null,
     }));
   }
 
@@ -2222,6 +2226,41 @@ export class PostgresStore implements Store {
           [projectId, a.csvFileId, a.userId],
         );
       }
+    });
+  }
+
+  async addAssignment(projectId: string, csvFileId: string, userId: string): Promise<boolean> {
+    return this.withProject(projectId, async (client) => {
+      const file = await client.query('SELECT distribution FROM csv_files WHERE project_id = $1 AND id = $2', [projectId, csvFileId]);
+      if (file.rowCount === 0 || file.rows[0].distribution !== null) return false;
+      await client.query('INSERT INTO assignments (project_id, csv_file_id, user_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING', [projectId, csvFileId, userId]);
+      return true;
+    });
+  }
+
+  async claimUnheldPlots(projectId: string, csvFileId: string, userId: string, candidates: readonly string[], count: number): Promise<number | 'whole_assigned' | 'not_found'> {
+    return this.withProject(projectId, async (client) => {
+      // The division's lock: a division, a move or another person's share is before or after, never in between
+      await client.query(SAMPLING_LOCK, [projectId]);
+      const file = await client.query('SELECT distribution FROM csv_files WHERE project_id = $1 AND id = $2', [projectId, csvFileId]);
+      if (file.rowCount === 0) return 'not_found';
+      if (file.rows[0].distribution === null) {
+        const whole = await client.query('SELECT 1 FROM assignments WHERE project_id = $1 AND csv_file_id = $2 LIMIT 1', [projectId, csvFileId]);
+        if ((whole.rowCount ?? 0) > 0) return 'whole_assigned';
+        await client.query('UPDATE csv_files SET distribution = $3 WHERE project_id = $1 AND id = $2', [projectId, csvFileId, JSON.stringify({ mode: 'manual' })]);
+      }
+      const held = new Set(
+        (await client.query('SELECT DISTINCT plot_key FROM plot_assignments WHERE project_id = $1 AND csv_file_id = $2', [projectId, csvFileId])).rows.map((r) => r.plot_key as string),
+      );
+      const taken = candidates.filter((k) => !held.has(k)).slice(0, Math.max(0, count));
+      if (taken.length > 0) {
+        await client.query(
+          `INSERT INTO plot_assignments (project_id, csv_file_id, plot_key, user_id, overlap)
+           SELECT $1, $2, k, $3, false FROM unnest($4::text[]) AS k ON CONFLICT DO NOTHING`,
+          [projectId, csvFileId, userId, taken],
+        );
+      }
+      return taken.length;
     });
   }
 

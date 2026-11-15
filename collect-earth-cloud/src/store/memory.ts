@@ -90,6 +90,7 @@ import {
   TrainingSet,
 } from '../types.js';
 import type { OwnerAlertKind } from '../wire/serverAdmin.js';
+import type { InvitePlots } from '../wire/account.js';
 import {
   checkCursor,
   type CreateInviteInput,
@@ -193,6 +194,7 @@ interface InviteEntry {
   expiresAt: number | null;
   createdAt: number;
   revokedAt: number | null;
+  plots: InvitePlots | null;
 }
 
 interface ShareLinkEntry {
@@ -1583,6 +1585,7 @@ export class InMemoryStore implements Store {
       expiresAt: input.expiresAt,
       createdAt: Date.now(),
       revokedAt: null,
+      plots: input.plots ? { ...input.plots } : null,
     });
     return { token, id };
   }
@@ -1604,6 +1607,7 @@ export class InMemoryStore implements Store {
       usedCount: entry.usedCount,
       expiresAt: entry.expiresAt,
       revoked: entry.revokedAt !== null,
+      plots: entry.plots ? { ...entry.plots } : null,
     };
   }
 
@@ -1618,6 +1622,7 @@ export class InMemoryStore implements Store {
         usedCount: e.usedCount,
         expiresAt: e.expiresAt,
         createdAt: e.createdAt,
+        plots: e.plots ? { ...e.plots } : null,
       }));
   }
 
@@ -1841,6 +1846,30 @@ export class InMemoryStore implements Store {
 
   async isAssigned(projectId: string, csvFileId: string, userId: string): Promise<boolean> {
     return this.projects.get(projectId)?.assignments.has(`${userId} ${csvFileId}`) ?? false;
+  }
+
+  async addAssignment(projectId: string, csvFileId: string, userId: string): Promise<boolean> {
+    const entry = this.projects.get(projectId);
+    const file = entry?.csvFiles.get(csvFileId);
+    if (!entry || !file || file.distribution) return false;
+    entry.assignments.add(`${userId} ${csvFileId}`);
+    return true;
+  }
+
+  async claimUnheldPlots(projectId: string, csvFileId: string, userId: string, candidates: readonly string[], count: number): Promise<number | 'whole_assigned' | 'not_found'> {
+    const entry = this.projects.get(projectId);
+    const file = entry?.csvFiles.get(csvFileId);
+    if (!entry || !file) return 'not_found';
+    if (!file.distribution) {
+      if ([...entry.assignments].some((a) => a.endsWith(` ${csvFileId}`))) return 'whole_assigned';
+      file.distribution = { mode: 'manual' };
+    }
+    const plots = entry.plotAssignments.get(csvFileId) ?? [];
+    const held = new Set(plots.map((a) => a.plotKey));
+    const taken = candidates.filter((k) => !held.has(k)).slice(0, Math.max(0, count));
+    entry.plotAssignments.set(csvFileId, [...plots, ...taken.map((plotKey) => ({ plotKey, userId, overlap: false }))]);
+    entry.holdingsGeneration += 1;
+    return taken.length;
   }
 
   async setDivision(

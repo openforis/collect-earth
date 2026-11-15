@@ -51,6 +51,7 @@ import { MovePlotsDialog } from "../components/MovePlotsDialog";
 import {
   createInvite,
   getPeople,
+  listCsvFiles,
   type PeopleAnswer,
   type PeopleInvite,
   type PersonRow,
@@ -105,10 +106,17 @@ import { TeamTimeSpent } from "../components/TimeSpent";
 
 const EXPIRY_CHOICES = [1, 7, 30, 0] as const; // days; 0 = never
 
+/** The plots choice of the invitation form: none, a file whole, or a number of plots each of a file */
+type PlotsChoice = "" | `whole:${string}` | `share:${string}`;
+
 function InviteForm({ projectId, onCreated }: { projectId: string; onCreated: (invite: NewInvite) => void }) {
   const t = useT();
   const [role, setRole] = useState<Role>("operator");
   const [maxUses, setMaxUses] = useState("10");
+  const files = useLoad(["project", projectId, "listCsvFiles"], () => listCsvFiles(projectId));
+  const [plots, setPlots] = useState<PlotsChoice>("");
+  const [perPerson, setPerPerson] = useState("50");
+  const [badCount, setBadCount] = useState(false);
   const [expiry, setExpiry] = useState<number>(30);
   const [error, setError] = useState<unknown>(null);
   const [badUses, setBadUses] = useState(false);
@@ -122,9 +130,16 @@ function InviteForm({ projectId, onCreated }: { projectId: string; onCreated: (i
       setBadUses(true);
       return;
     }
+    const [mode, csvFileId] = plots === "" ? [null, null] : (plots.split(":") as ["whole" | "share", string]);
+    const count = Number(perPerson);
+    if (mode === "share" && (!Number.isInteger(count) || count < 1 || count > 100000)) {
+      setBadCount(true);
+      return;
+    }
     setBusy(true);
     try {
-      onCreated(await createInvite(projectId, { role, maxUses: uses, expiresInDays: expiry || null }));
+      const given = mode && csvFileId ? { csvFileId, mode, count: mode === "share" ? count : null } : null;
+      onCreated(await createInvite(projectId, { role, maxUses: uses, expiresInDays: expiry || null, plots: given }));
     } catch (err) {
       setError(err);
     } finally {
@@ -171,6 +186,39 @@ function InviteForm({ projectId, onCreated }: { projectId: string; onCreated: (i
           </Select>
         </FormControl>
       </Stack>
+      {(files.data ?? []).length > 0 && (
+        <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+          <FormControl fullWidth>
+            <InputLabel id="invite-plots">{t("people.plots")}</InputLabel>
+            <Select labelId="invite-plots" label={t("people.plots")} value={plots} onChange={(e) => setPlots(e.target.value as PlotsChoice)}>
+              <MenuItem value="">{t("people.plotsNone")}</MenuItem>
+              {(files.data ?? []).flatMap((f) => [
+                // a divided file is shared out only by number: its plots are each someone's
+                ...(f.divided ? [] : [<MenuItem key={`whole:${f.id}`} value={`whole:${f.id}`}>{t("people.plotsWhole", { file: f.filename })}</MenuItem>]),
+                <MenuItem key={`share:${f.id}`} value={`share:${f.id}`}>
+                  {t("people.plotsShare", { file: f.filename })} {f.divided ? t("people.plotsDivided") : ""}
+                </MenuItem>,
+              ])}
+            </Select>
+            <FormHelperText>{t("people.plotsHelp")}</FormHelperText>
+          </FormControl>
+          {plots.startsWith("share:") && (
+            <TextField
+              label={t("people.plotsCount")}
+              type="number"
+              value={perPerson}
+              onChange={(e) => {
+                setPerPerson(e.target.value);
+                setBadCount(false);
+              }}
+              error={badCount}
+              helperText={badCount ? t("people.plotsCountBad") : undefined}
+              slotProps={{ htmlInput: { min: 1, max: 100000, inputMode: "numeric" } }}
+              sx={{ minWidth: 160 }}
+            />
+          )}
+        </Stack>
+      )}
       <ErrorAlert error={error} />
       <Box>
         <Button type="submit" variant="contained" startIcon={<Link />} disabled={busy}>
@@ -683,6 +731,9 @@ function PeopleTableSection({ projectId, data }: { projectId: string; data: Peop
   const [status, setStatus] = useState<StatusFilter>("all");
   const now = Date.now();
   const n = (v: number) => formatNumber(v, language);
+  // The plot files the open links give plots of, by name
+  const csvFiles = useLoad(["project", projectId, "listCsvFiles"], () => listCsvFiles(projectId));
+  const fileName = (id: string) => csvFiles.data?.find((f) => f.id === id)?.filename ?? "…";
   const rows = sortPeople(filterPeople(data.people, text, status), sort.key, sort.direction);
   const invites = invitesShown(data.invites, text, status);
   // Through the server, which notes the download in the activity log (the rows are the table's).
@@ -829,6 +880,13 @@ function PeopleTableSection({ projectId, data }: { projectId: string; data: Peop
                         ? t("peopleTable.fileLinkHelp")
                         : t("peopleTable.invitePlaces", { left: n(Math.max(0, invite.maxUses - invite.usedCount)), max: n(invite.maxUses) })}
                     </Typography>
+                    {invite.plots && (
+                      <Typography variant="body2" color="text.secondary">
+                        {invite.plots.mode === "whole"
+                          ? t("peopleTable.invitePlotsWhole", { file: fileName(invite.plots.csvFileId) })
+                          : t("peopleTable.invitePlotsShare", { file: fileName(invite.plots.csvFileId), count: n(invite.plots.count ?? 0) })}
+                      </Typography>
+                    )}
                   </TableCell>
                   <TableCell>
                     <Chip size="small" variant="outlined" label={t(invite.forUsername !== null ? "peopleTable.statusFileLink" : "peopleTable.statusInvited")} />

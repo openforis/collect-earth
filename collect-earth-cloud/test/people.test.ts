@@ -200,8 +200,8 @@ describe('the people table', () => {
       project(records, {
         quality: { report, computedAt: NOW - MIN, stale: true },
         invites: [
-          { id: 'i1', role: 'operator', usedCount: 1, maxUses: 5, expiresAt: null, createdAt: NOW - DAY },
-          { id: 'i2', role: 'operator', usedCount: 0, maxUses: 1, expiresAt: null, createdAt: NOW },
+          { id: 'i1', role: 'operator', usedCount: 1, maxUses: 5, expiresAt: null, createdAt: NOW - DAY, plots: null },
+          { id: 'i2', role: 'operator', usedCount: 0, maxUses: 1, expiresAt: null, createdAt: NOW, plots: null },
         ],
         inviteFor: new Map([['i2', 'bo']]),
       }),
@@ -210,8 +210,8 @@ describe('the people table', () => {
     expect(table.people.find((r) => r.username === 'bo')!.agreement).toEqual({ compared: 0, agreeing: 0, rate: null });
     expect(table.quality).toEqual({ available: true, computedAt: NOW - MIN, stale: true });
     expect(table.invites).toEqual([
-      { id: 'i1', role: 'operator', usedCount: 1, maxUses: 5, expiresAt: null, createdAt: NOW - DAY, forUsername: null },
-      { id: 'i2', role: 'operator', usedCount: 0, maxUses: 1, expiresAt: null, createdAt: NOW, forUsername: 'bo' },
+      { id: 'i1', role: 'operator', usedCount: 1, maxUses: 5, expiresAt: null, createdAt: NOW - DAY, forUsername: null, plots: null },
+      { id: 'i2', role: 'operator', usedCount: 0, maxUses: 1, expiresAt: null, createdAt: NOW, forUsername: 'bo', plots: null },
     ]);
   });
 });
