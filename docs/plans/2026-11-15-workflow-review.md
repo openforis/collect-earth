@@ -23,8 +23,9 @@ while looking further (below, "Second round").**
   own records; `scripts/pg-smoke-give.mts` for giving on PostgreSQL.
 - **Real runs** (`collect-earth-cloud/scripts/workflows/`, `README.md` there): the desktop built from this branch, one
   home folder per person, driven through its own API and the form's save, against the cloud server on PostgreSQL 16;
-  the office team on a new PostgreSQL 16 database of its own. 54 checks in six scenarios (alone, office, cloud,
-  alone-to-cloud, office-to-cloud, accounts).
+  the office team on a new PostgreSQL 16 database of its own. 54 checks in six scenarios in the first round (alone,
+  office, cloud, alone-to-cloud, office-to-cloud, accounts); 69 in nine after the second (office-back, mapathon,
+  two-computers added), all passing, and nightly in CI.
 
 ## Fixed
 
