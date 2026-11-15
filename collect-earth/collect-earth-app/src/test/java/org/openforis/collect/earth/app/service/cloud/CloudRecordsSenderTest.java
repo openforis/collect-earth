@@ -1,12 +1,15 @@
 package org.openforis.collect.earth.app.service.cloud;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -199,6 +202,15 @@ public class CloudRecordsSenderTest {
 		sent.clear();
 		sender.sendJob(true).run(new RecordingContext());
 		assertEquals(5, sent.size());
+
+		// which copies here a newer save of the person's from the cloud may replace: theirs, and one with nothing in it
+		assertTrue(sender.isMineHere(2));
+		assertTrue(sender.isMineHere(3));
+		assertFalse(sender.isMineHere(4));
+		doReturn(null).when(source).load(9);
+		assertTrue(sender.isMineHere(9));
+		doThrow(new IOException("unreadable")).when(source).load(10);
+		assertFalse(sender.isMineHere(10));
 	}
 
 	@Test

@@ -211,6 +211,33 @@ public class CloudOwnRecordsFetcherTest {
 		verify(data).importRecordsFrom(zip, process, Arrays.asList(newer));
 	}
 
+	@Test
+	public void aColleaguesCopyOfThePlotHereIsNeverReplaced() throws Exception {
+		// a computer several people collected on: P1 here (record 7) is Marta's; the person saved P1 in the cloud later
+		CollectRecordSummary martas = record("P1,1", 1_000);
+		when(martas.getId()).thenReturn(7);
+		when(surveys.getRecordSummariesSavedSince(any())).thenReturn(Arrays.asList(martas));
+		java.util.Map<String, Long> there = new java.util.LinkedHashMap<>();
+		there.put("P1,1", 61_000L);
+		when(api.ownRecordKeys(cloud)).thenReturn(there);
+		fetcher.setMineHere(id -> id != 7);
+		// nothing to bring: the check every ten minutes does not download the person's records each time
+		assertFalse(fetcher.serverHasMore());
+
+		// and the import, when something else is brought, leaves it
+		when(api.downloadOwnRecords(cloud)).thenReturn(new OwnRecords(zip, 1));
+		XMLDataImportProcess process = mock(XMLDataImportProcess.class);
+		DataImportSummary summary = mock(DataImportSummary.class);
+		when(summary.getRecordsToImport()).thenReturn(Collections.emptyList());
+		DataImportSummaryItem item = conflict("P1,1", 61_000, 1_000);
+		when(item.getConflictingRecordSummary().getId()).thenReturn(7);
+		when(summary.getConflictingRecords()).thenReturn(Arrays.asList(item));
+		when(process.getSummary()).thenReturn(summary);
+		when(data.getImportSummary(eq(zip), anyBoolean())).thenReturn(process);
+		assertEquals(0, fetcher.fetch());
+		verify(data, never()).importRecordsFrom(any(), any(), any());
+	}
+
 	private static DataImportSummaryItem conflict(String key, long thereAt, long hereAt) {
 		DataImportSummaryItem item = mock(DataImportSummaryItem.class);
 		CollectRecordSummary there = record(key, thereAt);

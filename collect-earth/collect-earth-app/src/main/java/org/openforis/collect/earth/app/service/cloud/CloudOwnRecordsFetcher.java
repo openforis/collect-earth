@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.IntPredicate;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
@@ -43,7 +44,8 @@ import org.springframework.stereotype.Component;
  * <p>
  * Plots this computer has no record of are added; one it has is replaced only by a newer save of the person's (made on
  * their other computer), and never while it has changes here not sent yet; a record here under another name is never
- * replaced. The records brought are not sent back as new work. A failure keeps the request for the next start.
+ * replaced (a colleague's, on a computer several people collected on). The records brought are not sent back as new
+ * work. A failure keeps the request for the next start.
  */
 @Component
 public class CloudOwnRecordsFetcher implements ApplicationListener<ContextRefreshedEvent> {
@@ -74,6 +76,23 @@ public class CloudOwnRecordsFetcher implements ApplicationListener<ContextRefres
 	@Autowired(required = false)
 	public void setSync(CloudSyncService sync) {
 		this.sync = sync;
+	}
+
+	/**
+	 * Whether the record here with that id is the person's (their username, or a name typed here before the join): a
+	 * colleague's copy of a plot, on a computer several people collected on, is never replaced by the person's newer
+	 * save. Every record counts as theirs without the sender (some tests).
+	 */
+	private IntPredicate mineHere = id -> true;
+
+	@Autowired(required = false)
+	public void setSender(CloudRecordsSender sender) {
+		this.mineHere = sender::isMineHere;
+	}
+
+	/** For the tests */
+	void setMineHere(IntPredicate mineHere) {
+		this.mineHere = mineHere;
 	}
 
 	/** For the tests: the reload of the plots stood in for. */
@@ -162,14 +181,13 @@ public class CloudOwnRecordsFetcher implements ApplicationListener<ContextRefres
 			if (there.isEmpty()) {
 				return false;
 			}
-			Map<String, Long> here = new HashMap<>();
+			Map<String, CollectRecordSummary> here = new HashMap<>();
 			for (CollectRecordSummary summary : surveys.getRecordSummariesSavedSince(new Date(0))) {
-				Date modified = summary.getModifiedDate();
-				here.put(String.join(",", summary.getRootEntityKeyValues()), modified == null ? 0L : modified.getTime());
+				here.put(String.join(",", summary.getRootEntityKeyValues()), summary);
 			}
 			return there.entrySet().stream().anyMatch(e -> {
-				Long mine = here.get(e.getKey());
-				return mine == null || (e.getValue() > mine + NEWER_MS && !unsentHere(e.getKey()));
+				CollectRecordSummary mine = here.get(e.getKey());
+				return mine == null || (e.getValue() > modifiedAt(mine) + NEWER_MS && replaceable(e.getKey(), mine));
 			});
 		} catch (Exception e) {
 			logger.debug("Could not ask the cloud project which of the account's records it has: {}", e.getMessage()); //$NON-NLS-1$
@@ -252,19 +270,27 @@ public class CloudOwnRecordsFetcher implements ApplicationListener<ContextRefres
 		}
 	}
 
-	/** The cloud's copy of a plot this computer has is newer, and nothing of it waits to be sent here */
+	/** The cloud's copy of a plot this computer has is newer, and the copy here may be replaced by it */
 	private boolean isNewerThere(DataImportSummaryItem item) {
 		CollectRecordSummary there = item.getRecordSummary();
 		CollectRecordSummary here = item.getConflictingRecordSummary();
 		if (there == null || here == null || there.getModifiedDate() == null) {
 			return false;
 		}
-		long hereAt = here.getModifiedDate() == null ? 0L : here.getModifiedDate().getTime();
-		if (there.getModifiedDate().getTime() <= hereAt + NEWER_MS) {
+		if (there.getModifiedDate().getTime() <= modifiedAt(here) + NEWER_MS) {
 			return false;
 		}
 		List<String> keys = there.getRootEntityKeyValues();
-		return keys == null || !unsentHere(String.join(",", keys));
+		return keys != null && replaceable(String.join(",", keys), here);
+	}
+
+	/** A copy here may be replaced by the person's newer save: it is theirs, and nothing of it waits to be sent */
+	private boolean replaceable(String recordKey, CollectRecordSummary here) {
+		return !unsentHere(recordKey) && (here.getId() == null || mineHere.test(here.getId()));
+	}
+
+	private static long modifiedAt(CollectRecordSummary summary) {
+		return summary.getModifiedDate() == null ? 0L : summary.getModifiedDate().getTime();
 	}
 
 	private void notify(String severity, String message) {

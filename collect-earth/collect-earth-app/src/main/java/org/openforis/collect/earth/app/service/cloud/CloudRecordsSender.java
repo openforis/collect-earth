@@ -130,6 +130,20 @@ public class CloudRecordsSender implements ApplicationListener<ContextRefreshedE
 	}
 
 	/**
+	 * Whether the record of this computer with that id is the person's ({@link #isMine}): only theirs is ever replaced
+	 * by a newer save of theirs from the cloud (CloudOwnRecordsFetcher). One with nothing answered in it counts as
+	 * theirs, as there is nothing in it to lose; one that cannot be read does not.
+	 */
+	public boolean isMineHere(int recordId) {
+		try {
+			RecordEnvelope envelope = source.load(recordId);
+			return envelope == null || isMine(envelope.getOperator());
+		} catch (IOException | RuntimeException e) {
+			return false;
+		}
+	}
+
+	/**
 	 * The records of the project on this computer: how many in all, how many are the person's ({@link #isMine}), and the
 	 * names typed here before the join, for the page to say.
 	 */
