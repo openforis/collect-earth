@@ -469,6 +469,11 @@ public class CloudService {
 			if ("invite_exhausted".equals(e.getErrorCode()) || "invalid_invite".equals(e.getErrorCode())) {
 				throw new InvalidCloudRequestException("cloud.inviteInvalid", Messages.getString("CloudJoin.inviteInvalid"));
 			}
+			// The server's limit per address: a training room joins from one office address, so when a big group joins
+			// at once the last of a minute are told to wait, not shown the server's answer
+			if ("rate_limited".equals(e.getErrorCode())) {
+				throw new InvalidCloudRequestException("cloud.rateLimited", Messages.getString("CloudLoginDialog.rateLimited"));
+			}
 			throw new InvalidCloudRequestException("cloud.login", StringUtils.defaultIfBlank(e.getMessage(), Messages.getString("CloudLoginDialog.failed")));
 		} catch (IOException | RuntimeException e) {
 			logger.warn("The cloud login failed: {}", e.getMessage());

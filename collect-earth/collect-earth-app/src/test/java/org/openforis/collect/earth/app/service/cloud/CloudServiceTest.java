@@ -247,6 +247,14 @@ public class CloudServiceTest {
 					"login failed", Integer.parseInt(refusal[0]), refusal[1]));
 			assertEquals("cloud.inviteInvalid", assertThrows(InvalidCloudRequestException.class, () -> service.join(request)).getCode());
 		}
+		// a big group joining at once from one room's address, over the server's limit for a minute
+		request.register = true;
+		request.username = "rosa";
+		when(api.register("https://c.org", "rosa", "password12", "tok")).thenThrow(new CloudApiException(
+				"register failed with HTTP 429: {\"error\":\"rate_limited\"}", 429, "rate_limited"));
+		e = assertThrows(InvalidCloudRequestException.class, () -> service.join(request));
+		assertEquals("cloud.rateLimited", e.getCode());
+		assertEquals(Messages.getString("CloudLoginDialog.rateLimited"), e.getMessage());
 		verify(properties, never()).setCloudSyncEnabled(true);
 	}
 
