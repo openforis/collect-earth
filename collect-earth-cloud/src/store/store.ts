@@ -603,6 +603,11 @@ export interface Store {
   /** The records (not deleted) the server has no XML for: the Collect Earth backup cannot carry them. */
   listRecordKeysWithoutXml(projectId: string): Promise<{ recordKey: string; operator: string }[]>;
   /**
+   * The keys of one person's records (`operator`, their username) that are not deleted and have their XML, in key order:
+   * what GET my-records answers, asked by each Collect Earth every few minutes (only those rows are read).
+   */
+  listOperatorRecordKeys(projectId: string, operator: string): Promise<string[]>;
+  /**
    * Every record (any operator) whose key is one of `recordKeys`, with its summary and without
    * XML, deleted ones too: one plot's records for the plot page (rounds.recordKeysOfUnit), in
    * one read of the primary key. With `operator`, only that person's (filtered in the query).

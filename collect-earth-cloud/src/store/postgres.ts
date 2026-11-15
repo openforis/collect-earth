@@ -665,6 +665,16 @@ export class PostgresStore implements Store {
     });
   }
 
+  async listOperatorRecordKeys(projectId: string, operator: string): Promise<string[]> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query(
+        'SELECT record_key FROM records WHERE project_id = $1 AND operator = $2 AND NOT deleted AND xml IS NOT NULL ORDER BY record_key COLLATE "C"',
+        [projectId, operator],
+      );
+      return res.rows.map((row) => row.record_key as string);
+    });
+  }
+
   async listRecordsByKeys(projectId: string, recordKeys: readonly string[], operator?: string): Promise<RecordRow[]> {
     if (recordKeys.length === 0) {
       return [];

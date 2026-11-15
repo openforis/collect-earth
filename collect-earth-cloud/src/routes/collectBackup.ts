@@ -145,16 +145,13 @@ export async function registerCollectBackupRoutes(
       void reply.code(403).send({ error: 'forbidden', reason: 'your records need a signed-in person, not a project token' });
       return null;
     }
-    const [user, states, withoutXml] = await Promise.all([store.getUserById(userId), store.listRecordStates(projectId), store.listRecordKeysWithoutXml(projectId)]);
+    const user = await store.getUserById(userId);
     if (!user) {
       void reply.code(401).send({ error: 'unauthorized' });
       return null;
     }
-    const noXml = new Set(withoutXml.map((r) => `${r.recordKey}\u0000${r.operator}`));
-    return states
-      .filter((r) => r.operator === user.username && !r.deleted && !noXml.has(`${r.recordKey}\u0000${r.operator}`))
-      .map((r) => ({ recordKey: r.recordKey, operator: r.operator }))
-      .sort((a, b) => (a.recordKey < b.recordKey ? -1 : a.recordKey > b.recordKey ? 1 : 0));
+    // Only the person's rows are read: every Collect Earth asks every few minutes
+    return (await store.listOperatorRecordKeys(projectId, user.username)).map((recordKey) => ({ recordKey, operator: user.username }));
   };
   app.get('/v1/projects/:pid/my-records', { preHandler: requireProjectMembership(store) }, async (request: FastifyRequest, reply: FastifyReply) => {
     const records = await ownRecords(request, reply);
