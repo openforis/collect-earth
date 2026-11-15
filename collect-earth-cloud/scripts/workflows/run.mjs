@@ -1,6 +1,7 @@
 // The workflows of Collect Earth, run with real desktops against a real cloud server on PostgreSQL.
-// node run.mjs [scenario...]   (all by default: alone office cloud alone-to-cloud office-to-cloud mapathon two-computers accounts)
+// node run.mjs [scenario...]   (all by default: alone office cloud alone-to-cloud office-to-cloud office-back mapathon two-computers accounts)
 // What it needs and how to start it: README.md beside it.
+import { execFileSync } from 'node:child_process';
 import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import {
   APP, E, check, demoPlotFile, cloud, cloudLogin, desk, job, joinFromDesktop, note, plotIds, results, savePlot, setOperator, sleep, sql, sqliteRecords,
@@ -247,6 +248,41 @@ const scenarios = {
     const his = state.officePlots.filter((p) => cloudRows(pid).includes(`${p}:luis`));
     const onHis = sqliteRecords('office-b');
     check('office→cloud: Luis finds his plots on his computer right after joining', his.length === 2 && his.every((p) => onHis.includes(p)), `${his.join(' ')} | here: ${onHis.join(' ')}`);
+  },
+
+  // 6b. An office computer in the cloud project opens another office project (back on the office's PostgreSQL), then
+  // the cloud project again (in the cloud mode again: its plots are sent, not kept in the office's database)
+  async 'office-back'() {
+    const pid = sql('cloud', "select id from projects where name = 'Office survey in the cloud'")[0];
+    // another office project: the demo survey under another name
+    const other = `${E}/office-second.cep`;
+    execFileSync('python3', ['-I', '-c', `import sys,zipfile
+src,dst=sys.argv[1],sys.argv[2]
+with zipfile.ZipFile(src) as a, zipfile.ZipFile(dst,'w',zipfile.ZIP_DEFLATED) as b:
+  for n in a.namelist():
+    d=a.read(n)
+    if n=='project_definition.properties': d=d.replace(b'survey_name=collect_earth_initial_2025',b'survey_name=office_second_survey')
+    if n=='placemark.idm.xml': d=d.replace(b'/idm/collect_earth_initial_2025<',b'/idm/office_second_survey<')
+    b.writestr(n,d)`, CEP, other]);
+    await startDesktop('office-b');
+    const imported = await desk('POST', '/api/projects/import', { path: other });
+    await waitRestart();
+    let s = (await desk('GET', '/api/settings')).json?.values;
+    check('office back: another office project opens on the office’s PostgreSQL again', s?.db_driver === 'POSTGRESQL', `${JSON.stringify(imported.json)} ${s?.db_driver}`);
+    const list = (await desk('GET', '/api/projects')).json?.projects ?? [];
+    const theCloudOne = list.find((p) => p.cloud);
+    const loaded = await desk('POST', '/api/projects/load', { folder: theCloudOne?.folder });
+    await waitRestart();
+    s = (await desk('GET', '/api/settings')).json?.values;
+    check('office back: the cloud project opened again is in the cloud mode again', s?.db_driver === 'CLOUD', `${JSON.stringify(loaded.json)} ${s?.db_driver}`);
+    // Luis saves one of his plots again there: the cloud has the new save
+    const plot = state.officePlots.find((p) => cloudRows(pid).includes(`${p}:luis`));
+    const savedAt = () => Number(sql('cloud', `select coalesce(extract(epoch from max(modified_on)), 0) from records where project_id='${pid}' and record_key='${plot}' and operator='luis'`)[0]);
+    const before = savedAt();
+    await sleep(1500);
+    await savePlot(plot, '80');
+    const sync = await syncNow();
+    check('office back: a plot saved there reaches the cloud', savedAt() > before && sync?.failed === 0, `${plot}: ${before} → ${savedAt()} ${JSON.stringify(sync)}`);
   },
 
   // 7. A mapathon: a link that gives each person who joins 5 plots of the file; their Collect Earth opens them at once

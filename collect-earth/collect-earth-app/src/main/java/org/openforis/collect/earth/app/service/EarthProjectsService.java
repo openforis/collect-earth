@@ -179,13 +179,14 @@ public class EarthProjectsService {
 	/**
 	 * {@link #driverAfterLoading(CollectDBDriver, boolean)}, for a computer that used an office's shared PostgreSQL before
 	 * it joined a cloud project ({@code officeBefore}): a project that is not a cloud one goes back to that database, not
-	 * to this computer's SQLite (docs/plans/2026-11-15-workflow-review.md).
+	 * to this computer's SQLite (docs/plans/2026-11-15-workflow-review.md), and the cloud project, opened again from
+	 * there, is in the cloud mode again (its plots would otherwise go to the office's database and never be sent).
 	 */
 	static CollectDBDriver driverAfterLoading(CollectDBDriver current, boolean cloudProject, boolean officeBefore) {
 		if (current == CollectDBDriver.CLOUD && !cloudProject) {
 			return officeBefore ? CollectDBDriver.POSTGRESQL : CollectDBDriver.SQLITE;
 		}
-		if (current == CollectDBDriver.SQLITE && cloudProject) {
+		if (cloudProject && (current == CollectDBDriver.SQLITE || (current == CollectDBDriver.POSTGRESQL && officeBefore))) {
 			return CollectDBDriver.CLOUD;
 		}
 		return current;
