@@ -63,15 +63,30 @@ public class CloudOwnRecordsFetcherTest {
 		return process;
 	}
 
-	/** The records this computer has, by their keys */
+	/** A record's summary: its key, saved at `at` */
+	private static CollectRecordSummary record(String key, long at) {
+		CollectRecordSummary summary = mock(CollectRecordSummary.class);
+		when(summary.getRootEntityKeyValues()).thenReturn(Arrays.asList(key.split(",")));
+		when(summary.getModifiedDate()).thenReturn(new java.util.Date(at));
+		return summary;
+	}
+
+	/** The records this computer has, by their keys, all saved at 1000 */
 	private void here(String... keys) {
 		List<CollectRecordSummary> summaries = new java.util.ArrayList<>();
 		for (String key : keys) {
-			CollectRecordSummary summary = mock(CollectRecordSummary.class);
-			when(summary.getRootEntityKeyValues()).thenReturn(Arrays.asList(key.split(",")));
-			summaries.add(summary);
+			summaries.add(record(key, 1000));
 		}
 		when(surveys.getRecordSummariesSavedSince(any())).thenReturn(summaries);
+	}
+
+	/** The server's records of the person, all saved at 1000 */
+	private static java.util.Map<String, Long> saved(String... keys) {
+		java.util.Map<String, Long> map = new java.util.LinkedHashMap<>();
+		for (String key : keys) {
+			map.put(key, 1000L);
+		}
+		return map;
 	}
 
 	private List<Object> noticeKinds() {
@@ -130,10 +145,10 @@ public class CloudOwnRecordsFetcherTest {
 	@Test
 	public void atTheOtherStartsOnlyWhenTheServerHasRecordsOfTheirsThisComputerHasNot() throws Exception {
 		here("P1,1", "P2,1", "P3,1");
-		when(api.ownRecordKeys(cloud)).thenReturn(Arrays.asList("P1,1", "P2,1"));
+		when(api.ownRecordKeys(cloud)).thenReturn(saved("P1,1", "P2,1"));
 		assertFalse(fetcher.serverHasMore());
 		// a colleague's copy of P3 here, theirs given now: as many as here, but P4 is new
-		when(api.ownRecordKeys(cloud)).thenReturn(Arrays.asList("P1,1", "P2,1", "P4,1"));
+		when(api.ownRecordKeys(cloud)).thenReturn(saved("P1,1", "P2,1", "P4,1"));
 		assertTrue(fetcher.serverHasMore());
 		// offline: nothing asked, nothing said
 		when(api.ownRecordKeys(cloud)).thenThrow(new IOException("offline"));
@@ -146,11 +161,11 @@ public class CloudOwnRecordsFetcherTest {
 		when(surveys.getCollectSurvey()).thenReturn(mock(org.openforis.collect.model.CollectSurvey.class));
 		here("P1,1", "P2,1");
 		// nothing new: nothing asked for
-		when(api.ownRecordKeys(cloud)).thenReturn(Arrays.asList("P1,1", "P2,1"));
+		when(api.ownRecordKeys(cloud)).thenReturn(saved("P1,1", "P2,1"));
 		fetcher.check();
 		verify(api, never()).downloadOwnRecords(any());
 		// the coordinator gave them two plots meanwhile
-		when(api.ownRecordKeys(cloud)).thenReturn(Arrays.asList("P1,1", "P2,1", "P3,1", "P4,1"));
+		when(api.ownRecordKeys(cloud)).thenReturn(saved("P1,1", "P2,1", "P3,1", "P4,1"));
 		when(api.downloadOwnRecords(cloud)).thenReturn(new OwnRecords(zip, 4));
 		summary(2);
 		fetcher.check();
@@ -161,6 +176,48 @@ public class CloudOwnRecordsFetcherTest {
 		fetcher.check();
 		assertEquals(said, notices.pending().size());
 		assertEquals(10, CloudOwnRecordsFetcher.CHECK_MINUTES);
+	}
+
+	@Test
+	public void theSamePersonOnTwoComputersGetsTheNewerSaveUnlessSomethingWaitsHere() throws Exception {
+		CloudSyncService sync = mock(CloudSyncService.class);
+		fetcher.setSync(sync);
+		here("P1,1");
+		// the other computer saved P1 again a minute later
+		java.util.Map<String, Long> there = new java.util.LinkedHashMap<>();
+		there.put("P1,1", 61_000L);
+		when(api.ownRecordKeys(cloud)).thenReturn(there);
+		when(sync.recordState("P1,1")).thenReturn("sent");
+		assertTrue(fetcher.serverHasMore());
+		// but not while this computer has a change of P1 not sent yet
+		when(sync.recordState("P1,1")).thenReturn("pending");
+		assertFalse(fetcher.serverHasMore());
+
+		// the import: the newer copy replaces this one; an older one, or one with something unsent, does not
+		when(sync.recordState("P1,1")).thenReturn("sent");
+		when(sync.recordState("P2,1")).thenReturn("sent");
+		when(sync.recordState("P3,1")).thenReturn("failed");
+		when(api.downloadOwnRecords(cloud)).thenReturn(new OwnRecords(zip, 3));
+		XMLDataImportProcess process = mock(XMLDataImportProcess.class);
+		DataImportSummary summary = mock(DataImportSummary.class);
+		when(summary.getRecordsToImport()).thenReturn(Collections.emptyList());
+		DataImportSummaryItem newer = conflict("P1,1", 61_000, 1_000);
+		DataImportSummaryItem older = conflict("P2,1", 1_000, 61_000);
+		DataImportSummaryItem waiting = conflict("P3,1", 61_000, 1_000);
+		when(summary.getConflictingRecords()).thenReturn(Arrays.asList(newer, older, waiting));
+		when(process.getSummary()).thenReturn(summary);
+		when(data.getImportSummary(eq(zip), anyBoolean())).thenReturn(process);
+		assertEquals(1, fetcher.fetch());
+		verify(data).importRecordsFrom(zip, process, Arrays.asList(newer));
+	}
+
+	private static DataImportSummaryItem conflict(String key, long thereAt, long hereAt) {
+		DataImportSummaryItem item = mock(DataImportSummaryItem.class);
+		CollectRecordSummary there = record(key, thereAt);
+		CollectRecordSummary local = record(key, hereAt);
+		when(item.getRecordSummary()).thenReturn(there);
+		when(item.getConflictingRecordSummary()).thenReturn(local);
+		return item;
 	}
 
 	@Test

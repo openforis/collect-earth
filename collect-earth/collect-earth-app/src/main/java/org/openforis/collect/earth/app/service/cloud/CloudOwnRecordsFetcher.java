@@ -2,11 +2,11 @@ package org.openforis.collect.earth.app.service.cloud;
 
 import java.io.File;
 import java.text.MessageFormat;
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.Date;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -23,6 +23,7 @@ import org.openforis.collect.earth.app.service.notices.Notice;
 import org.openforis.collect.earth.app.service.notices.NoticeService;
 import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.io.data.DataImportSummary;
+import org.openforis.collect.io.data.DataImportSummaryItem;
 import org.openforis.collect.model.CollectRecordSummary;
 import org.openforis.collect.io.data.XMLDataImportProcess;
 import org.slf4j.Logger;
@@ -37,12 +38,12 @@ import org.springframework.stereotype.Component;
  * another way (an office's database brought in from its backup, a coordinator giving them a typed name's plots,
  * another computer) finds their plots on this one as they left them, instead of empty forms they would do again
  * (docs/plans/2026-11-15-workflow-review.md). At the first start after joining or opening the project; then, at each
- * start and every ten minutes while it runs, when the server has records of the account this computer has none of (one
- * small request: their keys).
+ * start and every ten minutes while it runs, when the server has records of the account this computer has none of, or
+ * newer saves of some (one small request: their keys and when each was saved).
  * <p>
- * Only plots this computer has no record of are added: a record here is never replaced (it may not be sent yet). The
- * records added are not sent back: they are the cloud's, and the sync only queues what is saved here. A failure keeps
- * the request for the next start.
+ * Plots this computer has no record of are added; one it has is replaced only by a newer save of the person's (made on
+ * their other computer), and never while it has changes here not sent yet; a record here under another name is never
+ * replaced. The records brought are not sent back as new work. A failure keeps the request for the next start.
  */
 @Component
 public class CloudOwnRecordsFetcher implements ApplicationListener<ContextRefreshedEvent> {
@@ -65,6 +66,14 @@ public class CloudOwnRecordsFetcher implements ApplicationListener<ContextRefres
 	public CloudOwnRecordsFetcher(LocalPropertiesService properties, CloudApiClient api, DataImportExportService data, EarthSurveyService surveys,
 			@Autowired(required = false) NoticeService notices) {
 		this(properties, api, data, surveys, notices, EarthApp::reloadPlots);
+	}
+
+	/** Whether a plot has changes here not sent yet (absent in some tests) */
+	private CloudSyncService sync;
+
+	@Autowired(required = false)
+	public void setSync(CloudSyncService sync) {
+		this.sync = sync;
 	}
 
 	/** For the tests: the reload of the plots stood in for. */
@@ -128,20 +137,40 @@ public class CloudOwnRecordsFetcher implements ApplicationListener<ContextRefres
 	private volatile boolean started;
 
 	/**
-	 * Whether the server has records of the account this computer has none of, by their keys (a record here under
-	 * another name, a colleague's copy, counts as there: it is never replaced). Quietly false offline.
+	 * How much later than this computer's copy the server's must be saved to count as newer (the two clocks and their
+	 * rounding): a second.
+	 */
+	static final long NEWER_MS = 1000;
+
+	/** The plot has changes here not sent yet (the form's, or queued): never replaced by the cloud's copy */
+	private boolean unsentHere(String recordKey) {
+		if (sync == null) {
+			return false;
+		}
+		String state = sync.recordState(recordKey);
+		return "pending".equals(state) || "failed".equals(state); //$NON-NLS-1$ //$NON-NLS-2$
+	}
+
+	/**
+	 * Whether the server has records of the account this computer has none of, or a newer save of one it has (made on the
+	 * person's other computer) with nothing unsent here. A record here under another name (a colleague's copy) counts as
+	 * there: it is never replaced. Quietly false offline.
 	 */
 	boolean serverHasMore() {
 		try {
-			List<String> there = api.ownRecordKeys(api.cloudDestination());
+			Map<String, Long> there = api.ownRecordKeys(api.cloudDestination());
 			if (there.isEmpty()) {
 				return false;
 			}
-			Set<String> here = new HashSet<>();
+			Map<String, Long> here = new HashMap<>();
 			for (CollectRecordSummary summary : surveys.getRecordSummariesSavedSince(new Date(0))) {
-				here.add(String.join(",", summary.getRootEntityKeyValues()));
+				Date modified = summary.getModifiedDate();
+				here.put(String.join(",", summary.getRootEntityKeyValues()), modified == null ? 0L : modified.getTime());
 			}
-			return there.stream().anyMatch(key -> !here.contains(key));
+			return there.entrySet().stream().anyMatch(e -> {
+				Long mine = here.get(e.getKey());
+				return mine == null || (e.getValue() > mine + NEWER_MS && !unsentHere(e.getKey()));
+			});
 		} catch (Exception e) {
 			logger.debug("Could not ask the cloud project which of the account's records it has: {}", e.getMessage()); //$NON-NLS-1$
 			return false;
@@ -188,11 +217,21 @@ public class CloudOwnRecordsFetcher implements ApplicationListener<ContextRefres
 			process.call();
 			DataImportSummary summary = process.getSummary();
 			int toImport = summary == null || summary.getRecordsToImport() == null ? 0 : summary.getRecordsToImport().size();
-			if (toImport == 0) {
+			// A plot this computer has is replaced only by a newer save (made on the person's other computer), and never
+			// while it has changes here not sent yet
+			List<DataImportSummaryItem> newer = new ArrayList<>();
+			if (summary != null && summary.getConflictingRecords() != null) {
+				for (DataImportSummaryItem item : summary.getConflictingRecords()) {
+					if (isNewerThere(item)) {
+						newer.add(item);
+					}
+				}
+			}
+			if (toImport == 0 && newer.isEmpty()) {
 				return 0;
 			}
-			// No conflicting record: those this computer has stay as they are
-			data.importRecordsFrom(file, process, Collections.emptyList());
+			data.importRecordsFrom(file, process, newer);
+			toImport += newer.size();
 			surveys.flushAndForgetWorkingRecords();
 			reload.run();
 			logger.info("Brought {} of the account's own records from the cloud project to this computer", toImport); //$NON-NLS-1$
@@ -211,6 +250,21 @@ public class CloudOwnRecordsFetcher implements ApplicationListener<ContextRefres
 				FileUtils.deleteQuietly(file);
 			}
 		}
+	}
+
+	/** The cloud's copy of a plot this computer has is newer, and nothing of it waits to be sent here */
+	private boolean isNewerThere(DataImportSummaryItem item) {
+		CollectRecordSummary there = item.getRecordSummary();
+		CollectRecordSummary here = item.getConflictingRecordSummary();
+		if (there == null || here == null || there.getModifiedDate() == null) {
+			return false;
+		}
+		long hereAt = here.getModifiedDate() == null ? 0L : here.getModifiedDate().getTime();
+		if (there.getModifiedDate().getTime() <= hereAt + NEWER_MS) {
+			return false;
+		}
+		List<String> keys = there.getRootEntityKeyValues();
+		return keys == null || !unsentHere(String.join(",", keys));
 	}
 
 	private void notify(String severity, String message) {

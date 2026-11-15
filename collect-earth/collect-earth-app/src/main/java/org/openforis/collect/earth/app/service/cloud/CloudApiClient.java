@@ -504,17 +504,20 @@ public class CloudApiClient {
 	}
 
 	/**
-	 * The keys of the signed-in account's own records of the project on the server (GET my-records), asked at each start
-	 * and every few minutes (CloudOwnRecordsFetcher).
+	 * The signed-in account's own records of the project on the server (GET my-records): each key with when it was last
+	 * saved (ms), asked at each start and every few minutes (CloudOwnRecordsFetcher).
 	 */
-	public List<String> ownRecordKeys(Destination destination) throws IOException {
+	public Map<String, Long> ownRecordKeys(Destination destination) throws IOException {
 		HttpGet request = new HttpGet(destination.projectUrl("/my-records"));
 		prepareWith(request, destination.getToken());
-		List<String> keys = new ArrayList<>();
-		for (JsonNode key : executeForJson("ownRecordKeys", request).path("keys")) {
-			keys.add(key.asText());
+		JsonNode answer = executeForJson("ownRecordKeys", request);
+		JsonNode keys = answer.path("keys");
+		JsonNode modified = answer.path("modifiedOn");
+		Map<String, Long> records = new LinkedHashMap<>();
+		for (int i = 0; i < keys.size(); i++) {
+			records.put(keys.get(i).asText(), modified.has(i) ? modified.get(i).asLong() : 0L);
 		}
-		return keys;
+		return records;
 	}
 
 	/**

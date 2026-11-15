@@ -135,9 +135,9 @@ export async function registerCollectBackupRoutes(
    * whose earlier work came to the cloud another way (an office's backup, another computer) finds their plots as they
    * left them (docs/plans/2026-11-15-workflow-review.md). Every member, their own records only; X-Records says how many.
    * The deleted ones and those the server has no XML of are left out. `GET /v1/projects/:pid/my-records` says only how
-   * many and their keys ({ records, keys }), which Collect Earth asks at each start and every ten minutes: a key it has no
-   * record of means some came to the cloud another way (a coordinator gave them a typed name's plots), and it fetches the
-   * file.
+   * many, their keys and when each was last saved ({ records, keys, modifiedOn }), which Collect Earth asks at each start
+   * and every ten minutes: a key it has no record of (a coordinator gave them a typed name's plots), or a newer save of
+   * one (made on the person's other computer), and it fetches the file.
    */
   const ownRecords = async (request: FastifyRequest, reply: FastifyReply) => {
     const { projectId, userId } = request.membership!;
@@ -151,12 +151,14 @@ export async function registerCollectBackupRoutes(
       return null;
     }
     // Only the person's rows are read: every Collect Earth asks every few minutes
-    return (await store.listOperatorRecordKeys(projectId, user.username)).map((recordKey) => ({ recordKey, operator: user.username }));
+    return (await store.listOperatorRecordKeys(projectId, user.username)).map((r) => ({ ...r, operator: user.username }));
   };
   app.get('/v1/projects/:pid/my-records', { preHandler: requireProjectMembership(store) }, async (request: FastifyRequest, reply: FastifyReply) => {
     const records = await ownRecords(request, reply);
     if (records === null) return reply;
-    return reply.header('cache-control', 'no-store').send({ records: records.length, keys: records.map((r) => r.recordKey) } satisfies MyRecordsAnswer);
+    return reply
+      .header('cache-control', 'no-store')
+      .send({ records: records.length, keys: records.map((r) => r.recordKey), modifiedOn: records.map((r) => r.modifiedOn) } satisfies MyRecordsAnswer);
   });
   app.get('/v1/projects/:pid/my-records.zip', { preHandler: requireProjectMembership(store) }, async (request: FastifyRequest, reply: FastifyReply) => {
     const projectId = request.membership!.projectId;
@@ -166,7 +168,7 @@ export async function registerCollectBackupRoutes(
     if (records === null) return reply;
     const files = readCep(cep);
     const head = [{ name: 'idml.xml', data: files.entries.get(files.surveyPath)! }];
-    const stream = Readable.from(collectBackupZip(store, projectId, head, { records }, new Date(now())));
+    const stream = Readable.from(collectBackupZip(store, projectId, head, { records: records.map((r) => ({ recordKey: r.recordKey, operator: r.operator })) }, new Date(now())));
     reply.raw.once('close', () => {
       if (!reply.raw.writableFinished) stream.destroy();
     });

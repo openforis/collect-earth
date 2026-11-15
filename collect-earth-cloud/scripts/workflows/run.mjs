@@ -1,5 +1,5 @@
 // The workflows of Collect Earth, run with real desktops against a real cloud server on PostgreSQL.
-// node run.mjs [scenario...]   (all by default: alone office cloud alone-to-cloud office-to-cloud accounts mapathon)
+// node run.mjs [scenario...]   (all by default: alone office cloud alone-to-cloud office-to-cloud mapathon two-computers accounts)
 // What it needs and how to start it: README.md beside it.
 import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import {
@@ -275,6 +275,32 @@ const scenarios = {
     await savePlot(theirs.m2[0]);
     const sync = await syncNow();
     check('mapathon: a plot saved there is in the cloud', cloudRows(pid).includes(`${theirs.m2[0]}:m2`) && sync?.failed === 0, cloudRows(pid).join(' '));
+    state.mapathon = { pid, joinUrl: link.json.joinUrl, plot: theirs.m2[0] };
+    save();
+  },
+
+  // 8. The same person on two computers: what they saved on one comes to the other, and a newer save replaces an older
+  async 'two-computers'() {
+    const { joinUrl, plot } = state.mapathon;
+    const coverage = async (id) =>
+      (await fetch(`http://localhost:8028/earth/placemark-info-expanded?id=${encodeURIComponent(id)}`).then((r) => r.json())).inputFieldInfoByParameterName?.['collect_entity_land_cover[trees].code_coverage']?.value;
+    rmSync(`${E}/home-m2-laptop`, { recursive: true, force: true });
+    await startDesktop('m2-laptop');
+    const joined = await joinFromDesktop(joinUrl, 'm2', 'm2-password', false);
+    check('two computers: m2 signs in on a second computer with the link', joined.join?.status === 200, JSON.stringify(joined.join?.json).slice(0, 200));
+    await waitRestart();
+    await sleep(8000);
+    check('two computers: the plot saved on the first computer is on the second, with its answer', sqliteRecords('m2-laptop').includes(plot) && (await coverage(plot)) === '40', `${sqliteRecords('m2-laptop').join(' ')} | ${await coverage(plot)}`);
+    // m2 changes it on the laptop
+    await sleep(1500);
+    await savePlot(plot, '80');
+    await syncNow();
+    // the first computer starts again: the newer save replaces its older copy
+    await startDesktop('m2');
+    await sleep(10000);
+    check('two computers: the first computer gets the newer save', (await coverage(plot)) === '80', `${await coverage(plot)}`);
+    const st = (await desk('GET', '/api/cloud/state')).json?.sync;
+    check('two computers: nothing is queued to be sent back', st?.pending === 0, JSON.stringify(st));
   },
 
   // 6. Accounts: what people see when something is wrong

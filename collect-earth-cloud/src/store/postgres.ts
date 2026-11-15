@@ -665,13 +665,13 @@ export class PostgresStore implements Store {
     });
   }
 
-  async listOperatorRecordKeys(projectId: string, operator: string): Promise<string[]> {
+  async listOperatorRecordKeys(projectId: string, operator: string): Promise<{ recordKey: string; modifiedOn: number }[]> {
     return this.withProject(projectId, async (client) => {
       const res = await client.query(
-        'SELECT record_key FROM records WHERE project_id = $1 AND operator = $2 AND NOT deleted AND xml IS NOT NULL ORDER BY record_key COLLATE "C"',
+        'SELECT record_key, modified_on FROM records WHERE project_id = $1 AND operator = $2 AND NOT deleted AND xml IS NOT NULL ORDER BY record_key COLLATE "C"',
         [projectId, operator],
       );
-      return res.rows.map((row) => row.record_key as string);
+      return res.rows.map((row) => ({ recordKey: row.record_key as string, modifiedOn: (row.modified_on as Date).getTime() }));
     });
   }
 

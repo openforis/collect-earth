@@ -722,11 +722,11 @@ export class InMemoryStore implements Store {
     return (await this.listRecords(projectId)).filter((r) => r.xml === null).map((r) => ({ recordKey: r.recordKey, operator: r.operator }));
   }
 
-  async listOperatorRecordKeys(projectId: string, operator: string): Promise<string[]> {
+  async listOperatorRecordKeys(projectId: string, operator: string): Promise<{ recordKey: string; modifiedOn: number }[]> {
     return (await this.listRecords(projectId))
       .filter((r) => r.operator === operator && r.xml !== null)
-      .map((r) => r.recordKey)
-      .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+      .map((r) => ({ recordKey: r.recordKey, modifiedOn: r.modifiedOn }))
+      .sort((a, b) => (a.recordKey < b.recordKey ? -1 : a.recordKey > b.recordKey ? 1 : 0));
   }
 
   async listRecordsByKeys(projectId: string, recordKeys: readonly string[], operator?: string): Promise<RecordRow[]> {

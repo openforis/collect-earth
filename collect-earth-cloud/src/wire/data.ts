@@ -243,4 +243,6 @@ export interface MyRecordsAnswer {
   records: number;
   /** Their keys (the key values joined by commas, as Collect Earth makes them) */
   keys: string[];
+  /** When each was last saved (ms), in the order of `keys` */
+  modifiedOn: number[];
 }
