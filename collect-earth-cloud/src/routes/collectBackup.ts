@@ -137,7 +137,9 @@ export async function registerCollectBackupRoutes(
    * The deleted ones and those the server has no XML of are left out. `GET /v1/projects/:pid/my-records` says only how
    * many, their keys and when each was last saved ({ records, keys, modifiedOn }), which Collect Earth asks at each start
    * and every ten minutes: a key it has no record of (a coordinator gave them a typed name's plots), or a newer save of
-   * one (made on the person's other computer), and it fetches the file.
+   * one (made on the person's other computer), and it fetches the file: with `?key=` (repeated, at most
+   * MY_RECORDS_KEYS) only those records, so a computer left open beside the one the person works on does not download
+   * all their records every ten minutes for the few saved meanwhile.
    */
   const ownRecords = async (request: FastifyRequest, reply: FastifyReply) => {
     const { projectId, userId } = request.membership!;
@@ -164,8 +166,11 @@ export async function registerCollectBackupRoutes(
     const projectId = request.membership!.projectId;
     const cep = await store.getCep(projectId);
     if (!cep) return reply.code(409).send(NO_PROJECT_FILE);
-    const records = await ownRecords(request, reply);
-    if (records === null) return reply;
+    const wanted = wantedKeys((request.query as { key?: unknown }).key);
+    if (wanted === 'too_many') return reply.code(400).send({ error: 'bad_request', reason: `key: at most ${MY_RECORDS_KEYS} records; leave it out for all` });
+    const all = await ownRecords(request, reply);
+    if (all === null) return reply;
+    const records = wanted ? all.filter((r) => wanted.has(r.recordKey)) : all;
     const files = readCep(cep);
     const head = [{ name: 'idml.xml', data: files.entries.get(files.surveyPath)! }];
     const stream = Readable.from(collectBackupZip(store, projectId, head, { records: records.map((r) => ({ recordKey: r.recordKey, operator: r.operator })) }, new Date(now())));
@@ -178,6 +183,13 @@ export async function registerCollectBackupRoutes(
       .header('cache-control', 'no-store')
       .send(stream);
   });
+
+  /** The records `?key=` asks for (one or repeated), null for all */
+  const wantedKeys = (key: unknown): Set<string> | null | 'too_many' => {
+    const keys = (Array.isArray(key) ? key : key === undefined ? [] : [key]).filter((k): k is string => typeof k === 'string' && k !== '');
+    if (keys.length === 0) return null;
+    return keys.length > MY_RECORDS_KEYS ? 'too_many' : new Set(keys);
+  };
 
   /** Writes the backup to the response, one at a time on this instance. */
   async function send(request: FastifyRequest, reply: FastifyReply, projectId: string, rounds: BackupRounds, format: BackupFormat) {
@@ -239,6 +251,8 @@ export async function registerCollectBackupRoutes(
 }
 
 const BAD_FORMAT = { error: 'bad_request', reason: 'format is zip or collect' };
+/** How many records `my-records.zip?key=` may name (Collect Earth asks for all of them beyond: the link stays short) */
+export const MY_RECORDS_KEYS = 200;
 const NO_PROJECT_FILE = { error: 'no_project_file', reason: 'the backup carries the survey of the project file: upload a project file first' };
 // Without round in the key a plot's first assessment and its check have one key, and Collect Earth
 // keeps one record per key: only the first assessments can go.

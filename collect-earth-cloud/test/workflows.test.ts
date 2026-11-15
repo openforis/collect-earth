@@ -341,6 +341,12 @@ describe('a person joining gets their own earlier plots on their computer (GET m
     const xmls = names.filter((n) => n !== 'idml.xml').map((n) => strFromU8(zip[n]));
     expect(xmls.every((x) => x.includes('marta') && !x.includes('Rosa Vidal'))).toBe(true);
     // rosa has none of hers yet (the coordinator has not given "Rosa Vidal"): only the survey
+    // only some of them: those a computer lacks, or has an older copy of
+    const one = await ctx.app.inject({ method: 'GET', url: `/v1/projects/${projectId}/my-records.zip?key=${encodeURIComponent('P1,2')}&key=nothing`, headers: bearer(marta) });
+    expect(one.headers['x-records']).toBe('1');
+    expect(Object.keys(unzipSync(new Uint8Array(one.rawPayload))).filter((n) => n !== 'idml.xml')).toHaveLength(1);
+    const many = Array.from({ length: 201 }, (_, i) => `key=K${i}`).join('&');
+    expect((await ctx.app.inject({ method: 'GET', url: `/v1/projects/${projectId}/my-records.zip?${many}`, headers: bearer(marta) })).statusCode).toBe(400);
     const none = await ctx.app.inject({ method: 'GET', url: `/v1/projects/${projectId}/my-records.zip`, headers: bearer(rosa) });
     expect(none.headers['x-records']).toBe('0');
     expect(Object.keys(unzipSync(new Uint8Array(none.rawPayload)))).toEqual(['idml.xml']);

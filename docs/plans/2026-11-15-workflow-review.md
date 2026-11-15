@@ -134,6 +134,8 @@ more people, or for the dashboard to stay fast while everyone saves without paus
 - **A colleague's copy of a plot** (on a computer several people collected on) could be replaced by the person's newer
   save of the same plot, and made the ten-minute check download the person's records each time: only the person's
   own copy, or one with nothing answered in it, is replaced now.
+- **A computer left open beside the one the person works on** downloaded all of their records every ten minutes for
+  the few saved meanwhile: it asks for those only now (`my-records.zip?key=`, up to 200).
 - **An office computer back on its PostgreSQL** (improvement 6) that opened its cloud project again from the project
   list stayed on the office's database: the cloud project's plots would have been saved there and never sent. It is
   in the cloud mode again now (`driverAfterLoading`; the `office-back` real run).

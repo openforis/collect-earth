@@ -525,7 +525,26 @@ public class CloudApiClient {
 	 * "Export data to XML (ZIP)" writes it) to a temporary file the caller deletes.
 	 */
 	public OwnRecords downloadOwnRecords(Destination destination) throws IOException {
-		HttpGet request = new HttpGet(destination.projectUrl("/my-records.zip"));
+		return downloadOwnRecords(destination, null);
+	}
+
+	/** How many records {@link #downloadOwnRecords(Destination, Collection)} names (the server's MY_RECORDS_KEYS) */
+	static final int OWN_RECORDS_KEYS = 200;
+
+	/**
+	 * {@link #downloadOwnRecords(Destination)}, only the records of those keys (all of them when null, or more than
+	 * {@link #OWN_RECORDS_KEYS}).
+	 */
+	public OwnRecords downloadOwnRecords(Destination destination, java.util.Collection<String> keys) throws IOException {
+		StringBuilder url = new StringBuilder(destination.projectUrl("/my-records.zip"));
+		if (keys != null && !keys.isEmpty() && keys.size() <= OWN_RECORDS_KEYS) {
+			char separator = '?';
+			for (String key : keys) {
+				url.append(separator).append("key=").append(java.net.URLEncoder.encode(key, java.nio.charset.StandardCharsets.UTF_8.name()));
+				separator = '&';
+			}
+		}
+		HttpGet request = new HttpGet(url.toString());
 		prepareWith(request, destination.getToken());
 		try (CloseableHttpResponse response = client().execute(request)) {
 			int status = response.getStatusLine().getStatusCode();

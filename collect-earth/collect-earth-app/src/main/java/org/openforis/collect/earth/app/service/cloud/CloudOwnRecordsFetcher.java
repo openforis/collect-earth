@@ -5,8 +5,10 @@ import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -40,7 +42,7 @@ import org.springframework.stereotype.Component;
  * another computer) finds their plots on this one as they left them, instead of empty forms they would do again
  * (docs/plans/2026-11-15-workflow-review.md). At the first start after joining or opening the project; then, at each
  * start and every ten minutes while it runs, when the server has records of the account this computer has none of, or
- * newer saves of some (one small request: their keys and when each was saved).
+ * newer saves of some (one small request: their keys and when each was saved), those records only.
  * <p>
  * Plots this computer has no record of are added; one it has is replaced only by a newer save of the person's (made on
  * their other computer), and never while it has changes here not sent yet; a record here under another name is never
@@ -135,8 +137,13 @@ public class CloudOwnRecordsFetcher implements ApplicationListener<ContextRefres
 				}
 				return;
 			}
-			if (asked || serverHasMore()) {
+			if (asked) {
 				fetch(false);
+			} else {
+				Set<String> wanted = keysToFetch();
+				if (!wanted.isEmpty()) {
+					fetch(false, wanted);
+				}
 			}
 		});
 		executor.scheduleWithFixedDelay(this::check, CHECK_MINUTES, CHECK_MINUTES, TimeUnit.MINUTES);
@@ -145,10 +152,17 @@ public class CloudOwnRecordsFetcher implements ApplicationListener<ContextRefres
 	/** How often the server is asked whether it has more of the account's records than this computer */
 	static final long CHECK_MINUTES = 10;
 
-	/** The check every CHECK_MINUTES: quiet when there is nothing, offline, or no longer in a cloud project */
+	/**
+	 * The check every CHECK_MINUTES: quiet when there is nothing, offline, or no longer in a cloud project. Only the
+	 * records this computer lacks or has an older copy of are downloaded: a computer left open beside the one the person
+	 * works on gets the few plots saved meanwhile, not all of theirs every ten minutes.
+	 */
 	void check() {
-		if (properties.isCloudSyncEnabled() && surveys.getCollectSurvey() != null && serverHasMore()) {
-			fetch(true);
+		if (properties.isCloudSyncEnabled() && surveys.getCollectSurvey() != null) {
+			Set<String> wanted = keysToFetch();
+			if (!wanted.isEmpty()) {
+				fetch(true, wanted);
+			}
 		}
 	}
 
@@ -176,23 +190,32 @@ public class CloudOwnRecordsFetcher implements ApplicationListener<ContextRefres
 	 * there: it is never replaced. Quietly false offline.
 	 */
 	boolean serverHasMore() {
+		return !keysToFetch().isEmpty();
+	}
+
+	/** The keys of the records {@link #serverHasMore()} is about: none offline */
+	Set<String> keysToFetch() {
+		Set<String> wanted = new LinkedHashSet<>();
 		try {
 			Map<String, Long> there = api.ownRecordKeys(api.cloudDestination());
 			if (there.isEmpty()) {
-				return false;
+				return wanted;
 			}
 			Map<String, CollectRecordSummary> here = new HashMap<>();
 			for (CollectRecordSummary summary : surveys.getRecordSummariesSavedSince(new Date(0))) {
 				here.put(String.join(",", summary.getRootEntityKeyValues()), summary);
 			}
-			return there.entrySet().stream().anyMatch(e -> {
+			for (Map.Entry<String, Long> e : there.entrySet()) {
 				CollectRecordSummary mine = here.get(e.getKey());
-				return mine == null || (e.getValue() > modifiedAt(mine) + NEWER_MS && replaceable(e.getKey(), mine));
-			});
+				if (mine == null || (e.getValue() > modifiedAt(mine) + NEWER_MS && replaceable(e.getKey(), mine))) {
+					wanted.add(e.getKey());
+				}
+			}
 		} catch (Exception e) {
 			logger.debug("Could not ask the cloud project which of the account's records it has: {}", e.getMessage()); //$NON-NLS-1$
-			return false;
+			wanted.clear();
 		}
+		return wanted;
 	}
 
 	private boolean waitForSurvey() {
@@ -221,10 +244,15 @@ public class CloudOwnRecordsFetcher implements ApplicationListener<ContextRefres
 	 * The check every few minutes ({@code quiet}) does not say a failure: it tries again at the next check.
 	 */
 	synchronized int fetch(boolean quiet) {
+		return fetch(quiet, null);
+	}
+
+	/** {@link #fetch(boolean)}, only the records of those keys (all of them when null) */
+	synchronized int fetch(boolean quiet, Set<String> keys) {
 		File file = null;
 		XMLDataImportProcess process = null;
 		try {
-			OwnRecords own = api.downloadOwnRecords(api.cloudDestination());
+			OwnRecords own = keys == null ? api.downloadOwnRecords(api.cloudDestination()) : api.downloadOwnRecords(api.cloudDestination(), keys);
 			file = own.getFile();
 			if (own.getCount() == 0) {
 				return 0;

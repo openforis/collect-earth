@@ -164,15 +164,18 @@ public class CloudOwnRecordsFetcherTest {
 		when(api.ownRecordKeys(cloud)).thenReturn(saved("P1,1", "P2,1"));
 		fetcher.check();
 		verify(api, never()).downloadOwnRecords(any());
-		// the coordinator gave them two plots meanwhile
+		verify(api, never()).downloadOwnRecords(any(), any());
+		// the coordinator gave them two plots meanwhile: only those two are downloaded
 		when(api.ownRecordKeys(cloud)).thenReturn(saved("P1,1", "P2,1", "P3,1", "P4,1"));
-		when(api.downloadOwnRecords(cloud)).thenReturn(new OwnRecords(zip, 4));
+		java.util.Set<String> two = new java.util.LinkedHashSet<>(Arrays.asList("P3,1", "P4,1"));
+		when(api.downloadOwnRecords(cloud, two)).thenReturn(new OwnRecords(zip, 2));
 		summary(2);
 		fetcher.check();
 		assertEquals(1, reloads.get());
+		verify(api, never()).downloadOwnRecords(any());
 		// a failure in a check is not said (the next check tries again)
 		int said = notices.pending().size();
-		when(api.downloadOwnRecords(cloud)).thenThrow(new IOException("offline"));
+		when(api.downloadOwnRecords(cloud, two)).thenThrow(new IOException("offline"));
 		fetcher.check();
 		assertEquals(said, notices.pending().size());
 		assertEquals(10, CloudOwnRecordsFetcher.CHECK_MINUTES);
