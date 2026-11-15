@@ -237,6 +237,11 @@ export interface FormerMember {
   operator: string;
   records: number;
   anonymized: boolean;
+  /**
+   * A name typed in Collect Earth, not an account's username: plots brought from a backup, a CEO project or an older
+   * Collect Earth. It can be given to an account of the project (POST …/former-members/give).
+   */
+  typed: boolean;
 }
 
 /** GET /v1/projects/:pid/former-members */
@@ -248,6 +253,17 @@ export interface FormerMembersAnswer {
 export interface AnonymizedAnswer {
   operator: string;
   records: number;
+}
+
+/**
+ * POST /v1/projects/:pid/former-members/give: the typed name's plots moved to the account (`moved`), and those left
+ * under the typed name because the account has its own copy of the plot (`kept`: both stay).
+ */
+export interface GivenAnswer {
+  operator: string;
+  username: string;
+  moved: number;
+  kept: number;
 }
 
 // --- local mode ---

@@ -1,7 +1,7 @@
 // Projects: the list, a project's info and overview, the project file and its round, plot layout and imagery, the
 // repeat survey, the members' roles and exclusion, former members, and new projects from CEO or a backup.
 
-import type { AnonymizedAnswer, FormerMember, FormerMembersAnswer, Membership } from "../../../src/wire/account";
+import type { AnonymizedAnswer, FormerMember, FormerMembersAnswer, GivenAnswer, Membership } from "../../../src/wire/account";
 import type { ProjectCopyAnswer, ProjectStatus, ProjectStatusAnswer } from "../../../src/wire/projectSettings";
 import type {
   BackupImportAnswer,
@@ -47,6 +47,11 @@ export async function getFormerMembers(projectId: string): Promise<FormerMember[
 /** Renames a former member on everything they collected; gives the pseudonym and how many records. Cannot be undone. */
 export function anonymizeFormerMember(projectId: string, operator: string): Promise<AnonymizedAnswer> {
   return request<AnonymizedAnswer>("POST", `${p(projectId)}/former-members/anonymize`, { json: { operator } });
+}
+
+/** A name typed in Collect Earth: its plots given to a person of the project (People, "Names typed in Collect Earth"). */
+export function giveTypedName(projectId: string, operator: string, username: string): Promise<GivenAnswer> {
+  return request<GivenAnswer>("POST", `${p(projectId)}/former-members/give`, { json: { operator, username } });
 }
 
 // --- projects --------------------------------------------------------------------------

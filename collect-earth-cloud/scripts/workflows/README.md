@@ -8,10 +8,10 @@ same rules is unit-tested in `test/workflows.test.ts`.
 | Scenario | What happens |
 |---|---|
 | `alone` | one desktop, its own SQLite: a name typed, three plots saved, kept on the computer |
-| `office` | two desktops on one PostgreSQL (the office server): each saves two plots, each sees the other's |
+| `office` | two desktops on one new, empty PostgreSQL (the office server): the first makes the schema Collect needs; each saves two plots, each sees the other's |
 | `cloud` | a coordinator, a project with the demo survey and its plot file, a link; ana joins without an account (registers), bruno with one (signs in); the coordinator gives them the plot file; both save, the sync sends, each plot is its person's |
 | `alone-to-cloud` | the `alone` desktop joins the cloud project: it offers to send its plots, sends them under the account, a second send adds nothing, a new save syncs, the name is the account's |
-| `office-to-cloud` | the office database's backup ("Export data to XML (ZIP)") made into a cloud project, one collector named for an account, the other left with the typed name; she joins from her office desktop and saves one of her plots again |
+| `office-to-cloud` | the office database's backup ("Export data to XML (ZIP)") made into a cloud project, Luis named for his account, Marta left with her typed name; Marta joins from her office desktop, the coordinator gives her typed name to her (People › Names typed in Collect Earth), and at her next start her plots are on her computer with her answers, not sent back, and a plot she saves again is kept once; Luis joins and finds his plots at once |
 | `accounts` | the refusals a person sees when joining: a taken name, a wrong password, a short password, a wrong link; and a member joining again on another computer |
 
 Run them in this order (each uses what the earlier ones left): all of them by default, or `node run.mjs office cloud`.
@@ -41,4 +41,4 @@ joining, the jobs (send, export) and the sync; `/earth/save-data-expanded` for a
 plot's place, as the balloon sends it. A save is written a second later (the desktop's write-behind), and the sync runs
 on `syncNow`. Joining restarts the desktop by itself.
 
-The two `office-to-cloud` checks about Marta's plot fail today: they describe what should happen (see the review).
+Last run from empty databases: 54 checks, all passed (15 November 2026).

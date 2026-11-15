@@ -61,6 +61,7 @@ const scenarios = {
   // 1. Someone alone: one desktop, its own SQLite, its own dashboard
   async alone() {
     await startDesktop('solo');
+    demoPlotFile(); // kept for the cloud projects, before this desktop joins one
     check('alone: the desktop starts as a local project', (await desk('GET', '/api/cloud/state')).json?.project?.mode === 'local');
     check('alone: the interpreter types their name', (await setOperator('Juan Perez')).status === 200);
     const plots = (await plotIds()).slice(0, 3);
@@ -77,14 +78,13 @@ const scenarios = {
     sql('postgres', 'drop database if exists office');
     sql('postgres', 'create database office');
     const pg = { db_driver: 'POSTGRESQL', db_host: 'localhost', db_port: process.env.WF_PG_PORT ?? '55432', db_name: 'office', db_username: 'ce', db_password: 'ce' };
-    // Found in the first run: on an empty database the desktop does not start (Collect's liquibase needs the schema
-    // "collect"); an office's administrator has to make it. Made here as they would.
-    sql('office', 'create schema collect');
+    // The database is empty, as an office's new one: the desktop makes the schema Collect needs (it did not start before)
     for (const [who, name, plots] of [['office-a', 'Marta Lopez', [3, 4]], ['office-b', 'Luis Garcia', [5, 6]]]) {
       await startDesktop(who); // first start: makes its home folder
       await startDesktop(who, pg);
       const s = (await desk('GET', '/api/settings')).json?.values;
       check(`office: ${who} uses the shared PostgreSQL`, s?.db_driver === 'POSTGRESQL', s?.db_driver);
+      if (who === 'office-a') check('office: the desktop starts on an empty PostgreSQL and makes the schema', sql('office', "select count(*) from information_schema.tables where table_schema = 'collect' and table_name = 'ofc_record'")[0] === '1');
       await setOperator(name);
       const ids = await plotIds();
       for (const i of plots) await savePlot(ids[i]);
@@ -202,22 +202,49 @@ const scenarios = {
     if (JSON.stringify(joined.join?.json ?? '').includes('username_taken')) joined = await joinFromDesktop(link, 'marta', 'marta-password', false);
     check('office→cloud: Marta joins from her office desktop', joined.join?.status === 200, JSON.stringify(joined.join?.json).slice(0, 200));
     await waitRestart();
-    const s = (await desk('GET', '/api/settings')).json?.values;
-    const local = (await desk('GET', '/api/cloud/localRecords')).json?.count;
-    note(`office→cloud: after joining, Marta's desktop uses ${s?.db_driver} and counts ${local} plots of its own to send`);
-    // she saves one of her plots again: it should become hers, not a second copy
+    const hers = state.officePlots.filter((p) => rows.includes(`${p}:Marta Lopez`));
+    check('office→cloud: before her name is given, her computer has none of her plots', hers.every((p) => !sqliteRecords('office-a').includes(p)), sqliteRecords('office-a').join(' '));
+
+    // The coordinator gives "Marta Lopez" to her (People › Names typed in Collect Earth)
+    const typed = (await cloud('GET', `/v1/projects/${pid}/former-members`, undefined, token)).json.formerMembers;
+    check('office→cloud: the coordinator sees "Marta Lopez" as a typed name', typed.some((f) => f.operator === 'Marta Lopez' && f.typed), JSON.stringify(typed));
+    const given = await cloud('POST', `/v1/projects/${pid}/former-members/give`, { operator: 'Marta Lopez', username: 'marta' }, token);
+    check('office→cloud: giving moves her 2 plots to her account', given.json?.moved === 2 && given.json?.kept === 0, JSON.stringify(given.json));
+    rows = cloudRows(pid);
+    check('office→cloud: no plot is under the typed name any more', !rows.some((r) => r.endsWith(':Marta Lopez')) && rows.filter((r) => r.endsWith(':marta')).length === 2, rows.join(' '));
+
+    // Her next start brings them to her computer, with her answers
+    await startDesktop('office-a');
+    await sleep(8000);
+    const onHers = sqliteRecords('office-a');
+    check('office→cloud: at her next start her plots are on her computer', hers.every((p) => onHers.includes(p)), onHers.join(' '));
+    const notices = JSON.stringify((await desk('GET', '/api/notices')).json);
+    check('office→cloud: Collect Earth tells her they arrived', notices.includes('cloudOwnRecords'), notices.slice(0, 300));
     const files = (await cloud('GET', `/v1/projects/${pid}/csv-files`, undefined, token)).json.csvFiles;
-    note(`office→cloud: plot files the import made: ${files.map((f) => f.filename).join(', ')}`);
     await giveFile(token, pid, files[0].id, 'marta');
     await openCloudPlots();
-    const ids = await plotIds();
-    const hers = state.officePlots.filter((p) => rows.includes(`${p}:Marta Lopez`));
-    if (hers[0] && ids.includes(hers[0])) await savePlot(hers[0], '80');
-    else note(`office→cloud: Marta's plot ${hers[0]} is not in the plot file her desktop got (${ids.length} plots)`);
+    const info = await fetch(`http://localhost:8028/earth/placemark-info-expanded?id=${encodeURIComponent(hers[0])}`).then((r) => r.json());
+    const coverage = info.inputFieldInfoByParameterName?.['collect_entity_land_cover[trees].code_coverage']?.value;
+    check('office→cloud: her plot opens with her answer from the office', coverage === '40', `coverage ${coverage}`);
+    // the fetched plots are not sent back as new work
+    const sync = (await desk('GET', '/api/cloud/state')).json?.sync;
+    check('office→cloud: the plots brought are not queued to be sent back', sync?.pending === 0, JSON.stringify(sync));
+
+    // She saves one again: one record, hers
+    await savePlot(hers[0], '80');
     await syncNow();
     rows = cloudRows(pid);
-    check('office→cloud: a plot Marta saves again becomes hers, without a second copy', rows.includes(`${hers[0]}:marta`) && !rows.includes(`${hers[0]}:Marta Lopez`), rows.join(' '));
-    check('office→cloud: her other plot stays under the typed name until she saves it', rows.filter((r) => r.endsWith(':Marta Lopez')).length === 1, rows.join(' '));
+    check('office→cloud: a plot she saves again is kept once, as hers', rows.filter((r) => r.startsWith(`${hers[0]}:`)).join(' ') === `${hers[0]}:marta`, rows.join(' '));
+
+    // Luis, named at the import, joins from the other office computer: his plots arrive at the join
+    await startDesktop('office-b');
+    const luisJoin = await joinFromDesktop(link, 'luis', 'luis-password', false);
+    check('office→cloud: Luis joins with his account', luisJoin.join?.status === 200, JSON.stringify(luisJoin.join?.json).slice(0, 200));
+    await waitRestart();
+    await sleep(8000);
+    const his = state.officePlots.filter((p) => cloudRows(pid).includes(`${p}:luis`));
+    const onHis = sqliteRecords('office-b');
+    check('office→cloud: Luis finds his plots on his computer right after joining', his.length === 2 && his.every((p) => onHis.includes(p)), `${his.join(' ')} | here: ${onHis.join(' ')}`);
   },
 
   // 6. Accounts: what people see when something is wrong

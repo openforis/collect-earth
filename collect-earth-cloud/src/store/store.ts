@@ -364,6 +364,13 @@ export interface Store {
    * longer point at the account, so the log cannot name them either.
    */
   anonymizeOperator(projectId: string, from: string, to: string, userId?: string | null): Promise<number>;
+  /**
+   * Gives the plots under a name typed in Collect Earth to an account (`to`, its username), as anonymizeOperator renames
+   * (the records' key, summary and XML, their history, the training records, the quality decisions' "seen"), in one
+   * transaction, except a plot the account has its own record of: both are kept, the typed name's untouched. The caller
+   * checks the name is no account's and `to` is a member. Gives how many were moved and how many kept.
+   */
+  giveOperatorRecords(projectId: string, from: string, to: string): Promise<{ moved: number; kept: number }>;
   countAdmins(projectId: string): Promise<number>;
   /** How many projects the user coordinates (admin role). */
   countCoordinatedProjects(userId: string): Promise<number>;

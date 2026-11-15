@@ -204,6 +204,7 @@ public class ServerController {
 					connectionWorked = true;
 				}
 			}
+			ensureCollectSchema(connection);
 		}
 		catch(Exception e){
 			logger.error("Error while testing the connection to the postgresSQL DB", e);
@@ -211,6 +212,25 @@ public class ServerController {
 
 		return connectionWorked;
 
+	}
+
+	/** The schema Collect's tables go in (its liquibase changelogs name it, and do not create it) */
+	static final String COLLECT_SCHEMA = "collect"; //$NON-NLS-1$
+
+	/**
+	 * Makes the schema Collect needs when the database has none: an office's new, empty PostgreSQL stopped Collect Earth
+	 * from starting, with nothing said ("schema collect does not exist" in the log only;
+	 * docs/plans/2026-11-15-workflow-review.md). A user who may not create it gets its reason in the log, and the start
+	 * goes on as before.
+	 */
+	static void ensureCollectSchema(Connection connection) {
+		try (Statement s = connection.createStatement()) {
+			s.execute("CREATE SCHEMA IF NOT EXISTS " + COLLECT_SCHEMA); //$NON-NLS-1$
+		} catch (Exception e) {
+			LoggerFactory.getLogger(ServerController.class).error(
+					"The schema \"" + COLLECT_SCHEMA + "\" could not be made in the PostgreSQL database: ask its administrator to run CREATE SCHEMA " //$NON-NLS-1$ //$NON-NLS-2$
+							+ COLLECT_SCHEMA + " (with rights for this user), or give this user the right to make it", e); //$NON-NLS-1$
+		}
 	}
 
 	public static String getIpccDbURL(CollectDBDriver collectDBDriver) {

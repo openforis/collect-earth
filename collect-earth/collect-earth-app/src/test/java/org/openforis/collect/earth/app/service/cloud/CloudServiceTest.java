@@ -94,6 +94,8 @@ public class CloudServiceTest {
 		verify(properties).saveCollectDBDriver(CollectDBDriver.CLOUD);
 		// the next start offers to send the records this computer has (CloudRecordsSender)
 		verify(properties).setValue(org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty.CLOUD_OFFER_LOCAL_RECORDS, "true");
+		// and to bring the account's own records of the project to this computer (CloudOwnRecordsFetcher)
+		verify(properties).setValue(org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty.CLOUD_FETCH_OWN_RECORDS, "true");
 	}
 
 	/** The projects of every server signed in to, each with its server, the open one marked, those here marked */

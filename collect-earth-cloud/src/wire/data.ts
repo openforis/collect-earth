@@ -237,3 +237,8 @@ export interface ChangeAreas extends ChangeAreaEstimates {
   /** false: no areas and no total area, the areas are shares of the whole */
   areaKnown: boolean;
 }
+
+/** GET /v1/projects/:pid/my-records (Collect Earth, at each start): how many of the signed-in person's own records the server has. */
+export interface MyRecordsAnswer {
+  records: number;
+}

@@ -52,7 +52,7 @@ describe('former members', () => {
     expect((await call('POST', '/former-members/anonymize', owner.token, { operator: 'ana' })).json().error).toBe('not_a_former_member');
     expect((await call('GET', '/former-members')).json()).toEqual({ formerMembers: [] });
     expect((await call('DELETE', `/members/${people.ana.userId}`)).statusCode).toBe(204);
-    expect((await call('GET', '/former-members')).json()).toEqual({ formerMembers: [{ operator: 'ana', records: 2, anonymized: false }] });
+    expect((await call('GET', '/former-members')).json()).toEqual({ formerMembers: [{ operator: 'ana', records: 2, anonymized: false, typed: false }] });
 
     const res = await call('POST', '/former-members/anonymize', owner.token, { operator: 'ana' });
     expect(res.json()).toEqual({ operator: 'former-member-1', records: 2 });
@@ -74,7 +74,7 @@ describe('former members', () => {
     const history = await ctx.store.listRecordEvents(pid, { from: 0, to: Date.now() + 1, limit: 100 });
     expect(history.some((e) => e.operator === 'ana')).toBe(false);
     expect(history.filter((e) => e.operator === 'former-member-1').length).toBeGreaterThan(0);
-    expect((await call('GET', '/former-members')).json()).toEqual({ formerMembers: [{ operator: 'former-member-1', records: 2, anonymized: true }] });
+    expect((await call('GET', '/former-members')).json()).toEqual({ formerMembers: [{ operator: 'former-member-1', records: 2, anonymized: true, typed: false }] });
     // a second person gets the next number; a pseudonym cannot be anonymised again
     await call('DELETE', `/members/${people.bo.userId}`);
     expect((await call('POST', '/former-members/anonymize', owner.token, { operator: 'bo' })).json().operator).toBe('former-member-2');

@@ -1,7 +1,7 @@
 # The ways of working with Collect Earth, and the moves between them — review
 
-Date: 15 November 2026. Branch `claude/awesome-bell-s34gb0`. **Status: reviewed and tested; three fixes made, three
-findings open.**
+Date: 15 November 2026. Branch `claude/awesome-bell-s34gb0`. **Status: reviewed and tested; six fixes made (the
+last three the open findings of the first round, built the same day).**
 
 ## What was looked at
 
@@ -11,20 +11,19 @@ findings open.**
 | **An office team on a local server** | Several desktops with `db_driver=POSTGRESQL` on one database in the office: every plot is in the one database, each person sees the others'. |
 | **A big group on a cloud server** | A coordinator makes the project (project file, plot files), sends a link (`/join/<token>`); each person joins from the desktop (Project › Join cloud project), which downloads the project, switches to `CLOUD` mode (a local SQLite plus the sync) and restarts. Plots are sent in batches every 30 s; the server keeps each under the signed-in account. |
 | **Alone → cloud** | Joining offers once to send the plots already on the computer (`CloudRecordsSender`, also in the Data menu); they are kept under the account, whatever name was typed. |
-| **Office team → cloud** | The coordinator exports the office database ("Export data to XML (ZIP)") and makes the cloud project from it ("From a Collect Earth backup"), naming an account for each typed name or leaving it; then the people join. |
+| **Office team → cloud** | The coordinator exports the office database ("Export data to XML (ZIP)") and makes the cloud project from it ("From a Collect Earth backup"), naming an account for each typed name or leaving it; then the people join, and the coordinator gives each name left to its person (People › Names typed in Collect Earth). Each person's plots come to their computer. |
 | **Joining after the work started** | The same link; a person gets plots once the coordinator gives them a plot file. |
 | **With or without an account** | No account: Register with the link. An account (another project's): Log in with the link, which adds the project to the account and uses one of the link's uses. Already in the project: the link signs in, keeps the role, uses nothing. |
 
 ## How it was tested
 
-- **Server rules** (`collect-earth-cloud/test/workflows.test.ts`, 12 tests, in-memory store): the links, the
-  accounts, whose plots are whose, the backup of an office team, people joining late.
+- **Server rules** (`collect-earth-cloud/test/workflows.test.ts`, 17 tests, in-memory store): the links, the
+  accounts, whose plots are whose, the backup of an office team, giving a typed name, people joining late, a person's
+  own records; `scripts/pg-smoke-give.mts` for giving on PostgreSQL.
 - **Real runs** (`collect-earth-cloud/scripts/workflows/`, `README.md` there): the desktop built from this branch, one
   home folder per person, driven through its own API and the form's save, against the cloud server on PostgreSQL 16;
-  the office team on a PostgreSQL 16 database of its own. 43 checks in six scenarios (alone, office, cloud,
-  alone-to-cloud, office-to-cloud, accounts). Last full run from empty databases: 41 passed; the 2 that fail are
-  finding 2 below and are kept failing on purpose. The `accounts` scenario was run again after the desktop fixes:
-  6 of 6.
+  the office team on a new PostgreSQL 16 database of its own. 54 checks in six scenarios (alone, office, cloud,
+  alone-to-cloud, office-to-cloud, accounts).
 
 ## Fixed
 
@@ -41,27 +40,28 @@ findings open.**
    a taken username (with "choose Log in instead of Register" when it is yours), a wrong username or password, a link
    used up or withdrawn (`CloudService.authenticate`, two new keys in `Messages*.properties`, `CloudServiceTest`).
 
-## Open
+4. **Office team → cloud: the typed names' plots now become the people's.** After the import, Marta's plots were under
+   "Marta Lopez"; when she joined, her desktop sent every save under `marta`, so a plot she saved again was kept twice.
+   Now the coordinator gives each typed name to its person: People › **Names typed in Collect Earth** (the names of
+   nobody in the project that are no account's, or a member's username in other letters) › **Give to…**. Every plot
+   of the name moves to the person, with its history, training records and quality decisions; where the person
+   already has their own record of a plot, both are kept. Logged as `records.given`, without the typed name.
+   (`POST /v1/projects/:pid/former-members/give`, `Store.giveOperatorRecords` in both stores,
+   `components/FormerMembers.tsx`, `formerMembersView.ts`; the people who left keep their own card, with Anonymise.)
+5. **A person joining gets their earlier work on their computer.** The desktop used to only send. Now, at the first
+   start after joining or opening a cloud project, and at any later start when the server has more of the person's
+   records than the computer has (one small request, `GET my-records`), Collect Earth downloads the person's own
+   records (`GET my-records.zip`, a Collect Earth backup) and adds those the computer does not have, with its own XML
+   import; a record already there is never replaced, and nothing is sent back. A notice says how many arrived; a
+   failure is said and tried again at the next start (`CloudOwnRecordsFetcher`, five languages). This is also what
+   brings Marta's plots once the coordinator gives her name: at her next start.
+6. **An empty office PostgreSQL no longer stops the desktop.** At start, with the connection it already tests, the
+   desktop makes the schema Collect needs (`CREATE SCHEMA IF NOT EXISTS collect`); a user without the right gets the
+   reason in the log, and the start goes on as before (`ServerController.ensureCollectSchema`).
 
-1. **Office team → cloud: the typed names' plots never become the people's.** After the import, Marta's plots are
-   under "Marta Lopez". When she joins, her desktop sends every save under `marta` (in cloud mode the name is the
-   account), so the server's rule "a typed name moves to the account on its next save" never fires: a plot she saves
-   again is kept twice, once as "Marta Lopez" and once as `marta`, and counts twice in progress and quality. Seen in
-   the real run (`office-to-cloud`). The coordinator can name accounts only at the import, and only for accounts that
-   exist already, which for a team moving to the cloud is usually none.
-   *Proposal:* in People, a "Plots under typed names" list (each name with its count) with "Give to…" an account;
-   the server moves every plot of that name to the account (keeping both where the account has its own copy). It
-   also serves the CEO import's names and older projects. Optionally, at the import, a personal link per typed name
-   that does the same when used.
-2. **A person joining does not get their earlier work on their computer.** The desktop only sends plots, never
-   downloads them. For someone from the office team, their plots were in the office database: after joining, their
-   computer (now a local SQLite) has none of them, so a plot they open again is empty, and the plot file the import
-   made gives out the plots that were drafts as to do. *Proposal:* at the join, download the account's own plots of
-   the project into the computer's database; at least, show the plot as done by someone in the cloud.
-3. **An office PostgreSQL that is empty stops the desktop from starting.** Collect needs the schema `collect` in the
-   database; without it the desktop fails at start ("Cannot open the plots map: the server is not initialized") and
-   nothing says why. Nothing in this repository tells an office to make it. *Proposal:* create the schema when it is
-   missing (`CREATE SCHEMA IF NOT EXISTS collect`, as `RDBExporter` does for its own), or say it in plain words.
+All six are in the real runs: the office starts on an empty database; Marta's name is given, her plots arrive at her
+next start with her answers and are not queued to be sent back, and a plot she saves again is kept once; Luis, named at
+the import, finds his plots right after joining.
 
 ## Noted, working as designed
 

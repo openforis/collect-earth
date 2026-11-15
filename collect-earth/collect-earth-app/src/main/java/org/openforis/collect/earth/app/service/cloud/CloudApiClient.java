@@ -484,6 +484,63 @@ public class CloudApiClient {
 		}
 	}
 
+	/** The account's own records of a cloud project, as a Collect Earth backup (GET my-records.zip): the file and how many. */
+	public static final class OwnRecords {
+		private final File file;
+		private final int count;
+
+		public OwnRecords(File file, int count) {
+			this.file = file;
+			this.count = count;
+		}
+
+		public File getFile() {
+			return file;
+		}
+
+		public int getCount() {
+			return count;
+		}
+	}
+
+	/** How many of the signed-in account's own records of the project the server has (GET my-records), asked at each start. */
+	public int ownRecordsCount(Destination destination) throws IOException {
+		HttpGet request = new HttpGet(destination.projectUrl("/my-records"));
+		prepareWith(request, destination.getToken());
+		return executeForJson("ownRecordsCount", request).path("records").asInt(0);
+	}
+
+	/**
+	 * Downloads the signed-in account's own records of the project (a zip of the survey and their XML, as Collect Earth's
+	 * "Export data to XML (ZIP)" writes it) to a temporary file the caller deletes.
+	 */
+	public OwnRecords downloadOwnRecords(Destination destination) throws IOException {
+		HttpGet request = new HttpGet(destination.projectUrl("/my-records.zip"));
+		prepareWith(request, destination.getToken());
+		try (CloseableHttpResponse response = client().execute(request)) {
+			int status = response.getStatusLine().getStatusCode();
+			if (!isSuccess(status)) {
+				throw errorFor("downloadOwnRecords", status, response);
+			}
+			HttpEntity entity = response.getEntity();
+			if (entity == null) {
+				throw new IOException("The cloud server returned no records file");
+			}
+			org.apache.http.Header header = response.getFirstHeader("X-Records");
+			int count = -1;
+			try {
+				count = header == null ? -1 : Integer.parseInt(header.getValue().trim());
+			} catch (NumberFormatException e) {
+				// an older server's answer: the count is not known
+			}
+			File tempFile = File.createTempFile("ce-cloud-own-records-", ".zip");
+			try (java.io.OutputStream out = Files.newOutputStream(tempFile.toPath())) {
+				entity.writeTo(out);
+			}
+			return new OwnRecords(tempFile, count);
+		}
+	}
+
 	/** One CSV file assigned to the logged-in operator. */
 	public static class AssignmentInfo {
 		private final String csvFileId;

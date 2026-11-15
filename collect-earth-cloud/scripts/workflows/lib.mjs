@@ -12,12 +12,19 @@ mkdirSync(E, { recursive: true });
 export const APP = process.env.WF_APP ?? fileURLToPath(new URL('../../../collect-earth/collect-earth-app', import.meta.url));
 export const CLOUD = process.env.WF_CLOUD ?? 'http://localhost:8080';
 const PG_PORT = process.env.WF_PG_PORT ?? '55432';
-/** The demo project's plot file, as the desktop installs it at its first start */
+/**
+ * The demo project's plot file, as the desktop installs it at its first start; kept in WF_DIR the first time, as a
+ * desktop that joined a cloud project has that project's plot file there instead
+ */
 export function demoPlotFile() {
-  // the alone desktop's first: a desktop that joined a cloud project has that project's files in the folder
+  const kept = `${E}/demo_plots.csv`;
+  if (existsSync(kept)) return readFileSync(kept);
   for (const h of ['home-solo', ...readdirSync(E).filter((d) => d.startsWith('home-'))]) {
     const f = `${E}/${h}/CollectEarth/projects/collect_earth_initial_2025/grid/showcase_plots.csv`;
-    if (existsSync(f)) return readFileSync(f);
+    if (existsSync(f) && readFileSync(f, 'utf8').trim().split('\n').length > 1) {
+      writeFileSync(kept, readFileSync(f));
+      return readFileSync(kept);
+    }
   }
   throw new Error('no desktop has started yet: run the "alone" scenario first');
 }

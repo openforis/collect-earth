@@ -417,6 +417,38 @@ export class InMemoryStore implements Store {
     return renamed;
   }
 
+  async giveOperatorRecords(projectId: string, from: string, to: string): Promise<{ moved: number; kept: number }> {
+    const entry = this.requireProject(projectId);
+    if (from === to) return { moved: 0, kept: 0 };
+    const give = (rows: Map<string, RecordRow>) => {
+      const keys = new Set<string>();
+      let kept = 0;
+      for (const [id, r] of [...rows]) {
+        if (r.operator !== from) continue;
+        if (rows.has(InMemoryStore.recordId(r.recordKey, to))) {
+          kept++;
+          continue;
+        }
+        rows.delete(id);
+        rows.set(InMemoryStore.recordId(r.recordKey, to), { ...r, operator: to, xml: renameOperatorInXml(r.xml, from, to), summary: renameOperatorInSummary(r.summary, from, to) });
+        keys.add(r.recordKey);
+      }
+      return { keys, kept };
+    };
+    const { keys, kept } = give(entry.records);
+    const training = this.training.get(projectId);
+    if (training) give(training.records);
+    entry.recordEvents = entry.recordEvents.map((e) =>
+      e.operator === from && keys.has(e.recordKey) ? { ...e, operator: to, summary: renameOperatorInSummary(e.summary, from, to) } : e,
+    );
+    // A review's "seen" names whose plot it saw: the name follows, where the account was not seen there already
+    for (const d of entry.decisions.values()) {
+      if (d.seen && !d.seen.some((s) => s.operator === to)) d.seen = d.seen.map((s) => (s.operator === from ? { ...s, operator: to } : s));
+    }
+    entry.recordsGeneration++;
+    return { moved: keys.size, kept };
+  }
+
   async listTrainingRecords(projectId: string): Promise<RecordRow[]> {
     return [...(this.training.get(projectId)?.records.values() ?? [])].map((r) => ({ ...r, xml: null, summary: { ...r.summary } }));
   }

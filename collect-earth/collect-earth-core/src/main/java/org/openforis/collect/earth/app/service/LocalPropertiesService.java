@@ -124,7 +124,12 @@ public class LocalPropertiesService extends Observable {
 				CLOUD_PROJECT_FOLDER("cloud_project_folder"),
 				CLOUD_SYNC_TOKEN("cloud_sync_token"),
 				/** "true" from joining a cloud project to the next start, which offers to send this computer's records there */
-				CLOUD_OFFER_LOCAL_RECORDS("cloud_offer_local_records"),;
+				CLOUD_OFFER_LOCAL_RECORDS("cloud_offer_local_records"),
+				/**
+				 * "true" from joining or opening a cloud project to the next start, which brings the account's own records of
+				 * it to this computer (CloudOwnRecordsFetcher)
+				 */
+				CLOUD_FETCH_OWN_RECORDS("cloud_fetch_own_records"),;
 
 		private String name;
 

@@ -177,6 +177,8 @@ export function logSentence(t: Translate, item: LogItem, page: Pick<ActivityPage
       return t("activity.audit.signedOut", { actor, person: personOf(t, page, d.userId) });
     case "member.anonymized":
       return t(d.records === 1 ? "activity.audit.anonymizedOne" : "activity.audit.anonymized", { actor, count: num(d.records, language) });
+    case "records.given":
+      return t(byCount(d.records, "activity.audit.givenOne", "activity.audit.given"), { actor, count: num(d.records, language), person: personOf(t, page, d.userId) });
     case "member.role":
       return t("activity.audit.role", { actor, person: personOf(t, page, d.userId), role: t(`role.${d.role === "admin" || d.role === "reviewer" ? d.role : "operator"}`) });
     case "member.excluded":

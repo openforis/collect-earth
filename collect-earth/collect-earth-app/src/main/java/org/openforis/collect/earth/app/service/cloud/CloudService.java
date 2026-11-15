@@ -185,6 +185,8 @@ public class CloudService {
 		}
 		properties.setCloudSyncEnabled(true);
 		properties.saveCollectDBDriver(CollectDBDriver.CLOUD);
+		// The next start brings the account's own records of the project to this computer (CloudOwnRecordsFetcher)
+		CloudOwnRecordsFetcher.requestAtNextStart(properties);
 	}
 
 	/**

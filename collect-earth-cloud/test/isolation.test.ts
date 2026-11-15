@@ -115,6 +115,11 @@ describe('cross-tenant isolation', () => {
       { method: 'GET' as const, url: `/v1/projects/${b.projectId}/areas` },
       { method: 'PUT' as const, url: `/v1/projects/${b.projectId}/areas`, payload: { settings: { mode: 'total', area: 1 } } },
       { method: 'GET' as const, url: `/v1/projects/${b.projectId}/areas/file` },
+      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/former-members` },
+      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/my-records.zip` },
+      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/my-records` },
+      { method: 'POST' as const, url: `/v1/projects/${b.projectId}/former-members/anonymize`, payload: { operator: 'someone' } },
+      { method: 'POST' as const, url: `/v1/projects/${b.projectId}/former-members/give`, payload: { operator: 'Marta', username: 'marta' } },
       { method: 'DELETE' as const, url: `/v1/projects/${b.projectId}`, payload: { confirmName: 'Project B' } },
     ];
     for (const c of cases) {

@@ -28,7 +28,7 @@ import { loadPlotContext } from '../qualityService.js';
 import type { RateLimiter } from '../rateLimit.js';
 import { keyShape } from '../rounds.js';
 import type { Store } from '../store/store.js';
-import type { BackupCounts, BackupLinkAnswer, BackupSummary } from '../wire/data.js';
+import type { BackupCounts, BackupLinkAnswer, BackupSummary, MyRecordsAnswer } from '../wire/data.js';
 import { wholeFile } from './assignments.js';
 
 const BUSY = { error: 'backup_busy', reason: 'another Collect Earth backup is being prepared on this server: try again in a few minutes' };
@@ -127,6 +127,56 @@ export async function registerCollectBackupRoutes(
     }
     if (!BACKUP_FORMATS.includes(format)) return reply.code(400).send(BAD_FORMAT);
     return send(request, reply, request.membership!.projectId, rounds, format);
+  });
+
+  /**
+   * `GET /v1/projects/:pid/my-records.zip`: the signed-in person's own records of the project, as a Collect Earth backup
+   * (the survey as served, then each record's XML), for Collect Earth to put them on the computer that joins: someone
+   * whose earlier work came to the cloud another way (an office's backup, another computer) finds their plots as they
+   * left them (docs/plans/2026-11-15-workflow-review.md). Every member, their own records only; X-Records says how many.
+   * The deleted ones and those the server has no XML of are left out. `GET /v1/projects/:pid/my-records` says only how
+   * many ({ records }), which Collect Earth asks at each start: more than it has means some came to the cloud another way
+   * (a coordinator gave them a typed name's plots), and it fetches the file.
+   */
+  const ownRecords = async (request: FastifyRequest, reply: FastifyReply) => {
+    const { projectId, userId } = request.membership!;
+    if (!userId) {
+      void reply.code(403).send({ error: 'forbidden', reason: 'your records need a signed-in person, not a project token' });
+      return null;
+    }
+    const [user, states, withoutXml] = await Promise.all([store.getUserById(userId), store.listRecordStates(projectId), store.listRecordKeysWithoutXml(projectId)]);
+    if (!user) {
+      void reply.code(401).send({ error: 'unauthorized' });
+      return null;
+    }
+    const noXml = new Set(withoutXml.map((r) => `${r.recordKey}\u0000${r.operator}`));
+    return states
+      .filter((r) => r.operator === user.username && !r.deleted && !noXml.has(`${r.recordKey}\u0000${r.operator}`))
+      .map((r) => ({ recordKey: r.recordKey, operator: r.operator }))
+      .sort((a, b) => (a.recordKey < b.recordKey ? -1 : a.recordKey > b.recordKey ? 1 : 0));
+  };
+  app.get('/v1/projects/:pid/my-records', { preHandler: requireProjectMembership(store) }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const records = await ownRecords(request, reply);
+    if (records === null) return reply;
+    return reply.header('cache-control', 'no-store').send({ records: records.length } satisfies MyRecordsAnswer);
+  });
+  app.get('/v1/projects/:pid/my-records.zip', { preHandler: requireProjectMembership(store) }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const projectId = request.membership!.projectId;
+    const cep = await store.getCep(projectId);
+    if (!cep) return reply.code(409).send(NO_PROJECT_FILE);
+    const records = await ownRecords(request, reply);
+    if (records === null) return reply;
+    const files = readCep(cep);
+    const head = [{ name: 'idml.xml', data: files.entries.get(files.surveyPath)! }];
+    const stream = Readable.from(collectBackupZip(store, projectId, head, { records }, new Date(now())));
+    reply.raw.once('close', () => {
+      if (!reply.raw.writableFinished) stream.destroy();
+    });
+    return reply
+      .header('content-type', 'application/zip')
+      .header('x-records', String(records.length))
+      .header('cache-control', 'no-store')
+      .send(stream);
   });
 
   /** Writes the backup to the response, one at a time on this instance. */

@@ -1783,6 +1783,42 @@ export class PostgresStore implements Store {
     });
   }
 
+  async giveOperatorRecords(projectId: string, from: string, to: string): Promise<{ moved: number; kept: number }> {
+    if (from === to) return { moved: 0, kept: 0 };
+    const pattern = operatorXmlPattern(from);
+    const summary = (column: string) => `CASE WHEN ${column} ->> '${OPERATOR_SUMMARY_KEY}' = $2 THEN jsonb_set(${column}, '{${OPERATOR_SUMMARY_KEY}}', to_jsonb($3::text)) ELSE ${column} END`;
+    // Only the plots the account has no record of: those it has keep both (the typed name's left as it is)
+    const free = (table: string) => `NOT EXISTS (SELECT 1 FROM ${table} o WHERE o.project_id = $1 AND o.record_key = ${table}.record_key AND o.operator = $3)`;
+    return this.withProject(projectId, async (client) => {
+      const moved = await client.query<{ record_key: string }>(
+        `UPDATE records SET operator = $3, summary = ${summary('summary')}, xml = CASE WHEN xml IS NULL THEN NULL ELSE regexp_replace(xml, $4, '\\1' || $3 || '\\2', 'g') END
+          WHERE project_id = $1 AND operator = $2 AND ${free('records')} RETURNING record_key`,
+        [projectId, from, to, pattern],
+      );
+      const kept = await client.query<{ n: number }>('SELECT COUNT(*)::int AS n FROM records WHERE project_id = $1 AND operator = $2', [projectId, from]);
+      await client.query(
+        `UPDATE training_records SET operator = $3, summary = ${summary('summary')}, xml = CASE WHEN xml IS NULL THEN NULL ELSE regexp_replace(xml, $4, '\\1' || $3 || '\\2', 'g') END
+          WHERE project_id = $1 AND operator = $2 AND ${free('training_records')}`,
+        [projectId, from, to, pattern],
+      );
+      const keys = moved.rows.map((r) => r.record_key);
+      await client.query(
+        `UPDATE record_events SET operator = $3, summary = CASE WHEN summary IS NULL THEN NULL ELSE ${summary('summary')} END
+          WHERE project_id = $1 AND operator = $2 AND record_key = ANY($4::text[])`,
+        [projectId, from, to, keys],
+      );
+      await client.query(
+        `UPDATE quality_decisions SET seen = (
+           SELECT jsonb_agg(CASE WHEN e ->> 'operator' = $2 THEN jsonb_set(e, '{operator}', to_jsonb($3::text)) ELSE e END ORDER BY n)
+             FROM jsonb_array_elements(seen) WITH ORDINALITY AS x(e, n))
+          WHERE project_id = $1 AND seen @> jsonb_build_array(jsonb_build_object('operator', $2::text))
+            AND NOT seen @> jsonb_build_array(jsonb_build_object('operator', $3::text))`,
+        [projectId, from, to],
+      );
+      return { moved: keys.length, kept: kept.rows[0].n };
+    });
+  }
+
   async countAdmins(projectId: string): Promise<number> {
     const res = await this.pool.query(
       "SELECT COUNT(*)::int AS n FROM project_members WHERE project_id = $1 AND role = 'admin'",
