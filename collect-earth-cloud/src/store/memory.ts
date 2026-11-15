@@ -88,6 +88,7 @@ import {
   TrainingAttempt,
   TrainingGolden,
   TrainingSet,
+  QueuedJoin,
 } from '../types.js';
 import type { OwnerAlertKind } from '../wire/serverAdmin.js';
 import type { InvitePlots } from '../wire/account.js';
@@ -1035,6 +1036,30 @@ export class InMemoryStore implements Store {
   async setMailPreferences(userId: string, prefs: { language: MailLanguage | null; timeZone: string | null }): Promise<void> {
     if (!this.users.has(userId)) return;
     this.accountMail.set(userId, { ...this.mailOf(userId), language: prefs.language, timeZone: prefs.timeZone });
+  }
+
+  private readonly joinMailQueue = new Map<string, { coordinatorId: string; projectId: string; lastSentAt: number; pending: QueuedJoin[] }>();
+
+  async noteJoinForMail(coordinatorId: string, projectId: string, join: QueuedJoin, at: number, windowMs: number): Promise<'now' | 'queued'> {
+    const key = `${coordinatorId} ${projectId}`;
+    const row = this.joinMailQueue.get(key);
+    if (!row || (row.pending.length === 0 && row.lastSentAt <= at - windowMs)) {
+      this.joinMailQueue.set(key, { coordinatorId, projectId, lastSentAt: at, pending: [] });
+      return 'now';
+    }
+    row.pending.push({ ...join });
+    return 'queued';
+  }
+
+  async takeDueJoinMails(at: number, windowMs: number): Promise<{ coordinatorId: string; projectId: string; joins: QueuedJoin[] }[]> {
+    const due: { coordinatorId: string; projectId: string; joins: QueuedJoin[] }[] = [];
+    for (const row of this.joinMailQueue.values()) {
+      if (row.pending.length === 0 || row.lastSentAt > at - windowMs) continue;
+      due.push({ coordinatorId: row.coordinatorId, projectId: row.projectId, joins: row.pending });
+      row.pending = [];
+      row.lastSentAt = at;
+    }
+    return due;
   }
 
   async setJoinMail(userId: string, on: boolean): Promise<void> {

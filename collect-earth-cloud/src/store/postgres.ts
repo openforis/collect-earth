@@ -92,6 +92,7 @@ import {
   TrainingGolden,
   TrainingKind,
   TrainingSet,
+  QueuedJoin,
 } from '../types.js';
 import type { OwnerAlertKind } from '../wire/serverAdmin.js';
 import type { InvitePlots } from '../wire/account.js';
@@ -1128,6 +1129,32 @@ export class PostgresStore implements Store {
 
   async setMailPreferences(userId: string, prefs: { language: MailLanguage | null; timeZone: string | null }): Promise<void> {
     await this.pool.query('UPDATE users SET mail_language = $2, mail_time_zone = $3 WHERE id = $1', [userId, prefs.language, prefs.timeZone]);
+  }
+
+  async noteJoinForMail(coordinatorId: string, projectId: string, join: QueuedJoin, at: number, windowMs: number): Promise<'now' | 'queued'> {
+    // One statement: two joins at once never both mail at once (the row's lock orders them)
+    const res = await this.pool.query(
+      `INSERT INTO join_mail_queue AS q (user_id, project_id, last_sent_at, pending) VALUES ($1, $2, $3, '[]'::jsonb)
+       ON CONFLICT (user_id, project_id) DO UPDATE SET
+         last_sent_at = CASE WHEN q.pending = '[]'::jsonb AND q.last_sent_at <= $4 THEN $3 ELSE q.last_sent_at END,
+         pending = CASE WHEN q.pending = '[]'::jsonb AND q.last_sent_at <= $4 THEN '[]'::jsonb ELSE q.pending || jsonb_build_array($5::jsonb) END
+       RETURNING (xmax = 0) AS inserted, last_sent_at = $3 AS now`,
+      [coordinatorId, projectId, new Date(at), new Date(at - windowMs), JSON.stringify(join)],
+    );
+    const r = res.rows[0];
+    return r.inserted || r.now ? 'now' : 'queued';
+  }
+
+  async takeDueJoinMails(at: number, windowMs: number): Promise<{ coordinatorId: string; projectId: string; joins: QueuedJoin[] }[]> {
+    const res = await this.pool.query(
+      `UPDATE join_mail_queue q SET pending = '[]'::jsonb, last_sent_at = $1
+         FROM (SELECT user_id, project_id, pending FROM join_mail_queue
+                WHERE pending <> '[]'::jsonb AND last_sent_at <= $2 FOR UPDATE SKIP LOCKED) d
+        WHERE q.user_id = d.user_id AND q.project_id = d.project_id
+        RETURNING d.user_id, d.project_id, d.pending`,
+      [new Date(at), new Date(at - windowMs)],
+    );
+    return res.rows.map((r) => ({ coordinatorId: r.user_id as string, projectId: r.project_id as string, joins: r.pending as QueuedJoin[] }));
   }
 
   async setJoinMail(userId: string, on: boolean): Promise<void> {

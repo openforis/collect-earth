@@ -773,3 +773,11 @@ export interface DueDigest {
   language: MailLanguage | null;
   timeZone: string | null;
 }
+
+/** A join waiting for the coordinator's grouped mail (join_mail_queue): ids and counts only. */
+export interface QueuedJoin {
+  userId: string;
+  role: Role;
+  given: { csvFileId: string; mode: 'whole' | 'share'; plots: number } | null;
+  at: number;
+}

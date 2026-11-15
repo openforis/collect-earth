@@ -32,6 +32,7 @@ import type {
   PlatformStats,
   InvitePlots,
   PlotAssignment,
+  QueuedJoin,
   ProgressSettings,
   TwoFactorState,
   SharedAnalysisView,
@@ -250,6 +251,14 @@ export interface Store {
   confirmEmail(userId: string, email: string, at: number): Promise<boolean>;
   /** The language and time zone the mails are written in. */
   setMailPreferences(userId: string, prefs: { language: MailLanguage | null; timeZone: string | null }): Promise<void>;
+  /**
+   * A join to tell a coordinator of (join_mail_queue): 'now' when no mail about the project went to them in the last
+   * `windowMs` and none waits (the mail is to go at once, and is noted as sent at `at`); otherwise it waits for the
+   * next grouped mail ('queued').
+   */
+  noteJoinForMail(coordinatorId: string, projectId: string, join: QueuedJoin, at: number, windowMs: number): Promise<'now' | 'queued'>;
+  /** The grouped mails due (the window over since the last), taken: their joins are cleared and they count as sent at `at`. */
+  takeDueJoinMails(at: number, windowMs: number): Promise<{ coordinatorId: string; projectId: string; joins: QueuedJoin[] }[]>;
   /** Turns the mail "someone joined your project" on or off for the account (AccountMail.joinMail). */
   setJoinMail(userId: string, on: boolean): Promise<void>;
   /**
