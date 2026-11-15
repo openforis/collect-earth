@@ -3,6 +3,9 @@ package org.openforis.collect.earth.app.service.cloud;
 import java.io.File;
 import java.text.MessageFormat;
 import java.util.Collections;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
@@ -30,8 +33,9 @@ import org.springframework.stereotype.Component;
  * Brings the account's own records of the cloud project to this computer: someone whose earlier work reached the cloud
  * another way (an office's database brought in from its backup, a coordinator giving them a typed name's plots,
  * another computer) finds their plots on this one as they left them, instead of empty forms they would do again
- * (docs/plans/2026-11-15-workflow-review.md). At the first start after joining or opening the project; then at each
- * start, when the server has more of the account's records than this computer has of the project (one small request).
+ * (docs/plans/2026-11-15-workflow-review.md). At the first start after joining or opening the project; then, at each
+ * start and every ten minutes while it runs, when the server has more of the account's records than this computer has
+ * of the project (one small request).
  * <p>
  * Only plots this computer has no record of are added: a record here is never replaced (it may not be sent yet). The
  * records added are not sent back: they are the cloud's, and the sync only queues what is saved here. A failure keeps
@@ -88,7 +92,14 @@ public class CloudOwnRecordsFetcher implements ApplicationListener<ContextRefres
 		if (asked) {
 			properties.setValue(EarthProperty.CLOUD_FETCH_OWN_RECORDS, ""); // once (a failure asks again)
 		}
-		Thread thread = new Thread(() -> {
+		// One thread: at the start (once the survey is loaded), then every CHECK_MINUTES while Collect Earth runs, so plots
+		// a coordinator gives meanwhile (a typed name's, People > Names typed in Collect Earth) come without a restart
+		ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(r -> {
+			Thread t = new Thread(r, "CollectEarth-own-cloud-records"); //$NON-NLS-1$
+			t.setDaemon(true);
+			return t;
+		});
+		executor.execute(() -> {
 			if (!waitForSurvey()) {
 				if (asked) {
 					requestAtNextStart(properties);
@@ -96,11 +107,20 @@ public class CloudOwnRecordsFetcher implements ApplicationListener<ContextRefres
 				return;
 			}
 			if (asked || serverHasMore()) {
-				fetch();
+				fetch(false);
 			}
-		}, "CollectEarth-own-cloud-records"); //$NON-NLS-1$
-		thread.setDaemon(true);
-		thread.start();
+		});
+		executor.scheduleWithFixedDelay(this::check, CHECK_MINUTES, CHECK_MINUTES, TimeUnit.MINUTES);
+	}
+
+	/** How often the server is asked whether it has more of the account's records than this computer */
+	static final long CHECK_MINUTES = 10;
+
+	/** The check every CHECK_MINUTES: quiet when there is nothing, offline, or no longer in a cloud project */
+	void check() {
+		if (properties.isCloudSyncEnabled() && surveys.getCollectSurvey() != null && serverHasMore()) {
+			fetch(true);
+		}
 	}
 
 	/** The context refreshes more than once at a start (the root and the servlet's): one check per start */
@@ -134,8 +154,16 @@ public class CloudOwnRecordsFetcher implements ApplicationListener<ContextRefres
 		return true;
 	}
 
-	/** Brings them: how many plots were added to this computer (-1 when it failed, and is asked again for the next start) */
+	/** {@link #fetch(boolean)} as at the start: a failure is said */
 	int fetch() {
+		return fetch(false);
+	}
+
+	/**
+	 * Brings them: how many plots were added to this computer (-1 when it failed, and is asked again for the next start).
+	 * The check every few minutes ({@code quiet}) does not say a failure: it tries again at the next check.
+	 */
+	synchronized int fetch(boolean quiet) {
 		File file = null;
 		XMLDataImportProcess process = null;
 		try {
@@ -163,7 +191,9 @@ public class CloudOwnRecordsFetcher implements ApplicationListener<ContextRefres
 		} catch (Exception e) {
 			logger.warn("The account's own records could not be brought from the cloud project: {}", e.getMessage()); //$NON-NLS-1$
 			requestAtNextStart(properties);
-			notify(Notice.WARNING, MessageFormat.format(Messages.getString("CloudFetch.failed"), String.valueOf(e.getMessage()))); //$NON-NLS-1$
+			if (!quiet) {
+				notify(Notice.WARNING, MessageFormat.format(Messages.getString("CloudFetch.failed"), String.valueOf(e.getMessage()))); //$NON-NLS-1$
+			}
 			return -1;
 		} finally {
 			IOUtils.closeQuietly(process);

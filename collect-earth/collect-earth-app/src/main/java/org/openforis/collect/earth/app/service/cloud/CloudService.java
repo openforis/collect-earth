@@ -156,6 +156,8 @@ public class CloudService {
 		// Log in with the invitation: someone who has an account (another project's) joins this one with it
 		String token = request.register ? authenticate(() -> api.register(request.baseUrl, username, request.password, request.inviteToken), request)
 				: authenticate(() -> login(request.baseUrl, username, request.password, request.code, request.inviteToken), request);
+		// The name typed on this computer until now: its records are this person's (CloudRecordsSender sends those)
+		CloudRecordsSender.rememberLocalName(properties, properties.getOperator());
 		useProject(request.baseUrl, request.projectId, token, username);
 		// The next start offers to send the records this computer already has (CloudRecordsSender)
 		properties.setValue(EarthProperty.CLOUD_OFFER_LOCAL_RECORDS, Boolean.TRUE.toString());

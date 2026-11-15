@@ -131,6 +131,29 @@ public class CloudOwnRecordsFetcherTest {
 	}
 
 	@Test
+	public void theCheckEveryFewMinutesBringsPlotsGivenMeanwhileAndSaysNoFailure() throws Exception {
+		when(properties.isCloudSyncEnabled()).thenReturn(true);
+		when(surveys.getCollectSurvey()).thenReturn(mock(org.openforis.collect.model.CollectSurvey.class));
+		when(local.recordIds()).thenReturn(Arrays.asList(1, 2));
+		// nothing new: nothing asked for
+		when(api.ownRecordsCount(cloud)).thenReturn(2);
+		fetcher.check();
+		verify(api, never()).downloadOwnRecords(any());
+		// the coordinator gave them two plots meanwhile
+		when(api.ownRecordsCount(cloud)).thenReturn(4);
+		when(api.downloadOwnRecords(cloud)).thenReturn(new OwnRecords(zip, 4));
+		summary(2);
+		fetcher.check();
+		assertEquals(1, reloads.get());
+		// a failure in a check is not said (the next check tries again)
+		int said = notices.pending().size();
+		when(api.downloadOwnRecords(cloud)).thenThrow(new IOException("offline"));
+		fetcher.check();
+		assertEquals(said, notices.pending().size());
+		assertEquals(10, CloudOwnRecordsFetcher.CHECK_MINUTES);
+	}
+
+	@Test
 	public void notInALocalProject() {
 		when(properties.isCloudSyncEnabled()).thenReturn(false);
 		fetcher.onApplicationEvent(null);

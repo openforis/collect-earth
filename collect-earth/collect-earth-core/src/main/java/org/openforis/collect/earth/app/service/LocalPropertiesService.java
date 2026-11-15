@@ -129,7 +129,12 @@ public class LocalPropertiesService extends Observable {
 				 * "true" from joining or opening a cloud project to the next start, which brings the account's own records of
 				 * it to this computer (CloudOwnRecordsFetcher)
 				 */
-				CLOUD_FETCH_OWN_RECORDS("cloud_fetch_own_records"),;
+				CLOUD_FETCH_OWN_RECORDS("cloud_fetch_own_records"),
+				/**
+				 * The names typed on this computer before it joined a cloud project, one per line: the records under them are
+				 * this person's, and "Send this computer's records" sends those by default (CloudRecordsSender)
+				 */
+				CLOUD_LOCAL_NAMES("cloud_local_names"),;
 
 		private String name;
 
