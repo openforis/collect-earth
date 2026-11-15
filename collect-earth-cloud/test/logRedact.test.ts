@@ -48,7 +48,7 @@ describe('secrets in the request log (Task 18 review)', () => {
       await app.close();
     }
     const log = lines.join('');
-    expect(log).toContain('incoming request');
+    expect(log).toContain('request completed');
     expect(log).toContain('/v1/public/progress/<redacted>');
     expect(log).toContain('/v1/collect-backup/<redacted>');
     expect(log).toContain('/v1/unsubscribe/<redacted>');

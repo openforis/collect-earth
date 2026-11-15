@@ -7,6 +7,7 @@ import fastifyStatic from '@fastify/static';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import { generateSetupCode } from './accountRules.js';
 import { ActivityRecorder, registerActivity } from './activity.js';
+import { registerCompression } from './compress.js';
 import type { AiClient } from './ai/client.js';
 import { createFakeClient } from './ai/fake.js';
 import { createGeminiClient } from './ai/gemini.js';
@@ -123,6 +124,18 @@ const LOGIN_FAILURES_PER_MINUTE = 10;
 // Wrong passwords for one account from all addresses together, per 15 minutes: guessing from many
 // addresses, each under the limit above, is stopped there (security review, 2026-11).
 const ACCOUNT_LOGIN_FAILURES = 100;
+/**
+ * The requests not logged when they answer well and in time (the onResponse hook): Collect Earth's sync, a save every
+ * few seconds and its settings every 2 minutes for each person working, and the platform's health checks.
+ */
+const QUIET_ROUTES = new Set([
+  'POST /v1/projects/:pid/records:batch',
+  'GET /v1/projects/:pid/plot-layout',
+  'GET /v1/projects/:pid/imagery',
+  'GET /health',
+]);
+/** A quiet request slower than this is logged all the same: something to look at */
+const SLOW_REQUEST_MS = 1000;
 const ACCOUNT_LOGIN_WINDOW_MS = 15 * 60_000;
 
 /**
@@ -137,6 +150,9 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     logger: options.logger
       ? { ...(typeof options.logger === 'object' ? options.logger : {}), serializers: { req: requestSerializer } }
       : false,
+    // One line per request, after it (the onResponse hook below), instead of Fastify's two; none for Collect Earth's
+    // routine sync calls that went well (QUIET_ROUTES)
+    disableRequestLogging: true,
     // Record XML batches are small KBs each but a project sync can carry 50; allow headroom.
     bodyLimit: 32 * 1024 * 1024,
     // A plot id is a path parameter of the quality decisions (up to 1000 characters,
@@ -198,6 +214,8 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
 
   // Members' activity (member_activity), coalesced; written when the app closes too.
   registerActivity(app, new ActivityRecorder(store, { onError: (err) => app.log.error({ err }, 'member activity write failed') }));
+  // The answers compressed for the clients that ask; not in local mode, where Collect Earth's dashboard is on the same computer
+  if (!config.localMode) registerCompression(app);
 
   // The mail routes, registered later, put their confirmation sender and the password notice here.
   const accountMail: AccountMailHooks = {};
@@ -222,8 +240,14 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   counters.onCount = (kind) => {
     if (kind === 'failedLogin') ownerAlerts.note('failedLogin');
   };
-  app.addHook('onResponse', async (_request, reply) => {
+  app.addHook('onResponse', async (request, reply) => {
     if (reply.statusCode >= 500) ownerAlerts.note('serverError');
+    if (!options.logger) return;
+    const ms = reply.elapsedTime;
+    // Every Collect Earth syncs every few seconds while its person works: hundreds of lines a minute in a mapathon, said
+    // again by the activity they leave. Those are written only when they fail or are slow.
+    if (reply.statusCode < 400 && ms < SLOW_REQUEST_MS && QUIET_ROUTES.has(`${request.method} ${request.routeOptions?.url ?? ''}`)) return;
+    request.log.info({ req: request, res: { statusCode: reply.statusCode }, responseTime: ms }, 'request completed');
   });
   if (!local) {
     // Each project's storage against the server's limit, every hour

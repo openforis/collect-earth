@@ -103,6 +103,7 @@ import {
   type TrainingSetChange,
   type TrainingSetInput,
   type UserPlots,
+  type RecordUpload,
 } from './store.js';
 import type { UncertaintySettings } from '../uncertainty.js';
 import type { AreaSettings } from '../areas.js';
@@ -439,6 +440,116 @@ export class PostgresStore implements Store {
         await insertRecordEvent(client, { ...out.event, projectId });
       }
       return true;
+    });
+  }
+
+  /**
+   * A batch in one transaction and a few statements, where putRecordWithEvent takes six or more per record: the
+   * records' locks (the same advisory locks, taken in one fixed order so that two batches cannot wait on each other),
+   * the rows stored before and whether each record was submitted, read at once; the items applied in order in memory,
+   * an item seeing the row an earlier one gave its record; then every row and every event written at once.
+   */
+  async putRecordsWithEvents(projectId: string, items: RecordUpload[]): Promise<boolean[]> {
+    if (items.length === 0) return [];
+    return this.withProject(projectId, async (client) => {
+      const id = (recordKey: string, operator: string) => `${recordKey}\u0000${operator}`;
+      const records = new Map<string, { recordKey: string; operator: string }>();
+      for (const item of items) records.set(id(item.recordKey, item.operator), { recordKey: item.recordKey, operator: item.operator });
+      const keys = [...records.values()].map((r) => r.recordKey);
+      const operators = [...records.values()].map((r) => r.operator);
+      await client.query(
+        `SELECT pg_advisory_xact_lock(h) FROM (
+           SELECT hashtextextended('collect-earth-cloud:record:' || $1 || ' ' || k || ' ' || o, 0) AS h
+             FROM unnest($2::text[], $3::text[]) AS t(k, o)
+            ORDER BY 1) AS locks`,
+        [projectId, keys, operators],
+      );
+      const existing = await client.query(
+        `SELECT project_id, record_key, operator, modified_on, received_at, actively_saved, step, xml, summary,
+                deleted, deleted_on, active_seconds
+           FROM records
+          WHERE project_id = $1 AND (record_key, operator) IN (SELECT * FROM unnest($2::text[], $3::text[]))
+            FOR UPDATE`,
+        [projectId, keys, operators],
+      );
+      const submitted = await client.query(
+        `SELECT DISTINCT record_key, operator FROM record_events
+          WHERE project_id = $1 AND (record_key, operator) IN (SELECT * FROM unnest($2::text[], $3::text[]))
+            AND change IN ('submitted', 'resubmitted')`,
+        [projectId, keys, operators],
+      );
+      const rows = new Map<string, RecordRow>(existing.rows.map((r) => [id(r.record_key as string, r.operator as string), mapRecord(r)]));
+      const submittedBefore = new Set<string>(submitted.rows.map((r) => id(r.record_key as string, r.operator as string)));
+      const changed = new Map<string, RecordRow>();
+      const events: RecordEventInput[] = [];
+      const stored = items.map((item) => {
+        const key = id(item.recordKey, item.operator);
+        const before = rows.get(key);
+        const out = item.apply(before ? { ...before } : null, submittedBefore.has(key));
+        if (out === null) return false;
+        const row = { ...out.row, projectId };
+        rows.set(key, row);
+        changed.set(id(row.recordKey, row.operator), row);
+        if (out.event) {
+          events.push({ ...out.event, projectId });
+          if (out.event.change === 'submitted' || out.event.change === 'resubmitted') submittedBefore.add(key);
+        }
+        return true;
+      });
+      if (changed.size > 0) {
+        const list = [...changed.values()];
+        await client.query(
+          `INSERT INTO records (project_id, record_key, operator, modified_on, received_at, actively_saved, step,
+                                xml, summary, deleted, deleted_on, active_seconds)
+           SELECT $1, * FROM unnest($2::text[], $3::text[], $4::timestamptz[], $5::timestamptz[], $6::boolean[], $7::int[],
+                                    $8::text[], $9::jsonb[], $10::boolean[], $11::timestamptz[], $12::int[])
+           ON CONFLICT (project_id, record_key, operator) DO UPDATE SET
+             active_seconds = EXCLUDED.active_seconds,
+             modified_on = EXCLUDED.modified_on,
+             received_at = EXCLUDED.received_at,
+             actively_saved = EXCLUDED.actively_saved,
+             step = EXCLUDED.step,
+             xml = EXCLUDED.xml,
+             summary = EXCLUDED.summary,
+             deleted = EXCLUDED.deleted,
+             deleted_on = EXCLUDED.deleted_on`,
+          [
+            projectId,
+            list.map((r) => r.recordKey),
+            list.map((r) => r.operator),
+            list.map((r) => new Date(r.modifiedOn)),
+            list.map((r) => new Date(r.receivedAt)),
+            list.map((r) => r.activelySaved),
+            list.map((r) => r.step),
+            list.map((r) => r.xml),
+            list.map((r) => JSON.stringify(r.summary)),
+            list.map((r) => r.deleted),
+            list.map((r) => (r.deletedOn === null ? null : new Date(r.deletedOn))),
+            list.map((r) => r.activeSeconds ?? null),
+          ],
+        );
+      }
+      if (events.length > 0) {
+        await client.query(
+          `INSERT INTO record_events (project_id, record_key, operator, modified_on, received_at, actively_saved, step,
+                                      deleted, change, summary)
+           SELECT $1, * FROM unnest($2::text[], $3::text[], $4::timestamptz[], $5::timestamptz[], $6::boolean[], $7::int[],
+                                    $8::boolean[], $9::text[], $10::jsonb[])`,
+          [
+            projectId,
+            events.map((e) => e.recordKey),
+            events.map((e) => e.operator),
+            events.map((e) => new Date(e.modifiedOn)),
+            events.map((e) => new Date(e.receivedAt)),
+            events.map((e) => e.activelySaved),
+            events.map((e) => e.step),
+            events.map((e) => e.deleted),
+            events.map((e) => e.change),
+            events.map((e) => (e.summary === null ? null : JSON.stringify(e.summary))),
+          ],
+        );
+      }
+      return stored;
     });
   }
 
