@@ -29,6 +29,13 @@ public class EarthProjectsServiceTest {
 	}
 
 	@Test
+	public void anOfficeComputerGoesBackToItsPostgreSqlWhenAProjectThatIsNotACloudOneIsOpened() {
+		assertEquals(CollectDBDriver.POSTGRESQL, EarthProjectsService.driverAfterLoading(CollectDBDriver.CLOUD, false, true));
+		assertEquals(CollectDBDriver.SQLITE, EarthProjectsService.driverAfterLoading(CollectDBDriver.CLOUD, false, false));
+		assertEquals(CollectDBDriver.CLOUD, EarthProjectsService.driverAfterLoading(CollectDBDriver.CLOUD, true, true));
+	}
+
+	@Test
 	public void leavesPostgreSqlAsItIs() {
 		assertEquals(CollectDBDriver.POSTGRESQL, EarthProjectsService.driverAfterLoading(CollectDBDriver.POSTGRESQL, true));
 		assertEquals(CollectDBDriver.POSTGRESQL, EarthProjectsService.driverAfterLoading(CollectDBDriver.POSTGRESQL, false));

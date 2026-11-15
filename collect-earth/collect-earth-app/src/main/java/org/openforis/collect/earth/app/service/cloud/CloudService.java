@@ -186,6 +186,13 @@ public class CloudService {
 			properties.saveOperator(username);
 		}
 		properties.setCloudSyncEnabled(true);
+		// An office computer (on its shared PostgreSQL) goes back to it when a project that is not a cloud one is opened
+		CollectDBDriver before = properties.getCollectDBDriver();
+		if (before == CollectDBDriver.POSTGRESQL) {
+			properties.setValue(EarthProperty.DB_DRIVER_BEFORE_CLOUD, before.name());
+		} else if (before == CollectDBDriver.SQLITE) {
+			properties.setValue(EarthProperty.DB_DRIVER_BEFORE_CLOUD, "");
+		}
 		properties.saveCollectDBDriver(CollectDBDriver.CLOUD);
 		// The next start brings the account's own records of the project to this computer (CloudOwnRecordsFetcher)
 		CloudOwnRecordsFetcher.requestAtNextStart(properties);

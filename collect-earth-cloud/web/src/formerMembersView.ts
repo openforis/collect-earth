@@ -29,3 +29,12 @@ export function giveCandidates(members: readonly Member[], typedName: string): M
   const rank = (m: Member) => (m.username.toLowerCase() === typedName.trim().toLowerCase() ? 0 : m.role === "operator" ? 1 : 2);
   return members.filter((m) => !m.disabled).sort((a, b) => rank(a) - rank(b) || a.username.localeCompare(b.username));
 }
+
+/**
+ * The names older Collect Earth versions gave when nobody typed one: several people may be behind such a name, so
+ * giving all its plots to one person is warned about.
+ */
+const DEFAULT_NAMES = ["collect earth user"];
+export function isDefaultName(name: string): boolean {
+  return DEFAULT_NAMES.includes(name.trim().toLowerCase());
+}

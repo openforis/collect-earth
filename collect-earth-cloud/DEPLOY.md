@@ -913,7 +913,8 @@ decided (30 October 2026) to keep it. What it means:
 To remove this, switch the service to **instance-based billing**:
 `gcloud run services update collect-earth-cloud --region=<REGION> --no-cpu-throttling`.
 With up to 4 instances scaling to zero, that is about free to US$2 a month at light
-use, and up to about US$45 a month with one instance always up. `deploy.sh` does
+use, and up to about US$45 a month with one instance always up (with the default request-based billing, one
+minimum instance kept up idle costs about US$10 a month instead, at November 2026 prices). `deploy.sh` does
 not change this setting. A later option is to hand AI runs to Cloud Tasks, so that
 each runs inside a request of its own.
 

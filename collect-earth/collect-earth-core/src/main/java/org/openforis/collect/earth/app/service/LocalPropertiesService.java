@@ -134,7 +134,12 @@ public class LocalPropertiesService extends Observable {
 				 * The names typed on this computer before it joined a cloud project, one per line: the records under them are
 				 * this person's, and "Send this computer's records" sends those by default (CloudRecordsSender)
 				 */
-				CLOUD_LOCAL_NAMES("cloud_local_names"),;
+				CLOUD_LOCAL_NAMES("cloud_local_names"),
+				/**
+				 * The database this computer used before it joined a cloud project (POSTGRESQL for an office's shared one,
+				 * else empty): opening a project that is not a cloud one goes back to it (EarthProjectsService)
+				 */
+				DB_DRIVER_BEFORE_CLOUD("db_driver_before_cloud"),;
 
 		private String name;
 
