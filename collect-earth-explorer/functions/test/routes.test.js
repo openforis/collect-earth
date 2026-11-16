@@ -107,6 +107,15 @@ test("GET /api/catalogue answers 200 with the catalogue and its standard configu
   assert.equal(res.body.layers.sentinel2.params.maxCloud.default, 70);
 });
 
+test("GET /api/catalogue answers any origin; a data endpoint does not", async () => {
+  const origin = "https://anything.example";
+  const res = await request(appWith()).get("/api/catalogue").set("Origin", origin);
+  assert.equal(res.status, 200);
+  assert.equal(res.headers["access-control-allow-origin"], "*");
+  const data = await request(appWith()).post("/api/tiles/sentinel2").set("Origin", origin);
+  assert.equal(data.headers["access-control-allow-origin"], undefined);
+});
+
 test("TTLs are 20 hours for tiles and 30 days for series", () => {
   assert.equal(TTL.tiles, 20 * 3600);
   assert.equal(TTL.series, 30 * 24 * 3600);

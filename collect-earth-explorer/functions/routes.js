@@ -91,7 +91,8 @@ function registerRoutes(app, { cache = defaultCache } = {}) {
   const route = (endpoint, ttl, extrasOf, compute, validate, opts) => plotRoute(endpoint, ttl, extrasOf, compute, validate, cache, opts);
   const noStart = { ignoreStart: true };
 
-  app.get("/api/catalogue", (req, res) => res.json(catalogue));
+  // Public and read-only: the cloud dashboard reads it from any origin (replaces the allowlist's echo for this route).
+  app.get("/api/catalogue", (req, res) => res.set("Access-Control-Allow-Origin", "*").json(catalogue));
   app.post("/api/tiles/sentinel2", route("tiles/sentinel2", TTL.tiles, sentinel2Extras, (p, g, x) => sentinel2CompositeTiles(g, x.end ?? p.end, x), null, noStart));
   app.post(
     "/api/tiles/landsat",
