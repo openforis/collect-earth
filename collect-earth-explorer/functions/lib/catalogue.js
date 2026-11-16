@@ -30,7 +30,7 @@ function paramOf(kind, type, name, value, { maxYear = new Date().getUTCFullYear(
       allowed = `[from, to] years from ${spec.min} to ${maxYear}, from <= to`;
       break;
     case "bool": ok = value === true || value === false; allowed = "true or false"; break;
-    case "text": ok = typeof value === "string" && value.length <= spec.max; allowed = `text of at most ${spec.max} characters`; break;
+    case "text": ok = typeof value === "string" && value.length <= spec.max && !/[<>]/.test(value); allowed = `text of at most ${spec.max} characters, without < or >`; break;
     // Only the form here; the route checks the content with lib/formula.js against the sensor's bands.
     case "formula": ok = typeof value === "string" && value.length <= spec.max; allowed = `a formula of at most ${spec.max} characters`; break;
     default: throw new BadRequest(`unknown parameter type ${spec.type} for ${name}`);

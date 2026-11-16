@@ -122,6 +122,9 @@ describe("resolveConfig", () => {
     expect(ok({ type: "landsat", years: [2024, 2000] })).toBe(false);
     expect(ok({ type: "landsat", years: [2000] })).toBe(false);
     expect(ok({ type: "landsat", label: "x".repeat(61) })).toBe(false);
+    expect(ok({ type: "landsat", label: "<b>x</b>" })).toBe(false);
+    expect(ok({ type: "sentinel2", start: "2020-01-01", end: "2023-01-01" })).toBe(true);
+    expect(ok({ type: "sentinel2", start: "2020-01-01", end: "2023-01-02" })).toBe(false);
     expect(ok({ type: "sentinel2", start: "2021-02-28", end: "2021-12-31" })).toBe(true);
     expect(ok({ type: "sentinel2", start: "2021-02-30", end: "2021-12-31" })).toBe(false);
     expect(ok({ type: "sentinel2", start: "2021-13-01", end: "2021-12-31" })).toBe(false);

@@ -60,6 +60,11 @@ test("yearRange is two years in range with from <= to", () => {
   }
 });
 
+test("text rejects < and >: a chart name reaches Plotly's legend, which renders some HTML", () => {
+  assert.throws(() => paramOf("layers", "sentinel2", "label", "<a href='x'>y</a>"), /without < or >/);
+  assert.throws(() => paramOf("charts", "landsat-series", "name", "a > b"), /without < or >/);
+});
+
 test("bool accepts only true and false; text is a string no longer than max", () => {
   assert.equal(paramOf("charts", "modis", "collapsed", true), true);
   assert.equal(paramOf("charts", "modis", "collapsed", false), false);

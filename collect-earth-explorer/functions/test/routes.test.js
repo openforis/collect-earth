@@ -142,6 +142,7 @@ test("POST /api/tiles/sentinel2 keys the cache only with non-default composite p
   assert.deepEqual(await extrasFor(path, { bands: "true-colour" }), { bands: "true-colour" });
   assert.deepEqual(await extrasFor(path, { maxCloud: 20 }), { maxCloud: 20 });
   assert.deepEqual(await extrasFor(path, { compositeStart: "2022-01-01", compositeEnd: "2022-07-01" }), { start: "2022-01-01", end: "2022-07-01" });
+  assert.deepEqual(await extrasFor(path, { compositeStart: "2020-01-01", compositeEnd: "2023-01-01" }), { start: "2020-01-01", end: "2023-01-01" }, "three years is allowed");
 });
 
 test("POST /api/tiles/sentinel2 rejects bad composite parameters with a 400 before the cache", async () => {
@@ -154,6 +155,8 @@ test("POST /api/tiles/sentinel2 rejects bad composite parameters with a 400 befo
     [{ compositeEnd: "2022-07-01" }, /compositeStart and compositeEnd/],
     [{ compositeStart: "2022-07-01", compositeEnd: "2022-07-01" }, /before/],
     [{ compositeStart: "2022-08-01", compositeEnd: "2022-07-01" }, /before/],
+    [{ compositeStart: "2015-06-23", compositeEnd: "9999-12-31" }, /at most 1096 days/],
+    [{ compositeStart: "2020-01-01", compositeEnd: "2023-01-02" }, /at most 1096 days/],
   ]) {
     const cache = fakeCache();
     const res = await request(appWith(cache)).post("/api/tiles/sentinel2").send({ plot: belize, ...body });
@@ -409,4 +412,16 @@ test("tiles/sentinel2 and tiles/scene drop start from the cache key (their compu
   res = await request(appWith(cache)).post("/api/series/modis").send(body);
   assert.equal(res.status, 200);
   assert.equal(cache.calls[0].parsed.start, "2020-01-01");
+});
+
+test("POST /api/tiles/sentinel2 with its own window keys the cache without the plot's end; without one it keeps it", async () => {
+  const keyOf = async (body) => {
+    const cache = fakeCache({ tileUrl: "x" });
+    await request(appWith(cache)).post("/api/tiles/sentinel2").send({ plot: belize, ...body });
+    return cache.calls[0].parsed;
+  };
+  const window = { compositeStart: "2022-01-01", compositeEnd: "2022-07-01" };
+  assert.equal((await keyOf({ end: "2025-06-01", ...window })).end, null);
+  assert.equal((await keyOf({ end: "2025-06-01" })).end, "2025-06-01");
+  assert.equal((await keyOf({ end: "2025-06-01" })).start, null);
 });

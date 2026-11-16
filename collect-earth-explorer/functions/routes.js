@@ -32,7 +32,8 @@ function plotRoute(endpoint, ttlSeconds, extrasOf, compute, validate, cache = de
     if (validate) validate(req.body);
     const extras = extrasOf ? extrasOf(req.body) : {};
     const refresh = req.query.refresh === "1";
-    const keyed = ignoreStart ? { ...parsed, start: null } : parsed;
+    // With its own window (extras.end) a composite does not depend on the plot's end either.
+    const keyed = ignoreStart ? { ...parsed, start: null, end: extras.end ? null : parsed.end } : parsed;
     const result = await cache.withCache(endpoint, keyed, extras, ttlSeconds, async () => {
       await eeAuth();
       return compute(parsed, ee.Geometry(parsed.plot), extras);
@@ -55,6 +56,9 @@ function nonDefault(kind, type, body, names) {
   return x;
 }
 
+/** Three years: the longest Sentinel-2 composite window a request may ask for (web/src/lib/config.ts applies the same). */
+const MAX_WINDOW_DAYS = 1096;
+
 /** Sentinel-2 composite extras; the optional window `compositeStart`/`compositeEnd` becomes `start`/`end`. */
 function sentinel2Extras(b) {
   const x = nonDefault("layers", "sentinel2", b, ["bands", "maxCloud"]);
@@ -63,6 +67,8 @@ function sentinel2Extras(b) {
   if ((start === undefined) !== (end === undefined)) throw new BadRequest("compositeStart and compositeEnd go together");
   if (start === undefined) return x;
   if (start >= end) throw new BadRequest("compositeStart must be before compositeEnd");
+  // The API is public: an unbounded window would be the cheapest way to make a request expensive.
+  if (Date.parse(end) - Date.parse(start) > MAX_WINDOW_DAYS * 86400000) throw new BadRequest(`the composite window is at most ${MAX_WINDOW_DAYS} days`);
   return { ...x, start, end };
 }
 

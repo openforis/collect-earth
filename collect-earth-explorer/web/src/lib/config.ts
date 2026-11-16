@@ -24,7 +24,7 @@ function check(spec: Spec, value: unknown, maxYear: number): boolean {
     case "year": return isYear(value);
     case "yearRange": return Array.isArray(value) && value.length === 2 && value.every(isYear) && value[0] <= value[1];
     case "bool": return value === true || value === false;
-    case "text": return typeof value === "string" && value.length <= spec.max!;
+    case "text": return typeof value === "string" && value.length <= spec.max! && !/[<>]/.test(value);
     case "formula": return typeof value === "string" && value.length <= spec.max!;
     default: return false;
   }
@@ -93,6 +93,9 @@ function resolveEntry(kind: Kind, raw: unknown, maxYear: number): Entry | string
   // Same rule as the API: a composite window needs both dates, start before end.
   if (type === "sentinel2" && ("start" in params || "end" in params) && !((params.start as string) < (params.end as string)))
     return `${singular[kind]} "${type}" skipped: start and end must both be given, start before end.`;
+  // Same cap as the API (routes.js MAX_WINDOW_DAYS).
+  if (type === "sentinel2" && "start" in params && Date.parse(params.end as string) - Date.parse(params.start as string) > 1096 * 86400000)
+    return `${singular[kind]} "${type}" skipped: the window from start to end is at most three years.`;
   // Same rules as the API's series routes: the formula is checked against the sensor's bands, and excludes another index.
   if ("formula" in params) {
     if (params.index !== undefined && params.index !== specs.index.default) return `${singular[kind]} "${type}" skipped: give either index or formula.`;
