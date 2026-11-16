@@ -1,24 +1,24 @@
 package org.openforis.collect.earth.app.logging;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
-import java.util.Random;
+import java.nio.charset.StandardCharsets;
+import java.util.UUID;
 
-import org.apache.commons.codec.digest.DigestUtils;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
+import org.openforis.collect.earth.app.desktop.EarthApp;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.UpdateIniUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+
+/**
+ * Usage analytics, anonymous: a random id of the installation and the version.
+ */
 public class GAlogger {
 
 	private static final Logger logger = LoggerFactory.getLogger(GAlogger.class);
@@ -26,58 +26,44 @@ public class GAlogger {
 	private static final String API_SECRET_TOKEN = "GA_API_SECRET";
 	private static final String MEASUREMENT_ID = "G-LRHVV8FNZB";
 	private static String clientId;
-	
+
 	public static void logGAnalytics(String event) {
 		new Thread("GA logging thread") {
 
 			@Override
 			public void run() {
-				final String apiSecret = getApiSecret();
+				final LocalPropertiesService props = EarthApp.getLocalProperties();
+				final String apiSecret = getApiSecret(props);
 				if( apiSecret == null ) {
 					logger.debug("Analytics are disabled : there is no ga_api_secret in the properties");
 					return;
 				}
 
-				try( CloseableHttpClient httpclient = HttpClients.createDefault() ) {
+				try {
 					// Following instruction from https://developers.google.com/analytics/devguides/collection/protocol/ga4/sending-events?hl=en&client_type=gtag
-					// Request parameters and other properties.
-					
 					URL url = new URL ("https://www.google-analytics.com/mp/collect?api_secret="+apiSecret+"&measurement_id="+ MEASUREMENT_ID);
 					HttpURLConnection con = (HttpURLConnection)url.openConnection();
 					con.setRequestMethod("POST");
 					con.setRequestProperty("Content-Type", "application/json");
 					con.setRequestProperty("Accept", "application/json");
 					con.setDoOutput(true);
-					
-					String clientId = getClientId();
-										
-					String jsonToSend = "{"
-							+ "\"client_id\":\"" + clientId + "\","
-							+ "\"non_personalized_ads\":true,"
-							+ "\"events\":["
-							+ "{"
-							+ "\"name\":\"" + event + "\","
-							+ "\"params\":{"
-							+ "\"items\": [],"
-							+ "\"version\": \""+ UpdateIniUtils.getVersionReleaseDateInstalled()+"\""
-							+ "}"
-							+ "}"
-							+ "]"
-							+ "}";
-					
+
+					JsonObject params = new JsonObject();
+					params.addProperty("version", UpdateIniUtils.getVersionReleaseDateInstalled());
+					JsonObject eventJson = new JsonObject();
+					eventJson.addProperty("name", event);
+					eventJson.add("params", params);
+					JsonArray events = new JsonArray();
+					events.add(eventJson);
+					JsonObject json = new JsonObject();
+					json.addProperty("client_id", getClientId(props));
+					json.addProperty("non_personalized_ads", true);
+					json.add("events", events);
+
 					try(OutputStream os = con.getOutputStream()) {
-					    byte[] input = jsonToSend.getBytes("utf-8");
-					    os.write(input, 0, input.length);			
+						os.write(json.toString().getBytes(StandardCharsets.UTF_8));
 					}
-					try(BufferedReader br = new BufferedReader( new InputStreamReader(con.getInputStream(), "utf-8")) ) {
-					    StringBuilder response = new StringBuilder();
-					    String responseLine = null;
-					    while ((responseLine = br.readLine()) != null) {
-					        response.append(responseLine.trim());
-					    }
-					    System.out.println(response.toString());
-					}
-										
+
 					logger.info(event + " GA Logged - Response http " + con.getResponseCode() );
 				} catch (IOException e) {
 					// warn, not error : the Sentry appender is bound at ERROR, and analytics failing to send is not a
@@ -93,8 +79,8 @@ public class GAlogger {
 			 * when the installer is built, from the ga_api_secret property of the Maven settings.
 			 * @return The secret, or null when the build did not provide one
 			 */
-			private String getApiSecret() {
-				String secret = new LocalPropertiesService().getGaApiSecret();
+			private String getApiSecret(LocalPropertiesService props) {
+				String secret = props.getGaApiSecret();
 				if( secret == null ) {
 					return null;
 				}
@@ -105,26 +91,20 @@ public class GAlogger {
 				}
 				return secret;
 			}
-
-			private String getClientId() {
-				if( clientId == null ) {
-					LocalPropertiesService props = new LocalPropertiesService();
-					String operator = props.getOperator();
-					if( StringUtils.isBlank(operator)) {
-						try {
-							Random random = SecureRandom.getInstanceStrong();
-							operator  = "CollectEarth" + random.nextInt();
-						} catch (NoSuchAlgorithmException e) {
-							logger.error("Error generaing random number!");
-							operator = "CollectEarth";
-						}
-					}
-					clientId = DigestUtils.md5Hex(operator);
-				}
-				return clientId;
-			}
 		}.start();
 
 	}
-	
+
+	private static synchronized String getClientId(LocalPropertiesService props) {
+		if( clientId == null ) {
+			try {
+				clientId = props.getGaClientId();
+			} catch (RuntimeException e) {
+				logger.warn("The analytics id could not be kept : {}", e.getMessage());
+				clientId = UUID.randomUUID().toString();
+			}
+		}
+		return clientId;
+	}
+
 }
