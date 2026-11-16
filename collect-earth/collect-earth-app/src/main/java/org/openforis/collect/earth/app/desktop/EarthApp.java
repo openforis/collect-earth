@@ -596,7 +596,7 @@ public class EarthApp {
 
 	private static LocalPropertiesService nonManagedPropertiesService;
 
-	private static LocalPropertiesService getLocalProperties() {
+	public static LocalPropertiesService getLocalProperties() {
 		if (serverController == null || serverController.getContext() == null) {
 			if (nonManagedPropertiesService == null) {
 				nonManagedPropertiesService = new LocalPropertiesService();

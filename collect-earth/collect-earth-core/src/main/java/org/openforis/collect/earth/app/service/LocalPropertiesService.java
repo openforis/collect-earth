@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.Observable;
 import java.util.Properties;
 import java.util.TreeSet;
+import java.util.UUID;
 
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.EarthConstants.BUFFER_SHAPE;
@@ -92,6 +93,8 @@ public class LocalPropertiesService extends Observable {
 				"buffer_shape"), OPEN_PLANET_MAPS(
 				"open_planet_maps"), PLANET_MAPS_KEY(
 				"planet_maps_key"),  PLANET_MAPS_CE_KEY("planet_maps_ce_key"), GA_API_SECRET("ga_api_secret"),
+				/** A random id of this installation for the analytics, see getGaClientId */
+				GA_CLIENT_ID("ga_client_id"),
 				PLANET_MAPS_USE_TFO("planet_maps_use_tfo"),
 				PLANET_TFO_DATE_FROM("planet_tfo_date_from"),
 				PLANET_TFO_DATE_TO("planet_tfo_date_to"),
@@ -267,6 +270,19 @@ public class LocalPropertiesService extends Observable {
 	 */
 	public String getGaApiSecret() {
 		return getValue(EarthProperty.GA_API_SECRET);
+	}
+
+	/**
+	 * The id the analytics send: random, made the first time it is asked for and kept, so that it says nothing of the
+	 * operator. When it cannot be saved it still serves for this run.
+	 */
+	public synchronized String getGaClientId() {
+		String id = getValue(EarthProperty.GA_CLIENT_ID);
+		if (StringUtils.isBlank(id)) {
+			id = UUID.randomUUID().toString();
+			setValue(EarthProperty.GA_CLIENT_ID, id);
+		}
+		return id;
 	}
 
 	public boolean isPlanetMapsUseTfo() {
