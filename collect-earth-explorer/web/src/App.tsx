@@ -61,6 +61,12 @@ function Viewer() {
         </div>
       </div>
       <aside className="side-pane">
+        <header className="brand">
+          <a href="https://collectearth.org" target="_blank" rel="noreferrer">
+            <img src="/logo.png" alt="Collect Earth · Open Foris" width="129" height="56" />
+          </a>
+          <span>Explorer</span>
+        </header>
         <h2>Plot {plotId || "(no id)"}</h2>
         <p className="dates">
           {start} to {end}
@@ -109,15 +115,19 @@ export default function App() {
   }, [search, hash]);
   if (parsed.error !== undefined) {
     return (
-      <div style={{ padding: 16 }}>
-        <p>{parsed.error}. Open this page from Collect Earth, or try a sample plot:</p>
-        <ul>
-          {SAMPLE_PLOTS.map(([name, lon, lat]) => (
-            <li key={name}>
-              <a href={sampleHref(name, lon, lat)}>{name}</a>
-            </li>
-          ))}
-        </ul>
+      <div className="welcome">
+        <div className="welcome-box">
+          <img src="/logo.png" alt="Collect Earth · Open Foris" width="184" height="80" />
+          <h1>Explorer</h1>
+          <p>{parsed.error}. Open this page from Collect Earth, or try a sample plot:</p>
+          <ul>
+            {SAMPLE_PLOTS.map(([name, lon, lat]) => (
+              <li key={name}>
+                <a href={sampleHref(name, lon, lat)}>{name}</a>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
     );
   }

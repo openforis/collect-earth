@@ -30,7 +30,7 @@ export default function ModisCard({ params }: { params: ChartEntry["params"] }) 
         <SeriesChart
           points={d.ndvi}
           name={`MODIS ${index}`}
-          color="#1565c0"
+          color="#1770DD"
           markers={{ x: d.fires.map((f) => f.date), name: "Burned (MCD64A1)", color: "#d32f2f" }}
         />
       )}

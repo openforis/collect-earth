@@ -24,7 +24,7 @@ const iso = (ms: number) => new Date(ms).toISOString();
  * `data` and `layout` are memoised and `uirevision` is constant, so a re-render neither
  * re-plots nor resets the user's zoom.
  */
-export default function SeriesChart({ points, name, color = "#2e7d32", markers, onClickPoint, yRange = DEFAULT_Y_RANGE }: Props) {
+export default function SeriesChart({ points, name, color = "#587F2E", markers, onClickPoint, yRange = DEFAULT_Y_RANGE }: Props) {
   const [yMin, yMax] = yRange;
   const markerX = markers?.x;
   const markerName = markers?.name;
@@ -62,6 +62,7 @@ export default function SeriesChart({ points, name, color = "#2e7d32", markers, 
     () => ({
       height: 240,
       margin: { l: 40, r: 10, t: 10, b: 40 },
+      font: { family: "Poppins, sans-serif", size: 11, color: "#626262" },
       yaxis: { range: [yMin, yMax] },
       legend: { orientation: "h", y: -0.25 },
       hovermode: "closest",

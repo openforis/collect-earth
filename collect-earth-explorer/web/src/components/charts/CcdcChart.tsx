@@ -75,6 +75,7 @@ export default function CcdcChart({ data, onClickObserved }: CcdcChartProps) {
     return {
       height: 260,
       margin: { l: 40, r: 10, t: 10, b: 40 },
+      font: { family: "Poppins, sans-serif", size: 11, color: "#626262" },
       yaxis: { range: [-1, 1] },
       legend: { orientation: "h", y: -0.25 },
       hovermode: "closest",
