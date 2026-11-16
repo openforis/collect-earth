@@ -16,6 +16,7 @@ same rules is unit-tested in `test/workflows.test.ts`.
 | `mapathon` | a link that gives each person who joins 5 plots of the file nobody has yet; two people join from new computers (one registering), each Collect Earth opens their 5 plots by itself, nobody has the same plot, a save reaches the cloud |
 | `two-computers` | the second person of the mapathon signs in on a second computer: the plot they saved on the first is there with its answer; they change it there, and at the first computer's next start the newer save has replaced the older copy, with nothing queued to be sent back |
 | `plots-update` | m1's Collect Earth (checking every 15 s, `-Dcollectearth.myPlotsCheckSeconds`) reads the person's plots from its data folder; a saved record keeps its plot file's name; plots the coordinator gives, then moves away, arrive and leave with no click, with a notice; Refresh now; a training set opens instead of the person's plots, the checks leave it open, and "Back to my plots" |
+| `standalone` | the project file for working alone (stage 4): a collector downloads it with her plots, the coordinator with all of them, a collector cannot get everyone's; on a computer that never joined it opens as a local project on its own SQLite with exactly her plots; she types her name and saves a plot; back online she joins, Collect Earth counts the plot as hers and sending puts it in the cloud under her account with her answer; the file with all the plots opens with all 55 |
 | `accounts` | the refusals a person sees when joining: a taken name, a wrong password, a short password, a wrong link; and a member joining again on another computer |
 
 Run them in this order (each uses what the earlier ones left): all of them by default, or `node run.mjs office cloud`.
@@ -45,4 +46,4 @@ joining, the jobs (send, export) and the sync; `/earth/save-data-expanded` for a
 plot's place, as the balloon sends it. A save is written a second later (the desktop's write-behind), and the sync runs
 on `syncNow`. Joining restarts the desktop by itself.
 
-Last run from empty databases: 80 checks in ten scenarios, all passed (16 November 2026).
+Last run from empty databases: 80 checks in ten scenarios, all passed (16 November 2026); `alone mapathon standalone`: 24 checks, all passed (16 November 2026).

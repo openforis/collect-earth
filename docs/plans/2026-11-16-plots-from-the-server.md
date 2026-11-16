@@ -481,3 +481,8 @@ person's, and a download button.
 
 **Tests.** `standaloneCep.test.ts` (3: all plots, mine / someone / refusals, the emptying of the plot files and
 `grid/plots.csv`), an isolation case. Server 1738, dashboard 595, all pass.
+
+**Real run** (`scripts/workflows`, scenario `standalone`, with the real desktop on PostgreSQL): the file with m2's
+plots opens on a computer that never joined as a local project on SQLite with exactly her 5 plots; a plot saved there
+is sent to the cloud under her account, with her answer, once she joins; the file with all the plots opens with all 55.
+24 checks with `alone` and `mapathon` before it, all passed.

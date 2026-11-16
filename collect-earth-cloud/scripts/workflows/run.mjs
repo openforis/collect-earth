@@ -1,10 +1,10 @@
 // The workflows of Collect Earth, run with real desktops against a real cloud server on PostgreSQL.
-// node run.mjs [scenario...]   (all by default: alone office cloud alone-to-cloud office-to-cloud office-back mapathon two-computers plots-update accounts)
+// node run.mjs [scenario...]   (all by default: alone office cloud alone-to-cloud office-to-cloud office-back mapathon two-computers plots-update standalone accounts)
 // What it needs and how to start it: README.md beside it.
 import { execFileSync } from 'node:child_process';
 import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import {
-  APP, E, check, demoPlotFile, cloud, cloudLogin, desk, job, joinFromDesktop, note, plotIds, results, savePlot, setOperator, sleep, sql, sqliteRecords,
+  APP, CLOUD, E, check, demoPlotFile, cloud, cloudLogin, desk, job, joinFromDesktop, note, plotIds, results, savePlot, setOperator, sleep, sql, sqliteRecords,
   startDesktop, stopDesktops, syncNow, waitRestart,
 } from './lib.mjs';
 
@@ -389,6 +389,64 @@ with zipfile.ZipFile(src) as a, zipfile.ZipFile(dst,'w',zipfile.ZIP_DEFLATED) as
     check('plots: the checks leave the training set open', (await plotIds()).some((p) => p.startsWith('training_')), (await plotIds()).join(' '));
     const back = (await desk('POST', '/api/cloud/myPlots/use', {})).json;
     check('plots: back to my plots', back?.training === null && back?.inUse === true && (await until((ids) => !ids.some((p) => p.startsWith('training_')), 20000)), JSON.stringify(back));
+  },
+
+  // 10. Working alone with the project's plots (docs/plans/2026-11-16-plots-from-the-server.md, stage 4): the project
+  // file downloaded with a person's plots, or all of them, opened on a computer that never joined, as a local
+  // project; the work done there sent to the cloud once the person joins
+  async standalone() {
+    const { pid, joinUrl } = state.mapathon;
+    const token = await coordinator();
+    const m2 = await cloudLogin('m2', 'm2-password');
+    const download = async (query, who, file) => {
+      const res = await fetch(`${CLOUD}/v1/projects/${pid}/cep/standalone?${query}`, { headers: { authorization: `Bearer ${who}` } });
+      if (res.ok) writeFileSync(file, Buffer.from(await res.arrayBuffer()));
+      return { status: res.status, plots: Number(res.headers.get('x-plots')), name: res.headers.get('content-disposition') };
+    };
+    const hers = `${E}/standalone-m2.cep`;
+    const all = `${E}/standalone-all.cep`;
+    const mine = await download('plots=mine', m2, hers);
+    const theirs = (await (await fetch(`${CLOUD}/v1/projects/${pid}/my-plots.csv`, { headers: { authorization: `Bearer ${m2}` } })).text())
+      .trim().split(/\r?\n/).slice(1).map((l) => l.split(',').slice(0, 2).join(',')).sort(); // id,round
+    check('standalone: a collector downloads the project file with their own plots', mine.status === 200 && mine.plots === theirs.length && theirs.length > 0, JSON.stringify(mine));
+    const everything = await download('plots=all', token, all);
+    const demoCount = demoPlotFile().toString('utf8').trim().split(/\r?\n/).length - 1;
+    check('standalone: the coordinator downloads it with all the plots', everything.status === 200 && everything.plots === demoCount, JSON.stringify(everything));
+    check('standalone: a collector cannot download everyone’s plots', (await download('plots=all', m2, `${E}/refused.cep`)).status === 403);
+
+    // a computer that never joined, where there is no server: the file opens as a local project with her plots
+    rmSync(`${E}/home-away`, { recursive: true, force: true });
+    await startDesktop('away');
+    const imported = await desk('POST', '/api/projects/import', { path: hers });
+    await waitRestart();
+    const st = (await desk('GET', '/api/cloud/state')).json;
+    const s = (await desk('GET', '/api/settings')).json?.values ?? {};
+    check('standalone: Collect Earth opens it as a local project, on its own database', st?.project?.mode === 'local' && s.db_driver !== 'CLOUD', `${JSON.stringify(imported.json)} ${st?.project?.mode} ${s.db_driver}`);
+    const ids = (await plotIds()).sort();
+    check('standalone: its plots are hers, and only hers', JSON.stringify(ids) === JSON.stringify(theirs), `${ids.join(' ')} | ${theirs.join(' ')}`);
+    check('standalone: the plot file is the one the project names', String(s.csv ?? '').endsWith('.csv') && !String(s.csv).includes('/cloud/'), String(s.csv));
+    check('standalone: she types her name, as anyone working alone does', (await setOperator('Maria Dos')).status === 200);
+    const plot = ids.find((p) => p !== state.mapathon.plot) ?? ids[0];
+    check('standalone: she saves a plot there', await savePlot(plot, '70'));
+    await sleep(3000);
+    check('standalone: it is in the computer’s database', sqliteRecords('away').includes(plot), sqliteRecords('away').join(' '));
+
+    // back where there is internet: she joins, and what she did is sent under her account
+    const joined = await joinFromDesktop(joinUrl, 'm2', 'm2-password', false);
+    check('standalone: back online, she joins the project from that computer', joined.join?.status === 200, JSON.stringify(joined.join?.json).slice(0, 200));
+    await waitRestart();
+    const local = (await desk('GET', '/api/cloud/localRecords')).json;
+    check('standalone: Collect Earth counts the plot done alone as hers', local?.count >= 1 && local?.others === 0, JSON.stringify(local));
+    const sent = await job('/api/jobs/sendToCloud');
+    const answer = sql('cloud', `select regexp_replace(substring(xml from '<coverage>\\s*<code>[^<]*</code>'), '\\s+', '', 'g') from records where project_id='${pid}' and record_key='${plot}' and operator='m2' and not deleted`)[0] ?? 'none';
+    check('standalone: sending puts it in the cloud as m2’s, with her answer', ['SUCCEEDED', 'DONE', 'FINISHED'].includes(sent.state) && answer === '<coverage><code>70</code>', `${sent.state} ${plot}: ${answer}`);
+
+    // and the file with all the plots, on another computer
+    rmSync(`${E}/home-away-all`, { recursive: true, force: true });
+    await startDesktop('away-all');
+    await desk('POST', '/api/projects/import', { path: all });
+    await waitRestart();
+    check('standalone: the file with all the plots opens with all of them', (await plotIds()).length === demoCount, `${(await plotIds()).length} of ${demoCount}`);
   },
 
   // 6. Accounts: what people see when something is wrong
