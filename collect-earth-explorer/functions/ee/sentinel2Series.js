@@ -1,5 +1,5 @@
 const { sentinel2Images } = require("./sentinel2");
-const { indexImage, SENTINEL2_NAMES } = require("./indices");
+const { indexImage, formulaOf, SENTINEL2_BANDS } = require("./indices");
 const { meanSeries, evaluateSeries } = require("./series");
 
 /** First day with Sentinel-2A data in COPERNICUS/S2_HARMONIZED. */
@@ -24,17 +24,17 @@ function sentinelWindow(start, end) {
 }
 
 /**
- * Per-scene mean `index` (NDVI, NDMI, NBR or EVI) at 10 m over `plot` from cloud-masked
- * Sentinel-2 scenes in [start, end). Reflectance is 0..10000, scaled to 0..1 for EVI;
+ * Per-scene mean of the named `index` (catalogue.json "indices"), or of `formula` when given, at 10 m over
+ * `plot` from cloud-masked Sentinel-2 scenes in [start, end). Reflectance is 0..10000, scaled to 0..1 first;
  * copyProperties of the absent SPACECRAFT_ID is harmless.
  * A range entirely before the first Sentinel-2 scene yields no points without
  * an Earth Engine round trip.
  */
-async function sentinel2Series(plot, start, end, index = "NDVI") {
+async function sentinel2Series(plot, start, end, index = "NDVI", formula = formulaOf(index)) {
   const w = sentinelWindow(start, end);
   if (!w) return { points: [] };
-  const col = sentinel2Images(plot, w.start, w.end).map((img) => indexImage(img, index, SENTINEL2_NAMES, 10000));
-  const points = await evaluateSeries(meanSeries(col, index, plot, 10));
+  const col = sentinel2Images(plot, w.start, w.end).map((img) => indexImage(img, formula, SENTINEL2_BANDS, 10000));
+  const points = await evaluateSeries(meanSeries(col, "index", plot, 10));
   return { points };
 }
 

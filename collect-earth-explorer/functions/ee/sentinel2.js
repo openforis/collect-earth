@@ -2,8 +2,9 @@ const { ee } = require("./auth");
 
 const CLOUD_SCORE_THRESHOLD = 0.6;
 const CLOUD_PROBABILITY_THRESHOLD = 65;
-const COMMON_BANDS = ["B2", "B3", "B4", "B6", "B8", "B8A", "B9", "B11", "B12", "QA60"];
-const RENAMED = ["blue", "green", "red", "red2", "nir", "red4", "h2o", "swir1", "swir2", "QA60"];
+// B5 and B7 (rededge1, rededge3) were added for index formulas; B6 keeps its name red2.
+const COMMON_BANDS = ["B2", "B3", "B4", "B6", "B8", "B8A", "B9", "B11", "B12", "QA60", "B5", "B7"];
+const RENAMED = ["blue", "green", "red", "red2", "nir", "red4", "h2o", "swir1", "swir2", "QA60", "rededge1", "rededge3"];
 
 function rename(img) { return img.select(COMMON_BANDS, RENAMED); }
 

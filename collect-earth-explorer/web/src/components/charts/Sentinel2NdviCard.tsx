@@ -5,28 +5,31 @@ import { useApi } from "../../hooks/useApi";
 import { postApi } from "../../lib/api";
 import { usePlot } from "../../state/PlotContext";
 import { pointsToCsv, downloadText, type Point } from "../../lib/csv";
-import type { ChartEntry } from "../../lib/config";
+import { normaliseFormula, type ChartEntry } from "../../lib/config";
 
 const isoDay = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 
 export default function Sentinel2NdviCard({ params }: { params: ChartEntry["params"] }) {
   const { plot, start, end, plotId, setScene } = usePlot();
   const index = params.index as string;
+  const formula = params.formula === undefined ? undefined : normaliseFormula(params.formula as string);
+  // What the chart is called: the index, or the custom formula's name.
+  const label = formula === undefined ? index : (params.name as string | undefined) || "Custom index";
   const [open, setOpen] = useState(!params.collapsed);
-  const body = { plot, start, end, ...(index !== "NDVI" && { index }) };
-  const state = useApi<{ points: Point[] }>((s) => postApi("series/sentinel2", body, s), [plot, start, end, index], { enabled: open });
+  const body = { plot, start, end, ...(formula !== undefined ? { formula } : index !== "NDVI" && { index }) };
+  const state = useApi<{ points: Point[] }>((s) => postApi("series/sentinel2", body, s), [plot, start, end, index, formula], { enabled: open });
   return (
     <ChartCard
-      title={`Sentinel-2 ${index} (click a point to view that scene)`}
+      title={`Sentinel-2 ${label} (click a point to view that scene)`}
       state={state}
       collapsed={!open}
       onExpand={() => setOpen(true)}
-      onDownload={() => downloadText(`${plotId || "plot"}-sentinel2-${index.toLowerCase()}.csv`, pointsToCsv(state.data!.points))}
+      onDownload={() => downloadText(`${plotId || "plot"}-sentinel2-${label.toLowerCase().replace(/\s+/g, "-")}.csv`, pointsToCsv(state.data!.points))}
     >
       {(d) => (
         <SeriesChart
           points={d.points}
-          name={index}
+          name={label}
           onClickPoint={(p) => setScene({ sensor: "sentinel2", timeStart: p.date, label: `Sentinel-2 ${isoDay(p.date)}` })}
         />
       )}

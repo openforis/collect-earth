@@ -180,6 +180,34 @@ describe("series cards", () => {
     download.mockRestore();
   });
 
+  it("a formula entry posts the formula without spaces instead of an index, and names the chart after its name or Custom index", async () => {
+    fetchMock.mockImplementation(async () => json({ points: [POINT] }));
+    const download = vi.spyOn(csv, "downloadText").mockImplementation(() => {});
+    for (const [Card, type, url, sensor, file] of [
+      [LandsatNdviCard, "landsat-series", "/api/series/landsat", "Landsat", "landsat"],
+      [Sentinel2NdviCard, "sentinel2-series", "/api/series/sentinel2", "Sentinel-2", "sentinel2"],
+    ] as const) {
+      for (const [name, label, csvName] of [["NDRE", "NDRE", "ndre"], [undefined, "Custom index", "custom-index"]] as const) {
+        fetchMock.mockClear();
+        const { unmount } = render(
+          <PlotProvider params={params} config={resolveConfig(undefined, 2026)}>
+            <Card params={paramsOf(type, { formula: " nir / red ", ...(name && { name }) })} />
+          </PlotProvider>,
+        );
+        expect(screen.getByRole("heading", { name: `${sensor} ${label} (click a point to view that scene)` })).toBeTruthy();
+        const chart = await screen.findByTestId("series-chart");
+        expect(chart.getAttribute("data-name")).toBe(label);
+        expectPlotPost(url);
+        expect(Object.keys(lastRequest().body).sort()).toEqual(["end", "formula", "plot", "start"]);
+        expect(lastRequest().body.formula).toBe("nir/red");
+        fireEvent.click(screen.getByRole("button", { name: "CSV" }));
+        expect(download.mock.calls.at(-1)![0]).toBe(`demo-${file}-${csvName}.csv`);
+        unmount();
+      }
+    }
+    download.mockRestore();
+  });
+
   it("ModisCard with index EVI posts it and names the title, series and CSV after it", async () => {
     fetchMock.mockResolvedValue(json({ ndvi: [{ date: T0, value: 0.4 }], fires: [] }));
     const download = vi.spyOn(csv, "downloadText").mockImplementation(() => {});

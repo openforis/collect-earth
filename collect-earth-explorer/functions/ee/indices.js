@@ -1,25 +1,33 @@
 const { ee } = require("./auth");
 const { SCENE_PROPS } = require("./landsat");
-
-/** Band names per role: Landsat's prepared() calls swir1 "swir", Sentinel-2's rename keeps its own names. */
-const LANDSAT_NAMES = { nir: "nir", red: "red", swir1: "swir", swir2: "swir2", blue: "blue" };
-const SENTINEL2_NAMES = { nir: "nir", red: "red", swir1: "swir1", swir2: "swir2", blue: "blue" };
+const { catalogue } = require("../lib/catalogue");
 
 /**
- * One band named `index` (NDVI, NDMI, NBR or EVI) from `img`, keeping SCENE_PROPS. `names` maps the roles
- * to band names. `scale` turns the reflectance into 0..1 for EVI, whose constants assume it (Sentinel-2 L1C
- * is 0..10000); the normalised differences do not depend on it.
+ * Formula band name (catalogue.json "bands") to image band name. Landsat's prepared() calls SWIR1 "swir" (the
+ * composite and scene code use it); Sentinel-2's rename keeps "red2" for B6 (rededge2).
  */
-function indexImage(img, index, names, scale = 1) {
-  const nd = (a, b) => img.normalizedDifference([names[a], names[b]]);
-  const band = (role) => img.select(names[role]).multiply(1 / scale);
-  let out;
-  if (index === "NDVI") out = nd("nir", "red");
-  else if (index === "NDMI") out = nd("nir", "swir1");
-  else if (index === "NBR") out = nd("nir", "swir2");
-  else if (index === "EVI") out = img.expression("2.5 * (nir - red) / (nir + 6 * red - 7.5 * blue + 1)", { nir: band("nir"), red: band("red"), blue: band("blue") });
-  else throw new Error(`unknown index ${index}`);
-  return ee.Image(out.rename(index).copyProperties(img, SCENE_PROPS));
+const LANDSAT_BANDS = { blue: "blue", green: "green", red: "red", nir: "nir", swir1: "swir", swir2: "swir2" };
+const SENTINEL2_BANDS = {
+  blue: "blue", green: "green", red: "red", nir: "nir", swir1: "swir1", swir2: "swir2",
+  rededge1: "rededge1", rededge2: "red2", rededge3: "rededge3",
+};
+
+/**
+ * One band "index" from `img` evaluated from `formula` (already checked by lib/formula.js) over the bands of
+ * `bands`, keeping SCENE_PROPS. The bands are divided by `scale` once, so formulas see 0..1 reflectance
+ * (Sentinel-2 L1C is 0..10000).
+ */
+function indexImage(img, formula, bands, scale = 1) {
+  const names = Object.keys(bands);
+  const reflectance = img.select(Object.values(bands), names).divide(scale);
+  const map = Object.fromEntries(names.map((n) => [n, reflectance.select(n)]));
+  return ee.Image(reflectance.expression(formula, map).rename("index").copyProperties(img, SCENE_PROPS));
 }
 
-module.exports = { indexImage, LANDSAT_NAMES, SENTINEL2_NAMES };
+/** The formula of a named index of the catalogue; throws for an unknown name. */
+function formulaOf(index) {
+  if (!Object.hasOwn(catalogue.indices, index)) throw new Error(`unknown index ${index}`);
+  return catalogue.indices[index];
+}
+
+module.exports = { indexImage, formulaOf, LANDSAT_BANDS, SENTINEL2_BANDS };

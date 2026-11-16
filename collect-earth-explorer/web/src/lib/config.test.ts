@@ -129,4 +129,24 @@ describe("resolveConfig", () => {
     expect(chartOk({ type: "ccdc", collapsed: true })).toBe(true);
     expect(chartOk({ type: "ccdc", collapsed: "true" })).toBe(false);
   });
+
+  it("checks a series formula as the API does, against the sensor's bands, and keeps it apart from a named index", () => {
+    const chartOk = (entry: object) => resolve({ v: 1, charts: [entry] }).notices.length === 0;
+    for (const type of ["landsat-series", "sentinel2-series"]) {
+      expect(chartOk({ type, index: "MSAVI" })).toBe(true);
+      expect(chartOk({ type, formula: "(nir - red) / (nir + red)", name: "My NDVI" })).toBe(true);
+      expect(chartOk({ type, formula: "sqrt(abs(nir)) + min(red, 0.1) + max(nir, -1) + pow(nir, 2)" })).toBe(true);
+      expect(chartOk({ type, formula: "nir / red", index: "NDVI" })).toBe(true);
+      expect(chartOk({ type, formula: "nir / red", index: "NDMI" })).toBe(false);
+      for (const bad of ["nir; red", "ndvi * 2", "(nir - red", "()", "nir + * red", "red 2", "1 + 2", "", "b('nir')", "x".repeat(201), 5]) {
+        expect(chartOk({ type, formula: bad }), JSON.stringify(bad)).toBe(false);
+      }
+      expect(chartOk({ type, formula: "nir / red", name: "x".repeat(31) })).toBe(false);
+    }
+    expect(chartOk({ type: "sentinel2-series", formula: "(rededge3 - rededge1) / (rededge3 + rededge1)" })).toBe(true);
+    const r = resolve({ v: 1, charts: [{ type: "landsat-series", formula: "(rededge1 - red) / (rededge1 + red)" }, { type: "modis" }] });
+    expect(types(r.charts)).toEqual(["modis"]);
+    expect(r.notices).toHaveLength(1);
+    expect(r.notices[0]).toContain("formula");
+  });
 });

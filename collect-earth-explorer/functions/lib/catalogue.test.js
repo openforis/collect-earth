@@ -70,6 +70,26 @@ test("bool accepts only true and false; text is a string no longer than max", ()
   assert400(() => paramOf("layers", "sentinel2", "label", 5), /label/);
 });
 
+test("formula is a string no longer than max; its content is checked by lib/formula.js", () => {
+  assert.equal(paramOf("charts", "landsat-series", "formula", "nir / red"), "nir / red");
+  assert.equal(paramOf("charts", "sentinel2-series", "formula", "x".repeat(200)), "x".repeat(200));
+  assert400(() => paramOf("charts", "landsat-series", "formula", "x".repeat(201)), /formula.*200/);
+  assert400(() => paramOf("charts", "landsat-series", "formula", 5), /formula/);
+  assert.equal(paramOf("charts", "landsat-series", "formula"), undefined);
+  assert400(() => paramOf("charts", "landsat-series", "name", "x".repeat(31)), /name.*30/);
+});
+
+test("both series types list exactly the named indices of the catalogue, NDVI first and default", () => {
+  const names = Object.keys(catalogue.indices);
+  assert.deepEqual(names, ["NDVI", "EVI", "EVI2", "SAVI", "MSAVI", "GNDVI", "NDMI", "NBR", "NBR2", "NDWI", "MNDWI", "NDSI", "NDBI", "BSI"]);
+  for (const type of ["landsat-series", "sentinel2-series"]) {
+    assert.deepEqual(catalogue.charts[type].params.index.values, names, type);
+    assert.equal(paramOf("charts", type, "index"), "NDVI");
+  }
+  assert.deepEqual(catalogue.bands["landsat-series"], ["blue", "green", "red", "nir", "swir1", "swir2"]);
+  assert.deepEqual(catalogue.bands["sentinel2-series"], ["blue", "green", "red", "nir", "swir1", "swir2", "rededge1", "rededge2", "rededge3"]);
+});
+
 test("an unknown kind, type or parameter name is a 400", () => {
   assert400(() => paramOf("widgets", "sentinel2", "maxCloud", 5), /widgets/);
   assert400(() => paramOf("layers", "planet", "maxCloud", 5), /planet/);

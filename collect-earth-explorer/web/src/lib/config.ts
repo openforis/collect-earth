@@ -8,6 +8,7 @@ export type ChartEntry = Entry;
 
 const catalogue = catalogueJson as unknown as Record<Kind, Record<string, { params: Record<string, Spec> }>> & {
   standard: Record<Kind, object[]>;
+  bands: Record<string, string[]>;
 };
 
 const isDate = (v: unknown) =>
@@ -24,8 +25,55 @@ function check(spec: Spec, value: unknown, maxYear: number): boolean {
     case "yearRange": return Array.isArray(value) && value.length === 2 && value.every(isYear) && value[0] <= value[1];
     case "bool": return value === true || value === false;
     case "text": return typeof value === "string" && value.length <= spec.max!;
+    case "formula": return typeof value === "string" && value.length <= spec.max!;
     default: return false;
   }
+}
+
+const FUNCTIONS = ["sqrt", "abs", "min", "max", "pow"];
+const TOKEN = /\s+|(\d+(?:\.\d*)?|\.\d+)|([A-Za-z_]\w*)|([-+*/(),])/y;
+
+/** Normalised as the API keys it: without any whitespace. */
+export const normaliseFormula = (text: string) => text.replace(/\s+/g, "");
+
+// Mirrors functions/lib/formula.js checkFormula (true instead of returning, false instead of throwing).
+function formulaOk(text: unknown, bands: string[]): boolean {
+  if (typeof text !== "string" || text.length > 200 || text.trim() === "") return false;
+  let prev = "start", depth = 0, usesBand = false, pos = 0;
+  while (pos < text.length) {
+    TOKEN.lastIndex = pos;
+    const m = TOKEN.exec(text);
+    if (!m) return false;
+    const [, number, name, symbol] = m;
+    const afterOperand = prev === "operand";
+    if (number === undefined && name === undefined && symbol === undefined) {
+      // whitespace
+    } else if (FUNCTIONS.includes(prev) && symbol !== "(") return false;
+    else if (number !== undefined || name !== undefined) {
+      if (afterOperand) return false;
+      if (name !== undefined && FUNCTIONS.includes(name)) prev = name;
+      else {
+        if (name !== undefined && !bands.includes(name)) return false;
+        if (name !== undefined) usesBand = true;
+        prev = "operand";
+      }
+    } else if (symbol === "(") {
+      if (afterOperand) return false;
+      depth++;
+      prev = "(";
+    } else if (symbol === ")") {
+      if (!afterOperand || --depth < 0) return false;
+      prev = "operand";
+    } else if (symbol === ",") {
+      if (!afterOperand || depth === 0) return false;
+      prev = ",";
+    } else {
+      if (!afterOperand && symbol !== "-") return false;
+      prev = "operator";
+    }
+    pos = TOKEN.lastIndex;
+  }
+  return depth === 0 && prev === "operand" && usesBand;
 }
 
 const singular = { layers: "Layer", charts: "Chart" };
@@ -45,6 +93,11 @@ function resolveEntry(kind: Kind, raw: unknown, maxYear: number): Entry | string
   // Same rule as the API: a composite window needs both dates, start before end.
   if (type === "sentinel2" && ("start" in params || "end" in params) && !((params.start as string) < (params.end as string)))
     return `${singular[kind]} "${type}" skipped: start and end must both be given, start before end.`;
+  // Same rules as the API's series routes: the formula is checked against the sensor's bands, and excludes another index.
+  if ("formula" in params) {
+    if (params.index !== undefined && params.index !== specs.index.default) return `${singular[kind]} "${type}" skipped: give either index or formula.`;
+    if (!formulaOk(params.formula, catalogue.bands[type])) return `${singular[kind]} "${type}" skipped: formula is not valid.`;
+  }
   for (const [name, spec] of Object.entries(specs)) if (!(name in params) && spec.default !== undefined) params[name] = spec.default;
   return { type, params };
 }

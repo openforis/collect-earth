@@ -11,6 +11,7 @@ const { sceneTiles, validateSceneRequest } = require("./ee/scene");
 const { ccdcSeries, validateCcdcRequest } = require("./ee/ccdc");
 const { catalogue, paramOf } = require("./lib/catalogue");
 const { BadRequest } = require("./lib/errors");
+const { checkFormula, normaliseFormula } = require("./lib/formula");
 const defaultCache = require("./cache");
 
 /** Cache lifetimes in seconds: tile URLs expire on the EE side after ~24 h, series results are stable. */
@@ -65,6 +66,20 @@ function sentinel2Extras(b) {
   return { ...x, start, end };
 }
 
+/**
+ * Index series extras: a non-default `index`, or a custom `formula` checked against the sensor's bands and
+ * stored without whitespace (one cache entry whatever the spacing). The display-only `name` is never read.
+ */
+function seriesExtras(type) {
+  return (b) => {
+    const x = nonDefault("charts", type, b, ["index"]);
+    const formula = paramOf("charts", type, "formula", b.formula);
+    if (formula === undefined) return x;
+    if (x.index) throw new BadRequest("give either formula or index, not both");
+    return { formula: normaliseFormula(checkFormula(formula, catalogue.bands[type])) };
+  };
+}
+
 /** Registers the API routes; `cache` (an object with `withCache`) defaults to the Firestore-backed one. */
 function registerRoutes(app, { cache = defaultCache } = {}) {
   const route = (endpoint, ttl, extrasOf, compute, validate, opts) => plotRoute(endpoint, ttl, extrasOf, compute, validate, cache, opts);
@@ -82,10 +97,9 @@ function registerRoutes(app, { cache = defaultCache } = {}) {
       (b) => sensorsForYear(Number(b.year))
     )
   );
-  const indexOf = (type) => (b) => nonDefault("charts", type, b, ["index"]);
-  app.post("/api/series/modis", route("series/modis", TTL.series, indexOf("modis"), (p, g, x) => modisSeries(g, p.start, p.end, x.index)));
-  app.post("/api/series/landsat", route("series/landsat", TTL.series, indexOf("landsat-series"), (p, g, x) => landsatSeries(g, p.start, p.end, x.index)));
-  app.post("/api/series/sentinel2", route("series/sentinel2", TTL.series, indexOf("sentinel2-series"), (p, g, x) => sentinel2Series(g, p.start, p.end, x.index)));
+  app.post("/api/series/modis", route("series/modis", TTL.series, (b) => nonDefault("charts", "modis", b, ["index"]), (p, g, x) => modisSeries(g, p.start, p.end, x.index)));
+  app.post("/api/series/landsat", route("series/landsat", TTL.series, seriesExtras("landsat-series"), (p, g, x) => landsatSeries(g, p.start, p.end, x.index, x.formula)));
+  app.post("/api/series/sentinel2", route("series/sentinel2", TTL.series, seriesExtras("sentinel2-series"), (p, g, x) => sentinel2Series(g, p.start, p.end, x.index, x.formula)));
   app.post(
     "/api/tiles/scene",
     route("tiles/scene", TTL.tiles, validateSceneRequest, (p, g, x) => sceneTiles(g, p.start, p.end, x.sensor, x.timeStart), null, noStart)

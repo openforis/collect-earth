@@ -270,6 +270,42 @@ test("POST /api/series/landsat and series/sentinel2 reject an unknown index with
   }
 });
 
+test("POST /api/series/landsat and series/sentinel2 key the cache with the new named indices and with a whitespace-free formula", async () => {
+  for (const path of ["/api/series/landsat", "/api/series/sentinel2"]) {
+    for (const index of ["EVI2", "MSAVI", "BSI"]) assert.deepEqual(await extrasFor(path, { index }), { index });
+    const a = await extrasFor(path, { formula: "(nir - red) / (nir + red)" });
+    assert.deepEqual(a, { formula: "(nir-red)/(nir+red)" });
+    assert.deepEqual(await extrasFor(path, { formula: " (nir-red)/\t(nir+red)" }), a, "spacing differences share one key");
+    assert.deepEqual(await extrasFor(path, { formula: "nir / red" }), { formula: "nir/red" }, "two formulas, two keys");
+    assert.deepEqual(await extrasFor(path, { formula: "nir / red", index: "NDVI" }), { formula: "nir/red" }, "an explicit default index goes with a formula");
+    assert.deepEqual(await extrasFor(path, { name: "Ratio" }), {}, "name without formula is ignored");
+    assert.deepEqual(await extrasFor(path, { formula: "nir / red", name: "Ratio" }), { formula: "nir/red" }, "name never enters the key");
+  }
+  assert.deepEqual(await extrasFor("/api/series/sentinel2", { formula: "(rededge3 - rededge1) / (rededge3 + rededge1)" }), { formula: "(rededge3-rededge1)/(rededge3+rededge1)" });
+});
+
+test("POST /api/series/landsat and series/sentinel2 reject a bad formula, or a formula with another index, with a 400 before the cache", async () => {
+  for (const path of ["/api/series/landsat", "/api/series/sentinel2"]) {
+    for (const [body, re] of [
+      [{ formula: "nir; red" }, /;/],
+      [{ formula: "ndvi * 2" }, /ndvi/],
+      [{ formula: "(nir - red" }, /parenthes/],
+      [{ formula: "1 + 2" }, /band/],
+      [{ formula: "" }, /empty/],
+      [{ formula: "x".repeat(201) }, /formula.*200/],
+      [{ formula: 5 }, /formula/],
+      [{ formula: "nir / red", index: "NDMI" }, /formula.*index|index.*formula/],
+    ]) {
+      const cache = fakeCache();
+      const res = await request(appWith(cache)).post(path).send({ plot: belize, ...body });
+      assert400(res, re, cache);
+    }
+  }
+  const cache = fakeCache();
+  const res = await request(appWith(cache)).post("/api/series/landsat").send({ plot: belize, formula: "(rededge1 - red) / (rededge1 + red)" });
+  assert400(res, /rededge1/, cache);
+});
+
 test("POST /api/series/modis keys the cache with the index only when it is EVI, and rejects others before the cache", async () => {
   assert.deepEqual(await extrasFor("/api/series/modis", {}), {});
   assert.deepEqual(await extrasFor("/api/series/modis", { index: "NDVI" }), {});

@@ -49,8 +49,8 @@ function harmonizeOli(oli) {
 
 /**
  * One sensor's scenes over `plot` in [start, end) as scaled (optionally
- * harmonised, optionally cloud-masked) blue/nir/swir/swir2/red images. After
- * harmonizeOli the OLI bands carry L7 names, so the same SR_B1/SR_B4/SR_B5/SR_B7/SR_B3
+ * harmonised, optionally cloud-masked) blue/nir/swir/swir2/red/green images. After
+ * harmonizeOli the OLI bands carry L7 names, so the same SR_B1/SR_B4/SR_B5/SR_B7/SR_B3/SR_B2
  * selection serves every sensor. `swir` is SWIR1 (the composite and scene code use that name). The scaling is scaleSr's; the properties it copies are
  * narrowed to SCENE_PROPS at the end (select keeps them, the harmonisation
  * arithmetic drops them).
@@ -63,7 +63,7 @@ function prepared(collectionId, plot, start, end, { mask, harmonize }) {
     .map((img) => {
       let sr = ee.Image(scaleSr(img));
       if (harmonize) sr = harmonizeOli(sr);
-      let out = sr.select(["SR_B1", "SR_B4", "SR_B5", "SR_B7", "SR_B3"], ["blue", "nir", "swir", "swir2", "red"]);
+      let out = sr.select(["SR_B1", "SR_B4", "SR_B5", "SR_B7", "SR_B3", "SR_B2"], ["blue", "nir", "swir", "swir2", "red", "green"]);
       if (mask) out = out.updateMask(clearMask(img));
       return ee.Image(out.copyProperties(img, SCENE_PROPS));
     });
