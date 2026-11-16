@@ -80,7 +80,9 @@ export function modelOf(cep: Buffer): Parsed {
  * coordinator: everything.
  */
 export async function registerAnalysisRoutes(app: FastifyInstance, store: Store, states: ProjectStateCache, webDir: string | null = null): Promise<void> {
-  const member = { preHandler: requireProjectMembership(store) };
+  // Any member, and a coordinator only with the second step of their sign-in where the server requires it: these are
+  // pages of the dashboard with the project's data, not the desktop's sync
+  const member = { preHandler: requireProjectMembership(store, undefined, { dashboard: true }) };
   app.get('/v1/projects/:pid/analysis', member, async (request: FastifyRequest, reply: FastifyReply) => {
     // A row per record is the project's data: a reviewer has the summary below, counted here
     if (request.membership!.role === 'reviewer') {
@@ -260,7 +262,10 @@ export async function registerAnalysisRoutes(app: FastifyInstance, store: Store,
 
   // The views a coordinator shares with the team: everyone in the project sees them, coordinators save and delete them
   app.get('/v1/projects/:pid/analysis/views', member, async (request: FastifyRequest, reply: FastifyReply) => {
-    return reply.header('cache-control', 'no-store').send({ views: await store.getAnalysisViews(request.membership!.projectId) } satisfies SharedAnalysisViewsAnswer);
+    const views = await store.getAnalysisViews(request.membership!.projectId);
+    // Who shared a view is told to coordinators: a collector sees no one else's name
+    const named = request.membership!.role === 'admin';
+    return reply.header('cache-control', 'no-store').send({ views: named ? views : views.map((v) => ({ ...v, savedBy: '' })) } satisfies SharedAnalysisViewsAnswer);
   });
 
   const coordinator = { preHandler: requireProjectMembership(store, 'admin') };

@@ -500,9 +500,8 @@ describe('project file and round routes', () => {
       expect(whole.headers.vary).toBe('Authorization');
       // The served file holds plots, and the coordinator gets it unchanged.
       expect(packedOf(served).map((e) => e.name)).toEqual(expect.arrayContaining([...PLOT_FILES, 'docs/species.csv']));
-      expect((await get('/cep', await join('rita', 'reviewer'))).rawPayload.equals(served)).toBe(true);
-
-      for (const collector of [bearer(project.projectToken), await join('maria', 'operator')]) {
+      // a reviewer's has the plots emptied too: the file lists every plot, the reference plots among them
+      for (const collector of [bearer(project.projectToken), await join('maria', 'operator'), await join('rita', 'reviewer')]) {
         const res = await get('/cep', collector);
         expect(res.statusCode).toBe(200);
         expect(res.headers['content-type']).toContain('application/zip');

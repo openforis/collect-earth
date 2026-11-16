@@ -425,7 +425,9 @@ describe('the views shared with the team', () => {
     await call('PUT', '', owner.token, view('Land use', { table: 'land_cover' }));
     const seen = (await call('GET', '', ana)).json().views;
     expect(seen.map((v: { name: string; table: string }) => [v.name, v.table])).toEqual([['Area by region', 'plot'], ['Land use', 'land_cover'], ['Land use', 'plot']]);
-    expect(seen[2]).toMatchObject({ config: { plugin: 'Datagrid' }, savedBy: 'owner', language: 'en' });
+    // who shared it is told to coordinators only
+    expect(seen[2]).toMatchObject({ config: { plugin: 'Datagrid' }, savedBy: '', language: 'en' });
+    expect((await call('GET', '', owner.token)).json().views[2]).toMatchObject({ savedBy: 'owner' });
     expect(typeof seen[2].savedAt).toBe('number');
     expect((await call('DELETE', '?name=Land%20use&table=plot', owner.token)).json().views).toHaveLength(2);
     expect((await call('DELETE', '?name=Land%20use&table=plot', owner.token)).statusCode).toBe(404);

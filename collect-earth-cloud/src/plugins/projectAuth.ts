@@ -28,7 +28,7 @@ declare module 'fastify' {
  *                                                 learn the project id exists).
  *  - Has access, but role insufficient         -> 403.
  */
-export function requireProjectMembership(store: Store, requiredRole?: Role): preHandlerHookHandler {
+export function requireProjectMembership(store: Store, requiredRole?: Role, options: { dashboard?: boolean } = {}): preHandlerHookHandler {
   return async (request: FastifyRequest, reply: FastifyReply) => {
     const token = bearerToken(request.headers.authorization);
     if (!token) {
@@ -46,8 +46,9 @@ export function requireProjectMembership(store: Store, requiredRole?: Role): pre
       return reply.code(403).send({ error: 'forbidden' });
     }
     // A coordinator's dashboard pages (coordinator and reviewer routes), when the server requires two-step sign-in of
-    // coordinators and the person has not set it up; the routes any member uses (desktop sync, project file) stay open
-    if (membership.role === 'admin' && requiredRole !== undefined && membership.userId && (await secondStepMissing(store, membership.userId))) {
+    // coordinators and the person has not set it up; the routes any member uses (desktop sync, project file) stay open,
+    // but for those marked as the dashboard's (`options.dashboard`: the analysis, which holds every record)
+    if (membership.role === 'admin' && (requiredRole !== undefined || options.dashboard) && membership.userId && (await secondStepMissing(store, membership.userId))) {
       return reply.code(403).send(TWO_FACTOR_REQUIRED);
     }
     const refusal = await statusRefusal(store, request, membership.projectId);

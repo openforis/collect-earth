@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { idOnlyCep } from './fixtures/cep.js';
-import { batchRequest, bearer, createProject, envelope, makeContext, setupPlatformAdmin, type TestContext } from './helpers.js';
+import { bearer, createProject, envelope, makeContext, setupPlatformAdmin, type TestContext, sendAsPeople } from './helpers.js';
 
 const LAND_USE = 'collect_code_land_use_category';
 
@@ -27,13 +27,7 @@ describe('reviewers (Decision 10) and decisions on plots that are not there (M-2
     people[username] = { token: res.json().token as string, userId: res.json().userId as string };
   };
   const send = async (operator: string, round: 1 | 2, plots: number[], landUse: (p: number) => string = () => 'F', activelySaved = true) => {
-    const res = await batchRequest(
-      ctx.app,
-      pid,
-      projectToken,
-      plots.map((p) => envelope({ recordKey: `${p},${round}`, operator, modifiedOn: at + p, activelySaved, summary: { [LAND_USE]: landUse(p), collect_code_round: String(round) } })),
-    );
-    expect(res.statusCode, res.body).toBe(200);
+    await sendAsPeople(ctx, pid, projectToken, plots.map((p) => envelope({ recordKey: `${p},${round}`, operator, modifiedOn: at + p, activelySaved, summary: { [LAND_USE]: landUse(p), collect_code_round: String(round) } })));
   };
   /** A route's answer once the quality figures follow the records. */
   const settled = async (path: string, token: string, done: (body: Record<string, unknown>) => boolean = () => true) => {

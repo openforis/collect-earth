@@ -255,8 +255,10 @@ export async function registerRepeatSurveyRoutes(app: FastifyInstance, store: St
     if (!settings) return reply.send({ settings: null, periods: [], questions: [] } satisfies Periods);
     const outline = outlineOf(await store.getCep(projectId));
     const labels = new Map(outline ? [...outline.values()].map((q) => [q.key, q.label] as const) : []);
+    // Which project an earlier period came from is its coordinators' to know: another project's id and name
+    const coordinator = request.membership!.role === 'admin';
     return reply.send({
-      settings,
+      settings: coordinator ? settings : { ...settings, earlier: settings.earlier.map((p) => ({ ...p, sourceProjectId: '', sourceName: '' })) },
       periods: settings.earlier.map((p) => ({ label: p.label, plots: p.plots })),
       // The header's questions with their labels, in the header's order
       questions: settings.headerQuestions.map((key) => ({ key, label: labels.get(key) ?? key })),
@@ -292,7 +294,12 @@ export async function registerRepeatSurveyRoutes(app: FastifyInstance, store: St
       void reply.code(409).send({ error: 'no_project_file', reason: 'This project has no project file.' });
       return null;
     }
-    const [earlier, now] = await Promise.all([store.listPeriodAnswers(projectId, period), earlierOf(store, projectId, request.log)]);
+    const [everyEarlier, everyNow] = await Promise.all([store.listPeriodAnswers(projectId, period), earlierOf(store, projectId, request.log)]);
+    // A reviewer's comparison has no reference plot (nothing shows them one: a plot listed here and found nowhere else
+    // would be one); a coordinator's has every plot
+    const hidden = request.membership!.role === 'admin' ? null : (await loadPlotContext(store, projectId, request.log)).reference;
+    const earlier = hidden ? everyEarlier.filter((r) => !hidden.has(r.plotKey)) : everyEarlier;
+    const now = hidden ? everyNow.filter((r) => !hidden.has(r.plot)) : everyNow;
     const questions = changeQuestions(outline, earlier, PERIOD_STATUS_KEY);
     const asked = typeof query.question === 'string' ? query.question : '';
     const question = questions.find((q) => q.key === asked) ?? questions.find((q) => settings.headerQuestions.includes(q.key)) ?? questions[0];

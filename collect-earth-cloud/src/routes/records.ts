@@ -130,6 +130,18 @@ export async function registerRecordRoutes(app: FastifyInstance, store: Store, s
               }
             }
           }
+          // A project token is no person: it may not change or delete a record kept under an account's username (a
+          // member's, a former member's) or a name the server made. That record is the person's, changed with their
+          // sign-in only. (A new record under such a name is still taken: projects made before accounts sync so.)
+          if (
+            sessionUsername === null &&
+            envelope.operator &&
+            (isServerMadeName(envelope.operator) || (await accountName(envelope.operator))) &&
+            (await store.getRecord(projectId, envelope.recordKey, envelope.operator))
+          ) {
+            results.push({ recordKey: envelope.recordKey, status: 'error', reason: 'this record is an account\'s: sign in as that person to change it' });
+            continue;
+          }
           const operator = envelope.operator ?? '';
           training ??= { units: await trainingUnits(store, projectId), info: await store.getRoundInfo(projectId) };
           if (isTrainingRecord(envelope.recordKey, training.units, training.info)) {

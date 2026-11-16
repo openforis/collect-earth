@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { cepWith, idOnlyCep } from './fixtures/cep.js';
 import { GEO_PAGE_SIZE, GEO_STATUSES } from '../src/plotsGeo.js';
 import { buildServer } from '../src/server.js';
-import { batchRequest, bearer, createProject, envelope, makeContext, setupPlatformAdmin, TEST_SETUP_CODE, type TestContext } from './helpers.js';
+import { batchRequest, bearer, createProject, envelope, makeContext, setupPlatformAdmin, TEST_SETUP_CODE, type TestContext, sendAsPeople } from './helpers.js';
 
 const LAND_USE = 'collect_code_land_use_category';
 const S = Object.fromEntries(GEO_STATUSES.map((s, i) => [s, i])) as Record<(typeof GEO_STATUSES)[number], number>;
@@ -145,8 +145,7 @@ describe('map of progress: GET /map/plots', () => {
 
     // Plot 1 submitted again after "both need another look" (the review queue's rule, from the figures):
     // an offline edit saved before the decision and synced after it, with another (calculated) land use.
-    const again = await batchRequest(ctx.app, pid, projectToken, [main(1, 'maria', 'C', { modifiedOn: Date.now() - 1000 })]);
-    expect(again.statusCode, again.body).toBe(200);
+    await sendAsPeople(ctx, pid, projectToken, [main(1, 'maria', 'C', { modifiedOn: Date.now() - 1000 })]);
     await figures();
     body = await geo('');
     expect(statusOf(body, '1')).toBe(S.resubmitted);

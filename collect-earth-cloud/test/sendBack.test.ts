@@ -7,7 +7,7 @@ import { recheckFileId, recheckFilename, recheckFilesOf, sentBackOf, sentBackTo 
 import { InMemoryStore } from '../src/store/memory.js';
 import type { QualityDecision, RecordRow } from '../src/types.js';
 import { demoCep, idOnlyCep, noNote } from './fixtures/cep.js';
-import { batchRequest, bearer, createProject, envelope, makeContext, setupPlatformAdmin, type TestContext } from './helpers.js';
+import { bearer, createProject, envelope, makeContext, setupPlatformAdmin, type TestContext, sendAsPeople } from './helpers.js';
 
 const LAND_USE = 'collect_code_land_use_category';
 const FOREST = 'collect_integer_forest_percentage';
@@ -193,8 +193,7 @@ describe('"To check again" plot files in my-assignment', () => {
   const send = async (records: ReturnType<typeof envelope>[]) => {
     // Received after anything before it (a later millisecond).
     await new Promise((resolve) => setTimeout(resolve, 5));
-    const res = await batchRequest(ctx.app, pid, projectToken, records);
-    expect(res.statusCode, res.body).toBe(200);
+    await sendAsPeople(ctx, pid, projectToken, records);
   };
   const t0 = Date.UTC(2026, 9, 1, 9);
   const summary = (landUse: string, round: string) => ({ [LAND_USE]: landUse, [FOREST]: '50', collect_code_round: round });

@@ -306,6 +306,29 @@ describe('records:batch — gzip, LWW and tombstones', () => {
       ]);
     });
 
+    it("a project token neither changes nor deletes a person's record; a typed name's and a new one it still writes", async () => {
+      await member('maria');
+      await legacy('4', 'maria', 1000, '<maria/>');
+      await legacy('6', 'Typed Name', 1000, '<typed/>');
+      const res = await batchRequest(ctx.app, project.projectId, project.projectToken, [
+        envelope({ recordKey: '4', operator: 'maria', modifiedOn: 9000, xml: '<overwritten/>' }),
+        envelope({ recordKey: '4', operator: 'maria', modifiedOn: 9001, xml: null, deleted: true }),
+        envelope({ recordKey: '5', operator: 'former-member-1', modifiedOn: 9000, xml: '<x/>' }),
+        envelope({ recordKey: '6', operator: 'Typed Name', modifiedOn: 9000, xml: '<newer/>' }),
+        envelope({ recordKey: '7', operator: 'maria', modifiedOn: 9000, xml: '<new/>' }),
+      ]);
+      expect((res.json() as BatchResponse).results.map((r) => r.status)).toEqual(['error', 'error', 'stored', 'stored', 'stored']);
+      expect(await rows()).toEqual([
+        ['4', 'maria', '<maria/>', false],
+        ['5', 'former-member-1', '<x/>', false],
+        ['6', 'Typed Name', '<newer/>', false],
+        ['7', 'maria', '<new/>', false],
+      ]);
+      // and once kept under the server's name, the token cannot change it either
+      const again = await batchRequest(ctx.app, project.projectId, project.projectToken, [envelope({ recordKey: '5', operator: 'former-member-1', modifiedOn: 9999, xml: '<y/>' })]);
+      expect((again.json() as BatchResponse).results[0].status).toBe('error');
+    });
+
     it('of a plot given to nobody, takes a typed-name record only with a save no older than it: nothing of it is read', async () => {
       const mallory = await member('mallory');
       await legacy('9', 'Somebody Else', 1000, '<theirs/>');
