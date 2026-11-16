@@ -100,4 +100,13 @@ class CloudApiClientDownloadTest {
 		Files.delete(client.downloadOwnRecords(cloud).getFile().toPath());
 		assertEquals(null, query.get());
 	}
+
+	@Test
+	void aNameTheFileSystemCannotWriteIsWrittenWithItsOtherCharactersReplaced() {
+		assertEquals("plots.csv", CloudApiClient.fileNameHere(folder, "plots.csv"));
+		// "Calibration – set.csv": as it is where file names are UTF-8, with "_" where they are not (a POSIX locale)
+		String name = CloudApiClient.fileNameHere(folder, "Calibration \u2013 set.csv");
+		folder.toPath().resolve(name);
+		org.junit.jupiter.api.Assertions.assertTrue(name.equals("Calibration \u2013 set.csv") || name.equals("Calibration _ set.csv"), name);
+	}
 }

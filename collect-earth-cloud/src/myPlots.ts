@@ -37,6 +37,8 @@ export interface MergedPlots {
   repeated: number;
   /** Rows Collect Earth could not read (`readable`), left out: one such row stops Google Earth Pro's plot file */
   unreadable: number;
+  /** The last column is the `plot_file` this added (with `plotFile`, unless the columns had one already) */
+  plotFileColumn: boolean;
 }
 
 /** The name of the column that says each row's plot file. */
@@ -131,6 +133,7 @@ export function mergePlotFiles(
     leftOut,
     repeated: repeated.size,
     unreadable,
+    plotFileColumn: withPlotFile,
   };
 }
 

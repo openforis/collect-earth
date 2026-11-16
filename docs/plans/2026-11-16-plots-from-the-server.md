@@ -1,6 +1,6 @@
 # Plots from the server for cloud projects — design
 
-Date: 16 November 2026. Branch `claude/awesome-bell-s34gb0`. **Status: decided (below); stage 1 built.**
+Date: 16 November 2026. Branch `claude/awesome-bell-s34gb0`. **Status: decided (below); stages 1 and 2 built.**
 
 ## What is asked
 
@@ -324,3 +324,71 @@ dividing simpler for the coordinator, and needs the two rules, so it comes after
   - a run on PostgreSQL.
 - **Moved to stage 3:** the server taking the CEP's plot files at upload. It changes how the dashboard adds them (it
   asks whether to merge them), and belongs with the sources.
+
+## Stage 2, as built
+
+`MyPlotsService` (collect-earth-app, `service/cloud`) keeps the person's plots in a cloud project.
+
+- **The copy.** It lives at `<data folder>/cloud/<project>/my-plots.csv` and is the plots file (`csv`), so every part of
+  Collect Earth reads it as a project's own plot file. Beside it:
+  - `server-plots.csv`: the server's rows;
+  - `server-plot-files.csv` and `plot-files.csv`: each row's plot file;
+  - `my-plots.properties`: the version, when it was checked and updated, the files left out.
+- **The plot file column.** The copy is downloaded with each row's plot file (`?plotFile=1`; the server says so in
+  `X-Plot-File-Column`). That column is taken off the copy, so the file Collect Earth reads has exactly the server's
+  columns. The generated form writes each record's `plot_file` from it (`SurveyFormController`); the KMZ and the old
+  balloon still write the copy's name.
+- **When it asks:**
+  - at the join, before the restart (`CloudService.useProject`): the first start shows the person's plots;
+  - at each start, once the KMZ is made (`EarthApp.setUpAssignedPlotFile`);
+  - every five minutes on a thread of its own (`collectearth.myPlotsCheckSeconds` changes it, for the real runs);
+  - on "Refresh now".
+
+  A check asks only for the version; the file is downloaded when it changed (409 once: asked again).
+- **Plots taken away with work not sent** (pending or failed in the sync queue) stay in the copy until it is sent.
+  They go at the next check, without a download.
+- **After a change:** the copy is written aside and moved in, then the plots are reloaded. The map's and the form's
+  caches compare the file's date and size read before parsing it (fragile points 1 and 2). A notice says how many
+  plots were added and how many are no longer the person's.
+- **Holding no plot:** the copy keeps a header row (the previous copy's, or the project file's plot file's), as the
+  plot readers refuse an empty file.
+- **Training sets:**
+  - At a start, a training set the person takes part in is offered once for each of its versions (a notice with Open
+    and Later).
+  - Settings › Project lists them with Open; opening one makes its file the plots file (`CLOUD_TRAINING_FILE`).
+  - The checks leave an open training set alone until "Back to my plots".
+- **Settings › Project** (`CloudPlotsCard`): no file to choose any more. It shows how many plots, when last asked,
+  Refresh now, the training sets, and the plot files left out or rows unreadable (to tell the coordinator).
+- **Older servers.** On an older server (`my-plots` answers 404 while `my-assignment` answers), the start does what it
+  did (`AssignedPlotFileSetup`) and the card is the old list. A 404 from both means the person is not in the project:
+  nothing is changed.
+- **Moving from before.** A computer whose plots file was an assigned file in `assignments/` moves to the copy at the
+  first check of this version.
+- **A file name the computer cannot write.** A training set's file named with characters the computer's file names
+  cannot hold ("Calibration – set.csv" where they are not UTF-8, as on a Linux in the POSIX locale) is written with
+  those replaced by "_" (`CloudApiClient.fileNameHere`). It could not be downloaded at all before, also with the
+  per-file list.
+- **Tests:**
+  - `MyPlotsServiceTest`, 11 tests:
+    - the first check;
+    - the same version, not downloaded again;
+    - a change, said;
+    - a plot taken away with work not sent kept, then gone;
+    - a training set left open, then "Back to my plots";
+    - an older server, and someone not in the project;
+    - offline after the project was loaded again;
+    - no plot held: a header row;
+    - the join;
+    - a version that changed while downloading;
+    - outside a cloud project.
+  - `CloudApiClientDownloadTest`: a file name the computer cannot write.
+  - `LeafletMapControllerTest`: a file replaced within the same second.
+  - Desktop 77 + 722 tests, page 352, server 1724.
+- **The real run** (`plots-update` in `scripts/workflows`, checking every 15 s). m1's Collect Earth:
+  - reads the person's plots from its data folder;
+  - its form loads `mapathon.csv` as a plot's `plot_file`;
+  - the plots the coordinator gives, then moves away, arrive and leave with no click, with a notice;
+  - Refresh now works;
+  - a training set opens, the checks leave it open, and "Back to my plots" returns.
+
+  The run gives 80 checks in ten scenarios from empty databases, all passed.

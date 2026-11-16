@@ -72,6 +72,8 @@ describe('the person’s plots (my-plots)', () => {
     // with the plot file of each row
     const named = await download(people.ana, `${mine.downloadPath}&plotFile=1`);
     expect(named.body.split('\n')[0]).toBe('id,lat,lon,plot_file');
+    expect(named.headers['x-plot-file-column']).toBe('1');
+    expect(file.headers['x-plot-file-column']).toBe('0');
     expect(rowsOf(named.body)).toEqual(['5,-10,25,south.csv', '6,-10,26,south.csv', '1,-10,21,north.csv', '2,-10,22,north.csv']);
 
     // the coordinator moves ana's unfinished plots of north to bo: a new version, and the old one is refused

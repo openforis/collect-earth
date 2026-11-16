@@ -15,6 +15,7 @@ import java.util.Map;
 
 import javax.annotation.PreDestroy;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpEntity;
 import org.apache.http.StatusLine;
 import org.apache.http.client.config.RequestConfig;
@@ -582,6 +583,8 @@ public class CloudApiClient {
 		 * saved before are deleted when the file is taken, so they assess the plots afresh. Null otherwise.
 		 */
 		private final Date freshSince;
+		/** A training set's file: its kind (calibration, learning); null for the person's plots */
+		private String trainingKind;
 
 		public AssignmentInfo(String csvFileId, String filename, String checksum, String downloadPath, int plotCount) {
 			this(csvFileId, filename, checksum, downloadPath, plotCount, null);
@@ -594,6 +597,16 @@ public class CloudApiClient {
 			this.downloadPath = downloadPath;
 			this.plotCount = plotCount;
 			this.freshSince = freshSince;
+		}
+
+		/** A training set's file: its kind, or null */
+		public String getTrainingKind() {
+			return trainingKind;
+		}
+
+		AssignmentInfo training(String kind) {
+			this.trainingKind = kind;
+			return this;
 		}
 
 		public Date getFreshSince() {
@@ -697,10 +710,136 @@ public class CloudApiClient {
 				result.add(new AssignmentInfo(textOrNull(a, "csvFileId"), textOrNull(a, "filename"),
 						textOrNull(a, "checksum"), textOrNull(a, "downloadPath"),
 						a.has("plotCount") ? a.get("plotCount").asInt() : 0,
-						fresh != null && fresh.isNumber() ? freshSinceHere(fresh.asLong(), serverTime, System.currentTimeMillis()) : null));
+						fresh != null && fresh.isNumber() ? freshSinceHere(fresh.asLong(), serverTime, System.currentTimeMillis()) : null)
+								.training(training != null && training.isObject() ? StringUtils.defaultIfBlank(textOrNull(training, "kind"), "training") : null));
 			}
 		}
 		return result;
+	}
+
+	/** What the server says of the person's plots (GET my-plots): asked every few minutes */
+	public static final class MyPlotsInfo {
+		private final String version;
+		private final int plots;
+		private final int keyColumns;
+		private final String downloadPath;
+		private final List<String> leftOut;
+		private final int unreadable;
+
+		public MyPlotsInfo(String version, int plots, int keyColumns, String downloadPath, List<String> leftOut, int unreadable) {
+			this.version = version;
+			this.plots = plots;
+			this.keyColumns = keyColumns;
+			this.downloadPath = downloadPath;
+			this.leftOut = leftOut;
+			this.unreadable = unreadable;
+		}
+
+		/** Changes whenever what the person gets changes */
+		public String getVersion() {
+			return version;
+		}
+
+		public int getPlots() {
+			return plots;
+		}
+
+		/** How many of the first columns are the plot's keys (the survey's keys, the round with them) */
+		public int getKeyColumns() {
+			return keyColumns;
+		}
+
+		/** The file of this version, relative to the server */
+		public String getDownloadPath() {
+			return downloadPath;
+		}
+
+		/** The plot files left out (their columns are not the others'), by name */
+		public List<String> getLeftOut() {
+			return leftOut;
+		}
+
+		/** Rows left out as Collect Earth cannot read their coordinates */
+		public int getUnreadable() {
+			return unreadable;
+		}
+	}
+
+	/**
+	 * The person's plots in the project (GET my-plots, docs/plans/2026-11-16-plots-from-the-server.md). An older server,
+	 * which has no such route, answers 404, as it does to someone who is not in the project.
+	 */
+	public MyPlotsInfo myPlots(Destination destination) throws IOException {
+		HttpGet request = new HttpGet(destination.projectUrl("/my-plots"));
+		prepareWith(request, destination.getToken());
+		JsonNode answer = executeForJson("myPlots", request);
+		List<String> leftOut = new ArrayList<>();
+		for (JsonNode file : answer.path("leftOut")) {
+			leftOut.add(file.path("filename").asText());
+		}
+		return new MyPlotsInfo(answer.path("version").asText(""), answer.path("plots").asInt(0), Math.max(1, answer.path("keyColumns").asInt(1)),
+				answer.path("downloadPath").asText(""), leftOut, answer.path("unreadable").asInt(0));
+	}
+
+	/** The person's plots as downloaded: a temporary file the caller deletes */
+	public static final class MyPlotsFile {
+		private final File file;
+		private final boolean plotFileColumn;
+
+		public MyPlotsFile(File file, boolean plotFileColumn) {
+			this.file = file;
+			this.plotFileColumn = plotFileColumn;
+		}
+
+		public File getFile() {
+			return file;
+		}
+
+		/** The last column is each row's plot file (asked for), not one of the survey's */
+		public boolean hasPlotFileColumn() {
+			return plotFileColumn;
+		}
+	}
+
+	/**
+	 * Downloads the person's plots of a version (MyPlotsInfo.getDownloadPath), with each row's plot file in a last
+	 * column, checked against the checksum the server sends. A 409 says it changed since it was listed.
+	 */
+	public MyPlotsFile downloadMyPlots(Destination destination, String downloadPath) throws IOException {
+		String path = downloadPath + (downloadPath.contains("?") ? "&" : "?") + "plotFile=1";
+		HttpGet request = new HttpGet(normalize(destination.getBaseUrl()) + path);
+		prepareWith(request, destination.getToken());
+		File temp = File.createTempFile("ce-my-plots-", ".csv");
+		boolean done = false;
+		try (CloseableHttpResponse response = client().execute(request)) {
+			int status = response.getStatusLine().getStatusCode();
+			if (!isSuccess(status)) {
+				throw errorFor("downloadMyPlots", status, response);
+			}
+			HttpEntity entity = response.getEntity();
+			if (entity != null) {
+				try (java.io.OutputStream out = Files.newOutputStream(temp.toPath())) {
+					entity.writeTo(out);
+				}
+			}
+			org.apache.http.Header checksum = response.getFirstHeader("X-Checksum-Sha256");
+			if (checksum != null) {
+				String actual;
+				try (java.io.InputStream in = Files.newInputStream(temp.toPath())) {
+					actual = org.apache.commons.codec.digest.DigestUtils.sha256Hex(in);
+				}
+				if (!checksum.getValue().trim().equalsIgnoreCase(actual)) {
+					throw new IOException("Checksum mismatch for the downloaded plots");
+				}
+			}
+			org.apache.http.Header column = response.getFirstHeader("X-Plot-File-Column");
+			done = true;
+			return new MyPlotsFile(temp, column != null && "1".equals(column.getValue().trim()));
+		} finally {
+			if (!done) {
+				Files.deleteIfExists(temp.toPath());
+			}
+		}
 	}
 
 	/**
@@ -714,7 +853,7 @@ public class CloudApiClient {
 		// The filename comes from the server and must never be trusted to build a local
 		// path: strip any directory components and confirm the resolved file stays inside
 		// targetFolder, so a hostile/compromised server cannot write outside it (path traversal).
-		String safeName = new File(assignment.getFilename() == null ? "" : assignment.getFilename()).getName();
+		String safeName = fileNameHere(targetFolder, new File(assignment.getFilename() == null ? "" : assignment.getFilename()).getName());
 		if (safeName.isEmpty() || safeName.equals(".") || safeName.equals("..")) {
 			throw new IOException("Invalid CSV filename received from the cloud server: " + assignment.getFilename());
 		}
@@ -758,6 +897,19 @@ public class CloudApiClient {
 			Files.deleteIfExists(temp);
 		}
 		return dest;
+	}
+
+	/**
+	 * The name as the file system here takes it: one whose characters it cannot write (a training set's "Calibration –
+	 * set.csv" where the file names are not UTF-8, a Linux in the POSIX locale) has those replaced by "_".
+	 */
+	static String fileNameHere(File folder, String name) {
+		try {
+			folder.toPath().resolve(name + ".part");
+			return name;
+		} catch (java.nio.file.InvalidPathException e) {
+			return name.replaceAll("[^\\x20-\\x7E]", "_");
+		}
 	}
 
 	/** Executes a request expecting a JSON object body, throwing an informative IOException on failure. */

@@ -658,6 +658,8 @@ export async function registerAssignmentRoutes(
         .header('content-type', 'text/csv')
         .header('x-checksum-sha256', merged.checksum)
         .header('x-plots', String(merged.plots))
+        // Whether the last column is the plot_file asked for (?plotFile=1): Collect Earth takes it off the file it reads
+        .header('x-plot-file-column', merged.plotFileColumn ? '1' : '0')
         .header('content-disposition', attachment('my-plots.csv'))
         .send(merged.data);
     },

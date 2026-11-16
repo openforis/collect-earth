@@ -1,5 +1,5 @@
 // The workflows of Collect Earth, run with real desktops against a real cloud server on PostgreSQL.
-// node run.mjs [scenario...]   (all by default: alone office cloud alone-to-cloud office-to-cloud office-back mapathon two-computers accounts)
+// node run.mjs [scenario...]   (all by default: alone office cloud alone-to-cloud office-to-cloud office-back mapathon two-computers plots-update accounts)
 // What it needs and how to start it: README.md beside it.
 import { execFileSync } from 'node:child_process';
 import { readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -337,6 +337,58 @@ with zipfile.ZipFile(src) as a, zipfile.ZipFile(dst,'w',zipfile.ZIP_DEFLATED) as
     check('two computers: the first computer gets the newer save', (await coverage(plot)) === '80', `${await coverage(plot)}`);
     const st = (await desk('GET', '/api/cloud/state')).json?.sync;
     check('two computers: nothing is queued to be sent back', st?.pending === 0, JSON.stringify(st));
+  },
+
+  // 9. The person's plots kept up to date by Collect Earth (docs/plans/2026-11-16-plots-from-the-server.md, stage 2):
+  // plots the coordinator gives or moves arrive and leave with no click; a record keeps its plot file's name; a
+  // training set opens instead of the person's plots, and they come back
+  async 'plots-update'() {
+    const { pid } = state.mapathon;
+    const token = await coordinator();
+    const fileId = (await cloud('GET', `/v1/projects/${pid}/csv-files`, undefined, token)).json.csvFiles[0].id;
+    const people = (await cloud('GET', `/v1/projects/${pid}/members`, undefined, token)).json.members;
+    const id = (u) => people.find((m) => m.username === u).userId;
+    const CHECK = ['-Dcollectearth.myPlotsCheckSeconds=15'];
+    await startDesktop('m1', null, CHECK);
+    const settings = (await desk('GET', '/api/settings')).json?.values ?? {};
+    const plotFile = settings.csv ?? settings.sample_file ?? Object.values(settings).find((v) => String(v).endsWith('my-plots.csv'));
+    check('plots: Collect Earth reads the person’s plots from its data folder', String(plotFile).includes('/CollectEarth/cloud/') && String(plotFile).endsWith('/my-plots.csv'), String(plotFile));
+    let mine = (await desk('GET', '/api/cloud/myPlots')).json;
+    check('plots: they come from the server, 5 of them', mine?.mode === 'myPlots' && mine?.plots === 5 && mine?.inUse === true, JSON.stringify(mine));
+    const before = await plotIds();
+    // the form keeps in the record the name of the plot file its plot comes from, not the copy's (the values it loads
+    // for a plot and sends with every save)
+    const formValues = (await fetch(`http://localhost:8028/earth/surveyForm/plot?id=${encodeURIComponent(before[0])}`).then((r) => r.json())).values ?? {};
+    check('plots: a record keeps its plot file’s name', formValues.collect_text_plot_file === 'mapathon.csv', JSON.stringify(formValues).slice(0, 200));
+    // the coordinator gives m1 m2's unfinished plots: they come by themselves
+    await cloud('POST', `/v1/projects/${pid}/csv-files/${fileId}/move-unfinished`, { fromUserId: id('m2'), toUserId: id('m1') }, token);
+    const until = async (test, ms = 60000) => {
+      for (const end = Date.now() + ms; Date.now() < end; await sleep(2000)) if (test(await plotIds())) return true;
+      return false;
+    };
+    check('plots: plots given while Collect Earth runs come with no click', await until((ids) => ids.length > 5), (await plotIds()).join(' '));
+    const notices = (await desk('GET', '/api/notices')).json;
+    check('plots: a notice says what changed', JSON.stringify(notices ?? '').includes('cloudMyPlots'), JSON.stringify(notices).slice(0, 200));
+    // and taken away: m1's unfinished plots go to m2
+    await cloud('POST', `/v1/projects/${pid}/csv-files/${fileId}/move-unfinished`, { fromUserId: id('m1'), toUserId: id('m2') }, token);
+    check('plots: plots moved to someone else leave with no click', await until((ids) => ids.length < 5), (await plotIds()).join(' '));
+    // Refresh now answers at once
+    const refreshed = (await desk('POST', '/api/cloud/myPlots/refresh', {})).json;
+    check('plots: Refresh now asks the server', ['UNCHANGED', 'UPDATED'].includes(refreshed?.outcome), JSON.stringify(refreshed));
+    // a training set m1 takes part in opens instead of their plots, then they go back
+    const demo = demoPlotFile().toString('utf8').trim().split(/\r?\n/);
+    const practiceCsv = [demo[0], ...[1, 2].map((n) => [`training_${n}`, ...demo[n].split(',').slice(1)].join(','))].join('\n') + '\n';
+    const set = await cloud('PUT', `/v1/projects/${pid}/training-sets/practice.csv`, practiceCsv, token, 'text/csv');
+    check('plots: the coordinator makes a training set', set.status === 201, JSON.stringify(set.json).slice(0, 200));
+    await cloud('PUT', `/v1/projects/${pid}/training/${set.json?.id}/members`, { userIds: [id('m1')] }, token);
+    const listed = (await desk('GET', '/api/cloud/assignments')).json?.assignments ?? [];
+    const practice = listed.find((a) => a.training);
+    const opened = (await desk('POST', '/api/cloud/training/open', { id: practice?.id })).json;
+    check('plots: a training set opens instead of the person’s plots', Boolean(opened?.training) && (await until((ids) => ids.some((p) => p.startsWith('training_')), 20000)), `${JSON.stringify(opened)} | ${(await plotIds()).join(' ')}`);
+    await sleep(20000); // a check meanwhile leaves it open
+    check('plots: the checks leave the training set open', (await plotIds()).some((p) => p.startsWith('training_')), (await plotIds()).join(' '));
+    const back = (await desk('POST', '/api/cloud/myPlots/use', {})).json;
+    check('plots: back to my plots', back?.training === null && back?.inUse === true && (await until((ids) => !ids.some((p) => p.startsWith('training_')), 20000)), JSON.stringify(back));
   },
 
   // 6. Accounts: what people see when something is wrong

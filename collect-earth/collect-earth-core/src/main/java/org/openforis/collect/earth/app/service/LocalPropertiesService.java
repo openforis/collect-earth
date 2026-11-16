@@ -139,7 +139,14 @@ public class LocalPropertiesService extends Observable {
 				 * The database this computer used before it joined a cloud project (POSTGRESQL for an office's shared one,
 				 * else empty): opening a project that is not a cloud one goes back to it (EarthProjectsService)
 				 */
-				DB_DRIVER_BEFORE_CLOUD("db_driver_before_cloud"),;
+				DB_DRIVER_BEFORE_CLOUD("db_driver_before_cloud"),
+				/**
+				 * The training set's file the person opened in a cloud project (a calibration or learning set): the plots
+				 * file stays on it, not on the person's plots, until they go back to them (MyPlotsService)
+				 */
+				CLOUD_TRAINING_FILE("cloud_training_file"),
+				/** The training sets offered at a start (id:checksum, by commas): each version is offered once (CloudService) */
+				CLOUD_TRAINING_OFFERED("cloud_training_offered"),;
 
 		private String name;
 

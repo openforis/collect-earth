@@ -15,6 +15,7 @@ import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.service.cloud.CloudService;
+import org.openforis.collect.earth.app.service.cloud.MyPlotsService;
 import org.openforis.collect.earth.app.view.Messages;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -146,7 +147,8 @@ public class SettingsValidator {
 		if (folder == null || !CollectDBDriver.CLOUD.name().equals(Condition.valueOf(values, EarthProperty.DB_DRIVER.toString()).trim())) {
 			return;
 		}
-		if (sameFile(path, StringUtils.trimToEmpty(plotFileInUse.get())) || isInside(path, folder)) {
+		// The person's plots (MyPlotsService), or one of the files downloaded (a training set)
+		if (sameFile(path, StringUtils.trimToEmpty(plotFileInUse.get())) || isInside(path, folder) || MyPlotsService.isPersonsPlots(path)) {
 			return;
 		}
 		validation.error(key, Messages.getString("SettingsPage.sampleFile.cloudAssigned"));

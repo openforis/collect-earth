@@ -67,7 +67,28 @@ export function debounced<A extends unknown[]>(fn: (...args: A) => void, ms: num
 }
 
 /** A plot file the cloud server assigns to the operator (cloud mode) */
-export interface CloudAssignment { id: string; filename: string; plots: number; active: boolean }
+export interface CloudAssignment { id: string; filename: string; plots: number; active: boolean; training?: string | null }
+
+/** The person's plots in a cloud project (MyPlotsService): "files" on an older server, which lists plot files instead */
+export interface MyPlots {
+  mode: "none" | "files" | "myPlots" | "pending";
+  plots: number;
+  updatedAt: number | null;
+  checkedAt: number | null;
+  leftOut: string[];
+  unreadable: number;
+  /** The training set open instead of the person's plots, by name */
+  training: string | null;
+  inUse: boolean;
+  checkMinutes: number;
+  /** After Refresh now: what the check did (UPDATED, UNCHANGED, OFFLINE…) */
+  outcome?: string;
+}
+
+export const myPlots = (signal?: AbortSignal) => apiGet<MyPlots>("cloud/myPlots", signal);
+export const refreshMyPlots = () => apiPost<MyPlots>("cloud/myPlots/refresh", {});
+export const useMyPlots = () => apiPost<MyPlots>("cloud/myPlots/use", {});
+export const openTraining = (id: string) => apiPost<MyPlots>("cloud/training/open", { id });
 
 export const cloudAssignments = (signal?: AbortSignal) =>
   apiGet<{ assignments: CloudAssignment[] }>("cloud/assignments", signal).then((r) => r.assignments);

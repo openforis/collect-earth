@@ -36,5 +36,11 @@ public class LeafletMapControllerTest {
 		// the same file, changed
 		all.setLastModified(all.lastModified() + 5000);
 		assertNotEquals(version, LeafletMapController.plotsVersion(all.getPath()));
+		// replaced within the same second of the file system's clock: its size tells
+		long at = all.lastModified();
+		String before = LeafletMapController.plotsVersion(all.getPath());
+		Files.writeString(all.toPath(), "id,x,y\n1,2,3\n");
+		all.setLastModified(at);
+		assertNotEquals(before, LeafletMapController.plotsVersion(all.getPath()));
 	}
 }

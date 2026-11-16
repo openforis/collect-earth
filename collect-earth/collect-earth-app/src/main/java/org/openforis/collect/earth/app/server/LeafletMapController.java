@@ -66,7 +66,8 @@ public class LeafletMapController {
 	// the synchronized builder method; volatile for the fast-path read).
 	private volatile String cachedFeatureCollection;
 	private volatile String cachedCsvPath;
-	private volatile long cachedCsvLastModified;
+	/** The file's date and size when it was read, taken before reading it: a file replaced meanwhile is read again */
+	private volatile String cachedCsvStamp;
 	/** Ids of the plots in {@link #cachedFeatureCollection}: the only ones the map asks the status of. */
 	private volatile Set<String> cachedPlotIds = Collections.emptySet();
 	private final com.fasterxml.jackson.databind.ObjectMapper json = new com.fasterxml.jackson.databind.ObjectMapper();
@@ -185,8 +186,8 @@ public class LeafletMapController {
 	 */
 	private synchronized String getOrBuildFeatureCollection(String csvFile) throws Exception {
 		File csv = new File(csvFile);
-		if (cachedFeatureCollection != null && csvFile.equals(cachedCsvPath)
-				&& csv.lastModified() == cachedCsvLastModified) {
+		String stamp = csv.lastModified() + ":" + csv.length();
+		if (cachedFeatureCollection != null && csvFile.equals(cachedCsvPath) && stamp.equals(cachedCsvStamp)) {
 			return cachedFeatureCollection;
 		}
 		KmlGenerator kmlGenerator = kmlGeneratorService.getKmlGenerator();
@@ -219,7 +220,7 @@ public class LeafletMapController {
 		}
 		sb.append("]}");
 		cachedCsvPath = csvFile;
-		cachedCsvLastModified = csv.lastModified();
+		cachedCsvStamp = stamp;
 		cachedPlotIds = plotIds;
 		cachedFeatureCollection = sb.toString();
 		return cachedFeatureCollection;
@@ -231,7 +232,8 @@ public class LeafletMapController {
 	}
 
 	/**
-	 * The plot file the plots map shows, and its version: its path and when it was last changed, "" when there is none.
+	 * The plot file the plots map shows, and its version: its path, when it was last changed and its size, "" when there
+	 * is none.
 	 * The plots map loads its plots again when the statuses tell another one (settings applied, a plot file dropped, the
 	 * cloud project's assigned file), as nothing reloads the panel of Google Earth Web.
 	 */
@@ -240,7 +242,7 @@ public class LeafletMapController {
 			return "";
 		}
 		File csv = new File(csvFile);
-		return csv.exists() ? csvFile + "@" + csv.lastModified() : "";
+		return csv.exists() ? csvFile + "@" + csv.lastModified() + ":" + csv.length() : "";
 	}
 
 	@GetMapping("/mapConfig")

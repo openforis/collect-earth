@@ -14,6 +14,7 @@ import org.apache.commons.text.StringEscapeUtils;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.KmlGeneratorService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
+import org.openforis.collect.earth.app.service.cloud.MyPlotsService;
 import org.openforis.collect.earth.app.service.SurveyFormModelBuilder;
 import org.openforis.collect.earth.core.utils.CsvReaderUtils;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
@@ -54,6 +55,10 @@ public class SurveyFormController {
 	@Autowired
 	private KmlGeneratorService kmlGeneratorService;
 
+	/** In a cloud project, the plot file each of the person's plots comes from (absent in some tests) */
+	@Autowired(required = false)
+	private MyPlotsService myPlots;
+
 	private final Logger logger = LoggerFactory.getLogger(SurveyFormController.class);
 	private final ObjectMapper json = new ObjectMapper();
 
@@ -68,7 +73,8 @@ public class SurveyFormController {
 
 	// Plot file values by placemark id: the location, then the extra columns. Rebuilt when the file changes.
 	private String cachedCsvPath;
-	private long cachedCsvLastModified;
+	/** The file's date and size when it was read, taken before reading it: a file replaced meanwhile is read again */
+	private String cachedCsvStamp;
 	private Map<String, String[]> plotsById;
 
 	/**
@@ -156,7 +162,11 @@ public class SurveyFormController {
 			}
 		}
 		String csvFile = localPropertiesService.getCsvFile();
-		if (csvFile != null) {
+		// The person's plots of a cloud project are one file: each plot keeps the name of the plot file it comes from
+		String source = myPlots == null ? null : myPlots.plotFileOf(placemarkId);
+		if (source != null) {
+			values.put("collect_text_plot_file", source);
+		} else if (csvFile != null) {
 			values.put("collect_text_plot_file", csvFile);
 		}
 		return values;
@@ -168,7 +178,8 @@ public class SurveyFormController {
 			return new HashMap<>();
 		}
 		File csv = new File(csvFile);
-		if (plotsById != null && csvFile.equals(cachedCsvPath) && csv.lastModified() == cachedCsvLastModified) {
+		String stamp = csv.lastModified() + ":" + csv.length();
+		if (plotsById != null && csvFile.equals(cachedCsvPath) && stamp.equals(cachedCsvStamp)) {
 			return plotsById;
 		}
 		KmlGenerator kmlGenerator = kmlGeneratorService.getKmlGenerator();
@@ -196,7 +207,7 @@ public class SurveyFormController {
 		}
 		plotsById = result;
 		cachedCsvPath = csvFile;
-		cachedCsvLastModified = csv.lastModified();
+		cachedCsvStamp = stamp;
 		return plotsById;
 	}
 
