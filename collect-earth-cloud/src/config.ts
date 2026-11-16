@@ -15,7 +15,7 @@ export interface Config {
    * missing and grant table rights to, so Row-Level Security binds the server.
    */
   migrationDatabaseUrl?: string;
-  /** Error reports and usage events (src/telemetry.ts): off unless TELEMETRY=1; absent in the local mode. */
+  /** Error reports (src/telemetry.ts): off unless TELEMETRY=1; absent in the local mode. */
   telemetry?: TelemetryConfig;
   /** When set, POST /v1/projects requires header `x-admin-key` to match. */
   adminApiKey?: string;

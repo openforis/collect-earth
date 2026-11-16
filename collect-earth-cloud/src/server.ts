@@ -324,8 +324,8 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   await registerAuthRoutes(app, store, limiter, loginFailures, counters, accountMail, twoFactorKeyBuf, accountFailures);
   await registerTwoFactorRoutes(app, store, twoFactorKeyBuf, limiter, async () => (await store.getSettings()).serverName ?? 'Collect Earth Cloud');
   const now = options.ai?.now ?? Date.now;
-  // Error reports and usage events, when the server is started with TELEMETRY=1 (src/telemetry.ts).
-  if (config.telemetry) await telemetry.configure(config.telemetry, VERSION, app.log);
+  // Error reports, when the server is started with TELEMETRY=1 (src/telemetry.ts).
+  if (config.telemetry) await telemetry.configure(config.telemetry, VERSION);
   app.addHook('onError', async (request, _reply, error) => {
     // A plain error thrown by a handler has no status yet (the reply's is still 200): it is a 500.
     const status = (error as { statusCode?: number }).statusCode ?? 500;

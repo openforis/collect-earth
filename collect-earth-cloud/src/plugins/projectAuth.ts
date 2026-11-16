@@ -135,7 +135,6 @@ const OPEN_WHEN_CLOSED = new Set([
   'POST /v1/projects/:pid/exports/collect-backup/link',
   'POST /v1/projects/:pid/quality/places',
   'POST /v1/projects/:pid/ai/runs',
-  'POST /v1/projects/:pid/telemetry',
 ]);
 const RECORDS_BATCH = 'POST /v1/projects/:pid/records:batch';
 
