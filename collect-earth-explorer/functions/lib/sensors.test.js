@@ -40,6 +40,7 @@ test("every sensor id maps to a collection with three false-colour bands", () =>
     const s = SENSORS[id];
     assert.match(s.collection, /^LANDSAT\/L[TEC]0[5789]\/C02\/T1_L2$/);
     assert.equal(s.falseColour.length, 3);
+    assert.deepEqual(s.trueColour, id === "L5" || id === "L7" ? ["SR_B3", "SR_B2", "SR_B1"] : ["SR_B4", "SR_B3", "SR_B2"], `${id} red, green, blue`);
     assert.equal(typeof s.name, "string");
   }
 });

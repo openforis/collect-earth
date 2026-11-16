@@ -49,6 +49,15 @@ test("landsat composite image carries exactly the nir/swir/red bands", live, asy
   assert.deepEqual(bands, ["nir", "swir", "red"]);
 });
 
+test("landsat composite 2020 in true colour returns a tile url and carries red/green/blue", live, async () => {
+  await eeAuth();
+  const plot = ee.Geometry(belize);
+  const r = await landsatCompositeTiles(plot, 2020, { bands: "true-colour", maxCloud: 30 });
+  assert.match(r.tileUrl, /^https:\/\/earthengine\.googleapis\.com\/.*\{z\}\/\{x\}\/\{y\}/);
+  assert.equal(r.sensor, "Landsat 8");
+  assert.deepEqual(await evaluate(buildYearlyComposite(plot, 2020, { bands: "true-colour" }).image.bandNames()), ["red", "green", "blue"]);
+});
+
 test("landsat composite tile over the plot is served as an image", live, async () => {
   await eeAuth();
   const r = await landsatCompositeTiles(ee.Geometry(belize), 2005);

@@ -130,6 +130,15 @@ describe("App", () => {
     expect(second.maxCloud).toBe(20);
   });
 
+  it("sends a Landsat entry's non-default parameters after the year", async () => {
+    window.history.replaceState({}, "", withConfig({ v: 1, layers: [{ type: "landsat", bands: "true-colour", maxCloud: 30 }] }));
+    render(<App />);
+    expect(await screen.findByText(LANDSAT_TILE.label)).toBeTruthy();
+    const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
+    expect(Object.keys(body)).toEqual(["plot", "start", "end", "year", "bands", "maxCloud"]);
+    expect(body).toMatchObject({ bands: "true-colour", maxCloud: 30 });
+  });
+
   it("without a configuration shows the four standard cards in order and no notice", async () => {
     window.history.replaceState({}, "", PLOT_URL);
     render(<App />);

@@ -154,6 +154,22 @@ test("POST /api/tiles/sentinel2 rejects bad composite parameters with a 400 befo
   }
 });
 
+test("POST /api/tiles/landsat keys the cache with the year plus only non-default composite parameters", async () => {
+  const path = "/api/tiles/landsat";
+  assert.deepEqual(await extrasFor(path, { year: 2020 }), { year: 2020 }, "no new fields: the same key as before");
+  assert.deepEqual(await extrasFor(path, { year: 2020, bands: "false-colour", maxCloud: 50 }), { year: 2020 }, "explicit defaults equal absent ones");
+  assert.deepEqual(await extrasFor(path, { year: 2020, bands: "true-colour" }), { year: 2020, bands: "true-colour" });
+  assert.deepEqual(await extrasFor(path, { year: 2020, maxCloud: 20 }), { year: 2020, maxCloud: 20 });
+});
+
+test("POST /api/tiles/landsat rejects bad composite parameters with a 400 before the cache", async () => {
+  for (const [body, re] of [[{ bands: "infrared" }, /bands/], [{ maxCloud: 101 }, /maxCloud/], [{ maxCloud: 20.5 }, /maxCloud/]]) {
+    const cache = fakeCache();
+    const res = await request(appWith(cache)).post("/api/tiles/landsat").send({ plot: belize, year: 2020, ...body });
+    assert400(res, re, cache);
+  }
+});
+
 test("POST /api/tiles/landsat with a valid plot but year 1900 is a 400 before EE auth or the cache", async () => {
   const { res, logged, cache } = await postWithoutKey("/api/tiles/landsat", { plot: belize, year: 1900 });
   assert400(res, /1984/, cache);

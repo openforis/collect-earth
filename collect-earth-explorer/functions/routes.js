@@ -73,7 +73,13 @@ function registerRoutes(app, { cache = defaultCache } = {}) {
   app.post("/api/tiles/sentinel2", route("tiles/sentinel2", TTL.tiles, sentinel2Extras, (p, g, x) => sentinel2CompositeTiles(g, x.end ?? p.end, x), null, noStart));
   app.post(
     "/api/tiles/landsat",
-    route("tiles/landsat", TTL.tiles, (b) => ({ year: Number(b.year) }), (p, g, x) => landsatCompositeTiles(g, x.year), (b) => sensorsForYear(Number(b.year)))
+    route(
+      "tiles/landsat",
+      TTL.tiles,
+      (b) => ({ year: Number(b.year), ...nonDefault("landsat", b, ["bands", "maxCloud"]) }),
+      (p, g, { year, ...options }) => landsatCompositeTiles(g, year, options),
+      (b) => sensorsForYear(Number(b.year))
+    )
   );
   app.post("/api/series/modis", route("series/modis", TTL.series, null, (p, g) => modisSeries(g, p.start, p.end)));
   app.post("/api/series/landsat", route("series/landsat", TTL.series, null, (p, g) => landsatSeries(g, p.start, p.end)));
