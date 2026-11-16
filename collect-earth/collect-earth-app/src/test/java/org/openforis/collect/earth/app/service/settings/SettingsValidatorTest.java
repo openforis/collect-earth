@@ -135,7 +135,7 @@ public class SettingsValidatorTest {
 		assertEquals(2000, longest.length());
 		assertTrue(validator.validate(values("open_gee_app", "true", "explorer_config", longest)).isValid());
 		for (String refused : new String[] { "{\"label\":\"" + StringUtils.repeat('a', 2000 - 11) + "\"}", "[]", "\"x\"", "null", "5",
-				"{\"v\":1", "landsat" }) {
+				"{\"v\":1", "landsat", "{\"v\":1} junk", "{\"v\":1}{}" }) {
 			assertEquals(Messages.getString("SettingsPage.explorerConfig.invalid"),
 					validator.validate(values("open_gee_app", "true", "explorer_config", refused)).getErrors().get("explorer_config"), refused);
 		}

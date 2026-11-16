@@ -19,6 +19,7 @@ import org.openforis.collect.earth.app.view.Messages;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
@@ -214,7 +215,7 @@ public class SettingsValidator {
 			return false;
 		}
 		try {
-			return new ObjectMapper().readTree(value).isObject();
+			return new ObjectMapper().enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS).readTree(value).isObject();
 		} catch (IOException e) {
 			return false;
 		}
