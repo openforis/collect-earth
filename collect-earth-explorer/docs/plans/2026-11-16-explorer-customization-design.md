@@ -153,3 +153,32 @@ catalogue entry plus its Earth Engine function.
   settled in the implementation plan.
 - Other things a survey might set later: a note for interpreters, a fixed zoom,
   reference maps. Not in the first version.
+
+## Amendments after review against the code (2026-11-16)
+
+1. **The address format.** Collect Earth does not build `?geoJson=…&plot_id=…`.
+   `BrowserService.geeAppUrl` builds a fragment, `#geoJson=…;plotId=…;survey=…;startTime=…;endTime=…;`.
+   The Explorer will read that fragment as well as the query, and `config` travels
+   in it as one more `key=value;` pair. A fragment is never sent to the web host,
+   so the host's request-line limit does not apply, and the window is opened
+   through the browser driver, not a command line. The 2,000-character cap stays
+   as a sanity limit only.
+2. **The scene layer.** "Scene (click a chart point)" is not a catalogue type. It
+   stays an implicit last row of the layers panel, as today.
+3. **One catalogue file, bundled.** The catalogue and the standard configuration
+   are one JSON file, `functions/catalogue.json`. The API requires it and serves
+   it at `GET /api/catalogue` (for the dashboard); the web app imports the same
+   file at build time, so the Explorer needs no extra request before it can draw.
+   This replaces "the web app gets it from the API".
+4. **Per-entry state.** The Landsat year is one shared value today. With several
+   Landsat entries each needs its own year, so layer state is kept per entry
+   (by position in the list).
+5. **Parameters are Earth Engine work, not only wiring.** The Landsat pipeline
+   keeps three bands (nir, swir1, red). True colour and the NBR and EVI indices
+   need blue, green and swir2 added. First parameter set:
+   - `sentinel2` layer: `label`, `start`, `end`, `bands` (false-colour, true-colour), `maxCloud`.
+   - `landsat` layer: `label`, `years` [from, to], `year`, `bands` (false-colour, true-colour), `maxCloud`.
+   - `landsat-series`, `sentinel2-series` charts: `index` (NDVI, NDMI, NBR, EVI), `collapsed`.
+   - `modis` chart: `index` (NDVI, EVI), `collapsed`.
+   - `ccdc` chart: `band` (NDFI, NDVI) as the initial choice, `collapsed`.
+   Scenes opened from a chart point stay false colour.
