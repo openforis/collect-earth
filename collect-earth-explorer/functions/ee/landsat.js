@@ -49,9 +49,9 @@ function harmonizeOli(oli) {
 
 /**
  * One sensor's scenes over `plot` in [start, end) as scaled (optionally
- * harmonised, optionally cloud-masked) nir/swir/red images. After harmonizeOli
- * the OLI bands carry L7 names, so the same SR_B4/SR_B5/SR_B3 selection serves
- * every sensor. The scaling is scaleSr's; the properties it copies are
+ * harmonised, optionally cloud-masked) blue/nir/swir/swir2/red images. After
+ * harmonizeOli the OLI bands carry L7 names, so the same SR_B1/SR_B4/SR_B5/SR_B7/SR_B3
+ * selection serves every sensor. `swir` is SWIR1 (the composite and scene code use that name). The scaling is scaleSr's; the properties it copies are
  * narrowed to SCENE_PROPS at the end (select keeps them, the harmonisation
  * arithmetic drops them).
  */
@@ -63,7 +63,7 @@ function prepared(collectionId, plot, start, end, { mask, harmonize }) {
     .map((img) => {
       let sr = ee.Image(scaleSr(img));
       if (harmonize) sr = harmonizeOli(sr);
-      let out = sr.select(["SR_B4", "SR_B5", "SR_B3"], ["nir", "swir", "red"]);
+      let out = sr.select(["SR_B1", "SR_B4", "SR_B5", "SR_B7", "SR_B3"], ["blue", "nir", "swir", "swir2", "red"]);
       if (mask) out = out.updateMask(clearMask(img));
       return ee.Image(out.copyProperties(img, SCENE_PROPS));
     });
@@ -112,12 +112,7 @@ function landsatSceneCollection(plot, timeStart) {
   return parts.slice(1).reduce((acc, c) => acc.merge(c), parts[0]).filter(ee.Filter.equals("system:time_start", timeStart));
 }
 
-/** NDVI from the nir/red bands, keeping the scene's date, index and sensor. */
-function ndvi(img) {
-  return ee.Image(img.normalizedDifference(["nir", "red"]).rename("NDVI").copyProperties(img, SCENE_PROPS));
-}
-
 module.exports = {
-  clearMask, scaleSr, maskAndScale, harmonizeOli, prepared, mergedLandsat, ndvi, SCENE_PROPS,
+  clearMask, scaleSr, maskAndScale, harmonizeOli, prepared, mergedLandsat, SCENE_PROPS,
   landsatSceneSensors, landsatSceneCollectionIds, landsatSceneCollection,
 };

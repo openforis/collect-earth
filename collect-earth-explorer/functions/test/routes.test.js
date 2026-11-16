@@ -245,6 +245,24 @@ test("POST /api/series/landsat with a valid plot but no EE_KEY reaches the auth 
   assert.equal(cache.calls[0].ttlSeconds, TTL.series);
 });
 
+test("POST /api/series/landsat and series/sentinel2 key the cache with the index only when it is not NDVI", async () => {
+  for (const path of ["/api/series/landsat", "/api/series/sentinel2"]) {
+    assert.deepEqual(await extrasFor(path, {}), {}, "no index: the same key as before");
+    assert.deepEqual(await extrasFor(path, { index: "NDVI" }), {}, "explicit NDVI equals absent");
+    for (const index of ["NDMI", "NBR", "EVI"]) assert.deepEqual(await extrasFor(path, { index }), { index });
+  }
+});
+
+test("POST /api/series/landsat and series/sentinel2 reject an unknown index with a 400 before the cache", async () => {
+  for (const path of ["/api/series/landsat", "/api/series/sentinel2"]) {
+    for (const index of ["ndvi", "NDFI", 1]) {
+      const cache = fakeCache();
+      const res = await request(appWith(cache)).post(path).send({ plot: belize, index });
+      assert400(res, /index/, cache);
+    }
+  }
+});
+
 test("POST /api/series/sentinel2 without a body is a 400 bad_request", async () => {
   const cache = fakeCache();
   const res = await request(appWith(cache)).post("/api/series/sentinel2");

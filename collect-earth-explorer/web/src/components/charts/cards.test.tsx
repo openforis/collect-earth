@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { PlotProvider, usePlot } from "../../state/PlotContext";
 import type { PlotParams } from "../../lib/urlParams";
 import { resolveConfig } from "../../lib/config";
+import * as csv from "../../lib/csv";
 import type { Point } from "../../lib/csv";
 import LandsatNdviCard from "./LandsatNdviCard";
 import Sentinel2NdviCard from "./Sentinel2NdviCard";
@@ -11,6 +12,7 @@ import ModisCard from "./ModisCard";
 
 interface MockChartProps {
   points: Point[];
+  name?: string;
   markers?: { x: number[] };
   onClickPoint?: (p: Point) => void;
 }
@@ -22,6 +24,7 @@ vi.mock("./SeriesChart", () => ({
     <div
       data-testid="series-chart"
       data-points={props.points.length}
+      data-name={props.name}
       data-markers={props.markers ? props.markers.x.length : ""}
       onClick={() => props.onClickPoint?.(props.points[0])}
     />
@@ -62,6 +65,12 @@ function setup(card: ReactNode) {
   );
 }
 
+/** The standard entry's parameters for a chart type, with `over` applied. */
+const paramsOf = (type: string, over: Record<string, unknown> = {}) => ({
+  ...resolveConfig(undefined, 2026).charts.find((c) => c.type === type)!.params,
+  ...over,
+});
+
 const fetchMock = vi.fn();
 
 function lastRequest() {
@@ -87,7 +96,7 @@ describe("series cards", () => {
 
   it("LandsatNdviCard posts to /api/series/landsat and a point click selects that scene", async () => {
     fetchMock.mockResolvedValue(json({ points: [POINT] }));
-    setup(<LandsatNdviCard />);
+    setup(<LandsatNdviCard params={paramsOf("landsat-series")} />);
     expect(screen.getByRole("heading", { name: /Landsat NDVI/ })).toBeTruthy();
 
     const chart = await screen.findByTestId("series-chart");
@@ -106,7 +115,7 @@ describe("series cards", () => {
 
   it("Sentinel2NdviCard posts to /api/series/sentinel2 and labels the scene Sentinel-2 <date>", async () => {
     fetchMock.mockResolvedValue(json({ points: [POINT] }));
-    setup(<Sentinel2NdviCard />);
+    setup(<Sentinel2NdviCard params={paramsOf("sentinel2-series")} />);
     expect(screen.getByRole("heading", { name: /Sentinel-2 NDVI/ })).toBeTruthy();
 
     const chart = await screen.findByTestId("series-chart");
@@ -139,9 +148,41 @@ describe("series cards", () => {
     expect(screen.getByTestId("layer").textContent).toBe("0");
   });
 
+  it("the standard series cards post exactly plot, start and end", async () => {
+    fetchMock.mockResolvedValue(json({ points: [POINT] }));
+    setup(<LandsatNdviCard params={paramsOf("landsat-series")} />);
+    await screen.findByTestId("series-chart");
+    expect(Object.keys(lastRequest().body).sort()).toEqual(["end", "plot", "start"]);
+  });
+
+  it("an index entry posts its index and names the title, series and CSV after it", async () => {
+    fetchMock.mockImplementation(async () => json({ points: [POINT] }));
+    const download = vi.spyOn(csv, "downloadText").mockImplementation(() => {});
+    for (const [Card, type, url, title, file] of [
+      [LandsatNdviCard, "landsat-series", "/api/series/landsat", "Landsat NDMI (click a point to view that scene)", "demo-landsat-ndmi.csv"],
+      [Sentinel2NdviCard, "sentinel2-series", "/api/series/sentinel2", "Sentinel-2 NDMI (click a point to view that scene)", "demo-sentinel2-ndmi.csv"],
+    ] as const) {
+      fetchMock.mockClear();
+      const { unmount } = render(
+        <PlotProvider params={params} config={resolveConfig(undefined, 2026)}>
+          <Card params={paramsOf(type, { index: "NDMI" })} />
+        </PlotProvider>,
+      );
+      expect(screen.getByRole("heading", { name: title })).toBeTruthy();
+      const chart = await screen.findByTestId("series-chart");
+      expect(chart.getAttribute("data-name")).toBe("NDMI");
+      expectPlotPost(url);
+      expect(lastRequest().body.index).toBe("NDMI");
+      fireEvent.click(screen.getByRole("button", { name: "CSV" }));
+      expect(download.mock.calls.at(-1)![0]).toBe(file);
+      unmount();
+    }
+    download.mockRestore();
+  });
+
   it("shows the error and a Retry button on a 503, and Retry re-fetches", async () => {
     fetchMock.mockResolvedValueOnce(json(BUSY, 503)).mockResolvedValueOnce(json({ points: [POINT] }));
-    setup(<LandsatNdviCard />);
+    setup(<LandsatNdviCard params={paramsOf("landsat-series")} />);
 
     const retry = await screen.findByRole("button", { name: "Retry" });
     expect(screen.getByText(/busy/)).toBeTruthy();

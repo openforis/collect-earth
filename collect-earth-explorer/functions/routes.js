@@ -41,21 +41,22 @@ function plotRoute(endpoint, ttlSeconds, extrasOf, compute, validate, cache = de
 }
 
 /**
- * The catalogue parameters `names` of layer `type` from the body, validated, keeping only non-default values:
- * extras are part of the cache key, so an absent and an explicit default must give the same (pre-existing) key.
+ * The catalogue parameters `names` of `kind` ("layers" or "charts") `type` from the body, validated, keeping only
+ * non-default values: extras are part of the cache key, so an absent and an explicit default must give the same
+ * (pre-existing) key.
  */
-function nonDefault(type, body, names) {
+function nonDefault(kind, type, body, names) {
   const x = {};
   for (const name of names) {
-    const v = paramOf("layers", type, name, body[name]);
-    if (v !== paramOf("layers", type, name)) x[name] = v;
+    const v = paramOf(kind, type, name, body[name]);
+    if (v !== paramOf(kind, type, name)) x[name] = v;
   }
   return x;
 }
 
 /** Sentinel-2 composite extras; the optional window `compositeStart`/`compositeEnd` becomes `start`/`end`. */
 function sentinel2Extras(b) {
-  const x = nonDefault("sentinel2", b, ["bands", "maxCloud"]);
+  const x = nonDefault("layers", "sentinel2", b, ["bands", "maxCloud"]);
   const start = paramOf("layers", "sentinel2", "start", b.compositeStart);
   const end = paramOf("layers", "sentinel2", "end", b.compositeEnd);
   if ((start === undefined) !== (end === undefined)) throw new BadRequest("compositeStart and compositeEnd go together");
@@ -76,14 +77,15 @@ function registerRoutes(app, { cache = defaultCache } = {}) {
     route(
       "tiles/landsat",
       TTL.tiles,
-      (b) => ({ year: Number(b.year), ...nonDefault("landsat", b, ["bands", "maxCloud"]) }),
+      (b) => ({ year: Number(b.year), ...nonDefault("layers", "landsat", b, ["bands", "maxCloud"]) }),
       (p, g, { year, ...options }) => landsatCompositeTiles(g, year, options),
       (b) => sensorsForYear(Number(b.year))
     )
   );
   app.post("/api/series/modis", route("series/modis", TTL.series, null, (p, g) => modisSeries(g, p.start, p.end)));
-  app.post("/api/series/landsat", route("series/landsat", TTL.series, null, (p, g) => landsatSeries(g, p.start, p.end)));
-  app.post("/api/series/sentinel2", route("series/sentinel2", TTL.series, null, (p, g) => sentinel2Series(g, p.start, p.end)));
+  const indexOf = (type) => (b) => nonDefault("charts", type, b, ["index"]);
+  app.post("/api/series/landsat", route("series/landsat", TTL.series, indexOf("landsat-series"), (p, g, x) => landsatSeries(g, p.start, p.end, x.index)));
+  app.post("/api/series/sentinel2", route("series/sentinel2", TTL.series, indexOf("sentinel2-series"), (p, g, x) => sentinel2Series(g, p.start, p.end, x.index)));
   app.post(
     "/api/tiles/scene",
     route("tiles/scene", TTL.tiles, validateSceneRequest, (p, g, x) => sceneTiles(g, p.start, p.end, x.sensor, x.timeStart), null, noStart)
