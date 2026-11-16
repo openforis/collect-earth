@@ -37,4 +37,31 @@ public class LeafletMapControllerTest {
 		all.setLastModified(all.lastModified() + 5000);
 		assertNotEquals(version, LeafletMapController.plotsVersion(all.getPath()));
 	}
+
+	private static org.openforis.collect.earth.app.service.PlotFileIndex.PlotIndex index(String[] ids, String[] labels, double[][] places) throws Exception {
+		java.util.Map<String, Integer> position = new java.util.HashMap<>();
+		java.util.List<String[]> rows = new java.util.ArrayList<>();
+		for (int i = 0; i < ids.length; i++) {
+			position.put(ids[i], i);
+			rows.add(new String[] { ids[i] });
+		}
+		return new org.openforis.collect.earth.app.service.PlotFileIndex.PlotIndex("", 0, "", null, new String[] { "id" }, java.util.Arrays.asList(ids),
+				java.util.Arrays.asList(labels), java.util.Arrays.asList(places), rows, position, new com.fasterxml.jackson.databind.ObjectMapper());
+	}
+
+	@Test
+	public void theIndexHasEveryPlotInAFewBytesAndFindsTheNeighbours() throws Exception {
+		double m = 1 / 111_320.0;
+		org.openforis.collect.earth.app.service.PlotFileIndex.PlotIndex index = index(new String[] { "a", "far", "b,2", "c" }, new String[] { null, null, "b", "" },
+				new double[][] { { 0, 0 }, { 0, 5000 * m }, { 0, 300 * m }, { 0, 100 * m } });
+		com.fasterxml.jackson.databind.JsonNode answer = new com.fasterxml.jackson.databind.ObjectMapper().readTree(index.json);
+		assertEquals("[\"a\",\"far\",\"b,2\",\"c\"]", answer.get("ids").toString());
+		assertEquals("[null,null,\"b\",\"\"]", answer.get("labels").toString());
+		assertEquals(4, answer.get("latitudes").size());
+		// itself first, the nearest next, none past the radius, at most the limit
+		assertEquals(java.util.Arrays.asList(0, 3, 2), index.near(0, 1000, 10));
+		assertEquals(java.util.Arrays.asList(0, 3), index.near(0, 1000, 2));
+		assertEquals(java.util.Arrays.asList(1), index.near(1, 1000, 10));
+	}
 }
+

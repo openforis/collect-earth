@@ -163,6 +163,10 @@ describe('the areas routes', () => {
     await send('1,1');
     // the same columns keep their areas
     expect((await call('GET', '/areas?columns=FOREST', owner.token)).json().strata[0]).toMatchObject({ values: ['A'], area: 1000, plots: 2, assessed: 1 });
+    // a reviewer is answered about the saved strata only: any column asked could list the plots one by one
+    const forReviewer = (await call('GET', '/areas?columns=id', people.rev)).json();
+    expect(forReviewer.strata).toEqual((await call('GET', '/areas', owner.token)).json().strata);
+    expect(forReviewer.strata.map((s: { values: string[] }) => s.values)).toEqual([['A'], ['B'], ['C']]);
     await call('PUT', '/areas', owner.token, { settings: { mode: 'strata', columns: ['nope'], strata: [{ values: ['A'], area: 5 }] } });
     const preview = (await call('GET', '/areas?columns=forest', owner.token)).json();
     expect(preview.strata.map((s: { values: string[]; area: number | null; plots: number }) => [s.values, s.area, s.plots])).toEqual([

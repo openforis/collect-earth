@@ -198,6 +198,7 @@ public class LocalPropertiesService extends Observable {
 		return convertToOSPath(getValue(EarthProperty.BALLOON_TEMPLATE_KEY_WEB));
 	}
 
+	@Deprecated // nothing calls it since Collect Earth 2: it served the KMZ of Google Earth Pro
 	public String getBalloonFileChecksum() {
 		return getValue(EarthProperty.BALLOON_TEMPLATE_KEY_CHECKSUM);
 	}
@@ -226,6 +227,7 @@ public class LocalPropertiesService extends Observable {
 		return convertToOSPath(getValue(EarthProperty.SAMPLE_FILE));
 	}
 
+	@Deprecated // nothing calls it since Collect Earth 2: it served the KMZ of Google Earth Pro
 	public String getCsvFileChecksum() {
 		return getValue(EarthProperty.CSV_KEY_CHECKSUM);
 	}
@@ -309,6 +311,7 @@ public class LocalPropertiesService extends Observable {
 		return getValue(EarthProperty.PLANET_TFO_DATE_TO);
 	}
 
+	@Deprecated // nothing calls it since Collect Earth 2: it served the KMZ of Google Earth Pro
 	public String getGeneratedOn() {
 		return getValue(EarthProperty.GENERATED_KEY);
 	}
@@ -430,6 +433,7 @@ public class LocalPropertiesService extends Observable {
 		return convertToOSPath(getValue(EarthProperty.KML_TEMPLATE_KEY));
 	}
 
+	@Deprecated // nothing calls it since Collect Earth 2: it served the KMZ of Google Earth Pro
 	public String getTemplateFileChecksum() {
 		return getValue(EarthProperty.KML_TEMPLATE_KEY_CHECKSUM);
 	}
@@ -985,6 +989,7 @@ public class LocalPropertiesService extends Observable {
 	}
 
 
+	@Deprecated // nothing calls it since Collect Earth 2: it served the KMZ of Google Earth Pro
 	public void nullifyChecksumValues() {
 		saveBalloonFileChecksum("");
 		saveCsvFileCehcksum("");
@@ -996,6 +1001,7 @@ public class LocalPropertiesService extends Observable {
 		setValue(EarthProperty.MODEL_VERSION_NAME, "");
 	}
 
+	@Deprecated // nothing calls it since Collect Earth 2: it served the KMZ of Google Earth Pro
 	public void saveBalloonFileChecksum(String checksum) {
 		setValue(EarthProperty.BALLOON_TEMPLATE_KEY_CHECKSUM, checksum);
 
@@ -1011,6 +1017,7 @@ public class LocalPropertiesService extends Observable {
 
 	}
 
+	@Deprecated // nothing calls it since Collect Earth 2: it served the KMZ of Google Earth Pro
 	public void saveCsvFileCehcksum(String checksum) {
 		setValue(EarthProperty.CSV_KEY_CHECKSUM, checksum);
 
@@ -1031,6 +1038,7 @@ public class LocalPropertiesService extends Observable {
 
 	}
 
+	@Deprecated // nothing calls it since Collect Earth 2: it served the KMZ of Google Earth Pro
 	public void saveTemplateFileChecksum(String checksum) {
 		setValue(EarthProperty.KML_TEMPLATE_KEY_CHECKSUM, checksum);
 

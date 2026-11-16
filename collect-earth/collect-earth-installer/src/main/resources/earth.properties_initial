@@ -16,14 +16,12 @@ earth_map_aoi=global
 earth_map_url=https://earthmap.org
 gee_initial_zoom=15
 gee_app_url=https://explorer.collectearth.org/
-generated_on=1403519225818
 host=127.0.0.1
 inner_point_side=2
 jump_to_next_plot=false
 local_port=8090
 open_earth_map=false
 open_gee_app=true
-open_separate_browser_form=false
 # The embedded server listens only to this computer. Set it to 0.0.0.0 to accept the Collect Earth instances running in CLIENT_MODE
 # ( its endpoints have no authentication, so anybody in the network could then save records and load project files )
 server_bind_address=127.0.0.1

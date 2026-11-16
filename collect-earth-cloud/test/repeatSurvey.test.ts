@@ -312,7 +312,9 @@ describe('repeating a survey in the dashboard', () => {
 
     const periods = await call('GET', '/periods', maria.token, undefined, {}, projectId);
     expect(periods.statusCode, periods.body).toBe(200);
-    expect(periods.json()).toMatchObject({ settings: { label: '2025', earlier: [{ label: '2020', sourceProjectId: pid, sourceName: 'Land 2020', plots: 2 }] }, periods: [{ label: '2020', plots: 2 }] });
+    // which project the earlier period came from is told to coordinators only
+    expect(periods.json()).toMatchObject({ settings: { label: '2025', earlier: [{ label: '2020', sourceProjectId: '', sourceName: '', plots: 2 }] }, periods: [{ label: '2020', plots: 2 }] });
+    expect((await call('GET', '/periods', owner.token, undefined, {}, projectId)).json().settings.earlier[0]).toMatchObject({ sourceProjectId: pid, sourceName: 'Land 2020' });
     expect(periods.json().questions[0].key).toBe(LAND_USE);
     expect(periods.json().questions[0].label).not.toBe(LAND_USE);
 

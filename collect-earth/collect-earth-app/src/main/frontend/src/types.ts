@@ -14,6 +14,24 @@ export interface PlotFeature {
   properties: Record<string, string | null> & { id: string; visibleId?: string | null; latitude: string; longitude: string };
 }
 
+/** The plots of the plot file (/plotsIndex): lists of the same length, in the order of the file. */
+export interface PlotsIndex {
+  plots?: string;
+  ids: string[];
+  /** What each plot is called, the keys the collector may see; null: by its id; "": every key hidden */
+  labels: (string | null)[];
+  latitudes: number[];
+  longitudes: number[];
+  warning?: string;
+}
+
+/** One plot opened (/plotDetail): its feature, and the outline of each plot around it, itself included, nearest first. */
+export interface PlotDetail {
+  plots?: string;
+  feature: PlotFeature;
+  near: { id: string; outline: [number, number][] }[];
+}
+
 export interface MapConfig {
   /** Collect Earth UI language (ISO code, e.g. "es") */
   language?: string;

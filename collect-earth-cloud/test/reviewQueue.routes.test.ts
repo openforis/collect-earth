@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { idOnlyCep } from './fixtures/cep.js';
-import { batchRequest, bearer, createProject, envelope, makeContext, setupPlatformAdmin, type TestContext } from './helpers.js';
+import { batchRequest, bearer, createProject, envelope, makeContext, setupPlatformAdmin, type TestContext, sendAsPeople } from './helpers.js';
 
 const LAND_USE = 'collect_code_land_use_category';
 const FOREST = 'collect_integer_forest_percentage';
@@ -85,7 +85,7 @@ describe('the review queue: GET /quality/queue, decisions by reviewers, POST /qu
     const again = decided.json().decidedAt + 1000;
     // Received after the decision (a later millisecond).
     await new Promise((resolve) => setTimeout(resolve, 5));
-    await batchRequest(ctx.app, pid, projectToken, [envelope({ ...main(7, 'maria', 0, 'G'), modifiedOn: again })]);
+    await sendAsPeople(ctx, pid, projectToken, [envelope({ ...main(7, 'maria', 0, 'G'), modifiedOn: again })]);
     const body = await fresh('/quality/queue', owner.token);
     expect(body.items.map((i: { plot: string; section: string }) => [i.plot, i.section])).toEqual([
       ['1', 'difference'],
@@ -137,10 +137,10 @@ describe('the review queue: GET /quality/queue, decisions by reviewers, POST /qu
     const before = decided.json().decidedAt - 1000;
     await new Promise((resolve) => setTimeout(resolve, 5));
     // The answers the decision saw, saved again before it and synced after it: not back.
-    await batchRequest(ctx.app, pid, projectToken, [envelope({ ...main(7, 'maria', 0), modifiedOn: before - 10 })]);
+    await sendAsPeople(ctx, pid, projectToken, [envelope({ ...main(7, 'maria', 0), modifiedOn: before - 10 })]);
     expect((await fresh('/quality/queue?kind=resubmitted', owner.token)).items).toEqual([]);
     // Changed offline before the decision (the land use, which the demo survey works out from other answers), synced after it.
-    await batchRequest(ctx.app, pid, projectToken, [envelope({ ...main(7, 'maria', 0, 'G'), modifiedOn: before })]);
+    await sendAsPeople(ctx, pid, projectToken, [envelope({ ...main(7, 'maria', 0, 'G'), modifiedOn: before })]);
     const body = await fresh('/quality/queue?kind=resubmitted', owner.token);
     expect(body.items.map((i: { plot: string; resubmitted: unknown }) => [i.plot, i.resubmitted])).toEqual([['7', [{ plot: '7', operator: 'maria', at: before, decidedAt: decided.json().decidedAt }]]]);
   });

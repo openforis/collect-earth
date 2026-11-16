@@ -201,20 +201,6 @@ export function normalizeStatus(value: unknown): PlotStatus {
   return value === "saved" || value === "partial" ? value : "empty";
 }
 
-const METERS_PER_DEGREE = 111320;
-
-/** Ids of the plots within `radiusMeters` of `center`, nearest first, at most `limit`. */
-export function plotsNear(centers: Record<string, LatLng>, center: LatLng, radiusMeters: number, limit: number): string[] {
-  const cosLat = Math.cos((center[0] * Math.PI) / 180);
-  const near: [string, number][] = [];
-  for (const [id, [lat, lng]] of Object.entries(centers)) {
-    const dy = (lat - center[0]) * METERS_PER_DEGREE, dx = (lng - center[1]) * METERS_PER_DEGREE * cosLat;
-    const d = Math.hypot(dx, dy);
-    if (d <= radiusMeters) near.push([id, d]);
-  }
-  return near.sort((a, b) => a[1] - b[1]).slice(0, limit).map(([id]) => id);
-}
-
 /**
  * The highest view Google Earth Web is sent to: the server refuses a camera higher than this
  * (PlacemarkBrowserServlet.moveGoogleEarthWebCamera), and from there it shows the whole globe anyway.

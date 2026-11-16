@@ -88,13 +88,14 @@
 		<url-pattern>/api/*</url-pattern>
 		<url-pattern>/balloon</url-pattern>
 		<url-pattern>/plotsGeoJson</url-pattern>
+		<url-pattern>/plotsIndex</url-pattern>
+		<url-pattern>/plotDetail</url-pattern>
 		<url-pattern>/plotStatuses</url-pattern>
 		<url-pattern>/mapConfig</url-pattern>
 		<url-pattern>/surveyForm/*</url-pattern>
 	</filter-mapping>
 	<filter-mapping>
 		<filter-name>ownPagesOrGoogleEarthProFilter</filter-name>
-		<url-pattern>/openInBrowser</url-pattern>
 		<url-pattern>/placemark-info-expanded</url-pattern>
 		<url-pattern>/save-data-expanded</url-pattern>
 		<url-pattern>/create-entity</url-pattern>

@@ -1,6 +1,6 @@
-import { fetchGewStatus, fetchImageryStatus, fetchMapConfig, fetchPlots, fetchStatuses, formUrl, gewMoveCamera,
+import { fetchGewStatus, fetchImageryStatus, fetchMapConfig, fetchPlotDetail, fetchPlots, fetchStatuses, formUrl, gewMoveCamera,
   openAuxiliaryWindows, postGewContext, showImagerySource } from "./api";
-import { byId, changedAfterSubmit, type FormMessage, indexPlots, leftUnsubmitted, neighbour, nextUnfinished, normalizeStatus, plotsNear, surveyView,
+import { byId, changedAfterSubmit, type FormMessage, indexPlots, leftUnsubmitted, neighbour, nextUnfinished, normalizeStatus, surveyView,
   periodAnswer, type PeriodView, previousMessage, previousPlot, previousStands, type PreviousPlot, visibleIds } from "./plots";
 import { imageryForNumber, reconcileImagery, sameImageryStatus, type ImageryExpectation } from "./imagery";
 import { loadPrefs, savePrefs, type Prefs } from "./prefs";
@@ -10,9 +10,9 @@ import type { ImagerySource, ImageryStatus, LatLng, ListFilter, MapConfig, Perio
 const POLL_MILLIS = 5000;
 /** Google Earth Web's state, read until it is ready to be moved over the survey area. */
 const GEW_POLL_MILLIS = 700;
-/** Neighbouring plots drawn in Google Earth Web around the current one. */
-const GEW_CONTEXT_RADIUS_METERS = 3000;
-const GEW_CONTEXT_MAX_PLOTS = 300;
+/** How often, and how long apart, the plot opened is asked for again when its details did not come */
+const DETAIL_TRIES = 3;
+const DETAIL_RETRY_MILLIS = 1000;
 /** The tabs of the imagery window: the user opens and closes them, so they are read now and then. */
 const IMAGERY_POLL_MILLIS = 2000;
 /** How long a source the user picked is shown pressed before the server's answer wins (it shows it in ~1 s). */
@@ -49,13 +49,15 @@ export interface UiState {
   unsubmitted: { key: number; plotId: string } | null;
 }
 
-interface Plot { feature: PlotFeature; center: LatLng; rings: LatLng[][] }
+/**
+ * A plot as the list knows it: its place. What it is drawn and filled with (its geometry, every column of its row) is
+ * asked for when it is opened (fetchPlotDetail): a plot file of many thousand plots is a few bytes a plot here.
+ */
+interface Plot { center: LatLng }
 
-/** GeoJSON GeometryCollection of polygons -> [lat,lng] outer rings. */
-function ringsOf(feature: PlotFeature): LatLng[][] {
-  return feature.geometry.geometries
-    .filter((g) => g.type === "Polygon")
-    .map((g) => g.coordinates[0].map(([lng, lat]) => [lat, lng] as LatLng));
+/** The feature of a plot as far as its id and place go: what the generated form and the imagery windows need. */
+function placeFeature(id: string, [lat, lng]: LatLng): PlotFeature {
+  return { type: "Feature", geometry: { type: "GeometryCollection", geometries: [] }, properties: { id, latitude: String(lat), longitude: String(lng) } };
 }
 
 /**
@@ -131,14 +133,14 @@ export class MapController {
   private async loadPlots(): Promise<void> {
     this.loadingPlots = true;
     try {
-      const fc = await fetchPlots();
-      if (fc.plots !== this.plotsVersion) {
+      const index = await fetchPlots();
+      if (index.plots !== this.plotsVersion) {
         // Another plot file: the statuses of its plots are asked for from the start, a poll under way left out
-        this.plotsVersion = fc.plots;
+        this.plotsVersion = index.plots;
         this.lastStatusPoll = null;
       }
       // None (e.g. no survey loaded): the list says so; the statuses tell when there is a plot file to load
-      if (!fc.features || fc.features.length === 0) {
+      if (!index.ids || index.ids.length === 0) {
         this.plots = byId();
         this.set({ order: [], labels: byId(), statuses: byId(), loaded: true, ...(this.state.activeId !== null ? { activeId: null, formUrl: null } : {}) });
         this.startStatusPolling();
@@ -146,10 +148,10 @@ export class MapController {
       }
       // From this answer alone, and put in place at once: a load tried again after one that failed half-way (below)
       // would otherwise find its plots there already, and leave them out of the list
-      const { order, plots, labels } = indexPlots(fc.features, (feature) => ({
-        feature, rings: ringsOf(feature),
-        center: [parseFloat(feature.properties.latitude), parseFloat(feature.properties.longitude)] as LatLng,
+      const entries = index.ids.map((id, i) => ({
+        properties: { id, visibleId: index.labels[i] ?? null }, center: [index.latitudes[i], index.longitudes[i]] as LatLng,
       }));
+      const { order, plots, labels } = indexPlots(entries, (entry): Plot => ({ center: entry.center }));
       this.plots = plots;
       const statuses = byId<PlotStatus>();
       // Those known already are kept: the polls ask only for the changes since the last one
@@ -263,10 +265,41 @@ export class MapController {
     const plot = this.plots[id];
     if (!plot) return;
     if (this.state.formUrl != null) this.noticeIfUnsubmitted(id);
-    this.set({ activeId: id, selected: this.state.selected + 1, formUrl: formUrl(plot.feature, this.webForm, this.state.language) });
-    this.sendGewContext(id);
-    openAuxiliaryWindows(plot.feature);
+    const place = placeFeature(id, plot.center);
+    // The generated form goes by the plot's id alone and opens at once; the project's own balloon is filled with every
+    // column of the plot's row, which comes with its details
+    const balloon = this.webForm === "balloon";
+    this.set({ activeId: id, selected: this.state.selected + 1, formUrl: balloon ? null : formUrl(place, this.webForm, this.state.language) });
+    openAuxiliaryWindows(place);
+    void this.openDetail(id, this.state.selected, DETAIL_TRIES);
   };
+
+  /**
+   * The details of the plot just opened: the balloon's form, and the plots around it for Google Earth Web to draw with
+   * their statuses. Left when another plot was opened meanwhile; asked for again a few times when they did not come.
+   */
+  private async openDetail(id: string, selected: number, tries: number): Promise<void> {
+    const current = () => this.state.activeId === id && this.state.selected === selected;
+    try {
+      const detail = await fetchPlotDetail(id);
+      if (!current()) return;
+      if (this.webForm === "balloon") this.set({ formUrl: formUrl(detail.feature, this.webForm, this.state.language) });
+      postGewContext(id, detail.near.map((p) => ({
+        id: p.id,
+        status: this.state.statuses[p.id] ?? "empty",
+        // outline only; neighbours' sample points would just add clutter
+        rings: [p.outline],
+      })));
+    } catch {
+      if (!current()) return;
+      if (tries > 1) {
+        window.setTimeout(() => void this.openDetail(id, selected, tries - 1), DETAIL_RETRY_MILLIS);
+      } else if (this.webForm === "balloon") {
+        // The balloon with what the list knows of the plot rather than no form at all
+        this.set({ formUrl: formUrl(placeFeature(id, this.plots[id].center), this.webForm, this.state.language) });
+      }
+    }
+  }
 
   /** Selects the next plot not completed; returns it, null when there is none. */
   goToNextUnfinished = (): string | null => {
@@ -336,19 +369,6 @@ export class MapController {
     } catch { /* server busy or restarting - retry */ }
     window.setTimeout(this.pollGew, GEW_POLL_MILLIS);
   };
-
-  /** Neighbouring plots and their statuses, drawn by Google Earth Web around the plot. */
-  private sendGewContext(id: string): void {
-    const centers = byId<LatLng>();
-    for (const plotId of this.state.order) centers[plotId] = this.plots[plotId].center;
-    const near = plotsNear(centers, this.plots[id].center, GEW_CONTEXT_RADIUS_METERS, GEW_CONTEXT_MAX_PLOTS);
-    postGewContext(id, near.map((plotId) => ({
-      id: plotId,
-      status: this.state.statuses[plotId] ?? "empty",
-      // outline only (the first ring); neighbours' sample points would just add clutter
-      rings: this.plots[plotId].rings.slice(0, 1).map((ring) => ring.map(([lat, lng]) => [lng, lat] as [number, number])),
-    })));
-  }
 
   // ---------- the imagery window: a tab per source ----------
   private imageryTimer = 0;

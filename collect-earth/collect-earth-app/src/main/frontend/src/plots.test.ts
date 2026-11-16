@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { byId, changedAfterSubmit, countStatuses, indexPlots, labelOfFeature, leftUnsubmitted, matchesFilter, neighbour, nextUnfinished, normalizeStatus, plotsNear,
+import { byId, changedAfterSubmit, countStatuses, indexPlots, labelOfFeature, leftUnsubmitted, matchesFilter, neighbour, nextUnfinished, normalizeStatus,
   MAX_VIEW_HEIGHT, matchesElsewhere, plotLabel, previousMessage, previousPlot, previousStands, surveyView, visibleIds,
   countPeriods, matchesPeriod, periodAnswer } from "./plots";
 import type { PeriodAnswer, PlotStatus } from "./types";
@@ -178,15 +178,6 @@ describe("counts and statuses", () => {
     expect(normalizeStatus("saved")).toBe("saved");
     expect(normalizeStatus("bogus")).toBe("empty");
     expect(normalizeStatus(undefined)).toBe("empty");
-  });
-});
-
-describe("plotsNear", () => {
-  it("keeps plots within the radius, nearest first, up to the limit", () => {
-    const m = 1 / 111320;
-    const centers: Record<string, [number, number]> = { a: [0, 0], far: [0, 5000 * m], b: [0, 300 * m], c: [0, 100 * m] };
-    expect(plotsNear(centers, [0, 0], 1000, 10)).toEqual(["a", "c", "b"]);
-    expect(plotsNear(centers, [0, 0], 1000, 2)).toEqual(["a", "c"]);
   });
 });
 

@@ -124,3 +124,21 @@ export function zipOfSize(bytes: number): Buffer {
   if (zip.length !== bytes) throw new Error(`zipOfSize: ${zip.length} bytes instead of ${bytes}`);
   return zip;
 }
+
+/**
+ * Sends records as the people they are of: each account's with a session of that person (a project token may not
+ * change a record kept under an account's username), a typed name's with the project token. One answer per sender;
+ * every one must be a 200.
+ */
+export async function sendAsPeople(ctx: TestContext, projectId: string, projectToken: string, records: RecordEnvelope[]) {
+  const byOperator = new Map<string, RecordEnvelope[]>();
+  for (const r of records) byOperator.set(r.operator ?? '', [...(byOperator.get(r.operator ?? '') ?? []), r]);
+  const answers = [];
+  for (const [operator, own] of byOperator) {
+    const user = operator === '' ? null : await ctx.store.getUserByUsername(operator);
+    const res = await batchRequest(ctx.app, projectId, user ? await ctx.store.createSession(user.id) : projectToken, own);
+    if (res.statusCode !== 200) throw new Error(`sendAsPeople: ${res.statusCode} ${res.body}`);
+    answers.push(res);
+  }
+  return answers;
+}

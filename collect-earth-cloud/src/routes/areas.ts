@@ -53,7 +53,9 @@ export async function registerAreaRoutes(app: FastifyInstance, store: Store, sta
     const factors = await projectFactors(store, projectId, parsed, firsts, context.info, plotFiles);
     // ?columns=a,b: the strata other columns would make (choosing them), nothing saved
     const query = (request.query ?? {}) as { columns?: unknown };
-    const asked = typeof query.columns === 'string' ? query.columns.split(',').map((c) => c.trim()).filter((c) => c !== '').slice(0, AREA_LIMITS.columns) : null;
+    // (a coordinator's question: with any column to ask about, the plots' ids one by one would tell a reviewer which
+    // plots their other pages leave out, the reference plots)
+    const asked = request.membership!.role === 'admin' && typeof query.columns === 'string' ? query.columns.split(',').map((c) => c.trim()).filter((c) => c !== '').slice(0, AREA_LIMITS.columns) : null;
     const saved = shown.areas?.mode === 'strata' ? shown.areas.columns : [];
     const columns = asked ?? saved;
     const sameColumns = columns.length === saved.length && columns.every((c, i) => c.toLowerCase() === saved[i].toLowerCase());

@@ -40,7 +40,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
    - Data storage in SQLite or PostgreSQL
 
 4. **Integration Components**
-   - Google Earth integration via KML/KMZ files
+   - Google Earth Web, opened in the browser Collect Earth drives, with the plots map as a panel in it (Google Earth Desktop is not supported from 2.0)
    - Web browser integration for forms
    - The analysis of the data: the local dashboard's page (Tools > Analyse the data)
 
@@ -48,7 +48,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 1. **LocalPropertiesService**: Manages application configuration and settings
 2. **EarthSurveyService**: Handles survey definitions and data
-3. **KmlGeneratorService**: Creates KML/KMZ files for Google Earth visualization
+3. **KmlGeneratorService**: The plot shape's generator for the plot file, the project's files prepared at start (`prepareProjectFiles`), the KML export
 4. **DataImportExportService**: Manages import/export of data in various formats
 5. **BrowserService**: Handles browser integration for forms
 6. **IPCCGeneratorService**: Specialized processing for climate change reporting
@@ -58,11 +58,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 1. Application starts and initializes components:
    - EarthApp initializes UI and ServerController
    - ServerController starts Jetty with Spring MVC
-   - KML files generated for visualization in Google Earth
+   - The project's files prepared (paths, plot file, the balloon's files), the plots map and Google Earth Web opened
 
 2. Data collection process:
-   - User clicks a placemark in Google Earth
-   - Form opens in browser or Google Earth balloon
+   - User picks a plot in the plots map, beside Google Earth Web
+   - The form opens in the panel (the web form, or the project's own balloon with `web_form=balloon`)
    - User inputs data via form
    - Data sent to server via HTTP and saved to database
    - UI updated to reflect saved state

@@ -273,11 +273,13 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
     }
     const expired = invite.expiresAt !== null && invite.expiresAt < Date.now();
     const exhausted = invite.usedCount >= invite.maxUses;
+    const valid = !expired && !exhausted && !invite.revoked;
+    // A link that no longer lets anybody in names no project either
     return reply.send({
-      projectId: invite.projectId,
-      projectName: invite.projectName,
+      projectId: valid ? invite.projectId : '',
+      projectName: valid ? invite.projectName : '',
       role: invite.role,
-      valid: !expired && !exhausted && !invite.revoked,
+      valid,
     } satisfies JoinPreview);
   });
 
@@ -376,7 +378,9 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
         return reply.code(404).send({ error: 'not_found' });
       }
       noteActivity(request, { cepDownload: true }, { desktop: true });
-      const whole = config.localMode || request.membership!.role !== 'operator';
+      // The whole file, with the plots it brings, for coordinators: a reviewer's has them emptied as a collector's (its
+      // plot file lists every plot, the reference plots too; their own plots come as assigned plot files)
+      const whole = config.localMode || request.membership!.role === 'admin';
       const unreadable = (err: CepError) => request.log.warn({ err, projectId: request.membership!.projectId }, 'cep: the stored project file cannot be read to clean its settings; served as it is');
       return reply
         .header('content-type', 'application/zip')

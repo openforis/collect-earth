@@ -135,10 +135,16 @@ public class SampleFileCheckTest {
 		result = new CSVFileValidationResult(ErrorType.INVALID_NUMBER_OF_COLUMNS);
 		assertTrue(SampleFileCheck.isBlocking(check.check(file.getAbsolutePath())));
 
-		result = new CSVFileValidationResult(ErrorType.INVALID_NUMBER_OF_PLOTS_WARNING);
-		result.setNumberOfRows(5000);
-		problem = problems(check.check(file.getAbsolutePath())).get(0);
-		assertEquals(String.format(Messages.getString("JPlotCsvTable.tooLargeWarning"), 5000), problem.get("message"));
+		// Collect's warnings about the number of plots were Google Earth Pro's limits: not said any more
+		for (ErrorType size : new ErrorType[] { ErrorType.INVALID_NUMBER_OF_PLOTS_WARNING, ErrorType.INVALID_NUMBER_OF_PLOTS_TOO_LARGE }) {
+			result = new CSVFileValidationResult(size);
+			result.setNumberOfRows(5000);
+			assertTrue(problems(check.check(file.getAbsolutePath())).isEmpty(), size.name());
+		}
+		// what is said, past the plots Collect Earth is tested with: a warning, the file still used
+		assertEquals(null, SampleFileCheck.tooManyPlots(SampleFileCheck.MAX_PLOTS_TESTED));
+		problem = SampleFileCheck.tooManyPlots(SampleFileCheck.MAX_PLOTS_TESTED + 1);
+		assertEquals(String.format(Messages.getString("JPlotCsvTable.tooLargeWarning"), SampleFileCheck.MAX_PLOTS_TESTED + 1, SampleFileCheck.MAX_PLOTS_TESTED), problem.get("message"));
 		assertEquals(false, problem.get("blocking"));
 
 		result = new CSVFileValidationResult(ErrorType.INVALID_VALUES_IN_CSV);

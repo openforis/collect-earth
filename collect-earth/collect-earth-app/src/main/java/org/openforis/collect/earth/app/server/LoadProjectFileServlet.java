@@ -10,7 +10,6 @@ import javax.servlet.http.HttpServletResponse;
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.desktop.EarthApp;
 import org.openforis.collect.earth.app.service.EarthProjectsService;
-import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,9 +37,6 @@ public class LoadProjectFileServlet {
 
 	@Autowired
 	EarthProjectsService earthProjectsService;
-
-	@Autowired
-	LocalPropertiesService localPropertiesService;
 
 	@GetMapping("/" + SERVLET_NAME)
 	public void processRequest(HttpServletRequest request, HttpServletResponse response) {
@@ -73,8 +69,6 @@ public class LoadProjectFileServlet {
 		Thread loading = new Thread(() -> {
 			try {
 				if (earthProjectsService.loadCompressedProjectFile(projectZipFile)) {
-					localPropertiesService.nullifyChecksumValues();
-					// Re-generate KMZ
 					new Thread(
 							"Restarting server after double-clicking on CEP file : " + projectZipFile.getName()) { //$NON-NLS-1$
 						@Override

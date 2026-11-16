@@ -3,6 +3,7 @@ package org.openforis.collect.earth.app.server;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
@@ -20,6 +21,7 @@ import org.openforis.collect.earth.app.service.AbstractEarthSurveyService.PlotSt
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.KmlGeneratorService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
+import org.openforis.collect.earth.app.service.PlotFileIndex;
 import org.openforis.collect.earth.app.service.PlotGeoJsonBuilder;
 import org.openforis.collect.earth.core.utils.CsvReaderUtils;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
@@ -38,10 +40,15 @@ import com.opencsv.CSVReader;
 
 /**
  * Serves the plots map and web form pages (classpath assets under /leafletmap, built from the React
- * project in src/main/frontend) and the two
- * JSON endpoints it consumes: /plotsGeoJson (all plot geometries+properties)
- * and /plotStatuses (incremental id->status map for the live coloring, with a repeat survey's period status of each
- * plot).
+ * project in src/main/frontend) and the JSON they read: /plotsIndex (every plot of the plot file, by its id, the label
+ * the collector sees and its place: what the list and the next plot go by), /plotDetail (one plot with everything the
+ * form needs, and the outlines of the plots around it, when it is opened), /plotsGeoJson (the plots asked for, with
+ * their geometry and properties) and /plotStatuses (incremental id->status map for the live coloring, with a repeat
+ * survey's period status of each plot).
+ * <p>
+ * No answer holds every plot's geometry: with its sample points a plot is some 8 KB of it, so 20,000 plots made a
+ * 158 MB answer and 100,000 ran the server out of memory, while the collector only ever needs the plot open and its
+ * neighbours. The index holds a plot's row of the plot file, which the others are made from when asked.
  */
 @Controller
 public class LeafletMapController {
@@ -62,13 +69,14 @@ public class LeafletMapController {
 	private final Logger logger = LoggerFactory.getLogger(LeafletMapController.class);
 	private final PlotGeoJsonBuilder geoJsonBuilder = new PlotGeoJsonBuilder();
 
-	// /plotsGeoJson result cached against the CSV path + lastModified (guarded by
-	// the synchronized builder method; volatile for the fast-path read).
-	private volatile String cachedFeatureCollection;
-	private volatile String cachedCsvPath;
-	private volatile long cachedCsvLastModified;
-	/** Ids of the plots in {@link #cachedFeatureCollection}: the only ones the map asks the status of. */
-	private volatile Set<String> cachedPlotIds = Collections.emptySet();
+	/** The radius and the number of plots around the one opened whose outlines Google Earth Web draws */
+	static final double NEIGHBOURS_RADIUS_METERS = 3000;
+	static final int MAX_NEIGHBOURS = 300;
+	/** The most plots /plotsGeoJson gives at once when asked for some (the ids are in its address) */
+	static final int MAX_PLOTS_ASKED = 500;
+
+	@Autowired
+	private PlotFileIndex plotFileIndex;
 	private final com.fasterxml.jackson.databind.ObjectMapper json = new com.fasterxml.jackson.databind.ObjectMapper();
 
 	/** The files of the Vite build (see HttpCaching), read once from its manifest */
@@ -146,88 +154,144 @@ public class LeafletMapController {
 
 	// ---------- data endpoints ----------
 
-	@GetMapping("/plotsGeoJson")
-	public void plotsGeoJson(HttpServletResponse response) throws IOException {
+	/**
+	 * The plots of the plot file, in its order, as three lists of the same length: their ids (every key joined by ","),
+	 * the labels the collector sees them by (the keys not hidden; null when it is the id) and their latitudes and
+	 * longitudes. A few bytes a plot, whatever its shape: the list, the next plot to do and the neighbours go by it.
+	 */
+	@GetMapping("/plotsIndex")
+	public void plotsIndex(HttpServletResponse response) throws IOException {
 		response.setHeader("Content-Type", "application/json; charset=UTF-8");
 		String body;
 		try {
 			String csvFile = localPropertiesService.getCsvFile();
 			String version = plotsVersion(csvFile);
 			if (version.isEmpty()) {
-				// No survey plot file loaded yet: this is a valid, final state (not an error).
-				// Return an empty FeatureCollection with a warning so the page shows a banner
-				// instead of NPEing into a 500 and entering an endless retry loop.
-				body = "{\"type\":\"FeatureCollection\",\"features\":[],\"warning\":\"No survey plot file loaded\"}";
+				// No plot file yet: a valid, final state; the page says so instead of trying again forever
+				body = "{\"plots\":\"\",\"ids\":[],\"labels\":[],\"latitudes\":[],\"longitudes\":[],\"warning\":\"No survey plot file loaded\"}";
 			} else {
-				body = getOrBuildFeatureCollection(csvFile);
+				body = plotFileIndex.indexOf(csvFile).json;
 			}
-			// The plot file these plots are of, which the statuses tell too (see plotStatuses)
-			body = "{\"plots\":" + json.writeValueAsString(version) + "," + body.substring(1);
 		} catch (Exception e) {
-			logger.error("Error generating plots GeoJSON", e);
+			logger.error("Error reading the plot file for the plots map", e);
 			response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
 			body = json.writeValueAsString(Collections.singletonMap("error", String.valueOf(e.getMessage())));
 		}
+		write(response, body);
+	}
+
+	/**
+	 * One plot, when it is opened: its feature (the geometry with the sample points, and every column of its row, which
+	 * the project's own balloon is filled with), and the outline of each plot within NEIGHBOURS_RADIUS_METERS, the
+	 * nearest first, itself included, for Google Earth Web to draw around it. 404 for a plot not in the plot file.
+	 */
+	@GetMapping("/plotDetail")
+	public void plotDetail(HttpServletResponse response, @RequestParam("id") String id) throws IOException {
+		response.setHeader("Content-Type", "application/json; charset=UTF-8");
 		try {
-			response.getOutputStream().write(body.getBytes("UTF-8"));
-		} catch (IOException clientAbort) {
-			// The browser navigated away / reloaded while the (potentially large)
-			// response was streaming - routine, not a server error.
-			logger.debug("Client aborted the plots GeoJSON download", clientAbort);
+			String csvFile = localPropertiesService.getCsvFile();
+			String version = plotsVersion(csvFile);
+			PlotFileIndex.PlotIndex index = version.isEmpty() ? null : plotFileIndex.indexOf(csvFile);
+			Integer at = index == null ? null : index.position.get(id);
+			if (at == null) {
+				response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+				write(response, "{\"error\":\"not_found\"}");
+				return;
+			}
+			KmlGenerator generator = index.generator;
+			StringBuilder sb = new StringBuilder("{\"plots\":").append(json.writeValueAsString(version));
+			sb.append(",\"feature\":").append(geoJsonBuilder.toFeature(fullPlot(generator, index, at)));
+			sb.append(",\"near\":[");
+			boolean first = true;
+			for (int near : index.near(at, NEIGHBOURS_RADIUS_METERS, MAX_NEIGHBOURS)) {
+				try {
+					List<double[]> outline = PlotGeoJsonBuilder.outline(fullPlot(generator, index, near));
+					if (outline == null) continue;
+					Map<String, Object> plot = new LinkedHashMap<>();
+					plot.put("id", index.ids[near]);
+					plot.put("outline", outline);
+					if (!first) sb.append(',');
+					sb.append(json.writeValueAsString(plot));
+					first = false;
+				} catch (Exception rowError) {
+					logger.debug("No outline for plot {}", index.ids[near]);
+				}
+			}
+			write(response, sb.append("]}").toString());
+		} catch (Exception e) {
+			logger.error("Error reading the plot " + id, e);
+			response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+			write(response, json.writeValueAsString(Collections.singletonMap("error", String.valueOf(e.getMessage()))));
 		}
 	}
 
 	/**
-	 * Builds the FeatureCollection, cached against the CSV file path + lastModified
-	 * so page reloads and racing startup requests do not redo the per-plot
-	 * coordinate transforms for the whole grid. Synchronized: concurrent first
-	 * requests would otherwise each rebuild the full collection.
+	 * The plots asked for (`ids`, joined by "|": a plot id has commas), at most MAX_PLOTS_ASKED, as a GeoJSON
+	 * FeatureCollection with their geometry and properties; without `ids` every plot, written as it is made (no answer
+	 * kept in memory), for what still asks for them all.
 	 */
-	private synchronized String getOrBuildFeatureCollection(String csvFile) throws Exception {
-		File csv = new File(csvFile);
-		if (cachedFeatureCollection != null && csvFile.equals(cachedCsvPath)
-				&& csv.lastModified() == cachedCsvLastModified) {
-			return cachedFeatureCollection;
+	@GetMapping("/plotsGeoJson")
+	public void plotsGeoJson(HttpServletResponse response, @RequestParam(value = "ids", required = false) String ids) throws IOException {
+		response.setHeader("Content-Type", "application/json; charset=UTF-8");
+		String csvFile = localPropertiesService.getCsvFile();
+		String version = plotsVersion(csvFile);
+		if (version.isEmpty()) {
+			write(response, "{\"plots\":\"\",\"type\":\"FeatureCollection\",\"features\":[],\"warning\":\"No survey plot file loaded\"}");
+			return;
 		}
-		KmlGenerator kmlGenerator = kmlGeneratorService.getKmlGenerator();
-		StringBuilder sb = new StringBuilder("{\"type\":\"FeatureCollection\",\"features\":[");
-		Set<String> plotIds = new HashSet<>();
-		boolean first = true;
-		try (CSVReader reader = CsvReaderUtils.getCsvReader(csvFile)) {
-			String[] csvRow;
-			String[] headerRow = null;
-			while ((csvRow = reader.readNext()) != null) {
-				// The first row names the columns, as in the KML generation. Without it the plot properties carried no
-				// CSV column ( round, climate, ... ) and the $[EXTRA_*] of the form stayed unsubstituted
-				if (headerRow == null) {
-					headerRow = csvRow;
-				}
-				try {
-					SimplePlacemarkObject plot = kmlGenerator.getPlotObject(csvRow, headerRow,
-							earthSurveyService.getCollectSurvey(), false);
-					kmlGenerator.fillSamplePoints(plot);
-					kmlGenerator.fillExternalLine(plot);
-					if (!first) sb.append(',');
-					sb.append(geoJsonBuilder.toFeature(plot));
-					plotIds.add(plot.getPlacemarkId());
-					first = false;
-				} catch (Exception rowError) {
-					// header row or malformed row - skip (same tolerance as the KML generation)
-					logger.debug("Skipping CSV row: {}", (Object) csvRow);
+		try {
+			PlotFileIndex.PlotIndex index = plotFileIndex.indexOf(csvFile);
+			KmlGenerator generator = index.generator;
+			List<Integer> wanted = new java.util.ArrayList<>();
+			if (ids == null) {
+				for (int i = 0; i < index.ids.length; i++) wanted.add(i);
+			} else {
+				for (String id : ids.split("\\|", MAX_PLOTS_ASKED + 1)) {
+					Integer at = index.position.get(id);
+					if (at != null && wanted.size() < MAX_PLOTS_ASKED) wanted.add(at);
 				}
 			}
+			java.io.OutputStream out = response.getOutputStream();
+			out.write(("{\"plots\":" + json.writeValueAsString(version) + ",\"type\":\"FeatureCollection\",\"features\":[").getBytes(StandardCharsets.UTF_8));
+			boolean first = true;
+			for (int at : wanted) {
+				String feature;
+				try {
+					feature = geoJsonBuilder.toFeature(fullPlot(generator, index, at));
+				} catch (Exception rowError) {
+					logger.debug("Skipping plot {}", index.ids[at]);
+					continue;
+				}
+				out.write(((first ? "" : ",") + feature).getBytes(StandardCharsets.UTF_8));
+				first = false;
+			}
+			out.write("]}".getBytes(StandardCharsets.UTF_8));
+		} catch (IOException clientAbort) {
+			// The browser navigated away while the answer was written - routine, not a server error
+			logger.debug("Client aborted the plots GeoJSON download", clientAbort);
+		} catch (Exception e) {
+			logger.error("Error generating plots GeoJSON", e);
+			if (!response.isCommitted()) {
+				response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+				write(response, json.writeValueAsString(Collections.singletonMap("error", String.valueOf(e.getMessage()))));
+			}
 		}
-		sb.append("]}");
-		cachedCsvPath = csvFile;
-		cachedCsvLastModified = csv.lastModified();
-		cachedPlotIds = plotIds;
-		cachedFeatureCollection = sb.toString();
-		return cachedFeatureCollection;
 	}
 
-	private Set<String> plotIdsOf(String csvFile) throws Exception {
-		getOrBuildFeatureCollection(csvFile);
-		return cachedPlotIds;
+	private void write(HttpServletResponse response, String body) {
+		try {
+			response.getOutputStream().write(body.getBytes(StandardCharsets.UTF_8));
+		} catch (IOException clientAbort) {
+			logger.debug("Client aborted the answer", clientAbort);
+		}
+	}
+
+	/** A plot as the map draws it: its row made into the plot, with its sample points and its outline. */
+	private SimplePlacemarkObject fullPlot(KmlGenerator generator, PlotFileIndex.PlotIndex index, int at) throws Exception {
+		SimplePlacemarkObject plot = generator.getPlotObject(index.rows[at], index.header, earthSurveyService.getCollectSurvey(), false);
+		generator.fillSamplePoints(plot);
+		generator.fillExternalLine(plot);
+		return plot;
 	}
 
 	/**
@@ -273,7 +337,7 @@ public class LeafletMapController {
 			// The next-poll cursor must lag behind the wall clock: records saved through
 			// the deferred/write-behind path get their modifiedDate stamped up to ~1.5s
 			// before the DB write lands, so an exact "now" cursor would skip them forever.
-			// Same overlap-window pattern as PlacemarkUpdateServlet.getTwoMinutesAgo().
+			// (Google Earth Pro's icon refresh had the same overlap window.)
 			long now = System.currentTimeMillis() - STATUS_CURSOR_OVERLAP_MILLIS;
 			Map<String, String> statuses = new LinkedHashMap<>();
 			// A repeat survey's: what the collector said of each plot against the earlier period ("" when not answered),
@@ -285,7 +349,7 @@ public class LeafletMapController {
 			// piled up until the browser had no connection left to load the page with
 			String csvFile = localPropertiesService.getCsvFile();
 			String version = plotsVersion(csvFile);
-			Set<String> plotIds = !version.isEmpty() ? plotIdsOf(csvFile) : Collections.emptySet();
+			Set<String> plotIds = !version.isEmpty() ? plotFileIndex.indexOf(csvFile).idSet : Collections.emptySet();
 			List<CollectRecordSummary> summaries = plotIds.isEmpty() ? null : earthSurveyService.getRecordSummariesSavedSince(since);
 			if (summaries != null) {
 				for (CollectRecordSummary summary : summaries) {

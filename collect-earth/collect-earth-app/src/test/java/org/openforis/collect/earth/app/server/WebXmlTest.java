@@ -44,10 +44,10 @@ public class WebXmlTest {
 			}
 		}
 		for (String pattern : new String[] { "/api/*", "/googleEarthWeb/*", "/imagery/*", "/balloon", "/plotsGeoJson",
-				"/plotStatuses", "/surveyForm/*" }) {
+				"/plotsIndex", "/plotDetail", "/plotStatuses", "/surveyForm/*" }) {
 			assertTrue(patterns.get(OWN_PAGES).contains(pattern), pattern);
 		}
-		for (String pattern : new String[] { "/openInBrowser", "/placemark-info-expanded", "/save-data-expanded",
+		for (String pattern : new String[] { "/placemark-info-expanded", "/save-data-expanded",
 				"/create-entity", "/delete-entity", "/plot-activity" }) {
 			assertTrue(patterns.get(OWN_PAGES_OR_GEP).contains(pattern), pattern);
 		}

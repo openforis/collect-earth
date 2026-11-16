@@ -39,7 +39,7 @@ import org.springframework.web.context.support.WebApplicationContextUtils;
  * A request with neither Sec-Fetch-Site nor Origin is let through if its Host is right: it is not from a page a browser
  * shows (or from a browser too old to say).
  * <p>
- * The endpoints Google Earth Pro's balloons call too (the plot data, /openInBrowser) get it with the init-param
+ * The endpoints Google Earth Pro's balloons call too (the plot data) get it with the init-param
  * {@code allowGoogleEarthPro}: a balloon is no page of this server, and may send an Origin that is no web address
  * ("null", file://), which is let through there; a web address of another site and the Sec-Fetch-Site of a browser's
  * cross-site request are refused all the same. /openAuxiliaryWindows and /ancillaryWindows are not guarded: what

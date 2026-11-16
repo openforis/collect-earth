@@ -19,24 +19,16 @@ import javax.servlet.http.HttpServletResponse;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.EarthConstants;
-import org.openforis.collect.earth.app.desktop.ServerController;
-import org.openforis.collect.earth.app.service.BrowserNotFoundException;
-import org.openforis.collect.earth.app.service.BrowserService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
-import org.openqa.selenium.remote.RemoteWebDriver;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 /**
- * This servlet is called by the balloon (KML pop-up form) when it is open and the user has chosen to see the form in a separate browser
- * window.
- * In that case a special HTML is used whose sole purpose is to load an invisible iframe that calls the URL localhot/openInBrowser
- * This causes a new browser window to open and then the browser is redirected to another URL ( localhost/balloon ) that contains the actual HTML
- * form.
- * The functionality is used mostly for LINUX users due to the different bugs present in Google Earth for LINUX which makes the Bootstrap library
- * fail.
+ * Serves the project file's own form (its balloon) to the panel of the plots map, when the project asks for it
+ * (web_form=balloon), with its placeholders replaced by the plot's values and its files (earthFiles/, webFiles/) taken
+ * from the folder the server serves them from (KmlGeneratorService.prepareProjectFiles).
  *
  * @author Alfonso Sanchez-Paus Diaz
  *
@@ -45,41 +37,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 public class BalloonServlet extends DataAccessingServlet {
 
 	@Autowired
-	private BrowserService browserService;
-
-	@Autowired
 	private LocalPropertiesService localPropertiesService;
 
-	private RemoteWebDriver webKitDriver = null;
-
 	private static final String BALLOON_EXTERNAL_URL = "balloon"; //$NON-NLS-1$
-
-	private String buildGetParameters(Map<String, String[]> parameterMap) {
-		final StringBuilder getParameters = new StringBuilder();
-		final Set<Entry<String, String[]>> entrySet = parameterMap.entrySet();
-		for (final Entry<String, String[]> entry : entrySet) {
-			getParameters.append(entry.getKey()).append("=").append(entry.getValue()[0]).append("&"); //$NON-NLS-1$ //$NON-NLS-2$
-		}
-		return getParameters.toString();
-	}
-
-	@GetMapping("/openInBrowser")
-	public void openInBrowser(HttpServletResponse response, HttpServletRequest request, String imageName) {
-		String url = ServerController.getHostAddress(localPropertiesService.getHost(), localPropertiesService.getLocalPort());
-		url = url + BALLOON_EXTERNAL_URL + "?" + buildGetParameters(request.getParameterMap()); //$NON-NLS-1$
-		final String fUrl = url;
-		final Thread openBrowser = new Thread("Open URL in browser : " + fUrl) {
-			@Override
-			public void run() {
-				try {
-					webKitDriver = browserService.navigateTo(fUrl, webKitDriver, false);
-				} catch (BrowserNotFoundException e) {
-					logger.error("No browser found", e); //$NON-NLS-1$
-				}
-			}
-		};
-		openBrowser.start();
-	}
 
 	static String replaceGoalsWithParameters(String htmlWithGoals, Map<String, String[]> parameterMap) {
 		final Set<Entry<String, String[]>> entrySet = parameterMap.entrySet();
