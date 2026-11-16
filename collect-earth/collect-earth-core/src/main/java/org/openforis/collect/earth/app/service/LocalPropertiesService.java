@@ -108,6 +108,8 @@ public class LocalPropertiesService extends Observable {
 				EARTH_MAP_AOI("earth_map_aoi"),
 				GEEAPP_FROM_DATE("geeapp_date_from"),
 				GEEAPP_TO_DATE("geeapp_date_to"),
+				/** The survey's configuration of the Explorer window (its layers and charts), a JSON document passed as it is */
+				EXPLORER_CONFIG("explorer_config"),
 				OPEN_ESRI_WAYBACK("open_esri_wayback"),
 				/** Share of the height of Google Earth Web's view a plot fills (0.375 when not set), see GoogleEarthWebUrls */
 				GEW_PLOT_VIEW_SHARE("gew_plot_view_share"),

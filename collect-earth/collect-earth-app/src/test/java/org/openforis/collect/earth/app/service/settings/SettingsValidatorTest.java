@@ -12,6 +12,7 @@ import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.commons.lang3.StringUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.openforis.collect.earth.app.view.Messages;
@@ -124,6 +125,22 @@ public class SettingsValidatorTest {
 						.get("geeapp_date_to"));
 		// Not checked while the GEE App is off
 		assertTrue(validator.validate(values("open_gee_app", "false", "geeapp_date_from", "yesterday")).isValid());
+	}
+
+	@Test
+	public void theExplorerConfigurationIsBlankOrAJsonObjectOfAtMost2000Characters() {
+		assertTrue(validator.validate(values("open_gee_app", "true", "explorer_config", "")).isValid());
+		assertTrue(validator.validate(values("open_gee_app", "true", "explorer_config", "{\"v\":1,\"layers\":[{\"type\":\"landsat\"}]}")).isValid());
+		String longest = "{\"label\":\"" + StringUtils.repeat('a', 2000 - 12) + "\"}";
+		assertEquals(2000, longest.length());
+		assertTrue(validator.validate(values("open_gee_app", "true", "explorer_config", longest)).isValid());
+		for (String refused : new String[] { "{\"label\":\"" + StringUtils.repeat('a', 2000 - 11) + "\"}", "[]", "\"x\"", "null", "5",
+				"{\"v\":1", "landsat" }) {
+			assertEquals(Messages.getString("SettingsPage.explorerConfig.invalid"),
+					validator.validate(values("open_gee_app", "true", "explorer_config", refused)).getErrors().get("explorer_config"), refused);
+		}
+		// Not checked while the window is off
+		assertTrue(validator.validate(values("open_gee_app", "false", "explorer_config", "landsat")).isValid());
 	}
 
 	@Test

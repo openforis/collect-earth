@@ -67,7 +67,22 @@ public class CloudCoordinatorSettingsTest {
 		assertTrue(imagery.contains(EarthProperty.OPEN_GEE_APP));
 		assertTrue(imagery.contains(EarthProperty.EXTRA_MAP_URL));
 		assertTrue(imagery.contains(EarthProperty.PLANET_TFO_DATE_TO));
+		assertTrue(imagery.contains(EarthProperty.EXPLORER_CONFIG));
 		assertFalse(imagery.contains(EarthProperty.PLANET_MAPS_KEY));
+	}
+
+	@Test
+	public void aChangedExplorerConfigurationIsWrittenAndTheCollectorTold() {
+		String config = "{\"v\":1,\"layers\":[{\"type\":\"landsat\"}]}";
+		serverImagery.put("explorer_config", config);
+
+		Map<String, String> changed = layout.check();
+
+		assertEquals(1, changed.size());
+		assertEquals(config, stored.get("explorer_config"));
+		assertEquals(1, reloads.get());
+		assertEquals(CloudCoordinatorSettings.NOTICE_IMAGERY, notices.pending().get(0).get("kind"));
+		assertTrue(layout.check().isEmpty());
 	}
 
 	@Test

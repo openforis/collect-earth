@@ -19,6 +19,8 @@ import org.openforis.collect.earth.app.view.Messages;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 /**
  * The rules of the settings, which the Swing dialog ran in its InputVerifiers (PropertyValidators,
  * ReferenceAreaDistanceVerifier) and its panels, run by the server for the page: on every change while the user
@@ -31,6 +33,7 @@ public class SettingsValidator {
 	private static final LocalDate FIRST_GEE_DATE = LocalDate.of(2000, 1, 1);
 	private static final int MIN_PORT = 1;
 	private static final int MAX_PORT = 65535;
+	private static final int EXPLORER_CONFIG_MAX = 2000;
 
 	private final SettingsModel model;
 	private final Supplier<LocalDate> today;
@@ -116,6 +119,10 @@ public class SettingsValidator {
 			checkAssignedPlotFile(key, trimmed, values, validation);
 		} else if (property == EarthProperty.EXTRA_MAP_URL) {
 			checkExtraMapUrl(key, trimmed, validation);
+		} else if (property == EarthProperty.EXPLORER_CONFIG) {
+			if (!trimmed.isEmpty() && !isExplorerConfig(trimmed)) {
+				validation.error(key, Messages.getString("SettingsPage.explorerConfig.invalid"));
+			}
 		} else if (property == EarthProperty.GEEAPP_TO_DATE) {
 			String from = Condition.valueOf(values, EarthProperty.GEEAPP_FROM_DATE.toString()).trim();
 			if (!trimmed.isEmpty() && isDateWithin(from, FIRST_GEE_DATE, today.get()) && LocalDate.parse(from).isAfter(LocalDate.parse(trimmed))) {
@@ -198,6 +205,18 @@ public class SettingsValidator {
 			validation.warning(key, Messages.getString("SettingsPage.extraMap.noPlaceholder"));
 		} else if (latitude != longitude) {
 			validation.warning(key, Messages.getString("SettingsPage.extraMap.latLong"));
+		}
+	}
+
+	/** A JSON object no longer than the cloud server stores; what it holds is the Explorer's to judge */
+	private static boolean isExplorerConfig(String value) {
+		if (value.length() > EXPLORER_CONFIG_MAX) {
+			return false;
+		}
+		try {
+			return new ObjectMapper().readTree(value).isObject();
+		} catch (IOException e) {
+			return false;
 		}
 	}
 

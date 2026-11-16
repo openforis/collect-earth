@@ -153,12 +153,13 @@ public class SettingsModelTest {
 				"open_planet_maps", "true", "planet_maps_key", "PLAK123", "planet_maps_use_tfo", "true"));
 		assertFalse(postgres.contains("automatic_backup"));
 		assertTrue(postgres.containsAll(Arrays.asList("db_host", "db_port", "db_name", "db_username", "db_password")));
-		assertTrue(postgres.containsAll(Arrays.asList("geeapp_date_from", "geeapp_date_to",
+		assertTrue(postgres.containsAll(Arrays.asList("geeapp_date_from", "geeapp_date_to", "explorer_config",
 				"planet_maps_key", "planet_maps_use_tfo", "planet_tfo_date_from", "planet_tfo_date_to")));
 		assertFalse(postgres.contains("open_separate_browser_form"));
 		List<String> cloud = visibleKeys(values("db_driver", "CLOUD", "open_gee_app", "false", "planet_maps_key", "PLAK123"));
 		assertTrue(cloud.contains("automatic_backup"));
 		assertFalse(cloud.contains("geeapp_date_from"));
+		assertFalse(cloud.contains("explorer_config"));
 		assertFalse(cloud.contains("planet_tfo_date_from"));
 		assertTrue(cloud.containsAll(Arrays.asList("cloud_sync_url", "cloud_project_id", "cloud_sync_token")));
 		// A local project has no cloud server, project or token to show

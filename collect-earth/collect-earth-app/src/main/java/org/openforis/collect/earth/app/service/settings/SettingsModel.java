@@ -199,6 +199,9 @@ public final class SettingsModel {
 				Setting.bool(EarthProperty.OPEN_GEE_APP, "OptionWizard.136").tooltip("SettingsPage.geeApp.tooltip").defaultValue("true"),
 				Setting.date(EarthProperty.GEEAPP_FROM_DATE, "OptionWizard.121").tooltip("OptionWizard.1038").visibleWhen(GEE_APP),
 				Setting.date(EarthProperty.GEEAPP_TO_DATE, "OptionWizard.122").tooltip("OptionWizard.1039").visibleWhen(GEE_APP),
+				// In this section so that a cloud project's coordinator sets it (coordinatorsSection)
+				Setting.text(EarthProperty.EXPLORER_CONFIG, "SettingsPage.explorerConfig").tooltip("SettingsPage.explorerConfig.tooltip")
+						.visibleWhen(GEE_APP),
 				Setting.bool(EarthProperty.OPEN_EARTH_MAP, "OptionWizard.105").tooltip("SettingsPage.earthMap.tooltip").defaultValue("false"),
 				Setting.bool(EarthProperty.OPEN_ESRI_WAYBACK, "OptionWizard.144").tooltip("SettingsPage.esriWayback.tooltip").defaultValue("false"),
 				// A switch as the other windows have; the key, each person's own, is kept when it is off

@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.CloudBinding;
+import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 
 public class EarthProjectsServiceTest {
 
@@ -35,11 +36,31 @@ public class EarthProjectsServiceTest {
 	}
 
 	private File project(String name) throws IOException {
+		return project(name, "");
+	}
+
+	private File project(String name, String moreProperties) throws IOException {
 		File project = new File(folder, name);
 		assertTrue(project.mkdir());
 		Files.write(new File(project, "project_definition.properties").toPath(),
-				("survey_name=" + name + "\nmetadata_file=${project_path}/placemark.idm.xml\n").getBytes(StandardCharsets.UTF_8));
+				("survey_name=" + name + "\nmetadata_file=${project_path}/placemark.idm.xml\n" + moreProperties).getBytes(StandardCharsets.UTF_8));
 		return project;
+	}
+
+	/** A project file's Explorer configuration is the survey's: loaded with it, and not kept for a project without one. */
+	@Test
+	public void theExplorerConfigurationOfAProjectFileIsLoadedAndNotKeptForTheNextProject() throws IOException {
+		LocalPropertiesService properties = new LocalPropertiesService(new Properties());
+		EarthProjectsService projects = new EarthProjectsService();
+		projects.init(properties);
+		File dry = project("dry", "explorer_config={\"v\"\\:1,\"layers\"\\:[{\"type\"\\:\"landsat\"}]}\n");
+		File plain = project("plain");
+
+		assertTrue(projects.loadProjectInFolder(dry));
+		assertEquals("{\"v\":1,\"layers\":[{\"type\":\"landsat\"}]}", properties.getValue(EarthProperty.EXPLORER_CONFIG));
+
+		assertTrue(projects.loadProjectInFolder(plain));
+		assertEquals("", properties.getValue(EarthProperty.EXPLORER_CONFIG));
 	}
 
 	/** Two cloud projects on two servers and a local one, opened in turn: each keeps its own mode, server and account. */
