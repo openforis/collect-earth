@@ -49,9 +49,13 @@ const catalogue: Catalogue = {
         collapsed: { type: "bool", default: false },
       },
     },
+    "landsat-series": {
+      title: "Landsat index series",
+      params: { index: { type: "choice", values: indices, default: "NDVI" }, formula: { type: "formula", max: 200 } },
+    },
   },
   indices: { NDVI: "(nir - red) / (nir + red)", EVI: "2.5 * (nir - red) / (nir + 6 * red - 7.5 * blue + 1)", NBR: "(nir - swir2) / (nir + swir2)" },
-  bands: { "sentinel2-series": ["blue", "green", "red", "nir", "swir1", "swir2", "rededge1", "rededge2", "rededge3"] },
+  bands: { "landsat-series": ["blue", "green", "red", "nir", "swir1", "swir2"], "sentinel2-series": ["blue", "green", "red", "nir", "swir1", "swir2", "rededge1", "rededge2", "rededge3"] },
   standard: { v: 1, layers: [{ type: "sentinel2" }, { type: "landsat" }], charts: [{ type: "ccdc" }, { type: "sentinel2-series" }] },
 };
 
@@ -141,6 +145,24 @@ describe("entryErrors", () => {
     expect(errors("charts", "ccdc", { collapsed: "yes" })).toEqual({ collapsed: "invalid" });
   });
 
+  it("refuses a formula the Explorer would not understand, for the chart's own bands", () => {
+    for (const formula of ["foo + 1", "2 * 3", "(nir - red", "nir +", "sqrt nir", "nir red", "nir\t/ red", "nir /\nred"])
+      expect(errors("charts", "sentinel2-series", { formula }), formula).toEqual({ formula: "formula" });
+    expect(errors("charts", "landsat-series", { formula: "rededge1 / nir" })).toEqual({ formula: "formula" });
+    expect(errors("charts", "sentinel2-series", { formula: "(nir - red) / (nir + red)" })).toEqual({});
+    expect(errors("charts", "sentinel2-series", { formula: "sqrt(nir) - 2 * rededge1" })).toEqual({});
+  });
+
+  it("refuses control characters in a text, as the server does", () => {
+    for (const label of ["a\tb", "a\nb", "a\u0000b", "a\u007fb"]) expect(errors("layers", "landsat", { label }), label).toEqual({ label: "textChars" });
+  });
+
+  it("treats a text or formula of spaces as blank: no error, not stored", () => {
+    expect(errors("layers", "landsat", { label: "   " })).toEqual({});
+    expect(errors("charts", "sentinel2-series", { name: " ", formula: "  ", index: "NBR" })).toEqual({});
+    expect(serialiseDoc({ ...standard, layers: [{ type: "sentinel2", params: { label: "  " } }, { type: "landsat", params: {} }] }, catalogue)).toBe("");
+  });
+
   it("asks for a Sentinel-2 window with both dates, start first, at most 1,096 days", () => {
     expect(errors("layers", "sentinel2", { start: "2019-06-01" })).toEqual({ end: "bothDates" });
     expect(errors("layers", "sentinel2", { end: "2019-06-01" })).toEqual({ start: "bothDates" });
@@ -186,7 +208,7 @@ describe("list helpers", () => {
 describe("messages", () => {
   it("has an English message for every error code (all languages have the English keys: i18n.test.ts)", () => {
     const codes: Record<EntryError, true> = {
-      invalid: true, number: true, year: true, yearOrder: true, date: true, textLength: true, textChars: true, formulaLength: true,
+      invalid: true, number: true, year: true, yearOrder: true, date: true, textLength: true, textChars: true, formulaLength: true, formula: true,
       bothDates: true, dateOrder: true, window: true, yearOrWindow: true, indexOrFormula: true,
     };
     for (const code of Object.keys(codes)) expect(Object.hasOwn(CATALOGUES.en, `file.explorer.error.${code}`), code).toBe(true);

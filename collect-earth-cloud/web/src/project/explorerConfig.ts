@@ -16,14 +16,16 @@ export type Entry = { type: string; params: Record<string, unknown> };
 export type Doc = { layers: Entry[]; charts: Entry[] };
 /** Why a field is refused; the form shows the message file.explorer.error.<code>. */
 export type EntryError =
-  | "invalid" | "number" | "year" | "yearOrder" | "date" | "textLength" | "textChars" | "formulaLength"
+  | "invalid" | "number" | "year" | "yearOrder" | "date" | "textLength" | "textChars" | "formulaLength" | "formula"
   | "bothDates" | "dateOrder" | "window" | "yearOrWindow" | "indexOrFormula";
 
 export const EXPLORER_CONFIG_MAX = 2000;
 const MAX_WINDOW_DAYS = 1096;
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
-const isBlank = (v: unknown) => v === undefined || v === "";
+const isBlank = (v: unknown) => v === undefined || (typeof v === "string" && v.trim() === "");
+/** What the server refuses inside the document's texts (collect-earth-cloud/src/imagery.ts CONTROL). */
+const CONTROL = /[\u0000-\u001f\u007f]/;
 
 /** The stored document as the form shows it, and whether reading it dropped something (saving would remove it). */
 export function parseDoc(stored: string, catalogue: Catalogue): { doc: Doc; unknown: boolean } {
@@ -90,7 +92,50 @@ export const docSize = (doc: Doc, catalogue: Catalogue) => serialiseDoc(doc, cat
 const isDate = (v: unknown) =>
   typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v)) && new Date(v).toISOString().startsWith(v);
 
-function paramError(spec: ParamSpec, value: unknown, thisYear: number): EntryError | null {
+const FUNCTIONS = ["sqrt", "abs", "min", "max", "pow"];
+const TOKEN = /\s+|(\d+(?:\.\d*)?|\.\d+)|([A-Za-z_]\w*)|([-+*/(),])/y;
+
+// Mirrors collect-earth-explorer/web/src/lib/config.ts formulaOk (itself mirroring functions/lib/formula.js checkFormula).
+function formulaOk(text: unknown, bands: string[]): boolean {
+  if (typeof text !== "string" || text.length > 200 || text.trim() === "") return false;
+  let prev = "start", depth = 0, usesBand = false, pos = 0;
+  while (pos < text.length) {
+    TOKEN.lastIndex = pos;
+    const m = TOKEN.exec(text);
+    if (!m) return false;
+    const [, number, name, symbol] = m;
+    const afterOperand = prev === "operand";
+    if (number === undefined && name === undefined && symbol === undefined) {
+      // whitespace
+    } else if (FUNCTIONS.includes(prev) && symbol !== "(") return false;
+    else if (number !== undefined || name !== undefined) {
+      if (afterOperand) return false;
+      if (name !== undefined && FUNCTIONS.includes(name)) prev = name;
+      else {
+        if (name !== undefined && !bands.includes(name)) return false;
+        if (name !== undefined) usesBand = true;
+        prev = "operand";
+      }
+    } else if (symbol === "(") {
+      if (afterOperand) return false;
+      depth++;
+      prev = "(";
+    } else if (symbol === ")") {
+      if (!afterOperand || --depth < 0) return false;
+      prev = "operand";
+    } else if (symbol === ",") {
+      if (!afterOperand || depth === 0) return false;
+      prev = ",";
+    } else {
+      if (!afterOperand && symbol !== "-") return false;
+      prev = "operator";
+    }
+    pos = TOKEN.lastIndex;
+  }
+  return depth === 0 && prev === "operand" && usesBand;
+}
+
+function paramError(spec: ParamSpec, value: unknown, thisYear: number, bands: string[]): EntryError | null {
   const isYear = (y: unknown) => Number.isInteger(y) && (y as number) >= spec.min! && (y as number) <= thisYear;
   switch (spec.type) {
     case "choice": return spec.values!.includes(value as string) ? null : "invalid";
@@ -103,8 +148,11 @@ function paramError(spec: ParamSpec, value: unknown, thisYear: number): EntryErr
     case "date": return isDate(value) ? null : "date";
     case "text":
       if (typeof value !== "string" || value.length > spec.max!) return "textLength";
-      return /[<>]/.test(value) ? "textChars" : null;
-    case "formula": return typeof value === "string" && value.length <= spec.max! ? null : "formulaLength";
+      return /[<>]/.test(value) || CONTROL.test(value) ? "textChars" : null;
+    case "formula":
+      if (typeof value !== "string" || value.length > spec.max!) return "formulaLength";
+      // The Explorer's TOKEN takes tabs and line breaks as spaces, the server refuses them in the document
+      return !CONTROL.test(value) && formulaOk(value, bands) ? null : "formula";
     default: return "invalid";
   }
 }
@@ -115,7 +163,7 @@ export function entryErrors(kind: Kind, entry: Entry, catalogue: Catalogue, this
   const p = entry.params;
   const errors: Record<string, EntryError> = {};
   for (const [name, spec] of Object.entries(specs)) {
-    const error = isBlank(p[name]) ? null : paramError(spec, p[name], thisYear);
+    const error = isBlank(p[name]) ? null : paramError(spec, p[name], thisYear, catalogue.bands[entry.type] ?? []);
     if (error) errors[name] = error;
   }
   const has = (name: string) => !isBlank(p[name]);

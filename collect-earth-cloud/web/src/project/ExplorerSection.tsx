@@ -146,7 +146,7 @@ function ParamField({ name, spec, value, error, thisYear, bands, onChange }: {
   const id = useId();
   const label = textOr(t, `file.explorer.param.${name}`, name);
   const max = spec.type === "year" || spec.type === "yearRange" ? thisYear : spec.max;
-  const message = error ? t(`file.explorer.error.${error}` as MessageKey, { min: spec.min ?? "", max: max ?? "" }) : undefined;
+  const message = error ? t(`file.explorer.error.${error}` as MessageKey, { min: spec.min ?? "", max: max ?? "", bands: bands.join(", ") }) : undefined;
   const toNumber = (text: string) => (text === "" ? undefined : Number(text));
   const shown = (v: unknown) => (v === undefined || v === null ? "" : String(v));
   const common = { fullWidth: true, size: "small" as const, label, error: !!error, helperText: message };
