@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { idsNotFittingKeys } from '../plots.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import { areaContains, areaFromGeoJson, areaFromShapefileZip, DesignError, MAX_DESIGN_PLOTS, plotFileCsv, type AreaOfInterest } from '../plotDesign.js';
+import { projectExtraColumns } from '../projectPlots.js';
 import { fileKeyCount } from '../rounds.js';
 import { SIGRID_COUNTRIES } from '../sigridCountries.js';
 import { selects, SIGRID_SPACINGS, sigridCountry, sigridCounts, SigridError, sigridPlots, type SigridSelection } from '../sigrid.js';
@@ -120,7 +121,8 @@ export async function registerSigridRoutes(app: FastifyInstance, store: Store, p
       const { count, plots } = await sigridPlots(country.zip, spacing as number, selection, clip && areaContains(clip), MAX_DESIGN_PLOTS);
       if (count > MAX_DESIGN_PLOTS) return refuse('too_many', tooMany);
       if (count === 0) return refuse('no_plots', 'No SIGRID plot is in the provinces, districts and area chosen.');
-      const extra = await extraColumns(store, projectId, info, request.log);
+      // One set of plots (src/projectPlots.ts): the project's columns when it has plot files
+      const extra = (await projectExtraColumns(store, projectId, keyCount)) ?? (await extraColumns(store, projectId, info, request.log));
       const designed = plots.map((p) => ({ id: p.id, lat: p.lat, lon: p.lon, columns: { adm1nm: p.province, adm2nm: p.district } }));
       return reply
         .header('content-type', 'text/csv; charset=utf-8')

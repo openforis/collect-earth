@@ -14,6 +14,7 @@ import {
   type AreaOfInterest,
   type Design,
 } from '../plotDesign.js';
+import { nextPlotNumber, projectExtraColumns } from '../projectPlots.js';
 import { fileKeyCount } from '../rounds.js';
 import type { Store } from '../store/store.js';
 import type { DesignFacts, DesignPlan } from '../wire/plotFiles.js';
@@ -127,10 +128,15 @@ export async function registerPlotDesignRoutes(app: FastifyInstance, store: Stor
     try {
       if (body.generate !== true) return reply.send({ ...facts, ...planDesign(area, design, seed), seed } satisfies DesignPlan);
       const plots = designPlots(area, design, seed);
+      // One set of plots (src/projectPlots.ts): the project's columns, and numbers no plot file has yet
+      const projectId = request.membership!.projectId;
+      const keyCount = format.keys.count;
+      const columns = await projectExtraColumns(store, projectId, keyCount);
+      const firstNumber = await nextPlotNumber(store, projectId, keyCount);
       return reply
         .header('content-type', 'text/csv; charset=utf-8')
         .header('x-plot-count', String(plots.length))
-        .send(plotFileCsv(plots, format.keys, format.extra));
+        .send(plotFileCsv(plots, format.keys, columns ?? format.extra, { firstNumber, stratumColumn: columns === null }));
     } catch (err) {
       if (err instanceof DesignError) return refuse(err.code, err.message);
       throw err;

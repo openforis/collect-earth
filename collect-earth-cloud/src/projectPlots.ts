@@ -117,3 +117,14 @@ export async function nextPlotNumber(store: Store, projectId: string, keyCount: 
   }
   return max + 1;
 }
+
+/**
+ * The extra columns (after the keys and the two coordinates) every plot file of the project has, by the names of the
+ * one with the most plots: a design or SIGRID file is written with them, to join the set. Null when the project has no
+ * plot file with a header row yet.
+ */
+export async function projectExtraColumns(store: Store, projectId: string, keyCount: number): Promise<string[] | null> {
+  const reference = referenceOf(await projectFiles(store, projectId, keyCount));
+  const header = reference?.plotFile.header?.fields;
+  return header && header.length >= keyCount + 2 ? header.slice(keyCount + 2) : null;
+}
