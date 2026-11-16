@@ -8,7 +8,7 @@ export type ImageryValues = Record<string, string>;
 export const SWITCHES = ["open_gee_app", "open_earth_map", "open_esri_wayback", "open_planet_maps", "planet_maps_use_tfo"] as const;
 const DATES = ["geeapp_date_from", "geeapp_date_to"];
 const MONTHS = ["planet_tfo_date_from", "planet_tfo_date_to"];
-const KEYS = [...SWITCHES, ...DATES, ...MONTHS, "extra_map_url"];
+const KEYS = [...SWITCHES, ...DATES, ...MONTHS, "extra_map_url", "explorer_config"];
 const FIRST_DATE = "2000-01-01";
 
 /** The values as Collect Earth's settings show them: switches true or false, the "first / latest" of old files blank. */
@@ -23,11 +23,11 @@ export function shownImagery(stored: ImageryValues): ImageryValues {
 }
 
 /**
- * Whether a field shows (SettingsModel's visibleWhen): the dates with the Earth Engine app, which Planet imagery with
- * Planet on, the months with its monthly mosaics.
+ * Whether a field shows (SettingsModel's visibleWhen): the dates and the Explorer's configuration with the Earth Engine
+ * app, which Planet imagery with Planet on, the months with its monthly mosaics.
  */
 export function isShown(key: string, v: ImageryValues): boolean {
-  if (DATES.includes(key)) return v.open_gee_app === "true";
+  if (DATES.includes(key) || key === "explorer_config") return v.open_gee_app === "true";
   if (key === "planet_maps_use_tfo") return v.open_planet_maps === "true";
   if (MONTHS.includes(key)) return v.open_planet_maps === "true" && v.planet_maps_use_tfo === "true";
   return true;

@@ -9,6 +9,7 @@ describe("imagery windows card", () => {
     expect(shownImagery(demo)).toEqual({
       open_gee_app: "true", open_earth_map: "true", open_esri_wayback: "false", open_planet_maps: "true", planet_maps_use_tfo: "false",
       geeapp_date_from: "", geeapp_date_to: "", planet_tfo_date_from: "", planet_tfo_date_to: "", extra_map_url: "http://x/#PLOT_ID",
+      explorer_config: "",
     });
   });
 
@@ -55,5 +56,13 @@ describe("imagery windows card", () => {
     expect(imageryChanges(initial, initial)).toEqual({});
     expect(imageryChanges(initial, { ...initial, open_earth_map: "false", open_esri_wayback: "true" })).toEqual({ open_earth_map: "false", open_esri_wayback: "true" });
     expect(imageryChanges(initial, { ...initial, open_gee_app: "false", geeapp_date_from: "2020-01-01" })).toEqual({ open_gee_app: "false" });
+  });
+
+  it("sends the Explorer's configuration with the Earth Engine app on, '' to reset it", () => {
+    const initial = shownImagery({ ...demo, explorer_config: ' {"v":1} ' });
+    expect(initial.explorer_config).toBe('{"v":1}');
+    expect(imageryChanges(initial, { ...initial, explorer_config: '{"v":1,"charts":[]}' })).toEqual({ explorer_config: '{"v":1,"charts":[]}' });
+    expect(imageryChanges(initial, { ...initial, explorer_config: "" })).toEqual({ explorer_config: "" });
+    expect(imageryChanges(initial, { ...initial, open_gee_app: "false", explorer_config: "" })).toEqual({ open_gee_app: "false" });
   });
 });

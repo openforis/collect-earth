@@ -187,6 +187,8 @@ It downloads the latest code, rebuilds the server and switches to it in about
 5 minutes. It does not ask the questions again, and your data stays: the
 database is never recreated. People using it at that moment do not notice.
 
+The dashboard sets up the Explorer window with the Explorer at `https://explorer.collectearth.org`. To use your own, write `VITE_EXPLORER_URL=https://your-explorer-address` in the file `web/.env.production` before running the command.
+
 ## Your own address (optional)
 
 The dashboard address given by Google looks like
