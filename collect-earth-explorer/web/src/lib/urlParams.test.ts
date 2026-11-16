@@ -21,6 +21,33 @@ describe("parsePlotUrl", () => {
   it("throws when geoJson is missing", () => {
     expect(() => parsePlotUrl("?", new Date())).toThrow(/geoJson/);
   });
+  it("reads the fragment Collect Earth builds", () => {
+    const p = parsePlotUrl("", new Date("2026-11-01"), `#geoJson=${encodeURIComponent(geoJson)};plotId=101;survey=s;startTime=2020-01-01;endTime=2024-01-01;`);
+    expect(p.plot.type).toBe("Polygon");
+    expect(p.plotId).toBe("101");
+    expect(p.start).toBe("2020-01-01");
+    expect(p.end).toBe("2024-01-01");
+  });
+  it("lets a fragment value win over the same key in the query", () => {
+    const p = parsePlotUrl(`?geoJson=${encodeURIComponent(geoJson)}&startTime=2000-01-01`, new Date("2026-11-01"), "#startTime=2010-01-01");
+    expect(p.start).toBe("2010-01-01");
+  });
+  it("accepts plot_id and plotId", () => {
+    const q = `?geoJson=${encodeURIComponent(geoJson)}`;
+    expect(parsePlotUrl(`${q}&plot_id=A`).plotId).toBe("A");
+    expect(parsePlotUrl(q, new Date(), "#plotId=B").plotId).toBe("B");
+  });
+  it("returns config decoded as configText, undefined when absent", () => {
+    const config = '{"v":1,"charts":[{"type":"modis"}]}';
+    const q = `?geoJson=${encodeURIComponent(geoJson)}`;
+    expect(parsePlotUrl(q).configText).toBeUndefined();
+    expect(parsePlotUrl(`${q}&config=${encodeURIComponent(config)}`).configText).toBe(config);
+    expect(parsePlotUrl("", new Date(), `#geoJson=${encodeURIComponent(geoJson)};config=${encodeURIComponent(config)};`).configText).toBe(config);
+  });
+  it("ignores a trailing ;, empty segments and badly encoded ones", () => {
+    const p = parsePlotUrl("", new Date(), `#;;geoJson=${encodeURIComponent(geoJson)};;plotId=%E0%A4%A;plotId=7;;`);
+    expect(p.plotId).toBe("7");
+  });
   it("closes an open ring", () => {
     const poly = toPolygon({ type: "MultiLineString", coordinates: [ring.slice(0, 4)] });
     expect(poly.coordinates[0].length).toBe(5);

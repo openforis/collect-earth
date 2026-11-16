@@ -6,6 +6,8 @@ export interface PlotParams {
   start: string;
   end: string;
   plotId: string;
+  /** The survey's configuration document, decoded but not parsed. */
+  configText?: string;
 }
 
 export function toPolygon(g: AnyGeometry): Polygon {
@@ -27,15 +29,26 @@ export function toPolygon(g: AnyGeometry): Polygon {
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
-export function parsePlotUrl(search: string, now: Date = new Date()): PlotParams {
-  const q = new URLSearchParams(search);
+/** Reads the query (`?geoJson=…&plot_id=…`) and the fragment Collect Earth builds (`#geoJson=…;plotId=…;`); the fragment wins. */
+export function parsePlotUrl(search: string, now: Date = new Date(), hash: string = ""): PlotParams {
+  const q = new Map(new URLSearchParams(search));
+  for (const segment of hash.replace(/^#/, "").split(";")) {
+    const i = segment.indexOf("=");
+    if (i < 1) continue;
+    try {
+      q.set(segment.slice(0, i), decodeURIComponent(segment.slice(i + 1)));
+    } catch {
+      // A badly encoded segment is skipped.
+    }
+  }
   const geoJson = q.get("geoJson");
   if (!geoJson) throw new Error("geoJson URL parameter is required");
   return {
     plot: toPolygon(JSON.parse(geoJson)),
     start: q.get("startTime") || "1984-01-01",
     end: q.get("endTime") || iso(now),
-    plotId: q.get("plot_id") || "",
+    plotId: q.get("plotId") || q.get("plot_id") || "",
+    configText: q.get("config"),
   };
 }
 

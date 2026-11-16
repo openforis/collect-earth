@@ -87,6 +87,13 @@ describe("App", () => {
     expect(callsTo(fetchMock, "/api/tiles/landsat")).toHaveLength(0);
   });
 
+  it("reads the plot from the address fragment Collect Earth builds", async () => {
+    window.history.replaceState({}, "", `/#geoJson=${encodeURIComponent(GEOJSON)};plotId=frag;startTime=2000-01-01;`);
+    render(<App />);
+    expect(screen.getByRole("heading", { name: "Plot frag" })).toBeTruthy();
+    expect(await screen.findByText(TILE.label)).toBeTruthy();
+  });
+
   it("shows a retryable (503) imagery error with a Retry button that re-requests the tiles", async () => {
     window.history.replaceState({}, "", PLOT_URL);
     const busy = { error: { code: "busy", message: "Earth Engine is busy", retryable: true } };

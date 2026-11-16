@@ -85,14 +85,15 @@ type Parsed = { params: PlotParams; error?: undefined } | { params?: undefined; 
 
 export default function App() {
   const search = window.location.search;
+  const hash = window.location.hash;
   // Parsed once per URL: PlotProvider memoises on the params object's identity.
   const parsed = useMemo<Parsed>(() => {
     try {
-      return { params: parsePlotUrl(search) };
+      return { params: parsePlotUrl(search, undefined, hash) };
     } catch (e) {
       return { error: (e as Error).message };
     }
-  }, [search]);
+  }, [search, hash]);
   if (parsed.error !== undefined) {
     return (
       <div style={{ padding: 16 }}>
