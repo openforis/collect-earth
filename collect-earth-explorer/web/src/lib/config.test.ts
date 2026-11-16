@@ -1,0 +1,116 @@
+import { describe, it, expect } from "vitest";
+import { resolveConfig } from "./config";
+
+const MAX_YEAR = 2026;
+const resolve = (doc: unknown) => resolveConfig(typeof doc === "string" ? doc : JSON.stringify(doc), MAX_YEAR);
+const types = (entries: { type: string }[]) => entries.map((e) => e.type);
+const STANDARD_LAYERS = ["sentinel2", "landsat"];
+const STANDARD_CHARTS = ["ccdc", "landsat-series", "sentinel2-series", "modis"];
+
+describe("resolveConfig", () => {
+  it("gives the standard configuration without a document", () => {
+    const r = resolveConfig(undefined, MAX_YEAR);
+    expect(types(r.layers)).toEqual(STANDARD_LAYERS);
+    expect(types(r.charts)).toEqual(STANDARD_CHARTS);
+    expect(r.notices).toEqual([]);
+  });
+
+  it.each(["{not json", "[]", '"x"', "null"])("falls back to standard with one notice for %s", (text) => {
+    const r = resolveConfig(text, MAX_YEAR);
+    expect(types(r.layers)).toEqual(STANDARD_LAYERS);
+    expect(types(r.charts)).toEqual(STANDARD_CHARTS);
+    expect(r.notices).toHaveLength(1);
+  });
+
+  it("keeps standard layers when only charts are given", () => {
+    const r = resolve({ v: 1, charts: [{ type: "modis" }] });
+    expect(types(r.layers)).toEqual(STANDARD_LAYERS);
+    expect(r.charts).toEqual([{ type: "modis", params: { index: "NDVI", collapsed: false } }]);
+    expect(r.notices).toEqual([]);
+  });
+
+  it("keeps standard charts when only layers are given", () => {
+    const r = resolve({ v: 1, layers: [{ type: "landsat" }] });
+    expect(types(r.layers)).toEqual(["landsat"]);
+    expect(types(r.charts)).toEqual(STANDARD_CHARTS);
+  });
+
+  it("skips a layer of unknown type with a notice naming it", () => {
+    const r = resolve({ v: 1, layers: [{ type: "sentinel2" }, { type: "sentinel1" }, { type: "landsat" }] });
+    expect(types(r.layers)).toEqual(["sentinel2", "landsat"]);
+    expect(r.notices).toHaveLength(1);
+    expect(r.notices[0]).toContain("sentinel1");
+  });
+
+  it("skips a chart with an invalid parameter with a notice naming the type and parameter", () => {
+    const r = resolve({ v: 1, charts: [{ type: "landsat-series", index: "XYZ" }, { type: "modis" }] });
+    expect(types(r.charts)).toEqual(["modis"]);
+    expect(r.notices).toHaveLength(1);
+    expect(r.notices[0]).toContain("landsat-series");
+    expect(r.notices[0]).toContain("index");
+  });
+
+  it("skips an entry with an unknown parameter", () => {
+    const r = resolve({ v: 1, charts: [{ type: "modis", colour: "red" }, { type: "ccdc" }] });
+    expect(types(r.charts)).toEqual(["ccdc"]);
+    expect(r.notices[0]).toContain("colour");
+  });
+
+  it("falls back to standard layers when none is valid, keeping the notices", () => {
+    const r = resolve({ v: 1, layers: [{ type: "sentinel1" }, { type: "landsat", maxCloud: 0 }] });
+    expect(types(r.layers)).toEqual(STANDARD_LAYERS);
+    expect(r.notices).toHaveLength(2);
+  });
+
+  it("honours an explicit empty chart list", () => {
+    const r = resolve({ v: 1, charts: [] });
+    expect(r.charts).toEqual([]);
+    expect(r.notices).toEqual([]);
+  });
+
+  it("gives standard layers for an empty layer list (a map needs imagery)", () => {
+    expect(types(resolve({ v: 1, layers: [] }).layers)).toEqual(STANDARD_LAYERS);
+  });
+
+  it("keeps repeated types in order", () => {
+    const r = resolve({ v: 1, layers: [{ type: "sentinel2", label: "A" }, { type: "sentinel2", label: "B" }] });
+    expect(r.layers.map((e) => e.params.label)).toEqual(["A", "B"]);
+  });
+
+  it("falls back to standard with a notice for another version", () => {
+    const r = resolve({ v: 2, layers: [{ type: "landsat" }] });
+    expect(types(r.layers)).toEqual(STANDARD_LAYERS);
+    expect(types(r.charts)).toEqual(STANDARD_CHARTS);
+    expect(r.notices).toHaveLength(1);
+  });
+
+  it("treats a missing version as version 1", () => {
+    const r = resolve({ layers: [{ type: "landsat" }] });
+    expect(types(r.layers)).toEqual(["landsat"]);
+    expect(r.notices).toEqual([]);
+  });
+
+  it("fills in the catalogue defaults and leaves parameters without one absent", () => {
+    const [s2] = resolve({ v: 1, layers: [{ type: "sentinel2" }] }).layers;
+    expect(s2).toEqual({ type: "sentinel2", params: { bands: "false-colour", maxCloud: 70 } });
+  });
+
+  it("applies the API's rules to each parameter type", () => {
+    const ok = (entry: object) => resolve({ v: 1, layers: [entry] }).notices.length === 0;
+    expect(ok({ type: "landsat", maxCloud: 30, years: [2000, 2024], year: 2026, label: "x" })).toBe(true);
+    expect(ok({ type: "landsat", maxCloud: "30" })).toBe(false);
+    expect(ok({ type: "landsat", maxCloud: 30.5 })).toBe(false);
+    expect(ok({ type: "landsat", maxCloud: 101 })).toBe(false);
+    expect(ok({ type: "landsat", year: 2027 })).toBe(false);
+    expect(ok({ type: "landsat", year: 1983 })).toBe(false);
+    expect(ok({ type: "landsat", years: [2024, 2000] })).toBe(false);
+    expect(ok({ type: "landsat", years: [2000] })).toBe(false);
+    expect(ok({ type: "landsat", label: "x".repeat(61) })).toBe(false);
+    expect(ok({ type: "sentinel2", start: "2021-02-28" })).toBe(true);
+    expect(ok({ type: "sentinel2", start: "2021-02-30" })).toBe(false);
+    expect(ok({ type: "sentinel2", start: "2021-13-01" })).toBe(false);
+    const chartOk = (entry: object) => resolve({ v: 1, charts: [entry] }).notices.length === 0;
+    expect(chartOk({ type: "ccdc", collapsed: true })).toBe(true);
+    expect(chartOk({ type: "ccdc", collapsed: "true" })).toBe(false);
+  });
+});
