@@ -118,7 +118,7 @@ public class AuxiliaryWindowUrlTest {
 
 	@Test
 	public void theEarthEngineAppGetsTheVisibleId() {
-		String url = BrowserService.geeAppUrl("https://app/view/plot", plot("101,2"), "101", "t21_round_check", null, "");
+		String url = BrowserService.geeAppUrl("https://app/view/plot", plot("101,2"), "101", "t21_round_check", null, "", null);
 		String fragment = url.substring(url.indexOf('#') + 1);
 		assertEquals("101", param(fragment, "plotId", ";"));
 		assertEquals("t21_round_check", param(fragment, "survey", ";"));
@@ -131,7 +131,32 @@ public class AuxiliaryWindowUrlTest {
 	@Test
 	public void theEarthEngineAppKeepsItsDates() {
 		String url = BrowserService.geeAppUrl("https://app/view/plot", plot("101,2"), "101", "s", "2020-01-01",
-				"2024-12-31");
+				"2024-12-31", " ");
 		assertTrue(url.endsWith("startTime=2020-01-01;endTime=2024-12-31;"), url);
+	}
+
+	/** Decodes as the Explorer does (decodeURIComponent): a plus sign stays a plus sign */
+	private static String decodedAsTheExplorer(String s) {
+		return URLDecoder.decode(s.replace("+", "%2B"), StandardCharsets.UTF_8);
+	}
+
+	@Test
+	public void theExplorerGetsTheConfigurationLastWithSpacesAsPercent20() {
+		String config = "{\"v\":1,\"layers\":[{\"type\":\"sentinel2\",\"params\":{\"label\":\"Dry season; ç\"}}],"
+				+ "\"charts\":[{\"type\":\"index\",\"params\":{\"formula\":\"(nir - red) / (nir + red)\"}}]}";
+		String url = BrowserService.geeAppUrl("https://app/view/plot", plot("101,2"), "101", "s", "2020-01-01", "2024-12-31",
+				" " + config + " ");
+		assertTrue(url.contains(";endTime=2024-12-31;config="), url);
+		assertTrue(url.endsWith(";"), url);
+		String value = url.substring(url.indexOf(";config=") + ";config=".length(), url.length() - 1);
+		assertFalse(value.contains("+") || value.contains(" ") || value.contains(";"), value);
+		assertEquals(config, decoded(value));
+		assertEquals(config, decodedAsTheExplorer(value));
+	}
+
+	@Test
+	public void noConfigurationAddsNoPair() {
+		assertFalse(BrowserService.geeAppUrl("https://app/view/plot", plot("101,2"), "101", "s", null, null, null).contains("config="));
+		assertFalse(BrowserService.geeAppUrl("https://app/view/plot", plot("101,2"), "101", "s", null, null, "  ").contains("config="));
 	}
 }

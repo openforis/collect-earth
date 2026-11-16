@@ -1222,7 +1222,8 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 				loadInTab(ImagerySource.GEE_APP, selection, geeAppUrl(localPropertiesService.getGEEAppURL(), placemarkObject,
 						visiblePlotIdOf(placemarkObject, survey), survey.getName(),
 						localPropertiesService.getValue(EarthProperty.GEEAPP_FROM_DATE),
-						localPropertiesService.getValue(EarthProperty.GEEAPP_TO_DATE)));
+						localPropertiesService.getValue(EarthProperty.GEEAPP_TO_DATE),
+						localPropertiesService.getValue(EarthProperty.EXPLORER_CONFIG)));
 			} catch (final Exception e) {
 				logger.error("Problems loading GEE APP window", e);
 			}
@@ -1231,10 +1232,11 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 
 	/**
 	 * The address of the plot in the Earth Engine App: its outline, its id as the collector sees it ( see
-	 * {@link #visiblePlotIdOf} ), the survey name and the optional dates, in the fragment.
+	 * {@link #visiblePlotIdOf} ), the survey name, the optional dates and the optional configuration of the Explorer's
+	 * window (EXPLORER_CONFIG, which the old Earth Engine App ignores), in the fragment.
 	 */
 	static String geeAppUrl(String base, SimplePlacemarkObject placemarkObject, String visiblePlotId, String surveyName,
-			String fromDate, String toDate) {
+			String fromDate, String toDate, String config) {
 		StringBuilder url = new StringBuilder(base);
 		url.append("#geoJson=").append(URLEncoder.encode(getGeoJson(placemarkObject, "MultiLineString"), StandardCharsets.UTF_8))
 				.append(";");
@@ -1246,7 +1248,15 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 		if (StringUtils.isNotBlank(toDate)) {
 			url.append("endTime=").append(toDate).append(";");
 		}
+		if (StringUtils.isNotBlank(config)) {
+			url.append("config=").append(fragmentValue(config.trim())).append(";");
+		}
 		return url.toString();
+	}
+
+	/** Encoded for the Explorer, which decodes with decodeURIComponent: a space is %20, as a + would stay a plus sign */
+	private static String fragmentValue(String value) {
+		return URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20");
 	}
 
 	/**
