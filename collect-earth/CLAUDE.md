@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Collect Earth is a desktop application for augmented visual interpretation that integrates with Google Earth to enable data collection through satellite imagery. It's a Maven multi-module Java project: an embedded Jetty web server that communicates with Google Earth via dynamically generated KML files, and serves the user interface as web pages that Collect Earth opens in the browser it drives.
+Collect Earth is a desktop application for augmented visual interpretation that works with Google Earth Web and other imagery sources to enable data collection through satellite imagery. It's a Maven multi-module Java project: an embedded Jetty web server that serves the user interface as web pages that Collect Earth opens in the browser it drives, Google Earth Web among them.
+
+**Compatibility.** Keep everything compatible with earlier versions of Collect Earth: their project files (.cep), databases, backups, settings files and the cloud API the desktop uses. From 2.0 on, Google Earth Desktop (Google Earth Pro) is not supported: code that only serves it is not needed (its KMZ, balloons inside it, network links), but what earlier project files carry for it (a KML template, `earthFiles/`, a balloon) must still load without error.
 
 **Key Technologies**: Java 11, Spring 5.3.39, Jetty 10.0.26, GeoTools 24.7, Collect Framework 4.0.110
 
@@ -385,18 +387,17 @@ This module has no UI dependencies and can be reused in other contexts.
 Main desktop application and embedded web server. Contains:
 - **Entry Point**: `org.openforis.collect.earth.app.desktop.EarthApp` - main class that launches the application
 - **Server Management**: `ServerController` manages Jetty lifecycle, database connections, and Spring context initialization
-- **Spring Controllers**: `PlacemarkDataController` handles HTTP requests from Google Earth balloons
+- **Spring Controllers**: `PlacemarkDataController` handles the form's reads and saves (the web form, and a project's own balloon with `web_form=balloon`)
 - **Services**: `KmlGeneratorService`, `EarthProjectsService`, `DataImportExportService`, `LocalPropertiesService`
 - **User interface**: web pages (`src/main/frontend`, see Plots Map Web UI below) over a JSON API in `org.openforis.collect.earth.app.server.api`; a tray icon (`desktop.AppShell`). The only Swing left is the file dialog the pages ask for (`SwingNativeFileChooser`), the splash and the messages shown when there is no server to show a page
 - **IPCC Export**: Specialized IPCC report generation in `org.openforis.collect.earth.ipcc`
 - **Integrations**: Google Analytics, Sentry error tracking, Planet imagery
 
 ### 3. collect-earth-sampler
-Geospatial utilities for sampling and KML generation. Contains:
-- **KML Generators**: Abstract `KmlGenerator` base class with implementations for different plot shapes (Circle, Square, Hexagon, Polygon, NFI layouts)
+Geospatial utilities for sampling and plot geometry. Contains:
+- **Plot shapes**: Abstract `KmlGenerator` base class with implementations for different plot shapes (Circle, Square, Hexagon, Polygon, NFI layouts). Despite the name they compute the geometry the plots map, Google Earth Web, the imagery windows, the web form and the KML export all use (the cloud's `src/plotShape.ts` copies the formulas)
 - **Coordinate Transformations**: `GeoUtils` handles EPSG code conversions using GeoTools
 - **Template Processing**: `FreemarkerTemplateUtils` for generating KML/HTML from templates
-- **KMZ Compression**: `KmzGenerator` for creating compressed KML files
 
 ### 4. collect-earth-installer
 Packaging and installer generation using Bitrock InstallBuilder. Produces Windows .exe, Linux .run, and macOS .dmg installers with bundled JRE and Node.js, and the local dashboard (see "The bundled Node" and "The bundled dashboard" above).
@@ -421,14 +422,11 @@ Because it is not shipped, its dependencies (Hibernate, the JDBC drivers) lag be
    - Starts Jetty on port 8028
    - Loads Spring WebApplicationContext from `WEB-INF/dispatcher-servlet.xml`
 
-3. **KML Generation** (`KmlGeneratorService`):
-   - Reads survey CSV with plot coordinates
-   - Uses appropriate `KmlGenerator` implementation based on plot shape
-   - Generates KML with HTML balloon forms for data entry
-   - Creates KMZ file that Google Earth loads
+3. **Project files** (`KmlGeneratorService.prepareProjectFiles`, at start and whenever the plots are loaded again):
+   - Puts the project's file paths right, checks the plot file, and copies the balloon's `earthFiles/` and `webFiles/` to the generated folder the server serves (for `web_form=balloon`). No KML is made: the plots map reads the plot file (`LeafletMapController.plotsGeoJson`), through the `KmlGenerator` for the plot shape
 
 4. **Data Collection**:
-   - User clicks placemark in Google Earth → balloon (HTML form) appears
+   - User picks a plot in the plots map (beside Google Earth Web) → the form opens in the panel
    - User enters data → JavaScript sends HTTP POST to local server
    - `PlacemarkDataController.saveDataExpanded()` validates and saves to database via `EarthSurveyService`
    - Response includes validation messages and updated field information
@@ -480,7 +478,7 @@ Managed by `LocalPropertiesService`:
 | `ServerController` | collect-earth-app/.../server | Jetty lifecycle, Spring context, DB connection |
 | `EarthSurveyService` | collect-earth-app/.../service | Survey data management (extends core's `AbstractEarthSurveyService`) |
 | `PlacemarkDataController` | collect-earth-app/.../server | Spring MVC controller for placemark HTTP endpoints |
-| `KmlGeneratorService` | collect-earth-app/.../service | Orchestrates KML file generation |
+| `KmlGeneratorService` | collect-earth-app/.../service | The plot shape's generator for the plot file, the project's files prepared, the KML export |
 | `LocalPropertiesService` | collect-earth-app/.../service | Configuration singleton |
 | `AbstractEarthSurveyService` | collect-earth-core/.../service | Core survey operations (save, validate, load records) |
 | `KmlGenerator` | collect-earth-sampler/.../processor | Abstract base for plot shape generators |
@@ -504,7 +502,7 @@ The application supports 5 languages through resource bundles:
 
 ## Common Development Patterns
 
-### Adding a New KML Plot Shape
+### Adding a New Plot Shape
 1. Create subclass of `KmlGenerator` in `collect-earth-sampler/.../processor`
 2. Implement `generatePoints()` method with geometric logic
 3. Use `GeoUtils` for coordinate transformations
@@ -513,7 +511,7 @@ The application supports 5 languages through resource bundles:
 ### Adding a New Attribute Handler
 1. Create class implementing appropriate handler interface in `collect-earth-core/.../handlers`
 2. Register in Spring configuration
-3. Update balloon template in `collect-earth-app/src/main/resources/templates`
+3. Add it to the web form (`SurveyFormModelBuilder`, and the frontend's `src/form`)
 
 ### Adding a New Export Format
 1. Create exporter class in `collect-earth-app/.../service`

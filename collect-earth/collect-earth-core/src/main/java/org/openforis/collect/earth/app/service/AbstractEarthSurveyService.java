@@ -543,6 +543,7 @@ public abstract class AbstractEarthSurveyService implements DisposableBean {
 		return recordManager.loadSummaries(rf );
 	}
 
+	@Deprecated // nothing calls it since Collect Earth 2: it served Google Earth Pro's icon refresh
 	public String[] getPlacemarksId(List<CollectRecordSummary> listOfRecords) {
 		if (listOfRecords == null) {
 			return new String[0];
@@ -563,6 +564,7 @@ public abstract class AbstractEarthSurveyService implements DisposableBean {
 	 *
 	 * @return The list of the IDs of the records for the survey in the DB
 	 */
+	@Deprecated // nothing calls it since Collect Earth 2: it served Google Earth Pro's icon refresh
 	public String[] getRecordsSavedIDs() {
 		final List<CollectRecordSummary> recordsSavedForSurvey = recordManager.loadSummaries(
 				new RecordFilter(getCollectSurvey(),ROOT_ENTITY_NAME)

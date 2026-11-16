@@ -273,7 +273,7 @@ public class LeafletMapController {
 			// The next-poll cursor must lag behind the wall clock: records saved through
 			// the deferred/write-behind path get their modifiedDate stamped up to ~1.5s
 			// before the DB write lands, so an exact "now" cursor would skip them forever.
-			// Same overlap-window pattern as PlacemarkUpdateServlet.getTwoMinutesAgo().
+			// (Google Earth Pro's icon refresh had the same overlap window.)
 			long now = System.currentTimeMillis() - STATUS_CURSOR_OVERLAP_MILLIS;
 			Map<String, String> statuses = new LinkedHashMap<>();
 			// A repeat survey's: what the collector said of each plot against the earlier period ("" when not answered),

@@ -55,7 +55,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.BeanCreationNotAllowedException;
 import org.springframework.web.context.WebApplicationContext;
 
-import com.opencsv.exceptions.CsvValidationException;
 
 import io.sentry.Sentry;
 import io.sentry.protocol.User;
@@ -299,19 +298,17 @@ public class EarthApp {
 		}
 	}
 
-	public void generateKml() {
-
+	/** The project's files prepared (KmlGeneratorService.prepareProjectFiles); a problem is shown as a notice. */
+	public void prepareProjectFiles() {
 		try {
-			getKmlGeneratorService().generateKmlFile();
+			getKmlGeneratorService().prepareProjectFiles();
 		} catch (final KmlGenerationException e) {
-			logger.error("Problems while generating the KML file ", e); //$NON-NLS-1$
-			// An exception with no message used to throw here, so the failure of the KML was never reported
-			notify(Notice.ERROR, Messages.getString("NoticesPage.server.kml") + "<br/>" //$NON-NLS-1$ //$NON-NLS-2$
-					+ (e.getCause() != null ? (StringEscapeUtils.escapeHtml4(String.valueOf(e.getCause())) + "<br/>") : "") //$NON-NLS-1$ //$NON-NLS-2$
-					+ StringEscapeUtils.escapeHtml4(StringUtils.abbreviate(StringUtils.defaultString(e.getMessage(), e.toString()), 300)));
+			// The message is HTML of our own (the plot file's path escaped)
+			logger.warn("The project's files are not ready: {}", e.getMessage()); //$NON-NLS-1$
+			notify(Notice.ERROR, Messages.getString("NoticesPage.server.plots") + "<br/>" + StringUtils.defaultString(e.getMessage())); //$NON-NLS-1$ //$NON-NLS-2$
 		} catch (final Exception e) {
-			logger.error("Could not generate KML file", e); //$NON-NLS-1$
-			notify(Notice.ERROR, Messages.getString("NoticesPage.server.kml") + "<br/>" + StringEscapeUtils.escapeHtml4(String.valueOf(e.getMessage()))); //$NON-NLS-1$ //$NON-NLS-2$
+			logger.error("Could not prepare the project's files", e); //$NON-NLS-1$
+			notify(Notice.ERROR, Messages.getString("NoticesPage.server.plots") + "<br/>" + StringEscapeUtils.escapeHtml4(String.valueOf(e.getMessage()))); //$NON-NLS-1$ //$NON-NLS-2$
 		}
 	}
 
@@ -415,39 +412,26 @@ public class EarthApp {
 		}
 	}
 
-	/**
-	 * Generates the KML for the project and opens the plots again
-	 * 
-	 * @param forceKmlRecreation Set to true if you want to forece the regeneration
-	 *                           of the KML even if is is up to date (you might want
-	 *                           to do this to force the update of the placemark
-	 *                           icons as the date changes)
-	 * @throws IOException            Throws exception if the KMl file cannot be
-	 *                                generated
-	 * @throws KmlGenerationException Throws exception if the KML file contents
-	 *                                cannot be generated
-	 * @throws CsvValidationException
-	 */
-	private static synchronized void loadKmlInGoogleEarth(boolean forceKmlRecreation)
-			throws IOException, KmlGenerationException, CsvValidationException {
-		earthApp.getKmlGeneratorService().generatePlacemarksKmzFile(forceKmlRecreation);
+	/** Prepares the project's files again (prepareProjectFiles) and opens the plots again. */
+	private static synchronized void preparePlotsAndOpen() throws IOException, KmlGenerationException {
+		earthApp.getKmlGeneratorService().prepareProjectFiles();
 		earthApp.openLeafletMap();
 	}
 
 	/**
-	 * Regenerates the KML and opens the plots again, on a thread of its own, after the settings were applied, data
-	 * imported or plots deleted. A failure is logged, and so reported to Sentry, and shown on the page as a notice: the
-	 * user would otherwise see the old plots and not know why.
+	 * Prepares the project's files again and opens the plots again, on a thread of its own, after the settings were
+	 * applied, data imported or plots deleted. A failure is logged, and so reported to Sentry, and shown on the page as
+	 * a notice: the user would otherwise see the old plots and not know why.
 	 */
 	public static void reloadPlots() {
 		new Thread("Reload plots") { //$NON-NLS-1$
 			@Override
 			public void run() {
 				try {
-					loadKmlInGoogleEarth(true);
+					preparePlotsAndOpen();
 				} catch (Exception e) {
 					logger.error("Error reloading the plots", e); //$NON-NLS-1$
-					EarthApp.notify(Notice.ERROR, Messages.getString("NoticesPage.server.kml") + "<br/>" //$NON-NLS-1$ //$NON-NLS-2$
+					EarthApp.notify(Notice.ERROR, Messages.getString("NoticesPage.server.plots") + "<br/>" //$NON-NLS-1$ //$NON-NLS-2$
 							+ StringEscapeUtils.escapeHtml4(StringUtils.abbreviate(StringUtils.defaultString(e.getMessage(), e.toString()), 300)));
 				}
 			}
@@ -708,12 +692,12 @@ public class EarthApp {
 				try {
 					StartupProgressWindow.step(Messages.getString("StartupWindow.window")); //$NON-NLS-1$
 					// The main window opens on a thread of its own, which closes the progress window (inServerContext).
-					// It does not wait for the KMZ, which is made meanwhile: its plots map reads the plot file
-					// (LeafletMapController.plotsGeoJson), the KMZ is for Google Earth Pro
+					// It does not wait for the project's files, prepared meanwhile: its plots map reads the plot file
+					// (LeafletMapController.plotsGeoJson)
 					earthApp.openLeafletMap();
 					// The announcements and the update offer are StartupNotices' now, a bean of the context
 					closeSplash();
-					generateKmlAtStart();
+					prepareProjectFilesAtStart();
 				} catch (final Exception e) {
 					StartupProgressWindow.close();
 					logger.error("Error opening the main window", e); //$NON-NLS-1$
@@ -723,19 +707,19 @@ public class EarthApp {
 	}
 
 	/**
-	 * The KMZ of the plots, on a thread of its own while the main window opens, then, in a cloud project, the plot file
-	 * assigned to the collector. A failure is logged and shown as a notice (generateKml).
+	 * The project's files prepared, on a thread of its own while the main window opens, then, in a cloud project, the
+	 * plot file assigned to the collector. A failure is logged and shown as a notice (prepareProjectFiles).
 	 */
-	private static void generateKmlAtStart() {
+	private static void prepareProjectFilesAtStart() {
 		final EarthApp app = earthApp;
 		new Thread(() -> {
-			// The lock of loadKmlInGoogleEarth: a reload asked meanwhile (settings applied, the assigned plot file) waits
-			// for this one instead of writing the same files at the same time
+			// The lock of preparePlotsAndOpen: a reload asked meanwhile (settings applied, the assigned plot file) waits
+			// for this one instead of copying the same files at the same time
 			synchronized (EarthApp.class) {
-				app.generateKml();
+				app.prepareProjectFiles();
 			}
 			setUpAssignedPlotFile();
-		}, "Generate the KMZ").start(); //$NON-NLS-1$
+		}, "Prepare the project's files").start(); //$NON-NLS-1$
 	}
 
 	/**

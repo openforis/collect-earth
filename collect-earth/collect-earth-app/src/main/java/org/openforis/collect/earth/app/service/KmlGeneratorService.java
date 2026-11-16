@@ -25,7 +25,6 @@ import org.openforis.collect.earth.core.utils.CsvReaderUtils;
 import org.openforis.collect.earth.sampler.processor.CircleKmlGenerator;
 import org.openforis.collect.earth.sampler.processor.HexagonKmlGenerator;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
-import org.openforis.collect.earth.sampler.processor.KmzGenerator;
 import org.openforis.collect.earth.sampler.processor.NfiFourCirclesGenerator;
 import org.openforis.collect.earth.sampler.processor.NfiThreeCirclesGenerator;
 import org.openforis.collect.earth.sampler.processor.NfmaKmlGenerator;
@@ -63,8 +62,8 @@ public class KmlGeneratorService {
 
 	private static final String RESOURCES_FOLDER = "resources";
 
-	public static final String KML_RESULTING_TEMP_FILE = EarthConstants.GENERATED_FOLDER + File.separator + "plots.kml"; //$NON-NLS-1$
-	public static final String KMZ_FILE_PATH = EarthConstants.GENERATED_FOLDER + File.separator + "gePlugin.kmz"; //$NON-NLS-1$
+	/** What Collect Earth 1.x made for Google Earth Pro, left in the user folder by an update: deleted once. */
+	static final String[] OLD_GOOGLE_EARTH_FILES = { "gePlugin.kmz", "plots.kml" }; //$NON-NLS-1$ //$NON-NLS-2$
 
 	public static final String FREEMARKER_KML_OUTPUT_TEMPLATE_BALLOON = RESOURCES_FOLDER + File.separator
 			+ "balloonForKMLExport.fmt";
@@ -75,73 +74,89 @@ public class KmlGeneratorService {
 		Boolean isPolygon(String[] strColumns);
 	}
 
-	public void generateKmlFile() throws IOException, KmlGenerationException, CsvValidationException {
-		checkFilesExist();
-		generatePlacemarksKmzFile();
-
+	/**
+	 * What the project needs on this computer before its plots are shown, at start and whenever its plots are loaded
+	 * again (a setting applied, data imported, another project file): the paths of its files put right
+	 * (fixUserDirectory), the plot file checked, and the files of the project's own form (the balloon's
+	 * earthFiles/ and webFiles/) copied to the folder the server serves them from (BalloonServlet, web_form=balloon).
+	 * No KML is made: Collect Earth 2 has no Google Earth Pro, the plots map reads the plot file itself
+	 * (LeafletMapController), and a project file's KML template is no longer needed, nor read.
+	 *
+	 * @throws KmlGenerationException when the plot file is not there, with the message to show
+	 */
+	public void prepareProjectFiles() throws IOException, KmlGenerationException {
+		fixUserDirectory();
+		prepareProjectFiles(new File(EarthConstants.GENERATED_FOLDER));
 	}
 
-	private void checkFilesExist() throws KmlGenerationException {
+	/** As {@link #prepareProjectFiles()} without the paths put right, into the given generated folder (the tests'). */
+	void prepareProjectFiles(File generatedFolder) throws IOException, KmlGenerationException {
+		checkPlotFile();
+		copyBalloonFiles(generatedFolder);
+		deleteOldGoogleEarthFiles(generatedFolder);
+	}
 
-		fixUserDirectory();
-
+	private void checkPlotFile() throws KmlGenerationException {
 		final String csvFilePath = getLocalProperties().getCsvFile();
-		final String balloonPath = getLocalProperties().getBalloonFile();
-		final String templatePath = getLocalProperties().getTemplateFile();
-		boolean filesExist = true;
-		String errorMessage = "<html>Error generating the KML file for Google Earth.<br/>"; //$NON-NLS-1$
-		File csvFile = null;
-		File balloon = null;
-		File template = null;
-		try {
-			csvFile = new File(csvFilePath);
-			balloon = new File(balloonPath);
-			template = new File(templatePath);
-		} catch (final Exception e) {
-			logger.error("One of the definition files is not defined", e); //$NON-NLS-1$
+		if (StringUtils.isBlank(csvFilePath)) {
+			throw new KmlGenerationException(Messages.getString("KmlGeneratorService.noPlotFile")); //$NON-NLS-1$
 		}
-		if (csvFile != null && !csvFile.exists()) {
-			errorMessage += Messages.getString("EarthApp.21") //$NON-NLS-1$
-					+ csvFile.getAbsolutePath() + "</i><br/><br/>"; //$NON-NLS-1$
-			filesExist = false;
-		} else if (csvFile == null) {
-			errorMessage += Messages.getString("EarthApp.23"); //$NON-NLS-1$
-			filesExist = false;
+		final File csvFile = new File(csvFilePath);
+		if (!csvFile.exists()) {
+			throw new KmlGenerationException(MessageFormat.format(Messages.getString("KmlGeneratorService.plotFileMissing"), //$NON-NLS-1$
+					StringEscapeUtils.escapeHtml4(csvFile.getAbsolutePath())));
 		}
+	}
 
-		if (template != null && !template.exists()) {
-			errorMessage += Messages.getString("EarthApp.24") //$NON-NLS-1$
-					+ template.getAbsolutePath() + "</i><br/><br/>"; //$NON-NLS-1$
-			filesExist = false;
-		} else if (template == null) {
-			errorMessage += Messages.getString("EarthApp.26"); //$NON-NLS-1$
-			filesExist = false;
+	/**
+	 * The balloon's earthFiles/ and the optional webFiles/ (assets of the web balloon: old project files have none),
+	 * from the folder of the project's balloon to the generated folder: only the files that differ, so that loading the
+	 * plots again copies nothing when nothing changed. A project without a balloon has nothing to copy.
+	 */
+	private void copyBalloonFiles(File generatedFolder) throws IOException {
+		final String balloon = getLocalProperties().getBalloonFile();
+		if (StringUtils.isBlank(balloon)) {
+			return;
 		}
-
-		if (balloon != null && !balloon.exists()) {
-			errorMessage += Messages.getString("EarthApp.27") + balloon.getAbsolutePath() //$NON-NLS-1$
-					+ "</i><br/><br/>"; //$NON-NLS-1$
-			filesExist = false;
-		} else if (balloon == null) {
-			errorMessage += Messages.getString("EarthApp.29"); //$NON-NLS-1$
-			filesExist = false;
+		final File projectFolder = new File(balloon).getAbsoluteFile().getParentFile();
+		if (projectFolder == null) {
+			return;
 		}
+		for (String folder : new String[] { EarthConstants.FOLDER_COPIED_TO_KMZ, EarthConstants.FOLDER_WEB_FILES }) {
+			final File source = new File(projectFolder, folder);
+			if (source.isDirectory()) {
+				copyChanged(source, new File(generatedFolder, folder));
+			}
+		}
+	}
 
-		errorMessage += Messages.getString("EarthApp.30"); //$NON-NLS-1$
+	/** Copies the files of `source` into `target` that are not there yet or differ in size or date. */
+	static void copyChanged(File source, File target) throws IOException {
+		final File[] files = source.listFiles();
+		if (files == null) {
+			return;
+		}
+		for (File file : files) {
+			final File to = new File(target, file.getName());
+			if (file.isDirectory()) {
+				copyChanged(file, to);
+			} else if (!to.isFile() || to.length() != file.length() || to.lastModified() != file.lastModified()) {
+				FileUtils.copyFile(file, to, true);
+			}
+		}
+	}
 
-		if (!filesExist) {
-			throw new KmlGenerationException(errorMessage);
+	private void deleteOldGoogleEarthFiles(File generatedFolder) {
+		for (String name : OLD_GOOGLE_EARTH_FILES) {
+			final File old = new File(generatedFolder, name);
+			if (old.isFile() && !old.delete()) {
+				logger.debug("Could not delete {}", old.getAbsolutePath()); //$NON-NLS-1$
+			}
 		}
 	}
 
 	private LocalPropertiesService getLocalProperties() {
 		return localPropertiesService;
-	}
-
-	private void copyContentsToGeneratedFolder(String folderToInclude) throws IOException {
-		final File sourceDir = new File(folderToInclude);
-		final File targetDir = new File(EarthConstants.GENERATED_FOLDER + File.separator + sourceDir.getName());
-		FileUtils.copyDirectory(sourceDir, targetDir);
 	}
 
 	/**
@@ -160,17 +175,14 @@ public class KmlGeneratorService {
 	private void fixUserDirectory() {
 		final String csvFilePath = getLocalProperties().getCsvFile();
 		final String balloonPath = getLocalProperties().getBalloonFile();
-		final String templatePath = getLocalProperties().getTemplateFile();
 		final String metadataPath = getLocalProperties().getImdFile();
 
 		File csvFile = null;
 		File balloon = null;
-		File template = null;
 		File idmFile = null;
 		try {
 			csvFile = new File(csvFilePath);
 			balloon = new File(balloonPath);
-			template = new File(templatePath);
 			idmFile = new File(metadataPath);
 
 			final String prefixUserFolder = FolderFinder.getCollectEarthDataFolder() + File.separator;
@@ -184,13 +196,6 @@ public class KmlGeneratorService {
 				final File otherFile = new File(prefixUserFolder + getLocalProperties().getBalloonFile());
 				if (otherFile.exists()) {
 					getLocalProperties().setValue(EarthProperty.BALLOON_TEMPLATE_KEY, otherFile.getAbsolutePath());
-				}
-			}
-
-			if (!template.exists()) {
-				final File otherFile = new File(prefixUserFolder + getLocalProperties().getTemplateFile());
-				if (otherFile.exists()) {
-					getLocalProperties().setValue(EarthProperty.KML_TEMPLATE_KEY, otherFile.getAbsolutePath());
 				}
 			}
 
@@ -364,40 +369,6 @@ public class KmlGeneratorService {
 				csvColumns -> new PolygonKmlGenerator(null, null, null).isKmlPolygonColumnFound(csvColumns) != null);
 	}
 
-	private void generateKml() throws KmlGenerationException, IOException, CsvValidationException {
-
-		KmlGenerator kmlGenerator = null;
-		kmlGenerator = getKmlGenerator();
-
-		if (kmlGenerator == null) {
-			throw new KmlGenerationException("Error while generating KML");
-		}
-
-		final String csvFile = getLocalProperties().getCsvFile();
-		String balloon = getLocalProperties().getBalloonFile();
-		final String template = getLocalProperties().getTemplateFile();
-
-		// In case the user sets up the OPEN_BALLOON_IN_FIREFOX flag to
-		// true. Meaning that a small ballon opens in the placemark which in
-		// its turn
-		// opens a firefox browser with the real form
-		final Boolean openBalloonInFirefox = Boolean
-				.valueOf(getLocalProperties().getValue(EarthProperty.OPEN_BALLOON_IN_BROWSER));
-		if (Boolean.TRUE.equals(openBalloonInFirefox)) {
-			String alternativeBalloon = getLocalProperties().getValue(EarthProperty.ALTERNATIVE_BALLOON_FOR_BROWSER);
-			if (!StringUtils.isBlank(alternativeBalloon)) {
-				balloon = alternativeBalloon;
-			}
-		}
-
-		// Using all of the files that compose the final KML it is generated and stores
-		// in KML_RESULTING_TEMP_FILE
-		kmlGenerator.generateKmlFile(KML_RESULTING_TEMP_FILE, csvFile, balloon, template,
-				earthSurveyService.getCollectSurvey(), false);
-		updateFilesUsedChecksum();
-
-	}
-
 	/**
 	 * Runs the export of the records to the CSV the KML is made from: with its progress, for the export job of the
 	 * pages (ExportService), or simply to the end.
@@ -490,103 +461,5 @@ public class KmlGeneratorService {
 		}
 		return destniationFileTemp;
 
-	}
-
-	private void updateFilesUsedChecksum() throws IOException {
-		final String csvFile = getLocalProperties().getCsvFile();
-		final String balloon = getLocalProperties().getBalloonFile();
-		final String template = getLocalProperties().getTemplateFile();
-
-		getLocalProperties().saveBalloonFileChecksum(CollectEarthUtils.getMd5FromFile(balloon));
-		getLocalProperties().saveCsvFileCehcksum(CollectEarthUtils.getMd5FromFile(csvFile));
-		getLocalProperties().saveTemplateFileChecksum(CollectEarthUtils.getMd5FromFile(template));
-	}
-
-	private boolean isKmlUpToDate() throws IOException {
-
-	    // Retrieve file paths and checksums, handling potential null values
-	    final String csvFile = getLocalProperties().getCsvFile();
-	    final String balloon = getLocalProperties().getBalloonFile();
-	    final String template = getLocalProperties().getTemplateFile();
-	    final String balloonChecksum = getLocalProperties().getBalloonFileChecksum();
-	    final String templateChecksum = getLocalProperties().getTemplateFileChecksum();
-	    final String csvChecksum = getLocalProperties().getCsvFileChecksum();
-
-	    // Check if any essential property is null
-	    if (csvFile == null || balloon == null || template == null ||
-	        balloonChecksum == null || templateChecksum == null || csvChecksum == null) {
-	        return false; // Return false if any required property is null
-	    }
-
-	    boolean upToDate = true;
-
-	    // Get MD5 checksums, ensuring null values are handled
-	    final String balloonMd5 = CollectEarthUtils.getMd5FromFile(balloon);
-	    final String templateMd5 = CollectEarthUtils.getMd5FromFile(template);
-	    final String csvMd5 = CollectEarthUtils.getMd5FromFile(csvFile);
-
-	    // Check if the computed MD5 values are null or do not match the expected checksums
-	    if (balloonMd5 == null || !balloonChecksum.trim().equals(balloonMd5) ||
-	        templateMd5 == null || !templateChecksum.trim().equals(templateMd5) ||
-	        csvMd5 == null || !csvChecksum.trim().equals(csvMd5)) {
-	        upToDate = false;
-	    }
-
-	    // Check if the KMZ file exists
-	    final File kmzFile = new File(KmlGeneratorService.KMZ_FILE_PATH);
-	    if (!kmzFile.exists()) {
-	        upToDate = false;
-	    }
-
-	    return upToDate;
-	}
-
-
-	public void generatePlacemarksKmzFile() throws IOException, KmlGenerationException, CsvValidationException {
-		generatePlacemarksKmzFile(false);
-	}
-
-	public void generatePlacemarksKmzFile(boolean forceRegeneration)
-			throws IOException, KmlGenerationException, CsvValidationException {
-
-		logger.info("START - Generate KMZ file"); //$NON-NLS-1$
-
-		if (forceRegeneration || !isKmlUpToDate()) {
-
-			generateKml();
-
-			final KmzGenerator kmzGenerator = new KmzGenerator();
-
-			final String balloon = getLocalProperties().getBalloonFile();
-			final File balloonFile = new File(balloon);
-			final String folderToInclude = balloonFile.getParent() + File.separator
-					+ EarthConstants.FOLDER_COPIED_TO_KMZ;
-
-			kmzGenerator.generateKmzFile(KMZ_FILE_PATH, KML_RESULTING_TEMP_FILE, folderToInclude);
-			logger.info("KMZ File generated : {}", KMZ_FILE_PATH); //$NON-NLS-1$
-
-			copyContentsToGeneratedFolder(folderToInclude);
-
-			// Copy the optional webFiles/ folder (assets for the modern web balloon) to the
-			// generated folder that Jetty serves. Old CEPs do not ship this folder, so guard
-			// against it being missing.
-			final File webFilesFolder = new File(balloonFile.getParent() + File.separator
-					+ EarthConstants.FOLDER_WEB_FILES);
-			if (webFilesFolder.exists() && webFilesFolder.isDirectory()) {
-				copyContentsToGeneratedFolder(webFilesFolder.getAbsolutePath());
-			}
-
-			final File kmlFile = new File(KML_RESULTING_TEMP_FILE);
-			if (kmlFile.exists()) {
-				final boolean deleted = kmlFile.delete();
-				if (deleted) {
-					logger.info("KML File deleted : {}", KML_RESULTING_TEMP_FILE); //$NON-NLS-1$
-				} else {
-					throw new IOException("The KML file could not be deleted at " + kmlFile.getPath()); //$NON-NLS-1$
-				}
-			}
-
-		}
-		logger.info("END - Generate KMZ file"); //$NON-NLS-1$
 	}
 }

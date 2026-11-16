@@ -47,7 +47,7 @@ public class WebXmlTest {
 				"/plotStatuses", "/surveyForm/*" }) {
 			assertTrue(patterns.get(OWN_PAGES).contains(pattern), pattern);
 		}
-		for (String pattern : new String[] { "/openInBrowser", "/placemark-info-expanded", "/save-data-expanded",
+		for (String pattern : new String[] { "/placemark-info-expanded", "/save-data-expanded",
 				"/create-entity", "/delete-entity", "/plot-activity" }) {
 			assertTrue(patterns.get(OWN_PAGES_OR_GEP).contains(pattern), pattern);
 		}

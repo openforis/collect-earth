@@ -40,9 +40,6 @@ import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
 import org.openforis.collect.model.CollectSurvey;
-import org.openqa.selenium.By;
-import org.openqa.selenium.NoSuchSessionException;
-import org.openqa.selenium.NoSuchWindowException;
 import org.openqa.selenium.bidi.module.Permission;
 import org.openqa.selenium.bidi.permissions.PermissionState;
 import org.openqa.selenium.chrome.ChromeDriver;
@@ -226,72 +223,6 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	public void onApplicationEvent(ContextClosedEvent event) {
 		closeBrowsers();
 	}
-
-	private RemoteWebDriver chooseDriver() throws BrowserNotFoundException {
-		RemoteWebDriver driver = null;
-		final String browserSetInProperties = localPropertiesService.getValue(EarthProperty.BROWSER_TO_USE).trim();
-
-		if (browserSetInProperties.equalsIgnoreCase(EarthConstants.CHROME_BROWSER)) {
-			driver = tryStartChrome();
-		} else if (browserSetInProperties.equalsIgnoreCase(EarthConstants.FIREFOX_BROWSER)) {
-			driver = tryStartFirefox();
-		} else if (browserSetInProperties.equalsIgnoreCase(EarthConstants.EDGE_BROWSER)) {
-			driver = tryStartEdge();
-		}
-
-		// If the browser chosen is not installed try to find an installed browser in the computer
-		if (driver == null) {
-			driver = tryStartChrome();
-			if (driver == null) {
-				driver = tryStartFirefox();
-			}
-			if (driver == null) {
-				driver = tryStartEdge();
-			}
-		}
-
-		if (driver == null) {
-			throw new BrowserNotFoundException(
-					"Neither Chrome, Edge or Firefox could be opened. You need to have one of them installed in order to use GEE or Earth Map.");
-		}
-
-		return driver;
-	}
-
-	private RemoteWebDriver tryStartFirefox() {
-		RemoteWebDriver driver = null;
-		try {
-			driver = (RemoteWebDriver) WebDriverManager.firefoxdriver().create();
-		} catch (final Exception e) {
-			logger.warn(
-					"Problem starting Firefox browser!",
-							e);
-		}
-		return driver;
-	}
-
-	private RemoteWebDriver tryStartEdge() {
-		RemoteWebDriver driver = null;
-		try {
-			driver = (RemoteWebDriver) WebDriverManager.edgedriver().create();
-		} catch (final Exception e) {
-			logger.warn("Problem starting Edge browser", e);
-		}
-		return driver;
-	}
-
-	private RemoteWebDriver tryStartChrome() {
-		RemoteWebDriver driver = null;
-		try {
-			driver = (RemoteWebDriver) WebDriverManager.chromedriver().create();
-		} catch (final Exception e) {
-			logger.warn(
-					"Problem starting Chrome browser",
-							e);
-		}
-		return driver;
-	}
-
 
 	private String getDGMapJavascript(SimplePlacemarkObject placemarkObject) {
 		final Map<String, Object> data = geoLocalizeTemplateService.getPlacemarkData(placemarkObject);
@@ -648,19 +579,6 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 		}
 	}
 
-	/**
-	 * Quits the driver of a window that is gone, and forgets it; nothing if null, or if its browser still has a window.
-	 * Only gone as {@link WindowLayoutService#windowState} tells it: no window left, or a failure that means the window
-	 * or the session is gone. A page that merely does not answer {@link #isDriverWorking} (an alert open, no body yet)
-	 * is a window the user still has, and is left alone, as it always was.
-	 */
-	private void discardIfGone(RemoteWebDriver driver) {
-		if (driver != null && WindowLayoutService.windowState(driver) == WindowLayoutService.WindowState.CLOSED) {
-			drivers.remove(driver);
-			quietlyQuit(driver);
-		}
-	}
-
 	/** Keeps a driver to quit when Collect Earth closes, as starting a browser does; for the tests. */
 	void keep(RemoteWebDriver driver) {
 		drivers.add(driver);
@@ -677,20 +595,6 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 		} catch (final Exception e) {
 			logger.warn("A browser could not be quit, it had probably been closed already : {}", e.getMessage());
 		}
-	}
-
-	private RemoteWebDriver initBrowser() throws BrowserNotFoundException {
-		RemoteWebDriver driver = null;
-		driver = chooseDriver();
-		if (isClosing) { // In case the browser takes so long to start that the user closes CE and this
-			// method is called when the other windows are being closed
-			driver.quit();
-			driver = null;
-		} else {
-			drivers.add(driver);
-			recordRunningBrowsers();
-		}
-		return driver;
 	}
 
 	/**
@@ -853,138 +757,6 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 		}
 		return sources;
 	}
-
-	public RemoteWebDriver navigateTo(String url, RemoteWebDriver driver) throws BrowserNotFoundException {
-		return navigateTo(url, driver, true);
-	}
-
-	/**
-	 * Loads the given URL into the browser. If the browser is null then a new
-	 * browser window is open.
-	 *
-	 * @param url
-	 *            The URL to load.
-	 * @param driverParam
-	 *            The browser window to use. If this value is null a new browser
-	 *            window is open.
-	 * @param retry
-	 *            Specify if there should be a second try to open a browser window
-	 *            if the first time fails (useful if the browser could not be found)
-	 * @return The browser window (firefox or chrome depending on the configuration)
-	 *         used to open the URL.
-	 * @throws BrowserNotFoundException
-	 *             Exception thrown when there is no Firefox/Chrome installed
-	 */
-	public RemoteWebDriver navigateTo(String url, RemoteWebDriver driverParam, boolean retry)
-			throws BrowserNotFoundException {
-		return navigateTo(url, driverParam, retry, true, this::initBrowser);
-	}
-
-	/** Opens the kind of browser window a caller of {@link #navigateTo} uses. */
-	@FunctionalInterface
-	interface WindowOpener {
-		RemoteWebDriver open() throws BrowserNotFoundException;
-	}
-
-	/**
-	 * As {@link #navigateTo(String, RemoteWebDriver, boolean)}; {@code refresh} forces a reload
-	 * after navigating, needed by pages whose URL only changes in the #fragment. Pages whose
-	 * path changes (Google Earth Web) already load on navigation and must not pay that twice.
-	 *
-	 * @param opener opens a window when there is none or it is gone: the kind of window the caller had (the plots map's
-	 *               is an app window). A window that is gone is quit and forgotten first: its driver outlives it (and on
-	 *               macOS the browser too), and would otherwise stay until Collect Earth closes. One that is there but
-	 *               does not answer (an alert open) is left to the user.
-	 */
-	RemoteWebDriver navigateTo(String url, RemoteWebDriver driverParam, boolean retry, boolean refresh,
-			WindowOpener opener) throws BrowserNotFoundException {
-
-		RemoteWebDriver driver = driverParam;
-
-		if (driver == null || !isDriverWorking(driver)) {
-			discardIfGone(driver);
-			driver = opener.open();
-		}
-
-		if (driver != null) {
-			try {
-				driver.navigate().to(url);
-				// Refresh to make sure it loads the new plot
-				if (refresh) {
-					try {
-						driver.navigate().refresh(); // FORCE REFRESH - OTHERWISE WINDOW IS NOT REFRESHED
-					} catch (final Exception e) {
-						if (windowWasClosed(e)) {
-							logger.warn("The browser window was closed before it could be refreshed");
-						} else {
-							logger.error("Error refreshing the browser window", e);
-						}
-					}
-				}
-			} catch (final Exception e) {
-				if (retry && windowWasClosed(e)) {
-					// The interpreter closed the window. Opening another one is the normal answer to that, not a
-					// failure, and it was logged at ERROR - the level the Sentry appender is bound at - so closing a
-					// window was reported as a fault in Collect Earth.
-					logger.warn("The browser window was closed, opening a new one");
-					discardIfGone(driver);
-					// Keep what the retry returns : the driver of the window it opens
-					driver = navigateTo(url, null, false, refresh, opener); // only try to re-open one
-				} else if (windowWasClosed(e)) {
-					logger.warn("The browser window was closed while {} was loading", url);
-				} else if (timedOut(e)) {
-					// A slow connection, not a defect : Earth Engine apps in particular can take minutes to load
-					logger.warn("The page {} did not load in time : {}", url, e.getMessage());
-				} else {
-					// Every other failure used to be swallowed here, so a page that does not load left no trace at all
-					logger.error("Error loading the page in the browser", e);
-				}
-			}
-		} else {
-			logger.error("No Selenium driver available, Is Firefox or Chrome installed?");
-		}
-		return driver;
-	}
-
-	/**
-	 * Did this failure happen because the browser window is gone? The interpreter closing the Google Earth window
-	 * mid-operation is ordinary use, so it is reported as a warning rather than an error. Selenium says so with a
-	 * typed exception, but wraps it often enough that the whole cause chain and the message are both worth checking.
-	 */
-	private boolean timedOut(Throwable failure) {
-		for (Throwable t = failure; t != null; t = t.getCause()) {
-			if (t instanceof org.openqa.selenium.TimeoutException || t instanceof java.util.concurrent.TimeoutException) {
-				return true;
-			}
-		}
-		return false;
-	}
-
-	private boolean windowWasClosed(Throwable failure) {
-		for (Throwable t = failure; t != null; t = t.getCause()) {
-			if (t instanceof NoSuchWindowException || t instanceof NoSuchSessionException) {
-				return true;
-			}
-			final String message = t.getMessage();
-			if (message != null && (message.contains("Session not found") //$NON-NLS-1$
-					|| message.contains("target window already closed") //$NON-NLS-1$
-					|| message.contains("no such window"))) { //$NON-NLS-1$
-				return true;
-			}
-		}
-		return false;
-	}
-
-	protected boolean isDriverWorking(RemoteWebDriver driver) {
-		boolean stillWorking = true;
-		try {
-			driver.findElement(By.xpath("//body"));
-		} catch (Exception e) {
-			stillWorking = false;
-		}
-		return stillWorking;
-	}
-
 
 	/**
 	 * Shows the Planet Basemaps representation of the plot in the Planet tab of the imagery window.

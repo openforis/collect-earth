@@ -94,7 +94,6 @@
 	</filter-mapping>
 	<filter-mapping>
 		<filter-name>ownPagesOrGoogleEarthProFilter</filter-name>
-		<url-pattern>/openInBrowser</url-pattern>
 		<url-pattern>/placemark-info-expanded</url-pattern>
 		<url-pattern>/save-data-expanded</url-pattern>
 		<url-pattern>/create-entity</url-pattern>

@@ -1,8 +1,8 @@
 // The project file (.cep) of a project made from a Collect Earth Online project (docs/plans/2026-11-09-ceo-bridge.md,
 // B4): the survey (idml.ts), project_definition.properties, the KML template and a balloon. The form is the one the
 // plots map and Google Earth Web build from the survey; the balloon is there for what reads it: the cloud's addRound
-// and addNote (its marker line and EXTRA_ID_ATTRIBUTES) and Collect Earth's KML (Google Earth Pro, Export to KML),
-// where it only says where the form is. The import report goes in too, so it stays with the project.
+// and addNote (its marker line and EXTRA_ID_ATTRIBUTES) and Collect Earth with web_form=balloon, where it only says
+// where the form is. (Collect Earth 2 reads no KML template; earlier versions made Google Earth Pro's KML with it.) The import report goes in too, so it stays with the project.
 import { zipCep } from '../cep.js';
 import type { CeoSurvey } from './index.js';
 import { KML_TEMPLATE } from './kmlTemplate.js';
@@ -53,7 +53,7 @@ export interface MadeProjectFile {
  * A project file made by the server (a CEO import, a backup's): the survey, project_definition.properties, the KML
  * template and a balloon. The form is the one the plots map and Google Earth Web build from the survey; the balloon is
  * there for what reads it: the cloud's addRound and addNote (its marker line and EXTRA_ID_ATTRIBUTES) and Collect
- * Earth's KML (Google Earth Pro, Export to KML), where it only says where the form is.
+ * Earth with web_form=balloon, where it only says where the form is.
  */
 export function madeProjectFile(o: MadeProjectFile, date: Date): Buffer {
   const extraData = [
@@ -76,8 +76,8 @@ export function madeProjectFile(o: MadeProjectFile, date: Date): Buffer {
 <!-- START OF EXTRA CSV DATA -->
 <input type="hidden" id="collect_text_id" name="collect_text_id" value="$[EXTRA_id]" class="extra" />
   </form>
-  <p>Plot $[EXTRA_id]: this project's form opens in Collect Earth's plots map and in Google Earth Web
-  (Settings, Plot viewer), not in this balloon.</p>
+  <p>Plot $[EXTRA_id]: this project's form opens in Collect Earth's plots map, beside Google Earth Web,
+  not in this balloon.</p>
 </body>
 </html>
 `;
