@@ -11,6 +11,8 @@ import DialogContentText from "@mui/material/DialogContentText";
 import DialogTitle from "@mui/material/DialogTitle";
 import Chip from "@mui/material/Chip";
 import LinearProgress from "@mui/material/LinearProgress";
+import MenuItem from "@mui/material/MenuItem";
+import TextField from "@mui/material/TextField";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
@@ -22,9 +24,11 @@ import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import ArrowForward from "@mui/icons-material/ArrowForward";
 import CallSplit from "@mui/icons-material/CallSplit";
+import Download from "@mui/icons-material/Download";
 import Edit from "@mui/icons-material/EditOutlined";
 import { useMemo, useState } from "react";
 import {
+  downloadStandaloneCep,
   listAssignments,
   listCsvFiles,
   listMembers,
@@ -47,6 +51,7 @@ import { linkProps, pathFor, PROJECT_PLOTS, type ProjectTab } from "../router";
 import { useLoad } from "../useLoad";
 import { fromPairs, pairKey } from "../assignmentGrid";
 import { sortPeople } from "../division";
+import { saveBlob } from "../saveBlob";
 import { PlotDesign } from "./PlotDesign";
 
 interface UploadState {
@@ -166,6 +171,53 @@ function WhoCollectsDialog({
         <Button variant="contained" onClick={() => void save()} disabled={busy || !changed}>{t("plots.saveAssign")}</Button>
       </DialogActions>
     </Dialog>
+  );
+}
+
+/**
+ * The project file for working alone (stage 4 of docs/plans/2026-11-16-plots-from-the-server.md): with all the
+ * project's plots or one person's, for someone going where there is no internet, or a project leaving the cloud.
+ */
+function StandaloneDownload({ projectId, members }: { projectId: string; members: Member[] }) {
+  const t = useT();
+  const [who, setWho] = useState("all");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  const download = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const { blob, filename } = await downloadStandaloneCep(projectId, who === "all" ? "all" : { userId: who });
+      saveBlob(blob, filename);
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Box sx={{ mt: 3 }} data-testid="standalone-cep">
+      <Typography variant="h3" gutterBottom>
+        {t("projectPlots.standalone.title")}
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+        {t("projectPlots.standalone.help")}
+      </Typography>
+      <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} sx={{ alignItems: { sm: "center" } }}>
+        <TextField select size="small" label={t("projectPlots.standalone.with")} value={who} onChange={(e) => setWho(e.target.value)} sx={{ minWidth: 240 }}>
+          <MenuItem value="all">{t("projectPlots.standalone.all")}</MenuItem>
+          {sortPeople(members).map((m) => (
+            <MenuItem key={m.userId} value={m.userId}>
+              {t("projectPlots.standalone.person", { person: m.username })}
+            </MenuItem>
+          ))}
+        </TextField>
+        <Button variant="outlined" startIcon={<Download />} onClick={download} disabled={busy}>
+          {t("projectPlots.standalone.download")}
+        </Button>
+      </Stack>
+      <ErrorAlert error={error} />
+    </Box>
   );
 }
 
@@ -322,6 +374,7 @@ export function PlotsTab({ projectId, onGo }: { projectId: string; onGo: (tab: P
           <Button variant="contained" startIcon={<CallSplit />} {...linkProps(pathFor({ name: "plotFile", projectId, fileId: PROJECT_PLOTS }))}>
             {t("projectPlots.open")}
           </Button>
+          <StandaloneDownload projectId={projectId} members={data.members} />
         </Paper>
       )}
       <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section" aria-labelledby="plot-files-title">

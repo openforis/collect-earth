@@ -19,6 +19,7 @@ import type { Assignment, RecordRow, StoredDistribution } from '../types.js';
 import type { AssignmentsAnswer, AssignmentsSaved, CsvFilesAnswer, CsvFileWarnings, CsvUploadAnswer, MyPlotsAnswer, ReplaceImpact } from '../wire/plotFiles.js';
 import { mergePlotFiles, myPlotsVersion, type MergedPlots, type PlotFilePart } from '../myPlots.js';
 import { oneSetFlags, oneSetRefusal } from '../projectPlots.js';
+import { standaloneCep } from '../standaloneCep.js';
 import { plotFileOf } from '../plotFileCache.js';
 import type { ProjectStateCache } from '../projectState.js';
 import type { SamplingService } from '../samplingService.js';
@@ -598,9 +599,9 @@ export async function registerAssignmentRoutes(
    * plot file (src/myPlots.ts), which Collect Earth keeps on the computer and asks about every few minutes. Training
    * sets stay apart (my-assignment). Built once per version.
    */
-  const myPlots = async (request: FastifyRequest, plotFile: boolean): Promise<{ version: string; merged: MergedPlots; keyCount: number }> => {
+  const myPlots = async (request: FastifyRequest, plotFile: boolean, userId = request.userId): Promise<{ version: string; merged: MergedPlots; keyCount: number }> => {
     const projectId = request.membership!.projectId;
-    const { files, info } = await personFiles(request, projectId, request.userId);
+    const { files, info } = await personFiles(request, projectId, userId);
     // The plots sent back first: their row carries the coordinator's note
     const ordered = [...files.filter((f) => f.csvFileId !== f.sourceId), ...files.filter((f) => f.csvFileId === f.sourceId)];
     const keyCount = keyShape(info).count;
@@ -612,7 +613,7 @@ export async function registerAssignmentRoutes(
       hasPolygonColumn(fields) || (coordinate(fields[keyCount], latLimit) !== null && coordinate(fields[keyCount + 1], lonLimit) !== null);
     // From what each part depends on: nothing is built to answer whether the person's plots changed
     const version = myPlotsVersion(ordered.map((f) => ({ csvFileId: f.csvFileId, checksum: f.key })), [srid]);
-    const cacheKey = `${projectId}:${request.userId ?? '-'}:${version}:${plotFile ? 1 : 0}`;
+    const cacheKey = `${projectId}:${userId ?? '-'}:${version}:${plotFile ? 1 : 0}`;
     let merged = mergedPlots.get(cacheKey);
     if (merged) {
       mergedPlots.delete(cacheKey);
@@ -675,6 +676,59 @@ export async function registerAssignmentRoutes(
         .header('x-plot-file-column', merged.plotFileColumn ? '1' : '0')
         .header('content-disposition', attachment('my-plots.csv'))
         .send(merged.data);
+    },
+  );
+
+  /**
+   * The project file for working alone (src/standaloneCep.ts): with the person's plots (`?plots=mine`, any member), all
+   * the project's plots (`?plots=all`) or one person's (`?userId=`), the last two for coordinators. The plots as Collect
+   * Earth gets them from the server (the round and note columns, rows it cannot read left out).
+   */
+  app.get(
+    '/v1/projects/:pid/cep/standalone',
+    { preHandler: requireProjectMembership(store) },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const projectId = request.membership!.projectId;
+      const query = (request.query ?? {}) as { plots?: unknown; userId?: unknown };
+      const isAdmin = request.membership!.role === 'admin';
+      const all = query.plots === 'all';
+      const forUser = typeof query.userId === 'string' && query.userId !== '' ? query.userId : null;
+      if ((all || forUser) && !isAdmin) return reply.code(403).send({ error: 'forbidden', reason: 'only coordinators download all the plots, or another person’s' });
+      if (!all && !forUser && query.plots !== 'mine') return reply.code(400).send({ error: 'bad_request', reason: 'plots=mine, plots=all or userId=' });
+      const cep = await store.getCep(projectId);
+      if (!cep) return reply.code(409).send({ error: 'no_project_file', reason: 'the project has no project file yet' });
+      const [project, members] = await Promise.all([store.getProject(projectId), store.listMembers(projectId)]);
+      let who: string;
+      let plots: Buffer;
+      let count: number;
+      if (all) {
+        const info = await store.getRoundInfo(projectId);
+        const keyCount = keyShape(info).count;
+        const parts: PlotFilePart[] = [];
+        for (const meta of await store.listCsvFiles(projectId)) {
+          const file = await store.getCsvFile(projectId, meta.id);
+          if (file) parts.push({ csvFileId: meta.id, filename: meta.filename, data: wholeFile(file, info).data });
+        }
+        const { srid } = await placeReader.surveyFacts(projectId, request.log);
+        const [latLimit, lonLimit] = isWgs84(srid) ? [90, 180] : [Infinity, Infinity];
+        const merged = mergePlotFiles(parts, keyCount, {
+          readable: (fields) => hasPolygonColumn(fields) || (coordinate(fields[keyCount], latLimit) !== null && coordinate(fields[keyCount + 1], lonLimit) !== null),
+        });
+        ({ data: plots, plots: count } = merged);
+        who = 'all';
+      } else {
+        const userId = forUser ?? request.userId;
+        const member = members.find((m) => m.userId === userId);
+        if (!userId || !member) return reply.code(forUser ? 400 : 403).send({ error: 'bad_request', reason: 'userId: a person of the project' });
+        const { merged } = await myPlots(request, false, userId);
+        ({ data: plots, plots: count } = merged);
+        who = member.username;
+      }
+      if (count === 0) return reply.code(409).send({ error: 'no_plots', reason: 'there are no plots to put in the project file' });
+      const zip = standaloneCep(cep, plots, new Date());
+      await audit(store, request, 'export.downloaded', { kind: 'standalone', plots: count, ...(forUser ? { userId: forUser } : {}), ...(all ? { all: true } : {}) });
+      const name = `${(project?.name ?? 'project').replace(/[^\p{L}\p{N} ._-]+/gu, '_').trim() || 'project'} - ${who}.cep`;
+      return reply.header('content-type', 'application/zip').header('x-plots', String(count)).header('content-disposition', attachment(name)).send(zip);
     },
   );
 

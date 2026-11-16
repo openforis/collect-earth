@@ -1,6 +1,6 @@
 # Plots from the server for cloud projects — design
 
-Date: 16 November 2026. Branch `claude/awesome-bell-s34gb0`. **Status: decided (below); stages 1, 2 and 3 built.**
+Date: 16 November 2026. Branch `claude/awesome-bell-s34gb0`. **Status: decided (below); all four stages built.**
 
 ## What is asked
 
@@ -271,7 +271,7 @@ and the server writes the survey's order.
    - the CEP's plot files taken at upload by the server;
    - one division, share links over the project, and a coordinator taking plots for themselves.
    Existing projects: files with other columns flagged.
-4. **"Download for working alone":** the CEP with a person's plots, or all of them.
+4. **"Download for working alone":** the CEP with a person's plots, or all of them. (Built: "Stage 4, as built" below.)
 
 Stages 1 and 2 give the collectors one list that updates by itself, which is the larger gain. Stage 3 is what makes
 dividing simpler for the coordinator, and needs the two rules, so it comes after.
@@ -457,3 +457,27 @@ desktop's local dashboard, which has one plot file. Those uploads are held to th
   - All 1735 pass. Also run on PostgreSQL.
 - Dashboard: 595 tests, plus a run in the browser (Setup › Plots, the project's plots page, taking 10 plots of one
   province).
+
+## Stage 4, as built
+
+**Server.** `GET /v1/projects/:pid/cep/standalone` (`src/routes/assignments.ts`, `src/standaloneCep.ts`):
+
+- `?plots=mine`: any person, their own plots (the same file as `my-plots.csv`, without `plot_file`);
+- `?plots=all`: coordinators only, every plot file's plots in one file (merged as `my-plots` merges them, rows
+  Collect Earth cannot read left out);
+- `?userId=`: coordinators only, that person's plots;
+- otherwise 400; a collector asking for all or someone else gets 403; 409 `no_project_file` or `no_plots`.
+
+The CEP is the one the project serves, with every plot file in it emptied to its header row and the plots put in
+the file its properties name (or `grid/plots.csv`, the properties pointed at it). So Collect Earth opens it as an
+ordinary local project; the work done with it comes back with "Send this computer's records to the cloud project".
+Headers `X-Plots`; file name `<project> - <who>.cep`; audited as `export.downloaded` (`kind: standalone`).
+
+**Dashboard.** Setup › Plots, in the project's plots card: "Download for working alone", with all the plots or one
+person's, and a download button.
+
+**Not done.** Rebalancing over the project (moving unfinished plots between everyone at once) was not asked for;
+"Move unfinished plots" covers one person at a time.
+
+**Tests.** `standaloneCep.test.ts` (3: all plots, mine / someone / refusals, the emptying of the plot files and
+`grid/plots.csv`), an isolation case. Server 1738, dashboard 595, all pass.

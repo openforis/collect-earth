@@ -23,6 +23,7 @@ import type {
   SigridFacts,
   TakePlotsAnswer,
 } from "../../../src/wire/plotFiles";
+import { attachmentName } from "./data";
 import { ApiError, Progress, p, request, send, upload } from "./transport";
 
 // --- plot files and assignments ----------------------------------------------------------
@@ -194,4 +195,14 @@ export function rebalance(
   dryRun: boolean,
 ): Promise<RebalanceAnswer> {
   return request("POST", `${f(projectId, csvFileId)}/rebalance`, { json: { people, dryRun } });
+}
+
+/**
+ * The project file for working alone (docs/plans/2026-11-16-plots-from-the-server.md, stage 4): with all the project's
+ * plots ("all"), one person's (their user id), or the caller's own ("mine").
+ */
+export async function downloadStandaloneCep(projectId: string, who: "all" | "mine" | { userId: string }): Promise<{ blob: Blob; filename: string }> {
+  const query = who === "all" ? "plots=all" : who === "mine" ? "plots=mine" : `userId=${encodeURIComponent(who.userId)}`;
+  const response = await send("GET", `${p(projectId)}/cep/standalone?${query}`);
+  return { blob: await response.blob(), filename: attachmentName(response, "project.cep") };
 }
