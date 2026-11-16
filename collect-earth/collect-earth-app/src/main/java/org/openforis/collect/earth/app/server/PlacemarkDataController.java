@@ -6,8 +6,12 @@ import java.util.Map;
 
 import javax.servlet.http.HttpServletResponse;
 
+import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.logging.GAlogger;
+import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.PlotTimeService;
+import org.openforis.collect.earth.app.view.Messages;
+import org.openforis.collect.earth.core.model.PlacemarkLoadResult;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,6 +33,32 @@ public class PlacemarkDataController extends AbstractPlacemarkDataController {
 	/** Counts the active time spent on each plot from the form's loads and saves (and its "still here"). */
 	@Autowired(required = false)
 	private PlotTimeService plotTimes;
+
+	@Autowired(required = false)
+	private LocalPropertiesService properties;
+
+	void setProperties(LocalPropertiesService properties) {
+		this.properties = properties;
+	}
+
+	/**
+	 * No plot is stored before the person has a name: it is written in every plot saved (its operator), and a plot
+	 * without one is nobody's, so it is not sent as theirs when they join a cloud project (CloudRecordsSender). The
+	 * window asks for the name before anything else (appBar.ts operatorRequired); this also holds for the balloons of
+	 * Google Earth and for a project file opened by itself. Answers 200 with the reason, which the forms show.
+	 */
+	boolean refusedWithoutName(String placemarkId, HttpServletResponse response) throws IOException {
+		if (properties == null || placemarkId == null || placemarkId.contains("$[") //$NON-NLS-1$
+				|| StringUtils.isNotBlank(properties.getOperator())) {
+			return false;
+		}
+		PlacemarkLoadResult result = new PlacemarkLoadResult();
+		result.setSuccess(false);
+		result.setMessage(Messages.getString(properties.isCloudSyncEnabled() ? "PlacemarkDataController.signInFirst" //$NON-NLS-1$
+				: "PlacemarkDataController.nameFirst")); //$NON-NLS-1$
+		setJsonResponse(response, result);
+		return true;
+	}
 
 	private void work(String placemarkId) {
 		// not the survey designer's preview, nor the test plot of a balloon ("$[id]")
@@ -62,6 +92,9 @@ public class PlacemarkDataController extends AbstractPlacemarkDataController {
 	@PostMapping(value="/save-data-expanded")
 	public void saveDataExpanded(PlacemarkUpdateRequest updateRequest, HttpServletResponse response) throws IOException {
 		try{
+			if (refusedWithoutName(updateRequest.getPlacemarkId(), response)) {
+				return;
+			}
 			work(updateRequest.getPlacemarkId());
 			super.saveDataExpanded(updateRequest, response);
 			if( updateRequest.getValues() != null && "true".equals(updateRequest.getValues().get("collect_boolean_actively_saved"))) {
@@ -77,6 +110,9 @@ public class PlacemarkDataController extends AbstractPlacemarkDataController {
 	@PostMapping(value="/create-entity")
 	public void createEntity(PlacemarkEntityCreateParams params, HttpServletResponse response) throws IOException {
 		try{
+			if (refusedWithoutName(params.getPlacemarkId(), response)) {
+				return;
+			}
 			work(params.getPlacemarkId());
 			super.createEntity(params, response);
 		}catch(Exception e){

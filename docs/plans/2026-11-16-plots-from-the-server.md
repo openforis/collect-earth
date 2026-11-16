@@ -486,3 +486,11 @@ person's, and a download button.
 plots opens on a computer that never joined as a local project on SQLite with exactly her 5 plots; a plot saved there
 is sent to the cloud under her account, with her answer, once she joins; the file with all the plots opens with all 55.
 24 checks with `alone` and `mapathon` before it, all passed.
+
+**No plot saved without a name.** The run found that Collect Earth stored a plot saved before the person had typed a
+name, with no operator in it. Such a plot is nobody's: when they join, it is counted as someone else's and not sent
+by default. The window already asked for the name first (`appBar.ts` `operatorRequired`), but the save itself did not,
+so a Google Earth balloon could store one. The desktop now refuses the save and the adding of a row until there is a name
+(`PlacemarkDataController.refusedWithoutName`: 200 with `success: false` and the reason, "Type your name before saving
+plots", or in a cloud project "Sign in to the cloud project before saving plots"; the balloon's test plot is let
+through). The forms show the reason. The `standalone` scenario checks it.

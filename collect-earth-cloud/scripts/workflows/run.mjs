@@ -425,8 +425,12 @@ with zipfile.ZipFile(src) as a, zipfile.ZipFile(dst,'w',zipfile.ZIP_DEFLATED) as
     const ids = (await plotIds()).sort();
     check('standalone: its plots are hers, and only hers', JSON.stringify(ids) === JSON.stringify(theirs), `${ids.join(' ')} | ${theirs.join(' ')}`);
     check('standalone: the plot file is the one the project names', String(s.csv ?? '').endsWith('.csv') && !String(s.csv).includes('/cloud/'), String(s.csv));
-    check('standalone: she types her name, as anyone working alone does', (await setOperator('Maria Dos')).status === 200);
     const plot = ids.find((p) => p !== state.mapathon.plot) ?? ids[0];
+    // with no name yet, nothing is stored: a plot without one would be nobody's, and not sent as hers
+    const unnamed = await (await fetch('http://localhost:8028/earth/save-data-expanded', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ placemarkId: plot, currentStep: '0', partialUpdate: 'true', 'values[collect_entity_land_cover[trees].code_coverage]': '70' }) })).json();
+    check('standalone: before she has typed her name, a save is refused and says why', unnamed.success === false && /name/i.test(unnamed.message ?? '') && !sqliteRecords('away').includes(plot), JSON.stringify(unnamed).slice(0, 200));
+    check('standalone: she types her name, as anyone working alone does', (await setOperator('Maria Dos')).status === 200);
     check('standalone: she saves a plot there', await savePlot(plot, '70'));
     await sleep(3000);
     check('standalone: it is in the computer’s database', sqliteRecords('away').includes(plot), sqliteRecords('away').join(' '));

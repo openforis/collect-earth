@@ -2,11 +2,15 @@ package org.openforis.collect.earth.app.server;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.util.HashMap;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
+import org.openforis.collect.earth.app.service.LocalPropertiesService;
+import org.openforis.collect.earth.app.view.Messages;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import com.google.gson.Gson;
@@ -91,5 +95,57 @@ public class PlacemarkDataControllerTest {
 
 		assertEquals(200, response.getStatus());
 		assertEquals("{\"success\":true}", response.getContentAsString());
+	}
+
+	private static PlacemarkUpdateRequest save(String plot) {
+		PlacemarkUpdateRequest request = new PlacemarkUpdateRequest();
+		request.setPlacemarkId(plot);
+		Map<String, String> values = new HashMap<>();
+		values.put("collect_code_land_use", "F");
+		request.setValues(values);
+		return request;
+	}
+
+	/** A plot without a name is nobody's: it would not be sent as the person's when they join a cloud project */
+	@Test
+	public void noPlotIsSavedBeforeThePersonHasAName() throws Exception {
+		LocalPropertiesService properties = mock(LocalPropertiesService.class);
+		when(properties.getOperator()).thenReturn("  ");
+		controller.setProperties(properties);
+
+		MockHttpServletResponse saved = new MockHttpServletResponse();
+		controller.saveDataExpanded(save("105"), saved);
+		assertEquals(200, saved.getStatus());
+		assertEquals(Boolean.FALSE, body(saved).get("success"));
+		assertEquals(Messages.getString("PlacemarkDataController.nameFirst"), body(saved).get("message"));
+
+		PlacemarkEntityCreateParams params = new PlacemarkEntityCreateParams();
+		params.setPlacemarkId("105");
+		params.setEntityName("trees");
+		params.setValues(new HashMap<>());
+		MockHttpServletResponse added = new MockHttpServletResponse();
+		controller.createEntity(params, added);
+		assertEquals(Messages.getString("PlacemarkDataController.nameFirst"), body(added).get("message"));
+
+		// in a cloud project the name is the account: signing in is what is asked
+		when(properties.isCloudSyncEnabled()).thenReturn(true);
+		MockHttpServletResponse cloud = new MockHttpServletResponse();
+		controller.saveDataExpanded(save("105"), cloud);
+		assertEquals(Messages.getString("PlacemarkDataController.signInFirst"), body(cloud).get("message"));
+	}
+
+	@Test
+	public void withANameTheSaveGoesOnAndTheTestPlotNeedsNone() throws Exception {
+		LocalPropertiesService properties = mock(LocalPropertiesService.class);
+		when(properties.getOperator()).thenReturn("Maria Dos");
+		controller.setProperties(properties);
+		MockHttpServletResponse named = new MockHttpServletResponse();
+		controller.saveDataExpanded(save("105"), named);
+		assertEquals(500, named.getStatus()); // reaches the (missing) survey service
+
+		when(properties.getOperator()).thenReturn(null);
+		MockHttpServletResponse test = new MockHttpServletResponse();
+		controller.saveDataExpanded(save("$[id]"), test);
+		assertEquals(500, test.getStatus()); // the balloon's test plot is not refused
 	}
 }
