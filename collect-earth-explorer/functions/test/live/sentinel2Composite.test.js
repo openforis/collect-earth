@@ -34,6 +34,28 @@ test("sentinel2 composite image carries the false-colour bands", live, async () 
   for (const b of ["nir", "swir1", "red"]) assert.ok(bands.includes(b), `missing band ${b} in ${bands}`);
 });
 
+test("sentinel2 true-colour composite returns a tile url and carries red/green/blue", live, async () => {
+  await eeAuth();
+  const plot = ee.Geometry(belize);
+  const r = await sentinel2CompositeTiles(plot, END, { bands: "true-colour" });
+  assert.match(r.tileUrl, /^https:\/\/earthengine\.googleapis\.com\/.*\{z\}\/\{x\}\/\{y\}/);
+  assert.deepEqual(await evaluate(buildComposite(plot, END, { bands: "true-colour" }).image.bandNames()), ["red", "green", "blue"]);
+});
+
+test("sentinel2 composite with an explicit window reports it in dateRange and the label", live, async () => {
+  await eeAuth();
+  const r = await sentinel2CompositeTiles(ee.Geometry(belize), "2022-07-01", { start: "2022-01-01" });
+  assert.match(r.tileUrl, /\{z\}\/\{x\}\/\{y\}/);
+  assert.deepEqual(r.dateRange, { start: "2022-01-01", end: "2022-07-01" });
+  assert.equal(r.label, "Sentinel-2 composite 2022-01-01 to 2022-07-01");
+});
+
+test("sentinel2 composite with a low maxCloud still returns a tile url", live, async () => {
+  await eeAuth();
+  const r = await sentinel2CompositeTiles(ee.Geometry(belize), END, { maxCloud: 5 });
+  assert.match(r.tileUrl, /\{z\}\/\{x\}\/\{y\}/);
+});
+
 test("sentinel2 composite tile over the plot is served as an image", live, async () => {
   await eeAuth();
   const r = await sentinel2CompositeTiles(ee.Geometry(belize), END);

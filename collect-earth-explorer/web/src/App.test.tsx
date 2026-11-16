@@ -114,6 +114,22 @@ describe("App", () => {
     expect(body.year).toBe(2010);
   });
 
+  it("sends a Sentinel-2 entry's non-default parameters, its dates as the composite window", async () => {
+    const entry = { type: "sentinel2", bands: "true-colour", maxCloud: 70, start: "2022-01-01", end: "2022-07-01" };
+    window.history.replaceState({}, "", withConfig({ v: 1, layers: [entry, { type: "sentinel2", maxCloud: 20 }] }));
+    render(<App />);
+    expect(await screen.findByText(TILE.label)).toBeTruthy();
+    const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
+    expect(Object.keys(body)).toEqual(["plot", "start", "end", "bands", "compositeStart", "compositeEnd"]);
+    expect(body).toMatchObject({ bands: "true-colour", compositeStart: "2022-01-01", compositeEnd: "2022-07-01" });
+    // Another entry of the same type with other parameters is a separate request.
+    fireEvent.click(screen.getByRole("radio", { name: "Sentinel-2, last 12 months" }));
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    const second = JSON.parse((fetchMock.mock.calls[1][1] as RequestInit).body as string);
+    expect(Object.keys(second)).toEqual(["plot", "start", "end", "maxCloud"]);
+    expect(second.maxCloud).toBe(20);
+  });
+
   it("without a configuration shows the four standard cards in order and no notice", async () => {
     window.history.replaceState({}, "", PLOT_URL);
     render(<App />);

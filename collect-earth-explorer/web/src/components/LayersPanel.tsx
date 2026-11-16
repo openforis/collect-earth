@@ -41,10 +41,11 @@ function Radio({ id, label, active, disabled, onSelect }: RadioProps) {
   );
 }
 
-/** An entry's row label; a Landsat entry's carries its year. */
+/** An entry's row label; a Landsat entry's carries its year, an unlabelled Sentinel-2 one its window. */
 function labelOf(entry: LayerEntry, year: number) {
-  const label = entry.params.label as string | undefined;
-  return entry.type === "landsat" ? `${label ?? "Landsat"} ${year}` : (label ?? "Sentinel-2, last 12 months");
+  const { label, start, end } = entry.params as { label?: string; start?: string; end?: string };
+  if (entry.type === "landsat") return `${label ?? "Landsat"} ${year}`;
+  return label ?? (start ? `Sentinel-2 ${start} to ${end}` : "Sentinel-2, last 12 months");
 }
 
 /** A Landsat entry's radio row and year slider; each entry owns its pending year. */

@@ -50,6 +50,22 @@ describe("resolveConfig", () => {
     expect(r.notices[0]).toContain("index");
   });
 
+  it("skips a Sentinel-2 entry with only one date or a window that does not move forward, as the API would", () => {
+    const r = resolve({
+      v: 1,
+      layers: [
+        { type: "sentinel2", start: "2022-01-01" },
+        { type: "sentinel2", end: "2022-07-01" },
+        { type: "sentinel2", start: "2022-07-01", end: "2022-07-01" },
+        { type: "sentinel2", start: "2022-01-01", end: "2022-07-01" },
+      ],
+    });
+    expect(r.layers).toHaveLength(1);
+    expect(r.layers[0].params).toMatchObject({ start: "2022-01-01", end: "2022-07-01" });
+    expect(r.notices).toHaveLength(3);
+    for (const n of r.notices) expect(n).toContain("sentinel2");
+  });
+
   it("skips an entry with an unknown parameter", () => {
     const r = resolve({ v: 1, charts: [{ type: "modis", colour: "red" }, { type: "ccdc" }] });
     expect(types(r.charts)).toEqual(["ccdc"]);
@@ -106,9 +122,9 @@ describe("resolveConfig", () => {
     expect(ok({ type: "landsat", years: [2024, 2000] })).toBe(false);
     expect(ok({ type: "landsat", years: [2000] })).toBe(false);
     expect(ok({ type: "landsat", label: "x".repeat(61) })).toBe(false);
-    expect(ok({ type: "sentinel2", start: "2021-02-28" })).toBe(true);
-    expect(ok({ type: "sentinel2", start: "2021-02-30" })).toBe(false);
-    expect(ok({ type: "sentinel2", start: "2021-13-01" })).toBe(false);
+    expect(ok({ type: "sentinel2", start: "2021-02-28", end: "2021-12-31" })).toBe(true);
+    expect(ok({ type: "sentinel2", start: "2021-02-30", end: "2021-12-31" })).toBe(false);
+    expect(ok({ type: "sentinel2", start: "2021-13-01", end: "2021-12-31" })).toBe(false);
     const chartOk = (entry: object) => resolve({ v: 1, charts: [entry] }).notices.length === 0;
     expect(chartOk({ type: "ccdc", collapsed: true })).toBe(true);
     expect(chartOk({ type: "ccdc", collapsed: "true" })).toBe(false);

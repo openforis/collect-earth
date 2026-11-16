@@ -9,7 +9,8 @@ const { landsatSeries } = require("./ee/landsatSeries");
 const { sentinel2Series } = require("./ee/sentinel2Series");
 const { sceneTiles, validateSceneRequest } = require("./ee/scene");
 const { ccdcSeries, validateCcdcRequest } = require("./ee/ccdc");
-const { catalogue } = require("./lib/catalogue");
+const { catalogue, paramOf } = require("./lib/catalogue");
+const { BadRequest } = require("./lib/errors");
 const defaultCache = require("./cache");
 
 /** Cache lifetimes in seconds: tile URLs expire on the EE side after ~24 h, series results are stable. */
@@ -39,13 +40,37 @@ function plotRoute(endpoint, ttlSeconds, extrasOf, compute, validate, cache = de
   });
 }
 
+/**
+ * The catalogue parameters `names` of layer `type` from the body, validated, keeping only non-default values:
+ * extras are part of the cache key, so an absent and an explicit default must give the same (pre-existing) key.
+ */
+function nonDefault(type, body, names) {
+  const x = {};
+  for (const name of names) {
+    const v = paramOf("layers", type, name, body[name]);
+    if (v !== paramOf("layers", type, name)) x[name] = v;
+  }
+  return x;
+}
+
+/** Sentinel-2 composite extras; the optional window `compositeStart`/`compositeEnd` becomes `start`/`end`. */
+function sentinel2Extras(b) {
+  const x = nonDefault("sentinel2", b, ["bands", "maxCloud"]);
+  const start = paramOf("layers", "sentinel2", "start", b.compositeStart);
+  const end = paramOf("layers", "sentinel2", "end", b.compositeEnd);
+  if ((start === undefined) !== (end === undefined)) throw new BadRequest("compositeStart and compositeEnd go together");
+  if (start === undefined) return x;
+  if (start >= end) throw new BadRequest("compositeStart must be before compositeEnd");
+  return { ...x, start, end };
+}
+
 /** Registers the API routes; `cache` (an object with `withCache`) defaults to the Firestore-backed one. */
 function registerRoutes(app, { cache = defaultCache } = {}) {
   const route = (endpoint, ttl, extrasOf, compute, validate, opts) => plotRoute(endpoint, ttl, extrasOf, compute, validate, cache, opts);
   const noStart = { ignoreStart: true };
 
   app.get("/api/catalogue", (req, res) => res.json(catalogue));
-  app.post("/api/tiles/sentinel2", route("tiles/sentinel2", TTL.tiles, null, (p, g) => sentinel2CompositeTiles(g, p.end), null, noStart));
+  app.post("/api/tiles/sentinel2", route("tiles/sentinel2", TTL.tiles, sentinel2Extras, (p, g, x) => sentinel2CompositeTiles(g, x.end ?? p.end, x), null, noStart));
   app.post(
     "/api/tiles/landsat",
     route("tiles/landsat", TTL.tiles, (b) => ({ year: Number(b.year) }), (p, g, x) => landsatCompositeTiles(g, x.year), (b) => sensorsForYear(Number(b.year)))

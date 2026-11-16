@@ -42,8 +42,17 @@ function resolveEntry(kind: Kind, raw: unknown, maxYear: number): Entry | string
     if (!check(specs[name], value, maxYear)) return `${singular[kind]} "${type}" skipped: ${name} is not valid.`;
     params[name] = value;
   }
+  // Same rule as the API: a composite window needs both dates, start before end.
+  if (type === "sentinel2" && ("start" in params || "end" in params) && !((params.start as string) < (params.end as string)))
+    return `${singular[kind]} "${type}" skipped: start and end must both be given, start before end.`;
   for (const [name, spec] of Object.entries(specs)) if (!(name in params) && spec.default !== undefined) params[name] = spec.default;
   return { type, params };
+}
+
+/** The layer entry's parameters among `names` that differ from the catalogue default (what a request needs to send). */
+export function nonDefault(entry: LayerEntry, names: string[]): Record<string, unknown> {
+  const specs = catalogue.layers[entry.type].params;
+  return Object.fromEntries(names.filter((n) => entry.params[n] !== undefined && entry.params[n] !== specs[n].default).map((n) => [n, entry.params[n]]));
 }
 
 function resolveHalf(kind: Kind, list: unknown, maxYear: number, notices: string[]): Entry[] {

@@ -262,6 +262,11 @@ describe("LayersPanel", () => {
       expect(screen.getByRole("slider", { name: "Landsat yearly year" })).toBeTruthy();
     });
 
+    it("labels an unlabelled Sentinel-2 entry with its dates when it has them", () => {
+      setup(doc([{ type: "sentinel2", start: "2022-01-01", end: "2022-07-01" }, { type: "sentinel2" }]));
+      expect(radioNames()).toEqual(["Sentinel-2 2022-01-01 to 2022-07-01", "Sentinel-2, last 12 months", "Scene (click a chart point)"]);
+    });
+
     it("gives each Landsat entry its own slider and year", () => {
       setup(doc([{ type: "landsat", label: "A" }, { type: "landsat", label: "B", year: 2000 }]));
       const [a, b] = screen.getAllByRole("slider") as HTMLInputElement[];

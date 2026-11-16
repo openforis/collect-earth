@@ -120,6 +120,40 @@ test("POST /api/tiles/sentinel2 with a valid plot but no EE_KEY reaches the auth
   assert.deepEqual(cache.calls[0].extras, {});
 });
 
+/** POSTs body to path against a canned cache hit; returns the extras the cache was keyed with. */
+async function extrasFor(path, body) {
+  const cache = fakeCache({ tileUrl: "x" });
+  const res = await request(appWith(cache)).post(path).send({ plot: belize, ...body });
+  assert.equal(res.status, 200, JSON.stringify(res.body));
+  return cache.calls[0].extras;
+}
+
+test("POST /api/tiles/sentinel2 keys the cache only with non-default composite parameters", async () => {
+  const path = "/api/tiles/sentinel2";
+  assert.deepEqual(await extrasFor(path, {}), {}, "no new fields: the same key as before");
+  assert.deepEqual(await extrasFor(path, { bands: "false-colour", maxCloud: 70 }), {}, "explicit defaults equal absent ones");
+  assert.deepEqual(await extrasFor(path, { bands: "true-colour" }), { bands: "true-colour" });
+  assert.deepEqual(await extrasFor(path, { maxCloud: 20 }), { maxCloud: 20 });
+  assert.deepEqual(await extrasFor(path, { compositeStart: "2022-01-01", compositeEnd: "2022-07-01" }), { start: "2022-01-01", end: "2022-07-01" });
+});
+
+test("POST /api/tiles/sentinel2 rejects bad composite parameters with a 400 before the cache", async () => {
+  for (const [body, re] of [
+    [{ bands: "infrared" }, /bands/],
+    [{ maxCloud: 0 }, /maxCloud/],
+    [{ maxCloud: "70" }, /maxCloud/],
+    [{ compositeStart: "2022-02-30", compositeEnd: "2022-07-01" }, /start/],
+    [{ compositeStart: "2022-01-01" }, /compositeStart and compositeEnd/],
+    [{ compositeEnd: "2022-07-01" }, /compositeStart and compositeEnd/],
+    [{ compositeStart: "2022-07-01", compositeEnd: "2022-07-01" }, /before/],
+    [{ compositeStart: "2022-08-01", compositeEnd: "2022-07-01" }, /before/],
+  ]) {
+    const cache = fakeCache();
+    const res = await request(appWith(cache)).post("/api/tiles/sentinel2").send({ plot: belize, ...body });
+    assert400(res, re, cache);
+  }
+});
+
 test("POST /api/tiles/landsat with a valid plot but year 1900 is a 400 before EE auth or the cache", async () => {
   const { res, logged, cache } = await postWithoutKey("/api/tiles/landsat", { plot: belize, year: 1900 });
   assert400(res, /1984/, cache);

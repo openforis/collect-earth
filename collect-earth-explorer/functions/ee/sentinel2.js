@@ -62,5 +62,13 @@ function sentinel2Scene(plot, timeStart) {
 
 const SENTINEL_FALSE_COLOUR = { bands: ["B8", "B11", "B4"], min: 0, max: 3000 };
 const SENTINEL_FALSE_COLOUR_RENAMED = { bands: ["nir", "swir1", "red"], min: 0, max: 3000 };
+const SENTINEL_TRUE_COLOUR_RENAMED = { bands: ["red", "green", "blue"], min: 0, max: 3000 };
 
-module.exports = { sentinel2Images, sentinel2Scene, sentinel2SceneCollection, SENTINEL_FALSE_COLOUR, SENTINEL_FALSE_COLOUR_RENAMED };
+module.exports = {
+  sentinel2Images,
+  sentinel2Scene,
+  sentinel2SceneCollection,
+  SENTINEL_FALSE_COLOUR,
+  SENTINEL_FALSE_COLOUR_RENAMED,
+  SENTINEL_TRUE_COLOUR_RENAMED,
+};
