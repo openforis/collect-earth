@@ -185,13 +185,14 @@ public class SampleFileCheck {
 	}
 
 	/**
-	 * The most plots a plot file is known to work with: the plots map loads an index of the plots (a few bytes each), and
-	 * a plot's shape only when it is opened (LeafletMapController), so 500,000 plots open in seconds. Collect's own limits
-	 * (2,000 plots, a warning) were Google Earth Pro's, which drew every plot of a KML at once.
+	 * The plots a plot file is meant to have at most, more than enough for nearly every survey; past it a warning says so,
+	 * and the file is still used. The plots map loads an index of the plots (a few bytes each) and a plot's shape only
+	 * when it is opened (LeafletMapController), so it was measured to work with 500,000 plots, more slowly. Collect's own
+	 * limits (2,000 plots, a warning) were Google Earth Pro's, which drew every plot of a KML at once.
 	 */
-	static final int MAX_PLOTS_TESTED = 500_000;
+	static final int MAX_PLOTS_TESTED = 40_000;
 
-	/** A warning for a plot file of more plots than MAX_PLOTS_TESTED, which still opens; null for one of fewer. */
+	/** A warning for a plot file of more plots than MAX_PLOTS_TESTED, which is still used; null for one of fewer. */
 	static Map<String, Object> tooManyPlots(int plots) {
 		return plots > MAX_PLOTS_TESTED
 				? problem("tooManyPlots", String.format(Messages.getString("JPlotCsvTable.tooLargeWarning"), plots, MAX_PLOTS_TESTED), false, null)
