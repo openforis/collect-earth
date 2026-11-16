@@ -1,4 +1,4 @@
-import type { GewStatus, GroundView, ImagerySource, ImageryStatus, MapConfig, PlotFeature, PlotStatus } from "./types";
+import type { GewStatus, GroundView, ImagerySource, ImageryStatus, MapConfig, PlotFeature, PlotStatus, PlotsIndex, PlotDetail } from "./types";
 
 /**
  * Base URL of the Collect Earth embedded server (the page is served from it). Read at each call, not when the module
@@ -12,9 +12,21 @@ export async function fetchMapConfig(): Promise<MapConfig> {
 }
 
 /** `plots`: the plot file they are of (LeafletMapController.plotsVersion), which the statuses tell too */
-export async function fetchPlots(): Promise<{ features?: PlotFeature[]; warning?: string; plots?: string }> {
-  const r = await fetch(earthBase() + "plotsGeoJson");
-  if (!r.ok) throw new Error("plotsGeoJson HTTP " + r.status);
+/**
+ * Every plot of the plot file, in its order: ids, labels (null: the id; the keys the collector may see), latitudes and
+ * longitudes, lists of the same length. A few bytes a plot: what a plot is drawn and filled with comes when it is
+ * opened (fetchPlotDetail).
+ */
+export async function fetchPlots(): Promise<PlotsIndex> {
+  const r = await fetch(earthBase() + "plotsIndex");
+  if (!r.ok) throw new Error("plotsIndex HTTP " + r.status);
+  return r.json();
+}
+
+/** One plot, opened: its feature (geometry, every column of its row) and the outlines of the plots around it. */
+export async function fetchPlotDetail(id: string): Promise<PlotDetail> {
+  const r = await fetch(earthBase() + "plotDetail?id=" + encodeURIComponent(id));
+  if (!r.ok) throw new Error("plotDetail HTTP " + r.status);
   return r.json();
 }
 

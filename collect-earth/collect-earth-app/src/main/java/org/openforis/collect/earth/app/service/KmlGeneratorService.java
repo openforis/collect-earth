@@ -224,6 +224,23 @@ public class KmlGeneratorService {
 		return i;
 	}
 
+	/**
+	 * Every setting {@link #getKmlGenerator()} makes the plot shape's generator with, as one text: what the plots map
+	 * keeps a generator against, with its plot file, to make it again when the plot settings change.
+	 */
+	public String plotShapeSettings() {
+		final LocalPropertiesService p = getLocalProperties();
+		return String.join("\u0000", String.valueOf(p.getCrs()), String.valueOf(p.getBufferShape()), String.valueOf(p.getSampleShape()),
+				String.valueOf(p.getHost()), String.valueOf(p.getPort()), String.valueOf(p.getLocalPort()),
+				String.valueOf(p.getValue(EarthProperty.NUMBER_OF_SAMPLING_POINTS_IN_PLOT)),
+				String.valueOf(p.getValue(EarthProperty.DISTANCE_BETWEEN_PLOTS)),
+				String.valueOf(p.getValue(EarthProperty.DISTANCE_BETWEEN_SAMPLE_POINTS)),
+				String.valueOf(p.getValue(EarthProperty.DISTANCE_TO_BUFFERS)),
+				String.valueOf(p.getValue(EarthProperty.DISTANCE_TO_PLOT_BOUNDARIES)),
+				String.valueOf(p.getValue(EarthProperty.INNER_SUBPLOT_SIDE)),
+				String.valueOf(p.getValue(EarthProperty.LARGE_CENTRAL_PLOT_SIDE)));
+	}
+
 	public KmlGenerator getKmlGenerator() throws KmlGenerationException, CsvValidationException {
 		KmlGenerator generateKml = null;
 

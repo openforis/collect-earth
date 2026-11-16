@@ -12,12 +12,10 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.apache.commons.text.StringEscapeUtils;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
-import org.openforis.collect.earth.app.service.KmlGeneratorService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
+import org.openforis.collect.earth.app.service.PlotFileIndex;
 import org.openforis.collect.earth.app.service.SurveyFormModelBuilder;
-import org.openforis.collect.earth.core.utils.CsvReaderUtils;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
-import org.openforis.collect.earth.sampler.processor.KmlGenerator;
 import org.openforis.collect.model.CollectSurvey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,7 +25,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.opencsv.CSVReader;
 
 /**
  * The two JSON endpoints of the web form that is generated from the survey (form.html in
@@ -52,7 +49,7 @@ public class SurveyFormController {
 	private LocalPropertiesService localPropertiesService;
 
 	@Autowired
-	private KmlGeneratorService kmlGeneratorService;
+	private PlotFileIndex plotFileIndex;
 
 	private final Logger logger = LoggerFactory.getLogger(SurveyFormController.class);
 	private final ObjectMapper json = new ObjectMapper();
@@ -65,11 +62,6 @@ public class SurveyFormController {
 	private Map<String, Object> cachedJsonModel;
 	private byte[] cachedJson;
 	private String cachedEtag;
-
-	// Plot file values by placemark id: the location, then the extra columns. Rebuilt when the file changes.
-	private String cachedCsvPath;
-	private long cachedCsvLastModified;
-	private Map<String, String[]> plotsById;
 
 	/**
 	 * The form of the survey. It does not depend on the plot or its record (they come from /surveyForm/plot and
@@ -145,7 +137,7 @@ public class SurveyFormController {
 		for (int i = 0; i < keys.size() && i < keyValues.length; i++) {
 			values.put(keys.get(i), keyValues[i]);
 		}
-		String[] plot = getPlotsById().get(placemarkId);
+		String[] plot = plotRowValues(placemarkId);
 		if (plot != null) {
 			if (plot[0] != null) {
 				values.put("collect_coord_location", plot[0]);
@@ -162,42 +154,29 @@ public class SurveyFormController {
 		return values;
 	}
 
-	private synchronized Map<String, String[]> getPlotsById() throws Exception {
+	/**
+	 * The plot's place ("latitude,longitude") then its values of the "from CSV" attributes, from its row of the plot
+	 * file (the index the plots map reads too: PlotFileIndex); null for a plot not in the plot file.
+	 */
+	private String[] plotRowValues(String placemarkId) throws Exception {
 		String csvFile = localPropertiesService.getCsvFile();
 		if (csvFile == null || !new File(csvFile).exists()) {
-			return new HashMap<>();
+			return null;
 		}
-		File csv = new File(csvFile);
-		if (plotsById != null && csvFile.equals(cachedCsvPath) && csv.lastModified() == cachedCsvLastModified) {
-			return plotsById;
+		PlotFileIndex.PlotIndex index = plotFileIndex.indexOf(csvFile);
+		Integer at = index.position.get(placemarkId);
+		if (at == null) {
+			return null;
 		}
-		KmlGenerator kmlGenerator = kmlGeneratorService.getKmlGenerator();
-		CollectSurvey survey = earthSurveyService.getCollectSurvey();
-		Map<String, String[]> result = new HashMap<>();
-		try (CSVReader reader = CsvReaderUtils.getCsvReader(csvFile)) {
-			String[] csvRow;
-			while ((csvRow = reader.readNext()) != null) {
-				try {
-					SimplePlacemarkObject plot = kmlGenerator.getPlotObject(csvRow, null, survey, false);
-					String[] extraColumns = plot.getExtraColumns() == null ? new String[0] : plot.getExtraColumns();
-					String[] values = new String[extraColumns.length + 1];
-					values[0] = plot.getCoord() == null ? null
-							: plot.getCoord().getLatitude() + "," + plot.getCoord().getLongitude();
-					for (int i = 0; i < extraColumns.length; i++) {
-						// getPlotObject escapes them for the KML
-						values[i + 1] = StringEscapeUtils.unescapeXml(extraColumns[i]);
-					}
-					result.put(plot.getPlacemarkId(), values);
-				} catch (Exception rowError) {
-					// header row or malformed row - skipped, as in the KML generation
-					logger.debug("Skipping CSV row: {}", (Object) csvRow);
-				}
-			}
+		SimplePlacemarkObject plot = index.generator.getPlotObject(index.rows[at], null, earthSurveyService.getCollectSurvey(), false);
+		String[] extraColumns = plot.getExtraColumns() == null ? new String[0] : plot.getExtraColumns();
+		String[] values = new String[extraColumns.length + 1];
+		values[0] = plot.getCoord() == null ? null : plot.getCoord().getLatitude() + "," + plot.getCoord().getLongitude();
+		for (int i = 0; i < extraColumns.length; i++) {
+			// getPlotObject escapes them for the KML
+			values[i + 1] = StringEscapeUtils.unescapeXml(extraColumns[i]);
 		}
-		plotsById = result;
-		cachedCsvPath = csvFile;
-		cachedCsvLastModified = csv.lastModified();
-		return plotsById;
+		return values;
 	}
 
 	private static Map<String, Object> errorBody(Exception e) {

@@ -192,4 +192,17 @@ public class PlotGeoJsonBuilderTest {
 			fail("Expected IllegalArgumentException but got " + e.getClass().getName());
 		}
 	}
+
+	@Test
+	public void theOutlineIsTheFirstRingClosedAsTheFeatureHasIt() throws Exception {
+		SimplePlacemarkObject p = squarePlot();
+		p.setPoints(Arrays.asList(sampleSquare("41.895", "12.440")));
+		java.util.List<double[]> outline = PlotGeoJsonBuilder.outline(p);
+		JsonNode ring = new ObjectMapper().readTree(new PlotGeoJsonBuilder().toFeature(p)).get("geometry").get("geometries").get(0).get("coordinates").get(0);
+		assertEquals(ring.size(), outline.size());
+		assertEquals(12.449, outline.get(0)[0], 1e-9);
+		assertEquals(41.899, outline.get(0)[1], 1e-9);
+		assertEquals(null, PlotGeoJsonBuilder.outline(new SimplePlacemarkObject()));
+	}
 }
+

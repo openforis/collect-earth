@@ -33,6 +33,20 @@ public class PlotGeoJsonBuilder {
 		return mapper.writeValueAsString(feature);
 	}
 
+	/**
+	 * The plot's outline, [longitude, latitude] pairs of its first ring closed, as the first geometry of its feature has
+	 * it; null when it has none.
+	 */
+	@SuppressWarnings("unchecked")
+	public static List<double[]> outline(SimplePlacemarkObject plot) {
+		if (plot.getMultiShape() == null) return null;
+		for (List<SimpleCoordinate> ring : plot.getMultiShape()) {
+			Map<String, Object> poly = polygon(ring);
+			if (poly != null) return (List<double[]>) ((Object[]) poly.get("coordinates"))[0];
+		}
+		return null;
+	}
+
 	private Map<String, Object> geometry(SimplePlacemarkObject plot) {
 		List<Map<String, Object>> geometries = new ArrayList<>();
 		if (plot.getMultiShape() != null) {
@@ -70,7 +84,7 @@ public class PlotGeoJsonBuilder {
 		return count;
 	}
 
-	private Map<String, Object> polygon(List<SimpleCoordinate> ring) {
+	private static Map<String, Object> polygon(List<SimpleCoordinate> ring) {
 		// Skip degenerate rings: a Polygon needs at least 3 vertices.
 		if (ring == null || ring.size() < 3) {
 			return null;

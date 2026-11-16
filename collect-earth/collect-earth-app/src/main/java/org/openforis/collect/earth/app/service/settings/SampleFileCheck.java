@@ -16,6 +16,7 @@ import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.earth.core.utils.CsvReaderUtils;
 import org.openforis.collect.io.metadata.collectearth.CSVFileValidationResult;
+import org.openforis.collect.io.metadata.collectearth.CSVFileValidationResult.ErrorType;
 import org.openforis.collect.io.metadata.collectearth.CSVRowValidationResult;
 import org.openforis.collect.io.metadata.collectearth.CollectEarthGridTemplateGenerator;
 import org.openforis.collect.manager.validation.SurveyValidator.ValidationParameters;
@@ -111,8 +112,12 @@ public class SampleFileCheck {
 		} catch (RuntimeException e) {
 			logger.error("The plots file could not be checked against the survey: " + file, e);
 		}
-		if (validation != null && !validation.isSuccessful()) {
+		if (validation != null && !validation.isSuccessful() && !isAboutSize(validation)) {
 			problems.add(problemOf(validation));
+		}
+		Map<String, Object> tooMany = tooManyPlots(answer.get("plots") instanceof Integer ? (Integer) answer.get("plots") : 0);
+		if (tooMany != null) {
+			problems.add(tooMany);
 		}
 		answer.put("problems", problems);
 		return answer;
@@ -179,6 +184,26 @@ public class SampleFileCheck {
 		}
 	}
 
+	/**
+	 * The most plots a plot file is known to work with: the plots map loads an index of the plots (a few bytes each), and
+	 * a plot's shape only when it is opened (LeafletMapController), so 500,000 plots open in seconds. Collect's own limits
+	 * (2,000 plots, a warning) were Google Earth Pro's, which drew every plot of a KML at once.
+	 */
+	static final int MAX_PLOTS_TESTED = 500_000;
+
+	/** A warning for a plot file of more plots than MAX_PLOTS_TESTED, which still opens; null for one of fewer. */
+	static Map<String, Object> tooManyPlots(int plots) {
+		return plots > MAX_PLOTS_TESTED
+				? problem("tooManyPlots", String.format(Messages.getString("JPlotCsvTable.tooLargeWarning"), plots, MAX_PLOTS_TESTED), false, null)
+				: null;
+	}
+
+	/** Collect's warnings about the number of plots, which were Google Earth Pro's limits (see MAX_PLOTS_TESTED) */
+	private static boolean isAboutSize(CSVFileValidationResult validation) {
+		return validation.getErrorType() == ErrorType.INVALID_NUMBER_OF_PLOTS_WARNING
+				|| validation.getErrorType() == ErrorType.INVALID_NUMBER_OF_PLOTS_TOO_LARGE;
+	}
+
 	/** The problem Collect found, said as JPlotCsvTable said it, blocking when it kept the dialog from applying. */
 	private static Map<String, Object> problemOf(CSVFileValidationResult validation) {
 		String code = validation.getErrorType().name();
@@ -188,10 +213,6 @@ public class SampleFileCheck {
 			return problem(code, Messages.getString("JPlotCsvTable.expectedFileType"), true, null);
 		case INVALID_HEADERS:
 			return problem(code, String.format(Messages.getString("JPlotCsvTable.expectedColumns"), validation.getExpectedHeaders()), false, null);
-		case INVALID_NUMBER_OF_PLOTS_TOO_LARGE:
-			return problem(code, String.format(Messages.getString("JPlotCsvTable.tooLargeError"), validation.getNumberOfRows()), false, null);
-		case INVALID_NUMBER_OF_PLOTS_WARNING:
-			return problem(code, String.format(Messages.getString("JPlotCsvTable.tooLargeWarning"), validation.getNumberOfRows()), false, null);
 		case INVALID_VALUES_IN_CSV:
 			return problem(code, Messages.getString("JPlotCsvTable.contentIncorrect"), true, rowsOf(validation));
 		default:

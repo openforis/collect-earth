@@ -88,6 +88,8 @@
 		<url-pattern>/api/*</url-pattern>
 		<url-pattern>/balloon</url-pattern>
 		<url-pattern>/plotsGeoJson</url-pattern>
+		<url-pattern>/plotsIndex</url-pattern>
+		<url-pattern>/plotDetail</url-pattern>
 		<url-pattern>/plotStatuses</url-pattern>
 		<url-pattern>/mapConfig</url-pattern>
 		<url-pattern>/surveyForm/*</url-pattern>
