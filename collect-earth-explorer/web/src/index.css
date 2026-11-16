@@ -23,6 +23,7 @@ html, body, #root { margin: 0; height: 100%; font-family: system-ui, sans-serif;
 /* Plotly sizes to its container; never let a chart push the card wider than the pane. */
 .chart-card .js-plotly-plot { max-width: 100%; }
 .chart-card-header { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; border-bottom: 1px solid #eee; }
+.chart-card-collapsed { border-bottom: none; }
 .chart-card-header h3 { margin: 0; font-size: 14px; }
 .chart-card-actions { display: flex; gap: 6px; align-items: center; }
 .chart-placeholder { height: 220px; display: flex; gap: 8px; align-items: center; justify-content: center; color: #666; font-size: 13px; }

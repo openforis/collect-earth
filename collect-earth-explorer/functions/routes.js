@@ -82,8 +82,8 @@ function registerRoutes(app, { cache = defaultCache } = {}) {
       (b) => sensorsForYear(Number(b.year))
     )
   );
-  app.post("/api/series/modis", route("series/modis", TTL.series, null, (p, g) => modisSeries(g, p.start, p.end)));
   const indexOf = (type) => (b) => nonDefault("charts", type, b, ["index"]);
+  app.post("/api/series/modis", route("series/modis", TTL.series, indexOf("modis"), (p, g, x) => modisSeries(g, p.start, p.end, x.index)));
   app.post("/api/series/landsat", route("series/landsat", TTL.series, indexOf("landsat-series"), (p, g, x) => landsatSeries(g, p.start, p.end, x.index)));
   app.post("/api/series/sentinel2", route("series/sentinel2", TTL.series, indexOf("sentinel2-series"), (p, g, x) => sentinel2Series(g, p.start, p.end, x.index)));
   app.post(

@@ -2,20 +2,20 @@ const { ee } = require("./auth");
 const { meanSeries, evaluateSeries } = require("./series");
 const { evaluate } = require("./promise");
 
-/** MOD13Q1 NDVI is stored as int16 scaled by 10000. */
-const NDVI_SCALE = 0.0001;
+/** MOD13Q1 NDVI and EVI are stored as int16 scaled by 10000. */
+const SCALE = 0.0001;
 
 /**
- * MODIS 16-day NDVI (MOD13Q1, 250 m) mean over `plot` and MCD64A1 burned-area months
+ * MODIS 16-day `index` (MOD13Q1 NDVI or EVI, 250 m) mean over `plot` and MCD64A1 burned-area months
  * between `start` (inclusive) and `end` (exclusive). Port of getModis16DayNDVI and getBurnedArea.
  */
-async function modisSeries(plot, start, end) {
+async function modisSeries(plot, start, end, index = "NDVI") {
   const ndviCol = ee
     .ImageCollection("MODIS/061/MOD13Q1")
     .filterDate(start, end)
-    .select("NDVI")
-    .map((img) => ee.Image(img.multiply(NDVI_SCALE).copyProperties(img, ["system:time_start", "system:index"])));
-  const ndvi = evaluateSeries(meanSeries(ndviCol, "NDVI", plot, 250));
+    .select(index)
+    .map((img) => ee.Image(img.multiply(SCALE).copyProperties(img, ["system:time_start", "system:index"])));
+  const ndvi = evaluateSeries(meanSeries(ndviCol, index, plot, 250));
 
   // MCD64A1: monthly images, BurnDate = day of year of the burn, 0 = no burn.
   const burned = ee.ImageCollection("MODIS/061/MCD64A1").filterDate(start, end).select("BurnDate");
@@ -37,6 +37,7 @@ async function modisSeries(plot, start, end) {
   );
 
   const [ndviPoints, firePoints] = await Promise.all([ndvi, fires]);
+  // The key stays `ndvi` whatever the index: the web type and the CSV read it.
   return { ndvi: ndviPoints, fires: firePoints };
 }
 

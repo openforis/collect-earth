@@ -13,7 +13,8 @@ export default function CcdcCard({ params }: { params: ChartEntry["params"] }) {
   const { plot, start, end, plotId, setScene } = usePlot();
   // The entry's band is only the initial choice; the select changes it.
   const [band, setBand] = useState<CcdcBand>(params.band as CcdcBand);
-  const state = useApi<CcdcData>((s) => postApi("ccdc", { plot, start, end, band }, s), [plot, start, end, band]);
+  const [open, setOpen] = useState(!params.collapsed);
+  const state = useApi<CcdcData>((s) => postApi("ccdc", { plot, start, end, band }, s), [plot, start, end, band], { enabled: open });
   const controls = (
     <select aria-label="CCDC band" value={band} onChange={(e) => setBand(e.target.value as CcdcBand)}>
       <option value="NDFI">NDFI</option>
@@ -24,6 +25,8 @@ export default function CcdcCard({ params }: { params: ChartEntry["params"] }) {
     <ChartCard
       title="CCDC temporal segmentation (Landsat 7/8/9)"
       state={state}
+      collapsed={!open}
+      onExpand={() => setOpen(true)}
       controls={controls}
       onDownload={() => downloadText(`${plotId || "plot"}-ccdc-${band}.csv`, pointsToCsv(state.data!.observed))}
     >

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import ChartCard from "../ChartCard";
 import SeriesChart from "./SeriesChart";
 import { useApi } from "../../hooks/useApi";
@@ -11,12 +12,15 @@ const isoDay = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 export default function LandsatNdviCard({ params }: { params: ChartEntry["params"] }) {
   const { plot, start, end, plotId, setScene } = usePlot();
   const index = params.index as string;
+  const [open, setOpen] = useState(!params.collapsed);
   const body = { plot, start, end, ...(index !== "NDVI" && { index }) };
-  const state = useApi<{ points: Point[] }>((s) => postApi("series/landsat", body, s), [plot, start, end, index]);
+  const state = useApi<{ points: Point[] }>((s) => postApi("series/landsat", body, s), [plot, start, end, index], { enabled: open });
   return (
     <ChartCard
       title={`Landsat ${index} (click a point to view that scene)`}
       state={state}
+      collapsed={!open}
+      onExpand={() => setOpen(true)}
       onDownload={() => downloadText(`${plotId || "plot"}-landsat-${index.toLowerCase()}.csv`, pointsToCsv(state.data!.points, ["sensor"]))}
     >
       {(d) => (

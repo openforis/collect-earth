@@ -135,7 +135,7 @@ describe("series cards", () => {
     fetchMock.mockResolvedValue(
       json({ ndvi: [{ date: T0, value: 0.4 }, { date: T0 + 86400000 * 16, value: 0.6 }], fires: [{ month: 1, date: 2 }] }),
     );
-    setup(<ModisCard />);
+    setup(<ModisCard params={paramsOf("modis")} />);
     expect(screen.getByRole("heading", { name: /MODIS/ })).toBeTruthy();
 
     const chart = await screen.findByTestId("series-chart");
@@ -178,6 +178,37 @@ describe("series cards", () => {
       unmount();
     }
     download.mockRestore();
+  });
+
+  it("ModisCard with index EVI posts it and names the title, series and CSV after it", async () => {
+    fetchMock.mockResolvedValue(json({ ndvi: [{ date: T0, value: 0.4 }], fires: [] }));
+    const download = vi.spyOn(csv, "downloadText").mockImplementation(() => {});
+    setup(<ModisCard params={paramsOf("modis", { index: "EVI" })} />);
+    expect(screen.getByRole("heading", { name: "MODIS 16-day EVI (250 m) and burned area" })).toBeTruthy();
+    const chart = await screen.findByTestId("series-chart");
+    expect(chart.getAttribute("data-name")).toBe("MODIS EVI");
+    expect(lastRequest().body.index).toBe("EVI");
+    fireEvent.click(screen.getByRole("button", { name: "CSV" }));
+    expect(download.mock.calls.at(-1)![0]).toBe("demo-modis-evi.csv");
+    download.mockRestore();
+  });
+
+  it("a collapsed card requests nothing until Show is pressed, then loads as usual", async () => {
+    fetchMock.mockImplementation(async (url: string) => json(url.endsWith("modis") ? { ndvi: [POINT], fires: [] } : { points: [POINT] }));
+    for (const [Card, type] of [[LandsatNdviCard, "landsat-series"], [Sentinel2NdviCard, "sentinel2-series"], [ModisCard, "modis"]] as const) {
+      fetchMock.mockClear();
+      const { unmount } = render(
+        <PlotProvider params={params} config={resolveConfig(undefined, 2026)}>
+          <Card params={paramsOf(type, { collapsed: true })} />
+        </PlotProvider>,
+      );
+      expect(screen.getByRole("heading")).toBeTruthy();
+      expect(fetchMock).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByRole("button", { name: "Show" }));
+      await screen.findByTestId("series-chart");
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      unmount();
+    }
   });
 
   it("shows the error and a Retry button on a 503, and Retry re-fetches", async () => {

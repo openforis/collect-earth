@@ -24,3 +24,11 @@ test("modis series has ndvi points in range, sorted and dated inside the request
     assert.equal(new Date(f.date).getUTCFullYear(), new Date(f.month).getUTCFullYear(), "burn date must fall in the month's year");
   }
 });
+
+test("modis EVI series has points in range under the ndvi key", live, async () => {
+  await eeAuth();
+  const r = await modisSeries(ee.Geometry(belize), "2020-01-01", "2021-01-01", "EVI");
+  assert.ok(r.ndvi.length >= 15, `got ${r.ndvi.length} points`);
+  for (const p of r.ndvi) assert.ok(p.value >= -1 && p.value <= 1.5, `evi ${p.value} out of range`);
+  console.log("modis EVI", r.ndvi.slice(0, 4).map((p) => p.value.toFixed(3)).join(" "));
+});

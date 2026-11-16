@@ -51,8 +51,8 @@ function Probe() {
   );
 }
 
-function setup(band = "NDFI") {
-  const config = resolveConfig(JSON.stringify({ v: 1, charts: [{ type: "ccdc", band }] }), 2026);
+function setup(band = "NDFI", collapsed = false) {
+  const config = resolveConfig(JSON.stringify({ v: 1, charts: [{ type: "ccdc", band, collapsed }] }), 2026);
   render(
     <PlotProvider params={params} config={config}>
       <CcdcCard params={config.charts[0].params} />
@@ -108,6 +108,17 @@ describe("CcdcCard", () => {
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     expect(requestAt(1).body.band).toBe("NDVI");
     await vi.waitFor(() => expect(screen.getByTestId("ccdc-chart").getAttribute("data-band")).toBe("NDVI"));
+  });
+
+  it("a collapsed entry shows only its header and requests nothing until Show is pressed", async () => {
+    setup("NDFI", true);
+    expect(screen.getByRole("heading", { name: /CCDC/ })).toBeTruthy();
+    expect(screen.queryByRole("combobox")).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Show" }));
+    await screen.findByTestId("ccdc-chart");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: "Show" })).toBeNull();
   });
 
   it("starts with the band its entry names", async () => {

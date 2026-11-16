@@ -263,6 +263,17 @@ test("POST /api/series/landsat and series/sentinel2 reject an unknown index with
   }
 });
 
+test("POST /api/series/modis keys the cache with the index only when it is EVI, and rejects others before the cache", async () => {
+  assert.deepEqual(await extrasFor("/api/series/modis", {}), {});
+  assert.deepEqual(await extrasFor("/api/series/modis", { index: "NDVI" }), {});
+  assert.deepEqual(await extrasFor("/api/series/modis", { index: "EVI" }), { index: "EVI" });
+  for (const index of ["NDMI", "evi"]) {
+    const cache = fakeCache();
+    const res = await request(appWith(cache)).post("/api/series/modis").send({ plot: belize, index });
+    assert400(res, /index/, cache);
+  }
+});
+
 test("POST /api/series/sentinel2 without a body is a 400 bad_request", async () => {
   const cache = fakeCache();
   const res = await request(appWith(cache)).post("/api/series/sentinel2");
