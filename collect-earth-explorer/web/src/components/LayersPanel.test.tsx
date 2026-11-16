@@ -3,6 +3,7 @@ import { render, screen, fireEvent, act } from "@testing-library/react";
 import LayersPanel from "./LayersPanel";
 import { PlotProvider, usePlot } from "../state/PlotContext";
 import type { PlotParams } from "../lib/urlParams";
+import { resolveConfig } from "../lib/config";
 
 const params: PlotParams = {
   plot: { type: "Polygon", coordinates: [[[30, -2], [31, -2], [31, -3], [30, -3], [30, -2]]] },
@@ -18,7 +19,8 @@ function Probe() {
   const p = usePlot();
   return (
     <>
-      <span data-testid="year">{p.landsatYear}</span>
+      {/* The standard configuration's Landsat entry is at position 1. */}
+      <span data-testid="year">{p.yearOf(1)}</span>
       <span data-testid="active-layer">{p.activeLayer}</span>
       <span data-testid="compare-layer">{p.compareLayer}</span>
       <button onClick={() => p.setScene(SCENE)}>set scene</button>
@@ -26,9 +28,9 @@ function Probe() {
   );
 }
 
-function setup() {
+function setup(configText?: string) {
   render(
-    <PlotProvider params={params}>
+    <PlotProvider params={params} config={resolveConfig(configText, 2026)}>
       <LayersPanel />
       <Probe />
     </PlotProvider>,
@@ -163,7 +165,7 @@ describe("LayersPanel", () => {
     expect(compareSelect()).toBeNull();
     fireEvent.click(compareCheckbox());
     expect(compareCheckbox().checked).toBe(true);
-    expect(compareSelect()!.value).toBe("landsat");
+    expect(compareSelect()!.value).toBe("1");
     fireEvent.click(compareCheckbox());
     expect(compareSelect()).toBeNull();
   });
@@ -172,7 +174,7 @@ describe("LayersPanel", () => {
     setup();
     fireEvent.click(compareCheckbox());
     const options = Array.from(compareSelect()!.options);
-    expect(options.map((o) => o.value)).toEqual(["sentinel2", "landsat", "scene"]);
+    expect(options.map((o) => o.value)).toEqual(["0", "1", "scene"]);
     expect(options[1].textContent).toBe("Landsat 2024");
     expect(options[2].disabled).toBe(true);
     expect(options[2].textContent).toBe("Scene (click a chart point)");
@@ -193,10 +195,10 @@ describe("LayersPanel", () => {
   it("selecting a compare layer updates compareLayer in the context", () => {
     setup();
     fireEvent.click(compareCheckbox());
-    expect(compareLayer()).toBe("landsat");
-    fireEvent.change(compareSelect()!, { target: { value: "sentinel2" } });
-    expect(compareLayer()).toBe("sentinel2");
-    expect(compareSelect()!.value).toBe("sentinel2");
+    expect(compareLayer()).toBe("1");
+    fireEvent.change(compareSelect()!, { target: { value: "0" } });
+    expect(compareLayer()).toBe("0");
+    expect(compareSelect()!.value).toBe("0");
     // The primary layer is untouched by the compare selection.
     expect(radio(/Sentinel-2/).checked).toBe(true);
   });
@@ -205,11 +207,11 @@ describe("LayersPanel", () => {
     it("commits the year for the right-hand Landsat layer without switching the left layer", () => {
       setup();
       fireEvent.click(compareCheckbox());
-      expect(activeLayer()).toBe("sentinel2");
+      expect(activeLayer()).toBe("0");
       fireEvent.change(slider(), { target: { value: "2010" } });
       act(() => vi.advanceTimersByTime(400));
       expect(committedYear()).toBe(2010);
-      expect(activeLayer()).toBe("sentinel2");
+      expect(activeLayer()).toBe("0");
       expect(radio(/Sentinel-2/).checked).toBe(true);
       expect(radio(/Landsat 2010/).checked).toBe(false);
       expect(Array.from(compareSelect()!.options)[1].textContent).toBe("Landsat 2010");
@@ -222,7 +224,7 @@ describe("LayersPanel", () => {
       fireEvent.change(slider(), { target: { value: "1999" } });
       act(() => vi.advanceTimersByTime(400));
       expect(committedYear()).toBe(1999);
-      expect(activeLayer()).toBe("landsat");
+      expect(activeLayer()).toBe("1");
       expect(radio(/Landsat 1999/).checked).toBe(true);
     });
 
@@ -233,7 +235,57 @@ describe("LayersPanel", () => {
       fireEvent.change(slider(), { target: { value: "2010" } });
       act(() => vi.advanceTimersByTime(400));
       expect(committedYear()).toBe(2010);
-      expect(activeLayer()).toBe("landsat");
+      expect(activeLayer()).toBe("1");
+    });
+  });
+
+  describe("built from the configuration", () => {
+    const doc = (layers: object[]) => JSON.stringify({ v: 1, layers });
+    const radioNames = () => screen.getAllByRole("radio").map((r) => r.parentElement!.textContent);
+
+    it("lists the entries in the document's order, then the scene", () => {
+      setup(doc([{ type: "landsat" }, { type: "sentinel2" }]));
+      expect(radioNames()).toEqual(["Landsat 2024", "Sentinel-2, last 12 months", "Scene (click a chart point)"]);
+      expect(radio(/Landsat 2024/).checked).toBe(true);
+      fireEvent.click(compareCheckbox());
+      expect(Array.from(compareSelect()!.options).map((o) => o.textContent)).toEqual([
+        "Landsat 2024",
+        "Sentinel-2, last 12 months",
+        "Scene (click a chart point)",
+      ]);
+      expect(compareSelect()!.value).toBe("1");
+    });
+
+    it("uses an entry's label, keeping the year after a Landsat label", () => {
+      setup(doc([{ type: "sentinel2", label: "Recent imagery" }, { type: "landsat", label: "Landsat yearly" }]));
+      expect(radioNames()).toEqual(["Recent imagery", "Landsat yearly 2024", "Scene (click a chart point)"]);
+      expect(screen.getByRole("slider", { name: "Landsat yearly year" })).toBeTruthy();
+    });
+
+    it("gives each Landsat entry its own slider and year", () => {
+      setup(doc([{ type: "landsat", label: "A" }, { type: "landsat", label: "B", year: 2000 }]));
+      const [a, b] = screen.getAllByRole("slider") as HTMLInputElement[];
+      expect([a.value, b.value]).toEqual(["2024", "2000"]);
+      fireEvent.change(b, { target: { value: "2005" } });
+      expect(radioNames()).toEqual(["A 2024", "B 2005", "Scene (click a chart point)"]);
+      act(() => vi.advanceTimersByTime(400));
+      expect(committedYear()).toBe(2005);
+      expect(radio(/B 2005/).checked).toBe(true);
+      expect(radio(/A 2024/).checked).toBe(false);
+      expect(a.value).toBe("2024");
+    });
+
+    it("limits a slider to the entry's years", () => {
+      setup(doc([{ type: "landsat", years: [2000, 2010] }]));
+      expect(slider().min).toBe("2000");
+      expect(slider().max).toBe("2010");
+      expect(slider().value).toBe("2010");
+    });
+
+    it("shows no slider for an entry of a single year", () => {
+      setup(doc([{ type: "landsat", years: [2015, 2015] }]));
+      expect(radio(/Landsat 2015/)).toBeTruthy();
+      expect(screen.queryByRole("slider")).toBeNull();
     });
   });
 
@@ -309,7 +361,7 @@ describe("LayersPanel", () => {
 
     it("unsubscribes from the media query on unmount", () => {
       const { unmount } = render(
-        <PlotProvider params={params}>
+        <PlotProvider params={params} config={resolveConfig(undefined, 2026)}>
           <LayersPanel />
         </PlotProvider>,
       );

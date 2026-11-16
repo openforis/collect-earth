@@ -7,6 +7,7 @@ import { useLayerTiles } from "./components/LayerSources";
 import type { ApiState } from "./hooks/useApi";
 import { isRetryable, type TileResponse } from "./lib/api";
 import { parsePlotUrl, type PlotParams } from "./lib/urlParams";
+import { resolveConfig } from "./lib/config";
 
 // The chart cards pull in Plotly (several MB): loaded in a separate chunk after the
 // map is up, so the first paint does not wait for it.
@@ -35,8 +36,8 @@ function TileStatus({ side, tiles }: { side?: string; tiles: ApiState<TileRespon
 function Viewer() {
   const { plot, plotId, start, end, activeLayer, compare, compareLayer } = usePlot();
   const tiles = useLayerTiles(activeLayer);
-  // Comparing a layer with itself (same id, and so the same request key: the
-  // Landsat year and the scene are shared state) just shows the left tiles twice.
+  // Comparing a layer with itself (same id, and so the same request key: an
+  // entry's year and the scene are shared state) just shows the left tiles twice.
   const sameLayer = compare && activeLayer === compareLayer;
   // Always mounted (hooks cannot be conditional) but only requested while
   // comparing a different layer, so a plain page load costs one tile request, not two.
@@ -81,15 +82,21 @@ const SAMPLE_PLOTS: [name: string, lon: number, lat: number][] = [
 const sampleHref = (name: string, lon: number, lat: number) =>
   `?geoJson=${encodeURIComponent(JSON.stringify({ type: "Point", coordinates: [lon, lat] }))}&plot_id=${encodeURIComponent(name)}`;
 
-type Parsed = { params: PlotParams; error?: undefined } | { params?: undefined; error: string };
+// The latest year a configuration may name; read when the page loads (not during render, which must stay pure).
+const THIS_YEAR = new Date().getUTCFullYear();
+
+type Parsed =
+  | { params: PlotParams; config: ReturnType<typeof resolveConfig>; error?: undefined }
+  | { params?: undefined; error: string };
 
 export default function App() {
   const search = window.location.search;
   const hash = window.location.hash;
-  // Parsed once per URL: PlotProvider memoises on the params object's identity.
+  // Parsed once per URL: PlotProvider memoises on the params and config objects' identity.
   const parsed = useMemo<Parsed>(() => {
     try {
-      return { params: parsePlotUrl(search, undefined, hash) };
+      const params = parsePlotUrl(search, undefined, hash);
+      return { params, config: resolveConfig(params.configText, THIS_YEAR) };
     } catch (e) {
       return { error: (e as Error).message };
     }
@@ -109,7 +116,7 @@ export default function App() {
     );
   }
   return (
-    <PlotProvider params={parsed.params}>
+    <PlotProvider params={parsed.params} config={parsed.config}>
       <Viewer />
     </PlotProvider>
   );

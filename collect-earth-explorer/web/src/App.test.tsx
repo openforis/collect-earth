@@ -82,6 +82,7 @@ describe("App", () => {
     const [[url, init]] = fetchMock.mock.calls as [string, RequestInit][];
     expect(url).toBe("/api/tiles/sentinel2");
     const body = JSON.parse(init.body as string);
+    expect(Object.keys(body)).toEqual(["plot", "start", "end"]);
     expect(body.plot.type).toBe("Polygon");
     expect(body.start).toBe("2000-01-01");
     expect(callsTo(fetchMock, "/api/tiles/landsat")).toHaveLength(0);
@@ -92,6 +93,19 @@ describe("App", () => {
     render(<App />);
     expect(screen.getByRole("heading", { name: "Plot frag" })).toBeTruthy();
     expect(await screen.findByText(TILE.label)).toBeTruthy();
+  });
+
+  it("opens the configuration's first layer: a Landsat entry requests Landsat tiles for its year", async () => {
+    const config = { v: 1, layers: [{ type: "landsat", years: [2000, 2010], label: "Landsat 2000s" }, { type: "sentinel2" }] };
+    window.history.replaceState({}, "", `${PLOT_URL}&config=${encodeURIComponent(JSON.stringify(config))}`);
+    render(<App />);
+    expect(await screen.findByText(LANDSAT_TILE.label)).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [[url, init]] = fetchMock.mock.calls as [string, RequestInit][];
+    expect(url).toBe("/api/tiles/landsat");
+    const body = JSON.parse(init.body as string);
+    expect(Object.keys(body)).toEqual(["plot", "start", "end", "year"]);
+    expect(body.year).toBe(2010);
   });
 
   it("shows a retryable (503) imagery error with a Retry button that re-requests the tiles", async () => {
@@ -135,7 +149,7 @@ describe("App", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
 
     // Right = Sentinel-2 = left: no third request, both sides show the same tiles and label.
-    fireEvent.change(screen.getByRole("combobox", { name: "Compare layer" }), { target: { value: "sentinel2" } });
+    fireEvent.change(screen.getByRole("combobox", { name: "Compare layer" }), { target: { value: "0" } });
     expect(screen.getByText(`Left: ${TILE.label}`)).toBeTruthy();
     expect(screen.getByText(`Right: ${TILE.label}`)).toBeTruthy();
     const compareMap = screen.getByTestId("compare-map");
@@ -144,7 +158,7 @@ describe("App", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
 
     // Moving the right side back to Landsat requests it again (the hook was paused, its data kept).
-    fireEvent.change(screen.getByRole("combobox", { name: "Compare layer" }), { target: { value: "landsat" } });
+    fireEvent.change(screen.getByRole("combobox", { name: "Compare layer" }), { target: { value: "1" } });
     expect(await screen.findByText(`Right: ${LANDSAT_TILE.label}`)).toBeTruthy();
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });

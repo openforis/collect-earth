@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { PlotProvider, usePlot } from "../../state/PlotContext";
 import type { PlotParams } from "../../lib/urlParams";
+import { resolveConfig } from "../../lib/config";
 import type { CcdcChartProps } from "./CcdcChart";
 import CcdcCard from "./CcdcCard";
 
@@ -52,7 +53,7 @@ function Probe() {
 
 function setup() {
   render(
-    <PlotProvider params={params}>
+    <PlotProvider params={params} config={resolveConfig(undefined, 2026)}>
       <CcdcCard />
       <Probe />
     </PlotProvider>,
@@ -111,7 +112,7 @@ describe("CcdcCard", () => {
   it("clicking an observed point selects that Landsat scene", async () => {
     setup();
     const chart = await screen.findByTestId("ccdc-chart");
-    expect(screen.getByTestId("layer").textContent).toBe("sentinel2");
+    expect(screen.getByTestId("layer").textContent).toBe("0");
 
     fireEvent.click(chart);
     expect(screen.getByTestId("layer").textContent).toBe("scene");

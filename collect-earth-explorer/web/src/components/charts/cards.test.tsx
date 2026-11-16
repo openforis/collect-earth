@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { PlotProvider, usePlot } from "../../state/PlotContext";
 import type { PlotParams } from "../../lib/urlParams";
+import { resolveConfig } from "../../lib/config";
 import type { Point } from "../../lib/csv";
 import LandsatNdviCard from "./LandsatNdviCard";
 import Sentinel2NdviCard from "./Sentinel2NdviCard";
@@ -54,7 +55,7 @@ function Probe() {
 
 function setup(card: ReactNode) {
   render(
-    <PlotProvider params={params}>
+    <PlotProvider params={params} config={resolveConfig(undefined, 2026)}>
       {card}
       <Probe />
     </PlotProvider>,
@@ -92,7 +93,7 @@ describe("series cards", () => {
     const chart = await screen.findByTestId("series-chart");
     expect(chart.getAttribute("data-points")).toBe("1");
     expectPlotPost("/api/series/landsat");
-    expect(screen.getByTestId("layer").textContent).toBe("sentinel2");
+    expect(screen.getByTestId("layer").textContent).toBe("0");
 
     fireEvent.click(chart);
     expect(screen.getByTestId("layer").textContent).toBe("scene");
@@ -135,7 +136,7 @@ describe("series cards", () => {
 
     // MODIS has no scene to load: clicking does nothing to the context.
     fireEvent.click(chart);
-    expect(screen.getByTestId("layer").textContent).toBe("sentinel2");
+    expect(screen.getByTestId("layer").textContent).toBe("0");
   });
 
   it("shows the error and a Retry button on a 503, and Retry re-fetches", async () => {

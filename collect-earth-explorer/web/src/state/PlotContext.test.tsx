@@ -3,6 +3,7 @@ import { renderHook, act } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { PlotProvider, usePlot } from "./PlotContext";
 import type { PlotParams } from "../lib/urlParams";
+import { resolveConfig } from "../lib/config";
 
 const params: PlotParams = {
   plot: { type: "Polygon", coordinates: [[[30, -2], [31, -2], [31, -3], [30, -3], [30, -2]]] },
@@ -11,9 +12,16 @@ const params: PlotParams = {
   plotId: "demo",
 };
 
+const standard = resolveConfig(undefined, 2026);
 const wrapper = ({ children }: { children: ReactNode }) => (
-  <PlotProvider params={params}>{children}</PlotProvider>
+  <PlotProvider params={params} config={standard}>{children}</PlotProvider>
 );
+const withLayers = (layers: object[]) => {
+  const config = resolveConfig(JSON.stringify({ v: 1, layers }), 2026);
+  return ({ children }: { children: ReactNode }) => (
+    <PlotProvider params={params} config={config}>{children}</PlotProvider>
+  );
+};
 
 describe("PlotProvider / usePlot", () => {
   it("exposes the plot params and sensible defaults", () => {
@@ -22,11 +30,15 @@ describe("PlotProvider / usePlot", () => {
     expect(result.current.start).toBe("2000-01-01");
     expect(result.current.end).toBe("2025-06-15");
     expect(result.current.plotId).toBe("demo");
-    expect(result.current.activeLayer).toBe("sentinel2");
-    expect(result.current.landsatYear).toBe(2024);
+    // Layers are entry positions: 0 = Sentinel-2, 1 = Landsat in the standard configuration.
+    expect(result.current.layers.map((l) => l.type)).toEqual(["sentinel2", "landsat"]);
+    expect(result.current.charts).toHaveLength(4);
+    expect(result.current.notices).toEqual([]);
+    expect(result.current.activeLayer).toBe(0);
+    expect(result.current.yearOf(1)).toBe(2024);
     expect(result.current.scene).toBeUndefined();
     expect(result.current.compare).toBe(false);
-    expect(result.current.compareLayer).toBe("landsat");
+    expect(result.current.compareLayer).toBe(1);
   });
 
   it("setScene stores the scene and switches the active layer to it", () => {
@@ -37,15 +49,15 @@ describe("PlotProvider / usePlot", () => {
     expect(result.current.activeLayer).toBe("scene");
   });
 
-  it("setActiveLayer and setLandsatYear update state", () => {
+  it("setActiveLayer and setYear update state", () => {
     const { result } = renderHook(() => usePlot(), { wrapper });
-    act(() => result.current.setActiveLayer("landsat"));
-    act(() => result.current.setLandsatYear(1999));
-    expect(result.current.activeLayer).toBe("landsat");
-    expect(result.current.landsatYear).toBe(1999);
+    act(() => result.current.setActiveLayer(1));
+    act(() => result.current.setYear(1, 1999));
+    expect(result.current.activeLayer).toBe(1);
+    expect(result.current.yearOf(1)).toBe(1999);
   });
 
-  it("selectLandsatYear sets the year and the active layer in a single render", () => {
+  it("selectYear sets the year and the active layer in a single render", () => {
     let renders = 0;
     const { result } = renderHook(
       () => {
@@ -55,9 +67,9 @@ describe("PlotProvider / usePlot", () => {
       { wrapper },
     );
     const before = renders;
-    act(() => result.current.selectLandsatYear(2010));
-    expect(result.current.landsatYear).toBe(2010);
-    expect(result.current.activeLayer).toBe("landsat");
+    act(() => result.current.selectYear(1, 2010));
+    expect(result.current.yearOf(1)).toBe(2010);
+    expect(result.current.activeLayer).toBe(1);
     expect(renders).toBe(before + 1);
   });
 
@@ -67,6 +79,34 @@ describe("PlotProvider / usePlot", () => {
     rerender();
     expect(result.current).toBe(first);
     expect(result.current.setScene).toBe(first.setScene);
+  });
+
+  it("keeps a separate year for each Landsat entry", () => {
+    const { result } = renderHook(() => usePlot(), { wrapper: withLayers([{ type: "landsat" }, { type: "landsat", year: 2000 }]) });
+    expect(result.current.yearOf(0)).toBe(2024);
+    expect(result.current.yearOf(1)).toBe(2000);
+    act(() => result.current.selectYear(1, 2005));
+    expect(result.current.yearOf(0)).toBe(2024);
+    expect(result.current.yearOf(1)).toBe(2005);
+    expect(result.current.activeLayer).toBe(1);
+  });
+
+  it("starts a Landsat entry at its year, else the last of its years, clamped into its years", () => {
+    const { result } = renderHook(() => usePlot(), {
+      wrapper: withLayers([
+        { type: "landsat", years: [2000, 2010] },
+        { type: "landsat", years: [2000, 2010], year: 2015 },
+        { type: "landsat", years: [2000, 2010], year: 2003 },
+        { type: "landsat", years: [2025, 2026] },
+      ]),
+    });
+    expect([0, 1, 2, 3].map(result.current.yearOf)).toEqual([2010, 2010, 2003, 2026]);
+  });
+
+  it("compares with the first entry when there is only one", () => {
+    const { result } = renderHook(() => usePlot(), { wrapper: withLayers([{ type: "landsat" }]) });
+    expect(result.current.activeLayer).toBe(0);
+    expect(result.current.compareLayer).toBe(0);
   });
 
   it("throws when used outside the provider", () => {
