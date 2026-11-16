@@ -55,6 +55,10 @@ const CODE_MESSAGES: Record<string, MessageKey> = {
   invalid_invite: "error.inviteInvalid",
   invalid_reset_token: "error.linkUsedOrExpired",
   rate_limited: "error.rateLimited",
+  // the project's plots are one set (a plot in one plot file, every file with the same columns)
+  plots_in_other_file: "error.plotsInOtherFile",
+  columns_differ: "error.columnsDiffer",
+  not_one_set: "error.notOneSet",
   unauthorized: "error.sessionEnded",
   forbidden: "error.forbidden",
   not_found: "error.notFound",

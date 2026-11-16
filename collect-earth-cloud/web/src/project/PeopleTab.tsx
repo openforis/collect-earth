@@ -108,6 +108,8 @@ const EXPIRY_CHOICES = [1, 7, 30, 0] as const; // days; 0 = never
 
 /** The plots choice of the invitation form: none, a file whole, or a number of plots each of a file */
 type PlotsChoice = "" | `whole:${string}` | `share:${string}`;
+/** The plots choice of a share of the project's plots (not a plot file's id: those are uuids) */
+const PROJECT_SHARE = "project";
 
 function InviteForm({ projectId, onCreated }: { projectId: string; onCreated: (invite: NewInvite) => void }) {
   const t = useT();
@@ -138,7 +140,11 @@ function InviteForm({ projectId, onCreated }: { projectId: string; onCreated: (i
     }
     setBusy(true);
     try {
-      const given = role === "operator" && mode && csvFileId ? { csvFileId, mode, count: mode === "share" ? count : null } : null;
+      // share:project: a share of the project's plots, every plot file (one set of plots)
+      const given =
+        role === "operator" && mode && csvFileId
+          ? { csvFileId: csvFileId === PROJECT_SHARE ? null : csvFileId, mode, count: mode === "share" ? count : null }
+          : null;
       onCreated(await createInvite(projectId, { role, maxUses: uses, expiresInDays: expiry || null, plots: given }));
     } catch (err) {
       setError(err);
@@ -193,6 +199,7 @@ function InviteForm({ projectId, onCreated }: { projectId: string; onCreated: (i
             <InputLabel id="invite-plots">{t("people.plots")}</InputLabel>
             <Select labelId="invite-plots" label={t("people.plots")} value={plots} onChange={(e) => setPlots(e.target.value as PlotsChoice)}>
               <MenuItem value="">{t("people.plotsNone")}</MenuItem>
+              <MenuItem value={`share:${PROJECT_SHARE}`}>{t("people.plotsShareProject")}</MenuItem>
               {(files.data ?? []).flatMap((f) => [
                 // a divided file is shared out only by number: its plots are each someone's
                 ...(f.divided ? [] : [<MenuItem key={`whole:${f.id}`} value={`whole:${f.id}`}>{t("people.plotsWhole", { file: f.filename })}</MenuItem>]),
@@ -883,9 +890,11 @@ function PeopleTableSection({ projectId, data }: { projectId: string; data: Peop
                     </Typography>
                     {invite.plots && (
                       <Typography variant="body2" color="text.secondary">
-                        {invite.plots.mode === "whole"
-                          ? t("peopleTable.invitePlotsWhole", { file: fileName(invite.plots.csvFileId) })
-                          : t("peopleTable.invitePlotsShare", { file: fileName(invite.plots.csvFileId), count: n(invite.plots.count ?? 0) })}
+                        {invite.plots.csvFileId === null
+                          ? t("peopleTable.invitePlotsShareProject", { count: n(invite.plots.count ?? 0) })
+                          : invite.plots.mode === "whole"
+                            ? t("peopleTable.invitePlotsWhole", { file: fileName(invite.plots.csvFileId) })
+                            : t("peopleTable.invitePlotsShare", { file: fileName(invite.plots.csvFileId), count: n(invite.plots.count ?? 0) })}
                       </Typography>
                     )}
                   </TableCell>

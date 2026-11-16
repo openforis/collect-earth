@@ -21,6 +21,7 @@ import type {
   ReplaceImpact,
   SigridCountries,
   SigridFacts,
+  TakePlotsAnswer,
 } from "../../../src/wire/plotFiles";
 import { ApiError, Progress, p, request, send, upload } from "./transport";
 
@@ -138,18 +139,32 @@ export async function saveAssignments(projectId: string, assignments: Assignment
 
 const f = (projectId: string, csvFileId: string) => `${p(projectId)}/csv-files/${encodeURIComponent(csvFileId)}`;
 
-export function getCsvColumns(projectId: string, csvFileId: string): Promise<CsvColumns> {
-  return request("GET", `${f(projectId, csvFileId)}/columns`);
+/**
+ * The calls below take a plot file's id, or null for the project's plots (all of its plot files, one set,
+ * docs/plans/2026-11-16-plots-from-the-server.md): the same answers, over every file.
+ */
+const plots = (projectId: string) => `${p(projectId)}/plots`;
+
+export function getCsvColumns(projectId: string, csvFileId: string | null): Promise<CsvColumns> {
+  return request("GET", csvFileId === null ? `${plots(projectId)}/columns` : `${f(projectId, csvFileId)}/columns`);
 }
 
-export function getDistribution(projectId: string, csvFileId: string): Promise<DistributionSummary> {
-  return request("GET", `${f(projectId, csvFileId)}/distribution`);
+export function getDistribution(projectId: string, csvFileId: string | null): Promise<DistributionSummary> {
+  return request("GET", csvFileId === null ? `${plots(projectId)}/division` : `${f(projectId, csvFileId)}/distribution`);
 }
 
-/** Divides the file's plots (or, with dryRun, only says what the result would be). */
-export function saveDistribution(projectId: string, csvFileId: string, distribution: DivisionBody, dryRun = false): Promise<DistributionSummary> {
+/** Divides the file's plots, or the project's (or, with dryRun, only says what the result would be). */
+export function saveDistribution(projectId: string, csvFileId: string | null, distribution: DivisionBody, dryRun = false): Promise<DistributionSummary> {
   const json: DivisionBody = dryRun ? { ...distribution, dryRun: true } : distribution;
-  return request("PUT", `${f(projectId, csvFileId)}/distribution`, { json });
+  return request("PUT", csvFileId === null ? `${plots(projectId)}/division` : `${f(projectId, csvFileId)}/distribution`, { json });
+}
+
+/**
+ * The coordinator takes `count` of the project's plots that nobody holds and nobody submitted (of those with `value` in
+ * `column`, a column of getCsvColumns(projectId, null), when given).
+ */
+export function takePlots(projectId: string, count: number, filter?: { column: number; value: string }): Promise<TakePlotsAnswer> {
+  return request("POST", `${plots(projectId)}/take`, { json: { count, ...(filter ?? {}) } });
 }
 
 /**
@@ -158,15 +173,15 @@ export function saveDistribution(projectId: string, csvFileId: string, distribut
  */
 export function moveUnfinished(
   projectId: string,
-  csvFileId: string,
+  csvFileId: string | null,
   fromUserId: string,
   toUserId: string,
   which: { count?: number; plots?: string[] } = {},
 ): Promise<MoveUnfinishedAnswer> {
-  return request("POST", `${f(projectId, csvFileId)}/move-unfinished`, { json: { fromUserId, toUserId, ...which } });
+  return request("POST", csvFileId === null ? `${plots(projectId)}/move-unfinished` : `${f(projectId, csvFileId)}/move-unfinished`, { json: { fromUserId, toUserId, ...which } });
 }
 
-export type { MoveUnfinishedAnswer, RebalanceAnswer, RebalanceMove, RebalancePlan } from "../../../src/wire/plotFiles";
+export type { MoveUnfinishedAnswer, RebalanceAnswer, RebalanceMove, RebalancePlan, TakePlotsAnswer } from "../../../src/wire/plotFiles";
 
 /**
  * Shares again the plots still to assess of `people` by their weights (1 and 1: equally; 0: gives all away); what is

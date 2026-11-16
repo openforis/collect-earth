@@ -15,7 +15,7 @@ import { Loading } from "../components/Loading";
 import { ViewTabs } from "../components/ViewTabs";
 import { useT, type MessageKey } from "../i18n";
 import { setupSections } from "../localMode";
-import { linkProps, navigate, pathFor, type ProjectTab, type ProjectView } from "../router";
+import { linkProps, navigate, pathFor, PROJECT_PLOTS, type ProjectTab, type ProjectView } from "../router";
 import { useLoad } from "../useLoad";
 import { FileTab } from "./FileTab";
 import { ImageryCard } from "./ImageryCard";
@@ -97,7 +97,7 @@ export function SetupTab({ projectId, name, status, section, fileId, onGo }: {
   const body = {
     overview: <OverviewTab projectId={projectId} status={status} onGo={onGo} />,
     survey: <OpenCards><FileTab projectId={projectId} /></OpenCards>,
-    plots: fileId ? <PlotFilePage key={fileId} projectId={projectId} fileId={fileId} onGo={onGo} /> : <PlotsTab projectId={projectId} onGo={onGo} />,
+    plots: fileId ? <PlotFilePage key={fileId} projectId={projectId} fileId={fileId === PROJECT_PLOTS ? null : fileId} onGo={onGo} /> : <PlotsTab projectId={projectId} onGo={onGo} />,
     areas: <OpenCards><StrataAreas projectId={projectId} defaultOpen /></OpenCards>,
     layout: <OpenCards><LayoutSection projectId={projectId} /></OpenCards>,
     quality: (

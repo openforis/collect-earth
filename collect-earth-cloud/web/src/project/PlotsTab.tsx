@@ -43,7 +43,7 @@ import { FileDrop } from "../components/FileDrop";
 import { Loading } from "../components/Loading";
 import { formatNumber } from "../format";
 import { useT } from "../i18n";
-import { linkProps, pathFor, type ProjectTab } from "../router";
+import { linkProps, pathFor, PROJECT_PLOTS, type ProjectTab } from "../router";
 import { useLoad } from "../useLoad";
 import { fromPairs, pairKey } from "../assignmentGrid";
 import { sortPeople } from "../division";
@@ -169,6 +169,19 @@ function WhoCollectsDialog({
   );
 }
 
+/** What a plot file of a project from before the rules of one set of plots breaks: other columns, plots of another file */
+function FileFlags({ file }: { file: ListedCsvFile }) {
+  const t = useT();
+  const { language } = useApp();
+  if (!file.columnsDiffer && file.sharedPlots === 0) return null;
+  return (
+    <Typography variant="body2" color="warning.main" sx={{ fontWeight: 400 }}>
+      {file.columnsDiffer && <span>{t("projectPlots.columnsDiffer")} </span>}
+      {file.sharedPlots > 0 && <span>{t("projectPlots.sharedPlots", { count: formatNumber(file.sharedPlots, language) })}</span>}
+    </Typography>
+  );
+}
+
 export function PlotsTab({ projectId, onGo }: { projectId: string; onGo: (tab: ProjectTab) => void }) {
   const t = useT();
   const { language } = useApp();
@@ -286,8 +299,31 @@ export function PlotsTab({ projectId, onGo }: { projectId: string; onGo: (tab: P
     state.reload();
   };
 
+  // The files that break the rules of one set of plots (a project from before them)
+  const broken = (data?.files ?? []).filter((f) => f.columnsDiffer || f.sharedPlots > 0);
+  const total = (data?.files ?? []).reduce((sum, f) => sum + f.plotCount, 0);
+
   return (
     <Stack spacing={3}>
+      {/* The project's plots first: one set, divided once; the plot files below are where they came from */}
+      {data && data.files.length > 0 && (
+        <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section" aria-labelledby="project-plots-title" data-testid="project-plots">
+          <Typography variant="h2" id="project-plots-title" gutterBottom>
+            {t("projectPlots.title")}
+          </Typography>
+          <Typography color="text.secondary" sx={{ mb: 2 }}>
+            {t("projectPlots.summary", { count: formatNumber(total, language), files: formatNumber(data.files.length, language) })}
+          </Typography>
+          {broken.length > 0 && (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              {t("projectPlots.notOneSet", { files: broken.map((f) => f.filename).join(", ") })}
+            </Alert>
+          )}
+          <Button variant="contained" startIcon={<CallSplit />} {...linkProps(pathFor({ name: "plotFile", projectId, fileId: PROJECT_PLOTS }))}>
+            {t("projectPlots.open")}
+          </Button>
+        </Paper>
+      )}
       <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section" aria-labelledby="plot-files-title">
         <Typography variant="h2" id="plot-files-title" gutterBottom>
           {t("plots.title")}
@@ -346,6 +382,7 @@ export function PlotsTab({ projectId, onGo }: { projectId: string; onGo: (tab: P
                   return (
                     <Box component="li" key={file.id} sx={{ p: 1.5, borderTop: index === 0 ? 0 : 1, borderColor: "divider" }}>
                       <Typography sx={{ wordBreak: "break-word", fontWeight: 500 }}>{file.filename}</Typography>
+                      <FileFlags file={file} />
                       <Typography variant="body2" color="text.secondary" sx={{ wordBreak: "break-word" }}>
                         {who === null ? plots : `${plots} · ${who}`}
                       </Typography>
@@ -385,7 +422,10 @@ export function PlotsTab({ projectId, onGo }: { projectId: string; onGo: (tab: P
                       const ids = sortedHolders(file.id);
                       return (
                         <TableRow key={file.id} hover>
-                          <TableCell component="th" scope="row" sx={{ wordBreak: "break-word", fontWeight: 500 }}>{file.filename}</TableCell>
+                          <TableCell component="th" scope="row" sx={{ wordBreak: "break-word", fontWeight: 500 }}>
+                            {file.filename}
+                            <FileFlags file={file} />
+                          </TableCell>
                           <TableCell align="right" sx={{ fontVariantNumeric: "tabular-nums" }}>{formatNumber(file.plotCount, language)}</TableCell>
                           <TableCell>
                             {divided ? (

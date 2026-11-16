@@ -1,6 +1,6 @@
 # Plots from the server for cloud projects — design
 
-Date: 16 November 2026. Branch `claude/awesome-bell-s34gb0`. **Status: decided (below); stages 1 and 2 built.**
+Date: 16 November 2026. Branch `claude/awesome-bell-s34gb0`. **Status: decided (below); stages 1, 2 and 3 built.**
 
 ## What is asked
 
@@ -392,3 +392,68 @@ dividing simpler for the coordinator, and needs the two rules, so it comes after
   - a training set opens, the checks leave it open, and "Back to my plots" returns.
 
   The run gives 80 checks in ten scenarios from empty databases, all passed.
+
+## Stage 3, as built
+
+**The rules of one set** (`src/projectPlots.ts`), checked when a plot file is added or replaced (not in the local
+mode):
+
+- **A plot in one plot file only.** Otherwise: 409 `plots_in_other_file`, with the plots, how many, and the files.
+- **The same columns.** As many columns, and the same extra columns after the keys and the two coordinates, in any
+  order and letter case, compared with the file with the most plots. The keys and coordinates go by place, as Collect
+  Earth reads them, so `lat` and `YCoordinate` alike. Otherwise: 409 `columns_differ`.
+- The person's plots (stage 1) match columns the same way.
+- **Projects from before the rules.** Their files stay. `GET csv-files` flags each (`columnsDiffer`, `sharedPlots`),
+  and Setup › Plots shows the flags under the file and in the project's card.
+
+**Designs and SIGRID.**
+
+- A design numbers its plots from the project's next free number.
+- Both write the extra columns of the project's files.
+- A design adds no stratum column the project's files lack.
+
+**The project's plots** (`src/routes/projectDivision.ts`): every file's rows put in the columns of the reference file,
+as one set.
+
+- `GET plots/columns`.
+- `GET`/`PUT plots/division`, evenly or by a column:
+  - with overlap copies; check draws and reference plots kept;
+  - order nearby along one curve over all the plots;
+  - a dry run;
+  - written file by file in one transaction (`Store.setDivisions`, both stores);
+  - 409 `not_one_set` while files break the rules;
+  - `mode: whole` is for one file (400).
+- `POST plots/move-unfinished`: all or some, over every file; only the files the person held plots of change.
+- `POST plots/take`: a coordinator takes plots nobody holds and nobody submitted, of a column's value if they choose
+  (audited `plots.taken`, in the migrations' list of actions).
+- **Links over the project:** an invitation link may share out the project's plots (`plots.csvFileId: null`), file
+  after file. The join emails say "the project's plots".
+
+**The dashboard.**
+
+- Setup › Plots opens with "The project's plots": how many in how many files, the files breaking the rules, and
+  "Divide the project's plots".
+- That opens `/projects/:id/plots/all`, the plot file page over the whole project. It has the current division
+  (moves), "Take plots to assess yourself", and the divide form without "whole". Rebalancing stays per file for now.
+- The invitation form offers a share of the project's plots.
+- The activity log says the project-wide actions.
+- Uploads refused by the rules are said in plain words.
+- All of it in five languages.
+
+**Not done, kept as it was.** The CEP's plot files are still taken by the dashboard when it is uploaded (it asks
+whether to merge files with the same columns), not by the server. The only other way a CEP reaches a server is the
+desktop's local dashboard, which has one plot file. Those uploads are held to the rules like any other.
+
+**Tests.**
+
+- Server:
+  - `projectPlots.test.ts` (3);
+  - `projectDivision.test.ts` (7): columns, an even and a column division over two files, moves, taking, links,
+    the refusal;
+  - a design joining the set;
+  - the isolation cases;
+  - the tests that build projects from before the rules now write those files as such projects have them
+    (`legacyPlotFile`).
+  - All 1735 pass. Also run on PostgreSQL.
+- Dashboard: 595 tests, plus a run in the browser (Setup › Plots, the project's plots page, taking 10 plots of one
+  province).
