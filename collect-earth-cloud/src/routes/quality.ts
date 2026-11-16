@@ -384,6 +384,9 @@ export async function registerQualityRoutes(
     const afterText = typeof q.after === 'string' && q.after !== '' ? q.after : null;
     if (person !== null && person.length > MAX_NAME) return reply.code(400).send(bad(`person must be at most ${MAX_NAME} characters`));
     if (kind !== null && !(QUEUE_KINDS as readonly string[]).includes(kind)) return reply.code(400).send(bad(`kind must be one of ${QUEUE_KINDS.join(', ')}`));
+    // Reviewers get no queue per person (Decision 10): its counts would be that person's differences and flags
+    const coordinatorAsks = request.membership!.role === 'admin';
+    if (person !== null && !coordinatorAsks) return reply.code(403).send({ error: 'forbidden', reason: 'only coordinators filter the review queue by person' });
     const after = afterText === null ? null : afterText.length <= MAX_NAME + 40 ? parseCursor(afterText) : null;
     if (afterText !== null && after === null) return reply.code(400).send(bad('after must be the cursor "next" of a page of the queue'));
     const [figures, decisions, settings, outline, members] = await Promise.all([
@@ -474,7 +477,8 @@ export async function registerQualityRoutes(
       next: rest.length > page.length && page.length > 0 ? queueCursor(page[page.length - 1]) : null,
       total: queue.items.length,
       counts: queue.counts,
-      people: queue.people,
+      // the person filter's names: a coordinator's (a reviewer has no such filter)
+      people: coordinatorAsks ? queue.people : [],
       // A reviewer's own plots left out of the queue (0 for a coordinator).
       excludedOwn: queue.excluded,
       // The flags looked at are the newest MAX_LISTED_FLAGS of those matching the filters.

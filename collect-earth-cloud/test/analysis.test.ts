@@ -248,13 +248,20 @@ describe('GET /analysis', () => {
     ]);
     expect(body.areas).toEqual({ source: 'region_areas.csv', plots: 3, unmatched: 0, unknownColumns: [], noStratum: { plots: 0, examples: [] } });
 
-    // A reviewer: every record, of nobody by name (neither the column nor the survey's own operator answer)
-    const reviewer = (await call('/analysis', people.rev)).json();
-    expect(reviewer.scope).toBe('team');
-    expect(reviewer.tables[0].rows).toBe(3);
-    expect(rowsOf(reviewer.tables[0].csv).map((r) => [r._operator, r._round, r.land_use_category])).toEqual([['', '1', 'F'], ['', '1', 'C'], ['', '1', 'G']]);
-    expect(reviewer.tables[0].csv).not.toMatch(/\bana\b|\bbo\b/);
-
+    // A reviewer has no row per record: the summary, counted on the server
+    expect((await call('/analysis', people.rev)).statusCode).toBe(403);
+    const none = (await call('/analysis/summary', people.rev)).json();
+    expect(none).toMatchObject({ row: null, cells: [], plots: 0 });
+    expect(none.questions.map((q: { name: string }) => q.name)).toContain('land_use_category');
+    expect(none.questions.map((q: { name: string }) => q.name)).not.toContain('id');
+    const byLandUse = (await call('/analysis/summary?row=land_use_category', people.rev)).json();
+    expect(byLandUse.plots).toBe(3);
+    expect(byLandUse.cells.map((c: { row: string; plots: number }) => [c.row, c.plots]).sort()).toEqual([['C', 1], ['F', 1], ['G', 1]]);
+    expect(JSON.stringify(byLandUse)).not.toMatch(/\bana\b|\bbo\b/);
+    expect((await call('/analysis/summary?row=id', people.rev)).statusCode).toBe(400);
+    expect((await call('/analysis/summary?column=land_use_category', people.rev)).statusCode).toBe(400);
+    // not for collectors
+    expect((await call('/analysis/summary', people.ana)).statusCode).toBe(403);
     const ana = (await call('/analysis', people.ana)).json();
     expect(ana.scope).toBe('own');
     const own = rowsOf(ana.tables[0].csv);
@@ -263,7 +270,7 @@ describe('GET /analysis', () => {
     expect(own.map((r) => Number(r.expansion_factor))).toEqual([300, 300]);
   });
 
-  it('shows a reviewer no reference plot and nobody by name, and gives them no file to take away', async () => {
+  it("a reviewer's summary counts no reference plot and names nobody, and they have no file to take away", async () => {
     await upload();
     const fileId = (await call('/csv-files', owner.token)).json().csvFiles[0].id as string;
     // Reference plots are plots of a divided file
@@ -276,10 +283,9 @@ describe('GET /analysis', () => {
     await send('ana', '1,1', { collect_text_id: '1', collect_text_operator: 'ana', collect_code_land_use_category: 'F' });
     await send('bo', '3,2', { collect_text_id: '3', collect_text_operator: 'bo', collect_code_land_use_category: 'G' });
 
-    const reviewer = (await call('/analysis', people.rev)).json();
-    const rows = rowsOf(reviewer.tables.find((t: { name: string }) => t.name === 'plot').csv);
-    expect(rows.map((r) => r.id)).toEqual(['1']);
-    expect(JSON.stringify(reviewer.tables)).not.toMatch(/\bana\b|\bbo\b/);
+    const reviewer = (await call('/analysis/summary?row=land_use_category', people.rev)).json();
+    expect(reviewer.cells.map((c: { row: string; plots: number }) => [c.row, c.plots])).toEqual([['F', 1]]);
+    expect(JSON.stringify(reviewer)).not.toMatch(/\bana\b|\bbo\b/);
     // The coordinator keeps both, with their names
     const coordinator = (await call('/analysis', owner.token)).json();
     expect(rowsOf(coordinator.tables.find((t: { name: string }) => t.name === 'plot').csv).map((r) => [r.id, r._operator])).toEqual([['1', 'ana'], ['3', 'bo']]);

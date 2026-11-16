@@ -14,6 +14,7 @@ import {
   setupPlatformAdmin,
   TEST_SETUP_CODE,
   type TestContext,
+  zipOfSize,
 } from './helpers.js';
 
 async function invite(app: FastifyInstance, pid: string, token: string, body: Record<string, unknown> = {}) {
@@ -563,7 +564,7 @@ describe('invites, overview and export', () => {
       method: 'PUT',
       url: `/v1/projects/${project.projectId}/cep`,
       headers: { ...bearer(project.adminToken), 'content-type': 'application/zip' },
-      payload: Buffer.from('PK12345'),
+      payload: zipOfSize(150),
     });
     for (const [name, body] of [['a.csv', 'id,x\n1,2\n3,4\n'], ['b.csv', 'id,x\n5,6\n']]) {
       await ctx.app.inject({
@@ -585,7 +586,7 @@ describe('invites, overview and export', () => {
     const res = await ctx.app.inject({ method: 'GET', url: `/v1/projects/${project.projectId}/overview`, headers: bearer(project.adminToken) });
     expect(res.statusCode).toBe(200);
     const body = res.json();
-    expect(body.cep).toEqual({ bytes: 7, updatedAt: expect.any(Number) });
+    expect(body.cep).toEqual({ bytes: 150, updatedAt: expect.any(Number) });
     expect(body).toMatchObject({ members: 1, csvFiles: 2, plots: 3 });
     expect(body.records).toEqual({
       total: 3,

@@ -582,7 +582,8 @@ export function ChangeCard({ projectId }: { projectId: string }) {
                 <MenuItem value="corrected">{t("change.show.corrected", { count: String(data.counts.corrected) })}</MenuItem>
                 <MenuItem value="mismatch">{t("change.show.mismatch", { count: String(data.counts.mismatches) })}</MenuItem>
               </TextField>
-              <Button variant="outlined" onClick={() => void download()} disabled={busy}>{t("change.download")}</Button>
+              {/* files of the project's data are its coordinators' to take */}
+              {data.canEdit && <Button variant="outlined" onClick={() => void download()} disabled={busy}>{t("change.download")}</Button>}
               {data.canEdit && (
                 <Tooltip describeChild title={t("change.downloadPeriodsHelp", { earlier: data.periods.join(", "), now: data.label })}>
                   <Button variant="outlined" onClick={() => void download("periods")} disabled={busy}>{t("change.downloadPeriods")}</Button>

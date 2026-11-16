@@ -553,7 +553,7 @@ export class PostgresStore implements Store {
     });
   }
 
-  async renameRecordOperator(projectId: string, recordKey: string, from: string, to: string): Promise<boolean> {
+  async renameRecordOperator(projectId: string, recordKey: string, from: string, to: string, notNewerThan?: number): Promise<boolean> {
     if (from === to) {
       return false;
     }
@@ -567,6 +567,9 @@ export class PostgresStore implements Store {
       );
       const old = res.rows.find((r) => r.operator === from);
       if (!old) {
+        return false;
+      }
+      if (notNewerThan !== undefined && new Date(old.modified_on).getTime() > notNewerThan) {
         return false;
       }
       // The account has the record already: both are kept. Merging them deleted one, and a forged

@@ -285,6 +285,42 @@ describe('records:batch — gzip, LWW and tombstones', () => {
         ['9', 'maria', '<maria/>', false],
       ]);
     });
+
+    it("never takes a typed-name record of a plot given to other people, with an older save or a newer one", async () => {
+      await member('maria');
+      const mallory = await member('mallory');
+      const admin = { authorization: `Bearer ${project.adminToken}` };
+      const csv = await ctx.app.inject({ method: 'PUT', url: `/v1/projects/${project.projectId}/csv-files/plots.csv`, headers: { ...admin, 'content-type': 'text/csv' }, payload: 'id,lat,lon\n7,0,0\n8,0,0\n' });
+      const mariaId = (await ctx.store.getUserByUsername('maria'))!.id;
+      const given = await ctx.app.inject({ method: 'PUT', url: `/v1/projects/${project.projectId}/assignments`, headers: admin, payload: { assignments: [{ userId: mariaId, csvFileId: csv.json().id }] } });
+      expect(given.statusCode, given.body).toBeLessThan(300);
+      // maria's plot, saved under the name she typed before she had an account (a backup's record)
+      await legacy('7', 'Maria Lopez', 1000, '<hers/>');
+      await batchRequest(ctx.app, project.projectId, mallory, [envelope({ recordKey: '7', operator: 'Maria Lopez', modifiedOn: 1, xml: '<stale/>' })]);
+      await batchRequest(ctx.app, project.projectId, mallory, [envelope({ recordKey: '8', operator: 'Maria Lopez', modifiedOn: 1, xml: '<other/>' })]);
+      expect((await rows()).find((r) => r[1] === 'Maria Lopez')).toEqual(['7', 'Maria Lopez', '<hers/>', false]);
+      await batchRequest(ctx.app, project.projectId, mallory, [envelope({ recordKey: '7', operator: 'Maria Lopez', modifiedOn: 9000, xml: '<newer/>' })]);
+      expect((await rows()).filter((r) => r[0] === '7')).toEqual([
+        ['7', 'mallory', '<newer/>', false],
+        ['7', 'Maria Lopez', '<hers/>', false],
+      ]);
+    });
+
+    it('of a plot given to nobody, takes a typed-name record only with a save no older than it: nothing of it is read', async () => {
+      const mallory = await member('mallory');
+      await legacy('9', 'Somebody Else', 1000, '<theirs/>');
+      const stale = await batchRequest(ctx.app, project.projectId, mallory, [envelope({ recordKey: '9', operator: 'Somebody Else', modifiedOn: 1, xml: '<stale/>' })]);
+      expect((stale.json() as BatchResponse).results[0].status).toBe('stored');
+      expect(await rows()).toEqual([
+        ['9', 'mallory', '<stale/>', false],
+        ['9', 'Somebody Else', '<theirs/>', false],
+      ]);
+      // an older copy under a name with the person's own username in it is theirs (the office team's backup)
+      const juan = await member('juan');
+      await legacy('5', 'Juan Perez', 1000, '<old/>');
+      await batchRequest(ctx.app, project.projectId, juan, [envelope({ recordKey: '5', operator: 'Juan Perez', modifiedOn: 1, xml: '<older/>' })]);
+      expect((await rows()).filter((r) => r[0] === '5')).toEqual([['5', 'juan', '<old/>', false]]);
+    });
   });
 });
 

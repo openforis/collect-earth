@@ -19,6 +19,7 @@
 // - GET /v1/projects/:pid/periods/plots/:plot (member) -> { periods: [{ label, savedAt, answers, operator? }], labels,
 //   options }: one plot's earlier answers, with the questions' labels and answers' names; who collected them is told to
 //   coordinators and reviewers only.
+import { plotOwnershipOf } from '../plotOwnership.js';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { audit } from '../activity.js';
 import { CepError, NOTE_SUMMARY_KEY, PERIOD_STATUS_KEY, addPeriodStatus, readCep } from '../cep.js';
@@ -43,8 +44,7 @@ import {
 } from '../repeatSurvey.js';
 import { copyProject } from '../projectCopy.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
-import { fileKeyCount, keyShape, splitKey } from '../rounds.js';
-import { plotIdsOf } from '../plotFileCache.js';
+import { keyShape, splitKey } from '../rounds.js';
 import type { Store } from '../store/store.js';
 import { surveyOutline, type Question } from '../surveyOutline.js';
 import type { RepeatSettings } from '../types.js';
@@ -124,28 +124,6 @@ export async function servePeriodStatus(store: Store, projectId: string): Promis
 }
 
 const questionList = (outline: ReadonlyMap<string, Question>) => headerCandidates(outline).map((q) => ({ key: q.key, label: q.label, kind: q.kind }));
-
-/**
- * Whether a plot is one of a collector's: held in a divided file (as a main plot or a copy), in a whole plot file
- * given to them, or assessed by them already (a record of theirs: a plot sent back to check again, say). `names`: the
- * plot as asked for and without its round.
- */
-async function collectorHasPlot(store: Store, projectId: string, userId: string, names: string[], info: Awaited<ReturnType<Store['getRoundInfo']>>): Promise<boolean> {
-  const wanted = new Set(names);
-  for (const held of await store.listPlotHoldings(projectId, userId)) {
-    if (held.plotKeys.some((k) => wanted.has(k)) || held.copyKeys.some((k) => wanted.has(k))) return true;
-  }
-  for (const meta of await store.listAssignmentsForUser(projectId, userId)) {
-    if (meta.distribution != null) continue;
-    const file = await store.getCsvFile(projectId, meta.id);
-    if (file && plotIdsOf(file, fileKeyCount(info)).some((id) => wanted.has(id))) return true;
-  }
-  const user = await store.getUserById(userId);
-  if (user) {
-    for (const name of names) if (await store.getRecord(projectId, name, user.username)) return true;
-  }
-  return false;
-}
 
 export async function registerRepeatSurveyRoutes(app: FastifyInstance, store: Store): Promise<void> {
   const admin = { preHandler: requireProjectMembership(store, 'admin') };
@@ -435,6 +413,8 @@ export async function registerRepeatSurveyRoutes(app: FastifyInstance, store: St
 
   // The comparison as a file: one row per plot, the answer of each period, the collector's answer and the outcome
   app.get('/v1/projects/:pid/periods/change.csv', reviewer, async (request: FastifyRequest, reply: FastifyReply) => {
+    // A file of the project's data is its coordinators' to take: a reviewer has the comparison on the page
+    if (request.membership!.role !== 'admin') return reply.code(403).send({ error: 'forbidden', reason: 'the comparison as a file is for coordinators' });
     const found = await changeOf(request, reply);
     if (!found) return reply;
     const { settings, period, question, change, options } = found;
@@ -461,7 +441,9 @@ export async function registerRepeatSurveyRoutes(app: FastifyInstance, store: St
     if (rows.length === 0 && bare !== plot) rows = await store.getPlotPeriodAnswers(projectId, bare);
     // A collector reads the earlier answers of their own plots (the plot form shows them), not of any plot of the
     // project: for another one the answer is as for a plot without earlier periods
-    if (!seesWho && request.userId && rows.length > 0 && !(await collectorHasPlot(store, projectId, request.userId, [plot, bare], info))) rows = [];
+    // Nor of a plot given to other people only. A plot the project gave to nobody is anybody's to assess. A record
+    // of the plot does not make it theirs (anybody can send one), and a project token is nobody.
+    if (!seesWho && rows.length > 0 && (await plotOwnershipOf(store, projectId, request.userId ?? null, info))([plot, bare]) === 'others') rows = [];
     const settings = await store.getRepeatSettings(projectId);
     // The questions' labels and their answers' names, from the survey: the project may have no record of the plot yet
     const outline = rows.length > 0 ? outlineOf(await store.getCep(projectId)) : null;

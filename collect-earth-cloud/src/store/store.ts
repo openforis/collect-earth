@@ -557,7 +557,8 @@ export interface Store {
    * Moves a record kept under a legacy operator name to the account's username: false when there is no
    * such row, or when the account already has the record (both are then kept as they are, never deleted).
    */
-  renameRecordOperator(projectId: string, recordKey: string, from: string, to: string): Promise<boolean>;
+  /** `notNewerThan`: only a row last modified at or before it (the save that moves it is no older than the row). */
+  renameRecordOperator(projectId: string, recordKey: string, from: string, to: string, notNewerThan?: number): Promise<boolean>;
 
   /** All records for a project (deleted excluded unless includeDeleted). For stats/export/tests. */
   listRecords(projectId: string, includeDeleted?: boolean): Promise<RecordRow[]>;

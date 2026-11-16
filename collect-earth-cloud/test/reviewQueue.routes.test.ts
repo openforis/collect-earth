@@ -151,8 +151,10 @@ describe('the review queue: GET /quality/queue, decisions by reviewers, POST /qu
     const ritas = await fresh('/quality/queue', rita.token);
     expect(ritas.items.map((i: { plot: string }) => i.plot)).toEqual(['1', '4', '6']);
     expect(ritas).toMatchObject({ total: 3, counts: { difference: 2, flag: 1, resubmitted: 0 }, excludedOwn: 2 });
-    expect(ritas.people).not.toContain('rita');
-    expect((await call('GET', '/quality/queue?person=rita', rita.token)).json().items).toEqual([]);
+    // nobody to filter by, and no queue per person: its counts would be that person's differences and flags
+    expect(ritas.people).toEqual([]);
+    expect((await call('GET', '/quality/queue?person=ana', rita.token)).statusCode).toBe(403);
+    expect((await call('GET', '/quality/queue?person=ana&kind=difference', rita.token)).statusCode).toBe(403);
     expect((await call('GET', '/quality/queue?after=difference::1', rita.token)).json().items.map((i: { plot: string }) => i.plot)).toEqual(['4', '6']);
     expect(owners.items.map((i: { plot: string }) => i.plot)).toEqual(['1', '2', '3', '4', '6']);
   });

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import { batchRequest, bearer, createProject, envelope, makeContext, setupPlatformAdmin, type TestContext } from './helpers.js';
+import { batchRequest, bearer, createProject, envelope, makeContext, setupPlatformAdmin, zipOfSize, type TestContext } from './helpers.js';
 
 const MB = 1024 * 1024;
 
@@ -27,7 +27,7 @@ function putCep(app: FastifyInstance, pid: string, token: string, bytes: number)
     method: 'PUT',
     url: `/v1/projects/${pid}/cep`,
     headers: { ...bearer(token), 'content-type': 'application/zip' },
-    payload: Buffer.alloc(bytes, 1),
+    payload: zipOfSize(bytes),
   });
 }
 

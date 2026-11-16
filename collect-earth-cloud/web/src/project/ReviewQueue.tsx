@@ -627,14 +627,17 @@ export function ReviewQueue({
           {data && (
             <Stack spacing={2} sx={{ opacity: loading ? 0.6 : 1, transition: "opacity 120ms" }} aria-busy={loading}>
               <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} useFlexGap sx={{ flexWrap: "wrap" }}>
-                <SelectField label={t("answers.filterPerson")} value={filter.person ?? ALL} onChange={(v) => setFilter({ ...filter, person: v === ALL ? null : v })}>
-                  <MenuItem value={ALL}>{t("answers.everyone")}</MenuItem>
-                  {people.map((p) => (
-                    <MenuItem key={p} value={p}>
-                      {p}
-                    </MenuItem>
-                  ))}
-                </SelectField>
+                {/* A reviewer's queue names nobody to filter by (the server sends no names) */}
+                {people.length > 0 && (
+                  <SelectField label={t("answers.filterPerson")} value={filter.person ?? ALL} onChange={(v) => setFilter({ ...filter, person: v === ALL ? null : v })}>
+                    <MenuItem value={ALL}>{t("answers.everyone")}</MenuItem>
+                    {people.map((p) => (
+                      <MenuItem key={p} value={p}>
+                        {p}
+                      </MenuItem>
+                    ))}
+                  </SelectField>
+                )}
                 <SelectField label={t("queue.filterKind")} value={filter.kind ?? ALL} onChange={(v) => setFilter({ ...filter, kind: v === ALL ? null : (v as QueueKind) })}>
                   <MenuItem value={ALL}>{t("queue.allKinds")}</MenuItem>
                   {kinds.map((k) => (

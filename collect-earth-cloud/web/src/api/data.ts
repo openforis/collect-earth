@@ -4,6 +4,7 @@ import type { BackupFormat, BackupLinkAnswer, BackupRounds, BackupSummary, Expor
 import type { PersonAnswer } from "../../../src/wire/people";
 import type {
   AnalysisAnswer,
+  AnalysisSummary,
   ListItem,
   ProposedView,
   ProposedViewsAnswer,
@@ -90,6 +91,7 @@ export async function getBackupLink(projectId: string, rounds: BackupRounds, for
 
 export type {
   AnalysisAnswer,
+  AnalysisSummary,
   AnalysisColumn,
   AnalysisModel,
   AnalysisTable,
@@ -110,6 +112,15 @@ export type AnalysisListItem = ListItem;
 /** The survey's model and the rows of its tables, for the analysis page (any member). */
 export function getAnalysis(projectId: string): Promise<AnalysisAnswer> {
   return request("GET", `${p(projectId)}/analysis`);
+}
+
+/** A reviewer's analysis: the plots counted by one question or two, on the server (no row per plot). */
+export function getAnalysisSummary(projectId: string, row: string | null, column: string | null): Promise<AnalysisSummary> {
+  const query = new URLSearchParams();
+  if (row) query.set("row", row);
+  if (row && column) query.set("column", column);
+  const text = query.toString();
+  return request("GET", `${p(projectId)}/analysis/summary${text ? `?${text}` : ""}`);
 }
 
 /** The analysis as one HTML file that opens with no server (fetched with the session, then saved by the page). */

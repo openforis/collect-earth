@@ -1,4 +1,5 @@
 import { gzipSync } from 'node:zlib';
+import { zipSync } from 'fflate';
 import type { FastifyInstance } from 'fastify';
 import type { Config } from '../src/config.js';
 import { buildServer, type BuildServerOptions } from '../src/server.js';
@@ -111,4 +112,15 @@ export function envelope(overrides: Partial<RecordEnvelope> = {}): RecordEnvelop
     payloadVersion: 1,
     ...overrides,
   };
+}
+
+/**
+ * A zip of exactly `bytes` bytes (at least 120) that is no project file (one stored file of filler): for tests about
+ * sizes and storage, as the server refuses an upload that is no zip.
+ */
+export function zipOfSize(bytes: number): Buffer {
+  const overhead = zipSync({ f: new Uint8Array(0) }, { level: 0 }).length;
+  const zip = Buffer.from(zipSync({ f: new Uint8Array(bytes - overhead).fill(1) }, { level: 0 }));
+  if (zip.length !== bytes) throw new Error(`zipOfSize: ${zip.length} bytes instead of ${bytes}`);
+  return zip;
 }

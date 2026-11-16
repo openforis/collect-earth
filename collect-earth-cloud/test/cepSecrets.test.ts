@@ -1,7 +1,7 @@
-import { strFromU8, strToU8, unzipSync } from 'fflate';
+import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { readCep, zipCep } from '../src/cep.js';
-import { hasKeyParameter, propertiesWithoutSecrets, withoutSecrets } from '../src/cepSecrets.js';
+import { hasKeyParameter, propertiesWithoutSecrets, storedWithoutSecrets, withoutSecrets } from '../src/cepSecrets.js';
 import { cepForCollector } from '../src/collectorCep.js';
 import { bearer, createProject, makeContext, type TestContext } from './helpers.js';
 import { FIXTURE_DATE, idOnlyCep } from './fixtures/cep.js';
@@ -18,7 +18,7 @@ const SECRETS = 'planet_maps_key=PLAK-coordinator-secret\ngoogle_maps_api_key = 
 
 describe('keys and passwords in a project file', () => {
   it('are left out of its settings, the other settings kept as they were', () => {
-    const { cep, removed, keyInExtraMap } = withoutSecrets(cepWithSettings(SECRETS), FIXTURE_DATE);
+    const { cep, removed, keyInExtraMap } = withoutSecrets(cepWithSettings(SECRETS));
     expect(removed.sort()).toEqual(['db_password', 'db_username', 'google_maps_api_key', 'planet_maps_key']);
     expect(keyInExtraMap).toBe(true);
     const settings = settingsOf(cep);
@@ -28,7 +28,7 @@ describe('keys and passwords in a project file', () => {
     expect(settings).toContain('maps.example.org');
     // A file without any comes back as it is
     const plain = idOnlyCep();
-    expect(withoutSecrets(plain, FIXTURE_DATE)).toEqual({ cep: plain, removed: [], keyInExtraMap: false });
+    expect(withoutSecrets(plain)).toEqual({ cep: plain, removed: [], keyInExtraMap: false });
     expect(propertiesWithoutSecrets(Buffer.from('sample_shape=SQUARE\nplanet_maps_key=\n'))).toBeNull();
   });
 
@@ -44,7 +44,38 @@ describe('keys and passwords in a project file', () => {
     expect(settingsOf(forCollector)).not.toMatch(/PLAK-coordinator-secret|AIzaSy-secret|hunter2/);
   });
 
+  it('are left out of a file whose survey the server cannot read, and of a stored file as anybody gets it', () => {
+    const noSurvey = Buffer.from(zipSync({ 'project_definition.properties': strToU8('planet_maps_key=PLAK-coordinator-secret\nsample_shape=SQUARE\nearth_map_url=https\\://earthmap.org/?token\\=abcdef123456\n') }));
+    const clean = withoutSecrets(noSurvey);
+    expect(clean.removed).toEqual(['planet_maps_key']);
+    expect(clean.keyInExtraMap).toBe(true);
+    expect(settingsOf(clean.cep)).not.toContain('PLAK-coordinator-secret');
+    expect(settingsOf(clean.cep)).toContain('sample_shape=SQUARE');
+    // a file stored before uploads were cleaned: the same clean file each time, and one without secrets as it is
+    const stored = cepWithSettings(SECRETS);
+    expect(settingsOf(storedWithoutSecrets(stored))).not.toMatch(/PLAK-coordinator-secret|AIzaSy-secret|hunter2/);
+    expect(storedWithoutSecrets(stored)).toBe(storedWithoutSecrets(stored));
+    const plain = idOnlyCep();
+    expect(storedWithoutSecrets(plain)).toBe(plain);
+    // what is no zip cannot be cleaned: said, and left
+    const junk = Buffer.from('not a zip at all, just some text');
+    let told = 0;
+    expect(storedWithoutSecrets(junk, () => (told += 1))).toBe(junk);
+    expect(told).toBe(1);
+  });
+
   describe('through the routes', () => {
+    it('a file stored before uploads were cleaned reaches nobody with its keys, and takes none into a copy', async () => {
+      const project = await createProject(ctx.app, 'Stored before');
+      const stored = cepWithSettings(SECRETS);
+      await ctx.store.putCep(project.projectId, stored, { state: 'none', refusal: 'no_survey', keyCount: 0, roundIndex: null, roundCodes: [], reassessmentCode: null } as never, stored);
+      for (const path of ['/cep', '/cep/original']) {
+        const got = await ctx.app.inject({ method: 'GET', url: `/v1/projects/${project.projectId}${path}`, headers: bearer(project.adminToken) });
+        expect(got.statusCode, path).toBe(200);
+        expect(settingsOf(got.rawPayload), path).not.toMatch(/PLAK-coordinator-secret|AIzaSy-secret|hunter2/);
+      }
+    });
+
     let ctx: TestContext;
     beforeEach(async () => {
       ctx = await makeContext();

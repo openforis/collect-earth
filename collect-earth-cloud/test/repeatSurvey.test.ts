@@ -331,6 +331,10 @@ describe('repeating a survey in the dashboard', () => {
     const forOther = (await call('GET', '/periods/plots/1', lucia, undefined, {}, projectId)).json();
     expect(forOther.periods).toEqual([]);
     expect(forOther.labels).toEqual({});
+    // nor once they have sent a record of that plot (anybody can send one): it is still other people's plot
+    await ctx.store.putRecord({ projectId, recordKey: '1,1', operator: 'lucia', modifiedOn: 5, receivedAt: 5, activelySaved: false, step: 1, xml: '<p/>', summary: {}, deleted: false, deletedOn: null });
+    expect((await call('GET', '/periods/plots/1', lucia, undefined, {}, projectId)).json().periods).toEqual([]);
+    expect((await call('GET', '/periods/plots/1,1', lucia, undefined, {}, projectId)).json().periods).toEqual([]);
     // as the desktop names the plot (with the round the server added), with what the form's header shows
     const asDesktop = (await call('GET', '/periods/plots/1,1', maria.token, undefined, {}, projectId)).json();
     expect(asDesktop.periods[0].answers[LAND_USE]).toBe('F');

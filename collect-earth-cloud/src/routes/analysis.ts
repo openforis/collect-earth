@@ -18,7 +18,8 @@ import { recordResolver } from '../quality.js';
 import { periodSummaryKey, withPeriodColumns } from '../repeatSurvey.js';
 import type { Store } from '../store/store.js';
 import type { RecordRow, SharedAnalysisView } from '../types.js';
-import type { AnalysisAnswer, AreasSource, SharedAnalysisViewsAnswer, StandaloneAnalysis } from '../wire/analysis.js';
+import type { AnalysisAnswer, AnalysisSummary, AreasSource, SharedAnalysisViewsAnswer, StandaloneAnalysis } from '../wire/analysis.js';
+import { OPERATOR_SUMMARY_KEY } from '../anonymize.js';
 
 /** The stand-alone page in the built dashboard, and where its data goes in it (web/standalone.config.ts writes both). */
 export const STANDALONE_FILE = 'analysis-standalone.html';
@@ -73,15 +74,18 @@ export function modelOf(cep: Buffer): Parsed {
  * table as CSV with their DuckDB types, plus the expansion factors from the project file's areas file.
  *
  * Who sees what: coordinators every record of the project, the round and whether it is a first assessment or a check
- * included. Reviewers the same without who made each record (no figures per person for them: the plan's Decision 10, as
- * GET /quality/answers refuses them `person=`) and without the records of reference plots (nothing shows them one,
- * anywhere: their many checks would give them away); the areas are still those of every plot. A collector their own
+ * included. Reviewers nothing of it: a row per record is the project's data, and they analyse the project with the
+ * summary counted here (GET …/analysis/summary), which names nobody and leaves out the reference plots. A collector their own
  * records only, without the round (nothing tells them which of their plots are checks, as on My work). Training records are never in it (they are kept apart). The local mode has its one account as
  * coordinator: everything.
  */
 export async function registerAnalysisRoutes(app: FastifyInstance, store: Store, states: ProjectStateCache, webDir: string | null = null): Promise<void> {
   const member = { preHandler: requireProjectMembership(store) };
   app.get('/v1/projects/:pid/analysis', member, async (request: FastifyRequest, reply: FastifyReply) => {
+    // A row per record is the project's data: a reviewer has the summary below, counted here
+    if (request.membership!.role === 'reviewer') {
+      return reply.code(403).send({ error: 'summary_only', reason: 'reviewers analyse the project with its summary (GET …/analysis/summary), not its records' });
+    }
     const payload = await analysisPayload(request, reply);
     if (!payload) return reply;
     const body = JSON.stringify(payload);
@@ -125,6 +129,66 @@ export async function registerAnalysisRoutes(app: FastifyInstance, store: Store,
       .send(html);
   });
 
+  /**
+   * `GET /v1/projects/:pid/analysis/summary?row=<question>&column=<question>`: the plots counted by the answers to one
+   * question, or to two, with their area when the project has areas. What a reviewer's analysis page shows: figures of
+   * the whole project and no row per plot (at most two questions at once, so the answers of a plot cannot be put back
+   * together). Each plot counts once, by its first assessment; a reviewer's count leaves out the reference plots, as
+   * everything else they see does.
+   */
+  app.get('/v1/projects/:pid/analysis/summary', { preHandler: requireProjectMembership(store, 'reviewer') }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const projectId = request.membership!.projectId;
+    const cep = await store.getCep(projectId);
+    if (!cep) return reply.code(404).send({ error: 'no_project_file', message: 'Upload the project file first: the analysis is built from its survey.' });
+    const parsed = modelOf(cep);
+    if (!parsed) return reply.code(409).send({ error: 'survey_unreadable', message: 'The survey of the project file cannot be read.' });
+    const plotTable = parsed.model.tables.find((t) => t.name === 'plot');
+    const columns = (plotTable?.columns ?? []).filter(
+      (c) => (c.type === 'code' || c.type === 'boolean') && !c.multiple && !c.keyAttr && c.key !== '' && c.key !== OPERATOR_SUMMARY_KEY && !isPositionKey(c.key),
+    );
+    const q = (request.query ?? {}) as Record<string, unknown>;
+    const asked = (name: string) => (typeof q[name] === 'string' && q[name] !== '' ? (q[name] as string) : null);
+    const find = (name: string | null) => (name === null ? null : (columns.find((c) => c.name === name) ?? undefined));
+    const row = find(asked('row'));
+    const column = find(asked('column'));
+    if (row === undefined || column === undefined) return reply.code(400).send({ error: 'bad_request', reason: 'row and column must be questions of the summary' });
+    if (column && !row) return reply.code(400).send({ error: 'bad_request', reason: 'column needs row' });
+
+    const cells = new Map<string, { row: string; column: string | null; plots: number; area: number | null }>();
+    let plots = 0;
+    let hasAreas = false;
+    if (row) {
+      const [served, rows] = await Promise.all([states.get(projectId, request.log), store.listRecordSummaries(projectId, { firstSubmissions: true })]);
+      const { context } = served.state;
+      const firsts = firstAssessments(rows, recordResolver({ info: context.info, units: context.units, copyHolders: context.copyHolders }));
+      const factors = await projectFactors(store, projectId, parsed, firsts, context.info);
+      hasAreas = factors !== null;
+      const hidden = request.membership!.role === 'reviewer' ? context.reference : null;
+      for (const [unit, first] of firsts) {
+        if (hidden?.has(unit)) continue;
+        const a = first.summary[row.key] ?? '';
+        const b = column ? (first.summary[column.key] ?? '') : null;
+        const id = `${a}\u0000${b ?? ''}`;
+        let cell = cells.get(id);
+        if (!cell) cells.set(id, (cell = { row: a, column: b, plots: 0, area: factors ? 0 : null }));
+        cell.plots += 1;
+        plots += 1;
+        if (factors) cell.area = (cell.area ?? 0) + (factors.byPlot.get(unit)?.factor ?? 0);
+      }
+    }
+    const lists = Object.fromEntries(columns.filter((c) => c.list !== null && parsed.model.lists[c.list]).map((c) => [c.list!, parsed.model.lists[c.list!]]));
+    return reply.header('cache-control', 'no-store').send({
+      languages: parsed.model.languages,
+      questions: columns.map((c) => ({ name: c.name, labels: c.labels, type: c.type as 'code' | 'boolean', list: c.list })),
+      lists,
+      row: row?.name ?? null,
+      column: column?.name ?? null,
+      cells: [...cells.values()],
+      plots,
+      hasAreas,
+    } satisfies AnalysisSummary);
+  });
+
   /** The page's data for whoever asks, or null when an error was sent instead. */
   async function analysisPayload(request: FastifyRequest, reply: FastifyReply, noPositions = false): Promise<AnalysisAnswer | null> {
     const projectId = request.membership!.projectId;
@@ -145,11 +209,9 @@ export async function registerAnalysisRoutes(app: FastifyInstance, store: Store,
     const [served, rows] = await Promise.all([states.get(projectId, request.log), store.listRecordSummaries(projectId, { firstSubmissions: true })]);
     const { context } = served.state;
     const resolve = recordResolver({ info: context.info, units: context.units, copyHolders: context.copyHolders });
-    const everyone = role === 'admin' || role === 'reviewer';
+    // (reviewers never come here: the route refuses them, they have the summary)
+    const everyone = role === 'admin';
     const username = everyone ? null : (served.members.find((m) => m.userId === request.userId)?.username ?? null);
-    // A reviewer: no reference plot (its unit, or the plot of its key), and nobody's name
-    const team = role === 'reviewer';
-    const hidden = team ? new Set(context.reference.keys()) : null;
 
     // A repeat survey's earlier periods: their answers as columns of the plot table, by the plot as they are kept
     const repeat = await store.getRepeatSettings(projectId);
@@ -169,7 +231,6 @@ export async function registerAnalysisRoutes(app: FastifyInstance, store: Store,
       if (r.deleted) continue;
       if (!everyone && r.operator !== username) continue;
       const { unit, round } = resolve(r);
-      if (hidden && ((unit !== null && hidden.has(unit)) || hidden.has(round.plot))) continue;
       records.push({
         recordKey: r.recordKey,
         operator: r.operator,
@@ -186,10 +247,10 @@ export async function registerAnalysisRoutes(app: FastifyInstance, store: Store,
     const firsts = firstAssessments(rows, resolve);
     const factors = await projectFactors(store, projectId, parsed, firsts, context.info);
 
-    const tables = analysisTables(model, records, factors ? factorsByRecord(factors, firsts) : null, { hideRounds: !everyone, hidePeople: team });
+    const tables = analysisTables(model, records, factors ? factorsByRecord(factors, firsts) : null, { hideRounds: !everyone });
     return {
       model,
-      scope: team ? 'team' : everyone ? 'project' : 'own',
+      scope: everyone ? 'project' : 'own',
       areas: factors
         ? { source: factors.source, plots: factors.byPlot.size, unmatched: factors.unmatched, unknownColumns: factors.unknownColumns, noStratum: factors.noStratum }
         : null,

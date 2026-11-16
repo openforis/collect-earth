@@ -656,10 +656,13 @@ export class InMemoryStore implements Store {
     entry.recordsGeneration += 1;
   }
 
-  async renameRecordOperator(projectId: string, recordKey: string, from: string, to: string): Promise<boolean> {
+  async renameRecordOperator(projectId: string, recordKey: string, from: string, to: string, notNewerThan?: number): Promise<boolean> {
     const entry = this.projects.get(projectId);
     const old = entry?.records.get(InMemoryStore.recordId(recordKey, from));
     if (!entry || !old || from === to) {
+      return false;
+    }
+    if (notNewerThan !== undefined && old.modifiedOn > notNewerThan) {
       return false;
     }
     // The account has the record already: both are kept. Merging them deleted one, and a forged

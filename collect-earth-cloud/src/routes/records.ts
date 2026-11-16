@@ -5,9 +5,11 @@ import { requireProjectMembership } from '../plugins/projectAuth.js';
 import { audit, noteActivity } from '../activity.js';
 import { isServerMadeName } from '../anonymize.js';
 import { applyLww, recordEventOf } from '../lww.js';
+import { plotOwnershipOf } from '../plotOwnership.js';
 import type { SamplingService } from '../samplingService.js';
 import type { BatchItemResult, RecordEnvelope, RoundInfo } from '../types.js';
 import { isTrainingRecord, trainingUnits } from './training.js';
+import { keyShape, splitKey } from '../rounds.js';
 
 interface BatchBody {
   records?: unknown[];
@@ -49,6 +51,9 @@ export async function registerRecordRoutes(app: FastifyInstance, store: Store, s
         sessionUsername = user.username;
       }
       let warned = false;
+      // Whose each plot is, read once per batch and only when a record under another name is there to move
+      let ownership: Awaited<ReturnType<typeof plotOwnershipOf>> | null = null;
+      let roundInfo: { info: RoundInfo | null } | null = null;
       // Whether a name sent as operator is an account's username, asked once per name in a batch
       const accountNames = new Map<string, boolean>();
       const accountName = async (name: string): Promise<boolean> => {
@@ -59,6 +64,8 @@ export async function registerRecordRoutes(app: FastifyInstance, store: Store, s
         }
         return known;
       };
+      // A typed name with the username as one of its words, in any letter case ("Juan Perez", the account juan)
+      const nameHas = (name: string, username: string): boolean => name.toLowerCase().split(/[^\p{L}\p{N}]+/u).includes(username.toLowerCase());
       const ownNameInOtherCase = async (name: string, username: string): Promise<boolean> =>
         name !== username && name.toLowerCase() === username && (await store.getUserByUsername(name)) === null;
       const body = (request.body ?? {}) as BatchBody;
@@ -99,8 +106,26 @@ export async function registerRecordRoutes(app: FastifyInstance, store: Store, s
             // The person's own username in other letter case ("Marta" typed, the account marta) is theirs too, unless
             // another account has that exact name (usernames are case-sensitive): an office team's backup has the
             // names as typed, and refusing it here made a second copy of each plot saved again (workflows.test.ts).
-            if (sent !== null && sent !== '' && !isServerMadeName(sent) && (!(await accountName(sent)) || (await ownNameInOtherCase(sent, sessionUsername)))) {
-              if (await store.renameRecordOperator(projectId, envelope.recordKey, sent, sessionUsername)) {
+            //
+            // Nor a record of a plot given to other people only, whatever the name: a typed name (a backup's, an
+            // import's) is no account, and a save sent under it took that person's record, to be downloaded with the
+            // caller's own. Of a plot the project gave to nobody, only by a save no older than the record: the caller
+            // then keeps what they sent and reads nothing of what was there.
+            const own = sent !== null && (await ownNameInOtherCase(sent, sessionUsername));
+            if (sent !== null && sent !== '' && !isServerMadeName(sent) && (own || !(await accountName(sent)))) {
+              let allowed = own;
+              let notNewerThan: number | undefined;
+              if (!allowed && (await store.getRecord(projectId, envelope.recordKey, sent))) {
+                roundInfo ??= { info: await store.getRoundInfo(projectId) };
+                ownership ??= await plotOwnershipOf(store, projectId, request.membership!.userId ?? null, roundInfo.info);
+                const shape = keyShape(roundInfo.info);
+                const whose = ownership([envelope.recordKey, splitKey(envelope.recordKey, shape.count, shape.roundIndex).plot]);
+                allowed = whose !== 'others';
+                // (An older copy from their own computer still takes the record when the typed name has their username
+                // in it, "Rosa Vidal" for rosa: the office team's backup, sent again by each person once they join.)
+                if (whose === 'free' && !nameHas(sent, sessionUsername)) notNewerThan = envelope.modifiedOn ?? 0;
+              }
+              if (allowed && (await store.renameRecordOperator(projectId, envelope.recordKey, sent, sessionUsername, notNewerThan))) {
                 request.log.info({ projectId, recordKey: envelope.recordKey, from: sent, to: sessionUsername }, 'record moved from a legacy operator name to the username');
               }
             }

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import { createProject, makeContext, type TestContext } from './helpers.js';
+import { createProject, makeContext, type TestContext, zipOfSize } from './helpers.js';
 
 async function createInvite(
   app: FastifyInstance,
@@ -182,7 +182,7 @@ describe('accounts, invites and join', () => {
   });
 
   it('stores and serves the CEP zip to members', async () => {
-    const zip = Buffer.from('PK\x03\x04 pretend zip');
+    const zip = zipOfSize(200);
     const put = await ctx.app.inject({
       method: 'PUT',
       url: `/v1/projects/${project.projectId}/cep`,
@@ -199,5 +199,15 @@ describe('accounts, invites and join', () => {
     expect(get.statusCode).toBe(200);
     expect(get.headers['content-type']).toContain('application/zip');
     expect(get.rawPayload.equals(zip)).toBe(true);
+
+    // what is no zip is no project file: refused, and the one stored stays
+    const junk = await ctx.app.inject({
+      method: 'PUT',
+      url: `/v1/projects/${project.projectId}/cep`,
+      headers: { authorization: `Bearer ${project.adminToken}`, 'content-type': 'application/zip' },
+      payload: Buffer.from('PK\x03\x04 pretend zip'),
+    });
+    expect(junk.statusCode).toBe(422);
+    expect(junk.json().error).toBe('not_a_project_file');
   });
 });

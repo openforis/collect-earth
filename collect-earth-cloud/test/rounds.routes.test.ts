@@ -552,15 +552,16 @@ describe('project file and round routes', () => {
       expect(readCep(next).entries.has('docs/species.csv')).toBe(false);
     });
 
-    it('a project file without plots, or one the server cannot read, reaches collectors as it is', async () => {
+    it('a project file without plots reaches collectors as it is; one that is no zip is refused', async () => {
       const entries = new Map(readCep(demoCep()).entries);
       for (const path of PLOT_FILES) entries.set(path, new TextEncoder().encode(new TextDecoder().decode(entries.get(path)!).split('\n')[0] + '\n'));
       expect((await putCep(zipCep(entries, FIXTURE_DATE))).statusCode).toBe(200);
       expect((await get('/cep', bearer(project.projectToken))).rawPayload.equals((await get('/cep')).rawPayload)).toBe(true);
 
       const notAZip = Buffer.from('PK\x03\x04 pretend zip');
-      expect((await putCep(notAZip)).statusCode).toBe(200);
-      expect((await get('/cep', bearer(project.projectToken))).rawPayload.equals(notAZip)).toBe(true);
+      const before = (await get('/cep')).rawPayload;
+      expect((await putCep(notAZip)).statusCode).toBe(422);
+      expect((await get('/cep')).rawPayload.equals(before)).toBe(true);
     });
   });
 });

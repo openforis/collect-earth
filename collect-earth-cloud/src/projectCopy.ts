@@ -1,3 +1,4 @@
+import { storedWithoutSecrets } from './cepSecrets.js';
 import { parsePlotFile, withRowsOnly } from './plots.js';
 import { fileKeyCount } from './rounds.js';
 import type { Store } from './store/store.js';
@@ -26,7 +27,10 @@ export async function copyProject(
     }
     const [served, info, original] = await Promise.all([store.getCep(sourceId), store.getRoundInfo(sourceId), store.getOriginalCep(sourceId)]);
     if (served && info) {
-      await store.putCep(projectId, served, info, original && !original.equals(served) ? original : null);
+      // A file stored before uploads were cleaned of keys and passwords takes none into the new project
+      const clean = storedWithoutSecrets(served);
+      const cleanOriginal = original ? storedWithoutSecrets(original) : null;
+      await store.putCep(projectId, clean, info, cleanOriginal && !cleanOriginal.equals(clean) ? cleanOriginal : null);
     }
     const ids = new Map<string, string>();
     const files = await store.listCsvFiles(sourceId);

@@ -9,7 +9,7 @@ import { checkUploadFits } from '../limits.js';
 import { servedBundledPlotFile } from './assignments.js';
 import { fileKeyCount } from '../rounds.js';
 import { invitesFor } from './people.js';
-import { withoutSecrets } from '../cepSecrets.js';
+import { storedWithoutSecrets, withoutSecrets } from '../cepSecrets.js';
 import { requireProjectMembership, requireSession } from '../plugins/projectAuth.js';
 import type { Store } from '../store/store.js';
 import type { Role, RoundInfo } from '../types.js';
@@ -321,7 +321,7 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
       if (!cep) {
         return reply.code(404).send({ error: 'not_found' });
       }
-      return reply.header('content-type', 'application/zip').send(cep);
+      return reply.header('content-type', 'application/zip').send(storedWithoutSecrets(cep));
     },
   );
 
@@ -377,13 +377,14 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
       }
       noteActivity(request, { cepDownload: true }, { desktop: true });
       const whole = config.localMode || request.membership!.role !== 'operator';
+      const unreadable = (err: CepError) => request.log.warn({ err, projectId: request.membership!.projectId }, 'cep: the stored project file cannot be read to clean its settings; served as it is');
       return reply
         .header('content-type', 'application/zip')
         .header('cache-control', 'private, no-cache')
         .header('vary', 'Authorization')
         .send(
           whole
-            ? cep
+            ? storedWithoutSecrets(cep, unreadable)
             : cepForCollector(cep, (err) =>
                 request.log.warn({ err, projectId: request.membership!.projectId }, 'cep: the project file cannot be read to empty its plot files; a collector gets it as it is'),
               ),
@@ -518,17 +519,20 @@ export async function acceptCep(store: Store, projectId: string, uploaded: Buffe
   const previous = await store.getRoundInfo(projectId);
   const date = new Date();
   // Before anything is kept (the file served, and the one "as uploaded"): the keys and passwords its settings carry
-  // are no part of a file every person of the project downloads. A file that cannot be read is refused below, as it is.
+  // are no part of a file every person of the project downloads. A file that is no zip the server reads is refused.
   let cep = uploaded;
   let removedSettings: string[] = [];
   let keyInExtraMap = false;
   try {
-    const clean = withoutSecrets(uploaded, date);
+    const clean = withoutSecrets(uploaded);
     ({ cep, keyInExtraMap } = clean);
     removedSettings = clean.removed;
     if (removedSettings.length > 0) log.info({ projectId, settings: removedSettings }, 'project file: keys and passwords left out of its settings');
-  } catch {
-    // not a project file that can be read: what follows says why
+  } catch (e) {
+    if (!(e instanceof CepError)) throw e;
+    if (e.code === 'too_large') return refuse(413, { error: 'too_large', reason: e.message });
+    // No zip the server reads: its settings cannot be cleaned, and it would be handed to every person as it came
+    return refuse(422, { error: 'not_a_project_file', reason: e.message });
   }
   let served = cep;
   let original: Buffer | null = null;

@@ -67,6 +67,7 @@ import { changeFields, drillDown, quickFilterFields } from "../analysisInsights"
 import { AnalysisMap } from "../components/analysis/AnalysisMap";
 import { ChangeFlows } from "../components/analysis/ChangeFlows";
 import { DrillDialog } from "../components/analysis/DrillDialog";
+import { TeamSummary } from "../components/analysis/TeamSummary";
 import { FilterBar } from "../components/analysis/FilterBar";
 import { QuestionBar } from "../components/analysis/QuestionBar";
 import { linkProps, pathFor } from "../router";
@@ -82,7 +83,9 @@ export function AnalysisPage({ projectId }: { projectId: string }) {
   const t = useT();
   const { language } = useApp();
   const project = useLoad(["project", projectId, "getProject"], () => getProject(projectId));
-  const data = useLoad(["project", projectId, "getAnalysis"], () => getAnalysis(projectId));
+  // A reviewer gets the project's figures counted on the server (TeamSummary), never its rows: nothing to load here
+  const reviewer = project.data?.role === "reviewer";
+  const data = useLoad(["project", projectId, "getAnalysis", project.data?.role ?? null], () => (project.data && !reviewer ? getAnalysis(projectId) : Promise.resolve(null)));
 
   const back =
     project.data?.role === "admin" ? pathFor({ name: "project", projectId, tab: "data" }) : pathFor({ name: "myWork", projectId });
@@ -101,7 +104,9 @@ export function AnalysisPage({ projectId }: { projectId: string }) {
       <Typography variant="h1" sx={{ mb: 1 }}>
         {t("analysis.title")}
       </Typography>
-      {data.loading && !data.data ? (
+      {reviewer ? (
+        <TeamSummary projectId={projectId} language={language} />
+      ) : (data.loading && !data.data) || (!project.data && !project.error) ? (
         <Loading />
       ) : data.error ? (
         data.error instanceof ApiError && data.error.status === 404 ? (
@@ -725,8 +730,6 @@ export function Pivot({ projectId, projectName, role, data, language, standalone
     <Stack spacing={2}>
       {data.scope === "own" ? (
         <Typography color="text.secondary">{t("analysis.explainOwn", { count: formatNumber(plotRows, language) })}</Typography>
-      ) : data.scope === "team" ? (
-        <Typography color="text.secondary">{t("analysis.explainTeam", { count: formatNumber(plotRows, language) })}</Typography>
       ) : (
         <Explain text={t("analysis.explain.short", { count: formatNumber(plotRows, language) })} more={t("analysis.explain", { count: formatNumber(plotRows, language) })} />
       )}

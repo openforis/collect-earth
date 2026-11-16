@@ -71,11 +71,10 @@ export type AreasSource = 'region_areas.csv' | 'areas_per_attribute.csv' | 'stra
 export interface AnalysisAnswer {
   model: AnalysisModel;
   /**
-   * "project": every record (coordinators); "team": every record but those of reference plots, without who made each
-   * (reviewers: no figures per person, and nothing that tells which plots are reference plots); "own": the person's own,
-   * without rounds (collectors).
+   * "project": every record (coordinators); "own": the person's own, without rounds (collectors). Reviewers have the
+   * summary (AnalysisSummary) instead.
    */
-  scope: 'project' | 'team' | 'own';
+  scope: 'project' | 'own';
   /**
    * Where the areas come from, or null: no areas. `unmatched`: lines of the file that matched no plot, or whose area
    * could not be read; `unknownColumns`: the file's columns that are no question of the survey; `noStratum`: plots in no
@@ -89,6 +88,34 @@ export interface AnalysisAnswer {
     noStratum: { plots: number; examples: { stratum: string; plots: number }[] };
   } | null;
   tables: TableData[];
+}
+
+/** A question a reviewer's summary counts the plots by: a choice or a yes/no of the plot, never what identifies it. */
+export interface SummaryQuestion {
+  name: string;
+  labels: Labels;
+  type: 'code' | 'boolean';
+  /** For a choice: its list, in `lists`. */
+  list: string | null;
+}
+
+/**
+ * GET /v1/projects/:pid/analysis/summary?row=&column= (reviewers and coordinators): the plots counted by one question,
+ * or by two, worked out on the server. A reviewer analyses the project with this, and gets no row per plot: the first
+ * assessment of each plot counts, reference plots left out.
+ */
+export interface AnalysisSummary {
+  languages: string[];
+  questions: SummaryQuestion[];
+  lists: Record<string, ListItem[]>;
+  row: string | null;
+  column: string | null;
+  /** One per combination of answers that has plots ("" = not answered); `column` null without a second question. */
+  cells: { row: string; column: string | null; plots: number; area: number | null }[];
+  /** The plots counted. */
+  plots: number;
+  /** The project has areas: each cell has its plots' area. */
+  hasAreas: boolean;
 }
 
 /** What the stand-alone analysis file (GET …/analysis/standalone) holds besides the page's data: its project, and when it was made. */
