@@ -55,6 +55,44 @@ production the web app therefore calls the function URL directly, with CORS:
   calls (`https://collectearth.web.app/api/health`, quick manual checks); it just
   cannot carry requests longer than 60 s.
 
+## Customizing per survey
+A survey can decide which imagery layers and charts the Explorer shows by adding a `config`
+parameter to the address: a URL-encoded JSON document. Without it the standard configuration is
+used. Example:
+
+```json
+{
+  "v": 1,
+  "layers": [
+    { "type": "sentinel2", "bands": "true-colour" },
+    { "type": "sentinel2", "label": "Dry season 2019", "start": "2019-06-01", "end": "2019-09-30", "maxCloud": 30 },
+    { "type": "landsat", "label": "Landsat", "years": [2000, 2024], "year": 2015 }
+  ],
+  "charts": [
+    { "type": "landsat-series", "index": "NBR" },
+    { "type": "sentinel2-series", "name": "NDRE", "formula": "(nir - rededge1) / (nir + rededge1)" },
+    { "type": "modis", "index": "EVI", "collapsed": true },
+    { "type": "ccdc", "band": "NDVI" }
+  ]
+}
+```
+
+- `layers` is the layers panel in order (the first opens first); `charts` is the chart cards in order.
+  Leaving out one of the two keeps the standard list for it; `"charts": []` shows no charts.
+- A type can be listed more than once with different parameters.
+- An entry that is not understood is skipped and a notice is shown; the rest still works.
+- Types, parameters, allowed values and defaults: `functions/catalogue.json`, served at
+  `GET /api/catalogue`.
+- Index charts take a named `index` (NDVI, EVI, EVI2, SAVI, MSAVI, GNDVI, NDMI, NBR, NBR2, NDWI,
+  MNDWI, NDSI, NDBI, BSI) or a `formula` with a `name`. A formula may use numbers, `+ - * /`,
+  parentheses, `sqrt abs min max pow` and the bands `blue green red nir swir1 swir2` as 0 to 1
+  reflectance; Sentinel-2 adds `rededge1 rededge2 rededge3`. Landsat is surface reflectance and
+  Sentinel-2 is top of atmosphere, so the same index reads somewhat differently on the two.
+
+The address takes two forms. Query: `/?geoJson=…&startTime=…&endTime=…&plot_id=…&config=…`.
+Fragment, as Collect Earth builds it: `/#geoJson=…;plotId=…;startTime=…;endTime=…;config=…;`
+(each value URL-encoded).
+
 ## Cache
 API results are cached in the Firestore `cache` collection (one document per
 endpoint + plot + dates + extras, written by the Admin SDK only; `firestore.rules`

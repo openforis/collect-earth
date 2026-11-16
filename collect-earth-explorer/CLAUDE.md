@@ -8,10 +8,11 @@ A companion app to Collect Earth 2.0: the Google Earth Engine ancillary window t
 for each plot, with a URL like `/?geoJson=...&startTime=YYYY-MM-DD&endTime=YYYY-MM-DD&plot_id=...`.
 It replaces the GEE app `users/collectearth/ce_scripts:frames_landsat_v4_tempSegmentation`.
 
-Product goal: let users customize this window to fit their survey and needs. The code does not do that
-yet. The imagery layers (`state/PlotContext.tsx` `LayerId`), the chart cards (`App.tsx`) and the API
-endpoints (`functions/routes.js`) are all hard-coded. Treat them as the defaults that a survey's
-configuration would build on, not as a fixed set.
+Product goal: let users customize this window to fit their survey and needs. A survey passes a
+configuration document in the address (`config`), listing imagery layers and chart cards from the
+catalogue with their parameters; without one the standard configuration applies. See "Customization"
+below and the README. The cloud dashboard editor and the desktop pass-through are not built yet
+(`docs/plans/2026-11-16-explorer-customization.md`, "Follow-on plans").
 
 Two packages, no workspace tooling:
 
@@ -58,7 +59,7 @@ middleware) plus `routes.js`. Every data endpoint is a `POST /api/...` built wit
 2. `extrasOf(body)` builds endpoint-specific params (Landsat `year`, scene `sensor`/`timeStart`, CCDC `band`); these are part of the cache key.
 3. `cache.withCache` (Firestore `cache` collection, key from `lib/cacheKey`) → on miss `eeAuth()` then the `ee/*` compute function. `?refresh=1` skips the read. Tile endpoints use `ignoreStart` (cache key ignores `start`). TTLs in `routes.js`: tiles 20 h, series/CCDC 30 days. Cache errors never fail a request.
 
-Endpoints: `tiles/sentinel2`, `tiles/landsat`, `tiles/scene`, `series/modis`, `series/landsat`, `series/sentinel2`, `ccdc`.
+Endpoints: `tiles/sentinel2`, `tiles/landsat`, `tiles/scene`, `series/modis`, `series/landsat`, `series/sentinel2`, `ccdc`, and `GET /api/catalogue`.
 
 ### Layering in `functions/`
 - `lib/` — pure, EE-free logic (validation, sensors per year, QA bits, CCDC response shaping, CORS allowlist, errors). Unit-tested next to the source (`lib/*.test.js`).
@@ -71,8 +72,15 @@ All errors are `{ error: { code, message, retryable } }` (`app.js` `errorToRespo
 ### Production API URL / CORS (non-obvious)
 Firebase Hosting's `/api/**` rewrite times out at 60 s, too short for CCDC/cold series (function timeout is 300 s). So in production the browser calls the function URL directly: `web/.env.production` sets `VITE_API_BASE`, giving URLs like `.../cloudfunctions.net/api/api/ccdc` (the doubled `/api` is intentional). In dev/tests `VITE_API_BASE` is unset and requests stay relative. If project id, region or function name change, update `.firebaserc`, `web/.env.production`, `region` in `functions/index.js` and the rewrite in `firebase.json` together. CORS allowlist: `ALLOWED_ORIGINS` env var, else the project's `web.app`/`firebaseapp.com` plus localhost:5000/5173.
 
+### Customization
+- `functions/catalogue.json` is the single source: layer and chart types with their parameters and defaults, the named indices (formulas), the band names a formula may use per sensor, and the standard configuration. The API requires it (`lib/catalogue.js` `paramOf`) and serves it; the web app imports the same file at build time (`web/src/lib/config.ts`).
+- `web/src/lib/config.ts` `resolveConfig` turns the address's `config` into layer and chart entries (`{ type, params }`, defaults filled in). It never fails: a bad document, half or entry falls back to the standard configuration or is skipped, with a notice shown above the charts. Its checks mirror `paramOf` and `lib/formula.js`; the server is the authority, so change both sides together.
+- API parameters are validated per endpoint and are part of the cache key (`extras`). `extras` holds only non-default values (`nonDefault` in `routes.js`), so a standard request keeps the key it always had. Keep it that way when adding a parameter.
+- `lib/formula.js` `checkFormula` is the only gate between a custom index formula from the address and `ee.Image.expression`. It allows numbers, the sensor's band names, `+ - * /`, parentheses, commas and `sqrt abs min max pow`. Do not loosen it or route a formula around it.
+- Adding a type: an entry in `catalogue.json`, an Earth Engine function and a route; for a layer a branch in `useLayerTiles` and a label in `LayersPanel`, for a chart a card and a line in `CARDS` (`App.tsx`). Adding a named index is one line in `catalogue.json` `indices`.
+
 ### Web app
-- `lib/urlParams.ts` parses the Collect Earth URL; its `toPolygon` mirrors the backend's (same ~55 m square for Points) so map and API agree.
-- `state/PlotContext.tsx` holds all UI state (active layer, Landsat year, selected scene, compare mode/layer). Clicking a chart point sets a scene or Landsat year, which switches the map layer.
+- `lib/urlParams.ts` parses the Collect Earth URL, from the query (`?geoJson=…&plot_id=…`) or the fragment Collect Earth builds (`#geoJson=…;plotId=…;config=…;`); `main.tsx` reloads on `hashchange` because Collect Earth reuses one tab. Its `toPolygon` mirrors the backend's (same ~55 m square for Points) so map and API agree.
+- `state/PlotContext.tsx` holds all UI state (the configuration's layers and charts, active layer, one year per Landsat entry, selected scene, compare mode/layer). A layer id is an entry's position, or `"scene"`. Clicking a chart point sets a scene, which switches the map layer.
 - `hooks/useApi.ts` is the single fetch primitive: aborts stale requests, keeps previous `data` while reloading, `enabled` option to pause, `retry()`. `components/LayerSources.ts` `useLayerTiles` wraps it for map tiles; chart cards use it for series.
 - Chart cards (Plotly, several MB) are `React.lazy`-loaded in `App.tsx` so the map paints first. Tests mock MapLibre with `src/test/fakeMaplibre.ts`.
