@@ -14,6 +14,7 @@ import { Explain } from "../components/Explain";
 import { Loading } from "../components/Loading";
 import { useT, type MessageKey } from "../i18n";
 import { useLoad } from "../useLoad";
+import { ExplorerSection } from "./ExplorerSection";
 import { extraMapWarning, imageryChanges, imageryErrors, isShown, planetMonths, shownImagery, type ImageryValues } from "./imageryView";
 
 /** The imagery windows of the project file (Collect Earth's Settings > Imagery), which Collect Earth applies by itself. */
@@ -41,7 +42,10 @@ function ImageryForm({ projectId, stored, onSaved }: { projectId: string; stored
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [saved, setSaved] = useState(false);
+  const [explorerInvalid, setExplorerInvalid] = useState(false);
   const errors = imageryErrors(values, today);
+  // Only while the Explorer's section shows: hidden, its value is not sent either (imageryChanges)
+  const explorerBlocks = explorerInvalid && isShown("explorer_config", values);
   const changes = imageryChanges(initial, values);
   const warning = extraMapWarning(values.extra_map_url);
   const set = (key: string, value: string) => {
@@ -90,6 +94,8 @@ function ImageryForm({ projectId, stored, onSaved }: { projectId: string; stored
           {date("geeapp_date_to")}
         </Stack>
       )}
+      {isShown("explorer_config", values) && <ExplorerSection stored={initial.explorer_config} value={values.explorer_config}
+        onChange={(text, invalid) => { set("explorer_config", text); setExplorerInvalid(invalid); }} />}
       {toggle("open_earth_map")}
       {toggle("open_esri_wayback")}
       {toggle("open_planet_maps")}
@@ -110,7 +116,7 @@ function ImageryForm({ projectId, stored, onSaved }: { projectId: string; stored
       <ErrorAlert error={error} />
       {saved && <Alert severity="success" role="status">{t("file.imagery.saved")}</Alert>}
       <Box>
-        <Button variant="contained" disabled={busy || Object.keys(errors).length > 0 || Object.keys(changes).length === 0} onClick={() => void save()}>
+        <Button variant="contained" disabled={busy || Object.keys(errors).length > 0 || explorerBlocks || Object.keys(changes).length === 0} onClick={() => void save()}>
           {t("common.save")}
         </Button>
       </Box>

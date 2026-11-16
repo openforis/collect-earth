@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { CATALOGUES } from "../i18n";
 import {
-  add, docSize, entryErrors, EXPLORER_CONFIG_MAX, move, parseDoc, previewUrl, remove, serialiseDoc, type Catalogue, type Doc,
+  add, docSize, entryErrors, EXPLORER_CONFIG_MAX, move, parseDoc, previewUrl, remove, serialiseDoc, type Catalogue, type Doc, type EntryError,
 } from "./explorerConfig";
 
 // The Explorer's catalogue (collect-earth-explorer/functions/catalogue.json), trimmed: every parameter type is here.
@@ -179,5 +180,15 @@ describe("list helpers", () => {
     expect(types(remove(list, 1))).toBe("ac");
     expect(add(list, "a")).toEqual([...list, { type: "a", params: {} }]);
     expect(types(list)).toBe("abc");
+  });
+});
+
+describe("messages", () => {
+  it("has an English message for every error code (all languages have the English keys: i18n.test.ts)", () => {
+    const codes: Record<EntryError, true> = {
+      invalid: true, number: true, year: true, yearOrder: true, date: true, textLength: true, textChars: true, formulaLength: true,
+      bothDates: true, dateOrder: true, window: true, yearOrWindow: true, indexOrFormula: true,
+    };
+    for (const code of Object.keys(codes)) expect(Object.hasOwn(CATALOGUES.en, `file.explorer.error.${code}`), code).toBe(true);
   });
 });
