@@ -288,6 +288,21 @@ Commit `collect-earth-explorer: Landsat and Sentinel-2 series for NDVI, NDMI, NB
 
 Commit `collect-earth-explorer: MODIS EVI, and charts that start collapsed`.
 
+### Task 10b: More named indices and a custom formula (added 2026-11-16, user request)
+
+A Landsat or Sentinel-2 series chart picks its index by name from a longer list, or gives its own formula.
+
+**Files:** `functions/catalogue.json`, `functions/lib/catalogue.js` (+ test), new `functions/lib/formula.js` (+ test), `functions/ee/indices.js`, `functions/ee/landsatSeries.js`, `functions/ee/sentinel2Series.js`, `functions/routes.js` (+ tests), live tests; web `lib/config.ts` (+ test), `LandsatNdviCard.tsx`, `Sentinel2NdviCard.tsx` (+ tests).
+
+- **Bands:** `blue`, `green`, `red`, `nir`, `swir1`, `swir2` for both sensors, as 0..1 reflectance (Sentinel-2 divided by 10000 once, before any index), so a formula gives comparable values on both. Sentinel-2 adds `rededge1`, `rededge2`, `rededge3` (B5, B6, B7). `ee/sentinel2.js` and `ee/landsat.js` `prepared()` must provide them (Landsat needs `green`); nothing that depends on the existing band names may change.
+- **Named indices** live in `catalogue.json` as a top-level `"indices": { "NDVI": "(nir - red) / (nir + red)", … }`, replacing the hard-coded table in `ee/indices.js`: NDVI, EVI, EVI2, SAVI, MSAVI, GNDVI, NDMI, NBR, NBR2, NDWI, MNDWI, NDSI, NDBI, BSI. The `index` choice of both series types lists these names. NDVI results must stay numerically identical (same cache key, same values).
+- **Custom formula:** two new optional params on both series types, `formula` (type `formula`, max 200 characters) and `name` (text, max 30). `formula` and a non-default `index` together are a 400; `name` without `formula` is ignored. The chart's title, series name and CSV file name use `name`, else `Custom index`.
+- **`functions/lib/formula.js` `checkFormula(text, bands)`** (EE-free, the safety boundary): a tokenizer that accepts only numbers, the given band names, `+ - * /`, parentheses, commas, and the functions `sqrt`, `abs`, `min`, `max`, `pow`; it also checks balanced parentheses and that the formula uses at least one band. Anything else throws `BadRequest` naming the offending token. No `eval`, no `Function`. The validated text is passed to `ee.Image.expression(text, bandMap)`.
+- **Tests:** tokenizer cases (each allowed construct; rejected: unknown identifier, `;`, quotes, brackets, `b()` calls, unbalanced parentheses, empty, no band, too long); every named formula in the catalogue passes `checkFormula`; route 400s and cache keys (two formulas give two keys; whitespace differences are normalised to one key); web `config.ts` skips an entry whose formula fails the same check (mirror the tokenizer, with the usual comment); live: a custom formula equal to NDVI's returns the same values as `index: "NDVI"`, one red-edge formula works on Sentinel-2 and is a 400 on Landsat.
+- **Not in scope:** MODIS (its product only has NDVI and EVI) and CCDC keep their fixed choices.
+
+Commit `collect-earth-explorer: more named indices and custom index formulas`.
+
 ### Task 11: Documentation and deploy
 
 - `CLAUDE.md`: replace the "the code does not do that yet" paragraph with how it works now (catalogue file, `config` in the address, standard fallback, where to add a type). Add `catalogue` to the endpoint list.
