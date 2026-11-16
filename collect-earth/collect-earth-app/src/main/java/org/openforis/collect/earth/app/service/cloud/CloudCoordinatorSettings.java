@@ -176,7 +176,7 @@ public class CloudCoordinatorSettings {
 			windows.add("Planet"); //$NON-NLS-1$
 		}
 		if (isOn(EarthProperty.OPEN_GEE_APP)) {
-			windows.add("Earth Engine"); //$NON-NLS-1$
+			windows.add("Collect Earth Explorer"); //$NON-NLS-1$
 		}
 		if (isOn(EarthProperty.OPEN_EARTH_MAP)) {
 			windows.add("Earth Map"); //$NON-NLS-1$
