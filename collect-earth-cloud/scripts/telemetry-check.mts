@@ -1,14 +1,13 @@
-// Checks a deployment's error reports and usage events against the real services, with its own settings
-// (TELEMETRY=1, SENTRY_DSN, GA_API_SECRET, ...): sends one test error to Sentry (environment
-// "telemetry-check", so it is easy to find and resolve) and asks Google Analytics' validation endpoint
-// whether an event is well formed (nothing is recorded there). Prints what worked.
+// Checks a deployment's error reports against Sentry, with its own settings (TELEMETRY=1,
+// SENTRY_DSN, ...): sends one test error to Sentry (environment "telemetry-check", so it is easy to
+// find and resolve). Prints whether it worked.
 //
-//   TELEMETRY=1 GA_API_SECRET=... npm run telemetry:check
-import { clientIdOf, scrubEvent, telemetryConfigOf } from '../src/telemetry.js';
+//   TELEMETRY=1 npm run telemetry:check
+import { scrubEvent, telemetryConfigOf } from '../src/telemetry.js';
 
 const config = telemetryConfigOf(process.env);
-if (!config.sentryDsn && !config.gaApiSecret) {
-  console.log('Telemetry is off: start this with TELEMETRY=1 (and GA_API_SECRET for usage events).');
+if (!config.sentryDsn) {
+  console.log('Telemetry is off: start this with TELEMETRY=1.');
   process.exit(1);
 }
 let failed = false;
@@ -46,24 +45,5 @@ if (config.sentryDsn) {
   const ok = typeof status === 'number' && status >= 200 && status < 300;
   console.log(ok ? `Sentry: test error accepted by ${new URL(config.sentryDsn).host} (environment "telemetry-check").` : `Sentry: the test error was not accepted (${status}).`);
   failed ||= !ok;
-} else {
-  console.log('Sentry: off.');
-}
-
-if (config.gaMeasurementId && config.gaApiSecret) {
-  const url = `https://www.google-analytics.com/debug/mp/collect?measurement_id=${encodeURIComponent(config.gaMeasurementId)}&api_secret=${encodeURIComponent(config.gaApiSecret)}`;
-  const body = { client_id: clientIdOf('telemetry-check', null), events: [{ name: 'training_set_created', params: { kind: 'learning', plots: 1, app: 'cloud', engagement_time_msec: 1 } }] };
-  try {
-    const res = await fetch(url, { method: 'POST', body: JSON.stringify(body), signal: AbortSignal.timeout(10_000) });
-    const answer = (await res.json()) as { validationMessages?: { description?: string }[] };
-    const problems = answer.validationMessages ?? [];
-    console.log(problems.length === 0 ? `Google Analytics: the event is valid for ${config.gaMeasurementId}.` : `Google Analytics: ${problems.map((p) => p.description).join('; ')}`);
-    failed ||= problems.length > 0;
-  } catch (err) {
-    console.log(`Google Analytics: could not be reached (${String(err)}).`);
-    failed = true;
-  }
-} else {
-  console.log('Google Analytics: off (GA_API_SECRET is not set).');
 }
 process.exit(failed ? 1 : 0);

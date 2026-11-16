@@ -25,11 +25,9 @@ managed Postgres (Option B).
 | `TRUST_FORWARDED_HOST` | no | `true` | Use `X-Forwarded-Host` instead of `Host` for links derived from a request. Only behind a proxy that sets it itself; a client can write it (see below). `true` or `1`; default off |
 | `RENDER_EXTERNAL_URL` | no | `https://ce-cloud.onrender.com` | Honoured only as an environment fallback for the link base when `PUBLIC_BASE_URL` is unset (some hosts set it automatically) |
 | `RATE_LIMIT_PER_MINUTE` | no | `60` | Requests per minute per client IP on login, register, signup, setup and reset (429 `rate_limited` above it). Kept generous because a training room joins from one office IP; failed logins are also limited to 10 per minute per account. `0` disables both. Per instance, in memory |
-| `TELEMETRY` | no | `1` | Send error reports (Sentry) and usage events (Google Analytics), as the desktop app does. Off unless `1` or `true`, so a self-hosted server sends nothing by default. Nothing personal: Sentry gets no request body, header, query string, user nor link token; an event carries a hashed client id and kinds and counts only (`src/telemetry.ts`) |
+| `TELEMETRY` | no | `1` | Turns on Sentry error reports only, as the desktop app sends them (the cloud sends no usage events: Collect Earth counts plots when they are submitted). Off unless `1` or `true`, so a self-hosted server sends nothing by default. Nothing personal: Sentry gets no request body, header, query string, user nor link token (`src/telemetry.ts`) |
 | `SENTRY_DSN` | no | `https://key@o1.ingest.sentry.io/2` | With `TELEMETRY`: where the server and the dashboard send error reports. Default: the desktop app's Sentry project |
 | `SENTRY_ENVIRONMENT` | no | `staging` | With `TELEMETRY`: the reports' environment (default `production`) |
-| `GA_API_SECRET` | with GA | *(secret)* | With `TELEMETRY`: the Measurement Protocol API secret of the Google Analytics property. Without it no usage event is sent (it cannot be in this public repository) |
-| `GA_MEASUREMENT_ID` | no | `G-XXXXXXX` | With `TELEMETRY` and `GA_API_SECRET`: the property. Default: Collect Earth Cloud's (`G-LRHVV8FNZB`) |
 | `TRUST_PROXY_HOPS` | no | `1` | Proxies in front of the server that add to `x-forwarded-for` (see below) |
 | `SESSION_IDLE_DAYS` | no | `90` | A sign-in (in Collect Earth or the dashboard) unused for this many days stops working; each use keeps it alive. A coordinator can also sign a person out everywhere (their page, *Sign out everywhere*), and anyone their other devices (*My account*) |
 | `MIGRATE_ON_BOOT` | optional | `true` | Apply pending migrations on startup (see below); `true` or `1` |
@@ -342,18 +340,16 @@ project…*, register or log in, and the CEP downloads and the app switches to
 cloud mode. This is why the link base (`PUBLIC_BASE_URL` or the request host)
 must be the address people really use.
 
-### Checking error reports and usage events
+### Checking error reports
 
-With `TELEMETRY=1` (and `GA_API_SECRET`), run on the deployment, with its environment:
+With `TELEMETRY=1`, run on the deployment, with its environment:
 
 ```bash
 npm run telemetry:check
 ```
 
-It sends one test error to Sentry, in the environment `telemetry-check` (resolve it there), and asks Google
-Analytics' validation endpoint whether a usage event is well formed (the validation records nothing). It prints what
-worked and exits non-zero otherwise. The server needs outbound HTTPS to the Sentry host of the DSN and to
-`www.google-analytics.com`.
+It sends one test error to Sentry, in the environment `telemetry-check` (resolve it there). It prints whether it
+worked and exits non-zero otherwise. The server needs outbound HTTPS to the Sentry host of the DSN.
 
 ## Operational notes
 

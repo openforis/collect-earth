@@ -219,7 +219,6 @@ export async function registerAssignmentRoutes(
       }
       const plotIds = parsed.plotIds;
       if (plotIds.length === 0) {
-        telemetry.event('plot_file_refused', { projectId: request.membership!.projectId, userId: request.userId }, { reason: 'no_plots' });
         return reply.code(400).send({
           error: 'no_plots',
           reason: 'This file has no plots: only a header row, or no row with a number in it. Each plot needs its own row, with its id and coordinates.',
@@ -239,7 +238,6 @@ export async function registerAssignmentRoutes(
       const training = await trainingUnits(store, projectId);
       const inTraining = training.size > 0 ? plotIds.filter((id) => training.has(id)) : [];
       if (inTraining.length > 0) {
-        telemetry.event('plot_file_refused', { projectId, userId: request.userId }, { reason: 'training_plot_in_file' });
         return reply.code(409).send({
           error: 'training_plot_in_file',
           reason: 'This file holds plots of a training set (calibration or learning plots). Leave them out of this file, or delete the training set first.',
@@ -269,7 +267,6 @@ export async function registerAssignmentRoutes(
       if (!confirmed) {
         const impact = await replaceImpact(projectId, filename, plotIds, keyCount, info);
         if (impact && (impact.heldRemoved > 0 || impact.submittedRemoved > 0)) {
-          telemetry.event('plot_file_replace_asked', { projectId, userId: request.userId }, { held: impact.heldRemoved, submitted: impact.submittedRemoved });
           return reply.code(409).send({
             error: 'replace_needs_confirm',
             reason: 'This file replaces one whose plots are given out or have submitted work; plots left out of the new file leave the project.',
@@ -279,7 +276,6 @@ export async function registerAssignmentRoutes(
       }
       let meta = await store.putCsvFile(projectId, filename, data, plotIds);
       await audit(store, request, 'csv.uploaded', { csvFileId: meta.id, plots: meta.plotCount });
-      if (confirmed) telemetry.event('plot_file_replaced', { projectId, userId: request.userId });
       let assignment: Omit<FileAssignment, 'plots' | 'columns'> | undefined;
       if (fromFile) {
         // The file says who has which plot: its holdings become the file's (reference plots keep theirs, setDivision).

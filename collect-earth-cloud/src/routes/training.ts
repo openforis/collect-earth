@@ -1,5 +1,4 @@
 import { csvField } from '../export.js';
-import { DASHBOARD_EVENTS, telemetry, type EventName } from '../telemetry.js';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { isUuid } from '../accountRules.js';
 import { audit } from '../activity.js';
@@ -341,7 +340,6 @@ export async function registerTrainingRoutes(
       at: now(),
     });
     await audit(store, request, 'training.changed', { setId: set.id, change: 'created', name: set.name, kind: set.kind, plots: set.plotCount });
-    telemetry.event('training_set_created', { projectId, userId: request.userId }, { kind: set.kind, plots: set.plotCount });
     return reply.code(201).send(summaryOf(set, []));
   });
 
@@ -366,7 +364,6 @@ export async function registerTrainingRoutes(
     const set = await store.updateTrainingSet(projectId, setIdOf(request), change);
     if (!set) return reply.code(404).send({ error: 'not_found' });
     await audit(store, request, 'training.changed', { setId: set.id, change: 'changed', name: set.name, kind: set.kind });
-    telemetry.event('training_set_changed', { projectId, userId: request.userId }, { kind: set.kind, change: change.kind !== undefined ? 'kind' : change.passMark !== undefined ? 'pass_mark' : 'name' });
     return reply.send(summaryOf(set, participants(set, await store.listMembers(projectId))));
   });
 
@@ -375,7 +372,6 @@ export async function registerTrainingRoutes(
     const set = await store.getTrainingSet(projectId, setIdOf(request));
     if (!set || !(await store.deleteTrainingSet(projectId, set.id))) return reply.code(404).send({ error: 'not_found' });
     await audit(store, request, 'training.changed', { setId: set.id, change: 'deleted', name: set.name, kind: set.kind });
-    telemetry.event('training_set_deleted', { projectId, userId: request.userId }, { kind: set.kind });
     return reply.send({ ok: true });
   });
 
@@ -390,7 +386,6 @@ export async function registerTrainingRoutes(
     if (!set) return reply.code(404).send({ error: 'not_found' });
     await store.setTrainingMembers(projectId, set.id, ids, now());
     await audit(store, request, 'training.changed', { setId: set.id, change: 'members', name: set.name, people: new Set(ids).size });
-    telemetry.event('training_members_set', { projectId, userId: request.userId }, { people: new Set(ids).size });
     return reply.send({ ok: true });
   });
 
@@ -448,7 +443,6 @@ export async function registerTrainingRoutes(
     const note = typeof body.note === 'string' && body.note.trim() !== '' ? body.note.trim() : null;
     const row: TrainingGolden = { plotKey: plot, answers: clean, note, updatedAt: now(), updatedBy: request.userId ?? null };
     await store.putTrainingGolden(projectId, set.id, [row]);
-    telemetry.event('training_golden_set', { projectId, userId: request.userId }, { from: 'plot', plots: 1 });
     return reply.send(row);
   });
 
@@ -482,7 +476,6 @@ export async function registerTrainingRoutes(
       rows.map((r) => ({ ...r, note: loaded.golden.get(r.plotKey)?.note ?? null, updatedAt: at, updatedBy: request.userId ?? null })),
     );
     await audit(store, request, 'training.changed', { setId: loaded.set.id, change: 'golden', name: loaded.set.name, plots: rows.length });
-    telemetry.event('training_golden_set', { projectId, userId: request.userId }, { from: String(body.from), plots: rows.length });
     return reply.send({ plots: rows.length } satisfies GoldenFromAnswer);
   });
 
@@ -532,7 +525,6 @@ export async function registerTrainingRoutes(
       at,
     );
     await audit(store, request, 'training.changed', { setId: loaded.set.id, change: 'attempts', name: loaded.set.name, people: people.length });
-    telemetry.event('training_attempts_started', { projectId, userId: request.userId }, { people: people.length, scope: body.all === true ? 'all' : 'some' });
     return reply.send({ started: people.length } satisfies AttemptsAnswer);
   });
 
@@ -566,7 +558,6 @@ export async function registerTrainingRoutes(
     }
     // The survey's questions and their answers' labels, for the figures.
     const outline = await deps.outline(projectId, request.log);
-    telemetry.event('training_figures_viewed', { projectId, userId: request.userId }, { role: request.membership!.role, sets: out.length });
     return reply.send({ sets: out, questions: goldenQuestions(outline) } satisfies TrainingFiguresAnswer);
   });
 
@@ -606,7 +597,6 @@ export async function registerTrainingRoutes(
         history: history(loaded.attempts, userId),
       });
     }
-    if (out.length > 0) telemetry.event('my_training_viewed', { projectId, userId: request.userId }, { sets: out.length, learning: out.filter((s) => s.kind === 'learning').length });
     return reply.send({ sets: out } satisfies MyTrainingAnswer);
   });
 
@@ -635,16 +625,6 @@ export async function registerTrainingRoutes(
     return reply.send({ status: 'scored', set: loaded.set.name, attempt, plot: { ...scored, note: golden.note } });
   });
 
-  // What the dashboard tells of its use that the server cannot see (the report opened or printed).
-  app.post('/v1/projects/:pid/telemetry', member, async (request, reply) => {
-    const body = (request.body ?? {}) as { name?: unknown; params?: unknown };
-    const name = body.name as EventName;
-    if (typeof body.name !== 'string' || !DASHBOARD_EVENTS.includes(name)) return bad(reply, 'unknown event');
-    const params = body.params && typeof body.params === 'object' ? (body.params as Record<string, string | number | boolean>) : {};
-    telemetry.event(name, { projectId: request.membership!.projectId, userId: request.userId }, params);
-    return reply.code(204).send();
-  });
-
   // A set's plot file as Collect Earth gets it (participants and coordinators).
   app.get('/v1/projects/:pid/training/:setId/content', member, async (request, reply) => {
     const projectId = request.membership!.projectId;
@@ -656,8 +636,6 @@ export async function registerTrainingRoutes(
     if (expected && expected !== served.checksum) {
       return reply.code(409).send({ error: 'changed', reason: 'This plot file changed after the list of your plot files was read. Press Refresh to get the new list, then download it again.' });
     }
-    const attempt = request.userId ? openAttempt(await store.listTrainingAttempts(projectId, set.id), request.userId).number : 1;
-    telemetry.event('training_file_downloaded', { projectId, userId: request.userId }, { kind: set.kind, attempt });
     return reply
       .header('content-type', 'text/csv')
       .header('x-checksum-sha256', served.checksum)

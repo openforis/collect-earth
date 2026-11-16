@@ -23,14 +23,12 @@ export interface MapTiles {
   maxZoom: number;
 }
 
-/** The dashboard's error reports (Sentry) and usage events, when the server sends them (its TELEMETRY setting). */
+/** The dashboard's error reports (Sentry), when the server sends them (its TELEMETRY setting). */
 export interface DashboardTelemetry {
   /** The public DSN only (https). */
   sentryDsn: string | null;
   environment: string;
   release: string;
-  /** The server forwards the dashboard's usage events (POST /telemetry). */
-  events: boolean;
 }
 
 /** GET /v1/server-info: what the dashboard needs before anyone logs in. */
@@ -59,7 +57,7 @@ export interface ServerInfo {
    * LOCAL_MODE): what is about other people or the server is hidden (src/localMode.ts).
    */
   localMode: boolean;
-  /** Error reports and usage events; null when the server sends none. */
+  /** Error reports (Sentry); null when the server sends none. */
   telemetry: DashboardTelemetry | null;
   /**
    * Which build of the dashboard the server serves (a hash of its index.html, which names the build's hashed

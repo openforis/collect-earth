@@ -2,7 +2,6 @@
 
 import type { MapTiles } from "../../../src/wire/account";
 import type { ProjectStatus } from "../../../src/wire/projectSettings";
-import { p, request } from "./transport";
 
 export type Role = "admin" | "reviewer" | "operator";
 export const ROLES: Role[] = ["operator", "reviewer", "admin"];
@@ -12,11 +11,6 @@ export type { ProjectStatus } from "../../../src/wire/projectSettings";
 export const STATUS_MOVES: Record<ProjectStatus, readonly ProjectStatus[]> = { draft: ["active"], active: ["closed"], closed: ["active", "archived"], archived: ["closed"] };
 
 export type { Announcement, DashboardTelemetry, MapTiles, Me, Membership, ServerInfo, Session } from "../../../src/wire/account";
-
-/** Tells the server of a use of the dashboard it cannot see (it forwards it to Google Analytics, when it does). */
-export function sendUsageEvent(projectId: string, name: "training_report_opened" | "training_report_printed", params: Record<string, string | number> = {}): void {
-  request<unknown>("POST", `${p(projectId)}/telemetry`, { json: { name, params } }).catch(() => undefined);
-}
 
 /** OpenStreetMap's tiles (the server's default base map). */
 export const OSM_TILES: MapTiles = {

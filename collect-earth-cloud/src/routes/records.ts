@@ -146,7 +146,6 @@ export async function registerRecordRoutes(app: FastifyInstance, store: Store, s
         // In the Activity log (a coordinators' "who sent training plots"): one entry per batch.
         await audit(store, request, 'training.synced', { records: trainingStored }).catch(() => undefined);
       }
-      if (trainingStored > 0) telemetry.event('training_records_synced', { projectId, userId: request.userId }, { records: trainingStored });
       if (firstSubmission && sampling) {
         // Before the answer (Cloud Run gives no CPU after it), never failing the batch, waited
         // for at most SAMPLING_INLINE_MS; at most once per project per 10 min.
