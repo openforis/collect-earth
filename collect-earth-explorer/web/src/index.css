@@ -37,7 +37,7 @@ input[type="radio"], input[type="checkbox"], input[type="range"] { accent-color:
 
 /* Translucent rounded boxes over the imagery, like the site's hero box. */
 .layers-panel, .map-status { position: absolute; z-index: 2; left: 8px; background: rgba(255, 255, 255, 0.9); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); color: var(--heading); }
-.layers-panel { top: 8px; padding: 10px 12px; border-radius: 12px; width: 240px; display: flex; flex-direction: column; gap: 4px; }
+.layers-panel { top: 8px; padding: 10px 12px; border-radius: 12px; width: 320px; display: flex; flex-direction: column; gap: 4px; }
 .layers-panel strong { font-weight: 600; }
 .layer-row { display: flex; gap: 6px; align-items: center; }
 .layers-panel select { width: 100%; }
