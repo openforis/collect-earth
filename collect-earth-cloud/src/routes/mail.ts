@@ -381,7 +381,7 @@ export async function registerMailRoutes(app: FastifyInstance, store: Store, con
         for (const j of [...d.joins].sort((a, b) => a.at - b.at)) {
           const user = await store.getUserById(j.userId);
           if (!user) continue;
-          people.push({ username: user.username, role: j.role, given: j.given ? { filename: fileName.get(j.given.csvFileId) ?? '…', mode: j.given.mode, plots: j.given.plots } : null });
+          people.push({ username: user.username, role: j.role, given: j.given ? { filename: j.given.csvFileId === null ? null : (fileName.get(j.given.csvFileId) ?? '…'), mode: j.given.mode, plots: j.given.plots } : null });
         }
         if (people.length === 0) continue;
         await deps.mailer.send(joinedSummaryMail(to.ctx, { projectId: d.projectId, projectName: project.name, people: members.length }, people, to.email));

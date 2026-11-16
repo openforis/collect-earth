@@ -2356,6 +2356,26 @@ export class PostgresStore implements Store {
     await this.withProject(projectId, async (client) => {
       // The check sampling's lock: a draw's copies are added before or after, never in between.
       await client.query(SAMPLING_LOCK, [projectId]);
+      await this.applyDivision(client, projectId, csvFileId, distribution, plots);
+    });
+  }
+
+  async setDivisions(projectId: string, divisions: readonly { csvFileId: string; distribution: StoredDistribution; plots: PlotAssignment[] }[]): Promise<void> {
+    await this.withProject(projectId, async (client) => {
+      await client.query(SAMPLING_LOCK, [projectId]);
+      for (const d of divisions) await this.applyDivision(client, projectId, d.csvFileId, d.distribution, d.plots);
+    });
+  }
+
+  /** One file's setDivision, in the caller's transaction, under the sampling lock */
+  private async applyDivision(
+    client: pg.PoolClient,
+    projectId: string,
+    csvFileId: string,
+    distribution: StoredDistribution | null,
+    plots: PlotAssignment[],
+  ): Promise<void> {
+    {
       await client.query('UPDATE csv_files SET distribution = $3 WHERE project_id = $1 AND id = $2', [
         projectId,
         csvFileId,
@@ -2400,7 +2420,7 @@ export class PostgresStore implements Store {
           ],
         );
       }
-    });
+    }
   }
 
   async listPlotAssignments(projectId: string, csvFileId: string): Promise<PlotAssignment[]> {

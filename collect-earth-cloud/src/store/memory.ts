@@ -1904,12 +1904,26 @@ export class InMemoryStore implements Store {
     return taken.length;
   }
 
+  async setDivisions(projectId: string, divisions: readonly { csvFileId: string; distribution: StoredDistribution; plots: PlotAssignment[] }[]): Promise<void> {
+    // No await in between: nothing else runs before the last file is written
+    for (const d of divisions) this.applyDivision(projectId, d.csvFileId, d.distribution, d.plots);
+  }
+
   async setDivision(
     projectId: string,
     csvFileId: string,
     distribution: StoredDistribution | null,
     plots: PlotAssignment[],
   ): Promise<void> {
+    this.applyDivision(projectId, csvFileId, distribution, plots);
+  }
+
+  private applyDivision(
+    projectId: string,
+    csvFileId: string,
+    distribution: StoredDistribution | null,
+    plots: PlotAssignment[],
+  ): void {
     const entry = this.requireProject(projectId);
     const file = entry.csvFiles.get(csvFileId);
     if (!file) {

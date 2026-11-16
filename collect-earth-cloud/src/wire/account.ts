@@ -201,7 +201,8 @@ export interface UnsubscribeAnswer {
  * plots of it that nobody holds or has done (`share`; the file is divided then).
  */
 export interface InvitePlots {
-  csvFileId: string;
+  /** The plot file; null: the project's plots, all of its plot files (a share only) */
+  csvFileId: string | null;
   mode: 'whole' | 'share';
   /** `share`: how many plots each person takes; null for `whole` */
   count: number | null;

@@ -217,6 +217,12 @@ export interface MoveUnfinishedAnswer extends DistributionSummary {
   droppedChecks: number;
 }
 
+/** POST /v1/projects/:pid/plots/take: the coordinator took `taken` of the project's plots; `free` are left nobody holds */
+export interface TakePlotsAnswer extends DistributionSummary {
+  taken: number;
+  free: number;
+}
+
 /** A move of a rebalance: `count` plots to assess from `from` to `to`. */
 export interface RebalanceMove {
   from: string;

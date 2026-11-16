@@ -466,6 +466,11 @@ export interface Store {
    * reference plots (whole files hold no copies).
    */
   setDivision(projectId: string, csvFileId: string, distribution: StoredDistribution | null, plots: PlotAssignment[]): Promise<void>;
+  /**
+   * setDivision of several files at once, all or none (a division over the project's plots, src/routes/projectDivision.ts):
+   * under one lock, so a draw or another division is before or after it.
+   */
+  setDivisions(projectId: string, divisions: readonly { csvFileId: string; distribution: StoredDistribution; plots: PlotAssignment[] }[]): Promise<void>;
   /** Who holds which plot of a file (a copy drawn by the check sampling with its sampledAt). */
   listPlotAssignments(projectId: string, csvFileId: string): Promise<PlotAssignment[]>;
 

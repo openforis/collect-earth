@@ -12,8 +12,9 @@ import type { Store } from './store/store.js';
 import type { InvitePlots } from './types.js';
 
 export interface GivenPlots {
-  csvFileId: string;
-  filename: string;
+  /** null: the project's plots (a link over the project) */
+  csvFileId: string | null;
+  filename: string | null;
   mode: InvitePlots['mode'];
   /** Plots the person got: the file's plots (whole), or those taken (share, 0 when none was left) */
   plots: number;
@@ -22,8 +23,15 @@ export interface GivenPlots {
 /** What an invitation link's plots are when it is made: the reason it cannot be, or null. */
 export async function invitePlotsRefusal(store: Store, projectId: string, plots: unknown): Promise<{ error: string; reason: string } | InvitePlots> {
   const p = (plots ?? {}) as { csvFileId?: unknown; mode?: unknown; count?: unknown };
+  const validCount = typeof p.count === 'number' && Number.isInteger(p.count) && p.count >= 1 && p.count <= 100_000;
+  // A share of the project's plots (all its plot files, one set: src/projectPlots.ts)
+  if (p.csvFileId === null && p.mode === 'share') {
+    if (!validCount) return { error: 'bad_request', reason: 'plots.count: a whole number of plots from 1 to 100000' };
+    if ((await store.listCsvFiles(projectId)).length === 0) return { error: 'bad_request', reason: 'plots: the project has no plot file yet' };
+    return { csvFileId: null, mode: 'share', count: p.count as number };
+  }
   if (typeof p.csvFileId !== 'string' || (p.mode !== 'whole' && p.mode !== 'share')) {
-    return { error: 'bad_request', reason: 'plots: { csvFileId, mode: whole | share, count (share) }' };
+    return { error: 'bad_request', reason: 'plots: { csvFileId (null: the project’s plots, a share), mode: whole | share, count (share) }' };
   }
   const file = (await store.listCsvFiles(projectId)).find((f) => f.id === p.csvFileId);
   if (!file) return { error: 'bad_request', reason: 'plots: no such plot file in the project' };
@@ -43,6 +51,7 @@ export async function invitePlotsRefusal(store: Store, projectId: string, plots:
 /** At the join: gives the person the link's plots. Null when the link gives none or its file is gone. */
 export async function giveInvitePlots(store: Store, projectId: string, userId: string, plots: InvitePlots | null, log: Log): Promise<GivenPlots | null> {
   if (!plots) return null;
+  if (plots.csvFileId === null) return giveProjectShare(store, projectId, userId, plots.count ?? 0);
   const file = await store.getCsvFile(projectId, plots.csvFileId);
   if (!file) return null;
   const info = await store.getRoundInfo(projectId);
@@ -69,4 +78,30 @@ export async function giveInvitePlots(store: Store, projectId: string, userId: s
     return null;
   }
   return { csvFileId: file.id, filename: file.filename, mode: 'share', plots: taken };
+}
+
+/**
+ * A share of the project's plots: the next `count` plots nobody holds and nobody submitted, in the order of its plot
+ * files and theirs (each file divided by hand when nobody had it; a file given whole to people is held).
+ */
+async function giveProjectShare(store: Store, projectId: string, userId: string, count: number): Promise<GivenPlots> {
+  const info = await store.getRoundInfo(projectId);
+  const keyCount = fileKeyCount(info);
+  const states = await store.listRecordStates(projectId);
+  let taken = 0;
+  for (const meta of await store.listCsvFiles(projectId)) {
+    if (taken >= count) break;
+    const file = await store.getCsvFile(projectId, meta.id);
+    if (!file) continue;
+    const units = new Set(plotFileOf(file, keyCount).plotIds);
+    const done = new Set<string>();
+    for (const r of states) {
+      if (!r.activelySaved || r.deleted) continue;
+      const unit = unitOfRecord(r.recordKey, units, info);
+      if (unit !== null) done.add(unit);
+    }
+    const got = await store.claimUnheldPlots(projectId, file.id, userId, [...units].filter((id) => !done.has(id)), count - taken);
+    if (typeof got === 'number') taken += got;
+  }
+  return { csvFileId: null, filename: null, mode: 'share', plots: taken };
 }

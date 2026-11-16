@@ -21,6 +21,8 @@ const en = {
   summaryWho: 'Who joined',
   gotWhole: 'They got the plot file {file} whole ({count} plots), from the link.',
   gotShare: 'They got {count} plots of {file}, from the link.',
+  /** A link sharing out the project's plots, not one file's: what {file} says */
+  projectPlots: 'the project’s plots',
   gotNone: 'The link was to give them plots of {file}, but none is left: give them plots.',
   subject: '{server}: {person} joined {project}',
   intro: '{person} joined the project {project} as {role}, with an invitation link.',
@@ -50,6 +52,7 @@ const es: Words = {
   summaryWho: 'Quién se unió',
   gotWhole: 'Recibió el archivo de parcelas {file} completo ({count} parcelas), por el enlace.',
   gotShare: 'Recibió {count} parcelas de {file}, por el enlace.',
+  projectPlots: 'las parcelas del proyecto',
   gotNone: 'El enlace debía darle parcelas de {file}, pero no queda ninguna: asígnele parcelas.',
   subject: '{server}: {person} se unió a {project}',
   intro: '{person} se unió al proyecto {project} como {role}, con un enlace de invitación.',
@@ -78,6 +81,7 @@ const fr: Words = {
   summaryWho: 'Qui a rejoint',
   gotWhole: 'Cette personne a reçu le fichier de parcelles {file} en entier ({count} parcelles), par le lien.',
   gotShare: 'Cette personne a reçu {count} parcelles de {file}, par le lien.',
+  projectPlots: 'des parcelles du projet',
   gotNone: 'Le lien devait lui donner des parcelles de {file}, mais il n’en reste aucune : donnez-lui des parcelles.',
   subject: '{server} : {person} a rejoint {project}',
   intro: '{person} a rejoint le projet {project} comme {role}, avec un lien d’invitation.',
@@ -106,6 +110,7 @@ const pt: Words = {
   summaryWho: 'Quem entrou',
   gotWhole: 'Recebeu o arquivo de parcelas {file} inteiro ({count} parcelas), pelo link.',
   gotShare: 'Recebeu {count} parcelas de {file}, pelo link.',
+  projectPlots: 'das parcelas do projeto',
   gotNone: 'O link devia dar-lhe parcelas de {file}, mas não resta nenhuma: atribua-lhe parcelas.',
   subject: '{server}: {person} entrou em {project}',
   intro: '{person} entrou no projeto {project} como {role}, com um link de convite.',
@@ -134,6 +139,7 @@ const tr: Words = {
   summaryWho: 'Katılanlar',
   gotWhole: 'Bağlantıdan {file} parsel dosyasının tamamını ({count} parsel) aldı.',
   gotShare: 'Bağlantıdan {file} dosyasından {count} parsel aldı.',
+  projectPlots: 'projenin parselleri',
   gotNone: 'Bağlantı ona {file} dosyasından parsel verecekti ama hiç kalmadı: ona parsel verin.',
   subject: '{server}: {person}, {project} projesine katıldı',
   intro: '{person}, bir davet bağlantısıyla {project} projesine {role} olarak katıldı.',
@@ -175,7 +181,7 @@ export interface Joined {
 function plotsLines(joined: Joined, w: (key: keyof Words, params?: Record<string, string | number>) => string, language: MailLanguage): MailLine[] {
   const g = joined.given;
   if (g) {
-    const params = { file: oneLine(g.filename), count: new Intl.NumberFormat(language).format(g.plots) };
+    const params = { file: g.filename === null ? w('projectPlots') : oneLine(g.filename), count: new Intl.NumberFormat(language).format(g.plots) };
     return [{ kind: 'para', text: w(g.plots === 0 ? 'gotNone' : g.mode === 'whole' ? 'gotWhole' : 'gotShare', params) }];
   }
   return joined.role === 'operator' ? [{ kind: 'para', text: w('plots') }] : [];
@@ -213,7 +219,8 @@ export function joinedMail(ctx: JoinMailContext, joined: Joined, to: string): Ma
 export interface JoinedPerson {
   username: string;
   role: Role;
-  given: { filename: string; mode: 'whole' | 'share'; plots: number } | null;
+  /** `filename` null: the project's plots (a link over the project) */
+  given: { filename: string | null; mode: 'whole' | 'share'; plots: number } | null;
 }
 
 /**
@@ -234,7 +241,7 @@ export function joinedSummaryMail(
     const q = { person: oneLine(j.username), role: w(j.role) };
     const g = j.given;
     if (!g) return w(j.role === 'operator' ? 'itemNoPlots' : 'item', q);
-    const f = { ...q, file: oneLine(g.filename), count: n(g.plots) };
+    const f = { ...q, file: g.filename === null ? w('projectPlots') : oneLine(g.filename), count: n(g.plots) };
     return w(g.plots === 0 ? 'itemNone' : g.mode === 'whole' ? 'itemWhole' : 'itemShare', f);
   };
   const one = joined.length === 1;

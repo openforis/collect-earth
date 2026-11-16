@@ -26,6 +26,7 @@ import { registerServerOpsRoutes } from './routes/serverOps.js';
 import { telemetry } from './telemetry.js';
 import { registerAiRoutes } from './routes/ai.js';
 import { registerAssignmentRoutes, setServedCacheMb } from './routes/assignments.js';
+import { registerProjectDivisionRoutes } from './routes/projectDivision.js';
 import { setParsedCacheMb } from './plotFileCache.js';
 import { twoFactorKey } from './twoFactor.js';
 import { checkTwoFactorKeys } from './twoFactorCheck.js';
@@ -372,6 +373,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   // The plots sent back for another look compare answers as the figures do (by the survey's
   // outline) and resolve records with the project state's plot context.
   await registerAssignmentRoutes(app, store, config, { outline: (projectId, log) => quality.outline(projectId, log), states, sampling, places });
+  await registerProjectDivisionRoutes(app, store, places);
   // The plot index of plot search, also what tells a decision's plot exists.
   const indexes = new PlotIndexCache(store, places);
   await registerQualityRoutes(app, store, quality, places, indexes);

@@ -671,6 +671,7 @@ export const AUDIT_ACTIONS = [
   'division.applied',
   'plots.moved',
   'plots.rebalanced',
+  'plots.taken',
   'decision.set',
   'decision.deleted',
   'decision.bulk',
@@ -778,6 +779,7 @@ export interface DueDigest {
 export interface QueuedJoin {
   userId: string;
   role: Role;
-  given: { csvFileId: string; mode: 'whole' | 'share'; plots: number } | null;
+  /** `csvFileId` null: the project's plots (a link over the project) */
+  given: { csvFileId: string | null; mode: 'whole' | 'share'; plots: number } | null;
   at: number;
 }

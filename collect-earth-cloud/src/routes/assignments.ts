@@ -266,8 +266,9 @@ export async function registerAssignmentRoutes(
         }
       }
       // The project's plots are one set (src/projectPlots.ts): a plot in one plot file only, every plot file with the
-      // same columns, so the plots are divided over the project and each person gets theirs in one file
-      const oneSet = await oneSetRefusal(store, projectId, filename, parsed, keyCount);
+      // same columns, so the plots are divided over the project and each person gets theirs in one file. Not in the local
+      // mode: one person, and Collect Earth's plot file of the moment
+      const oneSet = config.localMode ? null : await oneSetRefusal(store, projectId, filename, parsed, keyCount);
       if (oneSet) {
         telemetry.event('plot_file_refused', { projectId, userId: request.userId }, { reason: oneSet.error });
         return reply.code(409).send(oneSet);
