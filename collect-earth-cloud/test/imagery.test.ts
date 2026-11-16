@@ -37,6 +37,25 @@ describe('checkImagery', () => {
     expect(checkImagery({ geeapp_date_from: '2020-01-01' }, { geeapp_date_to: '2019-01-01' }, today)).toHaveProperty('reason');
     expect(checkImagery({ geeapp_date_from: '2020-01-01' }, { geeapp_date_to: '' }, today)).toHaveProperty('changes');
   });
+
+  it("takes the Explorer's configuration, blank too, in its compact form", () => {
+    const doc = '{"v":1,"layers":[{"type":"landsat"}]}';
+    expect(checkImagery({ explorer_config: '' }, {}, today)).toEqual({ changes: { explorer_config: '' } });
+    expect(checkImagery({ explorer_config: doc }, {}, today)).toEqual({ changes: { explorer_config: doc } });
+    // Spacing does not count against the 2,000 characters: 2,100 typed, 1,960 stored
+    const name = 'x'.repeat(1900);
+    const spaced = `{\n  "v": 1,\n${' '.repeat(140)}"layers": [ { "type": "landsat", "name": "a b ${name}" } ]\n}`;
+    expect(checkImagery({ explorer_config: spaced }, {}, today)).toEqual({
+      changes: { explorer_config: `{"v":1,"layers":[{"type":"landsat","name":"a b ${name}"}]}` },
+    });
+  });
+
+  it.each([
+    'not json', '[]', '"x"', 'null', '5', '{"v":2}', '{"v":"1"}', '{"layers":{}}', '{"charts":"modis"}',
+    `{"name":"${'x'.repeat(2000)}"}`, '{"name":"a\\u0007b"}', '{"a\\u0000":1}',
+  ])("refuses the Explorer's configuration %s", (explorer_config) => {
+    expect(checkImagery({ explorer_config }, {}, today)).toHaveProperty('reason');
+  });
 });
 
 describe('rewriteProperties', () => {
@@ -86,5 +105,17 @@ describe('imagery routes', () => {
     expect(after.trimEnd().endsWith('open_esri_wayback=true')).toBe(true);
     expect((await ctx.app.inject({ method: 'GET', url: url(), headers: bearer(p.projectToken) })).json().imagery.open_esri_wayback).toBe('true');
     expect(JSON.stringify(await ctx.store.listAudit(p.projectId, { limit: 10 }))).toContain('"setting":"imagery"');
+  });
+
+  it("keeps the Explorer's configuration as written, for the coordinator only", async () => {
+    await ctx.app.inject({
+      method: 'PUT', url: `/v1/projects/${p.projectId}/cep`, headers: { ...bearer(p.adminToken), 'content-type': 'application/zip' }, payload: demoCep(),
+    });
+    const doc = JSON.stringify({ v: 1, layers: [{ type: 'landsat', label: 'ça = a:b \\ c' }], charts: [{ type: 'landsat-series', formula: '(b1 + b2) * 2 - b3 / 4' }] });
+    expect((await ctx.app.inject({ method: 'PUT', url: url(), headers: bearer(p.projectToken), payload: { explorer_config: doc } })).statusCode).toBe(403);
+    const res = await ctx.app.inject({ method: 'PUT', url: url(), headers: bearer(p.adminToken), payload: { explorer_config: doc } });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().imagery.explorer_config).toBe(doc);
+    expect((await ctx.app.inject({ method: 'GET', url: url(), headers: bearer(p.projectToken) })).json().imagery.explorer_config).toBe(doc);
   });
 });

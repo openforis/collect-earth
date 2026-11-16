@@ -14,6 +14,7 @@ export const IMAGERY_KEYS = [
   'planet_tfo_date_from',
   'planet_tfo_date_to',
   'extra_map_url',
+  'explorer_config',
 ] as const;
 
 export type ImageryKey = (typeof IMAGERY_KEYS)[number];
@@ -25,6 +26,9 @@ const DATES: readonly string[] = ['geeapp_date_from', 'geeapp_date_to'];
 const MONTHS: readonly string[] = ['planet_tfo_date_from', 'planet_tfo_date_to'];
 /** SettingsValidator.FIRST_GEE_DATE */
 const FIRST_DATE = '2000-01-01';
+/** The longest Explorer configuration, compact: it travels in the address of every plot's window. */
+const EXPLORER_CONFIG_MAX = 2000;
+const CONTROL = /[\u0000-\u001f\u007f]/;
 
 const isKey = (key: string): key is ImageryKey => (IMAGERY_KEYS as readonly string[]).includes(key);
 
@@ -47,7 +51,8 @@ function isDate(value: string): boolean {
 /**
  * The changes asked for, or why they are refused, with the rules of Collect Earth's settings (SettingsValidator): a
  * switch is true or false, a date of the Earth Engine app yyyy-mm-dd between 2000-01-01 and today (the start not
- * after the end), a Planet mosaic as PlanetMonths stores it, the extra map a web address. Blank is allowed but for
+ * after the end), a Planet mosaic as PlanetMonths stores it, the extra map a web address, the Explorer's configuration
+ * a JSON object (kept compact). Blank is allowed but for
  * the switches.
  */
 export function checkImagery(body: unknown, current: Imagery, today: Date = new Date()): { changes: Imagery } | { reason: string } {
@@ -66,6 +71,12 @@ export function checkImagery(body: unknown, current: Imagery, today: Date = new 
       return { reason: `${key} must be a Planet mosaic such as 2021-03 or 2019-12_2020-05` };
     }
     if (key === 'extra_map_url' && value !== '' && !isWebAddress(value)) return { reason: 'extra_map_url must be a web address (http or https)' };
+    if (key === 'explorer_config' && value !== '') {
+      const compact = explorerConfig(value);
+      if (typeof compact !== 'string') return compact;
+      changes[key] = compact;
+      continue;
+    }
     changes[key] = value;
   }
   const merged = { ...current, ...changes };
@@ -74,8 +85,36 @@ export function checkImagery(body: unknown, current: Imagery, today: Date = new 
   return { changes };
 }
 
+/**
+ * The Explorer's configuration in its compact form, or why it is refused. Shape only: the server does not know the
+ * catalogue, and the Explorer skips what it does not understand. Spacing between tokens is dropped, so only control
+ * characters inside the document's texts are refused.
+ */
+function explorerConfig(value: string): string | { reason: string } {
+  let control = false;
+  let doc: unknown;
+  try {
+    doc = JSON.parse(value, (k, v: unknown) => {
+      if (CONTROL.test(k) || (typeof v === 'string' && CONTROL.test(v))) control = true;
+      return v;
+    });
+  } catch {
+    return { reason: 'explorer_config must be a JSON document' };
+  }
+  if (typeof doc !== 'object' || doc === null || Array.isArray(doc)) return { reason: 'explorer_config must be a JSON object' };
+  const d = doc as Record<string, unknown>;
+  if ('v' in d && d.v !== 1) return { reason: 'explorer_config v must be 1' };
+  for (const half of ['layers', 'charts']) {
+    if (half in d && !Array.isArray(d[half])) return { reason: `explorer_config ${half} must be a list` };
+  }
+  if (control) return { reason: 'explorer_config must not hold control characters' };
+  const compact = JSON.stringify(doc);
+  if (compact.length > EXPLORER_CONFIG_MAX) return { reason: `explorer_config is at most ${EXPLORER_CONFIG_MAX} characters` };
+  return compact;
+}
+
 function isWebAddress(value: string): boolean {
-  if (/[\u0000-\u001f\u007f]/.test(value)) return false;
+  if (CONTROL.test(value)) return false;
   try {
     return ['http:', 'https:'].includes(new URL(value).protocol);
   } catch {
