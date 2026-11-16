@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import LayersPanel from "./LayersPanel";
-import { PlotProvider, usePlot } from "../state/PlotContext";
+import { LAST_12_MONTHS, PlotProvider, usePlot } from "../state/PlotContext";
 import type { PlotParams } from "../lib/urlParams";
 import { resolveConfig } from "../lib/config";
 
@@ -21,6 +21,7 @@ function Probe() {
     <>
       {/* The standard configuration's Landsat entry is at position 1. */}
       <span data-testid="year">{p.yearOf(1)}</span>
+      <span data-testid="s2-year">{p.yearOf(0)}</span>
       <span data-testid="active-layer">{p.activeLayer}</span>
       <span data-testid="compare-layer">{p.compareLayer}</span>
       <button onClick={() => p.setScene(SCENE)}>set scene</button>
@@ -38,7 +39,11 @@ function setup(configText?: string) {
 }
 
 const radio = (name: RegExp) => screen.getByRole("radio", { name }) as HTMLInputElement;
-const slider = () => screen.getByRole("slider") as HTMLInputElement;
+// The standard configuration has two sliders: Sentinel-2's and Landsat's.
+const slider = () => screen.getByRole("slider", { name: "Landsat year" }) as HTMLInputElement;
+const s2Slider = () => screen.getByRole("slider", { name: "Sentinel-2 year" }) as HTMLInputElement;
+const s2Year = () => screen.getByTestId("s2-year").textContent;
+const bands = (name: string) => screen.getByRole("combobox", { name: `${name} bands` }) as HTMLSelectElement;
 const committedYear = () => Number(screen.getByTestId("year").textContent);
 const activeLayer = () => screen.getByTestId("active-layer").textContent;
 const compareCheckbox = () => screen.getByRole("checkbox", { name: /Compare with/ }) as HTMLInputElement;
@@ -291,6 +296,83 @@ describe("LayersPanel", () => {
       setup(doc([{ type: "landsat", years: [2015, 2015] }]));
       expect(radio(/Landsat 2015/)).toBeTruthy();
       expect(screen.queryByRole("slider")).toBeNull();
+    });
+  });
+
+  describe("Sentinel-2 year slider", () => {
+    it("offers the years from 2016 to the plot's end year and a last stop for the last 12 months, where it starts", () => {
+      setup();
+      expect(s2Slider().min).toBe("2016");
+      expect(s2Slider().max).toBe("2026");
+      expect(s2Slider().value).toBe("2026");
+      expect(radio(/Sentinel-2/).parentElement!.textContent).toBe("Sentinel-2, last 12 months");
+      expect(s2Year()).toBe(LAST_12_MONTHS);
+    });
+
+    it("labels a year at once, commits it after 400 ms making the row active, and returns to the last 12 months", () => {
+      setup();
+      fireEvent.click(radio(/Landsat 2024/));
+      fireEvent.change(s2Slider(), { target: { value: "2020" } });
+      expect(radio(/Sentinel-2 2020/).checked).toBe(false);
+      act(() => vi.advanceTimersByTime(399));
+      expect(s2Year()).toBe(LAST_12_MONTHS);
+      act(() => vi.advanceTimersByTime(1));
+      expect(s2Year()).toBe("2020");
+      expect(activeLayer()).toBe("0");
+      fireEvent.change(s2Slider(), { target: { value: "2026" } });
+      expect(radio(/Sentinel-2, last 12 months/)).toBeTruthy();
+      act(() => vi.advanceTimersByTime(400));
+      expect(s2Year()).toBe(LAST_12_MONTHS);
+    });
+
+    it("while comparing sets the year without making the row active", () => {
+      setup();
+      fireEvent.click(radio(/Landsat 2024/));
+      fireEvent.click(compareCheckbox());
+      fireEvent.change(s2Slider(), { target: { value: "2019" } });
+      act(() => vi.advanceTimersByTime(400));
+      expect(s2Year()).toBe("2019");
+      expect(activeLayer()).toBe("1");
+      expect(Array.from(compareSelect()!.options)[0].textContent).toBe("Sentinel-2 2019");
+    });
+
+    it("puts the year after a label, starts at the entry's year, limits the stops to its years, and has no slider for a fixed window", () => {
+      setup(JSON.stringify({ v: 1, layers: [
+        { type: "sentinel2", label: "A", year: 2019 },
+        { type: "sentinel2", label: "B", years: [2018, 2020] },
+        { type: "sentinel2", start: "2022-01-01", end: "2022-07-01" },
+      ] }));
+      const [a, b] = screen.getAllByRole("slider") as HTMLInputElement[];
+      expect(screen.getAllByRole("slider")).toHaveLength(2);
+      expect([a.value, b.min, b.max, b.value]).toEqual(["2019", "2018", "2021", "2021"]);
+      expect(radio(/^A 2019$/)).toBeTruthy();
+      expect(radio(/^B$/)).toBeTruthy();
+      fireEvent.change(b, { target: { value: "2018" } });
+      expect(radio(/^B 2018$/)).toBeTruthy();
+      act(() => vi.advanceTimersByTime(400));
+      expect(radio(/^B 2018$/).checked).toBe(true);
+      expect(radio(/^A 2019$/).checked).toBe(false);
+      expect(a.value).toBe("2019");
+    });
+  });
+
+  describe("band selector", () => {
+    it("offers the catalogue's band choices on every imagery row, starting at the entry's bands", () => {
+      setup(JSON.stringify({ v: 1, layers: [{ type: "sentinel2", bands: "true-colour" }, { type: "landsat" }] }));
+      expect(Array.from(bands("Sentinel-2").options).map((o) => [o.value, o.textContent])).toEqual([
+        ["false-colour", "False colour"],
+        ["true-colour", "True colour"],
+      ]);
+      expect(bands("Sentinel-2").value).toBe("true-colour");
+      expect(bands("Landsat").value).toBe("false-colour");
+    });
+
+    it("changing it keeps the active layer and leaves the other rows' bands alone", () => {
+      setup(JSON.stringify({ v: 1, layers: [{ type: "landsat", label: "A" }, { type: "landsat", label: "B" }] }));
+      fireEvent.change(bands("B"), { target: { value: "true-colour" } });
+      expect(bands("B").value).toBe("true-colour");
+      expect(bands("A").value).toBe("false-colour");
+      expect(activeLayer()).toBe("0");
     });
   });
 

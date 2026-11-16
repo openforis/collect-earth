@@ -93,6 +93,9 @@ function resolveEntry(kind: Kind, raw: unknown, maxYear: number): Entry | string
   // Same rule as the API: a composite window needs both dates, start before end.
   if (type === "sentinel2" && ("start" in params || "end" in params) && !((params.start as string) < (params.end as string)))
     return `${singular[kind]} "${type}" skipped: start and end must both be given, start before end.`;
+  // A year slider (year, years) and a fixed window (start, end) exclude each other; the API never sees year or years.
+  if (type === "sentinel2" && "start" in params && ("year" in params || "years" in params))
+    return `${singular[kind]} "${type}" skipped: give either year and years or start and end.`;
   // Same cap as the API (routes.js MAX_WINDOW_DAYS).
   if (type === "sentinel2" && "start" in params && Date.parse(params.end as string) - Date.parse(params.start as string) > 1096 * 86400000)
     return `${singular[kind]} "${type}" skipped: the window from start to end is at most three years.`;
@@ -109,6 +112,14 @@ function resolveEntry(kind: Kind, raw: unknown, maxYear: number): Entry | string
 export function nonDefault(entry: LayerEntry, names: string[]): Record<string, unknown> {
   const specs = catalogue.layers[entry.type].params;
   return Object.fromEntries(names.filter((n) => entry.params[n] !== undefined && entry.params[n] !== specs[n].default).map((n) => [n, entry.params[n]]));
+}
+
+/** The allowed values of a layer type's choice parameter `name`, from the catalogue. */
+export const layerChoices = (type: string, name: string) => catalogue.layers[type].params[name].values as string[];
+
+/** The years an entry's slider offers: its `years`, else its type's first year to the plot's end year. */
+export function yearRange(entry: LayerEntry, end: string): [number, number] {
+  return (entry.params.years as [number, number] | undefined) ?? [catalogue.layers[entry.type].params.year.min!, new Date(end).getUTCFullYear()];
 }
 
 function resolveHalf(kind: Kind, list: unknown, maxYear: number, notices: string[]): Entry[] {

@@ -1,16 +1,18 @@
 import { useApi, type ApiOptions } from "../hooks/useApi";
 import { postApi, type TileResponse } from "../lib/api";
 import { nonDefault, type LayerEntry } from "../lib/config";
-import { usePlot, type LayerId } from "../state/PlotContext";
+import { usePlot, type LayerId, type Year } from "../state/PlotContext";
 
 /**
  * The request fields for an entry's non-default parameters; the standard entries send none.
- * A Sentinel-2 entry's dates are its composite window, sent apart from the plot's own start/end.
+ * A Sentinel-2 entry's dates are its composite window, sent apart from the plot's own start/end;
+ * at a year its window is that calendar year, at the last 12 months it sends none (the API's default).
  */
-function layerFields(entry: LayerEntry): Record<string, unknown> {
+function layerFields(entry: LayerEntry, year: Year | undefined): Record<string, unknown> {
   if (entry.type === "landsat") return nonDefault(entry, ["bands", "maxCloud"]);
   const { start, end, ...rest } = nonDefault(entry, ["bands", "maxCloud", "start", "end"]);
-  return start === undefined ? rest : { ...rest, compositeStart: start, compositeEnd: end };
+  if (start !== undefined) return { ...rest, compositeStart: start, compositeEnd: end };
+  return typeof year === "number" ? { ...rest, compositeStart: `${year}-01-01`, compositeEnd: `${year + 1}-01-01` } : rest;
 }
 
 /**
@@ -18,9 +20,10 @@ function layerFields(entry: LayerEntry): Record<string, unknown> {
  * Pass `{ enabled: false }` to hold the request (see `ApiOptions.enabled`).
  */
 export function useLayerTiles(layer: LayerId, options?: ApiOptions) {
-  const { plot, start, end, layers, yearOf, scene } = usePlot();
-  const year = layer !== "scene" && layers[layer].type === "landsat" ? yearOf(layer) : undefined;
-  const fields = layer === "scene" ? {} : layerFields(layers[layer]);
+  const { plot, start, end, layers, yearOf, bandsOf, scene } = usePlot();
+  const year = layer === "scene" ? undefined : yearOf(layer);
+  // The row's band selector overrides the entry's bands.
+  const fields = layer === "scene" ? {} : layerFields({ ...layers[layer], params: { ...layers[layer].params, bands: bandsOf(layer) } }, year);
   const key = layer === "scene" ? scene && `${scene.sensor}:${scene.timeStart}` : `${year ?? "fixed"}:${JSON.stringify(fields)}`;
   return useApi<TileResponse>(
     (signal) => {

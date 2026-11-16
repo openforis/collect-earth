@@ -66,6 +66,24 @@ describe("resolveConfig", () => {
     for (const n of r.notices) expect(n).toContain("sentinel2");
   });
 
+  it("accepts a Sentinel-2 year and years from 2016, and skips them together with a composite window", () => {
+    const ok = (entry: object) => resolve({ v: 1, layers: [entry] }).notices.length === 0;
+    expect(ok({ type: "sentinel2", years: [2016, 2026], year: 2020 })).toBe(true);
+    expect(ok({ type: "sentinel2", year: 2015 })).toBe(false);
+    expect(ok({ type: "sentinel2", years: [2015, 2020] })).toBe(false);
+    const r = resolve({
+      v: 1,
+      layers: [
+        { type: "sentinel2", year: 2020, start: "2022-01-01", end: "2022-07-01" },
+        { type: "sentinel2", years: [2018, 2020], start: "2022-01-01", end: "2022-07-01" },
+        { type: "landsat" },
+      ],
+    });
+    expect(types(r.layers)).toEqual(["landsat"]);
+    expect(r.notices).toHaveLength(2);
+    for (const n of r.notices) expect(n).toMatch(/sentinel2.*year/);
+  });
+
   it("skips an entry with an unknown parameter", () => {
     const r = resolve({ v: 1, charts: [{ type: "modis", colour: "red" }, { type: "ccdc" }] });
     expect(types(r.charts)).toEqual(["ccdc"]);

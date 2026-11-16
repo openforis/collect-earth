@@ -5,6 +5,8 @@
       "title": "Sentinel-2 composite",
       "params": {
         "label": { "type": "text", "max": 60 },
+        "years": { "type": "yearRange", "min": 2016 },
+        "year": { "type": "year", "min": 2016 },
         "start": { "type": "date" },
         "end": { "type": "date" },
         "bands": { "type": "choice", "values": ["false-colour", "true-colour"], "default": "false-colour" },

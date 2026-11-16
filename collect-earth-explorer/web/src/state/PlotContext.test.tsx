@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { PlotProvider, usePlot } from "./PlotContext";
+import { LAST_12_MONTHS, PlotProvider, usePlot } from "./PlotContext";
 import type { PlotParams } from "../lib/urlParams";
 import { resolveConfig } from "../lib/config";
 
@@ -101,6 +101,33 @@ describe("PlotProvider / usePlot", () => {
       ]),
     });
     expect([0, 1, 2, 3].map(result.current.yearOf)).toEqual([2010, 2010, 2003, 2026]);
+  });
+
+  it("starts a Sentinel-2 entry at the last 12 months, else its year clamped into its years; a fixed window has no year", () => {
+    const { result } = renderHook(() => usePlot(), {
+      wrapper: withLayers([
+        { type: "sentinel2" },
+        { type: "sentinel2", years: [2018, 2020] },
+        { type: "sentinel2", year: 2019 },
+        { type: "sentinel2", years: [2018, 2020], year: 2023 },
+        { type: "sentinel2", start: "2022-01-01", end: "2022-07-01" },
+      ]),
+    });
+    expect([0, 1, 2, 3, 4].map(result.current.yearOf)).toEqual([LAST_12_MONTHS, LAST_12_MONTHS, 2019, 2020, undefined]);
+    act(() => result.current.setYear(0, 2017));
+    expect(result.current.yearOf(0)).toBe(2017);
+    act(() => result.current.setYear(0, LAST_12_MONTHS));
+    expect(result.current.yearOf(0)).toBe(LAST_12_MONTHS);
+  });
+
+  it("keeps the bands of each entry, starting at its bands parameter, without changing the active layer", () => {
+    const { result } = renderHook(() => usePlot(), {
+      wrapper: withLayers([{ type: "sentinel2", bands: "true-colour" }, { type: "sentinel2" }, { type: "landsat" }]),
+    });
+    expect([0, 1, 2].map(result.current.bandsOf)).toEqual(["true-colour", "false-colour", "false-colour"]);
+    act(() => result.current.setBands(2, "true-colour"));
+    expect([0, 1, 2].map(result.current.bandsOf)).toEqual(["true-colour", "false-colour", "true-colour"]);
+    expect(result.current.activeLayer).toBe(0);
   });
 
   it("compares with the first entry when there is only one", () => {

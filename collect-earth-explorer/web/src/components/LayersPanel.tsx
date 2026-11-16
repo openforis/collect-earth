@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
-import { usePlot, type LayerId } from "../state/PlotContext";
-import type { LayerEntry } from "../lib/config";
+import { LAST_12_MONTHS, usePlot, type LayerId, type Year } from "../state/PlotContext";
+import { layerChoices, yearRange, type LayerEntry } from "../lib/config";
 
-const MIN_YEAR = 1984;
 const COMMIT_DELAY_MS = 400;
 /** Below this width (matches the CSS breakpoint) the panel starts collapsed behind a Layers button. */
 const NARROW_QUERY = "(max-width: 900px)";
@@ -41,21 +40,31 @@ function Radio({ id, label, active, disabled, onSelect }: RadioProps) {
   );
 }
 
-/** An entry's row label; a Landsat entry's carries its year, an unlabelled Sentinel-2 one its window. */
-function labelOf(entry: LayerEntry, year: number) {
+/** An entry's name: its label, else its sensor. */
+const nameOf = (entry: LayerEntry) => (entry.params.label as string | undefined) ?? (entry.type === "landsat" ? "Landsat" : "Sentinel-2");
+
+/** An entry's row label: its name and year; an unlabelled Sentinel-2 one with a fixed window carries the window. */
+function labelOf(entry: LayerEntry, year: Year | undefined) {
   const { label, start, end } = entry.params as { label?: string; start?: string; end?: string };
-  if (entry.type === "landsat") return `${label ?? "Landsat"} ${year}`;
+  if (typeof year === "number") return `${nameOf(entry)} ${year}`;
   return label ?? (start ? `Sentinel-2 ${start} to ${end}` : "Sentinel-2, last 12 months");
 }
 
-/** A Landsat entry's radio row and year slider; each entry owns its pending year. */
-function LandsatRow({ i, entry }: { i: number; entry: LayerEntry }) {
+/** "false-colour" -> "False colour". */
+const bandsText = (v: string) => v[0].toUpperCase() + v.slice(1).replace("-", " ");
+
+/**
+ * An imagery entry's radio row with its band selector, and its year slider; each entry owns its pending year.
+ * A Sentinel-2 slider has one stop past its last year for the last 12 months; one with a fixed window has none.
+ */
+function LayerRow({ i, entry }: { i: number; entry: LayerEntry }) {
   const p = usePlot();
   const { compare, selectYear, setYear } = p;
-  const [min, max] = (entry.params.years as [number, number] | undefined) ?? [MIN_YEAR, new Date(p.end).getUTCFullYear()];
+  const [min, max] = yearRange(entry, p.end);
+  const lastStop = entry.type === "sentinel2" ? max + 1 : max;
   // A year the slider has been dragged to but that is not committed yet;
   // null when the slider is at rest on the committed year.
-  const [pendingYear, setPendingYear] = useState<number | null>(null);
+  const [pendingYear, setPendingYear] = useState<Year | null>(null);
   const draftYear = pendingYear ?? p.yearOf(i);
 
   // Debounce: the slider updates the label immediately; the context (and so the
@@ -75,15 +84,24 @@ function LandsatRow({ i, entry }: { i: number; entry: LayerEntry }) {
 
   return (
     <>
-      <Radio id={i} label={labelOf(entry, draftYear)} active={p.activeLayer} onSelect={p.setActiveLayer} />
-      {min < max && (
+      <div className="layer-line">
+        <Radio id={i} label={labelOf(entry, draftYear)} active={p.activeLayer} onSelect={p.setActiveLayer} />
+        <select aria-label={`${nameOf(entry)} bands`} value={p.bandsOf(i)} onChange={(e) => p.setBands(i, e.target.value)}>
+          {layerChoices(entry.type, "bands").map((v) => (
+            <option key={v} value={v}>
+              {bandsText(v)}
+            </option>
+          ))}
+        </select>
+      </div>
+      {draftYear !== undefined && min < lastStop && (
         <input
           type="range"
-          aria-label={`${(entry.params.label as string | undefined) ?? "Landsat"} year`}
+          aria-label={`${nameOf(entry)} year`}
           min={min}
-          max={max}
-          value={draftYear}
-          onChange={(e) => setPendingYear(Number(e.target.value))}
+          max={lastStop}
+          value={draftYear === LAST_12_MONTHS ? lastStop : draftYear}
+          onChange={(e) => setPendingYear(Number(e.target.value) > max ? LAST_12_MONTHS : Number(e.target.value))}
           style={{ width: "100%" }}
         />
       )}
@@ -115,13 +133,9 @@ export default function LayersPanel() {
       {toggle}
       <div className="layers-panel">
         <strong>Layers</strong>
-        {p.layers.map((entry, i) =>
-          entry.type === "landsat" ? (
-            <LandsatRow key={i} i={i} entry={entry} />
-          ) : (
-            <Radio key={i} id={i} label={labelOf(entry, 0)} active={p.activeLayer} onSelect={p.setActiveLayer} />
-          ),
-        )}
+        {p.layers.map((entry, i) => (
+          <LayerRow key={i} i={i} entry={entry} />
+        ))}
         <Radio
           id="scene"
           label={p.scene ? `Scene: ${p.scene.label}` : "Scene (click a chart point)"}

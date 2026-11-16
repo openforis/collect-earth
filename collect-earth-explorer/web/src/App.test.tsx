@@ -31,6 +31,9 @@ const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 const cardIds = () => screen.queryAllByTestId(/^card-/).map((c) => c.getAttribute("data-testid"));
 const withConfig = (config: object) => `${PLOT_URL}&config=${encodeURIComponent(JSON.stringify(config))}`;
+const bodyOf = (call: unknown[]) => JSON.parse((call[1] as RequestInit).body as string);
+const firstBody = (fetchMock: ReturnType<typeof vi.fn>) => bodyOf(fetchMock.mock.calls[0]);
+const lastBody = (fetchMock: ReturnType<typeof vi.fn>) => bodyOf(fetchMock.mock.calls.at(-1)!);
 const callsTo = (fetchMock: ReturnType<typeof vi.fn>, url: string) => fetchMock.mock.calls.filter(([u]) => u === url);
 
 describe("App", () => {
@@ -137,6 +140,63 @@ describe("App", () => {
     const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
     expect(Object.keys(body)).toEqual(["plot", "start", "end", "year", "bands", "maxCloud"]);
     expect(body).toMatchObject({ bands: "true-colour", maxCloud: 30 });
+  });
+
+  it("a Sentinel-2 year requests that calendar year's composite; the last 12 months send no window", async () => {
+    window.history.replaceState({}, "", PLOT_URL);
+    render(<App />);
+    expect(await screen.findByText(TILE.label)).toBeTruthy();
+    fireEvent.change(screen.getByRole("slider", { name: "Sentinel-2 year" }), { target: { value: "2020" } });
+    expect(screen.getByRole("radio", { name: "Sentinel-2 2020" })).toBeTruthy();
+    // Debounced: nothing is requested until the slider rests.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(lastBody(fetchMock)).toEqual({ ...firstBody(fetchMock), compositeStart: "2020-01-01", compositeEnd: "2021-01-01" });
+    const slider = screen.getByRole("slider", { name: "Sentinel-2 year" }) as HTMLInputElement;
+    fireEvent.change(slider, { target: { value: slider.max } });
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    expect(lastBody(fetchMock)).toEqual(firstBody(fetchMock));
+  });
+
+  it("the band selector re-requests the row's tiles, sending bands only when not the default, and keeps the active layer", async () => {
+    window.history.replaceState({}, "", PLOT_URL);
+    render(<App />);
+    expect(await screen.findByText(TILE.label)).toBeTruthy();
+    fireEvent.change(screen.getByRole("combobox", { name: "Sentinel-2 bands" }), { target: { value: "true-colour" } });
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(fetchMock.mock.calls[1][0]).toBe("/api/tiles/sentinel2");
+    expect(Object.keys(lastBody(fetchMock))).toEqual(["plot", "start", "end", "bands"]);
+    expect(lastBody(fetchMock).bands).toBe("true-colour");
+    expect((screen.getByRole("radio", { name: "Sentinel-2, last 12 months" }) as HTMLInputElement).checked).toBe(true);
+    fireEvent.change(screen.getByRole("combobox", { name: "Sentinel-2 bands" }), { target: { value: "false-colour" } });
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    expect(lastBody(fetchMock)).toEqual(firstBody(fetchMock));
+  });
+
+  it("each side of Compare follows its own row's year and bands; a row compared with itself still reuses the left tiles", async () => {
+    window.history.replaceState({}, "", PLOT_URL);
+    render(<App />);
+    expect(await screen.findByText(TILE.label)).toBeTruthy();
+    fireEvent.click(screen.getByRole("checkbox", { name: /Compare with/ }));
+    expect(await screen.findByText(`Right: ${LANDSAT_TILE.label}`)).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Landsat bands" }), { target: { value: "true-colour" } });
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    expect(fetchMock.mock.calls[2][0]).toBe("/api/tiles/landsat");
+    expect(lastBody(fetchMock).bands).toBe("true-colour");
+
+    fireEvent.change(screen.getByRole("slider", { name: "Sentinel-2 year" }), { target: { value: "2019" } });
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
+    expect(fetchMock.mock.calls[3][0]).toBe("/api/tiles/sentinel2");
+    expect(lastBody(fetchMock)).toMatchObject({ compositeStart: "2019-01-01", compositeEnd: "2020-01-01" });
+    expect(lastBody(fetchMock).bands).toBeUndefined();
+    // The slider moved while comparing: Sentinel-2 stays on the left.
+    expect((screen.getByRole("radio", { name: "Sentinel-2 2019" }) as HTMLInputElement).checked).toBe(true);
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Compare layer" }), { target: { value: "0" } });
+    expect(await screen.findByText(`Right: ${TILE.label}`)).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 
   it("without a configuration shows the four standard cards in order and no notice", async () => {

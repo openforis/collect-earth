@@ -41,6 +41,9 @@ input[type="radio"], input[type="checkbox"], input[type="range"] { accent-color:
 .layers-panel strong { font-weight: 600; }
 .layer-row { display: flex; gap: 6px; align-items: center; }
 .layers-panel select { width: 100%; }
+/* A row's radio label with its band selector, small and right-aligned. */
+.layer-line { display: flex; gap: 6px; align-items: center; justify-content: space-between; }
+.layers-panel .layer-line select { width: auto; flex: none; padding: 1px 4px; font-size: 11px; }
 /* Above the map's attribution line. */
 .map-status { bottom: 32px; padding: 4px 10px; border-radius: 8px; font-size: 12px; }
 .map-status button { margin-left: 8px; }

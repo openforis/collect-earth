@@ -80,6 +80,11 @@ used. Example:
 - `layers` is the layers panel in order (the first opens first); `charts` is the chart cards in order.
   Leaving out one of the two keeps the standard list for it; `"charts": []` shows no charts.
 - A type can be listed more than once with different parameters.
+- In the layers panel each imagery row has a band selector (false or true colour) and a year
+  slider. Landsat's `years` limits its slider and `year` is where it starts. Sentinel-2 takes the
+  same two (from 2016); its slider ends with a stop for the last 12 months, where it starts
+  without `year`. A Sentinel-2 entry with `start` and `end` is that fixed window, without a slider,
+  and cannot also have `year` or `years`.
 - An entry that is not understood is skipped and a notice is shown; the rest still works.
 - Types, parameters, allowed values and defaults: `functions/catalogue.json`, served at
   `GET /api/catalogue`.
