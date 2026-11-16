@@ -2,7 +2,7 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const request = require("supertest");
 const { createApp } = require("../app");
-const { monthsBefore } = require("../ee/sentinel2Composite");
+const { monthsBefore, mayBeEmpty } = require("../ee/sentinel2Composite");
 const { registerRoutes, TTL } = require("../routes");
 const { belize } = require("./fixtures");
 
@@ -84,6 +84,13 @@ test("monthsBefore pins Date.setUTCMonth rollover for short target months", () =
   const result = monthsBefore("2024-03-31", 1);
   assert.match(result, /^\d{4}-\d{2}-\d{2}$/);
   assert.equal(result, "2024-03-02");
+});
+
+test("mayBeEmpty: only a composite with an explicit window or a cloud limit pays for the empty check", () => {
+  assert.equal(mayBeEmpty({}), false, "the standard request costs what it did");
+  assert.equal(mayBeEmpty({ bands: "true-colour" }), false);
+  assert.equal(mayBeEmpty({ start: "2022-01-01", end: "2022-01-08" }), true);
+  assert.equal(mayBeEmpty({ maxCloud: 5 }), true);
 });
 
 test("registerRoutes is a function and leaves /api/health working", async () => {

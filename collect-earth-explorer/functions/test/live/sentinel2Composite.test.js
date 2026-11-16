@@ -66,3 +66,13 @@ test("sentinel2 composite tile over the plot is served as an image", live, async
   assert.equal(res.status, 200, `tile ${url} returned ${res.status}`);
   assert.match(res.headers.get("content-type") || "", /^image\//);
 });
+
+test("sentinel2 composite with a window and cloud limit no scene meets is a 404 not_found", live, async () => {
+  await eeAuth();
+  await assert.rejects(sentinel2CompositeTiles(ee.Geometry(belize), "2022-01-08", { start: "2022-01-01", maxCloud: 1 }), (e) => {
+    assert.equal(e.status, 404, `${e.status} ${e.message}`);
+    assert.equal(e.code, "not_found");
+    assert.equal(e.message, "no Sentinel-2 scenes from 2022-01-01 to 2022-01-08");
+    return true;
+  });
+});

@@ -1,5 +1,6 @@
 const { ee } = require("./auth");
-const { getTileUrl } = require("./promise");
+const { getTileUrl, evaluate } = require("./promise");
+const { notFoundIfEmpty } = require("../lib/errors");
 const { sentinel2Images, SENTINEL_FALSE_COLOUR_RENAMED, SENTINEL_TRUE_COLOUR_RENAMED } = require("./sentinel2");
 
 function sharpen(image) {
@@ -17,19 +18,28 @@ function monthsBefore(isoDate, months) {
  * Cloud-masked median of `[start, end)` (by default the 12 months ending at `end`), sharpened,
  * limited to the bands of the chosen combination (selected before sharpening: identical result,
  * fewer bands convolved). `maxCloud` is the scene-level cloudy-pixel limit (percent).
- * Returns the unvisualised image and its visualisation so callers and tests can inspect them.
+ * Returns the unvisualised image, the collection it reduces and its visualisation so callers and tests can inspect them.
  */
 function buildComposite(plot, end, { bands, maxCloud, start = monthsBefore(end, 12) } = {}) {
   const viz = bands === "true-colour" ? SENTINEL_TRUE_COLOUR_RENAMED : SENTINEL_FALSE_COLOUR_RENAMED;
-  const median = sentinel2Images(plot, start, end, { maxCloudyPercent: maxCloud }).median().select(viz.bands);
-  return { image: sharpen(median), start, viz };
+  const collection = sentinel2Images(plot, start, end, { maxCloudyPercent: maxCloud });
+  return { image: sharpen(collection.median().select(viz.bands)), collection, start, viz };
 }
 
-/** Tile URL for the composite ending at `end`; options as buildComposite. */
+/**
+ * Whether the composite's window can plausibly hold no scene: only an explicit window or a cloud limit
+ * (the route passes them only when not the default). The standard 12 months always has scenes, so it skips the check. Pure.
+ */
+function mayBeEmpty(options = {}) {
+  return options.start !== undefined || options.maxCloud !== undefined;
+}
+
+/** Tile URL for the composite ending at `end`; options as buildComposite. 404 not_found when a custom window has no scene. */
 async function sentinel2CompositeTiles(plot, end, options) {
-  const { image, start, viz } = buildComposite(plot, end, options);
+  const { image, collection, start, viz } = buildComposite(plot, end, options);
+  if (mayBeEmpty(options)) notFoundIfEmpty(await evaluate(collection.size()), `no Sentinel-2 scenes from ${start} to ${end}`);
   const tileUrl = await getTileUrl(image.visualize(viz));
   return { tileUrl, label: `Sentinel-2 composite ${start} to ${end}`, dateRange: { start, end } };
 }
 
-module.exports = { sentinel2CompositeTiles, buildComposite, monthsBefore };
+module.exports = { sentinel2CompositeTiles, buildComposite, monthsBefore, mayBeEmpty };
