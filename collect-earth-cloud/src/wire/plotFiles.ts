@@ -66,6 +66,12 @@ export interface ListedCsvFile extends CsvFile {
   divided: boolean;
   /** People holding at least one of its plots; 0 for a whole file. */
   dividedPeople: number;
+  /**
+   * The rules of one set of plots (src/projectPlots.ts), broken by a project from before them: its columns are not the
+   * project's (the person's plots leave it out), and how many of its plots another plot file has too.
+   */
+  columnsDiffer: boolean;
+  sharedPlots: number;
 }
 
 /**

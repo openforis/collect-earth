@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { bearer, createProject, makeContext, type TestContext } from './helpers.js';
+import { bearer, createProject, legacyPlotFile, makeContext, type TestContext } from './helpers.js';
 import { strFromU8, strToU8, unzipSync } from 'fflate';
 import { cepWith, idOnlyCep } from './fixtures/cep.js';
 import { MAX_PLACES } from '../src/routes/plotPlaces.js';
@@ -40,8 +40,9 @@ describe('POST /quality/places', () => {
 
   it('gives the latitude and longitude after the key columns, in the order asked, leaving out unknown plots', async () => {
     await upload('a.csv', 'id,YCoordinate,XCoordinate,elevation\n1,-12.5,30.25,100\n2,40,-3.7,5\n');
-    // A second file with decimal commas (quoted), as Collect Earth accepts; a plot in both keeps the first file's place.
-    await upload('b.csv', '3,"10,5","-70,125",1\n1,0,0,0\n');
+    // A second file with decimal commas (quoted), as Collect Earth accepts; a plot in both keeps the first file's place
+    // (a project from before the rules of one set of plots).
+    await legacyPlotFile(ctx, project.projectId, 'b.csv', '3,"10,5","-70,125",1\n1,0,0,0\n');
     const res = await places(['3', 'nope', '1', '2']);
     expect(res.statusCode, res.body).toBe(200);
     expect(res.json()).toEqual({

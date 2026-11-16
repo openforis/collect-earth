@@ -4,9 +4,12 @@
 // plots sent back to them to check again), as each is served to them (with the round and the coordinator's note
 // columns); training sets stay apart.
 //
-// One file needs one set of columns, and Collect Earth gives the extra columns to the survey's questions by position:
+// One file needs one set of columns, and Collect Earth reads the keys and the coordinates by position and gives the
+// extra columns to the survey's questions by position:
 // - the columns are those of the part with the most rows (the project's plot files have the survey's columns);
-// - a part with the same column names in another order (any letter case) has its values put in that order;
+// - a part with as many columns, whose extra columns (after the keys and the coordinates) have the same names in
+//   another order (any letter case), has its values put in that order (sameColumns: the rule a plot file added to a
+//   project is held to, src/projectPlots.ts); the keys and coordinates may be named otherwise (lat, YCoordinate);
 // - a part without a header row is taken as it is when it is no wider;
 // - a part with other columns is left out, and said (`leftOut`): its plots would fill the wrong questions.
 // A plot (its keys and its round) in two parts is written once, from the first: the plots sent back come first, so a
@@ -47,6 +50,31 @@ export const PLOT_FILE_COLUMN = 'plot_file';
 const names = (file: PlotFile) => file.header?.fields.map((f) => f.trim().toLowerCase()) ?? null;
 
 /**
+ * Where each of the reference header's columns is in another header (an index per column), or null when they are not
+ * the same columns: as many of them, and the extra columns (after the first `lead`: the keys and the two coordinates,
+ * read by position, whatever their names) with the same names in any order and letter case, each once; a column with
+ * no name is matched by its place.
+ */
+export function sameColumns(reference: readonly string[], other: readonly string[], lead: number): number[] | null {
+  if (reference.length !== other.length) return null;
+  const ref = reference.map((n) => n.trim().toLowerCase());
+  const own = other.map((n) => n.trim().toLowerCase());
+  if (ref.every((n, i) => n === own[i])) return ref.map((_, i) => i);
+  const order: number[] = [];
+  for (let i = 0; i < ref.length; i++) {
+    if (i < lead || ref[i] === '') {
+      if (i >= lead && own[i] !== '') return null;
+      order.push(i);
+      continue;
+    }
+    const at = own.indexOf(ref[i], lead);
+    if (at < 0 || own.indexOf(ref[i], at + 1) >= 0 || ref.indexOf(ref[i], i + 1) >= 0) return null;
+    order.push(at);
+  }
+  return order;
+}
+
+/**
  * The parts in one plot file: `keyCount` is the number of key columns of the files as served (the survey's keys, the
  * round with them), which make a row's plot. Separator `,`, line break `\n`, no BOM, each value quoted when it needs it.
  */
@@ -82,16 +110,12 @@ export function mergePlotFiles(
     let order: number[] | null = null;
     const own = names(file);
     if (own && referenceNames) {
-      const same = own.length === referenceNames.length && own.every((n, i) => n === referenceNames[i]);
-      if (!same) {
-        const unique = new Set(own).size === own.length;
-        const at = referenceNames.map((n) => own.indexOf(n));
-        if (!unique || own.length !== referenceNames.length || at.some((i) => i < 0)) {
-          leftOut.push({ csvFileId: part.csvFileId, filename: part.filename, reason: 'columns_differ' });
-          return;
-        }
-        order = at;
+      const at = sameColumns(referenceNames, own, keyCount + 2);
+      if (!at) {
+        leftOut.push({ csvFileId: part.csvFileId, filename: part.filename, reason: 'columns_differ' });
+        return;
       }
+      order = at.every((i, n) => i === n) ? null : at;
     } else if (!own && file.columnCount > width) {
       leftOut.push({ csvFileId: part.csvFileId, filename: part.filename, reason: 'columns_differ' });
       return;

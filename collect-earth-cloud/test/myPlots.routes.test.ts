@@ -102,16 +102,20 @@ describe('the person’s plots (my-plots)', () => {
     expect(res.json().plots).toBe(0);
   });
 
-  it('puts the columns of a file in the order of the others, leaves out a file with other columns, and writes a plot in two files once', async () => {
-    const a = await upload('a.csv', csv([1, 2, 3]));
-    const b = await upload('b.csv', 'lon;id;lat\n24;4;-10\n');
-    const c = await upload('c.csv', csv([5], 'id,lat,lon,province'));
-    const d = await upload('d.csv', `${csv([1, 6])}7,,\n8,-95,20\n`);
+  it('puts the extra columns of a file in the order of the others, leaves out a file with other columns, and writes a plot in two files once', async () => {
+    const rows = (ids: number[]) => ids.map((i) => `${i},-10,${20 + i},P,1`).join('\n');
+    const a = await upload('a.csv', `id,lat,lon,province,slope\n${rows([1, 2, 3])}\n`);
+    const b = await upload('b.csv', 'plot;y;x;SLOPE;Province\n4;-10;24;1;P\n');
+    // files of an older project, from before the rules of one set of plots: other columns, a plot of another file,
+    // rows Collect Earth cannot read
+    const legacy = async (filename: string, text: string, plotIds: string[]) => (await ctx.store.putCsvFile(pid, filename, Buffer.from(text), plotIds)).id;
+    const c = await legacy('c.csv', csv([5], 'id,lat,lon,province'), ['5']);
+    const d = await legacy('d.csv', `id,lat,lon,province,slope\n${rows([1, 6])}\n7,,,P,1\n8,-95,20,P,1\n`, ['1', '6', '7', '8']);
     await call('PUT', '/assignments', owner.token, { assignments: [a, b, c, d].map((csvFileId) => ({ userId: people.ana.userId, csvFileId })) });
     const mine = await myPlots(people.ana);
     // d's plot 1 is a's; its plots 7 (no place) and 8 (a latitude of -95) would stop Google Earth Pro's plot file
     expect(mine).toMatchObject({ plots: 5, repeated: 1, unreadable: 2, leftOut: [{ csvFileId: c, filename: 'c.csv', reason: 'columns_differ' }] });
-    expect(rowsOf((await download(people.ana, mine.downloadPath)).body)).toEqual(['1,-10,21', '2,-10,22', '3,-10,23', '4,-10,24', '6,-10,26']);
+    expect(rowsOf((await download(people.ana, mine.downloadPath)).body)).toEqual(['1,-10,21,P,1', '2,-10,22,P,1', '3,-10,23,P,1', '4,-10,24,P,1', '6,-10,26,P,1']);
   });
 
   it('with the round the server adds to the survey, every row has it', async () => {

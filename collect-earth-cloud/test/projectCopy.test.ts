@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import { batchRequest, bearer, envelope, makeContext, setupPlatformAdmin, type TestContext } from './helpers.js';
+import { batchRequest, bearer, envelope, legacyPlotFile, makeContext, setupPlatformAdmin, type TestContext } from './helpers.js';
 import { idOnlyCep } from './fixtures/cep.js';
 
 const CSV = 'id,lat,lon\n1,0,0\n2,0,0\n3,0,0\n4,0,0\n';
@@ -34,7 +34,8 @@ describe('copying a project (a template)', () => {
     expect((await ctx.app.inject({ method: 'PUT', url: `/v1/projects/${src}/cep`, headers: { ...bearer(owner), 'content-type': 'application/zip' }, payload: idOnlyCep() })).statusCode).toBe(200);
     const put = (name: string) => ctx.app.inject({ method: 'PUT', url: `/v1/projects/${src}/csv-files/${name}`, headers: { ...bearer(owner), 'content-type': 'text/csv' }, payload: CSV });
     divided = (await put('divided.csv')).json().id;
-    whole = (await put('whole.csv')).json().id;
+    // the same plots in two files: a project from before the rules of one set of plots
+    whole = await legacyPlotFile(ctx, src, 'whole.csv', CSV);
     maria = await registerUser(ctx.app, src, owner, 'maria');
     jose = await registerUser(ctx.app, src, owner, 'jose', 'reviewer');
     expect((await call('PUT', src, `/csv-files/${divided}/distribution`, { mode: 'even', people: [maria.userId, jose.userId], order: 'file' })).statusCode).toBe(200);

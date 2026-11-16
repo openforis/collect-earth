@@ -18,6 +18,7 @@ import type { Store, UserPlots } from '../store/store.js';
 import type { Assignment, RecordRow, StoredDistribution } from '../types.js';
 import type { AssignmentsAnswer, AssignmentsSaved, CsvFilesAnswer, CsvFileWarnings, CsvUploadAnswer, MyPlotsAnswer, ReplaceImpact } from '../wire/plotFiles.js';
 import { mergePlotFiles, myPlotsVersion, type MergedPlots, type PlotFilePart } from '../myPlots.js';
+import { oneSetFlags, oneSetRefusal } from '../projectPlots.js';
 import { plotFileOf } from '../plotFileCache.js';
 import type { ProjectStateCache } from '../projectState.js';
 import type { SamplingService } from '../samplingService.js';
@@ -264,6 +265,13 @@ export async function registerAssignmentRoutes(
           });
         }
       }
+      // The project's plots are one set (src/projectPlots.ts): a plot in one plot file only, every plot file with the
+      // same columns, so the plots are divided over the project and each person gets theirs in one file
+      const oneSet = await oneSetRefusal(store, projectId, filename, parsed, keyCount);
+      if (oneSet) {
+        telemetry.event('plot_file_refused', { projectId, userId: request.userId }, { reason: oneSet.error });
+        return reply.code(409).send(oneSet);
+      }
       // Replacing a file: plots it loses take their holdings and submitted work out of every file
       // (unless another file has them). Asked first when there is any (?confirm=replace goes ahead).
       const confirmed = (request.query as { confirm?: string } | undefined)?.confirm === 'replace';
@@ -307,12 +315,16 @@ export async function registerAssignmentRoutes(
     { preHandler: requireProjectMembership(store, 'admin') },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const projectId = request.membership!.projectId;
-      const [files, holders] = await Promise.all([store.listCsvFiles(projectId), store.countPlotHolders(projectId)]);
+      const [files, holders, info] = await Promise.all([store.listCsvFiles(projectId), store.countPlotHolders(projectId), store.getRoundInfo(projectId)]);
+      // A project from before the rules of one set of plots may break them: said per file
+      const flags = files.length > 1 ? await oneSetFlags(store, projectId, fileKeyCount(info)) : new Map();
       return reply.send({
         csvFiles: files.map((f) => ({
           ...f,
           divided: Boolean(f.distribution),
           dividedPeople: f.distribution ? holders.get(f.id) ?? 0 : 0,
+          columnsDiffer: flags.get(f.id)?.columnsDiffer ?? false,
+          sharedPlots: flags.get(f.id)?.sharedPlots ?? 0,
         })),
       } satisfies CsvFilesAnswer);
     },

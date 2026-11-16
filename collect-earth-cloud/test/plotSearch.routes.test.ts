@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { demoCep, idOnlyCep } from './fixtures/cep.js';
 import { PlotPlaceReader } from '../src/routes/plotPlaces.js';
 import { PlotIndexCache } from '../src/routes/plotSearch.js';
-import { batchRequest, bearer, createProject, envelope, makeContext, setupPlatformAdmin, type TestContext } from './helpers.js';
+import { batchRequest, bearer, createProject, envelope, legacyPlotFile, makeContext, setupPlatformAdmin, type TestContext } from './helpers.js';
 
 const LAND_USE = 'collect_code_land_use_category';
 const FOREST = 'collect_integer_forest_percentage';
@@ -55,8 +55,10 @@ describe('plot search: GET /plots/search, GET /plots/:plot', () => {
     const csv = (name: string, ids: (number | string)[]) =>
       call('PUT', `/csv-files/${name}`, owner.token, ['id,lat,lon', ...ids.map((id, i) => `${id},${-10 - i / 10},${20 + i / 10}`)].join('\n'), { 'content-type': 'text/csv' });
     plotsFile = (await csv('plots.csv', Array.from({ length: 120 }, (_, i) => i + 1))).json().id;
-    // Plot 1 is in both files; the second is divided: maria holds 1, ben a copy of it.
-    extraFile = (await csv('extra.csv', [1, 'A-7', 'a-8', 'search', 'a/b', 'plot 7', 'Ñandú-1'])).json().id;
+    // Plot 1 is in both files (a project from before the rules of one set of plots); the second is divided: maria
+    // holds 1, ben a copy of it.
+    const extra: (number | string)[] = [1, 'A-7', 'a-8', 'search', 'a/b', 'plot 7', 'Ñandú-1'];
+    extraFile = await legacyPlotFile(ctx, pid, 'extra.csv', ['id,lat,lon', ...extra.map((id, i) => `${id},${-10 - i / 10},${20 + i / 10}`)].join('\n'));
     await ctx.store.setAssignments(pid, [{ userId: maria.userId, csvFileId: plotsFile }]);
     await ctx.store.setDivision(pid, extraFile, { mode: 'manual' }, [
       { plotKey: '1', userId: maria.userId, overlap: false },
@@ -243,7 +245,7 @@ describe('plot search: GET /plots/search, GET /plots/:plot', () => {
     pid = own.projectId;
     await ctx.store.addMembership(pid, owner.userId, 'admin');
     expect((await call('PUT', '/cep', owner.token, demoCep(), { 'content-type': 'application/zip' })).json().round).toMatchObject({ state: 'own', reassessmentCode: '2' });
-    await call('PUT', '/csv-files/own.csv', owner.token, 'id,round,lat,lon\n5,1,1.5,2.5\n50,1,1,1', { 'content-type': 'text/csv' });
+    await legacyPlotFile(ctx, pid, 'own.csv', 'id,round,lat,lon\n5,1,1.5,2.5\n50,1,1,1');
     await batchRequest(ctx.app, pid, own.projectToken, [
       envelope({ recordKey: '5,1', operator: 'ana', modifiedOn: t0, summary: { [LAND_USE]: 'F' } }),
       envelope({ recordKey: '5,2', operator: 'ben', modifiedOn: t0 + 1000, summary: { [LAND_USE]: 'G' } }),

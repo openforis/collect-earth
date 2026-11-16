@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { cepWith, idOnlyCep } from './fixtures/cep.js';
 import { GEO_PAGE_SIZE, GEO_STATUSES } from '../src/plotsGeo.js';
 import { buildServer } from '../src/server.js';
-import { batchRequest, bearer, createProject, envelope, makeContext, setupPlatformAdmin, TEST_SETUP_CODE, type TestContext } from './helpers.js';
+import { batchRequest, bearer, createProject, envelope, legacyPlotFile, makeContext, setupPlatformAdmin, TEST_SETUP_CODE, type TestContext } from './helpers.js';
 
 const LAND_USE = 'collect_code_land_use_category';
 const S = Object.fromEntries(GEO_STATUSES.map((s, i) => [s, i])) as Record<(typeof GEO_STATUSES)[number], number>;
@@ -82,8 +82,9 @@ describe('map of progress: GET /map/plots', () => {
     // 120 plots, plot 120 without numeric coordinates.
     const rows = Array.from({ length: 120 }, (_, i) => `${i + 1},${i === 119 ? 'north' : -10 - i / 10},${20 + i / 10}`);
     plotsFile = (await call('PUT', '/csv-files/plots.csv', owner.token, ['id,lat,lon', ...rows].join('\n'), { 'content-type': 'text/csv' })).json().id;
-    // Plot 1 again (placed elsewhere here) and plot 200: a divided file, ben holds 200 and a copy of 1.
-    southFile = (await call('PUT', '/csv-files/south.csv', owner.token, 'id,lat,lon\n1,5,6\n200,7,8', { 'content-type': 'text/csv' })).json().id;
+    // Plot 1 again (placed elsewhere here: a project from before the rules of one set of plots) and plot 200: a
+    // divided file, ben holds 200 and a copy of 1.
+    southFile = await legacyPlotFile(ctx, pid, 'south.csv', 'id,lat,lon\n1,5,6\n200,7,8');
     await ctx.store.setAssignments(pid, [{ userId: maria.userId, csvFileId: plotsFile }]);
     await ctx.store.setDivision(pid, southFile, { mode: 'manual' }, [
       { plotKey: '200', userId: ben.userId, overlap: false },

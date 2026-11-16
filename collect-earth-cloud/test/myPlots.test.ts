@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mergePlotFiles, myPlotsVersion, type PlotFilePart } from '../src/myPlots.js';
+import { mergePlotFiles, myPlotsVersion, sameColumns, type PlotFilePart } from '../src/myPlots.js';
 
 const part = (csvFileId: string, filename: string, text: string): PlotFilePart => ({ csvFileId, filename, data: Buffer.from(text, 'utf8') });
 const lines = (data: Buffer) => data.toString('utf8').trimEnd().split('\n');
@@ -24,15 +24,22 @@ describe('the person’s plots in one plot file', () => {
     expect(merged.checksum).toMatch(/^[0-9a-f]{64}$/);
   });
 
-  it('puts a part’s columns in the order of the others, by name in any letter case', () => {
+  it('puts a part’s extra columns in the order of the others, by name in any letter case; the keys and coordinates go by place', () => {
     const merged = mergePlotFiles(
       [
         part('a', 'a.csv', 'id,YCoordinate,XCoordinate,province,slope\n1,1,1,La Paz,4\n2,2,2,Oruro,5\n'),
-        part('b', 'b.csv', 'ID;province;xcoordinate;ycoordinate;SLOPE\n3;Potosi;30;-3;6\n'),
+        part('b', 'b.csv', 'plot;lat;lon;SLOPE;Province\n3;-3;30;6;Potosi\n'),
+        // the keys and coordinates by place: a file that moves them is not the same columns
+        part('c', 'c.csv', 'id,province,YCoordinate,XCoordinate,slope\n4,Beni,4,4,7\n'),
       ],
       1,
     );
     expect(lines(merged.data)).toEqual(['id,YCoordinate,XCoordinate,province,slope', '1,1,1,La Paz,4', '2,2,2,Oruro,5', '3,-3,30,Potosi,6']);
+    expect(merged.leftOut.map((l) => l.filename)).toEqual(['c.csv']);
+    // columns without a name are matched by their place
+    expect(sameColumns(['id', 'lat', 'lon', '', '', 'note'], ['id', 'y', 'x', '', '', 'NOTE'], 3)).toEqual([0, 1, 2, 3, 4, 5]);
+    expect(sameColumns(['id', 'lat', 'lon', 'a', 'b'], ['id', 'lat', 'lon', 'b', 'a'], 3)).toEqual([0, 1, 2, 4, 3]);
+    expect(sameColumns(['id', 'lat', 'lon', 'a'], ['id', 'lat', 'lon', 'c'], 3)).toBeNull();
   });
 
   it('leaves out a part with other columns, and says so; a file without a header row is taken when it is no wider', () => {
