@@ -34,8 +34,11 @@ const Ctx = createContext<PlotState | null>(null);
 /** Its `year`, else the last of its `years`, else the year before the plot's end; clamped into `years`. */
 function initialYear(entry: LayerEntry, end: string) {
   const years = entry.params.years as [number, number] | undefined;
-  const y = (entry.params.year as number | undefined) ?? years?.[1] ?? new Date(end).getUTCFullYear() - 1;
-  return years ? Math.min(Math.max(y, years[0]), years[1]) : y;
+  const endYear = new Date(end).getUTCFullYear();
+  const y = (entry.params.year as number | undefined) ?? years?.[1] ?? endYear - 1;
+  // Clamped into the slider's range (LayersPanel): the entry's years, else 1984 to the plot's end year.
+  const [min, max] = years ?? [1984, endYear];
+  return Math.min(Math.max(y, min), max);
 }
 
 export function PlotProvider({

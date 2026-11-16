@@ -71,7 +71,7 @@ function Viewer() {
         <Suspense fallback={<div className="chart-placeholder">Loading charts…</div>}>
           {charts.map((c, i) => {
             const Card = CARDS[c.type];
-            return <Card key={i} params={c.params} />;
+            return Card && <Card key={i} params={c.params} />;
           })}
         </Suspense>
       </aside>
