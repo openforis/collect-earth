@@ -309,7 +309,7 @@ function coordinateColumns(row: PlotRow, keyFields: number): number {
 }
 
 /** A field's text as written in the file: quoted when it holds the separator, a quote or a line break. */
-function fieldText(value: string, separator: string): string {
+export function fieldText(value: string, separator: string): string {
   if (value.includes(separator) || /["\r\n]/.test(value)) {
     return `"${value.replace(/"/g, '""')}"`;
   }

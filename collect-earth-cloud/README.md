@@ -273,6 +273,8 @@ other `GET` that accepts HTML and is not under `/v1/` or `/health` returns its
 | `PUT`  | `/v1/projects/:pid/assignments` | admin | Replace the csv↔operator assignment set (pairs of divided files are ignored) |
 | `GET`  | `/v1/projects/:pid/assignments` | admin | Full assignment matrix |
 | `GET`  | `/v1/projects/:pid/my-assignment` | member | The caller's assigned CSVs + download URLs + checksums; also the divided files where they hold plots (`checksum`/`plotCount` of their own file, `downloadPath` `…/content?mine=1&v=<checksum>`); with a round column, whole files are listed the same way. A file that cannot be built is left out (logged) |
+| `GET`  | `/v1/projects/:pid/my-plots` | member | The person's plots in one plot file (`src/myPlots.ts`, docs/plans/2026-11-16-plots-from-the-server.md), whatever their role: `{version, plots, keyColumns, sources, leftOut, repeated, unreadable, downloadPath}`. Every plot they hold (whole files, their plots of divided files, plots sent back to check again; training sets apart), under the columns of the file with the most rows (another file's same columns in another order are put in that order; a file with other columns is `leftOut`), a plot (keys and round) once, rows whose coordinates Collect Earth cannot read left out. `version` changes with what they get and is worked out without building the file: Collect Earth asks every five minutes |
+| `GET`  | `/v1/projects/:pid/my-plots.csv` | member | That file (`?v=` the version listed: 409 `changed` once it changed). `ETag` the version (`If-None-Match` → 304), `X-Checksum-Sha256`, `X-Plots`; `?plotFile=1` adds a last column `plot_file` with each row's plot file |
 
 **Dividing a plot file between people** (see `docs/plans/2026-10-29-dividing-plots.md`)
 

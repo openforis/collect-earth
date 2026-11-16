@@ -1,6 +1,6 @@
 # Plots from the server for cloud projects — design
 
-Date: 16 November 2026. Branch `claude/awesome-bell-s34gb0`. **Status: design, for decision; nothing built.**
+Date: 16 November 2026. Branch `claude/awesome-bell-s34gb0`. **Status: decided (below); stage 1 built.**
 
 ## What is asked
 
@@ -140,10 +140,9 @@ On the coordinator's side, C works with today's files (stage 1). It becomes simp
 - **Learning sets** stay apart, as today. They are attempts with their own start and their own feedback; mixing them
   into the work would be confusing. A person in training opens the set from the training card, and goes back to their
   plots afterwards.
-- **Coordinators and reviewers:**
-  - With no plots of their own, they get all the project's plots (`?all=1`, only for those roles), as the whole CEP
-    gives them now.
-  - With plots of their own, they choose between "my plots" and "all plots" (a decision below).
+- **Coordinators and reviewers** get the plots they hold, as everyone does. A project may have hundreds of thousands
+  of plots, so a coordinator chooses which ones they assess (they give themselves plots, as they give anyone) rather
+  than Collect Earth loading them all.
 - **`my-assignment` stays** for older Collect Earth.
 - **Cost:** a person's file is built once per `version` and kept, so the check every couple of minutes costs one small
   query. The version is raised in the same transaction as the change of holdings, under the sampling lock.
@@ -155,8 +154,7 @@ On the coordinator's side, C works with today's files (stage 1). It becomes simp
 - **At the join:** the list is downloaded before the restart, so the first start already shows the person's plots
   rather than an empty map. `csv` is set to the copy; the CEP's own file is left as it is.
 - **Keeping it up to date:**
-  - The sync cycle asks `my-plots` every two minutes, as it already asks the coordinator's plot layout
-    (`CloudCoordinatorSettings`). It also asks at a start.
+  - The sync cycle asks `my-plots` every five minutes, and at a start.
   - When `version` changed, it downloads the file with `If-None-Match`, checks the checksum, writes a `.part` file
     and moves it over.
   - Then it reloads the plots: the KMZ again, the map and the form at once. They keep the file by its checksum, not
@@ -251,39 +249,78 @@ and the server writes the survey's order.
 1. **Server: the person's plots.**
    - `my-plots` and `my-plots.csv`;
    - the version raised on every change of holdings;
-   - the survey's column order by header name, and the `plot_file` column;
-   - the checks when a plot file is added;
-   - the CEP's plot files taken at upload by the server.
+   - one column order by header name, and the `plot_file` column;
+   - rows Collect Earth cannot read left out.
    Tests: a person's file for whole files, divided files, a link, reference and check copies; the version; `304`; the
-   column order.
+   column order. (Built: "Stage 1, as built" below.)
 2. **Collect Earth: one list, kept up to date by itself.**
    - the copy in the data folder, downloaded at the join;
-   - the two-minute check, the reload by checksum and the notice;
+   - the five-minute check, the reload by checksum and the notice;
    - plots with unsent work kept;
    - `plot_file` from the row;
    - the Settings card;
    - the fallback to `my-assignment`.
    Real runs (`scripts/workflows`):
-   - a coordinator gives, moves and divides plots while Collect Earth runs, and the plots arrive within two minutes
+   - a coordinator gives, moves and divides plots while Collect Earth runs, and the plots arrive within five minutes
      with no click;
    - a plot moved away with unsent work stays until it is sent;
    - offline, the last copy is used;
    - an older server.
 3. **Dashboard: the project's plots, divided once.**
-   - sources and the two rules;
-   - one division, share links over the project.
+   - sources and the two rules, checked when a source is added;
+   - the CEP's plot files taken at upload by the server;
+   - one division, share links over the project, and a coordinator taking plots for themselves.
    Existing projects: files with other columns flagged.
 4. **"Download for working alone":** the CEP with a person's plots, or all of them.
 
 Stages 1 and 2 give the collectors one list that updates by itself, which is the larger gain. Stage 3 is what makes
 dividing simpler for the coordinator, and needs the two rules, so it comes after.
 
-## Decisions for you
+## Decisions (16 November 2026)
 
-1. **Coordinators and reviewers in Collect Earth:** all the project's plots, as now, or only those they hold?
-   Recommended: all when they hold none, and a switch "my plots / all plots" when they hold some.
-2. **Learning sets:** apart from the person's plots, as now (recommended), or in the same list with a mark?
-3. **One set of plots per project (stage 3):** recommended. It means a plot id is in one source only, and every source
-   has the survey's columns. Today neither is enforced.
-4. **How often Collect Earth asks:** every two minutes (recommended, as the coordinator's settings already are), or
-   every ten.
+1. **Coordinators and reviewers** are given plots like everyone, and get only those they hold: with hundreds of
+   thousands of plots, a coordinator chooses which ones they assess. A way for a coordinator to take plots for
+   themselves goes with stage 3's division over the project.
+2. **Training sets** stay apart from the person's plots.
+3. **The project's plots are one set** (stage 3): a plot id is in one source only, and every source has the same
+   columns.
+4. **Collect Earth asks every five minutes.**
+
+## Stage 1, as built
+
+- `GET /v1/projects/:pid/my-plots` and `GET /v1/projects/:pid/my-plots.csv` (`src/routes/assignments.ts`, merge in
+  `src/myPlots.ts`, the answer's type `MyPlotsAnswer` in `src/wire/plotFiles.ts`).
+- **The parts.** The parts are those `my-assignment` lists, from one function (`personFiles`):
+  - the whole files;
+  - the person's file of each divided file (reference and check copies included);
+  - the plots sent back to check again, first, so a plot's coordinator's note is kept.
+
+  Training sets are not parts, and `my-assignment` is unchanged for older Collect Earth.
+- **The columns.** The file takes the columns of the part with the most rows. This is not the survey's own column
+  order: real plot files often name the coordinates `lat` and `lon`, not the survey's `YCoordinate` and
+  `XCoordinate`, so matching the survey by name would refuse good files.
+  - A part with the same columns in another order (any letter case) is put in that order.
+  - A part without a header row is taken when it is no wider.
+  - A part with other columns is left out and listed (`leftOut`), as its plots would fill the wrong questions.
+  - Stage 3 makes all sources have the same columns, so nothing is left out then.
+- **Each plot once.** A plot (its keys and its round) in two parts is written once (`repeated`).
+- **Unreadable rows.** Rows whose coordinates Collect Earth cannot read are left out and counted (`unreadable`): one
+  such row stops Google Earth Pro's plot file.
+- **The `plot_file` column.** `?plotFile=1` adds a last column `plot_file`, each row's plot file, for stage 2.
+- **The version.** It comes from what each part depends on (the plots held, the file's checksum, the round, the
+  note), not from building it.
+- **What it costs, with someone holding 100,000 plots** (in memory, one instance):
+  - a check: 26–35 ms;
+  - the first build after a change: about 1 s;
+  - the download: 37 ms, 2.8 MB.
+
+  The person's file is kept by version (16 files, 64 MB). The merge of 300,000 plots alone takes 1.6 s.
+- **`ETag`** is the version (`If-None-Match` → 304). `?v=` an older version → 409 `changed`, as for a plot file.
+- **Tests:**
+  - `test/myPlots.test.ts`, 8 tests, the merge;
+  - `test/myPlots.routes.test.ts`, 4 tests: a whole file and a share; training apart; 304, 409; a move gives a new
+    version; a coordinator gets their own plots; columns, repeats, unreadable rows; the round;
+  - `test/isolation.test.ts`, the cross-project 404;
+  - a run on PostgreSQL.
+- **Moved to stage 3:** the server taking the CEP's plot files at upload. It changes how the dashboard adds them (it
+  asks whether to merge them), and belongs with the sources.

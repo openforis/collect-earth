@@ -68,6 +68,30 @@ export interface ListedCsvFile extends CsvFile {
   dividedPeople: number;
 }
 
+/**
+ * GET /v1/projects/:pid/my-plots: the person's plots in one plot file (src/myPlots.ts), which Collect Earth asks about
+ * every few minutes and downloads (`downloadPath`) when `version` changed. Any member; their own plots, whatever
+ * their role; the training sets apart.
+ */
+export interface MyPlotsAnswer {
+  /** Changes whenever what the person gets changes (the plots they hold, a plot file's content, the round, the note) */
+  version: string;
+  /** The rows to assess: a plot and its round, each once */
+  plots: number;
+  /** How many of the file's first columns are the plot's keys (the survey's keys, the round with them) */
+  keyColumns: number;
+  /** How many of them come from each plot file */
+  sources: { csvFileId: string; filename: string; plots: number }[];
+  /** Plot files left out: their columns are not the others' (their plots would fill the wrong questions) */
+  leftOut: { csvFileId: string; filename: string; reason: 'columns_differ' }[];
+  /** Plots in two of the person's files, written once */
+  repeated: number;
+  /** Rows left out as Collect Earth cannot read their coordinates (one would stop Google Earth Pro's plot file) */
+  unreadable: number;
+  /** my-plots.csv for this version (`?plotFile=1` adds a last column with each row's plot file); 409 once it changed */
+  downloadPath: string;
+}
+
 /** GET /v1/projects/:pid/csv-files */
 export interface CsvFilesAnswer {
   csvFiles: ListedCsvFile[];
