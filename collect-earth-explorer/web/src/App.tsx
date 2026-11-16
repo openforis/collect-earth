@@ -72,6 +72,15 @@ function Viewer() {
   );
 }
 
+// Shown when the page is opened without a plot, so the app can be tried without Collect Earth.
+const SAMPLE_PLOTS: [name: string, lon: number, lat: number][] = [
+  ["Forest, Belize", -88.75, 17.25],
+  ["Deforestation frontier, Rondônia, Brazil", -63.0, -10.0],
+  ["Farmland, central Kenya", 37.0, -0.4],
+];
+const sampleHref = (name: string, lon: number, lat: number) =>
+  `?geoJson=${encodeURIComponent(JSON.stringify({ type: "Point", coordinates: [lon, lat] }))}&plot_id=${encodeURIComponent(name)}`;
+
 type Parsed = { params: PlotParams; error?: undefined } | { params?: undefined; error: string };
 
 export default function App() {
@@ -85,7 +94,18 @@ export default function App() {
     }
   }, [search]);
   if (parsed.error !== undefined) {
-    return <p style={{ padding: 16 }}>{parsed.error}. Open this page from Collect Earth.</p>;
+    return (
+      <div style={{ padding: 16 }}>
+        <p>{parsed.error}. Open this page from Collect Earth, or try a sample plot:</p>
+        <ul>
+          {SAMPLE_PLOTS.map(([name, lon, lat]) => (
+            <li key={name}>
+              <a href={sampleHref(name, lon, lat)}>{name}</a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
   }
   return (
     <PlotProvider params={parsed.params}>

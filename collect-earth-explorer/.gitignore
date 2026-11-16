@@ -8,3 +8,5 @@ functions/keys/
 !.env.example
 # Holds only the public function URL, no secrets; the production build bakes it in.
 !web/.env.production
+# Holds only the CORS allowlist, no secrets; the function deploy reads it.
+!functions/.env

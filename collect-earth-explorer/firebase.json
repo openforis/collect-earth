@@ -8,6 +8,7 @@
     }
   ],
   "firestore": {
+    "database": "explorer",
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
   },

@@ -1,3 +1,4 @@
+import { parsePlotUrl } from "./lib/urlParams";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import App from "./App";
@@ -46,6 +47,14 @@ describe("App", () => {
     expect(screen.getByText(/geoJson URL parameter is required/)).toBeTruthy();
     expect(screen.queryByTestId("map")).toBeNull();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("offers sample plots whose links are valid plot URLs", () => {
+    window.history.replaceState({}, "", "/?");
+    render(<App />);
+    const links = screen.getAllByRole("link");
+    expect(links.length).toBe(3);
+    for (const a of links) expect(parsePlotUrl(a.getAttribute("href")!).plotId).toBe(a.textContent);
   });
 
   it("renders the map, plot heading and the sentinel-2 tile label for a valid URL", async () => {

@@ -65,7 +65,8 @@ function getDefaultCache() {
     const { getApps, initializeApp } = require("firebase-admin/app");
     const { getFirestore } = require("firebase-admin/firestore");
     if (!getApps().length) initializeApp();
-    defaultCache = createCache(getFirestore());
+    // Named database: the project's (default) one is in Datastore mode and belongs to other services.
+    defaultCache = createCache(getFirestore("explorer"));
   }
   return defaultCache;
 }

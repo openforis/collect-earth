@@ -3,9 +3,9 @@
 Firebase-hosted imagery and time-series window that Collect Earth opens for a plot. Replaces the GEE app
 `users/collectearth/ce_scripts:frames_landsat_v4_tempSegmentation`.
 
-Formerly the standalone `ce-earth-viewer` repository. The Firebase/GCP project id is
-still `ce-earth-viewer` (project ids cannot be renamed), so that name remains in URLs,
-`.firebaserc` and the setup docs.
+Formerly the standalone `ce-earth-viewer` repository. It is deployed to the existing
+`collectearth` GCP project (shared with collect-earth-cloud), with its cache in the
+Firestore database named `explorer`.
 
 ## Run locally
     cd functions && npm install && cd ../web && npm install && cd ..
@@ -32,9 +32,9 @@ production the web app therefore calls the function URL directly, with CORS:
 
 - `web/.env.production` sets `VITE_API_BASE` to the function URL. 2nd-gen
   function URLs are deterministic, `https://<region>-<project id>.cloudfunctions.net/<functionId>`,
-  so this is `https://europe-west1-ce-earth-viewer.cloudfunctions.net/api`. The
+  so this is `https://europe-west1-collectearth.cloudfunctions.net/api`. The
   Express app mounts its routes under `/api`, so a production request looks like
-  `https://europe-west1-ce-earth-viewer.cloudfunctions.net/api/api/ccdc` (the
+  `https://europe-west1-collectearth.cloudfunctions.net/api/api/ccdc` (the
   same doubled segment the emulator's direct function URL has). The file holds no
   secret and is committed; `vite build` bakes it into `web/dist`.
 - If the project id (or the function region/name) changes, update **both**
@@ -43,7 +43,7 @@ production the web app therefore calls the function URL directly, with CORS:
   and go through the Vite proxy or the Hosting emulator rewrite.
 - The function answers CORS preflights and echoes an allowed `Origin` in
   `Access-Control-Allow-Origin`. The allowlist is `ALLOWED_ORIGINS` (comma-separated
-  origins, e.g. `https://viewer.example.org,https://ce-earth-viewer.web.app`) if that
+  origins, e.g. `https://viewer.example.org,https://collectearth.web.app`) if that
   environment variable is set on the function; otherwise it is
   `https://<project>.web.app`, `https://<project>.firebaseapp.com` (project from
   `GCLOUD_PROJECT`, set automatically by Cloud Functions) plus `http://localhost:5000`,
@@ -52,7 +52,7 @@ production the web app therefore calls the function URL directly, with CORS:
   from a custom domain. Requests from other origins are still processed but get no
   CORS headers, so browsers block the response.
 - The Hosting rewrite remains in `firebase.json` as a fallback for same-origin
-  calls (`https://ce-earth-viewer.web.app/api/health`, quick manual checks); it just
+  calls (`https://collectearth.web.app/api/health`, quick manual checks); it just
   cannot carry requests longer than 60 s.
 
 ## Cache
