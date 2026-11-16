@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo } from "react";
+import { lazy, Suspense, useMemo, type ComponentType } from "react";
 import { PlotProvider, usePlot } from "./state/PlotContext";
 import MapView from "./components/MapView";
 import CompareMap from "./components/CompareMap";
@@ -7,14 +7,17 @@ import { useLayerTiles } from "./components/LayerSources";
 import type { ApiState } from "./hooks/useApi";
 import { isRetryable, type TileResponse } from "./lib/api";
 import { parsePlotUrl, type PlotParams } from "./lib/urlParams";
-import { resolveConfig } from "./lib/config";
+import { resolveConfig, type ChartEntry } from "./lib/config";
 
 // The chart cards pull in Plotly (several MB): loaded in a separate chunk after the
 // map is up, so the first paint does not wait for it.
-const CcdcCard = lazy(() => import("./components/charts/CcdcCard"));
-const LandsatNdviCard = lazy(() => import("./components/charts/LandsatNdviCard"));
-const Sentinel2NdviCard = lazy(() => import("./components/charts/Sentinel2NdviCard"));
-const ModisCard = lazy(() => import("./components/charts/ModisCard"));
+// One component per catalogue chart type.
+const CARDS: Record<string, ComponentType<{ params: ChartEntry["params"] }>> = {
+  ccdc: lazy(() => import("./components/charts/CcdcCard")),
+  "landsat-series": lazy(() => import("./components/charts/LandsatNdviCard")),
+  "sentinel2-series": lazy(() => import("./components/charts/Sentinel2NdviCard")),
+  modis: lazy(() => import("./components/charts/ModisCard")),
+};
 
 /** One line of the map status box: loading / error (with Retry when retryable) / the layer label. */
 function TileStatus({ side, tiles }: { side?: string; tiles: ApiState<TileResponse> }) {
@@ -34,7 +37,7 @@ function TileStatus({ side, tiles }: { side?: string; tiles: ApiState<TileRespon
 }
 
 function Viewer() {
-  const { plot, plotId, start, end, activeLayer, compare, compareLayer } = usePlot();
+  const { plot, plotId, start, end, activeLayer, compare, compareLayer, charts, notices } = usePlot();
   const tiles = useLayerTiles(activeLayer);
   // Comparing a layer with itself (same id, and so the same request key: an
   // entry's year and the scene are shared state) just shows the left tiles twice.
@@ -62,11 +65,14 @@ function Viewer() {
         <p className="dates">
           {start} to {end}
         </p>
+        {notices.length > 0 && (
+          <p className="config-notice">This survey's Explorer settings were partly ignored: {notices.join(" ")}</p>
+        )}
         <Suspense fallback={<div className="chart-placeholder">Loading charts…</div>}>
-          <CcdcCard />
-          <LandsatNdviCard />
-          <Sentinel2NdviCard />
-          <ModisCard />
+          {charts.map((c, i) => {
+            const Card = CARDS[c.type];
+            return <Card key={i} params={c.params} />;
+          })}
         </Suspense>
       </aside>
     </div>

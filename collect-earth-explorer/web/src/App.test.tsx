@@ -10,10 +10,14 @@ vi.mock("./components/CompareMap", () => ({
   ),
 }));
 // The series cards fetch and render Plotly; they have their own tests under components/charts.
-vi.mock("./components/charts/CcdcCard", () => ({ default: () => <div data-testid="card-ccdc" /> }));
-vi.mock("./components/charts/LandsatNdviCard", () => ({ default: () => <div data-testid="card-landsat" /> }));
-vi.mock("./components/charts/Sentinel2NdviCard", () => ({ default: () => <div data-testid="card-sentinel2" /> }));
-vi.mock("./components/charts/ModisCard", () => ({ default: () => <div data-testid="card-modis" /> }));
+// Each probe shows the params its entry passed it.
+const card = (id: string) => ({
+  default: (p: { params: object }) => <div data-testid={`card-${id}`} data-params={JSON.stringify(p.params)} />,
+});
+vi.mock("./components/charts/CcdcCard", () => card("ccdc"));
+vi.mock("./components/charts/LandsatNdviCard", () => card("landsat"));
+vi.mock("./components/charts/Sentinel2NdviCard", () => card("sentinel2"));
+vi.mock("./components/charts/ModisCard", () => card("modis"));
 
 const GEOJSON = JSON.stringify({
   type: "MultiLineString",
@@ -25,6 +29,8 @@ const TILE = { tileUrl: "https://tiles.example/s2/{z}/{x}/{y}", label: "Sentinel
 const LANDSAT_TILE = { tileUrl: "https://tiles.example/landsat/{z}/{x}/{y}", label: "Landsat 2025 composite" };
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+const cardIds = () => screen.queryAllByTestId(/^card-/).map((c) => c.getAttribute("data-testid"));
+const withConfig = (config: object) => `${PLOT_URL}&config=${encodeURIComponent(JSON.stringify(config))}`;
 const callsTo = (fetchMock: ReturnType<typeof vi.fn>, url: string) => fetchMock.mock.calls.filter(([u]) => u === url);
 
 describe("App", () => {
@@ -97,7 +103,7 @@ describe("App", () => {
 
   it("opens the configuration's first layer: a Landsat entry requests Landsat tiles for its year", async () => {
     const config = { v: 1, layers: [{ type: "landsat", years: [2000, 2010], label: "Landsat 2000s" }, { type: "sentinel2" }] };
-    window.history.replaceState({}, "", `${PLOT_URL}&config=${encodeURIComponent(JSON.stringify(config))}`);
+    window.history.replaceState({}, "", withConfig(config));
     render(<App />);
     expect(await screen.findByText(LANDSAT_TILE.label)).toBeTruthy();
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -106,6 +112,45 @@ describe("App", () => {
     const body = JSON.parse(init.body as string);
     expect(Object.keys(body)).toEqual(["plot", "start", "end", "year"]);
     expect(body.year).toBe(2010);
+  });
+
+  it("without a configuration shows the four standard cards in order and no notice", async () => {
+    window.history.replaceState({}, "", PLOT_URL);
+    render(<App />);
+    await screen.findByTestId("card-ccdc");
+    expect(cardIds()).toEqual(["card-ccdc", "card-landsat", "card-sentinel2", "card-modis"]);
+    expect(JSON.parse(screen.getByTestId("card-ccdc").getAttribute("data-params")!).band).toBe("NDFI");
+    expect(screen.queryByText(/settings were partly ignored/)).toBeNull();
+  });
+
+  it("shows only the configuration's charts, passing each its params", async () => {
+    window.history.replaceState({}, "", withConfig({ v: 1, charts: [{ type: "modis" }, { type: "ccdc", band: "NDVI" }] }));
+    render(<App />);
+    await screen.findByTestId("card-modis");
+    expect(cardIds()).toEqual(["card-modis", "card-ccdc"]);
+    expect(JSON.parse(screen.getByTestId("card-ccdc").getAttribute("data-params")!).band).toBe("NDVI");
+    // The layers half is standard: the map still opens on Sentinel-2.
+    expect(await screen.findByText(TILE.label)).toBeTruthy();
+    expect(callsTo(fetchMock, "/api/tiles/sentinel2")).toHaveLength(1);
+  });
+
+  it("reads the configuration from the fragment and lists what it skipped above the charts", async () => {
+    const config = { v: 1, layers: [{ type: "sentinel1" }, { type: "landsat" }], charts: [] };
+    window.history.replaceState(
+      {},
+      "",
+      `/#geoJson=${encodeURIComponent(GEOJSON)};plotId=frag;startTime=2000-01-01;config=${encodeURIComponent(JSON.stringify(config))};`,
+    );
+    render(<App />);
+    const notice = screen.getByText(/^This survey's Explorer settings were partly ignored:/);
+    expect(notice.className).toBe("config-notice");
+    expect(notice.textContent).toContain("sentinel1");
+    // An empty chart list is honoured: heading, dates and the notice only.
+    expect(screen.getByRole("heading", { name: "Plot frag" })).toBeTruthy();
+    expect(screen.queryByText("Loading charts…")).toBeNull();
+    expect(cardIds()).toEqual([]);
+    expect(await screen.findByText(LANDSAT_TILE.label)).toBeTruthy();
+    expect(screen.getAllByRole("radio")).toHaveLength(2);
   });
 
   it("shows a retryable (503) imagery error with a Retry button that re-requests the tiles", async () => {

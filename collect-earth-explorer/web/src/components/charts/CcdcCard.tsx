@@ -5,12 +5,14 @@ import { useApi } from "../../hooks/useApi";
 import { postApi } from "../../lib/api";
 import { usePlot } from "../../state/PlotContext";
 import { pointsToCsv, downloadText } from "../../lib/csv";
+import type { ChartEntry } from "../../lib/config";
 
 const isoDay = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 
-export default function CcdcCard() {
+export default function CcdcCard({ params }: { params: ChartEntry["params"] }) {
   const { plot, start, end, plotId, setScene } = usePlot();
-  const [band, setBand] = useState<CcdcBand>("NDFI");
+  // The entry's band is only the initial choice; the select changes it.
+  const [band, setBand] = useState<CcdcBand>(params.band as CcdcBand);
   const state = useApi<CcdcData>((s) => postApi("ccdc", { plot, start, end, band }, s), [plot, start, end, band]);
   const controls = (
     <select aria-label="CCDC band" value={band} onChange={(e) => setBand(e.target.value as CcdcBand)}>

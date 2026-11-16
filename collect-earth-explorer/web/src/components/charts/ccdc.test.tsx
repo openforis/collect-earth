@@ -51,10 +51,11 @@ function Probe() {
   );
 }
 
-function setup() {
+function setup(band = "NDFI") {
+  const config = resolveConfig(JSON.stringify({ v: 1, charts: [{ type: "ccdc", band }] }), 2026);
   render(
-    <PlotProvider params={params} config={resolveConfig(undefined, 2026)}>
-      <CcdcCard />
+    <PlotProvider params={params} config={config}>
+      <CcdcCard params={config.charts[0].params} />
       <Probe />
     </PlotProvider>,
   );
@@ -107,6 +108,14 @@ describe("CcdcCard", () => {
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     expect(requestAt(1).body.band).toBe("NDVI");
     await vi.waitFor(() => expect(screen.getByTestId("ccdc-chart").getAttribute("data-band")).toBe("NDVI"));
+  });
+
+  it("starts with the band its entry names", async () => {
+    setup("NDVI");
+    await screen.findByTestId("ccdc-chart");
+    expect((screen.getByRole("combobox") as HTMLSelectElement).value).toBe("NDVI");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(requestAt(0).body).toEqual({ plot: params.plot, start: params.start, end: params.end, band: "NDVI" });
   });
 
   it("clicking an observed point selects that Landsat scene", async () => {
