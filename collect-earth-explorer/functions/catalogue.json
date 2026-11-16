@@ -1,0 +1,60 @@
+{
+  "v": 1,
+  "layers": {
+    "sentinel2": {
+      "title": "Sentinel-2 composite",
+      "params": {
+        "label": { "type": "text", "max": 60 },
+        "start": { "type": "date" },
+        "end": { "type": "date" },
+        "bands": { "type": "choice", "values": ["false-colour", "true-colour"], "default": "false-colour" },
+        "maxCloud": { "type": "int", "min": 1, "max": 100, "default": 70 }
+      }
+    },
+    "landsat": {
+      "title": "Landsat yearly composite",
+      "params": {
+        "label": { "type": "text", "max": 60 },
+        "years": { "type": "yearRange", "min": 1984 },
+        "year": { "type": "year", "min": 1984 },
+        "bands": { "type": "choice", "values": ["false-colour", "true-colour"], "default": "false-colour" },
+        "maxCloud": { "type": "int", "min": 1, "max": 100, "default": 50 }
+      }
+    }
+  },
+  "charts": {
+    "ccdc": {
+      "title": "CCDC temporal segmentation",
+      "params": {
+        "band": { "type": "choice", "values": ["NDFI", "NDVI"], "default": "NDFI" },
+        "collapsed": { "type": "bool", "default": false }
+      }
+    },
+    "landsat-series": {
+      "title": "Landsat index series",
+      "params": {
+        "index": { "type": "choice", "values": ["NDVI", "NDMI", "NBR", "EVI"], "default": "NDVI" },
+        "collapsed": { "type": "bool", "default": false }
+      }
+    },
+    "sentinel2-series": {
+      "title": "Sentinel-2 index series",
+      "params": {
+        "index": { "type": "choice", "values": ["NDVI", "NDMI", "NBR", "EVI"], "default": "NDVI" },
+        "collapsed": { "type": "bool", "default": false }
+      }
+    },
+    "modis": {
+      "title": "MODIS 16-day index and burned area",
+      "params": {
+        "index": { "type": "choice", "values": ["NDVI", "EVI"], "default": "NDVI" },
+        "collapsed": { "type": "bool", "default": false }
+      }
+    }
+  },
+  "standard": {
+    "v": 1,
+    "layers": [{ "type": "sentinel2" }, { "type": "landsat" }],
+    "charts": [{ "type": "ccdc" }, { "type": "landsat-series" }, { "type": "sentinel2-series" }, { "type": "modis" }]
+  }
+}

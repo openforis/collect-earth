@@ -93,6 +93,13 @@ test("registerRoutes is a function and leaves /api/health working", async () => 
   assert.deepEqual(res.body, { ok: true });
 });
 
+test("GET /api/catalogue answers 200 with the catalogue and its standard configuration", async () => {
+  const res = await request(appWith()).get("/api/catalogue");
+  assert.equal(res.status, 200);
+  assert.equal(res.body.standard.layers[0].type, "sentinel2");
+  assert.equal(res.body.layers.sentinel2.params.maxCloud.default, 70);
+});
+
 test("TTLs are 20 hours for tiles and 30 days for series", () => {
   assert.equal(TTL.tiles, 20 * 3600);
   assert.equal(TTL.series, 30 * 24 * 3600);

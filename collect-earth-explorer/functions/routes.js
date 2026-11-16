@@ -9,6 +9,7 @@ const { landsatSeries } = require("./ee/landsatSeries");
 const { sentinel2Series } = require("./ee/sentinel2Series");
 const { sceneTiles, validateSceneRequest } = require("./ee/scene");
 const { ccdcSeries, validateCcdcRequest } = require("./ee/ccdc");
+const { catalogue } = require("./lib/catalogue");
 const defaultCache = require("./cache");
 
 /** Cache lifetimes in seconds: tile URLs expire on the EE side after ~24 h, series results are stable. */
@@ -43,6 +44,7 @@ function registerRoutes(app, { cache = defaultCache } = {}) {
   const route = (endpoint, ttl, extrasOf, compute, validate, opts) => plotRoute(endpoint, ttl, extrasOf, compute, validate, cache, opts);
   const noStart = { ignoreStart: true };
 
+  app.get("/api/catalogue", (req, res) => res.json(catalogue));
   app.post("/api/tiles/sentinel2", route("tiles/sentinel2", TTL.tiles, null, (p, g) => sentinel2CompositeTiles(g, p.end), null, noStart));
   app.post(
     "/api/tiles/landsat",
