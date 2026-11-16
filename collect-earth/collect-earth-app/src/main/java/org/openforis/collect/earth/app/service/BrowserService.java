@@ -1231,17 +1231,16 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	}
 
 	/**
-	 * The address of the plot in the Earth Engine App: its outline, its id as the collector sees it ( see
+	 * The address of the plot in Collect Earth Explorer (gee_app_url): its outline, its id as the collector sees it ( see
 	 * {@link #visiblePlotIdOf} ), the survey name, the optional dates and the optional configuration of the Explorer's
 	 * window (EXPLORER_CONFIG, which the old Earth Engine App ignores), in the fragment.
 	 */
 	static String geeAppUrl(String base, SimplePlacemarkObject placemarkObject, String visiblePlotId, String surveyName,
 			String fromDate, String toDate, String config) {
 		StringBuilder url = new StringBuilder(base);
-		url.append("#geoJson=").append(URLEncoder.encode(getGeoJson(placemarkObject, "MultiLineString"), StandardCharsets.UTF_8))
-				.append(";");
-		url.append("plotId=").append(URLEncoder.encode(visiblePlotId, StandardCharsets.UTF_8)).append(";");
-		url.append("survey=").append(URLEncoder.encode(surveyName, StandardCharsets.UTF_8)).append(";");
+		url.append("#geoJson=").append(fragmentValue(getGeoJson(placemarkObject, "MultiLineString"))).append(";");
+		url.append("plotId=").append(fragmentValue(visiblePlotId)).append(";");
+		url.append("survey=").append(fragmentValue(surveyName)).append(";");
 		if (StringUtils.isNotBlank(fromDate)) {
 			url.append("startTime=").append(fromDate).append(";");
 		}

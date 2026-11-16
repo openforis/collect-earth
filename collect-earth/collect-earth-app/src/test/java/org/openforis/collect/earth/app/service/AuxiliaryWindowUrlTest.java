@@ -4,9 +4,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
+import java.io.Reader;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.Properties;
 
 import org.junit.jupiter.api.Test;
 import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
@@ -152,6 +157,37 @@ public class AuxiliaryWindowUrlTest {
 		assertFalse(value.contains("+") || value.contains(" ") || value.contains(";"), value);
 		assertEquals(config, decoded(value));
 		assertEquals(config, decodedAsTheExplorer(value));
+	}
+
+	/** The Earth Engine window's address in a new installation and after an update ( see LocalPropertiesService ) */
+	private static String defaultAddress(String file) throws IOException {
+		Properties properties = new Properties();
+		try (Reader in = Files.newBufferedReader(Paths.get("../collect-earth-installer/src/main/resources", file))) {
+			properties.load(in);
+		}
+		return properties.getProperty("gee_app_url");
+	}
+
+	@Test
+	public void theDefaultAddressIsTheExplorerWithThePlotInTheFragment() throws IOException {
+		String base = defaultAddress("earth.properties_initial");
+		assertEquals("https://explorer.collectearth.org/", base);
+		assertEquals(base, defaultAddress("earth.properties_forced_update"));
+		String url = BrowserService.geeAppUrl(base, plot("7 a+b"), "7 a+b", "dry forest", "2020-01-01", "2024-12-31", "{\"v\":1}");
+		assertTrue(url.startsWith("https://explorer.collectearth.org/#geoJson="), url);
+		assertTrue(url.matches("[^;]*#geoJson=[^;]+;plotId=[^;]+;survey=[^;]+;startTime=2020-01-01;endTime=2024-12-31;config=[^;]+;"), url);
+		String fragment = url.substring(url.indexOf('#') + 1);
+		// Read as the Explorer reads it: segments split by ";", each value through decodeURIComponent
+		for (String part : fragment.split(";")) {
+			String value = decodedAsTheExplorer(part.substring(part.indexOf('=') + 1));
+			if (part.startsWith("plotId=")) {
+				assertEquals("7 a+b", value);
+			} else if (part.startsWith("survey=")) {
+				assertEquals("dry forest", value);
+			} else if (part.startsWith("geoJson=")) {
+				assertTrue(value.startsWith("{\"type\":\"MultiLineString\""), value);
+			}
+		}
 	}
 
 	@Test

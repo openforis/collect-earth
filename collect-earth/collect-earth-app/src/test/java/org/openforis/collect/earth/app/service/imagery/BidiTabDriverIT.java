@@ -86,7 +86,7 @@ public class BidiTabDriverIT {
 			ImagerySource.GOOGLE_EARTH_WEB, "https://earth.google.com/web/",
 			ImagerySource.ESRI_WAYBACK, "https://livingatlas.arcgis.com/wayback/",
 			ImagerySource.PLANET, "https://example.com/",
-			ImagerySource.GEE_APP, "https://fao-earth-map.projects.earthengine.app/view/collect-earth-plot");
+			ImagerySource.GEE_APP, "https://explorer.collectearth.org/");
 
 	/**
 	 * A new browser as Collect Earth starts one with Google Earth Web in a window of its own: the tabs opened first,

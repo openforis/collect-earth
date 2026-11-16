@@ -1,4 +1,4 @@
-gee_app_url=https://fao-earth-map.projects.earthengine.app/view/collect-earth-plot
+gee_app_url=https://explorer.collectearth.org/
 open_gee_app=true
 open_earth_map=false
 open_here_maps=false
