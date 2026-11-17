@@ -152,6 +152,61 @@ describe('accounts, invites and join', () => {
     expect((await login(gone)).json()).toEqual({ error: 'invite_exhausted' });
   });
 
+  it('someone signed in already takes an invitation with that session (/v1/auth/join), with no password', async () => {
+    const first = await createInvite(ctx.app, project.projectId, project.adminToken, 'operator');
+    const session = (await register(ctx.app, 'maria', 'maria-password', first)).json().token as string;
+    const other = await createProject(ctx.app, 'Mexico Review');
+    const join = (inviteToken: unknown, token: string | null = session) =>
+      ctx.app.inject({ method: 'POST', url: '/v1/auth/join', headers: token ? { authorization: `Bearer ${token}` } : {}, payload: { inviteToken } });
+
+    const invite = await createInvite(ctx.app, other.projectId, other.adminToken, 'reviewer', 1);
+    // no session, an unknown one, or a project token: refused, and the link is not used
+    expect((await join(invite, null)).statusCode).toBe(401);
+    expect((await join(invite, 'not-a-session')).statusCode).toBe(401);
+    expect((await join(invite, other.adminToken)).statusCode).toBe(401);
+    expect((await join(undefined)).statusCode).toBe(400);
+    expect((await join('no-such-link')).json()).toEqual({ error: 'invalid_invite' });
+
+    // the session's account joins, whatever username a body might carry
+    const res = await join(invite);
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ projectId: other.projectId, projectName: 'Mexico Review', role: 'reviewer' });
+    const me = await ctx.app.inject({ method: 'GET', url: '/v1/me', headers: { authorization: `Bearer ${session}` } });
+    expect(me.json().memberships.map((m: { projectId: string; role: string }) => [m.projectId, m.role]).sort()).toEqual(
+      [[project.projectId, 'operator'], [other.projectId, 'reviewer']].sort(),
+    );
+    // a member already: the role kept and the link not used up again
+    expect((await join(invite)).json()).toMatchObject({ projectId: other.projectId, role: 'reviewer' });
+
+    // used up, revoked or expired: refused as login refuses
+    const once = await createInvite(ctx.app, other.projectId, other.adminToken, 'operator', 1);
+    expect((await register(ctx.app, 'juan', 'juan-password', once)).statusCode).toBe(201);
+    const third = await createProject(ctx.app, 'Nepal');
+    const gone = await createInvite(ctx.app, third.projectId, third.adminToken, 'operator', 1);
+    expect((await register(ctx.app, 'ana', 'ana-password', gone)).statusCode).toBe(201);
+    expect((await join(gone)).json()).toEqual({ error: 'invite_exhausted' });
+    const admin = { authorization: `Bearer ${third.adminToken}` };
+    const revoked = await createInvite(ctx.app, third.projectId, third.adminToken, 'operator', 5);
+    const open = (await ctx.app.inject({ method: 'GET', url: `/v1/projects/${third.projectId}/invites`, headers: admin })).json().invites as { id: string; maxUses: number }[];
+    await ctx.app.inject({ method: 'DELETE', url: `/v1/projects/${third.projectId}/invites/${open.find((i) => i.maxUses === 5)!.id}`, headers: admin });
+    expect((await join(revoked)).json()).toEqual({ error: 'invalid_invite' });
+    const expiring = (await ctx.app.inject({ method: 'POST', url: `/v1/projects/${third.projectId}/invites`, headers: admin, payload: { role: 'operator', expiresInDays: 1 } })).json().inviteToken as string;
+    const realNow = Date.now;
+    try {
+      Date.now = () => realNow() + 2 * 24 * 3_600_000;
+      expect((await join(expiring)).json()).toEqual({ error: 'invite_exhausted' });
+      // long unused, the session is gone: 401, and Collect Earth asks for the password again
+      Date.now = () => realNow() + 400 * 24 * 3_600_000;
+      expect((await join(expiring)).statusCode).toBe(401);
+    } finally {
+      Date.now = realNow;
+    }
+
+    // signed out: the session no longer joins
+    await ctx.app.inject({ method: 'POST', url: '/v1/auth/logout', headers: { authorization: `Bearer ${session}` } });
+    expect((await join(await createInvite(ctx.app, third.projectId, third.adminToken, 'operator'))).statusCode).toBe(401);
+  });
+
   it('an operator cannot create invites (403)', async () => {
     const token = await createInvite(ctx.app, project.projectId, project.adminToken, 'operator');
     const reg = await register(ctx.app, 'maria', 'hunter2pw', token);

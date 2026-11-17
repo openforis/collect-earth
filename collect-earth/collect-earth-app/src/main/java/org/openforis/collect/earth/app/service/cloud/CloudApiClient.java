@@ -440,6 +440,19 @@ public class CloudApiClient {
 		return textOrNull(response, "token");
 	}
 
+	/**
+	 * Takes an invitation with a session kept here (POST /v1/auth/join): the session's account joins its project, with no
+	 * password. 401 when the session ended; 404 from a server without it (before November 2026).
+	 */
+	public void joinWithSession(String baseUrl, String token, String inviteToken) throws IOException {
+		ObjectNode body = objectMapper.createObjectNode();
+		body.put("inviteToken", inviteToken);
+		HttpPost request = new HttpPost(normalize(baseUrl) + "/v1/auth/join");
+		prepareWith(request, token);
+		request.setEntity(jsonEntity(body.toString()));
+		executeForJson("join", request);
+	}
+
 	/** Fetches the public preview of an invite (project name, role, validity). No auth. */
 	public JoinPreview getJoinPreview(String baseUrl, String inviteToken) throws IOException {
 		HttpGet request = new HttpGet(normalize(baseUrl) + "/v1/join/" + inviteToken);

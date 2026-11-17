@@ -9,11 +9,13 @@ export const importProject = (path: string) => apiPost<{ restart: boolean }>("pr
 /** A file dropped on the page: its bytes go to the server, which answers where it kept them */
 export const uploadFile = (file: File) => apiPost<{ path: string }>("files/upload?name=" + encodeURIComponent(file.name), file);
 
-export interface CloudPreview { baseUrl: string; inviteToken: string; projectId: string; projectName: string; role: string }
+/** `account`: the account signed in here to the invitation's server, which can join with no password (null when none) */
+export interface CloudPreview { baseUrl: string; inviteToken: string; projectId: string; projectName: string; role: string; account?: string | null }
 
 export const cloudPreview = (url: string) => apiPost<CloudPreview>("cloud/preview", { url });
 
-export interface JoinRequest { baseUrl: string; inviteToken: string; projectId: string; username: string; password: string; register: boolean; code?: string }
+/** `useAccount`: join with the preview's `account`, no username or password (cloud.signInAgain when its sign-in ended) */
+export interface JoinRequest { baseUrl: string; inviteToken: string; projectId: string; username: string; password: string; register: boolean; code?: string; useAccount?: boolean }
 
 export const cloudJoin = (request: JoinRequest) => apiPost<{ restart: boolean }>("cloud/join", request);
 

@@ -68,6 +68,8 @@ public class CloudService {
 		public boolean register;
 		/** Two-step sign-in: the code of the authenticator app (or a recovery code), once the server asked for it */
 		public String code;
+		/** Join with the account signed in here to the invitation's server (the preview's {@code account}), no password */
+		public boolean useAccount;
 	}
 
 	private static final String JOIN_MARKER = "/join/";
@@ -153,7 +155,14 @@ public class CloudService {
 		answer.put("projectId", preview.getProjectId());
 		answer.put("projectName", preview.getProjectName());
 		answer.put("role", preview.getRole());
+		// Signed in to that server already (another project's join): the page offers to join with that account
+		answer.put("account", signedInAccount(invitation[0]));
 		return answer;
+	}
+
+	/** The account signed in here to that server (its session kept), or null */
+	private String signedInAccount(String baseUrl) {
+		return StringUtils.trimToNull(properties.getCloudAccounts().get(LocalPropertiesService.normalizeServer(baseUrl)));
 	}
 
 	/**
@@ -161,6 +170,10 @@ public class CloudService {
 	 * failure leaves the configuration as it was.
 	 */
 	public void join(JoinRequest request) throws InvalidCloudRequestException, IOException {
+		if (request.useAccount) {
+			joinSignedIn(request);
+			return;
+		}
 		String username = StringUtils.trimToEmpty(request.username);
 		// Said here, in the user's language, before the server is asked: it refuses the same (weak_password)
 		if (request.register && StringUtils.isNotEmpty(request.password) && StringUtils.isNotBlank(username)
@@ -170,11 +183,45 @@ public class CloudService {
 		// Log in with the invitation: someone who has an account (another project's) joins this one with it
 		String token = request.register ? authenticate(() -> api.register(request.baseUrl, username, request.password, request.inviteToken), request)
 				: authenticate(() -> login(request.baseUrl, username, request.password, request.code, request.inviteToken), request);
+		joined(request, token, username);
+	}
+
+	private void joined(JoinRequest request, String token, String username) throws InvalidCloudRequestException, IOException {
 		// The name typed on this computer until now: its records are this person's (CloudRecordsSender sends those)
 		CloudRecordsSender.rememberLocalName(properties, properties.getOperator());
 		useProject(request.baseUrl, request.projectId, token, username);
 		// The next start offers to send the records this computer already has (CloudRecordsSender)
 		properties.setValue(EarthProperty.CLOUD_OFFER_LOCAL_RECORDS, Boolean.TRUE.toString());
+	}
+
+	/**
+	 * {@link #join} with the session kept for the invitation's server: the server joins that session's account, so no
+	 * password is asked. Not signed in there, or the session ended (401; 404 from an older server): cloud.signInAgain,
+	 * and the page asks for the user name and password as before.
+	 */
+	private void joinSignedIn(JoinRequest request) throws InvalidCloudRequestException, IOException {
+		String username = signedInAccount(request.baseUrl);
+		String token = username == null ? null : properties.getCloudToken(request.baseUrl);
+		InvalidCloudRequestException signIn = new InvalidCloudRequestException("cloud.signInAgain", Messages.getString("CloudJoin.signInAgain"));
+		if (StringUtils.isBlank(token)) {
+			throw signIn;
+		}
+		try {
+			api.joinWithSession(request.baseUrl, token, request.inviteToken);
+		} catch (CloudApiException e) {
+			logger.warn("Joining with the session kept failed: {}", e.getMessage());
+			if (e.getStatus() == 401 || e.getStatus() == 404) {
+				throw signIn;
+			}
+			if ("invite_exhausted".equals(e.getErrorCode()) || "invalid_invite".equals(e.getErrorCode())) {
+				throw new InvalidCloudRequestException("cloud.inviteInvalid", Messages.getString("CloudJoin.inviteInvalid"));
+			}
+			if ("rate_limited".equals(e.getErrorCode())) {
+				throw new InvalidCloudRequestException("cloud.rateLimited", Messages.getString("CloudLoginDialog.rateLimited"));
+			}
+			throw e;
+		}
+		joined(request, token, username);
 	}
 
 	/**
