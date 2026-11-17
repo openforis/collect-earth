@@ -370,8 +370,8 @@ export interface StateFactors {
   /** Each first-assessed plot's values of the columns asked for, as strataValues gives them. */
   strata: Map<string, (string | undefined)[]>;
 }
-/** At most so many kept per project state (the analysis', the Areas page's saved columns, the uncertainty's, a few summaries). */
-const FACTORS_PER_STATE = 8;
+/** At most so many kept per project state (the analysis', the Areas page's saved columns, the uncertainty's, two summaries): each holds a few MB on a large project. */
+const FACTORS_PER_STATE = 5;
 
 /** The summary keys of some column names (any case): their plot questions' and the text Collect Earth sent of a plot file's column. */
 export function summaryKeysOf(model: AnalysisModel, names: readonly string[]): string[] {
