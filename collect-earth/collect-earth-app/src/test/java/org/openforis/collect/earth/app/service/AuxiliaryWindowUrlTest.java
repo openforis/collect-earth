@@ -216,6 +216,18 @@ public class AuxiliaryWindowUrlTest {
 		assertEquals(param(opened.substring(opened.indexOf('#') + 1), "geoJson", ";"), nextGeoJson);
 	}
 
+	/** A plot of a polygon column, or an NFI/NFMA tract, gets its rings from setMultiShape only */
+	@Test
+	public void theExplorerGetsTheOutlineOfAPlotGivenAsRings() {
+		SimplePlacemarkObject polygon = new SimplePlacemarkObject(new String[] { "40.1", "-3.7" });
+		polygon.setPlacemarkId("103");
+		polygon.setMultiShape(Arrays.asList(Arrays.asList(new SimpleCoordinate(40.1, -3.7), new SimpleCoordinate(40.2, -3.7),
+				new SimpleCoordinate(40.2, -3.6), new SimpleCoordinate(40.1, -3.7))));
+		String url = BrowserService.geeAppUrl("https://explorer.collectearth.org/", polygon, "103", "s", null, null, null, null);
+		String geoJson = param(url.substring(url.indexOf('#') + 1), "geoJson", ";");
+		assertTrue(geoJson.contains("[-3.6,40.2]"), geoJson);
+	}
+
 	@Test
 	public void noNextPlotAddsNoPair() {
 		assertFalse(BrowserService.geeAppUrl("https://app/view/plot", plot("101"), "101", "s", null, null, null, null).contains("next="));
