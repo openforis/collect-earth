@@ -81,6 +81,13 @@ export function TwoFactorCard() {
       }
       setPassword("");
     });
+  // Leaving a step forgets what was typed in it: a password typed for one action is not there for the next
+  const cancel = () => {
+    setStep({ kind: "idle" });
+    setPassword("");
+    setCode("");
+    setError(null);
+  };
   const download = (codes: string[]) =>
     saveBlob(
       new Blob([`${t("twoFactor.codesFileTitle", { server: info.serverName ?? t("app.title"), name: me?.username ?? "" })}\n\n${codes.join("\n")}\n\n${t("twoFactor.codesFileNote")}\n`], { type: "text/plain;charset=utf-8" }),
@@ -139,7 +146,7 @@ export function TwoFactorCard() {
               <Button type="submit" variant="contained" disabled={busy || !password || code.replace(/\s/g, "").length !== 6} sx={{ mt: 1 }}>
                 {t("twoFactor.confirm")}
               </Button>
-              <Button onClick={() => setStep({ kind: "idle" })} sx={{ mt: 1 }}>
+              <Button onClick={cancel} sx={{ mt: 1 }}>
                 {t("common.cancel")}
               </Button>
             </Box>
@@ -196,7 +203,7 @@ export function TwoFactorCard() {
             <Button type="submit" variant="contained" color={step.action === "disable" ? "error" : "primary"} disabled={busy || !password} sx={{ mt: 1 }}>
               {t(step.action === "disable" ? "twoFactor.turnOff" : "twoFactor.newCodes")}
             </Button>
-            <Button onClick={() => setStep({ kind: "idle" })} sx={{ mt: 1 }}>
+            <Button onClick={cancel} sx={{ mt: 1 }}>
               {t("common.cancel")}
             </Button>
           </Box>
