@@ -128,30 +128,29 @@ describe("whenIdle", () => {
     vi.unstubAllGlobals();
   });
 
-  it("calls back once, 2 s after the last API request settled; a request in that pause restarts the wait", async () => {
+  it("calls back once, 2 s after all but one API request settled; a request in that pause restarts the wait", async () => {
     const resolvers: ((r: Response) => void)[] = [];
     fetchMock.mockImplementation(() => new Promise((r) => resolvers.push(r)));
     const fn = vi.fn();
     whenIdle(fn);
-    const a = postApi("a", body), b = postApi("b", body);
+    const a = postApi("a", body), b = postApi("b", body), slow = postApi("slow", body);
     resolvers[0](json({}));
     await a;
     await vi.advanceTimersByTimeAsync(5000);
-    expect(fn).not.toHaveBeenCalled(); // b still in flight
+    expect(fn).not.toHaveBeenCalled(); // b and the slow one still in flight
     resolvers[1](json({}));
     await b;
     await vi.advanceTimersByTimeAsync(1500);
     const c = postApi("c", body); // another request of the current plot: wait again
     await vi.advanceTimersByTimeAsync(1000);
-    resolvers[2](json({}, 500));
+    resolvers[3](json({}, 500));
     await c.catch(() => {});
     await vi.advanceTimersByTimeAsync(1999);
     expect(fn).not.toHaveBeenCalled();
-    await vi.advanceTimersByTimeAsync(1);
+    await vi.advanceTimersByTimeAsync(1); // only the slow one is left
     expect(fn).toHaveBeenCalledTimes(1);
-    const d = postApi("d", body);
-    resolvers[3](json({}));
-    await d;
+    resolvers[2](json({}));
+    await slow;
     await vi.advanceTimersByTimeAsync(5000);
     expect(fn).toHaveBeenCalledTimes(1);
   });

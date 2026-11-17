@@ -62,8 +62,9 @@ describe("warmRequests", () => {
       const opened = bodiesOnOpen(cfg);
       // Through JSON, as the server sees it (undefined fields drop out).
       const warmed = JSON.parse(JSON.stringify(warmRequests(next, params, cfg)));
-      expect(warmed).toEqual(opened);
-      expect(warmed.at(-1).path).toMatch(/^tiles\//);
+      // The same requests, in the warm-up's own order (CCDC last).
+      const sorted = (list: unknown[]) => list.map((r) => JSON.stringify(r)).sort();
+      expect(sorted(warmed)).toEqual(sorted(opened));
     }
   });
 
@@ -72,14 +73,16 @@ describe("warmRequests", () => {
     expect(reqs.map((r) => r.path)).toEqual(["series/modis", "tiles/sentinel2"]);
   });
 
-  it("the standard configuration warms four charts and one tile request", () => {
-    expect(warmRequests(next, params, config()).map((r) => r.path)).toEqual(["ccdc", "series/landsat", "series/sentinel2", "series/modis", "tiles/sentinel2"]);
+  it("the standard configuration warms four charts and one tile request, the slow CCDC last", () => {
+    expect(warmRequests(next, params, config()).map((r) => r.path)).toEqual(["series/landsat", "series/sentinel2", "series/modis", "tiles/sentinel2", "ccdc"]);
   });
 });
 
 describe("plotTiles", () => {
-  it("covers a small plot at the map's opening zoom (16) with 256 px tiles one level deeper", () => {
-    expect(plotTiles(next, 0, 0)).toEqual([[17, 33222, 59158], [17, 33223, 59158]]);
+  it("covers a small plot and one tile around it at the map's opening zoom (16) with 256 px tiles one level deeper", () => {
+    const tiles = plotTiles(next, 0, 0);
+    expect(tiles).toHaveLength(12);
+    expect(tiles).toEqual(expect.arrayContaining([[17, 33222, 59158], [17, 33223, 59158], [17, 33221, 59157], [17, 33224, 59159]]));
   });
   it("uses a lower zoom when the plot does not fit the pane at 16", () => {
     const big = { type: "Polygon" as const, coordinates: [[[-88.755, 17.245], [-88.745, 17.245], [-88.745, 17.255], [-88.755, 17.255], [-88.755, 17.245]]] };
@@ -102,16 +105,22 @@ describe("warm", () => {
     });
     const done = warm(next, params, config(), 0, 0);
     const flush = () => new Promise((r) => setTimeout(r, 0));
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 3; i++) {
       await flush();
       expect(fetchMock).toHaveBeenCalledTimes(i + 1);
       pending[i](json({}));
     }
     await flush();
-    expect(fetchMock).toHaveBeenCalledTimes(5);
-    expect(fetchMock.mock.calls[4][0]).toBe("/api/tiles/sentinel2");
-    pending[4](json({ tileUrl: "https://ee/maps/m/tiles/{z}/{x}/{y}", label: "x" }));
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(fetchMock.mock.calls[3][0]).toBe("/api/tiles/sentinel2");
+    pending[3](json({ tileUrl: "https://ee/maps/m/tiles/{z}/{x}/{y}", label: "x" }));
+    await flush();
+    await flush();
+    // The tiles come before CCDC, which is asked last and fails here without consequence.
+    expect(fetchMock.mock.calls.slice(4, 16).map((c) => c[0])).toContain("https://ee/maps/m/tiles/17/33222/59158");
+    expect(fetchMock.mock.calls[16][0]).toBe("/api/ccdc");
+    pending[4](json({}));
     await done;
-    expect(fetchMock.mock.calls.slice(5).map((c) => c[0])).toEqual(["https://ee/maps/m/tiles/17/33222/59158", "https://ee/maps/m/tiles/17/33223/59158"]);
+    expect(fetchMock).toHaveBeenCalledTimes(17);
   });
 });

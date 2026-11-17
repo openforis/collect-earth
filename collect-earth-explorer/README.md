@@ -99,9 +99,9 @@ Fragment, as Collect Earth builds it: `/#geoJson=…;plotId=…;startTime=…;en
 (each value URL-encoded).
 
 Collect Earth may add `next` (fragment `next=…;`, query `&next=…`): the next plot's outline, in the
-same form as `geoJson`. Once the current plot's requests have settled (2 s without one in flight),
-the page requests the next plot's open charts and first imagery layer, one at a time, and downloads
-the imagery tiles the map will open with, so the next plot loads from the server's store and the
+same form as `geoJson`. Once the current plot's requests have settled but perhaps the slowest (2 s with at most one in flight),
+the page requests the next plot's open charts and first imagery layer, one at a time with CCDC last, and downloads
+the imagery tiles on and around the plot (at most 12), so the next plot loads from the server's store and the
 browser's cache. Nothing is shown; a missing or unreadable `next` just means no warming.
 
 ## Cache

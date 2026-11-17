@@ -51,8 +51,9 @@ let idleTimer: ReturnType<typeof setTimeout> | undefined;
 let onIdle: (() => void) | undefined;
 
 /**
- * Calls `fn` once, when no API request has been in flight for 2 s after one settled: the page's own
- * requests are done. A later call replaces a pending `fn`.
+ * Calls `fn` once, when at most one API request has been in flight for 2 s after one settled: the page's own
+ * requests are done but perhaps the slowest (CCDC can take over a minute, as long as a plot is looked at).
+ * A later call replaces a pending `fn`.
  */
 export function whenIdle(fn: () => void) {
   onIdle = fn;
@@ -68,7 +69,8 @@ export async function postApi<T>(
   try {
     return await request<T>(path, body, signal);
   } finally {
-    if (--inFlight === 0 && onIdle) {
+    if (--inFlight <= 1 && onIdle) {
+      clearTimeout(idleTimer);
       idleTimer = setTimeout(() => {
         const fn = onIdle;
         onIdle = undefined;
