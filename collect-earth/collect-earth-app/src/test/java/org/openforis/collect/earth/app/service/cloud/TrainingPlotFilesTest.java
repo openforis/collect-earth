@@ -225,6 +225,23 @@ public class TrainingPlotFilesTest {
 	}
 
 	@Test
+	public void aTrainingRecordNotSentYetIsDeletedAtALaterCheckOnceSent() throws Exception {
+		myPlots("1,1,1\n");
+		when(sync.recordState("T-3")).thenReturn("pending");
+		server(Collections.emptyList(), Collections.emptyList(), Arrays.asList("T-1", "T-3"));
+		training.check();
+		assertNull(values.get(EarthProperty.CLOUD_TRAINING_CLEANED), "not done while T-3 waits");
+		when(sync.recordState("T-3")).thenReturn("sent");
+		training.check();
+		@SuppressWarnings("unchecked")
+		ArgumentCaptor<List<String[]>> keys = ArgumentCaptor.forClass(List.class);
+		verify(surveys, times(2)).deleteRecordsOf(keys.capture());
+		assertEquals(2, keys.getValue().size());
+		training.check();
+		verify(surveys, times(2)).deleteRecordsOf(any());
+	}
+
+	@Test
 	public void theRecordsOfAPlotOfSeveralKeysAreFoundByEachKey() {
 		when(surveys.getKeyAttributeCount()).thenReturn(2);
 		cloud.deleteTrainingRecords(Collections.singletonList("T-1,2026"));

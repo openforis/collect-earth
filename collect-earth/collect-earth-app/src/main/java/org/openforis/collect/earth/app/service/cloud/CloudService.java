@@ -849,7 +849,7 @@ public class CloudService {
 	 * Deletes this computer's records of the plots of a training that is over (their record keys, the key values of a
 	 * plot of several keys joined by commas). A plot that is also one of the person's plots (a training file may reuse
 	 * the project's plot ids) or whose record is not sent yet is left alone. @return how many were deleted; -1 without a
-	 * survey to delete them from
+	 * survey to delete them from, or when a record not sent yet was left (deleted at a later call, once sent)
 	 */
 	int deleteTrainingRecords(List<String> recordKeys) {
 		if (surveyService == null || surveyService.getCollectSurvey() == null) {
@@ -863,15 +863,19 @@ public class CloudService {
 		}
 		int keyCount = Math.max(1, surveyService.getKeyAttributeCount());
 		List<String[]> keys = new ArrayList<>();
+		boolean unsentLeft = false;
 		for (String recordKey : recordKeys) {
 			String state = sync.recordState(recordKey);
-			if (mine.contains(MyPlotsService.keyAsNumbers(recordKey)) || "pending".equals(state) || "failed".equals(state)) { //$NON-NLS-1$ //$NON-NLS-2$
+			boolean unsent = "pending".equals(state) || "failed".equals(state); //$NON-NLS-1$ //$NON-NLS-2$
+			if (mine.contains(MyPlotsService.keyAsNumbers(recordKey)) || unsent) {
 				logger.info("The record of the training plot {} is kept: one of the person's plots, or not sent yet", recordKey); //$NON-NLS-1$
+				unsentLeft |= unsent && !mine.contains(MyPlotsService.keyAsNumbers(recordKey));
 				continue;
 			}
 			keys.add(keyCount == 1 ? new String[] { recordKey } : recordKey.split(",", keyCount)); //$NON-NLS-1$
 		}
-		return surveyService.deleteRecordsOf(keys);
+		int deleted = surveyService.deleteRecordsOf(keys);
+		return unsentLeft ? -1 : deleted;
 	}
 
 	/**
