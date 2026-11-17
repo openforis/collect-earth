@@ -153,7 +153,7 @@
 				<plugin>
 					<groupId>org.codehaus.mojo</groupId>
 					<artifactId>buildnumber-maven-plugin</artifactId>
-					<version>3.2.0</version>
+					<version>3.3.1</version>
 					<executions>
 						<execution>
 							<phase>validate</phase>
@@ -174,7 +174,7 @@
 					<plugin>
 						<groupId>org.apache.maven.plugins</groupId>
 						<artifactId>maven-dependency-plugin</artifactId>
-						<version>3.7.1</version>
+						<version>3.11.0</version>
 						<executions>
 							<execution>
 								<id>unpack-jre</id>
@@ -289,7 +289,7 @@
 					<!-- 2. copy resource files -->
 					<plugin>
 						<artifactId>maven-resources-plugin</artifactId>
-						<version>3.3.1</version>
+						<version>3.5.0</version>
 						<executions>
 							<execution>
 								<id>copy-installbuilder-source-file</id>
@@ -555,7 +555,7 @@
 					<plugin>
 						<groupId>org.codehaus.mojo</groupId>
 						<artifactId>build-helper-maven-plugin</artifactId>
-						<version>3.6.0</version>
+						<version>3.6.2</version>
 						<executions>
 							<execution>
 								<id>attach-installer-artifacts</id>
@@ -614,7 +614,7 @@
 					<plugin>
 						<groupId>org.apache.maven.plugins</groupId>
 						<artifactId>maven-antrun-plugin</artifactId>
-						<version>3.1.0</version>
+						<version>3.2.0</version>
 						<dependencies>
 							<!-- Ant's <scp> lives in ant-jsch and needs jsch itself; neither is on the plugin's own
 							     classpath. -->

@@ -9,7 +9,7 @@ migrations, RLS role, operations, known limitations) are the detailed references
 
 ## Commands
 
-Server (repo root, Node >= 20, TypeScript run directly with `tsx`, no build step):
+Server (repo root, Node >= 22.12, TypeScript run directly with `tsx`, no build step):
 
 ```bash
 npm install

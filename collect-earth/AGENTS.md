@@ -11,7 +11,7 @@ Collect Earth is a multi-module Maven Java project. The root `pom.xml` defines t
 - `java -jar collect-earth-app/target/CollectEarth.jar`: runs the packaged desktop application after packaging.
 - `mvn -pl collect-earth-installer -Passembly package`: builds installers, but requires InstallBuilder paths and credentials configured through Maven settings.
 
-Use Maven 3.9.3 or newer. The source and target Java level is 1.8.
+Use Maven 3.6.3 or newer (as Collect) and a JDK 17 or newer. The source and target Java level is 17 (`java.release`), as Collect's.
 
 ## Coding Style & Naming Conventions
 

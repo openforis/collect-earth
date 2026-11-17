@@ -29,6 +29,7 @@ managed Postgres (Option B).
 | `SENTRY_DSN` | no | `https://key@o1.ingest.sentry.io/2` | With `TELEMETRY`: where the server and the dashboard send error reports. Default: the desktop app's Sentry project |
 | `SENTRY_ENVIRONMENT` | no | `staging` | With `TELEMETRY`: the reports' environment (default `production`) |
 | `TRUST_PROXY_HOPS` | no | `1` | Proxies in front of the server that add to `x-forwarded-for` (see below) |
+| `TRUST_PROXY_ADDRESSES` | no | `10.0.0.0/8, 192.0.2.10` | The addresses those proxies connect from: IPs, CIDR ranges, or `loopback`, `linklocal`, `uniquelocal`, by commas. Default: those three (this computer, Cloud Run's front end, private networks). See below |
 | `SESSION_IDLE_DAYS` | no | `90` | A sign-in (in Collect Earth or the dashboard) unused for this many days stops working; each use keeps it alive. A coordinator can also sign a person out everywhere (their page, *Sign out everywhere*), and anyone their other devices (*My account*) |
 | `MIGRATE_ON_BOOT` | optional | `true` | Apply pending migrations on startup (see below); `true` or `1` |
 | `PORT` | no | `8080` | Listen port (Cloud Run injects `8080`) |
@@ -64,6 +65,17 @@ client IP used for rate limiting is the entry that many places from the right of
 `x-forwarded-for`, so an address a client writes itself does not count. Behind two
 proxies (e.g. a load balancer in front of Caddy) set it to `2`. Do not expose the
 container port directly to the internet without one.
+
+Each of those hops must also come from a proxy's address (`TRUST_PROXY_ADDRESSES`,
+`src/trustProxy.ts`): by default this computer, link-local addresses (Cloud Run's
+front end connects from one) and the private networks (Caddy or a load balancer on
+the containers' network). A request from any other address is taken as a client's:
+its own IP, protocol and host count, whatever `x-forwarded-*` it carries, so a
+client that reaches the port directly cannot choose them. A proxy with a public
+address (some load balancers) must be listed there. Fastify 5 refuses a bare hop
+count for that reason (GHSA-444r-cwp2-x5xf). If, after a deployment, every person
+seems to share one IP (one rate-limiting bucket for all, the activity showing one
+address), the proxy's address is not covered: list it.
 
 **The host in derived links (no `PUBLIC_BASE_URL`).** Join and reset links shown to
 coordinators and administrators are built from the request when no base address is

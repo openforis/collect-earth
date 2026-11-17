@@ -1,7 +1,7 @@
 # Collect Earth Cloud — container image (Cloud Run, Render, any Docker host).
 
 # Stage 1: build the web dashboard (web/ has its own package.json and lockfile).
-FROM node:20-slim AS build
+FROM node:22-slim AS build
 WORKDIR /app
 COPY web/package.json web/package-lock.json ./web/
 RUN cd web && npm ci
@@ -11,7 +11,7 @@ COPY src/wire ./src/wire
 RUN cd web && npm run build
 
 # Stage 2: the API server, serving the built dashboard from web/dist.
-FROM node:20-slim
+FROM node:22-slim
 
 WORKDIR /app
 

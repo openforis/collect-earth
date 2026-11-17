@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Security
+- Dependencies brought up to date after a review of the Dependabot alerts
+  - Collect Earth Cloud runs on Fastify 5 (Fastify 4 has had no fixes since mid-2025) and its static files plugin 10: a client could write the forwarded headers itself, and several URL and validation checks could be bypassed. The proxies the server takes `x-forwarded-*` from are now checked by address as well as counted: by default this computer, link-local addresses (Cloud Run's front end) and private networks; `TRUST_PROXY_ADDRESSES` names others (DEPLOY.md). Its image runs Node 22 (Node 20 is out of support), and its tests Vitest 5
+  - Collect Earth uses Collect 4.0.111, and so Java 17 like Collect (the installers already bundle Java 21); Spring stays at Collect's 5.3.39. The build's Maven plugins are Collect's versions, with Maven 3.6.3 or newer as Collect asks. Selenium's OpenTelemetry is 1.67 (1.66 could take quadratic time on a crafted trace header) and byte-buddy the 1.18.14 Selenium asks for (1.15.4 shipped)
+  - Collect Earth Explorer's functions: Google's libraries updated within their versions; four moderate alerts remain, from `uuid` inside the Earth Engine library, which has no fixed release yet and is not reached (it concerns a buffer argument the library does not pass)
 - Collect Earth Cloud: what each role sees and takes away, tightened after a review
   - A reviewer's Analysis page no longer names anybody (the collector column is empty and no per-person chart is offered), leaves out the records of the reference plots, and offers no stand-alone file (the server refuses it)
   - Keys and passwords are taken out of a project file when it is uploaded (`planet_maps_key`, `planet_maps_ce_key`, `google_maps_api_key`, `ga_api_secret`, `db_username`, `db_password`, the cloud tokens) and out of the file every collector downloads; the Project file tab says which were removed, and warns when the extra map's address carries a key

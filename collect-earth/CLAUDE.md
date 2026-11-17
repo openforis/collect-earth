@@ -8,7 +8,7 @@ Collect Earth is a desktop application for augmented visual interpretation that 
 
 **Compatibility.** Keep everything compatible with earlier versions of Collect Earth: their project files (.cep), databases, backups, settings files and the cloud API the desktop uses. From 2.0 on, Google Earth Desktop (Google Earth Pro) is not supported: code that only serves it is not needed (its KMZ, balloons inside it, network links), but what earlier project files carry for it (a KML template, `earthFiles/`, a balloon) must still load without error.
 
-**Key Technologies**: Java 11, Spring 5.3.39, Jetty 10.0.26, GeoTools 24.7, Collect Framework 4.0.110
+**Key Technologies**: Java 17, Spring 5.3.39, Jetty 10.0.26, GeoTools 24.7, Collect Framework 4.0.111
 
 ## Build Commands
 
@@ -528,15 +528,18 @@ The application supports 5 languages through resource bundles:
 ## Dependencies and Version Management
 
 Key dependencies are managed in parent `pom.xml`:
-- Java release: 11 (`java.release` in the root `pom.xml`, compiled with `<release>` so it is checked against the real Java 11 API)
-- Spring: 5.3.39 — the last open source 5.3 release. Its remaining advisories, and the ones of Jetty 10.0.26 (the last open source 10.x), are only fixed in versions that need Java 17 (Spring 6, Jetty 12)
-- Collect Framework: 4.0.110 (provides survey schema and record management)
+- Java release: 17, as Collect's (`java.release` in the root `pom.xml`, compiled with `<release>` so it is checked against the real Java 17 API; collect-core 4.0.111 is itself compiled for 17). The installers bundle Java 21
+- Spring: 5.3.39 — the last open source 5.3 release, and the one Collect uses: keep it the same as Collect's. Its remaining advisories, and the ones of Jetty 10.0.26 (the last open source 10.x), are only fixed in Spring 6 and Jetty 12 (the Jakarta servlet API), which Collect has to move to first
+- Collect Framework: 4.0.111 (provides survey schema and record management)
 - GeoTools: 24.7 (geospatial operations) - the last 24.x; 25 and later need Java 17
 - Jetty: 10.0.26 (embedded server)
 - Jackson: 2.22.4 (JSON processing) — `jackson.version` in the root `pom.xml`, through the Jackson BOM, for every module
 - Freemarker: 2.3.35 (template engine)
 
-Maven enforces minimum version 3.9.3.
+Maven enforces minimum version 3.6.3, as Collect does. The plugins of the build (compiler, surefire, resources, jar,
+dependency, javadoc, release...) are at Collect's versions and declared in the root `pom.xml`, so every Maven runs the
+same ones (Maven 3.6.3 alone would bring surefire 2.12.4, which runs no JUnit 5 test). Selenium's OpenTelemetry
+(`opentelemetry-bom`) and byte-buddy, and json-smart in the tests, are pinned there too, above what their libraries ask.
 
 The installers and updaters ship the whole `collect-earth-app/target/earth-libs` folder, and the application
 loads the jars listed in the `Class-Path` of `CollectEarth.jar`. The two are the same set: the folder is emptied
