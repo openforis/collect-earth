@@ -92,7 +92,8 @@ async function request<T>(path: string, body: PlotBody & Record<string, unknown>
     const err = errorOf(parsed) ?? {
       code: `http_${res.status}`,
       message: res.statusText || `HTTP ${res.status}`,
-      retryable: res.status >= 500,
+      // 429: Cloud Run's answer when every instance is busy (maxInstances), worth a retry.
+      retryable: res.status >= 500 || res.status === 429,
     };
     throw new ApiFailure(err, res.status);
   }

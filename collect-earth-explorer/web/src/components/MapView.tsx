@@ -48,6 +48,9 @@ export function setImagery(map: MlMap, tileUrl: string | undefined) {
     type: "raster",
     tiles: [tileUrl],
     tileSize: 256,
+    // Deeper tiles add no detail to 10-30 m imagery but each is a fresh Earth Engine computation: overzoom z17 instead.
+    // prewarm.ts plotTiles never asks for deeper ones.
+    maxzoom: 17,
     attribution: IMAGERY_ATTRIBUTION,
   });
   map.addLayer({ id: IMAGERY_SOURCE, type: "raster", source: IMAGERY_SOURCE }, OUTLINE_LAYER);

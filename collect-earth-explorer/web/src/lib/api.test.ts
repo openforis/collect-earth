@@ -57,6 +57,12 @@ describe("postApi", () => {
     expect(f.message).toBe("HTTP 404");
   });
 
+  it("offers a retry for Cloud Run's 429 when every instance is busy", async () => {
+    fetchMock.mockResolvedValue(text("Rate exceeded.", 429, "Too Many Requests"));
+    const f = await failure(postApi("tiles/sentinel2", body));
+    expect(f.err).toEqual({ code: "http_429", message: "Too Many Requests", retryable: true });
+  });
+
   it("throws bad_json when a 2xx response is not JSON", async () => {
     fetchMock.mockResolvedValue(text("not json", 200, "OK"));
     const f = await failure(postApi("tiles/sentinel2", body));

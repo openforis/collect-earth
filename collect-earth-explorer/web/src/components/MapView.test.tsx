@@ -42,7 +42,7 @@ describe("MapView", () => {
     act(() => live.fire("load"));
     expect(live.addSource).toHaveBeenCalledWith(
       IMAGERY_SOURCE,
-      expect.objectContaining({ type: "raster", tiles: [URL_A], attribution: expect.stringContaining("Google Earth Engine") }),
+      expect.objectContaining({ type: "raster", tiles: [URL_A], maxzoom: 17, attribution: expect.stringContaining("Google Earth Engine") }),
     );
     expect(live.layers[IMAGERY_SOURCE]).toBe("plot-outline");
 
