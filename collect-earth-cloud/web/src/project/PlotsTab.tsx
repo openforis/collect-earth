@@ -28,6 +28,7 @@ import Download from "@mui/icons-material/Download";
 import Edit from "@mui/icons-material/EditOutlined";
 import { useMemo, useState } from "react";
 import {
+  ApiError,
   downloadStandaloneCep,
   listAssignments,
   listCsvFiles,
@@ -46,7 +47,7 @@ import { MoreInfo } from "../components/Explain";
 import { FileDrop } from "../components/FileDrop";
 import { Loading } from "../components/Loading";
 import { formatNumber } from "../format";
-import { useT } from "../i18n";
+import { type MessageKey, useT } from "../i18n";
 import { linkProps, pathFor, PROJECT_PLOTS, type ProjectTab } from "../router";
 import { useLoad } from "../useLoad";
 import { fromPairs, pairKey } from "../assignmentGrid";
@@ -204,7 +205,7 @@ function StandaloneDownload({ projectId, members }: { projectId: string; members
         {t("projectPlots.standalone.help")}
       </Typography>
       <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} sx={{ alignItems: { sm: "center" } }}>
-        <TextField select size="small" label={t("projectPlots.standalone.with")} value={who} onChange={(e) => setWho(e.target.value)} sx={{ minWidth: 240 }}>
+        <TextField select size="small" label={t("projectPlots.standalone.with")} value={who} onChange={(e) => { setWho(e.target.value); setError(null); }} sx={{ minWidth: 240 }}>
           <MenuItem value="all">{t("projectPlots.standalone.all")}</MenuItem>
           {sortPeople(members).map((m) => (
             <MenuItem key={m.userId} value={m.userId}>
@@ -212,14 +213,24 @@ function StandaloneDownload({ projectId, members }: { projectId: string; members
             </MenuItem>
           ))}
         </TextField>
-        <Button variant="outlined" startIcon={<Download />} onClick={download} disabled={busy}>
+        <Button variant="outlined" startIcon={<Download />} onClick={download} disabled={busy} sx={{ flexShrink: 0, whiteSpace: "nowrap" }}>
           {t("projectPlots.standalone.download")}
         </Button>
       </Stack>
-      <ErrorAlert error={error} />
+      {error instanceof ApiError && STANDALONE_REFUSALS[error.code] ? (
+        <Alert severity="info" sx={{ mt: 1.5 }} data-testid="standalone-refusal">{t(STANDALONE_REFUSALS[error.code]!)}</Alert>
+      ) : (
+        <ErrorAlert error={error} />
+      )}
     </Box>
   );
 }
+
+/** The refusals of the download said for it: the general messages of those codes are about uploads and backups */
+const STANDALONE_REFUSALS: Partial<Record<string, MessageKey>> = {
+  no_plots: "projectPlots.standalone.noPlots",
+  no_project_file: "projectPlots.standalone.noProjectFile",
+};
 
 /** What a plot file of a project from before the rules of one set of plots breaks: other columns, plots of another file */
 function FileFlags({ file }: { file: ListedCsvFile }) {
