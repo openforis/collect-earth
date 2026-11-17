@@ -283,7 +283,7 @@ describe('map of progress: GET /map/plots', () => {
     expect(body.file![body.plots.indexOf('200')]).toBe(1);
     expect(body.reference).toEqual([]);
     // A reference plot (of a divided file, assessed by nobody yet).
-    const refFile = (await call('PUT', '/csv-files/ref.csv', owner.token, 'id,lat,lon\n300,9,9', { 'content-type': 'text/csv' })).json().id;
+    const refFile = (await call('PUT', '/csv-files/west.csv', owner.token, 'id,lat,lon\n300,9,9', { 'content-type': 'text/csv' })).json().id;
     await ctx.store.setDivision(pid, refFile, { mode: 'manual' }, [{ plotKey: '300', userId: ben.userId, overlap: false }]);
     const marked = await call('POST', '/reference/plots', owner.token, { csvFileId: refFile, assessorUserId: owner.userId, plots: ['300'] });
     expect(marked.statusCode, marked.body).toBe(200);

@@ -58,7 +58,7 @@ describe('plot search: GET /plots/search, GET /plots/:plot', () => {
     // Plot 1 is in both files (a project from before the rules of one set of plots); the second is divided: maria
     // holds 1, ben a copy of it.
     const extra: (number | string)[] = [1, 'A-7', 'a-8', 'search', 'a/b', 'plot 7', 'Ñandú-1'];
-    extraFile = await legacyPlotFile(ctx, pid, 'extra.csv', ['id,lat,lon', ...extra.map((id, i) => `${id},${-10 - i / 10},${20 + i / 10}`)].join('\n'));
+    extraFile = await legacyPlotFile(ctx, pid, 'second.csv', ['id,lat,lon', ...extra.map((id, i) => `${id},${-10 - i / 10},${20 + i / 10}`)].join('\n'));
     await ctx.store.setAssignments(pid, [{ userId: maria.userId, csvFileId: plotsFile }]);
     await ctx.store.setDivision(pid, extraFile, { mode: 'manual' }, [
       { plotKey: '1', userId: maria.userId, overlap: false },
@@ -91,7 +91,7 @@ describe('plot search: GET /plots/search, GET /plots/:plot', () => {
       name: '1',
       files: [
         { id: plotsFile, filename: 'plots.csv' },
-        { id: extraFile, filename: 'extra.csv' },
+        { id: extraFile, filename: 'second.csv' },
       ],
     });
     const few = (await call('GET', '/plots/search?q=12', rita.token)).json();
@@ -116,7 +116,7 @@ describe('plot search: GET /plots/search, GET /plots/:plot', () => {
       name: '1',
       files: [
         { id: plotsFile, filename: 'plots.csv', divided: false, main: ['maria'], copies: [] },
-        { id: extraFile, filename: 'extra.csv', divided: true, main: ['maria'], copies: ['ben'] },
+        { id: extraFile, filename: 'second.csv', divided: true, main: ['maria'], copies: ['ben'] },
       ],
       decision: null,
       ownPlot: false,
@@ -167,11 +167,11 @@ describe('plot search: GET /plots/search, GET /plots/:plot', () => {
       ['ben', false],
       ['rita', true],
     ]);
-    expect(owners.files[1]).toEqual({ id: extraFile, filename: 'extra.csv', divided: true, main: ['maria'], copies: ['ben'] });
+    expect(owners.files[1]).toEqual({ id: extraFile, filename: 'second.csv', divided: true, main: ['maria'], copies: ['ben'] });
     const ritas = (await call('GET', '/plots/1', rita.token)).json();
     expect(ritas.files).toEqual([
       { id: plotsFile, filename: 'plots.csv', divided: false },
-      { id: extraFile, filename: 'extra.csv', divided: true },
+      { id: extraFile, filename: 'second.csv', divided: true },
     ]);
     expect(ritas.records.map((r: { operator: string }) => r.operator)).toEqual(['maria', 'ben']);
     for (const r of ritas.records) expect(r).not.toHaveProperty('receivedAt');

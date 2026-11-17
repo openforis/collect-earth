@@ -235,4 +235,13 @@ public class MyPlotsServiceTest {
 		assertEquals("none", service.status().get("mode"));
 		verify(properties, never()).setValue(eq(EarthProperty.SAMPLE_FILE), any());
 	}
+
+	/** A plot of a number key is found in the sync queue whatever its zeros: Collect keeps "7" for the plot file's "007" */
+	@Test
+	public void aNumberKeyIsLookedUpAsCollectWritesIt() {
+		assertEquals("7,1", MyPlotsService.keyAsNumbers("007,1"));
+		assertEquals("abc,02a", MyPlotsService.keyAsNumbers("abc,02a"));
+		assertEquals("-3", MyPlotsService.keyAsNumbers("-03"));
+		assertEquals("12345678901234567890", MyPlotsService.keyAsNumbers("012345678901234567890"));
+	}
 }

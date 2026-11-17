@@ -6,6 +6,7 @@
 //   submitted; the file is divided (manual) when it was whole and nobody had it. Nobody else's plots move. When the
 //   file has no plots left, the person gets none (the coordinator's email says so).
 import { plotFileOf } from './plotFileCache.js';
+import { oneSetFlags } from './projectPlots.js';
 import type { Log } from './qualityService.js';
 import { fileKeyCount, unitOfRecord } from './rounds.js';
 import type { Store } from './store/store.js';
@@ -88,19 +89,28 @@ async function giveProjectShare(store: Store, projectId: string, userId: string,
   const info = await store.getRoundInfo(projectId);
   const keyCount = fileKeyCount(info);
   const states = await store.listRecordStates(projectId);
+  // A project from before the rules of one set (src/projectPlots.ts): a file with other columns would never reach the
+  // person's plots, and a plot two files have is offered once, from the first
+  const flags = await oneSetFlags(store, projectId, keyCount);
+  const offered = new Set<string>();
   let taken = 0;
   for (const meta of await store.listCsvFiles(projectId)) {
     if (taken >= count) break;
+    if (flags.get(meta.id)?.columnsDiffer) continue;
     const file = await store.getCsvFile(projectId, meta.id);
     if (!file) continue;
-    const units = new Set(plotFileOf(file, keyCount).plotIds);
+    const units = new Set(plotFileOf(file, keyCount).plotIds.filter((id) => !offered.has(id)));
+    for (const id of units) offered.add(id);
     const done = new Set<string>();
     for (const r of states) {
       if (!r.activelySaved || r.deleted) continue;
       const unit = unitOfRecord(r.recordKey, units, info);
       if (unit !== null) done.add(unit);
     }
-    const got = await store.claimUnheldPlots(projectId, file.id, userId, [...units].filter((id) => !done.has(id)), count - taken);
+    const candidates = [...units].filter((id) => !done.has(id));
+    // Nothing to give from it: left as it is (claiming none would still make a whole file a divided one)
+    if (candidates.length === 0) continue;
+    const got = await store.claimUnheldPlots(projectId, file.id, userId, candidates, count - taken);
     if (typeof got === 'number') taken += got;
   }
   return { csvFileId: null, filename: null, mode: 'share', plots: taken };

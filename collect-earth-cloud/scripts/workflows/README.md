@@ -46,4 +46,4 @@ joining, the jobs (send, export) and the sync; `/earth/save-data-expanded` for a
 plot's place, as the balloon sends it. A save is written a second later (the desktop's write-behind), and the sync runs
 on `syncNow`. Joining restarts the desktop by itself.
 
-Last run from empty databases: 80 checks in ten scenarios, all passed (16 November 2026); all eleven with `standalone`: 94 checks, all passed (16 November 2026).
+Last run from empty databases: 80 checks in ten scenarios, all passed (16 November 2026); all eleven with `standalone`: 95 checks, all passed (17 November 2026).

@@ -152,6 +152,18 @@ describe('accounts, invites and join', () => {
     expect((await login(gone)).json()).toEqual({ error: 'invite_exhausted' });
   });
 
+  it('a coordinator who opens their own collectors\' link stays a coordinator, and the link keeps its use', async () => {
+    const coordinatorLink = await createInvite(ctx.app, project.projectId, project.adminToken, 'admin');
+    expect((await register(ctx.app, 'lucia', 'lucia-password', coordinatorLink)).statusCode).toBe(201);
+    const forCollectors = await createInvite(ctx.app, project.projectId, project.adminToken, 'operator', 1);
+    const login = await ctx.app.inject({ method: 'POST', url: '/v1/auth/login', payload: { username: 'lucia', password: 'lucia-password', inviteToken: forCollectors } });
+    expect(login.json()).toMatchObject({ projectId: project.projectId, role: 'admin' });
+    const me = await ctx.app.inject({ method: 'GET', url: '/v1/me', headers: { authorization: `Bearer ${login.json().token}` } });
+    expect(me.json().memberships).toEqual([expect.objectContaining({ projectId: project.projectId, role: 'admin' })]);
+    // its one use is still there for the collector it was made for
+    expect((await register(ctx.app, 'pedro', 'pedro-password', forCollectors)).statusCode).toBe(201);
+  });
+
   it('an operator cannot create invites (403)', async () => {
     const token = await createInvite(ctx.app, project.projectId, project.adminToken, 'operator');
     const reg = await register(ctx.app, 'maria', 'hunter2pw', token);
