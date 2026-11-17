@@ -10,6 +10,12 @@
 // every instance has joined and taken its plot file, collects until HANDOFF.done, then writes HANDOFF.synced once
 // every instance has sent what it saved.
 //
+// With a training day (load-mapathon.mts TRAINING): each instance joins holding no plot, so Collect Earth opens the
+// training by itself; it answers every training plot through its form and sends them (HANDOFF.trained); once the
+// coordinators have finished the training and divided the plots (HANDOFF.divided), Collect Earth's own check (every five
+// minutes) takes the training away, deletes its training records and brings the person's plots, which is timed and
+// checked (HANDOFF.collecting); then the collection as above.
+//
 // Without DB (a deployed server, whose database is not reachable from here) each completed plot is timed by Collect
 // Earth's own sync state (/api/cloud/recordSync, until "sent"), and checked in the People tab with the coordinator's
 // session load-mapathon.mts hands over.
@@ -17,7 +23,7 @@
 // Settings (environment): CE_APP (the collect-earth-app folder, where CollectEarth.jar is built and must run from),
 // CE_HOMES (where the instances' user folders go, emptied first), FIRST_PORT (8031), PACE_S ("20-40": seconds between
 // two plots of one person), XMX (1g), KEEP=1 to leave the instances running, OUT for the JSON report.
-import { spawn, type ChildProcess } from 'node:child_process';
+import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import pg from 'pg';
@@ -38,8 +44,10 @@ const pct = (sorted: number[], p: number) => (sorted.length ? sorted[Math.min(so
 
 while (!existsSync(HANDOFF)) await sleep(1000);
 const handoff = JSON.parse(readFileSync(HANDOFF, 'utf8')) as {
-  base: string; password: string; coordinatorToken?: string; mapathons: { name: string; pid: string; inviteToken: string; people: string[] }[];
+  base: string; password: string; coordinatorToken?: string; training?: number;
+  mapathons: { name: string; pid: string; inviteToken: string; coordinatorToken?: string; people: string[] }[];
 };
+const TRAINING = handoff.training ?? 0;
 
 interface Instance {
   n: number; port: number; home: string; username: string; pid: string; mapathon: string; process?: ChildProcess;
@@ -49,6 +57,8 @@ interface Instance {
   saves: number[]; failedSaves: number; incomplete: number;
   /** Without DB: plot -> how long after completing it Collect Earth said it was sent (ms) */
   sentAfter: Map<string, number>;
+  /** The training: its plots, completed, whether Collect Earth opened it by itself, and the switch to the person's plots */
+  training: string[]; trainingCompleted: number; openedByItself?: boolean; switchSeconds?: number; trainingLeftHere?: number;
 }
 
 const instances: Instance[] = [];
@@ -56,7 +66,7 @@ for (const m of handoff.mapathons) {
   for (const username of m.people) {
     const n = instances.length + 1;
     instances.push({ n, port: FIRST_PORT + n - 1, home: join(CE_HOMES, `ce${n}`), username, pid: m.pid, mapathon: m.name,
-      plots: [], next: 0, completed: new Map(), saves: [], failedSaves: 0, incomplete: 0, sentAfter: new Map() });
+      plots: [], next: 0, completed: new Map(), saves: [], failedSaves: 0, incomplete: 0, sentAfter: new Map(), training: [], trainingCompleted: 0 });
   }
 }
 
@@ -119,26 +129,100 @@ async function prepare(i: Instance) {
   await waitUp(i);
 }
 
-/** Joins the mapathon as the invitation's member (the Join cloud project dialog), then waits for the restart and the plot file. */
+/** The plots the instance's plots map lists (its plots file), or none while they load */
+async function plotsShown(i: Instance): Promise<string[]> {
+  try {
+    const plots = await (await fetch(`${base(i)}/plotsGeoJson`)).json() as { features: { properties: { id: string } }[] };
+    return plots.features.map((f) => f.properties.id);
+  } catch {
+    return [];
+  }
+}
+const isTraining = (id: string) => /^(T-|-)/.test(id);
+
+/**
+ * Joins the mapathon as the invitation's member (the Join cloud project dialog), then waits for the restart and its
+ * plots: the person's (the plots file Collect Earth keeps from the server), or with a training day the training, which
+ * Collect Earth opens by itself as the person holds no plot yet (opened here only if it did not, which is checked).
+ */
 async function joinMapathon(i: Instance, inviteToken: string) {
   const res = await api(i, 'cloud/join', { baseUrl: handoff.base, inviteToken, projectId: i.pid, username: i.username, password: handoff.password, register: false });
   if (res.status !== 200) throw new Error(`instance ${i.n} could not join: ${res.status} ${await res.text()}`);
   await sleep(8000);
   await waitUp(i);
-  // AssignedPlotFileSetup makes the assigned file the plots file by itself
-  const until = Date.now() + 3 * 60_000;
-  while (!/\ncsv=.*assignments/.test(properties(i))) {
-    if (Date.now() > until) throw new Error(`instance ${i.n}: the assigned plot file was not applied`);
+  const until = Date.now() + (TRAINING > 0 ? 6 : 3) * 60_000;
+  for (;;) {
+    const shown = await plotsShown(i);
+    if (TRAINING > 0 ? shown.length > 0 && shown.every(isTraining) : shown.length > 0) {
+      if (TRAINING > 0) { i.training = shown; i.openedByItself ??= true; } else i.plots = shown;
+      return;
+    }
+    if (Date.now() > until) {
+      if (TRAINING > 0 && i.openedByItself === undefined) {
+        // Not opened by itself: opened as the person would (Settings › Project), so the run goes on; the check says so
+        i.openedByItself = false;
+        const list = await (await api(i, 'cloud/assignments')).json() as { assignments?: { id: string; training?: unknown }[] };
+        const set = list.assignments?.find((a) => a.training);
+        if (set) await api(i, 'cloud/training/open', { id: set.id });
+        await sleep(10_000);
+        continue;
+      }
+      throw new Error(`instance ${i.n}: no ${TRAINING > 0 ? 'training' : ''} plots`);
+    }
+    await sleep(3000);
+  }
+}
+
+/** The records of this computer's database whose plot is a training plot (Collect Earth deletes them after the training) */
+function trainingRecordsHere(i: Instance): number {
+  const db = join(i.home, 'CollectEarth', 'collectEarthDatabase.db');
+  if (!existsSync(db)) return 0;
+  try {
+    const out = execFileSync('python3', ['-I', '-c', "import sqlite3,sys;c=sqlite3.connect(sys.argv[1]);print(c.execute(\"select count(*) from ofc_record where key1 like 'T-%'\").fetchone()[0])", db], { encoding: 'utf8' });
+    return Number(out.trim());
+  } catch {
+    return NaN;
+  }
+}
+
+/** Every training plot answered through the form, at the run's pace, then sent */
+async function train(i: Instance) {
+  for (const plot of i.training) {
+    await sleep(between(PACE_LO * 1000, PACE_HI * 1000));
+    const before = i.completed.size;
+    await fillPlot(i, plot);
+    if (i.completed.size > before) i.trainingCompleted += 1;
+  }
+  // The training's saves are not the collection's
+  i.completed.clear();
+  i.sentAfter.clear();
+  await drain(i);
+}
+
+/** Each saved plot sent: a sync asked for (as the button does), then the queue followed until it is empty */
+async function drain(i: Instance) {
+  await api(i, 'cloud/syncNow', {}).catch(() => undefined);
+  const until = Date.now() + 5 * 60_000;
+  for (;;) {
+    const state = await (await api(i, 'cloud/state')).json() as { sync: { pending: number; failed: number; lastError: string | null } };
+    if (state.sync.pending === 0 || Date.now() > until) return state.sync;
     await sleep(2000);
   }
-  for (let k = 0; k < 30 && i.plots.length === 0; k++) {
-    try {
-      const plots = await (await fetch(`${base(i)}/plotsGeoJson`)).json() as { features: { properties: { id: string } }[] };
-      i.plots = plots.features.map((f) => f.properties.id);
-    } catch { /* the plots are loading */ }
-    if (i.plots.length === 0) await sleep(2000);
+}
+
+/** After the finish: Collect Earth's own check takes the training away and brings the person's plots (timed) */
+async function afterTraining(i: Instance, dividedAt: number) {
+  const until = Date.now() + 12 * 60_000;
+  while (Date.now() < until) {
+    const shown = await plotsShown(i);
+    if (shown.length > 0 && !shown.some(isTraining)) {
+      i.plots = shown;
+      i.switchSeconds = (Date.now() - dividedAt) / 1000;
+      break;
+    }
+    await sleep(5000);
   }
-  if (i.plots.length === 0) throw new Error(`instance ${i.n}: no plots`);
+  i.trainingLeftHere = trainingRecordsHere(i);
 }
 
 // --- a person at the plot form ------------------------------------------------------------------------------------
@@ -248,7 +332,18 @@ for (const i of instances) {
 }
 await Promise.all(instances.map((i) => joinMapathon(i, handoff.mapathons.find((m) => m.pid === i.pid)!.inviteToken)));
 await loadFieldTypes(instances[0]);
-log(`joined, plot files applied: ${instances.map((i) => i.plots.length).join(', ')} plots`);
+log(`joined, ${TRAINING > 0 ? `training opened: ${instances.map((i) => `${i.training.length}${i.openedByItself ? '' : ' (opened by hand)'}`).join(', ')} training plots` : `plot files applied: ${instances.map((i) => i.plots.length).join(', ')} plots`}`);
+if (TRAINING > 0) {
+  writeFileSync(`${HANDOFF}.ready`, new Date().toISOString());
+  log('training');
+  await Promise.all(instances.map(train));
+  writeFileSync(`${HANDOFF}.trained`, new Date().toISOString());
+  log('trained; waiting for the coordinators to finish the training and divide the plots');
+  while (!existsSync(`${HANDOFF}.divided`)) await sleep(2000);
+  const dividedAt = Date.now();
+  await Promise.all(instances.map((i) => afterTraining(i, dividedAt)));
+  log(`the person's plots back: ${instances.map((i) => `${i.plots.length} after ${i.switchSeconds?.toFixed(0) ?? 'never'} s`).join(', ')}`);
+}
 
 // The server's arrival time of each completed plot, followed while they collect
 const arrived = new Map<string, number>(); // "operator plot" -> received_at of its complete version
@@ -269,7 +364,7 @@ const watch = (async () => {
   }
 })();
 
-writeFileSync(`${HANDOFF}.ready`, new Date().toISOString());
+writeFileSync(`${HANDOFF}.${TRAINING > 0 ? 'collecting' : 'ready'}`, new Date().toISOString());
 log('collecting until the load test ends');
 await Promise.all(instances.map(collect));
 
@@ -314,10 +409,11 @@ for (const i of instances) {
     const unsent = states.filter(([, st]) => st !== 'sent').map(([k, st]) => `${k} ${st}`);
     onServer = i.completed.size - unsent.length;
     missing = unsent;
-    if (handoff.coordinatorToken) {
+    const coordinatorToken = handoff.mapathons.find((m) => m.pid === i.pid)?.coordinatorToken ?? handoff.coordinatorToken;
+    if (coordinatorToken) {
       let submitted: number | undefined;
       for (let attempt = 0; attempt < 30; attempt++) {
-        const res = await fetch(`${handoff.base}/v1/projects/${i.pid}/people`, { headers: { authorization: `Bearer ${handoff.coordinatorToken}` } });
+        const res = await fetch(`${handoff.base}/v1/projects/${i.pid}/people`, { headers: { authorization: `Bearer ${coordinatorToken}` } });
         const people = await res.json() as { asOf: number | null; people: { username: string; plots: { submitted: number } }[] };
         submitted = people.people?.find((r) => r.username === i.username)?.plots.submitted;
         if (people.asOf === null) break;
@@ -344,6 +440,13 @@ for (const i of instances) {
     what: client ? `Collect Earth ${i.n}: every plot it completed is on the server, complete` : `Collect Earth ${i.n}: every plot it completed is sent, as Collect Earth says`,
     ok: missing.length === 0, detail: `${onServer} of ${i.completed.size}${missing.length ? `, not: ${missing.slice(0, 5).join(' ')}` : ''}`,
   });
+}
+if (TRAINING > 0) {
+  for (const i of instances) {
+    checks.push({ what: `Collect Earth ${i.n}: opened the training by itself (the person held no plot yet)`, ok: i.openedByItself === true, detail: `${i.training.length} training plots` });
+    checks.push({ what: `Collect Earth ${i.n}: answered every training plot through its form`, ok: i.trainingCompleted === i.training.length && i.training.length === TRAINING, detail: `${i.trainingCompleted} of ${i.training.length}` });
+    checks.push({ what: `Collect Earth ${i.n}: after the training, its own check brought the person's plots and deleted the training's records here`, ok: i.switchSeconds !== undefined && i.trainingLeftHere === 0, detail: `${i.plots.length} plots after ${i.switchSeconds?.toFixed(0) ?? 'never'} s; ${i.trainingLeftHere} training records left` });
+  }
 }
 allLatencies.sort((a, b) => a - b);
 lines.push(`All instances: ${allLatencies.length} plots timed from completed to on the server: median ${(pct(allLatencies, 50) / 1000).toFixed(1)} s, p95 ${(pct(allLatencies, 95) / 1000).toFixed(1)} s, max ${((allLatencies.at(-1) ?? NaN) / 1000).toFixed(1)} s`);
