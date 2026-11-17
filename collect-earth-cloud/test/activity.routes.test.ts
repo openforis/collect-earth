@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { idOnlyCep } from './fixtures/cep.js';
 import { batchRequest, bearer, envelope, makeContext, setupPlatformAdmin, type TestContext } from './helpers.js';
 
@@ -222,7 +222,10 @@ describe('Activity: the log, the weekly summary, the downloads and the bell (coo
     expect((await call('PUT', '/quality/settings', owner.token, { margins: { [FOREST]: 50 } })).statusCode).toBe(200);
     await batchRequest(ctx.app, pid, ben.token, [envelope({ ...num('b', 505, 'ben', '52', 2), modifiedOn: at(9000), deleted: true })]);
     await batchRequest(ctx.app, pid, ben.token, [envelope({ ...num('b', 507, 'ben', '50', 2), modifiedOn: at(9000) })]);
+    // the records of the pairs beyond the listed ones are read by key, not every record of the project
+    const reads = vi.spyOn(ctx.store, 'listRecordSummaries');
     const body = (await call('GET', '/exports/differences', owner.token)).json();
+    expect(reads).not.toHaveBeenCalled();
     const of = (plot: string) => body.rows.filter((r: { plot: string }) => r.plot === plot);
     expect(of('509')).toEqual([{ plot: '509', name: '509', first: 'maria', check: 'ben', latest: true, decision: null, key: FOREST, firstAnswer: '50', checkAnswer: '52', status: 'differs' }]);
     expect(of('505')).toEqual([{ plot: '505', name: '505', first: 'maria', check: 'ben', latest: true, decision: null, key: null, firstAnswer: null, checkAnswer: null, status: 'gone' }]);

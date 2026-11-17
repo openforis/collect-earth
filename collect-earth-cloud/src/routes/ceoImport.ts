@@ -28,11 +28,11 @@ import { applyLww, recordEventOf } from '../lww.js';
 import { plotFileCsv } from '../plotDesign.js';
 import { parsePlotFile } from '../plots.js';
 import { requireSession } from '../plugins/projectAuth.js';
-import type { Store } from '../store/store.js';
+import type { RecordUpload, Store } from '../store/store.js';
 import type { CeoFetchAnswer, CeoImportAnswer, CeoImportPreview, CeoImportSummary } from '../wire/projects.js';
 import { acceptCep } from './platform.js';
 import { plotFileFormat } from './plotDesign.js';
-import { creationRefusal, teamAccount } from './projects.js';
+import { creationRefusal, IMPORT_CHUNK, teamAccount } from './projects.js';
 
 interface ImportBody {
   /** the saved file: its JSON, or its text */
@@ -302,17 +302,24 @@ export async function registerCeoImportRoutes(app: FastifyInstance, store: Store
           await store.deleteProject(projectId);
           return reply.code(413).send(over);
         }
-        for (const r of built) {
-          const envelope = { recordKey: r.recordKey, surveyUri: `http://www.openforis.org/idm/${survey.surveyName}`, operator: r.operator, modifiedOn: r.modifiedOn,
-            activelySaved: r.activelySaved, step: 1, xml: r.xml, summary: r.summary, deleted: false, payloadVersion: 1, activeSeconds: r.activeSeconds };
-          const kept = await store.putRecordWithEvent(projectId, r.recordKey, r.operator, (existing, submittedBefore) => {
-            // Received when it was saved in CEO: it did not come late (the Progress tab's "work that arrives late")
-            const { row, status } = applyLww(envelope, existing, r.modifiedOn);
-            if (status !== 'stored') return null;
-            const next = { ...row, projectId };
-            return { row: next, event: recordEventOf(existing, next, submittedBefore) };
+        // IMPORT_CHUNK at a time, each in one transaction (as a backup's import): not one transaction per record
+        for (let i = 0; i < built.length; i += IMPORT_CHUNK) {
+          const chunk = built.slice(i, i + IMPORT_CHUNK).map((r): RecordUpload => {
+            const envelope = { recordKey: r.recordKey, surveyUri: `http://www.openforis.org/idm/${survey.surveyName}`, operator: r.operator, modifiedOn: r.modifiedOn,
+              activelySaved: r.activelySaved, step: 1, xml: r.xml, summary: r.summary, deleted: false, payloadVersion: 1, activeSeconds: r.activeSeconds };
+            return {
+              recordKey: r.recordKey,
+              operator: r.operator,
+              apply: (existing, submittedBefore) => {
+                // Received when it was saved in CEO: it did not come late (the Progress tab's "work that arrives late")
+                const { row, status } = applyLww(envelope, existing, r.modifiedOn);
+                if (status !== 'stored') return null;
+                const next = { ...row, projectId };
+                return { row: next, event: recordEventOf(existing, next, submittedBefore) };
+              },
+            };
           });
-          if (kept) records++;
+          records += (await store.putRecordsWithEvents(projectId, chunk)).filter(Boolean).length;
         }
       }
       const s = summary(survey);

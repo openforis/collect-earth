@@ -620,9 +620,10 @@ export interface Store {
    * As listRecords without deleted ones and with xml left null: for the overview and the
    * export. With firstSubmissions, each record also says when it was first submitted
    * (firstSubmittedOn, as listRecordStates): for the quality figures' pattern flags. With `operator`, only that
-   * person's (filtered in the query): a collector's own analysis.
+   * person's (filtered in the query): a collector's own analysis. With `keys`, each summary holds only those of its
+   * keys (cut in the query): what a page needs of every record, not their every answer.
    */
-  listRecordSummaries(projectId: string, options?: { firstSubmissions?: boolean; operator?: string }): Promise<RecordRow[]>;
+  listRecordSummaries(projectId: string, options?: { firstSubmissions?: boolean; operator?: string; keys?: readonly string[] }): Promise<RecordRow[]>;
   /**
    * Some records by key and operator, with their summaries and without XML (deleted ones
    * too; those that do not exist are left out): the review queue's plots beyond the listed

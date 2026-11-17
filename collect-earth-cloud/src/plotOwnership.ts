@@ -15,15 +15,17 @@ export type PlotOwnership = 'own' | 'others' | 'free';
 
 /**
  * Reads the project's plot files and holdings once, for several plots (a batch of records). `userId` null: no person
- * (a project token), who holds nothing. `names`: the plot as asked for and as the plot files name it.
+ * (a project token), who holds nothing. `names`: the plot as asked for and as the plot files name it. `only`: the
+ * names of the one plot asked about, when that is all (the divided files' holdings of those plots alone are read).
  */
-export async function plotOwnershipOf(store: Store, projectId: string, userId: string | null, info: RoundInfo | null): Promise<(names: readonly string[]) => PlotOwnership> {
+export async function plotOwnershipOf(store: Store, projectId: string, userId: string | null, info: RoundInfo | null, only?: readonly string[]): Promise<(names: readonly string[]) => PlotOwnership> {
   const mine = new Set<string>();
   const theirs = new Set<string>();
-  for (const held of await store.listDividedHoldings(projectId)) {
+  const files = new Map((await store.listCsvFiles(projectId)).map((f) => [f.id, f]));
+  const divided = [...files.values()].filter((f) => f.distribution != null).map((f) => f.id);
+  for (const held of only ? await store.listPlotHolders(projectId, divided, only) : await store.listDividedHoldings(projectId)) {
     (held.userId === userId ? mine : theirs).add(held.plotKey);
   }
-  const files = new Map((await store.listCsvFiles(projectId)).map((f) => [f.id, f]));
   const ids = new Map<string, readonly string[]>();
   for (const given of await store.listAssignments(projectId)) {
     const meta = files.get(given.csvFileId);

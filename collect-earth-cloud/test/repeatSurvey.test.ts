@@ -1,7 +1,7 @@
 // A repeat survey (src/repeatSurvey.ts, src/routes/repeatSurvey.ts, plan docs/plans/2026-11-11-repeat-survey.md): a new
 // project collecting the plots of an earlier one again, with the earlier answers kept apart as a period.
 import { strFromU8, unzipSync } from 'fflate';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { bothPeriodsTable, changeAreas, compareRepeat, periodSummaryKey, withPeriodColumns, defaultHeaderQuestions, earlierRecords, labelOf, matchToSurvey, yearOf, type SourceRecord } from '../src/repeatSurvey.js';
 import { surveyOutline } from '../src/surveyOutline.js';
 import { analysisModel, parseCsv } from '../src/analysis.js';
@@ -338,7 +338,11 @@ describe('repeating a survey in the dashboard', () => {
     expect((await call('GET', '/periods/plots/1', lucia, undefined, {}, projectId)).json().periods).toEqual([]);
     expect((await call('GET', '/periods/plots/1,1', lucia, undefined, {}, projectId)).json().periods).toEqual([]);
     // as the desktop names the plot (with the round the server added), with what the form's header shows
+    // (the holders of that plot only are read: the desktop asks for every plot it opens)
+    const holdings = vi.spyOn(ctx.store, 'listDividedHoldings');
     const asDesktop = (await call('GET', '/periods/plots/1,1', maria.token, undefined, {}, projectId)).json();
+    expect(holdings).not.toHaveBeenCalled();
+    holdings.mockRestore();
     expect(asDesktop.periods[0].answers[LAND_USE]).toBe('F');
     expect(asDesktop).toMatchObject({ label: '2025', header: [LAND_USE] });
 
@@ -408,8 +412,13 @@ describe('repeating a survey in the dashboard', () => {
       envelope({ recordKey: `${plot},1`, operator: 'maria', modifiedOn: Date.UTC(2025, 5, plot), summary: { [LAND_USE]: land, collect_code_round: '1', collect_code_period_status: status } });
     // 2020: plot 1 Forest, plot 2 Cropland (plot 3 a draft then)
     expect((await batchRequest(ctx.app, projectId, maria.token, [now(1, 'F', 'same'), now(2, 'G', 'corrected'), now(3, 'S', 'changed')])).statusCode).toBe(200);
+    const reads = vi.spyOn(ctx.store, 'listRecordSummaries');
     const res = await call('GET', '/periods/change', owner.token, undefined, {}, projectId);
     expect(res.statusCode, res.body).toBe(200);
+    // this period's records are read with the question's answer and the period status only (and what the areas read)
+    expect(reads.mock.calls[0][1]?.keys).toEqual(expect.arrayContaining([LAND_USE, 'collect_code_period_status']));
+    expect(reads.mock.calls[0][1]?.keys).not.toContain('collect_code_round');
+    reads.mockRestore();
     expect(res.json()).toMatchObject({
       period: '2020', label: '2025', periods: ['2020'], question: { key: LAND_USE },
       counts: { unchanged: 1, changed: 0, corrected: 1, new: 1, pending: 0, mismatches: 0 },

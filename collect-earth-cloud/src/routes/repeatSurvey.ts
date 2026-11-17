@@ -53,7 +53,7 @@ import type { PeriodHeaderAnswer, Periods, PlotPeriodsAnswer, RepeatAnswer, Repe
 import { acceptCep } from './platform.js';
 import { creationRefusal } from './projects.js';
 import { isPositionKey, withoutPositions } from '../positions.js';
-import { modelOf, projectFactors, type FirstAssessment } from './analysis.js';
+import { factorKeys, modelOf, projectFactors, type FirstAssessment } from './analysis.js';
 import { earlierTotalArea } from '../areas.js';
 
 interface RepeatBody {
@@ -80,8 +80,8 @@ function outlineOf(cep: Buffer | null): Map<string, Question> | null {
 }
 
 /** This project's earlier record of each plot: the coordinator's final one, else the latest submitted first assessment. */
-async function earlierOf(store: Store, projectId: string, log: Log): Promise<EarlierRecord[]> {
-  const [records, context, decisions] = await Promise.all([store.listRecordSummaries(projectId), loadPlotContext(store, projectId, log), store.listQualityDecisions(projectId)]);
+async function earlierOf(store: Store, projectId: string, log: Log, keys?: readonly string[]): Promise<EarlierRecord[]> {
+  const [records, context, decisions] = await Promise.all([store.listRecordSummaries(projectId, keys ? { keys } : {}), loadPlotContext(store, projectId, log), store.listQualityDecisions(projectId)]);
   const { info, units, copyHolders, reference } = context;
   const resolve = recordResolver({ info, units, copyHolders });
   const finalOf = finalAnswers({ records, info, units, copyHolders }, new Map(decisions.filter((d) => !reference.has(d.plot)).map((d) => [d.plot, d.decision])));
@@ -289,17 +289,17 @@ export async function registerRepeatSurveyRoutes(app: FastifyInstance, store: St
     }
     const query = (request.query ?? {}) as { question?: unknown; period?: unknown };
     const period = typeof query.period === 'string' && settings.earlier.some((p) => p.label === query.period) ? query.period : settings.earlier[settings.earlier.length - 1].label;
-    const outline = outlineOf(await store.getCep(projectId));
+    const cep = await store.getCep(projectId);
+    const outline = outlineOf(cep);
     if (!outline) {
       void reply.code(409).send({ error: 'no_project_file', reason: 'This project has no project file.' });
       return null;
     }
-    const [everyEarlier, everyNow] = await Promise.all([store.listPeriodAnswers(projectId, period), earlierOf(store, projectId, request.log)]);
+    const everyEarlier = await store.listPeriodAnswers(projectId, period);
     // A reviewer's comparison has no reference plot (nothing shows them one: a plot listed here and found nowhere else
     // would be one); a coordinator's has every plot
     const hidden = request.membership!.role === 'admin' ? null : (await loadPlotContext(store, projectId, request.log)).reference;
     const earlier = hidden ? everyEarlier.filter((r) => !hidden.has(r.plotKey)) : everyEarlier;
-    const now = hidden ? everyNow.filter((r) => !hidden.has(r.plot)) : everyNow;
     const questions = changeQuestions(outline, earlier, PERIOD_STATUS_KEY);
     const asked = typeof query.question === 'string' ? query.question : '';
     const question = questions.find((q) => q.key === asked) ?? questions.find((q) => settings.headerQuestions.includes(q.key)) ?? questions[0];
@@ -307,6 +307,11 @@ export async function registerRepeatSurveyRoutes(app: FastifyInstance, store: St
       void reply.code(409).send({ error: 'no_question', reason: 'The earlier period answered no question this survey asks with one choice.' });
       return null;
     }
+    // This period's records with only what the comparison and its areas read (areasOf): not every answer of every record
+    const parsed = cep ? modelOf(cep) : null;
+    const keys = [question.key, PERIOD_STATUS_KEY, ...(parsed ? factorKeys(parsed, await store.getAreaSettings(projectId)) : [])];
+    const everyNow = await earlierOf(store, projectId, request.log, keys);
+    const now = hidden ? everyNow.filter((r) => !hidden.has(r.plot)) : everyNow;
     const change = compareRepeat(
       earlier.map((r) => ({ plot: r.plotKey, answers: r.answers })),
       now.map((r) => ({ plot: r.plot, answers: r.answers })),
@@ -450,7 +455,7 @@ export async function registerRepeatSurveyRoutes(app: FastifyInstance, store: St
     // project: for another one the answer is as for a plot without earlier periods
     // Nor of a plot given to other people only. A plot the project gave to nobody is anybody's to assess. A record
     // of the plot does not make it theirs (anybody can send one), and a project token is nobody.
-    if (!seesWho && rows.length > 0 && (await plotOwnershipOf(store, projectId, request.userId ?? null, info))([plot, bare]) === 'others') rows = [];
+    if (!seesWho && rows.length > 0 && (await plotOwnershipOf(store, projectId, request.userId ?? null, info, [plot, bare]))([plot, bare]) === 'others') rows = [];
     const settings = await store.getRepeatSettings(projectId);
     // The questions' labels and their answers' names, from the survey: the project may have no record of the plot yet
     const outline = rows.length > 0 ? outlineOf(await store.getCep(projectId)) : null;

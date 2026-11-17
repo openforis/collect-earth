@@ -738,8 +738,10 @@ export class InMemoryStore implements Store {
     return [...entry.records.values()].filter((r) => includeDeleted || !r.deleted);
   }
 
-  async listRecordSummaries(projectId: string, options: { firstSubmissions?: boolean; operator?: string } = {}): Promise<RecordRow[]> {
-    const rows = (await this.listRecords(projectId)).filter((r) => options.operator === undefined || r.operator === options.operator).map((r) => ({ ...r, xml: null }));
+  async listRecordSummaries(projectId: string, options: { firstSubmissions?: boolean; operator?: string; keys?: readonly string[] } = {}): Promise<RecordRow[]> {
+    const { keys } = options;
+    const cut = (summary: Record<string, string>) => (keys ? Object.fromEntries(keys.filter((k) => k in summary).map((k) => [k, summary[k]])) : summary);
+    const rows = (await this.listRecords(projectId)).filter((r) => options.operator === undefined || r.operator === options.operator).map((r) => ({ ...r, xml: null, summary: cut(r.summary) }));
     if (!options.firstSubmissions) return rows;
     const first = this.firstSubmissions(projectId);
     return rows.map((r) => ({ ...r, firstSubmittedOn: first.get(`${r.recordKey} ${r.operator}`) ?? null }));
