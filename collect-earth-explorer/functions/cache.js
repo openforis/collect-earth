@@ -1,6 +1,9 @@
 const { cacheKey } = require("./lib/cacheKey");
+const { NotFound } = require("./lib/errors");
 
 const COLLECTION = "cache";
+/** "No imagery here" answers are kept for an hour: new scenes arrive, but asking again every page view is waste. */
+const NOT_FOUND_TTL = 3600;
 
 /** Milliseconds for an `expiresAt` read back from Firestore (Timestamp) or from a plain Date/number. */
 function expiresAtMillis(expiresAt) {
@@ -36,19 +39,36 @@ function createCache(db, { now = Date.now, warn = (...args) => console.warn(...a
       .catch((err) => warn("cache write failed:", err && err.message ? err.message : String(err)));
   }
 
+  /** Computes in flight in this instance, by cache key: a second identical request waits for the first. */
+  const inFlight = new Map();
+
+  async function computeAndStore(ref, endpoint, ttlSeconds, compute) {
+    try {
+      const value = await compute();
+      write(ref, endpoint, value, ttlSeconds);
+      return value;
+    } catch (err) {
+      if (err instanceof NotFound) write(ref, endpoint, { notFound: err.message }, NOT_FOUND_TTL);
+      throw err;
+    }
+  }
+
   /**
    * Returns the cached value (with `cached: true`) for this endpoint/plot/dates/extras, or runs
-   * `compute` and stores its result for `ttlSeconds`. `refresh` bypasses the read, not the write.
+   * `compute` and stores its result for `ttlSeconds`. A cached NotFound is thrown again.
    */
-  async function withCache(endpoint, parsed, extras, ttlSeconds, compute, { refresh = false } = {}) {
-    const ref = db.collection(COLLECTION).doc(cacheKey(endpoint, parsed, extras));
-    if (!refresh) {
-      const hit = await read(ref);
-      if (hit !== null) return { ...hit, cached: true };
+  async function withCache(endpoint, parsed, extras, ttlSeconds, compute) {
+    const key = cacheKey(endpoint, parsed, extras);
+    const ref = db.collection(COLLECTION).doc(key);
+    const hit = await read(ref);
+    if (hit !== null) {
+      if (typeof hit.notFound === "string") throw new NotFound(hit.notFound);
+      return { ...hit, cached: true };
     }
-    const value = await compute();
-    write(ref, endpoint, value, ttlSeconds);
-    return value;
+    if (!inFlight.has(key)) {
+      inFlight.set(key, computeAndStore(ref, endpoint, ttlSeconds, compute).finally(() => inFlight.delete(key)));
+    }
+    return inFlight.get(key);
   }
 
   return { withCache };

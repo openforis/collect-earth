@@ -2,6 +2,7 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const { createCache, COLLECTION } = require("../cache");
 const { cacheKey } = require("../lib/cacheKey");
+const { NotFound } = require("../lib/errors");
 
 const parsed = { plot: { type: "Polygon", coordinates: [[[0, 0], [1, 0], [1, 1], [0, 0]]] }, start: "2020-01-01", end: "2021-01-01", areaHa: 1 };
 
@@ -89,18 +90,6 @@ test("an entry whose expiresAt was stored as a Date is honoured too", async () =
   assert.deepEqual(result, { series: [9], cached: true });
 });
 
-test("refresh: true skips the read, recomputes and rewrites the entry", async () => {
-  const key = cacheKey("series/modis", parsed, {});
-  const fresh = { endpoint: "series/modis", value: { series: ["cached"] }, expiresAt: { toMillis: () => Date.now() + 60_000 } };
-  const { db, calls, docs } = fakeDb({ docs: { [key]: fresh } });
-  const { withCache } = createCache(db);
-  const result = await withCache("series/modis", parsed, {}, 60, async () => ({ series: ["recomputed"] }), { refresh: true });
-  assert.deepEqual(result, { series: ["recomputed"] });
-  assert.deepEqual(calls.get, [], "refresh must not read the cache");
-  await settle();
-  assert.deepEqual(docs[key].value, { series: ["recomputed"] });
-});
-
 test("a Firestore read error is treated as a miss and logged once", async () => {
   const warnings = [];
   const { db, calls } = fakeDb({ getError: new Error("firestore unavailable") });
@@ -130,6 +119,39 @@ test("a compute failure propagates and nothing is written", async () => {
   await assert.rejects(withCache("series/modis", parsed, {}, 60, async () => { throw new Error("EE_KEY secret is not set"); }), /EE_KEY/);
   await settle();
   assert.deepEqual(calls.set, []);
+});
+
+test("two concurrent identical requests share one compute, and the next one after it settles computes again", async () => {
+  const { db } = fakeDb({ setError: new Error("no writes, so every read misses") });
+  const { withCache } = createCache(db, { warn: () => {} });
+  let computed = 0;
+  let release;
+  const compute = () => { computed += 1; return new Promise((r) => { release = r; }); };
+  const a = withCache("ccdc", parsed, {}, 60, compute);
+  const b = withCache("ccdc", parsed, {}, 60, compute);
+  await settle();
+  release({ ok: 1 });
+  assert.deepEqual(await a, { ok: 1 });
+  assert.deepEqual(await b, { ok: 1 });
+  assert.equal(computed, 1);
+  await assert.rejects(withCache("ccdc", parsed, {}, 60, async () => { computed += 1; throw new Error("boom"); }), /boom/);
+  await withCache("ccdc", parsed, {}, 60, async () => { computed += 1; return {}; });
+  assert.equal(computed, 3, "a settled compute, failed or not, is not reused");
+});
+
+test("a NotFound is cached for an hour and thrown again on a hit without computing", async () => {
+  const { db, docs } = fakeDb();
+  const now = 1_700_000_000_000;
+  const { withCache } = createCache(db, { now: () => now });
+  let computed = 0;
+  const compute = async () => { computed += 1; throw new NotFound("no landsat scene"); };
+  await assert.rejects(withCache("tiles/scene", parsed, {}, 20 * 3600, compute), { status: 404, message: "no landsat scene" });
+  await settle();
+  const stored = docs[cacheKey("tiles/scene", parsed, {})];
+  assert.deepEqual(stored.value, { notFound: "no landsat scene" });
+  assert.equal(new Date(stored.expiresAt).getTime(), now + 3600 * 1000);
+  await assert.rejects(withCache("tiles/scene", parsed, {}, 20 * 3600, compute), { status: 404, code: "not_found", message: "no landsat scene" });
+  assert.equal(computed, 1);
 });
 
 test("requiring cache.js does not initialise firebase-admin", () => {

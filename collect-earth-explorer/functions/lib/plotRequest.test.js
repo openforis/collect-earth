@@ -86,3 +86,15 @@ test("oversize message uses one decimal", () => {
   const big = [[0, 0], [0.02, 0], [0.02, 0.02], [0, 0.02], [0, 0]];
   assert.throws(() => parsePlotRequest({ plot: { type: "Polygon", coordinates: [big] } }), { ...bad, message: /plot is \d+\.\d ha/ });
 });
+
+test("rejects bow-tie and flat rings, whose signed area is 0, and plots too wide or with too many vertices", () => {
+  const plot = (coords) => ({ plot: { type: "Polygon", coordinates: [coords] }, start: "2020-01-01", end: "2021-01-01" });
+  assert.throws(() => parsePlotRequest(plot([[0, 0], [10, 10], [10, 0], [0, 10], [0, 0]])), { ...bad, message: /wider/ });
+  assert.throws(() => parsePlotRequest(plot([[0, 0], [20, 0], [0, 0]])), { ...bad, message: /wider/ });
+  // The same shapes small enough to pass the extent check.
+  assert.throws(() => parsePlotRequest(plot([[0, 0], [0.01, 0.01], [0.01, 0], [0, 0.01], [0, 0]])), { ...bad, message: /crosses itself/ });
+  assert.throws(() => parsePlotRequest(plot([[0, 0], [0.01, 0], [0, 0]])), { ...bad, message: /no area/ });
+  const many = Array.from({ length: 501 }, (_, i) => [0.001 * Math.cos(i / 80), 0.001 * Math.sin(i / 80)]);
+  assert.throws(() => parsePlotRequest(plot(many)), { ...bad, message: /500 vertices/ });
+  assert.equal(parsePlotRequest(plot(many.slice(0, 500))).plot.type, "Polygon");
+});

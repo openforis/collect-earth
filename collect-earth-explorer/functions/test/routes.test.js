@@ -14,8 +14,8 @@ function fakeCache(canned) {
   const calls = [];
   return {
     calls,
-    async withCache(endpoint, parsed, extras, ttlSeconds, compute, opts = {}) {
-      calls.push({ endpoint, parsed, extras, ttlSeconds, refresh: !!opts.refresh });
+    async withCache(endpoint, parsed, extras, ttlSeconds, compute) {
+      calls.push({ endpoint, parsed, extras, ttlSeconds });
       if (canned) return { ...canned, cached: true };
       return compute();
     },
@@ -218,7 +218,6 @@ test("POST /api/tiles/landsat with a cache hit answers 200 with the cached value
   assert.equal(cache.calls[0].ttlSeconds, TTL.tiles);
   assert.deepEqual(cache.calls[0].extras, { year: 2020 });
   assert.deepEqual(cache.calls[0].parsed.plot, belize);
-  assert.equal(cache.calls[0].refresh, false);
 });
 
 test("POST /api/series/modis without a body is a 400 bad_request", async () => {
@@ -238,17 +237,6 @@ test("POST /api/series/modis with a valid plot but no EE_KEY calls the cache wit
   assert.equal(call.parsed.end, "2021-01-01");
   assert.deepEqual(call.extras, {});
   assert.equal(call.ttlSeconds, TTL.series);
-  assert.equal(call.refresh, false);
-});
-
-test("?refresh=1 passes refresh: true to the cache; other values do not", async () => {
-  const canned = { series: [] };
-  for (const [query, expected] of [["?refresh=1", true], ["?refresh=0", false], ["?refresh=true", false], ["", false]]) {
-    const cache = fakeCache(canned);
-    const res = await request(appWith(cache)).post("/api/series/modis" + query).send({ plot: belize });
-    assert.equal(res.status, 200);
-    assert.equal(cache.calls[0].refresh, expected, "refresh for query " + JSON.stringify(query));
-  }
 });
 
 test("POST /api/series/landsat without a body is a 400 bad_request", async () => {
@@ -400,7 +388,7 @@ test("registerRoutes without options uses the default (Firestore) cache lazily, 
   assert.equal(getApps().length, 0);
 });
 
-test("tiles/sentinel2 and tiles/scene drop start from the cache key (their computation ignores it); series/modis keeps it", async () => {
+test("tiles/sentinel2 drops start from the cache key, tiles/scene and tiles/landsat both dates (their computation ignores them); series/modis keeps them", async () => {
   const canned = { tileUrl: "https://example/{z}/{x}/{y}", label: "x" };
   const body = { plot: belize, start: "2020-01-01", end: "2021-01-01" };
 
@@ -415,7 +403,13 @@ test("tiles/sentinel2 and tiles/scene drop start from the cache key (their compu
   res = await request(appWith(cache)).post("/api/tiles/scene").send({ ...body, sensor: "landsat", timeStart: 1609459200000 });
   assert.equal(res.status, 200);
   assert.equal(cache.calls[0].parsed.start, null);
-  assert.equal(cache.calls[0].parsed.end, "2021-01-01");
+  assert.equal(cache.calls[0].parsed.end, null);
+
+  cache = fakeCache(canned);
+  res = await request(appWith(cache)).post("/api/tiles/landsat").send({ ...body, year: 2020 });
+  assert.equal(res.status, 200);
+  assert.equal(cache.calls[0].parsed.start, null);
+  assert.equal(cache.calls[0].parsed.end, null);
 
   cache = fakeCache({ series: [] });
   res = await request(appWith(cache)).post("/api/series/modis").send(body);
