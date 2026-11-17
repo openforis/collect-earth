@@ -62,7 +62,7 @@ public class BalloonServlet extends DataAccessingServlet {
 	@GetMapping("/"+BALLOON_EXTERNAL_URL)
 	public void returnBalloon(HttpServletResponse response, HttpServletRequest request, String imageName,
 			@RequestParam(value = "web", required = false) Boolean web) throws IOException {
-		response.setHeader("Content-Type", "text/html"); //$NON-NLS-1$ //$NON-NLS-2$
+		response.setHeader("Content-Type", "text/html; charset=UTF-8"); //$NON-NLS-1$ //$NON-NLS-2$
 		response.setHeader("Content-Disposition", "inline; filename=\"" + imageName + "\""); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 		response.setHeader("Cache-Control", "max-age=30"); //$NON-NLS-1$ //$NON-NLS-2$
 		response.setHeader("Date", new SimpleDateFormat(EarthConstants.DATE_FORMAT_HTTP, Locale.ENGLISH).format(new Date())); //$NON-NLS-1$
@@ -81,7 +81,7 @@ public class BalloonServlet extends DataAccessingServlet {
 					: request.getParameterMap();
 			balloonContents = replaceGoalsWithParameters(balloonContents, substitutionParams);
 
-			final byte[] bytes = balloonContents.getBytes();
+			final byte[] bytes = balloonContents.getBytes(StandardCharsets.UTF_8); // read as UTF-8 above
 			response.setHeader("Content-Length", Integer.toString( bytes.length ) ); //$NON-NLS-1$ //$NON-NLS-2$
 			writeToResponse(response, bytes);
 		} else {

@@ -840,7 +840,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 					"planetMapsKey",
 					key,
 					"urlPlanetEndpointPrefix",
-					ServerController.getHostAddress(localPropertiesService.getHost(), localPropertiesService.getPort())
+					ServerController.getHostAddress(localPropertiesService.getHost(), localPropertiesService.getLocalPort())
 			).toString();
 
 			loadInTab(ImagerySource.PLANET, selection, processTemplate);
