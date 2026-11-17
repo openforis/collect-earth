@@ -55,9 +55,9 @@ The EE key: the function reads the `EE_KEY` secret (service-account JSON). Local
 `functions/index.js` lazily builds the app from `app.js` (CORS, JSON body, `/api/health`, 404, error
 middleware) plus `routes.js`. Every data endpoint is a `POST /api/...` built with `plotRoute()`:
 
-1. `lib/plotRequest.parsePlotRequest(body)` normalises the plot (Polygon/LineString/MultiLineString/Point → single-ring Polygon, max 100 ha) and clamps dates; optional `validate` hook. Bad input throws `BadRequest` (400) before cache or EE.
+1. `lib/plotRequest.parsePlotRequest(body)` normalises the plot (Polygon/LineString/MultiLineString/Point → single-ring Polygon, max 100 ha, 500 vertices, 0.1° extent, no self-crossing) and clamps dates; optional `validate` hook. Bad input throws `BadRequest` (400) before cache or EE.
 2. `extrasOf(body)` builds endpoint-specific params (Landsat `year`, scene `sensor`/`timeStart`, CCDC `band`); these are part of the cache key.
-3. `cache.withCache` (Firestore `cache` collection, key from `lib/cacheKey`) → on miss `eeAuth()` then the `ee/*` compute function. `?refresh=1` skips the read. Tile endpoints use `ignoreStart` (cache key ignores `start`). TTLs in `routes.js`: tiles 20 h, series/CCDC 30 days. Cache errors never fail a request.
+3. `cache.withCache` (Firestore `cache` collection, key from `lib/cacheKey`) → on miss `eeAuth()` then the `ee/*` compute function. Concurrent identical computes in one instance share one promise; a NotFound (404) is cached for 1 h. The key drops dates a result does not use (`ignore`: Sentinel-2 composite ignores `start`, Landsat composite and scenes both dates). TTLs in `routes.js`: tiles 20 h, series/CCDC 30 days. Cache errors never fail a request.
 
 Endpoints: `tiles/sentinel2`, `tiles/landsat`, `tiles/scene`, `series/modis`, `series/landsat`, `series/sentinel2`, `ccdc`, and `GET /api/catalogue`.
 

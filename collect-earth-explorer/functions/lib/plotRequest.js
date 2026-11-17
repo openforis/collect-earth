@@ -3,6 +3,9 @@ const { BadRequest, NotFound } = require("./errors");
 
 const MIN_DATE = "1984-01-01";
 const MAX_AREA_HA = 100;
+const MAX_VERTICES = 500;
+// A 1 km (100 ha) square spans 0.086° of longitude at 84° latitude; 0.1° keeps every such plot below that.
+const MAX_SPAN_DEG = 0.1;
 
 function validatePosition(pos) {
   if (!Array.isArray(pos) || pos.length < 2 || !Number.isFinite(pos[0]) || !Number.isFinite(pos[1])) {
@@ -47,6 +50,31 @@ function toPolygon(geometry) {
   throw new BadRequest(`unsupported plot geometry type ${type}`);
 }
 
+/** True when two non-adjacent edges of the closed ring properly cross (a bow-tie), which makes the signed area meaningless. */
+function selfCrosses(ring) {
+  const side = (a, b, c) => Math.sign((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]));
+  const n = ring.length - 1; // edges; ring is closed
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 2; j < n; j++) {
+      if (i === 0 && j === n - 1) continue; // first and last edges share the closing vertex
+      const [a, b, c, d] = [ring[i], ring[i + 1], ring[j], ring[j + 1]];
+      if (side(a, b, c) * side(a, b, d) < 0 && side(c, d, a) * side(c, d, b) < 0) return true;
+    }
+  }
+  return false;
+}
+
+/** Rejects plots whose area cannot be trusted or whose extent is too large to be a 100 ha plot. */
+function checkShape(ring) {
+  if (ring.length - 1 > MAX_VERTICES) throw new BadRequest(`plot has more than ${MAX_VERTICES} vertices`); // ring is closed
+  const lons = ring.map((p) => p[0]);
+  const lats = ring.map((p) => p[1]);
+  if (Math.max(...lons) - Math.min(...lons) > MAX_SPAN_DEG || Math.max(...lats) - Math.min(...lats) > MAX_SPAN_DEG) {
+    throw new BadRequest(`plot is wider than ${MAX_SPAN_DEG}°`);
+  }
+  if (selfCrosses(ring)) throw new BadRequest("plot outline crosses itself");
+}
+
 function isoDate(d) { return d.toISOString().slice(0, 10); }
 
 /**
@@ -76,7 +104,9 @@ function clampDate(value, fallback, min, max) {
 function parsePlotRequest(body, now = new Date()) {
   if (!body || !body.plot) throw new BadRequest("plot is required");
   const plot = toPolygon(body.plot);
+  checkShape(plot.coordinates[0]);
   const ha = area(plot) / 10000;
+  if (!(ha > 0)) throw new BadRequest("plot has no area");
   if (ha > MAX_AREA_HA) throw new BadRequest(`plot is ${ha.toFixed(1)} ha; maximum is ${MAX_AREA_HA} ha`);
   const today = isoDate(now);
   const start = clampDate(body.start, MIN_DATE, MIN_DATE, today);

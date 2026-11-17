@@ -27,6 +27,6 @@ exports.handler = createHandler();
 exports.api = onRequest(
   // cpu: 1 because concurrency > 1 on 2nd-gen functions requires a full vCPU; timeoutSeconds 300 is
   // why the web app calls this URL directly in production (Hosting's rewrite proxy gives up at 60 s).
-  { region: "europe-west1", secrets: [EE_KEY], timeoutSeconds: 300, memory: "1GiB", cpu: 1, concurrency: 10 },
+  { region: "europe-west1", secrets: [EE_KEY], timeoutSeconds: 300, memory: "1GiB", cpu: 1, concurrency: 10, maxInstances: 10 },
   exports.handler
 );

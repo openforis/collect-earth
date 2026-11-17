@@ -21,23 +21,23 @@ const TTL = { tiles: 20 * 3600, series: 30 * 24 * 3600 };
  * Builds a cached POST handler. Order per request:
  *   1. parsePlotRequest(body) and the optional `validate(body)` hook: a 400 here never reaches the cache or EE;
  *   2. `extrasOf(body)` -> endpoint-specific parameters, part of the cache key and the third argument of compute;
- *   3. cache lookup (skipped with `?refresh=1`); on a miss: eeAuth, then `compute(parsed, eeGeometry, extras)`.
+ *   3. cache lookup; on a miss: eeAuth, then `compute(parsed, eeGeometry, extras)`.
  * `extrasOf` may itself throw a BadRequest (the scene and ccdc validators double as extras builders).
- * `ignoreStart` keys the cache with `start: null` for endpoints whose computation does not depend on
- * `start` (tile composites and scenes), so one plot does not get one cache entry per start date.
+ * `ignore` drops from the cache key the dates the computation does not use, so one plot does not get one
+ * entry per date: "start" (the Sentinel-2 composite) or "dates" (the Landsat composite and scenes).
  */
-function plotRoute(endpoint, ttlSeconds, extrasOf, compute, validate, cache = defaultCache, { ignoreStart = false } = {}) {
+function plotRoute(endpoint, ttlSeconds, extrasOf, compute, validate, cache = defaultCache, { ignore } = {}) {
   return asyncHandler(async (req, res) => {
     const parsed = parsePlotRequest(req.body);
     if (validate) validate(req.body);
     const extras = extrasOf ? extrasOf(req.body) : {};
-    const refresh = req.query.refresh === "1";
     // With its own window (extras.end) a composite does not depend on the plot's end either.
-    const keyed = ignoreStart ? { ...parsed, start: null, end: extras.end ? null : parsed.end } : parsed;
+    const keyed = ignore === "dates" ? { ...parsed, start: null, end: null }
+      : ignore === "start" ? { ...parsed, start: null, end: extras.end ? null : parsed.end } : parsed;
     const result = await cache.withCache(endpoint, keyed, extras, ttlSeconds, async () => {
       await eeAuth();
       return compute(parsed, ee.Geometry(parsed.plot), extras);
-    }, { refresh });
+    });
     res.json(result);
   });
 }
@@ -89,7 +89,8 @@ function seriesExtras(type) {
 /** Registers the API routes; `cache` (an object with `withCache`) defaults to the Firestore-backed one. */
 function registerRoutes(app, { cache = defaultCache } = {}) {
   const route = (endpoint, ttl, extrasOf, compute, validate, opts) => plotRoute(endpoint, ttl, extrasOf, compute, validate, cache, opts);
-  const noStart = { ignoreStart: true };
+  const noStart = { ignore: "start" };
+  const noDates = { ignore: "dates" };
 
   // Public and read-only: the cloud dashboard reads it from any origin (replaces the allowlist's echo for this route).
   app.get("/api/catalogue", (req, res) => res.set("Access-Control-Allow-Origin", "*").json(catalogue));
@@ -101,7 +102,8 @@ function registerRoutes(app, { cache = defaultCache } = {}) {
       TTL.tiles,
       (b) => ({ year: Number(b.year), ...nonDefault("layers", "landsat", b, ["bands", "maxCloud"]) }),
       (p, g, { year, ...options }) => landsatCompositeTiles(g, year, options),
-      (b) => sensorsForYear(Number(b.year))
+      (b) => sensorsForYear(Number(b.year)),
+      noDates
     )
   );
   app.post("/api/series/modis", route("series/modis", TTL.series, (b) => nonDefault("charts", "modis", b, ["index"]), (p, g, x) => modisSeries(g, p.start, p.end, x.index)));
@@ -109,7 +111,7 @@ function registerRoutes(app, { cache = defaultCache } = {}) {
   app.post("/api/series/sentinel2", route("series/sentinel2", TTL.series, seriesExtras("sentinel2-series"), (p, g, x) => sentinel2Series(g, p.start, p.end, x.index, x.formula)));
   app.post(
     "/api/tiles/scene",
-    route("tiles/scene", TTL.tiles, validateSceneRequest, (p, g, x) => sceneTiles(g, p.start, p.end, x.sensor, x.timeStart), null, noStart)
+    route("tiles/scene", TTL.tiles, validateSceneRequest, (p, g, x) => sceneTiles(g, p.start, p.end, x.sensor, x.timeStart), null, noDates)
   );
   app.post("/api/ccdc", route("ccdc", TTL.series, validateCcdcRequest, (p, g, x) => ccdcSeries(g, p.start, p.end, x.band)));
 }
