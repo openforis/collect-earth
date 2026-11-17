@@ -25,7 +25,10 @@ export interface UiState {
    * a plot by its label, everything else (the map, the form, the records, the statuses) by its id.
    */
   labels: Record<string, string>;
+  /** Changed in place (a copy of 500k plots took ~0.5 s, a few times a plot): statusesVersion tells it changed */
   statuses: Record<string, PlotStatus>;
+  /** Bumped on every change of statuses: what the memos of the statuses depend on */
+  statusesVersion: number;
   loaded: boolean;
   /** The plot file is a training set's: its name (the list says so); null otherwise */
   training: string | null;
@@ -46,7 +49,7 @@ export interface UiState {
   /** The tabs of the imagery window and the one shown: the source buttons. */
   imagery: ImageryStatus;
   /** The plot just submitted and the one the list moved to (null: none left), for a toast; key tells two apart. */
-  submitted: { key: number; plotId: string; next: string | null } | null;
+  submitted: { key: number; plotId: string; next: string | null; training?: boolean } | null;
   /** A plot changed after it was submitted, and left without submitting it again, for a notice; key tells two apart. */
   unsubmitted: { key: number; plotId: string } | null;
 }
@@ -92,7 +95,7 @@ export class MapController {
 
   constructor() {
     this.state = {
-      order: [], labels: byId(), statuses: byId(), loaded: false, training: null, activeId: null, selected: 0, formUrl: null,
+      order: [], labels: byId(), statuses: byId(), statusesVersion: 0, loaded: false, training: null, activeId: null, selected: 0, formUrl: null,
       filter: this.prefs.filter ?? "all", query: "", repeat: false, periods: byId(), periodFilter: this.prefs.periodFilter ?? "all", language: "en",
       imagery: { sources: [], visible: null }, submitted: null, unsubmitted: null,
     };
@@ -144,7 +147,7 @@ export class MapController {
       // None (e.g. no survey loaded): the list says so; the statuses tell when there is a plot file to load
       if (!index.ids || index.ids.length === 0) {
         this.plots = byId();
-        this.set({ order: [], labels: byId(), statuses: byId(), loaded: true, training: null, ...(this.state.activeId !== null ? { activeId: null, formUrl: null } : {}) });
+        this.set({ order: [], labels: byId(), statuses: byId(), statusesVersion: this.state.statusesVersion + 1, loaded: true, training: null, ...(this.state.activeId !== null ? { activeId: null, formUrl: null } : {}) });
         this.startStatusPolling();
         return;
       }
@@ -162,7 +165,7 @@ export class MapController {
       const activeGone = this.state.activeId !== null && !(this.state.activeId in plots);
       // nothing to go back to
       if (this.changedAfterSubmit != null && !(this.changedAfterSubmit in plots)) this.changedAfterSubmit = null;
-      this.set({ order, labels, statuses, loaded: true, training: index.training ?? null, ...(activeGone ? { activeId: null, formUrl: null } : {}) });
+      this.set({ order, labels, statuses, statusesVersion: this.state.statusesVersion + 1, loaded: true, training: index.training ?? null, ...(activeGone ? { activeId: null, formUrl: null } : {}) });
       this.startStatusPolling();
     } catch {
       window.setTimeout(() => this.loadPlots(), 5000);
@@ -208,7 +211,8 @@ export class MapController {
   private applyStatuses(updates: Record<string, PlotStatus>): void {
     const changed = Object.keys(updates).filter((id) => this.state.statuses[id] !== updates[id]);
     if (!changed.length) return;
-    this.set({ statuses: Object.assign(byId<PlotStatus>(), this.state.statuses, updates) });
+    for (const id of changed) this.state.statuses[id] = updates[id];
+    this.set({ statusesVersion: this.state.statusesVersion + 1 });
   }
 
   /** A repeat survey's period statuses of the plots saved since the last poll ("" for a plot not answered). */
@@ -248,8 +252,10 @@ export class MapController {
       if (reply) (event.source as Window | null)?.postMessage(reply, window.location.origin);
     } else if (data.type === "ce:saved") {
       this.applyStatuses({ [data.plotId]: "saved" });
-      const next = this.goToNextUnfinished();
-      this.set({ submitted: { key: Date.now(), plotId: data.plotId, next } });
+      // A training plot stays open: its form shows how the answers compare with the golden ones
+      const training = this.state.training != null;
+      const next = training ? null : this.goToNextUnfinished();
+      this.set({ submitted: { key: Date.now(), plotId: data.plotId, next, training } });
     } else if (data.type === "ce:dirty") {
       this.applyStatuses({ [data.plotId]: "partial" });
     }
@@ -271,7 +277,7 @@ export class MapController {
     // The generated form goes by the plot's id alone and opens at once; the project's own balloon is filled with every
     // column of the plot's row, which comes with its details
     const balloon = this.webForm === "balloon";
-    this.set({ activeId: id, selected: this.state.selected + 1, formUrl: balloon ? null : formUrl(place, this.webForm, this.state.language) });
+    this.set({ activeId: id, selected: this.state.selected + 1, formUrl: balloon ? null : formUrl(place, this.webForm, this.state.language, this.state.training != null) });
     openAuxiliaryWindows(place);
     void this.openDetail(id, this.state.selected, DETAIL_TRIES);
   };

@@ -78,7 +78,9 @@ export function App({ controller }: { controller: MapController }) {
         }} anchorOrigin={{ vertical: "bottom", horizontal: "center" }}>
           <Alert severity="success" variant="filled" onClose={controller.dismissSubmitted} data-testid="submitted-toast"
             sx={{ position: "relative", overflow: "hidden" }}>
-            {state.submitted.next
+            {state.submitted.training
+              ? t("toast.submittedTraining", { id: plotLabel(state.labels, state.submitted.plotId) })
+              : state.submitted.next
               ? t("toast.submitted", { id: plotLabel(state.labels, state.submitted.plotId),
                 next: plotLabel(state.labels, state.submitted.next) })
               : t("toast.submittedLast", { id: plotLabel(state.labels, state.submitted.plotId) })}

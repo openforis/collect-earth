@@ -61,9 +61,9 @@ afterEach(() => {
 
 const answered = { collect_code_lu: { value: "F" }, collect_boolean_trees: { value: "true" } };
 
-async function opened(activelySaved: boolean, infos: Record<string, FieldInfo>): Promise<FormStore> {
+async function opened(activelySaved: boolean, infos: Record<string, FieldInfo>, training = false): Promise<FormStore> {
   serve({ activelySaved, infos });
-  const store = new FormStore("p1");
+  const store = new FormStore("p1", training);
   await store.load();
   return store;
 }
@@ -386,7 +386,7 @@ describe("the training feedback of a plot submitted", () => {
 
 describe("a learning plot submitted", () => {
   it("asks Collect Earth how the answers compare with the golden ones, and forgets it once the plot changes", async () => {
-    const store = await opened(false, { collect_code_lu: { value: "F" }, collect_boolean_trees: {} });
+    const store = await opened(false, { collect_code_lu: { value: "F" }, collect_boolean_trees: {} }, true);
     saved = { collect_code_lu: { value: "F" }, collect_boolean_trees: {} };
     accepted = true;
     trainingAnswer = { status: "scored", set: "Week 1", attempt: 1, plot: { plot: "p1", right: true, answers: { compared: 1, agreeing: 1 }, note: null, questions: [{ key: "collect_code_lu", label: "Land use", golden: "F", given: "F", right: true }] } };
@@ -397,13 +397,22 @@ describe("a learning plot submitted", () => {
     store.setValue("collect_code_lu", "C");
     expect(store.getState().training).toBeNull();
   });
-  it("shows nothing for a plot that is no training plot", async () => {
-    const store = await opened(false, { collect_code_lu: { value: "F" }, collect_boolean_trees: {} });
+  it("shows nothing for a training plot the server does not know", async () => {
+    const store = await opened(false, { collect_code_lu: { value: "F" }, collect_boolean_trees: {} }, true);
     saved = { collect_code_lu: { value: "F" }, collect_boolean_trees: {} };
     accepted = true;
     expect(await store.submit()).toBe(true);
     await vi.waitFor(() => expect(store.getState().trainingLoading).toBe(false));
     expect(store.getState().training).toBeNull();
+  });
+  it("does not ask for feedback when the plot file is no training set (the cloud is not polled for nothing)", async () => {
+    const store = await opened(false, { collect_code_lu: { value: "F" }, collect_boolean_trees: {} });
+    saved = { collect_code_lu: { value: "F" }, collect_boolean_trees: {} };
+    accepted = true;
+    expect(await store.submit()).toBe(true);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(trainingAsked).toEqual([]);
+    expect(store.getState().trainingLoading).toBe(false);
   });
 });
 

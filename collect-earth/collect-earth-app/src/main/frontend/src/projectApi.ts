@@ -51,8 +51,6 @@ export const cloudSignOut = (server: string) => apiPost<CloudState>("cloud/signO
 export const recordSync = (key: string, signal?: AbortSignal) =>
   apiGet<{ state: RecordSync }>("cloud/recordSync?key=" + encodeURIComponent(key), signal).then((r) => r.state);
 
-/** The records this computer has of the project (CloudSendController) */
-export const localRecordCount = (signal?: AbortSignal) => apiGet<{ count: number }>("cloud/localRecords", signal).then((r) => r.count);
 /** The records of the project on this computer: in all, the person's (under a name typed here before the join, or their username), the others */
 export interface LocalRecords { count: number; mine: number; others: number; names: string[] }
 export const localRecords = (signal?: AbortSignal) => apiGet<LocalRecords>("cloud/localRecords", signal);
