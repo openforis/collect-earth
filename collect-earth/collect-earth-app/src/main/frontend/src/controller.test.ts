@@ -143,3 +143,60 @@ describe("the plot list", () => {
     expect(controller.getSnapshot().formUrl).toBe("balloon?id=1&climate=");
   });
 });
+
+describe("a plot submitted in the form", () => {
+  const frame = {};
+  let onMessage: (e: unknown) => void = () => {};
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.stubGlobal("window", {
+      location: { origin: "http://localhost:8028" },
+      addEventListener: (type: string, f: (e: unknown) => void) => { if (type === "message") onMessage = f; },
+      setTimeout: (f: () => void, ms: number) => setTimeout(f, ms), clearTimeout: (id: number) => clearTimeout(id),
+    });
+    // the form's iframe, which the messages must come from
+    vi.stubGlobal("document", { querySelector: () => ({ contentWindow: frame }) });
+    vi.mocked(fetchMapConfig).mockResolvedValue({});
+    vi.mocked(fetchGewStatus).mockRejectedValue(new Error("not now"));
+    vi.mocked(fetchImageryStatus).mockRejectedValue(new Error("not now"));
+    vi.mocked(fetchPlotDetail).mockRejectedValue(new Error("not now"));
+    vi.mocked(fetchStatuses).mockResolvedValue({ now: 100, statuses: {}, plots: "all.csv@1" });
+    vi.mocked(formUrl).mockImplementation((f, _w, _l, training) => "form?id=" + f.properties.id + (training ? "&training=1" : ""));
+  });
+  afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.resetAllMocks(); });
+
+  async function opened(training?: string): Promise<MapController> {
+    vi.mocked(fetchPlots).mockResolvedValueOnce({ ...index(["1", "2"], "all.csv@1"), training });
+    const controller = new MapController();
+    await controller.start();
+    await vi.advanceTimersByTimeAsync(0);
+    controller.selectPlot("1");
+    return controller;
+  }
+  const saved = (plotId: string) => onMessage({ origin: "http://localhost:8028", source: frame, data: { type: "ce:saved", plotId } });
+
+  it("moves on to the next plot not completed, its status changed in place and the change told", async () => {
+    const controller = await opened();
+    expect(controller.getSnapshot().formUrl).toBe("form?id=1");
+    const before = controller.getSnapshot();
+    const version = before.statusesVersion;
+    saved("1");
+    const after = controller.getSnapshot();
+    expect(after.statuses["1"]).toBe("saved");
+    // the same map, not a copy of every plot's status: the version tells React it changed
+    expect(after.statuses).toBe(before.statuses);
+    expect(after.statusesVersion).toBeGreaterThan(version);
+    expect(after).not.toBe(before);
+    expect(after.activeId).toBe("2");
+    expect(after.submitted).toMatchObject({ plotId: "1", next: "2", training: false });
+  });
+
+  it("stays on a training plot, whose form shows how the answers compare, and tells the form it is one", async () => {
+    const controller = await opened("Week 1");
+    expect(controller.getSnapshot().formUrl).toBe("form?id=1&training=1");
+    saved("1");
+    expect(controller.getSnapshot()).toMatchObject({ activeId: "1", formUrl: "form?id=1&training=1" });
+    expect(controller.getSnapshot().submitted).toMatchObject({ plotId: "1", next: null, training: true });
+    expect(controller.getSnapshot().statuses["1"]).toBe("saved");
+  });
+});

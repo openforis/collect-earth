@@ -35,13 +35,13 @@ const ROW_HEIGHT = 40;
  */
 export function PlotSidebar({ controller, state, onHide }: { controller: MapController; state: UiState; onHide?: () => void }) {
   const t = useT();
-  const { order, labels, statuses, filter, query, activeId, loaded, training } = state;
-  const counts = useMemo(() => countStatuses(order, statuses), [order, statuses]);
+  const { order, labels, statuses, statusesVersion, filter, query, activeId, loaded, training } = state;
+  const counts = useMemo(() => countStatuses(order, statuses), [order, statuses, statusesVersion]);
   const { repeat, periods, periodFilter } = state;
   // a repeat survey's filter by what the collector said against the earlier period (see MapController.periodView)
   const period = useMemo<PeriodView | null>(() => (repeat ? { periods, filter: periodFilter } : null), [repeat, periods, periodFilter]);
   const periodCounts = useMemo(() => countPeriods(order, periods), [order, periods]);
-  const visible = useMemo(() => visibleIds(order, statuses, filter, query, labels, period), [order, statuses, filter, query, labels, period]);
+  const visible = useMemo(() => visibleIds(order, statuses, filter, query, labels, period), [order, statuses, statusesVersion, filter, query, labels, period]);
 
   // Debounced search: typing stays responsive with thousands of plots
   const [text, setText] = useState(query);
@@ -52,7 +52,7 @@ export function PlotSidebar({ controller, state, onHide }: { controller: MapCont
   // the search cleared elsewhere (its chip in the form's header): the box too
   useEffect(() => { if (query === "") setText(""); }, [query]);
   const elsewhere = useMemo(() => (visible.length ? null : matchesElsewhere(order, statuses, filter, query, labels, period)),
-    [visible, order, statuses, filter, query, labels, period]);
+    [visible, order, statuses, statusesVersion, filter, query, labels, period]);
 
   const pct = counts.total ? Math.round((counts.saved * 100) / counts.total) : 0;
   return (

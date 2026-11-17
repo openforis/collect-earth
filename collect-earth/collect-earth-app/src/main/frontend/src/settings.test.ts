@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  changes, choiceLabel, defaultsOf, fieldLabel, holds, isVisible, matches, monthLabel, proposeReferenceDistance,
+  changes, choiceLabel, defaultsOf, fieldLabel, holds, isVisible, matches, proposeReferenceDistance,
   lockedFields, plotFileLocked, restartNeeded, sectionsMatching, type Field, type Section,
 } from "./settings";
 
@@ -70,10 +70,6 @@ describe("labels", () => {
     expect(choiceLabel({ value: "leaflet", label: "SettingsPage.mapEngine.leaflet" }, texts)).toBe("Leaflet (ESRI imagery)");
     expect(choiceLabel({ value: "2021-03", text: "2021/03" }, texts)).toBe("2021/03");
     expect(choiceLabel({ value: "x" }, texts)).toBe("x");
-  });
-  it("writes a Planet month as its label", () => {
-    expect(monthLabel("2021-03")).toBe("2021/03");
-    expect(monthLabel("2015-12_2016-05")).toBe("2015/12 - 2016/05");
   });
 });
 

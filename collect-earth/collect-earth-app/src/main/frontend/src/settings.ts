@@ -152,11 +152,6 @@ export function proposeReferenceDistance(values: Values, plot: PlotFigures | nul
   return Number.isNaN(n) || n < plot.minReferenceDistance ? plot.recommendedReferenceDistance : null;
 }
 
-/** "2021/03" for "2021-03", "2015/12 - 2016/05" for "2015-12_2016-05" (the Planet mosaics). */
-export function monthLabel(value: string): string {
-  return value.split("_").map((m) => m.replace("-", "/")).join(" - ");
-}
-
 /** The number of changes, as the bar at the bottom says it. */
 export function changeCount(changed: Values): number {
   return Object.keys(changed).length;

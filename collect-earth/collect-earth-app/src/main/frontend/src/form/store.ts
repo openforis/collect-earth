@@ -227,7 +227,8 @@ export class FormStore {
   /** the save state with nothing waiting to be saved: what a change taken back returns to (see setDraftProblem) */
   private settled: SaveState = "idle";
 
-  constructor(placemarkId: string) {
+  /** training: the plot is a training set's (training=1 in the page's address): only its submit asks for the feedback */
+  constructor(placemarkId: string, private readonly training = false) {
     this.state = {
       phase: "loading", failure: null, model: null, placemarkId, infos: {}, pending: {}, tab: 0, saveState: "idle",
       serverDown: false, saveError: null, retrying: false, submitted: false, alreadyFilled: false, unsubmitted: false, submitErrors: null, submitting: false, attempted: false, training: null, trainingLoading: false,
@@ -581,7 +582,7 @@ export class FormStore {
     // The server only keeps actively_saved when the whole record is valid (AbstractEarthSurveyService)
     if (result.activelySaved) {
       this.set({ submitted: true, unsubmitted: false, submitErrors: null });
-      void this.checkTraining();
+      if (this.training) void this.checkTraining();
       // the plots map keeps its answers for the next plot (see previous)
       this.post("ce:saved", { survey: this.state.model.survey,
         answers: answersToRemember(this.fields, this.state.model.keys, this.state.infos, (n) => this.value(n)) });

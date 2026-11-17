@@ -35,7 +35,7 @@ export function FormPanel({ controller, state, hidden, onShowList }: {
   const prev = controller.neighbourOf(id, -1);
   const next = controller.neighbourOf(id, 1);
   // The work done, otherwise only in the list, which is hidden while the form is shown
-  const counts = useMemo(() => countStatuses(state.order, state.statuses), [state.order, state.statuses]);
+  const counts = useMemo(() => countStatuses(state.order, state.statuses), [state.order, state.statuses, state.statusesVersion]);
   const pct = counts.total ? Math.round((counts.saved * 100) / counts.total) : 0;
   // The arrows go through the list as filtered, which is remembered from one session to the next: shown, and undone here
   const filterLabel = state.filter !== "all" ? t(`filter.${state.filter}`) : null;

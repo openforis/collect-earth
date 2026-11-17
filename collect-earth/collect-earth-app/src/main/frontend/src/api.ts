@@ -41,9 +41,11 @@ export async function fetchStatuses(since: number | null): Promise<{ now: number
  * reads the plot file values itself), or the CEP's balloon, where /balloon substitutes the $[...]
  * tokens with the plot's properties.
  */
-export function formUrl(feature: PlotFeature, webForm = "generated", language = "en"): string {
+/** training: the plot is a training set's, whose form asks for the feedback once submitted */
+export function formUrl(feature: PlotFeature, webForm = "generated", language = "en", training = false): string {
   if (webForm !== "balloon") {
-    return earthBase() + "form?id=" + encodeURIComponent(feature.properties.id) + "&lang=" + encodeURIComponent(language);
+    return earthBase() + "form?id=" + encodeURIComponent(feature.properties.id) + "&lang=" + encodeURIComponent(language)
+      + (training ? "&training=1" : "");
   }
   const params = Object.entries(feature.properties).map(
     ([k, v]) => encodeURIComponent(k) + "=" + encodeURIComponent(v ?? ""));

@@ -13,11 +13,11 @@ import { FormApp } from "./FormApp";
 import { FormStore } from "./store";
 import { uiScaleStyles } from "../uiScale";
 
-// /earth/form?id=<placemark id>&lang=<UI language>: the plots map opens it in its panel, in Google Earth Web
+// /earth/form?id=<placemark id>&lang=<UI language>[&training=1]: the plots map opens it in its panel, in Google Earth Web
 const params = new URLSearchParams(window.location.search);
 const language = params.get("lang") ?? "en";
 document.documentElement.lang = language;
-const store = new FormStore(params.get("id") ?? "");
+const store = new FormStore(params.get("id") ?? "", params.get("training") === "1");
 window.addEventListener("pagehide", store.saveOnLeave);
 // the plots map tells the form the answers of the plot submitted before
 window.addEventListener("message", store.receive);
