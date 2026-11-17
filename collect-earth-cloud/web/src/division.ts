@@ -61,14 +61,15 @@ export function collectors(members: Member[]): Member[] {
 
 /**
  * The form for what the file has now. `holders` are the people who hold plots now:
- * they are ticked when the form starts on "Evenly" without a saved list of people.
+ * they are ticked when the form starts on "Evenly" without a saved list of people. Without `canGiveWhole` (the
+ * project's plots, which are always divided) a file not divided yet starts on "Evenly" too.
  */
-export function initialForm(distribution: StoredDistribution | null, holders: string[], members: Member[]): DivisionForm {
+export function initialForm(distribution: StoredDistribution | null, holders: string[], members: Member[], canGiveWhole = true): DivisionForm {
   const ids = new Set(members.map((m) => m.userId));
   const known = (people: string[]) => people.filter((id) => ids.has(id));
   const startPeople = known(holders).length > 0 ? known(holders) : collectors(members).map((m) => m.userId);
   const form: DivisionForm = {
-    mode: "whole",
+    mode: canGiveWhole ? "whole" : "even",
     people: startPeople,
     byPercent: false,
     percents: {},

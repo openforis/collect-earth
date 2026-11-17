@@ -26,6 +26,7 @@ import ArrowForward from "@mui/icons-material/ArrowForward";
 import CallSplit from "@mui/icons-material/CallSplit";
 import Download from "@mui/icons-material/Download";
 import Edit from "@mui/icons-material/EditOutlined";
+import visuallyHidden from "@mui/utils/visuallyHidden";
 import { useMemo, useState } from "react";
 import {
   ApiError,
@@ -79,7 +80,6 @@ async function loadPlots(projectId: string) {
   return { files, members, assignments, divided: dividedOf(files) };
 }
 
-const VISUALLY_HIDDEN = { position: "absolute", width: "1px", height: "1px", overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap" } as const;
 
 const filePath = (projectId: string, fileId: string) => pathFor({ name: "plotFile", projectId, fileId });
 
@@ -477,7 +477,7 @@ export function PlotsTab({ projectId, onGo }: { projectId: string; onGo: (tab: P
                       <TableCell>{t("plots.file")}</TableCell>
                       <TableCell align="right">{t("plots.count")}</TableCell>
                       <TableCell>{t("plots.whoCollects")}</TableCell>
-                      <TableCell align="right"><Box component="span" sx={VISUALLY_HIDDEN}>{t("plots.divide")}</Box></TableCell>
+                      <TableCell align="right"><Box component="span" sx={visuallyHidden}>{t("plots.divide")}</Box></TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>

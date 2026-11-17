@@ -11,6 +11,7 @@ import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import CheckCircle from "@mui/icons-material/CheckCircle";
 import Cancel from "@mui/icons-material/Cancel";
+import visuallyHidden from "@mui/utils/visuallyHidden";
 import { getMyTraining, type MyTrainingSet, type MyScoredPlot } from "../api";
 import { useApp } from "../appContext";
 import { formatDate, formatNumber } from "../format";
@@ -124,7 +125,7 @@ function MyPlot({ plot }: { plot: MyScoredPlot }) {
               <TableCell>{t("training.colYours")}</TableCell>
               <TableCell>{t("training.colGolden")}</TableCell>
               <TableCell>
-                <Box component="span" sx={{ position: "absolute", width: "1px", height: "1px", overflow: "hidden", clip: "rect(0 0 0 0)" }}>
+                <Box component="span" sx={visuallyHidden}>
                   {t("training.colRight")}
                 </Box>
               </TableCell>

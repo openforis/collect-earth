@@ -7,7 +7,7 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import LinkOff from "@mui/icons-material/LinkOff";
 import Print from "@mui/icons-material/Print";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { ApiError, getPublicProgress, type PublicProgress } from "../api";
 import { useApp } from "../appContext";
 import { AppShell } from "../components/AppShell";
@@ -91,14 +91,10 @@ export function PublicProgressPage({ token }: { token: string }) {
   const t = useT();
   const timeZone = browserTimeZone();
   const state = useLoad(["app", "getPublicProgress", token, timeZone], () => getPublicProgress(token, timeZone));
-  const { data, loading, reload, error } = state;
-  const [loadedAt, setLoadedAt] = useState(() => Date.now());
+  const { data, loading, reload, error, dataUpdatedAt } = state;
   const now = useNow(15_000);
   usePrivatePage(data?.project.name ?? null);
 
-  useEffect(() => {
-    if (data) setLoadedAt(Date.now());
-  }, [data]);
   useEffect(() => {
     if (loading) return;
     return onceVisibleAfter(PUBLIC_REFRESH_MS, document, reload);
@@ -130,7 +126,7 @@ export function PublicProgressPage({ token }: { token: string }) {
           </Typography>
           <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap", mt: 1 }}>
             <Typography variant="body2" color="text.secondary" sx={{ mr: "auto" }}>
-              {updatedText(t, loadedAt, now)}
+              {updatedText(t, dataUpdatedAt, now)}
             </Typography>
             <Button size="small" startIcon={<Print />} onClick={() => window.print()}>
               {t("publicProgress.print")}

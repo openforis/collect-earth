@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { answerLabel, goldenKeys, kappaText, plotAccuracy, questionAccuracy, readPassMark, shareText } from "./trainingView";
+import { ApiError } from "./api";
+import { answerLabel, goldenKeys, kappaText, newSetRefusal, plotAccuracy, questionAccuracy, readPassMark, shareText } from "./trainingView";
+
+describe("a new set refused", () => {
+  it("says the training's own sentence for too many sets and no project file, the usual one otherwise", () => {
+    expect(newSetRefusal(new ApiError(400, "too_many_sets"))).toBe("training.error.tooManySets");
+    expect(newSetRefusal(new ApiError(409, "no_project_file"))).toBe("training.error.noProjectFile");
+    expect(newSetRefusal(new ApiError(409, "no_plots_left"))).toBeNull();
+    expect(newSetRefusal(new Error("x"))).toBeNull();
+  });
+});
 
 const questions = [
   { key: "lu", label: "Land use", kind: "choice" as const, options: [{ code: "F", label: "Forest" }, { code: "C", label: "" }], multiple: true },

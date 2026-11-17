@@ -64,7 +64,7 @@ import { useT } from "../i18n";
 import { linkProps, navigate, pathFor } from "../router";
 import { saveBlob } from "../saveBlob";
 import { useLoad } from "../useLoad";
-import { answerLabel, goldenKeys, kappaText, questionLabel, readPassMark, shareText } from "../trainingView";
+import { answerLabel, goldenKeys, kappaText, newSetRefusal, questionLabel, readPassMark, shareText } from "../trainingView";
 
 const tableFrame = { border: 1, borderColor: "divider", borderRadius: 1, overflowX: "auto" } as const;
 
@@ -360,6 +360,14 @@ function ClashAlert({ error, language }: { error: unknown; language: string }) {
     return (
       <Alert severity="error" role="alert">
         {t(`training.clash.${code}` as "training.clash.in_plot_file", { plots: plots.join(", "), file: String(details!.file ?? ""), count: formatNumber(plots.length, language) })}
+      </Alert>
+    );
+  }
+  const refusal = newSetRefusal(error);
+  if (refusal) {
+    return (
+      <Alert severity="error" role="alert">
+        {t(refusal)}
       </Alert>
     );
   }

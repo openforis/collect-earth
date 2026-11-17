@@ -1,7 +1,7 @@
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
 import LinearProgress from "@mui/material/LinearProgress";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { ApiError, getCeoShapes, stepCeoShapes, type CeoShapesProgress } from "../api";
 import { useT } from "../i18n";
 
@@ -19,16 +19,16 @@ export function CeoShapes({ projectId }: { projectId: string }) {
   const [stopped, setStopped] = useState(false);
   const [finished, setFinished] = useState(false);
   const [run, setRun] = useState(0);
-  const alive = useRef(true);
 
   useEffect(() => {
-    alive.current = true;
+    // This run's own flag: a ref shared between runs let a stopped run go on once the next one started (StrictMode).
+    let alive = true;
     let seenReading = false;
     (async () => {
       setStopped(false);
       try {
         let now = await getCeoShapes(projectId);
-        while (alive.current && now.state === "reading") {
+        while (alive && now.state === "reading") {
           seenReading = true;
           setProgress(now);
           try {
@@ -39,21 +39,22 @@ export function CeoShapes({ projectId }: { projectId: string }) {
             now = await getCeoShapes(projectId);
             continue;
           }
+          if (!alive) return;
           if (now.state === "reading" && now.error) {
             setProgress(now);
             setStopped(true);
             return;
           }
         }
-        if (!alive.current) return;
+        if (!alive) return;
         setProgress(now);
         if (now.state === "done" && seenReading) setFinished(true);
       } catch {
-        if (alive.current) setStopped(true);
+        if (alive) setStopped(true);
       }
     })();
     return () => {
-      alive.current = false;
+      alive = false;
     };
   }, [projectId, run]);
 

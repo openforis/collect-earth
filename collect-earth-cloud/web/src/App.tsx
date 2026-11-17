@@ -3,6 +3,7 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import CssBaseline from "@mui/material/CssBaseline";
 import { ThemeProvider } from "@mui/material/styles";
+import visuallyHidden from "@mui/utils/visuallyHidden";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { ApiError, errorMessageKey, getMe, getServerInfo, logout, setUnauthorizedHandler, type Me, type ServerInfo, type Session } from "./api";
 import { AppContext, type AppState } from "./appContext";
@@ -256,7 +257,7 @@ export function App() {
       <I18nContext.Provider value={t}>
         {state ? <AppContext.Provider value={state}>{content}</AppContext.Provider> : content}
         {/* Only when a new page has no heading to take the focus: its title. */}
-        <Box aria-live="polite" sx={{ position: "absolute", width: "1px", height: "1px", overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap" }}>
+        <Box aria-live="polite" sx={visuallyHidden}>
           {announce}
         </Box>
       </I18nContext.Provider>

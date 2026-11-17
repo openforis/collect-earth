@@ -447,13 +447,9 @@ export function ProgressTab({ projectId, onGo }: { projectId: string; onGo: (tab
   const local = useLocalMode();
   const timeZone = browserTimeZone();
   const state = useLoad(["project", projectId, "getProgress", timeZone], () => getProgress(projectId, timeZone));
-  const [loadedAt, setLoadedAt] = useState(() => Date.now());
   const now = useNow(5_000);
-  const { data, loading, reload } = state;
+  const { data, loading, reload, dataUpdatedAt } = state;
 
-  useEffect(() => {
-    if (data) setLoadedAt(Date.now());
-  }, [data]);
   // The next reload a minute after this one ended, once the page is visible.
   useEffect(() => {
     if (loading) return;
@@ -468,7 +464,7 @@ export function ProgressTab({ projectId, onGo }: { projectId: string; onGo: (tab
     <Stack spacing={3}>
       <Stack direction="row" spacing={1} sx={{ alignItems: "center", justifyContent: "flex-end", flexWrap: "wrap" }}>
         <Typography variant="body2" color="text.secondary">
-          {updatedText(t, loadedAt, now)}
+          {updatedText(t, dataUpdatedAt, now)}
         </Typography>
         <Button size="small" startIcon={<Refresh />} onClick={reload} disabled={loading}>
           {t("progress.refresh")}

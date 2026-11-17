@@ -2,14 +2,12 @@ import Autocomplete from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import visuallyHidden from "@mui/utils/visuallyHidden";
 import { useEffect, useRef, useState } from "react";
 import { errorMessageKey, searchPlots, type PlotMatch } from "../api";
 import { useT } from "../i18n";
 import { foundMessage, matchLabel, SEARCH_DELAY_MS, shownMatches, type SearchAnswer } from "../plotView";
 import { navigate, pathFor } from "../router";
-
-/** Read by screen readers, not shown. */
-const visuallyHidden = { position: "absolute", width: "1px", height: "1px", overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap" } as const;
 
 /** As the server's MAX_SEARCH_RESULTS. */
 const LISTED = 20;

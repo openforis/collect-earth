@@ -1,9 +1,21 @@
-import type { LearningScore, TrainingQuestion, Share } from "./api";
+import { ApiError, type LearningScore, type TrainingQuestion, type Share } from "./api";
+import type { MessageKey } from "./i18n";
 import { percentText } from "./progressView";
 
 /** A share as a percent, "–" when nothing was compared. */
 export function shareText(share: Share, language: string): string {
   return percentText(share.agreeing, share.compared, language);
+}
+
+/** The refusals of a new set said for it: the general message of no_project_file is about a backup, too_many_sets has none. */
+const NEW_SET_REFUSALS: Partial<Record<string, MessageKey>> = {
+  too_many_sets: "training.error.tooManySets",
+  no_project_file: "training.error.noProjectFile",
+};
+
+/** The sentence for a new set's refusal (upload or copy from a plot file), null for the usual error message. */
+export function newSetRefusal(error: unknown): MessageKey | null {
+  return (error instanceof ApiError && NEW_SET_REFUSALS[error.code]) || null;
 }
 
 /** Fleiss' kappa with two decimals, "–" when it cannot be worked out. */
