@@ -4,7 +4,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createGunzip } from 'node:zlib';
 import fastifyStatic from '@fastify/static';
-import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
+import { trustProxyOf } from './trustProxy.js';
+import Fastify, { LogController, type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import { generateSetupCode } from './accountRules.js';
 import { ActivityRecorder, registerActivity } from './activity.js';
 import { registerCompression } from './compress.js';
@@ -153,17 +154,18 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
       : false,
     // One line per request, after it (the onResponse hook below), instead of Fastify's two; none for Collect Earth's
     // routine sync calls that went well (QUIET_ROUTES)
-    disableRequestLogging: true,
+    logController: new LogController({ disableRequestLogging: true }),
     // Record XML batches are small KBs each but a project sync can carry 50; allow headroom.
     bodyLimit: 32 * 1024 * 1024,
     // A plot id is a path parameter of the quality decisions (up to 1000 characters,
     // up to 9000 once URL-encoded as three-byte UTF-8); Fastify's default stops at 100.
     // find-my-way measures the decoded parameter, so this leaves room either way.
-    maxParamLength: 9000,
+    routerOptions: { maxParamLength: 9000 },
     // Behind Cloud Run / Caddy: take the client IP (rate limiting) and the public
     // proto/host (derived join and reset links) from x-forwarded-*. Only the hops our
-    // own proxies add are trusted; `true` would let a client pick its IP.
-    trustProxy: config.trustProxyHops ?? 1,
+    // own proxies add are trusted, each from a proxy's address (src/trustProxy.ts): `true`,
+    // or a bare count, would let a client pick its IP.
+    trustProxy: trustProxyOf(config.trustProxyHops ?? 1, config.trustProxyAddresses),
   });
 
   // The local mode (src/local.ts): before any route, so the routes about other people or the
@@ -467,9 +469,9 @@ async function registerDashboard(app: FastifyInstance, webDir: string | null): P
       // The build writes a .gz beside each large file (web/vite.config.ts): sent to browsers that take gzip.
       // The analysis page's DuckDB is 36 MB, 8 MB gzipped.
       preCompressed: true,
-      setHeaders: (res, path) => {
+      setHeaders: (reply, path) => {
         // The files under assets/ have their content's hash in their names: they never change, so they are kept
-        if (/[\\/]assets[\\/]/.test(path)) res.setHeader('cache-control', 'public, max-age=31536000, immutable');
+        if (/[\\/]assets[\\/]/.test(path)) reply.header('cache-control', 'public, max-age=31536000, immutable');
       },
     });
   }
@@ -485,9 +487,9 @@ async function registerDashboard(app: FastifyInstance, webDir: string | null): P
           .header('cache-control', 'no-store')
           .header('x-robots-tag', 'noindex, nofollow')
           .header('referrer-policy', 'no-referrer')
-          .sendFile('index.html');
+          .sendFile('index.html', { cacheControl: false }); // the header above, not the plugin's own
       }
-      return reply.header('cache-control', 'no-cache').sendFile('index.html');
+      return reply.header('cache-control', 'no-cache').sendFile('index.html', { cacheControl: false });
     }
     return reply.code(404).send({ error: 'not_found' });
   });

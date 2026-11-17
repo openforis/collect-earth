@@ -24,16 +24,13 @@
 		<url>www.openforis.org</url>
 	</organization>
 	<properties>
-		<!-- 11, matching what is actually shipped. The installer bundles JRE
-		     ${jre.version} (11.0.19+7), and Selenium 4.48's classes are major
-		     version 55, so a real Java 8 runtime would fail with
-		     UnsupportedClassVersionError as soon as Selenium loaded. The previous
-		     value of 8 described a baseline that no released build ever ran on. -->
-		<java.release>11</java.release>
+		<!-- 17, as Collect (collect-core 4.0.111 is compiled for Java 17, class version 61). The installers bundle
+		     JRE ${jre.version} of collect-earth-installer (21), and CI builds with 17 and 21. -->
+		<java.release>17</java.release>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<collect.version>4.0.110</collect.version>
-		<!-- 5.3.39 is the last open source release of Spring 5.3. Spring 6, where the remaining
-		     advisories are fixed, needs Java 17 and the Jakarta servlet API. -->
+		<collect.version>4.0.111</collect.version>
+		<!-- 5.3.39: the last open source release of Spring 5.3, and Collect's (4.0.111). Kept as Collect's: Spring 6,
+		     where the remaining advisories are fixed, needs the Jakarta servlet API, and Collect to move to it first. -->
 		<spring.version>5.3.39</spring.version>
 		<!-- Versions for families that must move as a set. Managed centrally in
 		     dependencyManagement below so a transitive dependency cannot drag in
@@ -102,7 +99,7 @@
 				<plugin>
 				  <groupId>org.apache.maven.plugins</groupId>
 				  <artifactId>maven-enforcer-plugin</artifactId>
-				  <version>3.5.0</version>
+				  <version>3.7.0</version>
 				  <executions>
 				    <execution>
 				      <id>enforce-maven</id>
@@ -111,14 +108,15 @@
 				      </goals>
 				      <configuration>
 				        <rules>
+				          <!-- As Collect (4.0.111) -->
 				          <requireMavenVersion>
-				            <version>3.9.3</version>
+				            <version>3.6.3</version>
 				          </requireMavenVersion>
-				          <!-- <release>11</release> cannot be honoured by a JDK 8
+				          <!-- <release>17</release> cannot be honoured by an older JDK's
 				               compiler. Without this the failure is an obscure
 				               compiler error; with it, the reason is stated. -->
 				          <requireJavaVersion>
-				            <version>[11,)</version>
+				            <version>[17,)</version>
 				          </requireJavaVersion>
 				        </rules>
 				      </configuration>
@@ -149,10 +147,49 @@
 		</plugins>
 		<pluginManagement>
 			<plugins>
+				<!-- As Collect (4.0.111). Declared, so that a Maven that would bring an older default (2.12.4 with
+				     Maven 3.6.3, which runs no JUnit 5 test) runs the tests; JaCoCo's agent comes in its argLine. -->
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-surefire-plugin</artifactId>
+					<version>3.6.1</version>
+				</plugin>
+				<!-- The other plugins of the build's lifecycle, as Collect (4.0.111) declares them: the same build
+				     whatever the Maven, which otherwise brings defaults of its own age (resources 2.6 with Maven 3.6.3) -->
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-clean-plugin</artifactId>
+					<version>3.5.0</version>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-resources-plugin</artifactId>
+					<version>3.5.0</version>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-jar-plugin</artifactId>
+					<version>3.5.1</version>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-install-plugin</artifactId>
+					<version>3.2.0</version>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-deploy-plugin</artifactId>
+					<version>3.2.0</version>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-site-plugin</artifactId>
+					<version>3.22.0</version>
+				</plugin>
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-compiler-plugin</artifactId>
-					<version>3.13.0</version>
+					<version>3.16.0</version>
 					<configuration>
 						<!-- <release> rather than <source>/<target>: the latter pair does
 						     not validate API usage against the target JDK, so a Java 9+
@@ -166,7 +203,7 @@
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-release-plugin</artifactId>
-					<version>3.1.1</version>
+					<version>3.3.1</version>
 					<configuration>
 						<!-- release:perform runs "mvn deploy" on the tag, and without this it runs it with no profile:
 						     maven-gpg-plugin never signs, so Central rejects the artifacts, and
@@ -180,17 +217,17 @@
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-dependency-plugin</artifactId>
-					<version>3.7.1</version>
+					<version>3.11.0</version>
 				</plugin>
 				<plugin>
 					<groupId>org.codehaus.mojo</groupId>
 					<artifactId>versions-maven-plugin</artifactId>
-					<version>2.17.1</version>
+					<version>2.23.0</version>
 				</plugin>
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-source-plugin</artifactId>
-					<version>3.3.1</version>
+					<version>3.4.0</version>
 					<executions>
 						<execution>
 							<id>attach-sources</id>
@@ -203,7 +240,7 @@
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-javadoc-plugin</artifactId>
-					<version>3.8.0</version>
+					<version>3.12.0</version>
 					<executions>
 						<execution>
 							<id>attach-javadocs</id>
@@ -310,6 +347,35 @@
 				<scope>import</scope>
 			</dependency>
 
+			<!-- OpenTelemetry comes with Selenium (selenium-remote-driver asks for 1.66.0, whose W3C tracestate parsing
+			     can take quadratic time: GHSA-ccrj-gw8r-854m). Every module of it at one version. -->
+			<dependency>
+				<groupId>io.opentelemetry</groupId>
+				<artifactId>opentelemetry-bom</artifactId>
+				<version>1.67.0</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+
+			<!-- Selenium asks for 1.18.14, but Mockito's (a test dependency) 1.15.4 was the nearer one and shipped -->
+			<dependency>
+				<groupId>net.bytebuddy</groupId>
+				<artifactId>byte-buddy</artifactId>
+				<version>1.18.14</version>
+			</dependency>
+			<dependency>
+				<groupId>net.bytebuddy</groupId>
+				<artifactId>byte-buddy-agent</artifactId>
+				<version>1.18.14</version>
+			</dependency>
+
+			<!-- Tests only, through json-path: 2.5.0 recurses without a limit (CVE-2024-57699) -->
+			<dependency>
+				<groupId>net.minidev</groupId>
+				<artifactId>json-smart</artifactId>
+				<version>2.5.2</version>
+			</dependency>
+
 			<!-- Jackson was version-managed in a leaf module and enforced by ad-hoc
 			     exclusions scattered across two poms; the BOM covers every module,
 			     including jackson-core, which the exclusions missed. -->
@@ -404,7 +470,7 @@
 				<plugins>
 					<plugin>
 						<artifactId>maven-gpg-plugin</artifactId>
-						<version>3.2.4</version>
+						<version>3.2.8</version>
 						<executions>
 							<execution>
 								<id>sign-artifacts</id>
@@ -418,7 +484,7 @@
 					<plugin>
 						<groupId>org.sonatype.plugins</groupId>
 						<artifactId>nexus-staging-maven-plugin</artifactId>
-						<version>1.6.14</version>
+						<version>1.7.0</version>
 						<extensions>true</extensions>
 						<configuration>
 							<serverId>ossrh-staging-api</serverId>

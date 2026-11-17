@@ -19,5 +19,8 @@
   },
   "devDependencies": {
     "supertest": "^7.1.0"
+  },
+  "overrides": {
+    "rimraf": "^6.1.4"
   }
 }

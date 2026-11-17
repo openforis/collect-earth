@@ -1,3 +1,4 @@
+import { trustedAddresses } from './trustProxy.js';
 import { telemetryConfigOf, type TelemetryConfig } from './telemetry.js';
 import { resolve } from 'node:path';
 import { isUuid } from './accountRules.js';
@@ -51,6 +52,11 @@ export interface Config {
    * address the client writes itself never counts.
    */
   trustProxyHops?: number;
+  /**
+   * The addresses those proxies connect from (TRUST_PROXY_ADDRESSES: IPs, CIDR ranges or loopback, linklocal,
+   * uniquelocal, by commas); undefined = this computer, link-local and the private networks (src/trustProxy.ts).
+   */
+  trustProxyAddresses?: string[];
   /** The quality worker's heap in MB (QUALITY_WORKER_MAX_MB); undefined = the default (256). */
   qualityWorkerMaxMb?: number;
   /**
@@ -215,6 +221,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     setupCode: nonEmpty(env.SETUP_CODE?.trim()),
     rateLimitPerMinute: rateLimitOf(env.RATE_LIMIT_PER_MINUTE),
     trustProxyHops: trustProxyHopsOf(env.TRUST_PROXY_HOPS),
+    trustProxyAddresses: trustProxyAddressesOf(env.TRUST_PROXY_ADDRESSES),
     qualityWorkerMaxMb: qualityWorkerMaxMbOf(env.QUALITY_WORKER_MAX_MB),
     parsedCacheMb: wholeAtLeast('PARSED_FILES_CACHE_MB', env.PARSED_FILES_CACHE_MB, 8),
     servedCacheMb: wholeAtLeast('SERVED_FILES_CACHE_MB', env.SERVED_FILES_CACHE_MB, 8),
@@ -424,6 +431,19 @@ function trustProxyHopsOf(value: string | undefined): number | undefined {
     throw new Error(`Invalid TRUST_PROXY_HOPS "${value}" (expected a whole number, at least 1)`);
   }
   return n;
+}
+
+function trustProxyAddressesOf(value: string | undefined): string[] | undefined {
+  const list = (value ?? '').split(',').map((part) => part.trim()).filter((part) => part !== '');
+  if (list.length === 0) {
+    return undefined;
+  }
+  try {
+    trustedAddresses(list);
+  } catch (err) {
+    throw new Error(`Invalid TRUST_PROXY_ADDRESSES "${value}" (expected IPs, CIDR ranges, loopback, linklocal or uniquelocal, by commas): ${(err as Error).message}`);
+  }
+  return list;
 }
 
 function rateLimitOf(value: string | undefined): number | undefined {
