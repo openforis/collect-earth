@@ -9,9 +9,8 @@ Google Earth Pro is no longer needed.
 
 
 CREATING A SURVEY
-To create your own survey, install Open Foris Collect and use its Survey Designer:
-https://www.openforis.org/tools/collect.html
-Videos on creating a survey: https://www.youtube.com/channel/UCxu8NZPvPxGBjBp0g6LCV4w
+Create your survey and project on Collect Earth Cloud: https://cloud.collectearth.org
+How to do it, with guides and examples: https://collectearth.org
 
 
 THE SAMPLING DESIGN (GRID OF PLOTS)
