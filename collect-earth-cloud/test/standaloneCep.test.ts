@@ -80,4 +80,18 @@ describe('the project file for working alone', () => {
     expect(none['grid/plots.csv']).toBe('id,lat,lon\n5,5,5\n');
     expect(none['project_definition.properties']).toContain('csv=${project_path}/grid/plots.csv');
   });
+
+  it('carries no key nor password of a project file stored before uploads were cleaned of them', () => {
+    const stored = cepWith({
+      'project_definition.properties': 'survey_name=x\nplanet_maps_key=PLANET-SECRET\ndb_password=hunter22\ncsv=${project_path}/grid/a.csv\n',
+      'grid/a.csv': 'id,lat,lon\n1,1,1\n',
+      'placemark.idm.xml': '<survey/>',
+    });
+    const properties = filesOf(standaloneCep(stored, Buffer.from('id,lat,lon\n5,5,5\n'), new Date()))['project_definition.properties'];
+    expect(properties).not.toContain('PLANET-SECRET');
+    expect(properties).not.toContain('hunter22');
+    expect(properties).toContain('csv=${project_path}/grid/a.csv');
+    // marked, so that Collect Earth on a computer in the cloud project says it is not for it
+    expect(properties).toMatch(/^cloud_standalone=true$/m);
+  });
 });
