@@ -190,6 +190,15 @@ export function rangeFromInput(from: string, to: string): string {
   return a === b ? a : `${a}-${b}`;
 }
 
+/**
+ * The From and To boxes of a range once its value comes back: kept as typed while they still make that value. One box
+ * typed alone is a range of one value ("8"), which read back would fill the other box with it: "1" typed in To, then
+ * "0", saved 1-10.
+ */
+export function rangeDraft(draft: [string, string], value: string): [string, string] {
+  return rangeFromInput(normalizeNumber(draft[0]), normalizeNumber(draft[1])) === value ? draft : rangeToInput(value);
+}
+
 /** Decimal comma typed on a Spanish/French/Portuguese keyboard: the server wants a dot. */
 export function normalizeNumber(value: string): string {
   return value.trim().replace(",", ".");
