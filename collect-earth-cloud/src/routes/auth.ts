@@ -120,8 +120,8 @@ export async function registerAuthRoutes(
     // The invitation first: whether a username is taken is said only to someone holding a valid
     // one, not to anyone asking with a made-up token.
     const invite = await store.getInvite(inviteToken);
-    // A revoked invite answers exactly like an unknown one.
-    if (!invite || invite.revoked) {
+    // A revoked invite answers exactly like an unknown one; so does a person's own link (a new account is never them).
+    if (!invite || invite.revoked || invite.forUserId !== null) {
       return reply.code(400).send({ error: 'invalid_invite' });
     }
     // Fast pre-check so an obvious duplicate does not consume an invite use.
@@ -241,7 +241,8 @@ export async function registerAuthRoutes(
     let joined: JoinedProject | null = null;
     if (inviteToken) {
       const invite = await store.getInvite(inviteToken);
-      if (!invite || invite.revoked) return reply.code(400).send({ error: 'invalid_invite' });
+      // A person's own link is theirs alone: to anyone else, as an unknown one
+      if (!invite || invite.revoked || (invite.forUserId !== null && invite.forUserId !== user.id)) return reply.code(400).send({ error: 'invalid_invite' });
       const memberships = await store.listMemberships(user.id);
       const member = memberships.find((m) => m.projectId === invite.projectId);
       if (!member) {

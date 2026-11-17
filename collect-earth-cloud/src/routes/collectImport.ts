@@ -16,7 +16,8 @@ import { backupReader, surveyUriOf, type ImportedRecord } from '../collectImport
 import { checkUploadFits } from '../limits.js';
 import { applyLww, recordEventOf } from '../lww.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
-import type { Store } from '../store/store.js';
+import type { RecordUpload, Store } from '../store/store.js';
+import { IMPORT_CHUNK } from './projects.js';
 import type { CollectImportPreview, CollectImportResult } from '../wire/projects.js';
 import type { RecordEnvelope } from '../types.js';
 
@@ -35,8 +36,6 @@ interface Prepared {
   problemCount: number;
   existing: Map<string, number>;
   operators: { name: string; username: string; records: number; member: boolean }[];
-  /** Accounts named for operators that are not members yet. */
-  newMembers: string[];
 }
 
 const id = (recordKey: string, operator: string) => `${recordKey}\u0000${operator}`;
@@ -92,14 +91,15 @@ async function prepare(store: Store, request: FastifyRequest, reply: FastifyRepl
       return null;
     }
   }
+  // Only the project's people can be named: an import never makes anyone a member, nor tells of other accounts
   const members = new Set((await store.listMembers(projectId)).map((m) => m.username));
   const accountOf = new Map<string, string>();
   for (const [name, value] of Object.entries(named)) {
     const username = typeof value === 'string' ? value.trim() : '';
     if (!username) continue;
     const account = await store.getUserByUsername(username);
-    if (!account || account.disabledAt) {
-      void reply.code(400).send({ error: 'unknown_account', reason: `No account "${username}" can take the records of "${name}" on this server.`, username });
+    if (!account || account.disabledAt || !members.has(account.username)) {
+      void reply.code(400).send({ error: 'unknown_account', reason: `No one "${username}" in this project can take the records of "${name}".`, username });
       return null;
     }
     accountOf.set(name, account.username);
@@ -137,7 +137,7 @@ async function prepare(store: Store, request: FastifyRequest, reply: FastifyRepl
   const existing = new Map<string, number>();
   for (const s of await store.listRecordStates(projectId)) existing.set(id(s.recordKey, s.operator), s.modifiedOn);
   const operators = [...byOperator].map(([name, o]) => ({ name, username: o.username, records: o.records, member: members.has(o.username) }));
-  return { records, read, bytes, problems, problemCount, existing, operators, newMembers: [...new Set(operators.filter((o) => !o.member && accountOf.has(o.name)).map((o) => o.username))] };
+  return { records, read, bytes, problems, problemCount, existing, operators };
 }
 
 /** What the coordinator sees before importing: nothing stored. */
@@ -179,26 +179,33 @@ export async function registerCollectImportRoutes(app: FastifyInstance, store: S
     if (!prepared) return reply;
     const over = await checkUploadFits(store, projectId, { kind: 'records' }, prepared.bytes);
     if (over) return reply.code(413).send(over);
-    for (const username of prepared.newMembers) {
-      const account = await store.getUserByUsername(username);
-      if (account) await store.addMembership(projectId, account.id, 'operator');
-    }
     let stored = 0;
+    // IMPORT_CHUNK records per transaction, as a sync's batch (only those records' XML held at a time)
+    let chunk: RecordUpload[] = [];
+    const flush = async () => {
+      if (chunk.length > 0) stored += (await store.putRecordsWithEvents(projectId, chunk)).filter(Boolean).length;
+      chunk = [];
+    };
     for (const r of prepared.records) {
       // read once more, as prepare read it: only one record's XML is held at a time
       const read = prepared.read(r.entry);
       if ('problem' in read) continue;
       const envelope: RecordEnvelope = { recordKey: r.recordKey, surveyUri: '', operator: r.operator, modifiedOn: r.modifiedOn, activelySaved: r.activelySaved,
         step: read.step, xml: read.xml, summary: read.summary, deleted: false, payloadVersion: 1, activeSeconds: null };
-      const kept = await store.putRecordWithEvent(projectId, r.recordKey, r.operator, (existing, submittedBefore) => {
-        // Received when it was saved: it did not come late (the Progress tab's "work that arrives late")
-        const { row, status } = applyLww(envelope, existing, r.modifiedOn ?? Date.now());
-        if (status !== 'stored') return null;
-        const next = { ...row, projectId };
-        return { row: next, event: recordEventOf(existing, next, submittedBefore) };
+      chunk.push({
+        recordKey: r.recordKey,
+        operator: r.operator,
+        apply: (existing, submittedBefore) => {
+          // Received when it was saved: it did not come late (the Progress tab's "work that arrives late")
+          const { row, status } = applyLww(envelope, existing, r.modifiedOn ?? Date.now());
+          if (status !== 'stored') return null;
+          const next = { ...row, projectId };
+          return { row: next, event: recordEventOf(existing, next, submittedBefore) };
+        },
       });
-      if (kept) stored++;
+      if (chunk.length >= IMPORT_CHUNK) await flush();
     }
+    await flush();
     const result: CollectImportResult = { ...counts(prepared), stored, kept: prepared.records.length - stored };
     await audit(store, request, 'project.imported', { source: 'collect-earth', records: stored, kept: result.kept, problems: prepared.problemCount, operators: prepared.operators.length });
     request.log.info({ projectId, stored, kept: result.kept }, 'records imported from a Collect Earth backup');

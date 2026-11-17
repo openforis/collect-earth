@@ -1,6 +1,7 @@
 import type { RoundInfo } from './cep.js';
 import { plotUnits, type PlotUnits } from './progress.js';
 import { loadPlotContext, remember, sha256, type Log, type PlotContext } from './qualityService.js';
+import type { Parsed, StateFactors } from './routes/analysis.js';
 import type { Store } from './store/store.js';
 import type { AssignmentDetail, CsvFile, Member } from './types.js';
 
@@ -42,6 +43,8 @@ export interface ProjectState {
   units: PlotUnits;
   /** Set when a plot file could not be read (context.failed): the state lacks its plots and is built again after STATE_RETRY_MS. */
   failedAt?: number;
+  /** The expansion factors worked out on this state (routes/analysis.ts stateFactors), by areas setting and columns. */
+  factors?: Map<string, { parsed: NonNullable<Parsed>; value: Promise<StateFactors> }>;
 }
 
 export interface ServedState {

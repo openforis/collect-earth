@@ -174,6 +174,22 @@ describe('GET /people, /people/:userId and /my-work', () => {
     expect((await call('POST', '/invites', owner.token, { forUserId: 5 })).statusCode).toBe(400);
   });
 
+  it("a person's own link is theirs alone: another account cannot join with it, nor a new one; the person can", async () => {
+    const link = (await call('POST', '/invites', owner.token, { forUserId: maria.userId })).json().inviteToken as string;
+    await setupOtherProjectMember();
+    const login = (username: string) => ctx.app.inject({ method: 'POST', url: '/v1/auth/login', payload: { username, password: 'password12', inviteToken: link } });
+    const other = await login('ines');
+    expect(other.statusCode).toBe(400);
+    expect(other.json().error).toBe('invalid_invite');
+    const register = await ctx.app.inject({ method: 'POST', url: '/v1/auth/register', payload: { username: 'zoe', password: 'password12', inviteToken: link } });
+    expect(register.statusCode).toBe(400);
+    expect(register.json().error).toBe('invalid_invite');
+    expect((await call('GET', '/people', owner.token)).json().people.map((p: { username: string }) => p.username)).not.toContain('ines');
+    const own = await login('maria');
+    expect(own.statusCode).toBe(200);
+    expect(own.json()).toMatchObject({ projectId: pid, role: 'operator' });
+  });
+
   it('asked again within 5 s, My work gives its last answer; a person page says what removing them leaves', async () => {
     const first = (await call('GET', '/my-work', maria.token)).json();
     await batchRequest(ctx.app, pid, maria.token, [envelope({ recordKey: '4', operator: 'maria', modifiedOn: Date.now(), activelySaved: true })]);

@@ -8,7 +8,7 @@
 import { strFromU8, unzipSync } from 'fflate';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import { sampleBackupZip } from './backupSampleData.js';
+import { SAMPLE_RECORDS, sampleBackupZip } from './backupSampleData.js';
 import { demoCep } from './fixtures/cep.js';
 import { batchRequest, bearer, createProject, envelope, makeContext, setupPlatformAdmin, type TestContext } from './helpers.js';
 
@@ -147,11 +147,13 @@ describe('an office team on one database, then the cloud', () => {
   });
   afterEach(async () => ctx.app.close());
 
-  /** Rosa has an account already (another project); the backup's collectors are Marta, Marta P, Rosa Vidal and Collect Earth's default name */
-  async function rosaWithAccount(): Promise<void> {
-    const other = await createProject(ctx.app, 'Older project');
-    await register(ctx.app, 'rosa', 'rosa-password', (await invite(ctx.app, other.projectId, other.adminToken)).inviteToken);
+  /** An account in an older project of the coordinator's team (an import names only those). */
+  async function teamAccount(username: string, password: string): Promise<void> {
+    const older = (await ctx.app.inject({ method: 'POST', url: '/v1/projects', headers: bearer(coordinator.token), payload: { name: `Older project ${username}` } })).json().projectId;
+    await register(ctx.app, username, password, (await invite(ctx.app, older, coordinator.token)).inviteToken);
   }
+  /** Rosa has an account already (another project of the team); the backup's collectors are Marta, Marta P, Rosa Vidal and Collect Earth's default name */
+  const rosaWithAccount = () => teamAccount('rosa', 'rosa-password');
   const importBackup = (collectors: Record<string, string>) =>
     ctx.app.inject({
       method: 'POST',
@@ -173,8 +175,7 @@ describe('an office team on one database, then the cloud', () => {
   });
 
   it('a typed name that is an account’s username must be given an account: those plots would otherwise become that person’s', async () => {
-    const p = await createProject(ctx.app, 'Older project');
-    await register(ctx.app, 'Marta', 'marta-password', (await invite(ctx.app, p.projectId, p.adminToken)).inviteToken);
+    await teamAccount('Marta', 'marta-password');
     expect((await importBackup({})).json()).toMatchObject({ error: 'name_is_account', name: 'Marta' });
     expect((await importBackup({ Marta: 'Marta' })).statusCode).toBe(201);
   });
@@ -187,6 +188,25 @@ describe('an office team on one database, then the cloud', () => {
     // P1 is hers now (her typed name is her username in other letter case), not a second copy; her other plots ('Marta
     // P', the name she used later) stay under the typed name until saved again
     expect(await owners(projectId)).toEqual(['P1,1:marta', 'P1,2:Marta P', 'P2,1:Collect Earth User', 'P3,1:Rosa Vidal']);
+  });
+
+  it('…and so when the username has the capitals: "marta" typed, the account Marta', async () => {
+    const typedLower = Object.fromEntries(Object.entries(SAMPLE_RECORDS).map(([p, x]) => [p, x.replace('<value>Marta</value>', '<value>marta</value>')]));
+    const made = await ctx.app.inject({
+      method: 'POST',
+      url: '/v1/projects/from-backup',
+      headers: bearer(coordinator.token),
+      payload: { backup: sampleBackupZip(typedLower).toString('base64'), name: 'Office survey' },
+    });
+    const { projectId } = made.json();
+    const marta = (await register(ctx.app, 'Marta', 'marta-password', (await invite(ctx.app, projectId, coordinator.token)).inviteToken)).json().token as string;
+    // P1 is given to someone else since: a typed name only the person's own (in other letter case) still moves
+    const ana = (await register(ctx.app, 'ana', 'ana-password', (await invite(ctx.app, projectId, coordinator.token)).inviteToken)).json().userId as string;
+    const done = (await ctx.store.listCsvFiles(projectId)).find((f) => f.filename.endsWith('_done.csv'))!;
+    const given = await ctx.app.inject({ method: 'PUT', url: `/v1/projects/${projectId}/assignments`, headers: bearer(coordinator.token), payload: { assignments: [{ userId: ana, csvFileId: done.id }] } });
+    expect(given.statusCode, given.body).toBe(200);
+    await batchRequest(ctx.app, projectId, marta, [envelope({ recordKey: 'P1,1', operator: 'marta', modifiedOn: Date.now() })]);
+    expect((await owners(projectId)).filter((r) => r.startsWith('P1,1:'))).toEqual(['P1,1:Marta']);
   });
 
   it('…but never when another person has that exact name as their username', async () => {

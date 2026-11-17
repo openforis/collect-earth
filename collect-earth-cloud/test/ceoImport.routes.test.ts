@@ -203,9 +203,10 @@ describe('a new project from a Collect Earth Online project', () => {
     });
 
     it('stores one record per plot and collector, as a sync would, under pseudonyms or the accounts named', async () => {
-      // ben has an account on the server (another project's)
-      await ctx.app.inject({ method: 'PUT', url: '/v1/admin/settings', headers: bearer(owner.token), payload: { signupOpen: true } });
-      const ben = (await ctx.app.inject({ method: 'POST', url: '/v1/auth/signup', payload: { username: 'ben', password: 'ben-password1' } })).json();
+      // ben has an account in another of the coordinator's projects
+      const team = (await ctx.app.inject({ method: 'POST', url: '/v1/projects', headers: bearer(owner.token), payload: { name: 'Team' } })).json().projectId;
+      const invite = (await ctx.app.inject({ method: 'POST', url: `/v1/projects/${team}/invites`, headers: bearer(owner.token), payload: { role: 'operator' } })).json().inviteToken;
+      const ben = (await ctx.app.inject({ method: 'POST', url: '/v1/auth/register', payload: { username: 'ben', password: 'ben-password1', inviteToken: invite } })).json();
 
       const res = await post('', withAnswers({ collectors: { 'ben@example.org': 'ben' } }));
       expect(res.statusCode, res.body).toBe(201);
@@ -218,8 +219,8 @@ describe('a new project from a Collect Earth Online project', () => {
       // the plots answered (not flagged) apart, so only the others are given out
       expect(doneFile).toMatchObject({ filename: 'ceo_20170_plots_done.csv', plots: 2 });
       expect(plotFile).toMatchObject({ filename: 'ceo_20170_plots.csv', plots: 264 });
-      // ben joined as a collector
-      expect((await ctx.store.listMemberships(ben.userId)).map((m) => [m.projectId, m.role])).toEqual([[projectId, 'operator']]);
+      // ben is not made a member of the new project: the coordinator invites whom they choose
+      expect((await ctx.store.listMemberships(ben.userId)).map((m) => m.projectId)).toEqual([team]);
 
       const exported = await ctx.app.inject({ method: 'GET', url: `/v1/projects/${projectId}/export.csv`, headers: bearer(owner.token) });
       const rows = exportRows(exported.body);

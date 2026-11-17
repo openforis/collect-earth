@@ -671,7 +671,7 @@ export function rebalancePlan(
 }
 
 /** A submitted record: saved with "Submit" in Collect Earth, not deleted. */
-function isSubmitted(r: RecordRow): boolean {
+function isSubmitted(r: RecordLike): boolean {
   return r.activelySaved && !r.deleted;
 }
 
@@ -701,6 +701,9 @@ export function copyHoldersOf(
   return result;
 }
 
+/** What submittedByPlot and keptBy read of a record (Store.listRecordStates gives it, without the answers). */
+type RecordLike = Pick<RecordRow, 'recordKey' | 'operator' | 'activelySaved' | 'deleted'>;
+
 /**
  * The user ids that submitted each plot of a file, the main assessment apart from
  * the check. A record is a person's when its operator is their username (joining sets
@@ -709,7 +712,7 @@ export function copyHoldersOf(
  * and "17,2" both belong to plot 17, one main and one check.
  */
 export function submittedByPlot(
-  records: readonly RecordRow[],
+  records: readonly RecordLike[],
   plotIds: ReadonlySet<string>,
   userIdByUsername: ReadonlyMap<string, string>,
   info: RoundInfo | null,
@@ -757,7 +760,7 @@ export function checksHaveOwnKey(info: RoundInfo | null): boolean {
  */
 export function keptBy(
   submitted: SubmittedBy,
-  records: readonly RecordRow[],
+  records: readonly RecordLike[],
   plotIds: ReadonlySet<string>,
   userIdByUsername: ReadonlyMap<string, string>,
   info: RoundInfo | null,

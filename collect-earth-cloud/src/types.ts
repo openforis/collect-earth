@@ -62,6 +62,8 @@ export interface Invite {
   revoked: boolean;
   /** The plots the link gives each person who joins with it (null: none) */
   plots: InvitePlots | null;
+  /** A person's own link (forUserId): only that account may use it; null: anyone holding it. */
+  forUserId: string | null;
 }
 
 /**

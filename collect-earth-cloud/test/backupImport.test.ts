@@ -2,7 +2,7 @@
 // docs/plans/2026-11-11-backup-import.md), on the made-up backup of test/backupSampleData.ts.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BackupError, openBackup, recordReader, suggestedLayout, layoutOf } from '../src/backupImport.js';
 import { parseCsv } from '../src/ceo/answers.js';
 import { backupReader } from '../src/collectImport.js';
@@ -112,6 +112,13 @@ describe('a new project from a Collect Earth backup', () => {
   const post = (path: string, payload: object, token = owner.token) =>
     ctx.app.inject({ method: 'POST', url: `/v1/projects/from-backup${path}`, headers: bearer(token), payload });
   const backup = (zip = sampleBackupZip()) => zip.toString('base64');
+  /** An account in a project of the owner's: one an import may name. */
+  const teammate = async (username: string) => {
+    const team = (await ctx.app.inject({ method: 'POST', url: '/v1/projects', headers: bearer(owner.token), payload: { name: `Team ${username}` } })).json().projectId;
+    const invite = (await ctx.app.inject({ method: 'POST', url: `/v1/projects/${team}/invites`, headers: bearer(owner.token), payload: { role: 'operator' } })).json().inviteToken;
+    const res = await ctx.app.inject({ method: 'POST', url: '/v1/auth/register', payload: { username, password: 'password12', inviteToken: invite } });
+    return { userId: res.json().userId as string, team: team as string };
+  };
   const exportRows = async (projectId: string) => {
     const csv = (await ctx.app.inject({ method: 'GET', url: `/v1/projects/${projectId}/export.csv`, headers: bearer(owner.token) })).body;
     const [header, ...rows] = parseCsv(csv.replace(/^﻿/, '')).filter((r) => r.length > 1);
@@ -191,12 +198,13 @@ describe('a new project from a Collect Earth backup', () => {
   });
 
   it('makes the project: its project file from the survey, a plot file of the plots done, the records with their summaries', async () => {
-    await ctx.app.inject({ method: 'PUT', url: '/v1/admin/settings', headers: bearer(owner.token), payload: { signupOpen: true } });
-    const signup = await ctx.app.inject({ method: 'POST', url: '/v1/auth/signup', payload: { username: 'marta', password: 'password12' } });
-    expect(signup.statusCode, signup.body).toBe(201);
+    const marta = await teammate('marta');
 
+    const together = vi.spyOn(ctx.store, 'putRecordsWithEvents');
     const res = await post('', { backup: backup(), collectors: { Marta: 'marta' } });
     expect(res.statusCode, res.body).toBe(201);
+    // the records stored together (as a sync's batch), not one transaction each
+    expect(together.mock.calls.map(([, items]) => items.length)).toEqual([4]);
     const { projectId } = res.json();
     expect(res.json()).toMatchObject({
       name: 'Backup sample', round: 'own', records: 4,
@@ -204,8 +212,8 @@ describe('a new project from a Collect Earth backup', () => {
       doneFile: { filename: 'backup_sample_plots_done.csv', plots: 1 },
       plotFile: { filename: 'backup_sample_plots.csv', plots: 1 },
     });
-    // the named account joined as a collector
-    expect((await ctx.store.listMemberships(signup.json().userId)).map((m) => m.role)).toEqual(['operator']);
+    // the named account is not made a member of the new project: the coordinator invites whom they choose
+    expect((await ctx.store.listMemberships(marta.userId)).map((m) => m.projectId)).toEqual([marta.team]);
 
     // The project file: the survey, and the layout as asked (the survey's suggestion)
     const files = readCep(Buffer.from((await ctx.app.inject({ method: 'GET', url: `/v1/projects/${projectId}/cep`, headers: bearer(owner.token) })).rawPayload));
@@ -313,7 +321,11 @@ describe('a new project from a Collect Earth backup', () => {
     const zip = backup(sampleBackupZip(asMaria));
     expect((await post('', { backup: zip })).json()).toMatchObject({ error: 'name_is_account', name: 'maria' });
     expect((await post('', { backup: zip, collectors: { maria: 'nobody' } })).json()).toMatchObject({ error: 'unknown_account', username: 'nobody' });
+    // an account sharing no project with the coordinator answers as one that does not exist
+    const stranger = await post('', { backup: zip, collectors: { maria: 'maria' } });
+    expect(stranger.json()).toEqual({ ...(await post('', { backup: zip, collectors: { maria: 'nobody' } })).json(), username: 'maria', reason: expect.any(String) });
     expect(await ctx.store.listMemberships(owner.userId)).toEqual([]);
+    await ctx.store.addMembership((await teammate('ines')).team, (await ctx.store.getUserByUsername('maria'))!.id, 'operator');
     expect((await post('', { backup: zip, collectors: { maria: 'maria' } })).statusCode).toBe(201);
   });
 

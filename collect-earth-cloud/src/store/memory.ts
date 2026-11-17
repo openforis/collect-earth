@@ -197,6 +197,7 @@ interface InviteEntry {
   createdAt: number;
   revokedAt: number | null;
   plots: InvitePlots | null;
+  forUserId: string | null;
 }
 
 interface ShareLinkEntry {
@@ -737,8 +738,8 @@ export class InMemoryStore implements Store {
     return [...entry.records.values()].filter((r) => includeDeleted || !r.deleted);
   }
 
-  async listRecordSummaries(projectId: string, options: { firstSubmissions?: boolean } = {}): Promise<RecordRow[]> {
-    const rows = (await this.listRecords(projectId)).map((r) => ({ ...r, xml: null }));
+  async listRecordSummaries(projectId: string, options: { firstSubmissions?: boolean; operator?: string } = {}): Promise<RecordRow[]> {
+    const rows = (await this.listRecords(projectId)).filter((r) => options.operator === undefined || r.operator === options.operator).map((r) => ({ ...r, xml: null }));
     if (!options.firstSubmissions) return rows;
     const first = this.firstSubmissions(projectId);
     return rows.map((r) => ({ ...r, firstSubmittedOn: first.get(`${r.recordKey} ${r.operator}`) ?? null }));
@@ -1018,6 +1019,10 @@ export class InMemoryStore implements Store {
           entry.holdingsGeneration += 1;
         } else if (r.addedBy === userId) r.addedBy = null;
       }
+    }
+    // invites.for_user_id is ON DELETE CASCADE: a person's own link never becomes anyone's.
+    for (const [hash, invite] of this.invites) {
+      if (invite.forUserId === userId) this.invites.delete(hash);
     }
     // share_links.created_by is ON DELETE SET NULL.
     for (const link of this.shareLinks.values()) {
@@ -1671,6 +1676,7 @@ export class InMemoryStore implements Store {
       createdAt: Date.now(),
       revokedAt: null,
       plots: input.plots ? { ...input.plots } : null,
+      forUserId: input.forUserId ?? null,
     });
     return { token, id };
   }
@@ -1693,6 +1699,7 @@ export class InMemoryStore implements Store {
       expiresAt: entry.expiresAt,
       revoked: entry.revokedAt !== null,
       plots: entry.plots ? { ...entry.plots } : null,
+      forUserId: entry.forUserId,
     };
   }
 

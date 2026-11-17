@@ -13,7 +13,8 @@ import type { RoundInfo } from '../types.js';
 import { readCep } from '../cep.js';
 import { attachment } from '../download.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
-import type { ProjectStateCache } from '../projectState.js';
+import type { ProjectStateCache, ServedState } from '../projectState.js';
+import { remember } from '../qualityService.js';
 import { recordResolver } from '../quality.js';
 import { periodSummaryKey, withPeriodColumns } from '../repeatSurvey.js';
 import type { Store } from '../store/store.js';
@@ -201,19 +202,25 @@ export async function registerAnalysisRoutes(app: FastifyInstance, store: Store,
       return null;
     }
     const read = modelOf(cep);
-    // The places of the plots left out, when asked: their columns are not in the model, so not in the tables
-    const parsed = read && noPositions ? { ...read, model: modelWithoutPositions(read.model) } : read;
-    if (!parsed) {
+    if (!read) {
       reply.code(409).send({ error: 'survey_unreadable', message: 'The survey of the project file cannot be read.' });
       return null;
     }
+    // The places of the plots left out, when asked: their columns are not in the model, so not in the tables
+    const parsed = noPositions ? { ...read, model: modelWithoutPositions(read.model) } : read;
 
-    const [served, rows] = await Promise.all([states.get(projectId, request.log), store.listRecordSummaries(projectId, { firstSubmissions: true })]);
+    const served = await states.get(projectId, request.log);
     const { context } = served.state;
     const resolve = recordResolver({ info: context.info, units: context.units, copyHolders: context.copyHolders });
     // (reviewers never come here: the route refuses them, they have the summary)
     const everyone = role === 'admin';
     const username = everyone ? null : (served.members.find((m) => m.userId === request.userId)?.username ?? null);
+    // A collector's own records only, read as such (not the whole project's answers)
+    const rows = everyone
+      ? await store.listRecordSummaries(projectId, { firstSubmissions: true })
+      : username === null
+        ? []
+        : await store.listRecordSummaries(projectId, { operator: username });
 
     // A repeat survey's earlier periods: their answers as columns of the plot table, by the plot as they are kept
     const repeat = await store.getRepeatSettings(projectId);
@@ -231,7 +238,6 @@ export async function registerAnalysisRoutes(app: FastifyInstance, store: Store,
     const records: AnalysisRecord[] = [];
     for (const r of rows) {
       if (r.deleted) continue;
-      if (!everyone && r.operator !== username) continue;
       const { unit, round } = resolve(r);
       records.push({
         recordKey: r.recordKey,
@@ -246,8 +252,7 @@ export async function registerAnalysisRoutes(app: FastifyInstance, store: Store,
     }
 
     // The expansion factors are the plots', from their first assessments: over the whole project, whoever asks
-    const firsts = firstAssessments(rows, resolve);
-    const factors = await projectFactors(store, projectId, parsed, firsts, context.info);
+    const { factors, firsts } = await stateFactors(store, projectId, read, served, everyone ? { rows } : {});
 
     const tables = analysisTables(model, records, factors ? factorsByRecord(factors, firsts) : null, { hideRounds: !everyone });
     return {
@@ -357,6 +362,58 @@ export async function projectFactors(
   return total ? totalFactors(total, firsts.keys()) : null;
 }
 
+/** What stateFactors gives: projectFactors', the plots' first assessments without their answers, and the plots' values of `columns`. */
+export interface StateFactors {
+  factors: Factors | null;
+  firsts: Map<string, Pick<FirstAssessment, 'recordKey' | 'operator'>>;
+  /** Each first-assessed plot's values of the columns asked for, as strataValues gives them. */
+  strata: Map<string, (string | undefined)[]>;
+}
+/** At most so many kept per project state (the analysis', the Areas page's saved columns, a few chosen ones). */
+const FACTORS_PER_STATE = 4;
+
+/**
+ * projectFactors over the project's first assessments, worked out once per project state (its records, plot files and
+ * members) and areas setting, and kept on the state (so as many and as long as the states are): reading every first
+ * assessment's answers is hundreds of MB on a large project. `rows`: the project's records (firstSubmissions) when
+ * the caller has read them anyway. A stale state (records changed since) is not kept to: worked out from the records now.
+ */
+export async function stateFactors(
+  store: Store,
+  projectId: string,
+  parsed: NonNullable<Parsed>,
+  served: ServedState,
+  options: { rows?: readonly RecordRow[]; columns?: readonly string[] } = {},
+): Promise<StateFactors> {
+  const { state } = served;
+  const columns = options.columns ?? [];
+  const compute = async (): Promise<StateFactors> => {
+    const rows = options.rows ?? (await store.listRecordSummaries(projectId, { firstSubmissions: true }));
+    const { context } = state;
+    const firsts = firstAssessments(rows, recordResolver({ info: context.info, units: context.units, copyHolders: context.copyHolders }));
+    const plotFiles = plotFilesOf(store, projectId);
+    const factors = await projectFactors(store, projectId, parsed, firsts, context.info, plotFiles);
+    const strata = columns.length > 0 ? (await strataValues(plotFiles, parsed.model, context.info, columns, firsts)).values : new Map<string, (string | undefined)[]>();
+    return { factors, firsts: new Map([...firsts].map(([unit, f]) => [unit, { recordKey: f.recordKey, operator: f.operator }])), strata };
+  };
+  if (served.stale) return compute();
+  const [settings, total] = await Promise.all([store.getAreaSettings(projectId), earlierTotalArea(store, projectId)]);
+  const key = JSON.stringify([settings, total, columns]);
+  const kept = (state.factors ??= new Map());
+  const had = kept.get(key);
+  // (the same survey: modelOf gives one object per project file)
+  if (had && had.parsed === parsed) {
+    remember(kept, key, had, FACTORS_PER_STATE);
+    return had.value;
+  }
+  const value = compute();
+  remember(kept, key, { parsed, value }, FACTORS_PER_STATE);
+  value.catch(() => {
+    if (kept.get(key)?.value === value) kept.delete(key);
+  });
+  return value;
+}
+
 /** Where the areas come from, in projectFactors' order: the dashboard's setting, a file, or a total typed before. */
 export async function areasSource(store: Store, projectId: string, parsed: NonNullable<Parsed>): Promise<AreasSource | null> {
   const settings = await store.getAreaSettings(projectId);
@@ -435,7 +492,7 @@ export async function plotFileValues(
 }
 
 /** The factors by the record that counts for each plot (its first assessment): what analysisTables writes. */
-export function factorsByRecord(factors: Factors, firsts: ReadonlyMap<string, FirstAssessment>): Map<string, { factor: number; weight: number }> {
+export function factorsByRecord(factors: Factors, firsts: ReadonlyMap<string, Pick<FirstAssessment, 'recordKey' | 'operator'>>): Map<string, { factor: number; weight: number }> {
   const out = new Map<string, { factor: number; weight: number }>();
   for (const [unit, first] of firsts) {
     const f = factors.byPlot.get(unit);

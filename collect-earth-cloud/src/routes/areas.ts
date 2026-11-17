@@ -5,10 +5,9 @@ import { attachment } from '../download.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import { isPlotUnit } from '../progress.js';
 import type { ProjectStateCache } from '../projectState.js';
-import { recordResolver } from '../quality.js';
 import type { Store } from '../store/store.js';
 import type { AreasData, AreasSaved } from '../wire/plotFiles.js';
-import { firstAssessments, modelOf, plotFilesOf, plotFileValues, projectFactors, questionOf, strataValues, type Parsed } from './analysis.js';
+import { modelOf, plotFilesOf, plotFileValues, questionOf, stateFactors, type Parsed } from './analysis.js';
 import type { AreasSource } from '../wire/analysis.js';
 
 /** The strata found in the plots and listed on the page, beyond those with an area (a column of many values). */
@@ -17,8 +16,10 @@ const MAX_LISTED = 500;
 /** The project file's survey and areas files; without a readable one, no questions: the strata are the plot files' columns. */
 export async function surveyOf(store: Store, projectId: string): Promise<NonNullable<Parsed>> {
   const cep = await store.getCep(projectId);
-  return (cep ? modelOf(cep) : null) ?? { model: { languages: [], tables: [{ name: 'plot', labels: {}, keyColumn: null, columns: [] }], lists: {} } };
+  return (cep ? modelOf(cep) : null) ?? NO_SURVEY;
 }
+// (one object: stateFactors keeps its work for the same survey object)
+const NO_SURVEY: NonNullable<Parsed> = { model: { languages: [], tables: [{ name: 'plot', labels: {}, keyColumn: null, columns: [] }], lists: {} } };
 
 /**
  * Strata and areas (docs/plans/2026-11-11-strata-areas.md, step 2), what the plots' expansion factors come from:
@@ -46,11 +47,9 @@ export async function registerAreaRoutes(app: FastifyInstance, store: Store, sta
   app.get('/v1/projects/:pid/areas', reviewer, async (request: FastifyRequest, reply: FastifyReply) => {
     const projectId = request.membership!.projectId;
     const parsed = await surveyOf(store, projectId);
-    const [shown, served, rows] = await Promise.all([shownOf(projectId, parsed), states.get(projectId, request.log), store.listRecordSummaries(projectId, { firstSubmissions: true })]);
+    const [shown, served] = await Promise.all([shownOf(projectId, parsed), states.get(projectId, request.log)]);
     const { context } = served.state;
-    const firsts = firstAssessments(rows, recordResolver({ info: context.info, units: context.units, copyHolders: context.copyHolders }));
     const plotFiles = plotFilesOf(store, projectId);
-    const factors = await projectFactors(store, projectId, parsed, firsts, context.info, plotFiles);
     // ?columns=a,b: the strata other columns would make (choosing them), nothing saved
     const query = (request.query ?? {}) as { columns?: unknown };
     // (a coordinator's question: with any column to ask about, the plots' ids one by one would tell a reviewer which
@@ -58,6 +57,8 @@ export async function registerAreaRoutes(app: FastifyInstance, store: Store, sta
     const asked = request.membership!.role === 'admin' && typeof query.columns === 'string' ? query.columns.split(',').map((c) => c.trim()).filter((c) => c !== '').slice(0, AREA_LIMITS.columns) : null;
     const saved = shown.areas?.mode === 'strata' ? shown.areas.columns : [];
     const columns = asked ?? saved;
+    // The first assessments and their factors, worked out once per project state (not every first assessment's answers each time)
+    const { factors, firsts, strata: assessedValues } = await stateFactors(store, projectId, parsed, served, { columns });
     const sameColumns = columns.length === saved.length && columns.every((c, i) => c.toLowerCase() === saved[i].toLowerCase());
     // The plots of the plot files by stratum (a column only in the answers: not counted), and the plots assessed
     const files = await plotFileValues(plotFiles, context.info, columns);
@@ -87,8 +88,7 @@ export async function registerAreaRoutes(app: FastifyInstance, store: Store, sta
           else more++;
         }
       }
-      const { values } = await strataValues(plotFiles, parsed.model, context.info, columns, firsts);
-      for (const v of values.values()) {
+      for (const v of assessedValues.values()) {
         const s = entry(v);
         if (s) s.assessed += 1;
         else more++;

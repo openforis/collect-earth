@@ -1,5 +1,5 @@
 // Strata and areas (src/areas.ts, src/routes/areas.ts, docs/plans/2026-11-11-strata-areas.md step 2).
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { areasFileText, parseAreaSettings, strataFactors, strataOfFile, totalFactors } from '../src/areas.js';
 import { readCep, zipCep } from '../src/cep.js';
 import { parseCsv } from '../src/ceo/answers.js';
@@ -192,5 +192,35 @@ describe('the areas routes', () => {
     await send('1,1');
     await call('PUT', '/areas', owner.token, { settings: { mode: 'strata', columns: ['nope'], strata: [{ values: ['A'], area: 1 }] } });
     expect((await call('GET', '/areas', owner.token)).json()).toMatchObject({ unknownColumns: ['nope'], noStratum: { plots: 1 }, withArea: 0 });
+  });
+
+  it("work the first assessments' factors out once per project state; a collector's analysis reads only their own records", async () => {
+    await upload({ 'areas_per_attribute.csv': 'forest,area\nA,1000\nB,300\n' });
+    await send('1,1');
+    const reads = vi.spyOn(ctx.store, 'listRecordSummaries');
+    const first = (await call('GET', '/areas', owner.token)).json();
+    expect(first).toMatchObject({ assessed: 1, withArea: 1 });
+    expect((await call('GET', '/areas', owner.token)).json()).toEqual(first);
+    expect(reads).toHaveBeenCalledTimes(1);
+    // the coordinator's analysis reads the project's records (its rows); a collector's then reads theirs alone
+    await call('GET', '/analysis', owner.token);
+    const own = (await call('GET', '/analysis', people.ana)).json();
+    expect(own.scope).toBe('own');
+    expect(own.areas).toMatchObject({ plots: 1 });
+    expect(reads.mock.calls.map(([, options]) => options)).toEqual([{ firstSubmissions: true }, { firstSubmissions: true }, { operator: 'ana' }]);
+    // a record more: the next answer counts it
+    await send('2,1');
+    expect((await call('GET', '/areas', owner.token)).json()).toMatchObject({ assessed: 2, withArea: 2 });
+  });
+
+  it('the overview and the divisions count the records without reading their answers', async () => {
+    await upload();
+    await send('1,1');
+    const reads = vi.spyOn(ctx.store, 'listRecordSummaries');
+    const overview = (await call('GET', '/overview', owner.token)).json();
+    expect(overview.records).toMatchObject({ total: 1, submitted: 1, byOperator: [{ operator: 'ana', total: 1, submitted: 1 }] });
+    const csv = (await ctx.store.listCsvFiles(pid))[0];
+    for (const path of ['/plots/columns', '/plots/division', `/csv-files/${csv.id}/distribution`]) expect((await call('GET', path, owner.token)).statusCode, path).toBe(200);
+    expect(reads).not.toHaveBeenCalled();
   });
 });
