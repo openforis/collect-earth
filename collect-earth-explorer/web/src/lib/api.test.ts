@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { postApi, ApiFailure, isRetryable } from "./api";
+import { postApi, ApiFailure, isRetryable, whenIdle } from "./api";
 
 const body = {
   plot: { type: "Polygon" as const, coordinates: [[[30, -2], [31, -2], [31, -3], [30, -3], [30, -2]]] },
@@ -113,5 +113,46 @@ describe("API_BASE", () => {
     expect(mod.API_BASE).toBe("https://x/api");
     await mod.postApi("tiles/sentinel2", body);
     expect(fetchMock.mock.calls[0][0]).toBe("https://x/api/api/tiles/sentinel2");
+  });
+});
+
+describe("whenIdle", () => {
+  const fetchMock = vi.fn();
+  beforeEach(() => {
+    vi.useFakeTimers();
+    fetchMock.mockReset();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it("calls back once, 2 s after the last API request settled; a request in that pause restarts the wait", async () => {
+    const resolvers: ((r: Response) => void)[] = [];
+    fetchMock.mockImplementation(() => new Promise((r) => resolvers.push(r)));
+    const fn = vi.fn();
+    whenIdle(fn);
+    const a = postApi("a", body), b = postApi("b", body);
+    resolvers[0](json({}));
+    await a;
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(fn).not.toHaveBeenCalled(); // b still in flight
+    resolvers[1](json({}));
+    await b;
+    await vi.advanceTimersByTimeAsync(1500);
+    const c = postApi("c", body); // another request of the current plot: wait again
+    await vi.advanceTimersByTimeAsync(1000);
+    resolvers[2](json({}, 500));
+    await c.catch(() => {});
+    await vi.advanceTimersByTimeAsync(1999);
+    expect(fn).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(fn).toHaveBeenCalledTimes(1);
+    const d = postApi("d", body);
+    resolvers[3](json({}));
+    await d;
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(fn).toHaveBeenCalledTimes(1);
   });
 });

@@ -48,6 +48,19 @@ describe("parsePlotUrl", () => {
     const p = parsePlotUrl("", new Date(), `#;;geoJson=${encodeURIComponent(geoJson)};;plotId=%E0%A4%A;plotId=7;;`);
     expect(p.plotId).toBe("7");
   });
+  it("reads the next plot, in the query and the fragment, normalised like the plot; undefined when absent or unreadable", () => {
+    const point = JSON.stringify({ type: "Point", coordinates: [30.17, -2.07] });
+    const q = `?geoJson=${encodeURIComponent(geoJson)}`;
+    expect(parsePlotUrl(q).next).toBeUndefined();
+    expect(parsePlotUrl(`${q}&next=${encodeURIComponent(point)}`).next).toEqual(toPolygon(JSON.parse(point)));
+    const h = parsePlotUrl("", new Date(), `#geoJson=${encodeURIComponent(geoJson)};next=${encodeURIComponent(geoJson)};plotId=1;`);
+    expect(h.next).toEqual(h.plot);
+    for (const bad of ["{oops", '{"type":"MultiPolygon","coordinates":[]}', "null", "%E0%A4%A"]) {
+      const p = parsePlotUrl("", new Date(), `#geoJson=${encodeURIComponent(geoJson)};next=${bad === "%E0%A4%A" ? bad : encodeURIComponent(bad)};plotId=1;`);
+      expect(p.next).toBeUndefined();
+      expect(p.plotId).toBe("1");
+    }
+  });
   it("closes an open ring", () => {
     const poly = toPolygon({ type: "MultiLineString", coordinates: [ring.slice(0, 4)] });
     expect(poly.coordinates[0].length).toBe(5);

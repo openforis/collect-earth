@@ -1,4 +1,5 @@
 import catalogueJson from "../../../functions/catalogue.json";
+import type { PlotBody } from "./api";
 
 type Spec = { type: string; min?: number; max?: number; values?: unknown[]; default?: unknown };
 type Kind = "layers" | "charts";
@@ -112,6 +113,18 @@ function resolveEntry(kind: Kind, raw: unknown, maxYear: number): Entry | string
 export function nonDefault(entry: LayerEntry, names: string[]): Record<string, unknown> {
   const specs = catalogue.layers[entry.type].params;
   return Object.fromEntries(names.filter((n) => entry.params[n] !== undefined && entry.params[n] !== specs[n].default).map((n) => [n, entry.params[n]]));
+}
+
+const CHART_PATHS: Record<string, string> = { ccdc: "ccdc", "landsat-series": "series/landsat", "sentinel2-series": "series/sentinel2", modis: "series/modis" };
+
+/**
+ * The API path and body of a chart entry's request for a plot. The cards and the next-plot warm-up
+ * both build theirs here, so the warm-up hits the server key the card will use.
+ */
+export function chartRequest(entry: ChartEntry, p: PlotBody): { path: string; body: PlotBody & Record<string, unknown> } {
+  const { band, index, formula } = entry.params;
+  const extra = entry.type === "ccdc" ? { band } : formula !== undefined ? { formula: normaliseFormula(formula as string) } : index !== "NDVI" ? { index } : {};
+  return { path: CHART_PATHS[entry.type], body: { ...p, ...extra } };
 }
 
 /** The allowed values of a layer type's choice parameter `name`, from the catalogue. */

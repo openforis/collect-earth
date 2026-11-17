@@ -42,7 +42,7 @@ const Ctx = createContext<PlotState | null>(null);
  * Its `year`, else (Landsat) the last of its `years`, else the year before the plot's end, clamped into `years`;
  * a Sentinel-2 entry without `year` starts at the last 12 months, one with a fixed window has none.
  */
-function initialYear(entry: LayerEntry, end: string): Year | undefined {
+export function initialYear(entry: LayerEntry, end: string): Year | undefined {
   if (entry.type === "sentinel2" && entry.params.start !== undefined) return undefined;
   if (entry.type === "sentinel2" && entry.params.year === undefined) return LAST_12_MONTHS;
   const [min, max] = yearRange(entry, end);

@@ -1,5 +1,5 @@
 import { useApi, type ApiOptions } from "../hooks/useApi";
-import { postApi, type TileResponse } from "../lib/api";
+import { postApi, type PlotBody, type TileResponse } from "../lib/api";
 import { nonDefault, type LayerEntry } from "../lib/config";
 import { usePlot, type LayerId, type Year } from "../state/PlotContext";
 
@@ -15,6 +15,12 @@ function layerFields(entry: LayerEntry, year: Year | undefined): Record<string, 
   return typeof year === "number" ? { ...rest, compositeStart: `${year}-01-01`, compositeEnd: `${year + 1}-01-01` } : rest;
 }
 
+/** The API path and body of an imagery entry's tile request for a plot (the map and the next-plot warm-up share it). */
+export function layerRequest(entry: LayerEntry, year: Year | undefined, p: PlotBody): { path: string; body: PlotBody & Record<string, unknown> } {
+  const fields = layerFields(entry, year);
+  return entry.type === "landsat" ? { path: "tiles/landsat", body: { ...p, year, ...fields } } : { path: "tiles/sentinel2", body: { ...p, ...fields } };
+}
+
 /**
  * Fetches the tile URL for one imagery layer; refetches when its inputs change.
  * Pass `{ enabled: false }` to hold the request (see `ApiOptions.enabled`).
@@ -23,13 +29,13 @@ export function useLayerTiles(layer: LayerId, options?: ApiOptions) {
   const { plot, start, end, layers, yearOf, bandsOf, scene } = usePlot();
   const year = layer === "scene" ? undefined : yearOf(layer);
   // The row's band selector overrides the entry's bands.
-  const fields = layer === "scene" ? {} : layerFields({ ...layers[layer], params: { ...layers[layer].params, bands: bandsOf(layer) } }, year);
-  const key = layer === "scene" ? scene && `${scene.sensor}:${scene.timeStart}` : `${year ?? "fixed"}:${JSON.stringify(fields)}`;
+  const entry = layer === "scene" ? undefined : { ...layers[layer], params: { ...layers[layer].params, bands: bandsOf(layer) } };
+  const key = entry ? `${year ?? "fixed"}:${JSON.stringify(layerFields(entry, year))}` : scene && `${scene.sensor}:${scene.timeStart}`;
   return useApi<TileResponse>(
     (signal) => {
-      if (layer !== "scene") {
-        if (layers[layer].type === "landsat") return postApi("tiles/landsat", { plot, start, end, year, ...fields }, signal);
-        return postApi("tiles/sentinel2", { plot, start, end, ...fields }, signal);
+      if (entry) {
+        const { path, body } = layerRequest(entry, year, { plot, start, end });
+        return postApi(path, body, signal);
       }
       if (!scene) return Promise.reject(new Error("no scene selected"));
       return postApi("tiles/scene", { plot, start, end, sensor: scene.sensor, timeStart: scene.timeStart }, signal);

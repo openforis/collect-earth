@@ -98,6 +98,12 @@ The address takes two forms. Query: `/?geoJson=…&startTime=…&endTime=…&plo
 Fragment, as Collect Earth builds it: `/#geoJson=…;plotId=…;startTime=…;endTime=…;config=…;`
 (each value URL-encoded).
 
+Collect Earth may add `next` (fragment `next=…;`, query `&next=…`): the next plot's outline, in the
+same form as `geoJson`. Once the current plot's requests have settled (2 s without one in flight),
+the page requests the next plot's open charts and first imagery layer, one at a time, and downloads
+the imagery tiles the map will open with, so the next plot loads from the server's store and the
+browser's cache. Nothing is shown; a missing or unreadable `next` just means no warming.
+
 ## Cache
 API results are cached in the Firestore `cache` collection (one document per
 endpoint + plot + dates + extras, written by the Admin SDK only; `firestore.rules`

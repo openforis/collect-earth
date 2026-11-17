@@ -1,11 +1,12 @@
-import { lazy, Suspense, useMemo, type ComponentType } from "react";
+import { lazy, Suspense, useEffect, useMemo, type ComponentType } from "react";
 import { PlotProvider, usePlot } from "./state/PlotContext";
 import MapView from "./components/MapView";
 import CompareMap from "./components/CompareMap";
 import LayersPanel from "./components/LayersPanel";
 import { useLayerTiles } from "./components/LayerSources";
 import type { ApiState } from "./hooks/useApi";
-import { isRetryable, type TileResponse } from "./lib/api";
+import { isRetryable, whenIdle, type TileResponse } from "./lib/api";
+import { warm } from "./lib/prewarm";
 import { parsePlotUrl, type PlotParams } from "./lib/urlParams";
 import { resolveConfig, type ChartEntry } from "./lib/config";
 
@@ -113,6 +114,16 @@ export default function App() {
       return { error: (e as Error).message };
     }
   }, [search, hash]);
+  // Once this plot's own requests have settled, warm the server's store for the next plot.
+  useEffect(() => {
+    if (parsed.error !== undefined || !parsed.params.next) return;
+    const { params, config } = parsed;
+    const next = parsed.params.next;
+    whenIdle(() => {
+      const pane = document.querySelector(".map-pane")?.getBoundingClientRect();
+      void warm(next, params, config, pane?.width ?? 0, pane?.height ?? 0);
+    });
+  }, [parsed]);
   if (parsed.error !== undefined) {
     return (
       <div className="welcome">

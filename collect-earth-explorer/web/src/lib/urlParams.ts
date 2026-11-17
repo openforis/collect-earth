@@ -8,6 +8,8 @@ export interface PlotParams {
   plotId: string;
   /** The survey's configuration document, decoded but not parsed. */
   configText?: string;
+  /** The next plot Collect Earth will open (`next`, same form as `geoJson`), for warming its requests; undefined when absent or unreadable. */
+  next?: Polygon;
 }
 
 export function toPolygon(g: AnyGeometry): Polygon {
@@ -49,7 +51,16 @@ export function parsePlotUrl(search: string, now: Date = new Date(), hash: strin
     end: q.get("endTime") || iso(now),
     plotId: q.get("plotId") || q.get("plot_id") || "",
     configText: q.get("config"),
+    next: readPolygon(q.get("next")),
   };
+}
+
+function readPolygon(text: string | undefined): Polygon | undefined {
+  try {
+    return text ? toPolygon(JSON.parse(text)) : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 export function polygonBounds(p: Polygon): [[number, number], [number, number]] {

@@ -5,7 +5,7 @@ import { useApi } from "../../hooks/useApi";
 import { postApi } from "../../lib/api";
 import { usePlot } from "../../state/PlotContext";
 import { pointsToCsv, downloadText, type Point } from "../../lib/csv";
-import type { ChartEntry } from "../../lib/config";
+import { chartRequest, type ChartEntry } from "../../lib/config";
 
 interface Modis {
   ndvi: Point[];
@@ -16,8 +16,8 @@ export default function ModisCard({ params }: { params: ChartEntry["params"] }) 
   const { plot, start, end, plotId } = usePlot();
   const index = params.index as string;
   const [open, setOpen] = useState(!params.collapsed);
-  const body = { plot, start, end, ...(index !== "NDVI" && { index }) };
-  const state = useApi<Modis>((s) => postApi("series/modis", body, s), [plot, start, end, index], { enabled: open });
+  const { path, body } = chartRequest({ type: "modis", params }, { plot, start, end });
+  const state = useApi<Modis>((s) => postApi(path, body, s), [plot, start, end, index], { enabled: open });
   return (
     <ChartCard
       title={`MODIS 16-day ${index} (250 m) and burned area`}

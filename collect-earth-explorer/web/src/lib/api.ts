@@ -46,11 +46,39 @@ const NOT_JSON = Symbol("not json");
  */
 export const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined)?.replace(/\/$/, "") ?? "";
 
+let inFlight = 0;
+let idleTimer: ReturnType<typeof setTimeout> | undefined;
+let onIdle: (() => void) | undefined;
+
+/**
+ * Calls `fn` once, when no API request has been in flight for 2 s after one settled: the page's own
+ * requests are done. A later call replaces a pending `fn`.
+ */
+export function whenIdle(fn: () => void) {
+  onIdle = fn;
+}
+
 export async function postApi<T>(
   path: string,
   body: PlotBody & Record<string, unknown>,
   signal?: AbortSignal,
 ): Promise<T> {
+  inFlight++;
+  clearTimeout(idleTimer);
+  try {
+    return await request<T>(path, body, signal);
+  } finally {
+    if (--inFlight === 0 && onIdle) {
+      idleTimer = setTimeout(() => {
+        const fn = onIdle;
+        onIdle = undefined;
+        fn?.();
+      }, 2000);
+    }
+  }
+}
+
+async function request<T>(path: string, body: PlotBody & Record<string, unknown>, signal?: AbortSignal): Promise<T> {
   const res = await fetch(`${API_BASE}/api/${path}`, {
     method: "POST",
     headers: { "content-type": "application/json" },
