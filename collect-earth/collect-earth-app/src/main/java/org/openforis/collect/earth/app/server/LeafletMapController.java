@@ -100,6 +100,12 @@ public class LeafletMapController {
 		serveClasspath("leafletmap/form.html", "text/html; charset=UTF-8", HttpCaching.REVALIDATE, request, response);
 	}
 
+	/** The Collect Earth logo and "pick the first plot", in the window of the other imagery before the first plot. */
+	@GetMapping("/waiting")
+	public void waitingPage(HttpServletRequest request, HttpServletResponse response) throws IOException {
+		serveClasspath("leafletmap/waiting.html", "text/html; charset=UTF-8", HttpCaching.REVALIDATE, request, response);
+	}
+
 	@GetMapping("/map/assets/{folder}/{file:.+}")
 	public void vendorAsset(@PathVariable String folder, @PathVariable String file, HttpServletRequest request,
 			HttpServletResponse response) throws IOException {
