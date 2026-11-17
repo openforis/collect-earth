@@ -3,6 +3,8 @@ package org.openforis.collect.earth.app.service;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -15,12 +17,14 @@ import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.CloudBinding;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
+import org.openforis.collect.earth.app.view.Messages;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import net.lingala.zip4j.ZipFile;
+import net.lingala.zip4j.model.FileHeader;
 
 
 
@@ -295,7 +299,10 @@ public class EarthProjectsService {
 
 
 	public boolean loadCompressedProjectFile( File projectZipFile ) throws IOException{
-
+		String refusal = refusalOf(projectZipFile);
+		if (refusal != null) {
+			throw new IOException(refusal);
+		}
 		File unzippedFolder = unzipContentsOnProjectFolder(projectZipFile);
 		return( loadProjectInFolder(unzippedFolder) );
 	}
@@ -313,6 +320,42 @@ public class EarthProjectsService {
 			return getProjectFolderName( projectZipFile , OLD_MAX_FOLDER_LENGTH );
 		}
 		return getProjectFolderName( projectZipFile , NEW_MAX_FOLDER_LENGTH );
+	}
+
+	/** The setting of a project file made for working alone, with plots, from a cloud project (the cloud's standaloneCep.ts) */
+	static final String CLOUD_STANDALONE = "cloud_standalone"; //$NON-NLS-1$
+
+	/**
+	 * Why a project file is not opened, or null. One made for working alone (downloaded from a cloud project with its
+	 * plots) is refused on a computer that has its survey as a cloud project: unzipped into that cloud project's folder
+	 * it would stay the cloud project (see driverAfterLoading), its plots unused and the folder's files replaced, and
+	 * Collect Earth would say nothing. The cloud project works without internet too, with the person's plots.
+	 */
+	String refusalOf(File projectZipFile) throws IOException {
+		if (!madeForWorkingAlone(projectZipFile)) {
+			return null;
+		}
+		CloudBinding bound = localPropertiesService.getCloudBinding(projectFolderFor(projectZipFile));
+		if (bound == null) {
+			return null;
+		}
+		return MessageFormat.format(Messages.getString("EarthProjectsService.standaloneInCloud"), //$NON-NLS-1$
+				StringUtils.defaultIfBlank(bound.projectName, bound.projectId));
+	}
+
+	/** Whether a project file's settings say it was made for working alone ({@link #CLOUD_STANDALONE}) */
+	static boolean madeForWorkingAlone(File projectZipFile) throws IOException {
+		try (ZipFile zip = new ZipFile(projectZipFile)) {
+			FileHeader header = zip.getFileHeader(PROJECT_PROPERTIES_FILE_NAME);
+			if (header == null) {
+				return false;
+			}
+			Properties settings = new Properties();
+			try (InputStream in = zip.getInputStream(header)) {
+				settings.load(in);
+			}
+			return Boolean.parseBoolean(StringUtils.trim(settings.getProperty(CLOUD_STANDALONE)));
+		}
 	}
 
 	/** The folder a project file is unzipped into (its survey_name under the projects folder), before it is. */

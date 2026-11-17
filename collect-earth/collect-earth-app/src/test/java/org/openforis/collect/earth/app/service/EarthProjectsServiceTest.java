@@ -1,7 +1,9 @@
 package org.openforis.collect.earth.app.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
@@ -9,6 +11,8 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.Properties;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -114,5 +118,39 @@ public class EarthProjectsServiceTest {
 		assertEquals("token-a", properties.getCloudSyncToken());
 		assertEquals("ana", properties.getOperator());
 		assertEquals(2, properties.getCloudBindings().size());
+	}
+
+	private File projectFile(String name, String settings) throws IOException {
+		File cep = new File(folder, name + ".cep");
+		try (ZipOutputStream zip = new ZipOutputStream(Files.newOutputStream(cep.toPath()))) {
+			zip.putNextEntry(new ZipEntry("project_definition.properties"));
+			zip.write(settings.getBytes(StandardCharsets.ISO_8859_1));
+			zip.closeEntry();
+		}
+		return cep;
+	}
+
+	/**
+	 * A project file for working alone, on a computer that has its survey as a cloud project, is refused in plain words:
+	 * unzipped into the cloud project's folder it would stay the cloud project and its plots would be ignored.
+	 */
+	@Test
+	public void aProjectFileForWorkingAloneIsRefusedWhereTheSurveyIsACloudProject() throws IOException {
+		LocalPropertiesService properties = new LocalPropertiesService(new Properties());
+		EarthProjectsService projects = new EarthProjectsService();
+		projects.init(properties);
+		File alone = projectFile("alone", "survey_name=mapathon_standalone_test\ncloud_standalone=true\n");
+		File updated = projectFile("updated", "survey_name=mapathon_standalone_test\n");
+
+		assertTrue(EarthProjectsService.madeForWorkingAlone(alone));
+		assertNull(projects.refusalOf(alone)); // a computer that never joined opens it
+		properties.saveCloudBinding(new CloudBinding(projects.projectFolderFor(alone).getPath(), "https://a.org", "p1", "Mapathon", "m2"));
+		String refusal = projects.refusalOf(alone);
+		assertNotNull(refusal);
+		assertTrue(refusal.contains("Mapathon"), refusal);
+		// refused before anything is unzipped over the cloud project's folder
+		assertThrows(IOException.class, () -> projects.loadCompressedProjectFile(alone));
+		// a project file of the cloud project itself (a coordinator's updated one) is still opened there
+		assertNull(projects.refusalOf(updated));
 	}
 }

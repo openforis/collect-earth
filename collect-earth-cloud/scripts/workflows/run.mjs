@@ -451,6 +451,14 @@ with zipfile.ZipFile(src) as a, zipfile.ZipFile(dst,'w',zipfile.ZIP_DEFLATED) as
     await desk('POST', '/api/projects/import', { path: all });
     await waitRestart();
     check('standalone: the file with all the plots opens with all of them', (await plotIds()).length === demoCount, `${(await plotIds()).length} of ${demoCount}`);
+    // and on a computer that is in the cloud project already: refused in plain words, the cloud project left as it was
+    await startDesktop('m1');
+    const before = (await plotIds()).length;
+    const refused = await desk('POST', '/api/projects/import', { path: all });
+    const after = (await desk('GET', '/api/cloud/state')).json?.project;
+    check('standalone: a computer in the cloud project refuses the file and says why, staying in the cloud project',
+      refused.status >= 400 && /cloud/i.test(refused.json?.message ?? '') && after?.mode === 'cloud' && (await plotIds()).length === before,
+      `${refused.status} ${JSON.stringify(refused.json).slice(0, 240)} | ${after?.mode}`);
   },
 
   // 6. Accounts: what people see when something is wrong
