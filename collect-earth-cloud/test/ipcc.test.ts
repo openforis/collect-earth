@@ -203,6 +203,33 @@ describe('the IPCC export routes', () => {
     expect(log[0].details).toEqual({ kind: 'ipcc', file: 'timeseries', plots: 2 });
   });
 
+  it("count the plots the files are made of without reading the records; none when the survey lacks the IPCC's questions", async () => {
+    const summary = (f: string) => scenarios[f];
+    const sync = (records: Parameters<typeof envelope>[0][]) => batchRequest(ctx.app, pid, ana, records.map((r) => envelope({ operator: 'ana', modifiedOn: Date.UTC(2026, 10, 1), ...r })));
+    // 9001 submitted, 9004 only saved, a plot in no plot file submitted
+    expect((await sync([
+      { recordKey: '9001,1', summary: summary('1/9001.xml') },
+      { recordKey: '9004,1', summary: summary('1/9004.xml'), activelySaved: false },
+      { recordKey: '9999,1', summary: summary('1/9002.xml') },
+    ])).statusCode).toBe(200);
+    const rowsOfPlotsFile = async () => (await get('/plots')).body.trim().split('\n').length - 1;
+    expect((await get('')).json().plots).toBe(1);
+    expect(await rowsOfPlotsFile()).toBe(1);
+    expect((await sync([{ recordKey: '9004,1', summary: summary('1/9004.xml'), modifiedOn: Date.UTC(2026, 10, 2) }])).statusCode).toBe(200);
+    expect((await get('')).json().plots).toBe(2);
+    expect(await rowsOfPlotsFile()).toBe(2);
+    // The same project file with a question the exports need renamed
+    const files = readCep(demoCep());
+    const entries = new Map(files.entries);
+    entries.set(files.surveyPath, new TextEncoder().encode(new TextDecoder().decode(entries.get(files.surveyPath)!).replaceAll('name="gez"', 'name="gez_not"')));
+    const res = await ctx.app.inject({ method: 'PUT', url: `/v1/projects/${pid}/cep`, headers: { ...bearer(owner.token), 'content-type': 'application/zip' }, payload: zipCep(entries, FIXTURE_DATE) });
+    expect(res.statusCode, res.body).toBe(200);
+    const status = (await get('')).json();
+    expect(status.missing.length).toBeGreaterThan(0);
+    expect(status).toMatchObject({ plots: 0, areas: null });
+    expect((await get('/plots')).json().error).toBe('survey_not_ipcc');
+  });
+
   it('give the file for the IPCC Inventory Software with the choices of the form', async () => {
     const records = ['1/9001.xml', '1/9004.xml'].map((f) => envelope({ recordKey: `${scenarios[f].collect_text_id},1`, operator: 'ana', modifiedOn: Date.UTC(2026, 10, 1), summary: scenarios[f] }));
     expect((await batchRequest(ctx.app, pid, ana, records)).statusCode).toBe(200);
