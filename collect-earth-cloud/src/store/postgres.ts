@@ -1,5 +1,6 @@
 import { OPERATOR_SUMMARY_KEY, operatorXmlPattern } from '../anonymize.js';
 import pg from 'pg';
+import { DatabaseBusyError, isPoolWaitTimeout } from './busy.js';
 import { randomUUID } from 'node:crypto';
 import { isUuid } from '../accountRules.js';
 import { generateShareToken, generateToken, hashToken, SESSION_IDLE_MS, SESSION_TOUCH_MS } from '../auth.js';
@@ -188,7 +189,13 @@ export class PostgresStore implements Store {
    * then destroys the client instead of putting a broken connection back in the pool.
    */
   private async connect(): Promise<pg.PoolClient> {
-    const client = await this.pool.connect();
+    let client: pg.PoolClient;
+    try {
+      client = await this.pool.connect();
+    } catch (err) {
+      if (isPoolWaitTimeout(err)) throw new DatabaseBusyError();
+      throw err;
+    }
     const onError = (err: Error) => {
       if (!brokenClients.has(client)) brokenClients.set(client, err);
       this.onPoolError(err);

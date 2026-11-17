@@ -36,6 +36,8 @@ managed Postgres (Option B).
 | `QUALITY_WORKER_MAX_MB` | no | `256` | Memory (MB, at least 64) the thread that works out the quality figures may use on Postgres. A project too big for it gets a plain error instead of the figures. Keep it below the container's memory (see "Quality figures and memory") |
 | `NODE_HEAP_MB` | no | `224` | The server's heap in MB (the image passes it to Node as `--max-old-space-size`). 224 for 512 MiB, 448 for 1 GiB (see "Memory") |
 | `PARSED_FILES_CACHE_MB`, `SERVED_FILES_CACHE_MB` | no | `96`, `32` | Memory (MB, at least 8) for parsed plot files and for the plot files built for people; 384 and 128 with 1 GiB (see "Memory") |
+| `PG_CONNECT_TIMEOUT_MS` | no | `10000` | How long a request waits for a free connection of the pool before it is answered 503 `busy` with `Retry-After: 15` (Collect Earth and the dashboard try again). `0` waits for ever, as before: then a pool held by slow queries queues every request that needs the database until the load stops, and Cloud Run answers "upstream request timeout" while `/health` still answers |
+| `PG_STATEMENT_TIMEOUT_MS` | no | *(off)* | A statement of a project's transaction that runs longer is stopped, so a stuck query gives its connection back. At least 1000 |
 | `PG_POOL_MAX` | no | `10` | The most connections the server opens to PostgreSQL at once. Each sync (records:batch) holds one while it is written, so people syncing at the same moment wait for one beyond it: 20-30 suits a mapathon of 60 to 100 people, within the database's `max_connections` less its other clients' (Cloud SQL's smallest plans allow 25 to 50; keep a few for migrations and for you). With several server instances, each opens up to this many |
 | `PROJECT_STATES_KEPT`, `MAP_BUILDS_KEPT` | no | `3`, `4` | Projects whose Progress state, and maps whose next pages, each instance keeps; 6 and 8 with 1 GiB (see "Memory") |
 | `AI_VERTEX_API_KEY` | no | (secret) | Optional AI assistant: a Vertex AI API key, restricted to the Vertex AI API. Wins over `AI_VERTEX_PROJECT` when both are set. See "AI assistant (optional)" |
@@ -957,6 +959,7 @@ measurements of every case; the backup's figure was measured, Task 17):
 | The server's heap at most | 224 MB | 448 MB | `NODE_HEAP_MB` |
 | Parsed plot files (shared by the pages and the files served) | up to 96 MB | up to 384 MB | `PARSED_FILES_CACHE_MB` |
 | Plot files built for people (my-assignment and its download) | up to 32 MB | up to 128 MB | `SERVED_FILES_CACHE_MB` |
+| Project files: as stored (8 projects) and as collectors get them (16) | up to 32 + 32 MB | the same | |
 | Projects' state for Progress and People (tens of MB each at 100,000 records) | 3 projects | 6 projects | `PROJECT_STATES_KEPT` |
 | Maps kept for their next pages (about 10 MB each at 100,000 plots) | 4 | 8 | `MAP_BUILDS_KEPT` |
 | A Collect Earth backup being written | ~70 MB | ~70 MB | one per instance |
