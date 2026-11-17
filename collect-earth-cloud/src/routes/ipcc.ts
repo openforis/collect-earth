@@ -24,7 +24,7 @@ import { recordResolver } from '../quality.js';
 import type { Store } from '../store/store.js';
 import type { IpccExports } from '../wire/data.js';
 import { xlsxOf } from '../xlsx.js';
-import { firstAssessments, modelOf, projectFactors } from './analysis.js';
+import { areasSource, firstAssessments, modelOf, projectFactors } from './analysis.js';
 
 const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 const CSV = 'text/csv; charset=utf-8';
@@ -54,8 +54,8 @@ const DEFAULT_REGIONS = ['province', 'country', 'district'];
 export async function registerIpccRoutes(app: FastifyInstance, store: Store, states: ProjectStateCache): Promise<void> {
   const coordinator = { preHandler: requireProjectMembership(store, 'admin') };
 
-  /** The survey and the plots, or null when an error was sent instead. */
-  const load = async (request: FastifyRequest, reply: FastifyReply) => {
+  /** The survey, or null when an error was sent instead. */
+  const loadSurvey = async (request: FastifyRequest, reply: FastifyReply) => {
     const projectId = request.membership!.projectId;
     const cep = await store.getCep(projectId);
     if (!cep) {
@@ -70,6 +70,14 @@ export async function registerIpccRoutes(app: FastifyInstance, store: Store, sta
     const survey = ipccSurvey(parsed.model);
     // The questions that can hold the region: the plot's texts and codes of one answer
     const regions = parsed.model.tables[0].columns.filter((c) => (c.type === 'text' || c.type === 'code') && !c.multiple && !c.keyAttr);
+    return { projectId, cep, parsed, survey, regions };
+  };
+
+  /** The survey and the plots, or null when an error was sent instead. */
+  const load = async (request: FastifyRequest, reply: FastifyReply) => {
+    const loaded = await loadSurvey(request, reply);
+    if (!loaded) return null;
+    const { projectId, cep, parsed, survey, regions } = loaded;
     if (survey.missing.length > 0) return { cep, survey, regions, plots: [] as IpccPlot[], areas: null };
     const [served, rows] = await Promise.all([states.get(projectId, request.log), store.listRecordSummaries(projectId, { firstSubmissions: true })]);
     const { context } = served.state;
@@ -97,13 +105,18 @@ export async function registerIpccRoutes(app: FastifyInstance, store: Store, sta
   };
 
   app.get('/v1/projects/:pid/exports/ipcc', coordinator, async (request: FastifyRequest, reply: FastifyReply) => {
-    const loaded = await load(request, reply);
+    const loaded = await loadSurvey(request, reply);
     if (!loaded) return reply;
+    // Without reading the records (all their answers: hundreds of MB on a large project): the plots with a submitted
+    // first assessment as the project state counts them (the ones firstAssessments finds), the areas' source as
+    // projectFactors finds it
+    const [served, areas] =
+      loaded.survey.missing.length === 0 ? await Promise.all([states.get(loaded.projectId, request.log), areasSource(store, loaded.projectId, loaded.parsed)]) : [null, null];
     const regions = loaded.regions.map((c) => c.name);
     return reply.header('cache-control', 'no-store').send({
       missing: loaded.survey.missing,
-      plots: loaded.plots.length,
-      areas: loaded.areas,
+      plots: served?.state.units.totals.submitted ?? 0,
+      areas,
       countries: IPCC_COUNTRIES,
       regions,
       region: DEFAULT_REGIONS.find((r) => regions.includes(r)) ?? regions[0] ?? null,

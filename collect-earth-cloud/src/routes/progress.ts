@@ -154,13 +154,14 @@ export function attentionReader(store: Store, quality: QualityService) {
 
 /**
  * Differing plots without a decision, from the quality figures this server has at hand
- * (QualityService.peek): the Progress tab never waits for them nor starts them; an
- * out-of-date report is refreshed behind as the Quality tab would. Null when there are
- * none yet (nobody opened the Quality tab) or they cannot be had: the card is left out.
+ * (QualityService.peek): the Progress tab, the bell and the weekly mail never wait for them
+ * nor start or refresh them (an out-of-date report counts until the Quality tab brings it up
+ * to date). Null when there are none yet (nobody opened the Quality tab) or they cannot be
+ * had: the card is left out.
  */
 async function waitingDecisions(store: Store, quality: QualityService, projectId: string, request: { log: FastifyBaseLogger }): Promise<number | null> {
   try {
-    const served = await quality.peek(projectId, request.log);
+    const served = await quality.peek(projectId, request.log, { refresh: false });
     if (!served) {
       return null;
     }

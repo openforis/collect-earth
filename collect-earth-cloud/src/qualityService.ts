@@ -524,8 +524,9 @@ export class QualityService {
    * changed is served stale, and brought up to date behind it as report() would (one
    * computation at a time per project, at most one start per minIntervalMs, not again
    * soon after a failure). For pages that only glance at the figures (the Progress tab).
+   * With `refresh: false`, never brought up to date here either (the attention cards: the bell, Progress, the weekly mail).
    */
-  async peek(projectId: string, log: Log): Promise<ServedReport | null> {
+  async peek(projectId: string, log: Log, { refresh = true }: { refresh?: boolean } = {}): Promise<ServedReport | null> {
     if (!this.reports.has(projectId)) {
       return null;
     }
@@ -539,7 +540,7 @@ export class QualityService {
     }
     const failure = this.failures.get(projectId);
     const failedLately = failure !== undefined && failure.version === snapshot.version && this.now() - failure.at < FAILURE_MEMO_MS;
-    if (!failedLately) {
+    if (refresh && !failedLately) {
       this.schedule(projectId, log, snapshot, true)?.catch((err: unknown) => log.warn({ err }, 'quality: the figures could not be brought up to date'));
     }
     return served(cached, true);

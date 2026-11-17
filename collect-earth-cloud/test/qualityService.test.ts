@@ -14,6 +14,7 @@ import {
   type QualityRunner,
 } from '../src/qualityService.js';
 import type { WorkerJob } from '../src/qualityWorker.js';
+import { attentionReader } from '../src/routes/progress.js';
 import { InMemoryStore } from '../src/store/memory.js';
 import type { Question } from '../src/surveyOutline.js';
 import { demoCep } from './fixtures/cep.js';
@@ -505,6 +506,29 @@ describe('QualityService', () => {
     await new Promise((r) => setTimeout(r, 50));
     expect(service.computed).toBe(2);
     expect((await service.peek(projectId, log))?.stale).toBe(false);
+  });
+
+  it('the attention cards (bell, Progress, weekly mail) only peek at the figures, and never bring them up to date', async () => {
+    const store = new InMemoryStore();
+    const { projectId } = await store.createProject({ name: 'p' });
+    await store.putCsvFile(projectId, 'plots.csv', Buffer.from('id,lat,lon\n1,0,0\n2,0,0\n'), ['1', '2']);
+    const service = new QualityService(store, null, { minIntervalMs: 0 });
+    const log = { warn() {}, error() {}, info() {}, debug() {} } as never;
+    const report = vi.spyOn(service, 'report');
+    const peek = vi.spyOn(service, 'peek');
+    // The differences card is asked for: a round with checks
+    const served = { state: { version: 'v', context: { copyHolders: new Map(), info: { reassessmentCode: '2' } } }, members: [] } as never;
+    const attentionOf = attentionReader(store, service);
+    expect((await attentionOf(projectId, served, { log }, Date.now())).differencesWaiting).toBeNull();
+    expect(service.computed).toBe(0);
+    await service.report(projectId, log);
+    report.mockClear();
+    await store.putRecord({ projectId, recordKey: '1', operator: 'ana', modifiedOn: 1, receivedAt: 1, activelySaved: true, step: 1, xml: null, summary: {}, deleted: false, deletedOn: null });
+    expect((await attentionOf(projectId, served, { log }, Date.now())).differencesWaiting).toBe(0);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(service.computed).toBe(1);
+    expect(report).not.toHaveBeenCalled();
+    expect(peek).toHaveBeenLastCalledWith(projectId, log, { refresh: false });
   });
 
   const record = (projectId: string, recordKey: string) => ({

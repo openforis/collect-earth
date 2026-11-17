@@ -362,7 +362,7 @@ export async function areasSource(store: Store, projectId: string, parsed: NonNu
   const settings = await store.getAreaSettings(projectId);
   if (settings) return settings.mode;
   if (parsed.regionAreas) return REGION_AREAS_CSV;
-  if (parsed.attributeAreas) return ATTRIBUTE_AREAS_CSV;
+  if (parsed.attributeAreas && strataOfFile(parsed.attributeAreas)) return ATTRIBUTE_AREAS_CSV;
   return (await earlierTotalArea(store, projectId)) ? 'total' : null;
 }
 
