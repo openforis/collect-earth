@@ -62,7 +62,7 @@
 
 		return $.ajax({
 					type : "POST",
-					url : "http://127.0.0.1:8028/earth/planetTileUrl",
+					url : "${urlPlanetEndpointPrefix}planetTileUrl",
 					async : false,
 					data : {
 							start: getFormattedDate( startDay ),
@@ -188,7 +188,7 @@
 
 				$.ajax({
 							type : "POST",
-							url : "http://127.0.0.1:8028/earth/planetAvailableImagery",
+							url : "${urlPlanetEndpointPrefix}planetAvailableImagery",
 							async : true,
 							data : {
 									start: getFormattedDate( startDay ),

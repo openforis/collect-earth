@@ -55,6 +55,8 @@ public class GeolocalizeMapService {
 	LocalPropertiesService localPropertiesService;
 
 	private final Logger logger = LoggerFactory.getLogger(this.getClass());
+	/** The last page made from each template, deleted when the next is made */
+	private final Map<String, File> lastFiles = new java.util.concurrent.ConcurrentHashMap<>();
 
 	@Autowired
 	KmlGeneratorService kmlGeneratorService;
@@ -80,6 +82,11 @@ public class GeolocalizeMapService {
 
 		final File tempFileDst = File.createTempFile("selenium", ".html");
 		tempFileDst.deleteOnExit();
+		// One file per template: each holds a key and a plot, and a killed Collect Earth would leave one per plot
+		final File previous = lastFiles.put(freemarkerTemplateFile, tempFileDst);
+		if (previous != null && !previous.delete()) {
+			logger.debug("Could not delete {}", previous);
+		}
 
 		FreemarkerTemplateUtils.applyTemplate(templateFileSrc, tempFileDst, data);
 
@@ -142,8 +149,8 @@ public class GeolocalizeMapService {
 		try {
 			transformedHtml = applyData(data, freemarkerTemplate);
 		} catch (final Exception e) {
-			logger.error("Exception when applying template " + freemarkerTemplate + "with data : " + data.toString(),
-					e);
+			// Not the data: it holds the Planet or Google Maps key and the plot
+			logger.error("Exception when applying template " + freemarkerTemplate, e);
 		}
 		if (transformedHtml != null) {
 			try {

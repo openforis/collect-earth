@@ -195,7 +195,7 @@ public class TrainingPlotFiles {
 		}
 		int deleted = cloud.deleteTrainingRecords(plots);
 		if (deleted < 0) {
-			return; // no survey loaded yet: the next check
+			return; // no survey loaded yet, or a record not sent yet: the next check
 		}
 		logger.info("The training is over: {} records of its {} plots deleted", deleted, plots.size()); //$NON-NLS-1$
 		properties.setValue(EarthProperty.CLOUD_TRAINING_CLEANED, done);

@@ -80,6 +80,16 @@ public class GoogleEarthWebSupersedeTest {
 		assertEquals(Arrays.asList(false), seen);
 	}
 
+	@Test
+	public void aPlotOfTheSameIdElsewhereIsNotThePlotShown() {
+		org.openforis.collect.earth.sampler.model.SimplePlacemarkObject shown = PlotSelectionOrderTest.plot("7");
+		assertTrue(GoogleEarthWebService.isSamePlot(PlotSelectionOrderTest.plot("7"), shown));
+		// Plot 7 of the person's plots after plot 7 of a training set
+		assertFalse(GoogleEarthWebService.isSamePlot(new org.openforis.collect.earth.sampler.model.SimplePlacemarkObject(new double[] { 5, 6 }, "7"), shown));
+		assertFalse(GoogleEarthWebService.isSamePlot(PlotSelectionOrderTest.plot("8"), shown));
+		assertFalse(GoogleEarthWebService.isSamePlot(shown, null));
+	}
+
 	private static void waitUntilBlocked(Thread thread) throws InterruptedException {
 		while (thread.getState() != Thread.State.BLOCKED) {
 			Thread.sleep(5);

@@ -839,13 +839,17 @@ public class GoogleEarthWebService {
 		}
 	}
 
+	/** The same id at the same place: another plot file (a training set, the person's plots) may reuse the id. */
+	static boolean isSamePlot(SimplePlacemarkObject target, SimplePlacemarkObject shown) {
+		return shown != null && target.getPlacemarkId() != null && target.getPlacemarkId().equals(shown.getPlacemarkId())
+				&& java.util.Objects.equals(target.getCoord(), shown.getCoord());
+	}
+
 	/** Already showing this plot in an open tab (e.g. the same plot clicked twice). */
 	private boolean isShowing(SimplePlacemarkObject target) {
 		SimplePlacemarkObject shown = current;
 		try {
-			return shown != null && state == State.READY && target.getPlacemarkId() != null
-					&& target.getPlacemarkId().equals(shown.getPlacemarkId())
-					&& tab().isOpen() && isOnGoogleEarthWeb();
+			return state == State.READY && isSamePlot(target, shown) && tab().isOpen() && isOnGoogleEarthWeb();
 		} catch (TabClosedException e) {
 			return false; // shown again, in a new tab
 		}
