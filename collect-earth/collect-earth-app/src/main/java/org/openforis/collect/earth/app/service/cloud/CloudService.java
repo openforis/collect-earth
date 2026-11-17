@@ -661,8 +661,13 @@ public class CloudService {
 	 */
 	public File openTraining(String id) throws InvalidCloudRequestException {
 		File file = downloadAssignment(id);
-		properties.setValue(EarthProperty.SAMPLE_FILE, file.getAbsolutePath());
-		properties.setValue(EarthProperty.CLOUD_TRAINING_FILE, file.getAbsolutePath());
+		if (myPlots != null) {
+			// with the check's own writes, which would otherwise put the person's plots back halfway through
+			myPlots.openTraining(file);
+		} else {
+			properties.setValue(EarthProperty.SAMPLE_FILE, file.getAbsolutePath());
+			properties.setValue(EarthProperty.CLOUD_TRAINING_FILE, file.getAbsolutePath());
+		}
 		EarthApp.reloadPlots();
 		return file;
 	}

@@ -119,6 +119,13 @@ public class MyPlotsService implements ApplicationListener<ContextRefreshedEvent
 	private volatile boolean olderServer;
 	private volatile boolean started;
 	/** Each row's plot file of the copy, read when it changed */
+	/**
+	 * Guards the plot file of each plot read for the form ({@link #plotFileOf}), apart from the service's lock: a check
+	 * holds that one through its calls to the server, and the form of a plot would wait for them.
+	 */
+	private final Object plotFilesLock = new Object();
+	/** Guards the plots file setting with the training set's, written together ({@link #usePlotFile}, {@link #openTraining}) */
+	private final Object plotFileSetting = new Object();
 	private Map<String, String> plotFiles = Collections.emptyMap();
 	private String plotFilesStamp = ""; //$NON-NLS-1$
 
@@ -342,13 +349,27 @@ public class MyPlotsService implements ApplicationListener<ContextRefreshedEvent
 	 * the plots file changed.
 	 */
 	private boolean usePlotFile(boolean always) {
-		File copy = copy();
-		if (!copy.isFile() || sameFile(copy.getAbsolutePath(), plotFileInUse()) || !always && onTraining()) {
-			return false;
+		synchronized (plotFileSetting) {
+			File copy = copy();
+			if (!copy.isFile() || sameFile(copy.getAbsolutePath(), plotFileInUse()) || !always && onTraining()) {
+				return false;
+			}
+			properties.setValue(EarthProperty.SAMPLE_FILE, copy.getAbsolutePath());
+			properties.setValue(EarthProperty.CLOUD_TRAINING_FILE, ""); //$NON-NLS-1$
+			return true;
 		}
-		properties.setValue(EarthProperty.SAMPLE_FILE, copy.getAbsolutePath());
-		properties.setValue(EarthProperty.CLOUD_TRAINING_FILE, ""); //$NON-NLS-1$
-		return true;
+	}
+
+	/**
+	 * Makes a training set the plots file. Both settings are written together, so a check running meanwhile sees either
+	 * the person's plots or the training set open, never the training set as the plots file but not as open (it would put
+	 * the person's plots back). Not under the service's lock: a check may be waiting for the server.
+	 */
+	public void openTraining(File training) {
+		synchronized (plotFileSetting) {
+			properties.setValue(EarthProperty.SAMPLE_FILE, training.getAbsolutePath());
+			properties.setValue(EarthProperty.CLOUD_TRAINING_FILE, training.getAbsolutePath());
+		}
 	}
 
 	// ---------------------------------------------------------------------------------------------------------------
@@ -423,8 +444,9 @@ public class MyPlotsService implements ApplicationListener<ContextRefreshedEvent
 		for (Map.Entry<String, String> e : files.entrySet()) {
 			fileRows.add(new String[] { e.getKey(), e.getValue() });
 		}
-		writeIfChanged(new File(folder, PLOT_FILES), fileRows);
+		// The plots first: if their file cannot be replaced now, the plot files stay those of the plots in it
 		boolean changed = writeIfChanged(copyFile, rows);
+		writeIfChanged(new File(folder, PLOT_FILES), fileRows);
 		if (changed) {
 			Set<String> now = keysOf(rows, header != null, keyColumns);
 			say(before.isEmpty(), now, keysBefore, kept);
@@ -500,7 +522,25 @@ public class MyPlotsService implements ApplicationListener<ContextRefreshedEvent
 			return false;
 		}
 		String state = sync.recordState(key);
+		if (state == null) {
+			// A key that is a number in the survey: Collect keeps "7" for the plot file's "007"
+			String asNumbers = keyAsNumbers(key);
+			if (!asNumbers.equals(key)) {
+				state = sync.recordState(asNumbers);
+			}
+		}
 		return "pending".equals(state) || "failed".equals(state); //$NON-NLS-1$ //$NON-NLS-2$
+	}
+
+	/** A key with each of its whole numbers written as Collect writes a number key: no leading zeros ("007,1" is "7,1") */
+	static String keyAsNumbers(String key) {
+		String[] parts = key.split(",", -1); //$NON-NLS-1$
+		for (int i = 0; i < parts.length; i++) {
+			if (parts[i].matches("-?\\d+")) { //$NON-NLS-1$
+				parts[i] = new java.math.BigInteger(parts[i]).toString();
+			}
+		}
+		return String.join(",", parts); //$NON-NLS-1$
 	}
 
 	/** The plot of a row: its first key columns joined by commas, as Collect Earth names its placemark and record */
@@ -573,15 +613,42 @@ public class MyPlotsService implements ApplicationListener<ContextRefreshedEvent
 			try (OutputStream out = Files.newOutputStream(temp)) {
 				out.write(bytes);
 			}
-			try {
-				Files.move(temp, file.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-			} catch (AtomicMoveNotSupportedException e) {
-				Files.move(temp, file.toPath(), StandardCopyOption.REPLACE_EXISTING);
-			}
+			replace(temp, file.toPath());
 		} finally {
 			Files.deleteIfExists(temp);
 		}
 		return true;
+	}
+
+	/** Times a replace is tried while the file is being read (Windows refuses to replace an open file), and the wait */
+	private static final int REPLACE_TRIES = 10;
+	private static final long REPLACE_WAIT_MS = 300;
+
+	/**
+	 * Puts the new file in place of the old. On Windows a file being read (the plots map reading the plots, a few seconds
+	 * for a big file) cannot be replaced: tried again a few times before the check gives up until the next one.
+	 */
+	static void replace(Path temp, Path file) throws IOException {
+		for (int attempt = 1;; attempt++) {
+			try {
+				try {
+					Files.move(temp, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+				} catch (AtomicMoveNotSupportedException e) {
+					Files.move(temp, file, StandardCopyOption.REPLACE_EXISTING);
+				}
+				return;
+			} catch (java.nio.file.FileSystemException e) {
+				if (attempt >= REPLACE_TRIES || e instanceof AtomicMoveNotSupportedException) {
+					throw e;
+				}
+				try {
+					Thread.sleep(REPLACE_WAIT_MS);
+				} catch (InterruptedException interrupted) {
+					Thread.currentThread().interrupt();
+					throw e;
+				}
+			}
+		}
 	}
 
 	private static Map<String, String> readPlotFiles(File file) throws IOException {
@@ -636,22 +703,24 @@ public class MyPlotsService implements ApplicationListener<ContextRefreshedEvent
 	 * The plot file a plot of the person's plots comes from (its name), for the record to keep as it keeps a project's own
 	 * plot file's; null when the plots file is not the person's plots, or the plot is not in it.
 	 */
-	public synchronized String plotFileOf(String placemarkId) {
+	public String plotFileOf(String placemarkId) {
 		String inUse = plotFileInUse();
 		if (placemarkId == null || !isCopy(inUse)) {
 			return null;
 		}
 		File file = new File(new File(inUse).getAbsoluteFile().getParentFile(), PLOT_FILES);
 		String stamp = file.getAbsolutePath() + "@" + file.lastModified() + ":" + file.length(); //$NON-NLS-1$ //$NON-NLS-2$
-		if (!stamp.equals(plotFilesStamp)) {
-			try {
-				plotFiles = file.isFile() ? readPlotFiles(file) : Collections.emptyMap();
-			} catch (IOException e) {
-				plotFiles = Collections.emptyMap();
+		synchronized (plotFilesLock) {
+			if (!stamp.equals(plotFilesStamp)) {
+				try {
+					plotFiles = file.isFile() ? readPlotFiles(file) : Collections.emptyMap();
+				} catch (IOException e) {
+					plotFiles = Collections.emptyMap();
+				}
+				plotFilesStamp = stamp;
 			}
-			plotFilesStamp = stamp;
+			return plotFiles.get(placemarkId);
 		}
-		return plotFiles.get(placemarkId);
 	}
 
 	/** What Settings › Project shows: whether the plots come from the server, how many, when, and the training set open */
