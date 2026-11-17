@@ -24,7 +24,7 @@ import { type MessageKey, type Translate, useT } from "../i18n";
 import { type PressedKey, choiceKey, focusMovedByKey, isKeyboardClick } from "../shortcuts";
 import {
   type CodeItem, type Field, type FieldInfo, clickCode, codeControl, coordinateFromInput, coordinateToInput, dateFromInput,
-  dateToInput, normalizeNumber, numberProblem, parseCodes, plainMessage, qualify, rangeFromInput, rangeToInput, requiredMessage,
+  dateToInput, normalizeNumber, numberProblem, parseCodes, plainMessage, qualify, rangeDraft, rangeFromInput, rangeToInput, requiredMessage,
   selectCodes, timeToInput,
 } from "./model";
 import { TYPING_DELAY } from "./store";
@@ -580,10 +580,11 @@ function DateTimeInput({ field, value, onChange, error, describedBy, required, k
 
 function RangeInput({ field, value, onChange, error, describedBy, required }: ControlProps) {
   const t = useT();
-  const [from, to] = rangeToInput(value);
-  const sameNumber = (d: string, v: string) => normalizeNumber(d) === v;
-  const [dFrom, setFrom] = useDraft(from, sameNumber);
-  const [dTo, setTo] = useDraft(to, sameNumber);
+  // the two boxes as one draft: each alone would take the value of a range of one number for its own
+  const [[dFrom, dTo], setDraft] = useState(() => rangeToInput(value));
+  useEffect(() => setDraft((d) => rangeDraft(d, value)), [value]);
+  const setFrom = (v: string) => setDraft(([, b]) => [v, b]);
+  const setTo = (v: string) => setDraft(([a]) => [a, v]);
   const typing = useRef(false);
   const commit = (a: string, b: string, delay: number) => {
     typing.current = delay > 0;
@@ -619,9 +620,9 @@ function CoordinateInput({ field, value, onChange, error, describedBy, required 
   const onBlur = () => { if (typing.current) commit(dLat, dLon, 0); };
   return (
     <Stack direction="row" spacing={1} sx={{ pt: 0.75 }}>
-      <TextField size="small" label={t("entry.latitude")} value={dLat} error={error} slotProps={{ htmlInput: { inputMode: "decimal", "aria-describedby": describedBy, "aria-required": required || undefined } }}
+      <TextField id={field.name} size="small" label={t("entry.latitude")} value={dLat} error={error} slotProps={{ htmlInput: { inputMode: "decimal", "aria-label": `${field.label} - ${t("entry.latitude")}`, "aria-describedby": describedBy, "aria-required": required || undefined } }}
         onChange={(e) => { setLat(e.target.value); commit(e.target.value, dLon, TYPING_DELAY); }} onBlur={onBlur} />
-      <TextField size="small" label={t("entry.longitude")} value={dLon} error={error} slotProps={{ htmlInput: { inputMode: "decimal", "aria-describedby": describedBy, "aria-required": required || undefined } }}
+      <TextField size="small" label={t("entry.longitude")} value={dLon} error={error} slotProps={{ htmlInput: { inputMode: "decimal", "aria-label": `${field.label} - ${t("entry.longitude")}`, "aria-describedby": describedBy, "aria-required": required || undefined } }}
         onChange={(e) => { setLon(e.target.value); commit(dLat, e.target.value, TYPING_DELAY); }} onBlur={onBlur} />
     </Stack>
   );

@@ -95,7 +95,10 @@ export function PlotSidebar({ controller, state, onHide }: { controller: MapCont
         <TextField id="plot-search" size="small" placeholder={t("search")} value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && visible.length) controller.selectPlot(visible[0]);
+            // from what is typed, not the search 120 ms behind it: a plot id pasted then Enter opened the first plot of the list
+            if (e.key !== "Enter") return;
+            const first = visibleIds(order, statuses, filter, text, labels, period)[0];
+            if (first) controller.selectPlot(first);
           }}
           slotProps={{
             htmlInput: { "aria-label": t("search"), autoComplete: "off", spellCheck: false },
@@ -192,7 +195,8 @@ function PlotList({ ids, labels, statuses, activeId, onSelect }: {
       const next = Math.max(0, Math.min(ids.length - 1, from + (e.key === "ArrowDown" ? 1 : -1)));
       setCursor(next);
       virtualizer.scrollToIndex(next, { align: "auto" });
-    } else if (e.key === "Enter" && cursor != null) {
+    } else if (e.key === "Enter" && cursor != null && cursor < ids.length) {
+      // the list may have got shorter since the cursor moved (a filter)
       onSelect(ids[cursor]);
     }
   };

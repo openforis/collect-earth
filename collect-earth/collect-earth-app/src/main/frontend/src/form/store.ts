@@ -356,10 +356,15 @@ export class FormStore {
     }
     this.dirty.add(name);
     const patch: Partial<FormState> = { pending: { ...this.state.pending, [name]: value }, saveState: "unsaved" };
-    // clear the parent's dependants right away: their items no longer apply
-    const dependants = Object.values(this.fields).filter((f) => f.code?.parent === name);
-    if (dependants.length) {
-      for (const d of dependants) {
+    // clear the parent's dependants right away, and theirs (a land use's subdivision's subdivision): their items no
+    // longer apply
+    const parents = [name];
+    const seen = new Set(parents);
+    for (let p = parents.shift(); p !== undefined; p = parents.shift()) {
+      for (const d of Object.values(this.fields)) {
+        if (d.code?.parent !== p || seen.has(d.name)) continue;
+        seen.add(d.name);
+        parents.push(d.name);
         if (this.value(d.name)) {
           patch.pending![d.name] = "";
           this.dirty.add(d.name);

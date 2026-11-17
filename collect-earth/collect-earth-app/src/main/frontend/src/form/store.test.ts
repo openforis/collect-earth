@@ -93,6 +93,27 @@ describe("a submitted plot", () => {
   });
 });
 
+describe("a code list of three levels", () => {
+  it("a new land use clears the subdivision and the subdivision's subdivision", async () => {
+    const items = model.tabs[0].items;
+    items.push(
+      { kind: "field", name: "collect_code_sub", type: "code", label: "Sub", code: { layout: "buttons", parent: "collect_code_lu",
+        items: [{ id: 11, code: "dec", label: "Deciduous", parentId: 1 }] } },
+      { kind: "field", name: "collect_code_subsub", type: "code", label: "Subsub", code: { layout: "buttons", parent: "collect_code_sub",
+        items: [{ id: 111, code: "oak", label: "Oak", parentId: 11 }] } },
+    );
+    try {
+      const store = await opened(false, { collect_code_lu: { value: "F" }, collect_boolean_trees: {},
+        collect_code_sub: { value: "dec" }, collect_code_subsub: { value: "oak" } });
+      store.setValue("collect_code_lu", "C");
+      expect(store.value("collect_code_sub")).toBe("");
+      expect(store.value("collect_code_subsub")).toBe("");
+    } finally {
+      items.splice(2);
+    }
+  });
+});
+
 describe("a plot not submitted", () => {
   it("tells the plots map of a change, never as one that took a submission back", async () => {
     const store = await opened(false, { collect_code_lu: {}, collect_boolean_trees: {} });

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   type Field, type FormModel, availableItems, clickCode, dateFromInput, dateToInput, entityCount, errorList, fieldsByName,
-  indexedField, isTabVisible, joinValues, mergeInfos, parseCodes, plainMessage, qualify, rangeFromInput, rangeToInput,
+  indexedField, isTabVisible, joinValues, mergeInfos, parseCodes, plainMessage, qualify, rangeDraft, rangeFromInput, rangeToInput,
   requiredMessage, saveBody, sharedColumnError, selectCodes, splitValues, summaryLines, tabsWithErrors, timeToInput, unansweredRequired, errorsByTab, neededByTab, updateRequired,
   DROPDOWN_AS_BUTTONS, advanceTarget, answeredWithKeys, openingTarget, answersToCopy, answersToRemember, codeControl, firstToAnswer, numberProblem,
   draftErrors, stepsOf, columnFillTargets, type FieldInfo, type TableItem, stepAfterAnswer, stepComplete,
@@ -48,6 +48,14 @@ describe("value formats", () => {
     expect(rangeFromInput("8", "8")).toBe("8");
     expect(rangeFromInput("8", "")).toBe("8");
     expect(rangeFromInput("", "")).toBe("");
+  });
+  it("keeps a range's boxes as typed while they make its value, one box left empty included", () => {
+    // "1" typed in To alone, read back: From stays empty, not "1" (then "0" made it 1-10)
+    expect(rangeDraft(["", "1"], "1")).toEqual(["", "1"]);
+    expect(rangeDraft(["5", ""], "5")).toEqual(["5", ""]);
+    expect(rangeDraft(["1,5", "2"], "1.5-2")).toEqual(["1,5", "2"]);
+    // another value (another plot, the server's): the boxes show it
+    expect(rangeDraft(["", "1"], "3-4")).toEqual(["3", "4"]);
   });
   it("splits and joins multiple values with ===", () => {
     expect(splitValues("a===b")).toEqual(["a", "b"]);
