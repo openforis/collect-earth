@@ -12,6 +12,7 @@ import {
   WorkerRestartedError,
   WorkerUnavailableError,
   type QualityRunner,
+  workerFlags,
 } from '../src/qualityService.js';
 import type { WorkerJob } from '../src/qualityWorker.js';
 import { InMemoryStore } from '../src/store/memory.js';
@@ -628,5 +629,13 @@ describe('QualityService', () => {
     await store.putCep(projectId, demoCep(), added, null);
     expect(await service.outline(projectId, log)).not.toBe(first);
     expect(getCep).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('the quality worker\'s flags', () => {
+  it('leaves out the flags of a whole process, which a worker refuses', () => {
+    expect(workerFlags(['--import', 'tsx', '--max-old-space-size=224', '--heapsnapshot-near-heap-limit=1', '--diagnostic-dir', '/tmp/x', '--enable-source-maps']))
+      .toEqual(['--import', 'tsx', '--enable-source-maps']);
+    expect(workerFlags([])).toEqual([]);
   });
 });
