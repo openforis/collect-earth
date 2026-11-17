@@ -598,13 +598,16 @@ export class PostgresStore implements Store {
     });
   }
 
-  async listRecordSummaries(projectId: string, options: { firstSubmissions?: boolean; operator?: string } = {}): Promise<RecordRow[]> {
+  async listRecordSummaries(projectId: string, options: { firstSubmissions?: boolean; operator?: string; keys?: readonly string[] } = {}): Promise<RecordRow[]> {
     const operator = options.operator ?? null;
+    const keys = options.keys ? [...new Set(options.keys)] : null;
+    // only the summary's keys asked for, cut here: the answers a page does not need never leave the database
+    const summary = (r: string) => `CASE WHEN $3::text[] IS NULL THEN ${r}summary ELSE (SELECT coalesce(jsonb_object_agg(k, ${r}summary -> k), '{}'::jsonb) FROM unnest($3::text[]) AS k WHERE ${r}summary ? k) END AS summary`;
     return this.withProject(projectId, async (client) => {
       if (options.firstSubmissions) {
         // The first submission as listRecordStates reads it (its event `submitted`).
         const res = await client.query(
-          `SELECT r.project_id, r.record_key, r.operator, r.modified_on, r.received_at, r.actively_saved, r.step, NULL AS xml, r.summary,
+          `SELECT r.project_id, r.record_key, r.operator, r.modified_on, r.received_at, r.actively_saved, r.step, NULL AS xml, ${summary('r.')},
                   r.deleted, r.deleted_on, floor(EXTRACT(EPOCH FROM e.first_submitted_on) * 1000)::float8 AS first_submitted_on
              FROM records r
              LEFT JOIN (SELECT record_key, operator, min(modified_on) AS first_submitted_on
@@ -613,16 +616,16 @@ export class PostgresStore implements Store {
                          GROUP BY record_key, operator) e
                ON e.record_key = r.record_key AND e.operator = r.operator
             WHERE r.project_id = $1 AND NOT r.deleted AND ($2::text IS NULL OR r.operator = $2)`,
-          [projectId, operator],
+          [projectId, operator, keys],
         );
         return res.rows.map((r) => ({ ...mapRecord(r), firstSubmittedOn: (r.first_submitted_on as number | null) ?? null }));
       }
       const res = await client.query(
-        `SELECT project_id, record_key, operator, modified_on, received_at, actively_saved, step, NULL AS xml, summary,
+        `SELECT project_id, record_key, operator, modified_on, received_at, actively_saved, step, NULL AS xml, ${summary('')},
                 deleted, deleted_on
            FROM records
           WHERE project_id = $1 AND NOT deleted AND ($2::text IS NULL OR operator = $2)`,
-        [projectId, operator],
+        [projectId, operator, keys],
       );
       return res.rows.map(mapRecord);
     });

@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { gunzipSync } from 'node:zlib';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { analysisModel, analysisTables, areaOf, csvTextOf, expansionFactors, parseCsv, type AnalysisRecord } from '../src/analysis.js';
 import { projectFactors, STANDALONE_DATA, STANDALONE_FILE } from '../src/routes/analysis.js';
 import type { Store } from '../src/store/store.js';
@@ -292,6 +292,19 @@ describe('GET /analysis', () => {
 
     const file = await call('/analysis/standalone', people.rev);
     expect(file.statusCode).toBe(403);
+  });
+
+  it("a reviewer's summary reads the asked questions' answers only, once per project state", async () => {
+    await upload();
+    await send('ana', '1,1', { collect_text_id: '1', collect_text_operator: 'ana', collect_code_land_use_category: 'F' });
+    const reads = vi.spyOn(ctx.store, 'listRecordSummaries');
+    const first = (await call('/analysis/summary?row=land_use_category', people.rev)).json();
+    expect(first.cells.map((c: { row: string; plots: number }) => [c.row, c.plots])).toEqual([['F', 1]]);
+    expect((await call('/analysis/summary?row=land_use_category', people.rev)).json()).toEqual(first);
+    expect(reads).toHaveBeenCalledTimes(1);
+    const keys = reads.mock.calls[0][1]?.keys ?? [];
+    expect(keys).toContain('collect_code_land_use_category');
+    expect(keys).not.toContain('collect_text_operator');
   });
 
   it('puts the area only on the record that counts for its plot, so the areas add up whatever the filter', async () => {

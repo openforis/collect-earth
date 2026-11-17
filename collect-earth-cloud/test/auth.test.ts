@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import { createProject, makeContext, type TestContext, zipOfSize } from './helpers.js';
+import { createProject, makeContext, setupPlatformAdmin, type TestContext, zipOfSize } from './helpers.js';
 
 async function createInvite(
   app: FastifyInstance,
@@ -276,5 +276,22 @@ describe('accounts, invites and join', () => {
     });
     expect(junk.statusCode).toBe(422);
     expect(junk.json().error).toBe('not_a_project_file');
+  });
+});
+
+describe('checking the password of a signed-in account', () => {
+  it('is limited as a sign-in is: a session taken cannot guess the password to change it or delete the account', async () => {
+    const ctx = await makeContext({ rateLimitPerMinute: 2 });
+    try {
+      const owner = await setupPlatformAdmin(ctx.app);
+      const headers = { authorization: `Bearer ${owner.token}` };
+      const change = () => ctx.app.inject({ method: 'PUT', url: '/v1/me/password', headers, payload: { currentPassword: 'guess-1234', newPassword: 'another-password-1' } });
+      expect((await change()).statusCode).toBe(401);
+      expect((await change()).statusCode).toBe(401);
+      expect((await change()).statusCode).toBe(429);
+      expect((await ctx.app.inject({ method: 'DELETE', url: '/v1/me', headers, payload: { password: 'guess-1234' } })).statusCode).toBe(429);
+    } finally {
+      await ctx.app.close();
+    }
   });
 });

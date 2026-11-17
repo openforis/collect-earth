@@ -368,6 +368,67 @@ describe('cross-tenant isolation', () => {
     expect(after.json().invites).toHaveLength(1);
   });
 
+  it("the analysis, people, progress, sampling, training, uncertainty and the project's own settings of B: 404", async () => {
+    const auth = { authorization: `Bearer ${a.adminToken}` };
+    const set = '00000000-0000-4000-8000-000000000000';
+    // B's training set, also asked for through A's own path
+    const setB = (await ctx.store.createTrainingSet(b.projectId, { kind: 'learning', name: 'B only', filename: 'b.csv', data: Buffer.from('id,lat,lon\n1,0,0\n'), plotKeys: ['1'], passMark: null, memberIds: [], createdBy: null, at: 1 })).id;
+    const cases = [
+      { method: 'POST' as const, url: `/v1/projects/${b.projectId}/analysis/proposals`, payload: {} },
+      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/analysis` },
+      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/analysis/standalone` },
+      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/analysis/views` },
+      { method: 'PUT' as const, url: `/v1/projects/${b.projectId}/analysis/views`, payload: { name: 'x', table: 'plot', language: 'en', config: {} } },
+      { method: 'DELETE' as const, url: `/v1/projects/${b.projectId}/analysis/views?name=x&table=plot` },
+      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/people` },
+      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/people/${set}` },
+      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/my-work` },
+      { method: 'POST' as const, url: `/v1/projects/${b.projectId}/members/${set}/sign-out` },
+      { method: 'PUT' as const, url: `/v1/projects/${b.projectId}/members/${set}/excluded`, payload: { excluded: true } },
+      { method: 'POST' as const, url: `/v1/projects/${b.projectId}/plot-design`, payload: {} },
+      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/progress` },
+      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/progress/settings` },
+      { method: 'PUT' as const, url: `/v1/projects/${b.projectId}/progress/settings`, payload: {} },
+      { method: 'PUT' as const, url: `/v1/projects/${b.projectId}/status`, payload: { status: 'closed' } },
+      { method: 'POST' as const, url: `/v1/projects/${b.projectId}/copy`, payload: { name: 'x' } },
+      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/quality/answers` },
+      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/quality/answers/columns` },
+      { method: 'PUT' as const, url: `/v1/projects/${b.projectId}/reference/answers`, payload: {} },
+      { method: 'DELETE' as const, url: `/v1/projects/${b.projectId}/reference/answers` },
+      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/sampling` },
+      { method: 'PUT' as const, url: `/v1/projects/${b.projectId}/sampling`, payload: {} },
+      { method: 'POST' as const, url: `/v1/projects/${b.projectId}/sampling/draw`, payload: {} },
+      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/sigrid/countries` },
+      { method: 'POST' as const, url: `/v1/projects/${b.projectId}/sigrid`, payload: {} },
+      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/time-spent` },
+      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/uncertainty/settings` },
+      { method: 'PUT' as const, url: `/v1/projects/${b.projectId}/uncertainty/settings`, payload: {} },
+      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/uncertainty` },
+      { method: 'PUT' as const, url: `/v1/projects/${b.projectId}/training-sets/plots.csv`, payload: 'id,lat,lon\n1,0,0\n', headers: { 'content-type': 'text/csv' } },
+      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/training/figures` },
+      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/training/feedback` },
+      ...[b.projectId, a.projectId].flatMap((pid) => [
+        { method: 'GET' as const, url: `/v1/projects/${pid}/training/${setB}` },
+        { method: 'PATCH' as const, url: `/v1/projects/${pid}/training/${setB}`, payload: { name: 'x' } },
+        { method: 'DELETE' as const, url: `/v1/projects/${pid}/training/${setB}` },
+        { method: 'PUT' as const, url: `/v1/projects/${pid}/training/${setB}/members`, payload: { everyone: true } },
+        { method: 'POST' as const, url: `/v1/projects/${pid}/training/${setB}/finish` },
+        { method: 'PUT' as const, url: `/v1/projects/${pid}/training/${setB}/golden/1`, payload: { answers: {} } },
+        { method: 'POST' as const, url: `/v1/projects/${pid}/training/${setB}/golden`, payload: { from: 'consensus' } },
+        { method: 'POST' as const, url: `/v1/projects/${pid}/training/${setB}/golden/prune` },
+        { method: 'GET' as const, url: `/v1/projects/${pid}/training/${setB}/export` },
+        { method: 'POST' as const, url: `/v1/projects/${pid}/training/${setB}/attempts`, payload: { all: true } },
+        { method: 'GET' as const, url: `/v1/projects/${pid}/training/${setB}/content` },
+      ]),
+    ];
+    for (const c of cases) {
+      const res = await ctx.app.inject({ method: c.method, url: c.url, headers: { ...auth, ...('headers' in c ? c.headers : {}) }, payload: c.payload });
+      expect(res.statusCode, `${c.method} ${c.url} ${res.body}`).toBe(404);
+    }
+    // B's set is untouched
+    expect((await ctx.store.getTrainingSet(b.projectId, setB))?.name).toBe('B only');
+  });
+
   it('an unknown token is 401, an absent token is 401', async () => {
     const bad = await ctx.app.inject({
       method: 'GET',

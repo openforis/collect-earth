@@ -208,10 +208,13 @@ describe('a new project from a Collect Earth Online project', () => {
       const invite = (await ctx.app.inject({ method: 'POST', url: `/v1/projects/${team}/invites`, headers: bearer(owner.token), payload: { role: 'operator' } })).json().inviteToken;
       const ben = (await ctx.app.inject({ method: 'POST', url: '/v1/auth/register', payload: { username: 'ben', password: 'ben-password1', inviteToken: invite } })).json();
 
+      const batches = vi.spyOn(ctx.store, 'putRecordsWithEvents');
       const res = await post('', withAnswers({ collectors: { 'ben@example.org': 'ben' } }));
       expect(res.statusCode, res.body).toBe(201);
       const { projectId, plotFile, doneFile, records, collectors } = res.json();
       expect(records).toBe(5);
+      // stored in batches (one transaction for these five), not one transaction per record
+      expect(batches).toHaveBeenCalledTimes(1);
       expect(collectors).toEqual([
         { email: 'ana@example.org', plots: 3, username: 'ceo-collector-1' },
         { email: 'ben@example.org', plots: 2, username: 'ben' },

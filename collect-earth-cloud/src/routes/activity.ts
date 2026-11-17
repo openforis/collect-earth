@@ -396,7 +396,13 @@ async function differenceRows(store: Store, quality: QualityService, projectId: 
   const pairs = report.pairs;
   let summaries: Map<string, { summary: Record<string, string>; deleted: boolean }> | null = null;
   if (pairs.plot.length > listed.size) {
-    summaries = new Map((await store.listRecordSummaries(projectId)).map((r) => [id(r.recordKey, r.operator), r]));
+    // the records of the pairs beyond the listed ones only (deleted ones are gone, as for the figures)
+    const keys: { recordKey: string; operator: string }[] = [];
+    for (let i = 0; i < pairs.plot.length; i++) {
+      const p = pairAt(pairs, i);
+      if (!listed.has(`${p.plot}\u0001${id(p.first.recordKey, p.first.operator)}\u0001${id(p.check.recordKey, p.check.operator)}`)) keys.push(p.first, p.check);
+    }
+    summaries = new Map((await store.getRecordSummaries(projectId, keys)).filter((r) => !r.deleted).map((r) => [id(r.recordKey, r.operator), r]));
   }
   // The margins the figures were worked out with, so that a pair read now is judged as the listed ones were.
   const margins = figures.margins ?? settings.margins ?? {};

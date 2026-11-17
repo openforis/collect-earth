@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { gzipSync } from 'node:zlib';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { analysisModel, analysisTables, ATTRIBUTE_AREAS_CSV, csvTextOf, expansionFactors, recordId, REGION_AREAS_CSV, type AnalysisModel, type AnalysisRecord, type Factors } from '../analysis.js';
-import { earlierTotalArea, strataFactors, strataOfFile, totalFactors } from '../areas.js';
+import { earlierTotalArea, strataFactors, strataOfFile, totalFactors, type AreaSettings } from '../areas.js';
 import { plotFileOf } from '../plotFileCache.js';
 import { fileKeyCount } from '../rounds.js';
 import type { RoundInfo } from '../types.js';
@@ -161,16 +161,17 @@ export async function registerAnalysisRoutes(app: FastifyInstance, store: Store,
     let plots = 0;
     let hasAreas = false;
     if (row) {
-      const [served, rows] = await Promise.all([states.get(projectId, request.log), store.listRecordSummaries(projectId, { firstSubmissions: true })]);
+      const served = await states.get(projectId, request.log);
       const { context } = served.state;
-      const firsts = firstAssessments(rows, recordResolver({ info: context.info, units: context.units, copyHolders: context.copyHolders }));
-      const factors = await projectFactors(store, projectId, parsed, firsts, context.info);
+      // the two questions' answers of each plot, kept on the project state with the factors
+      const { factors, firsts, strata } = await stateFactors(store, projectId, parsed, served, { columns: column ? [row.name, column.name] : [row.name] });
       hasAreas = factors !== null;
       const hidden = request.membership!.role === 'reviewer' ? context.reference : null;
-      for (const [unit, first] of firsts) {
+      for (const unit of firsts.keys()) {
         if (hidden?.has(unit)) continue;
-        const a = first.summary[row.key] ?? '';
-        const b = column ? (first.summary[column.key] ?? '') : null;
+        const values = strata.get(unit) ?? [];
+        const a = values[0] ?? '';
+        const b = column ? (values[1] ?? '') : null;
         const id = `${a}\u0000${b ?? ''}`;
         let cell = cells.get(id);
         if (!cell) cells.set(id, (cell = { row: a, column: b, plots: 0, area: factors ? 0 : null }));
@@ -369,8 +370,24 @@ export interface StateFactors {
   /** Each first-assessed plot's values of the columns asked for, as strataValues gives them. */
   strata: Map<string, (string | undefined)[]>;
 }
-/** At most so many kept per project state (the analysis', the Areas page's saved columns, a few chosen ones). */
-const FACTORS_PER_STATE = 4;
+/** At most so many kept per project state (the analysis', the Areas page's saved columns, the uncertainty's, two summaries): each holds a few MB on a large project. */
+const FACTORS_PER_STATE = 5;
+
+/** The summary keys of some column names (any case): their plot questions' and the text Collect Earth sent of a plot file's column. */
+export function summaryKeysOf(model: AnalysisModel, names: readonly string[]): string[] {
+  const out = new Set<string>();
+  for (const name of names) {
+    for (const c of model.tables[0].columns) if (c.key && c.name.toLowerCase() === name.toLowerCase()) out.add(c.key);
+    out.add(`collect_text_${name}`);
+  }
+  return [...out];
+}
+
+/** Every summary key projectFactors may read, whatever the areas come from (a few more than one source needs). */
+export function factorKeys(parsed: NonNullable<Parsed>, settings: AreaSettings | null): string[] {
+  const fileColumns = parsed.attributeAreas ? (strataOfFile(parsed.attributeAreas)?.areas.columns ?? []) : [];
+  return summaryKeysOf(parsed.model, ['region', 'plot_file', ...(settings?.mode === 'strata' ? settings.columns : []), ...fileColumns]);
+}
 
 /**
  * projectFactors over the project's first assessments, worked out once per project state (its records, plot files and
@@ -387,8 +404,11 @@ export async function stateFactors(
 ): Promise<StateFactors> {
   const { state } = served;
   const columns = options.columns ?? [];
+  const [settings, total] = await Promise.all([store.getAreaSettings(projectId), earlierTotalArea(store, projectId)]);
   const compute = async (): Promise<StateFactors> => {
-    const rows = options.rows ?? (await store.listRecordSummaries(projectId, { firstSubmissions: true }));
+    // only the answers the factors and the columns are read from: not every answer of every record
+    const keys = [...new Set([...factorKeys(parsed, settings), ...summaryKeysOf(parsed.model, columns)])];
+    const rows = options.rows ?? (await store.listRecordSummaries(projectId, { firstSubmissions: true, keys }));
     const { context } = state;
     const firsts = firstAssessments(rows, recordResolver({ info: context.info, units: context.units, copyHolders: context.copyHolders }));
     const plotFiles = plotFilesOf(store, projectId);
@@ -396,8 +416,8 @@ export async function stateFactors(
     const strata = columns.length > 0 ? (await strataValues(plotFiles, parsed.model, context.info, columns, firsts)).values : new Map<string, (string | undefined)[]>();
     return { factors, firsts: new Map([...firsts].map(([unit, f]) => [unit, { recordKey: f.recordKey, operator: f.operator }])), strata };
   };
-  if (served.stale) return compute();
-  const [settings, total] = await Promise.all([store.getAreaSettings(projectId), earlierTotalArea(store, projectId)]);
+  // A stale state keeps its factors too (as old as the rest of what it serves): with collectors syncing all day, a state
+  // is stale most of the time, and working the factors out for each request read every first assessment each time.
   const key = JSON.stringify([settings, total, columns]);
   const kept = (state.factors ??= new Map());
   const had = kept.get(key);

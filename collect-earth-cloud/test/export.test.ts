@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { analysisModel, recordId } from '../src/analysis.js';
 import { readCep, type RoundInfo } from '../src/cep.js';
 import { answerLabels, csvFormatOf, exportRoundOf, recordsCsv, recordsTable } from '../src/export.js';
@@ -207,6 +207,21 @@ describe('GET export.csv', () => {
     expect(res.statusCode).toBe(200);
     return res.rawPayload.subarray(3).toString('utf8').split('\r\n').filter((l) => l !== '');
   }
+
+  it('makes one file at a time on the instance: a second waits for the first (each holds every record)', async () => {
+    const original = ctx.store.listRecordSummaries.bind(ctx.store);
+    let reading = 0;
+    let most = 0;
+    vi.spyOn(ctx.store, 'listRecordSummaries').mockImplementation(async (...args) => {
+      most = Math.max(most, ++reading);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      reading--;
+      return original(...args);
+    });
+    const files = await Promise.all(['export.csv', 'export.geojson', 'export.csv'].map((f) => ctx.app.inject({ method: 'GET', url: `/v1/projects/${pid}/${f}`, headers: bearer(admin) })));
+    expect(files.map((f) => f.statusCode)).toEqual([200, 200, 200]);
+    expect(most).toBe(1);
+  });
 
   it('an id-only project: whoever holds a plot as a copy in a divided file did round 2, the check', async () => {
     const maria = await join('maria');

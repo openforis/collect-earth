@@ -207,7 +207,8 @@ describe('the areas routes', () => {
     const own = (await call('GET', '/analysis', people.ana)).json();
     expect(own.scope).toBe('own');
     expect(own.areas).toMatchObject({ plots: 1 });
-    expect(reads.mock.calls.map(([, options]) => options)).toEqual([{ firstSubmissions: true }, { firstSubmissions: true }, { operator: 'ana' }]);
+    // the factors read only the answers they are worked out from
+    expect(reads.mock.calls.map(([, options]) => options)).toEqual([{ firstSubmissions: true, keys: ['collect_text_region', 'collect_text_plot_file', 'collect_text_forest'] }, { firstSubmissions: true }, { operator: 'ana' }]);
     // a record more: the next answer counts it
     await send('2,1');
     expect((await call('GET', '/areas', owner.token)).json()).toMatchObject({ assessed: 2, withArea: 2 });

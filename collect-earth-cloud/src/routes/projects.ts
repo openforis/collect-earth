@@ -296,10 +296,19 @@ export async function registerProjectRoutes(
     { path: 'export.kml', format: 'kml', type: 'application/vnd.google-earth.kml+xml', file: 'data.kml' },
     { path: 'export.shp.zip', format: 'shp', type: 'application/zip', file: 'data-shapefile.zip' },
   ] as const;
+  // One such file made at a time on an instance, the others waiting their turn: each holds every record's answers and
+  // the file made of them (hundreds of MB for 50,000 records), and two at once ran a 1 GiB instance out of memory.
+  // shortcut: made in memory, not streamed; stream the rows from the store if one file alone outgrows the instance.
+  let turn: Promise<unknown> = Promise.resolve();
+  const oneAtATime = <A extends unknown[], T>(make: (...args: A) => Promise<T>) => (...args: A): Promise<T> => {
+    const run = turn.then(() => make(...args));
+    turn = run.catch(() => undefined);
+    return run;
+  };
   for (const { path, format, type, file } of formats) app.get(
     `/v1/projects/:pid/${path}`,
     { preHandler: requireProjectMembership(store, 'admin') },
-    async (request: FastifyRequest, reply: FastifyReply) => {
+    oneAtATime(async (request: FastifyRequest, reply: FastifyReply) => {
       const projectId = request.membership!.projectId;
       const project = await store.getProject(projectId);
       if (!project) {
@@ -366,7 +375,7 @@ export async function registerProjectRoutes(
         .header('content-type', type)
         .header('content-disposition', attachment(`${project.name}-${file}`, `export-${file}`))
         .send(body);
-    },
+    }),
   );
 
   // What the data download's "Records to download" offers (admin): when this person last downloaded the data, and the

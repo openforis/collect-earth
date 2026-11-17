@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readCep, zipCep } from '../src/cep.js';
 import { IPCC_CATEGORIES, uncertainty, type IpccCategory, type UncertaintyPlot } from '../src/uncertainty.js';
 import { batchRequest, bearer, createProject, envelope, makeContext, setupPlatformAdmin, type TestContext } from './helpers.js';
@@ -258,6 +258,41 @@ describe('the uncertainty routes', () => {
     expect(reset.statusCode, reset.body).toBe(200);
     expect((await ctx.store.getUncertaintySettings(pid))!.totalArea).toBeNull();
     expect((await call('GET', '', owner.token)).statusCode).toBe(409);
+  });
+
+  it('read only the two questions\' answers, once per project state', async () => {
+    await upload();
+    await send('1,1', 'F', 'F');
+    await send('2,1', 'G', 'C');
+    await call('PUT', '/settings', owner.token, setup);
+    await ctx.app.inject({ method: 'PUT', url: `/v1/projects/${pid}/areas`, headers: bearer(owner.token), payload: { settings: { mode: 'total', area: 100 } } });
+    const reads = vi.spyOn(ctx.store, 'listRecordSummaries');
+    const first = (await call('GET', '', owner.token)).json();
+    expect(first).toMatchObject({ plots: 2 });
+    expect((await call('GET', '', people.rev)).json()).toEqual(first);
+    expect(reads).toHaveBeenCalledTimes(1);
+    const keys = reads.mock.calls[0][1]?.keys ?? [];
+    expect(keys).toEqual(expect.arrayContaining(['collect_code_ipcc_2000_category', 'collect_code_land_use_category']));
+    expect(keys).not.toContain('collect_text_id');
+  });
+
+  it('keep the figures of a state served stale while a newer one is built (collectors syncing all day)', async () => {
+    await ctx.app.close();
+    ctx = await makeContext({ stateStaleMs: 60_000 });
+    owner = await setupPlatformAdmin(ctx.app);
+    pid = (await createProject(ctx.app, 'Uncertainty')).projectId;
+    await ctx.store.addMembership(pid, owner.userId, 'admin');
+    await join('ana', 'operator');
+    await upload();
+    await send('1,1', 'F', 'F');
+    await call('PUT', '/settings', owner.token, setup);
+    await ctx.app.inject({ method: 'PUT', url: `/v1/projects/${pid}/areas`, headers: bearer(owner.token), payload: { settings: { mode: 'total', area: 100 } } });
+    expect((await call('GET', '', owner.token)).statusCode).toBe(200);
+    await send('2,1', 'G', 'C');
+    const reads = vi.spyOn(ctx.store, 'listRecordSummaries');
+    // the state is stale now (a record more): served as it was, with its figures, without reading the records again
+    expect((await call('GET', '', owner.token)).json()).toMatchObject({ plots: 1 });
+    expect(reads).not.toHaveBeenCalled();
   });
 
   it('use the areas file\'s strata when there is one', async () => {

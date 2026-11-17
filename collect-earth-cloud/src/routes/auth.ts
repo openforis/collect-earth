@@ -352,7 +352,8 @@ export async function registerAuthRoutes(
   // the user uploaded stay: they belong to the project.
   app.delete(
     '/v1/me',
-    { preHandler: requireSession(store) },
+    // the password is checked here: limited as a sign-in is (a session taken cannot guess it)
+    { preHandler: [limiter.guard('password'), requireSession(store)] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const body = (request.body ?? {}) as { password?: unknown };
       const password = typeof body.password === 'string' ? body.password : '';
@@ -386,7 +387,8 @@ export async function registerAuthRoutes(
   // to the account's confirmed address.
   app.put(
     '/v1/me/password',
-    { preHandler: requireSession(store) },
+    // the password is checked here: limited as a sign-in is (a session taken cannot guess it)
+    { preHandler: [limiter.guard('password'), requireSession(store)] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const body = (request.body ?? {}) as PasswordChangeBody;
       const currentPassword = typeof body.currentPassword === 'string' ? body.currentPassword : '';
