@@ -101,6 +101,22 @@ export async function registerAuthRoutes(
     await verifyPassword(password, await dummyHash);
   };
 
+  // An invitation taken by an account (login with an invitation, or /v1/auth/join): its project joins the account's,
+  // with the invitation's role and one of its uses. A member already keeps their role, and the link is not used up (a
+  // coordinator's link to bring a member the new project file). consumeInvite refuses a revoked, expired or used-up link.
+  const takeInvite = async (request: FastifyRequest, userId: string, inviteToken: string): Promise<JoinedProject | { status: number; error: string }> => {
+    const invite = await store.getInvite(inviteToken);
+    if (!invite || invite.revoked) return { status: 400, error: 'invalid_invite' };
+    const member = (await store.listMemberships(userId)).find((m) => m.projectId === invite.projectId);
+    if (!member) {
+      if (!(await store.consumeInvite(inviteToken, Date.now()))) return { status: 410, error: 'invite_exhausted' };
+      await store.addMembership(invite.projectId, userId, invite.role);
+      const given = await giveInvitePlots(store, invite.projectId, userId, invite.plots, request.log);
+      accountMail?.memberJoined?.(request, invite.projectId, userId, invite.role, given);
+    }
+    return { projectId: invite.projectId, projectName: invite.projectName, role: member ? member.role : invite.role };
+  };
+
   app.post('/v1/auth/register', { preHandler: limiter.guard('register') }, async (request: FastifyRequest, reply: FastifyReply) => {
     const body = (request.body ?? {}) as RegisterBody;
     const username = (body.username ?? '').trim();
@@ -240,22 +256,30 @@ export async function registerAuthRoutes(
     const inviteToken = typeof body.inviteToken === 'string' ? body.inviteToken.trim() : '';
     let joined: JoinedProject | null = null;
     if (inviteToken) {
-      const invite = await store.getInvite(inviteToken);
-      if (!invite || invite.revoked) return reply.code(400).send({ error: 'invalid_invite' });
-      const memberships = await store.listMemberships(user.id);
-      const member = memberships.find((m) => m.projectId === invite.projectId);
-      if (!member) {
-        if (!(await store.consumeInvite(inviteToken, Date.now()))) return reply.code(410).send({ error: 'invite_exhausted' });
-        await store.addMembership(invite.projectId, user.id, invite.role);
-        const given = await giveInvitePlots(store, invite.projectId, user.id, invite.plots, request.log);
-        accountMail?.memberJoined?.(request, invite.projectId, user.id, invite.role, given);
-      }
-      joined = { projectId: invite.projectId, projectName: invite.projectName, role: member ? member.role : invite.role };
+      const taken = await takeInvite(request, user.id, inviteToken);
+      if ('error' in taken) return reply.code(taken.status).send({ error: taken.error });
+      joined = taken;
     }
     await store.clearLoginFailures(user.id);
     const token = await store.createSession(user.id);
     return reply.send({ token, userId: user.id, username: user.username, ...(joined ?? {}) } satisfies LoginAnswer);
   });
+
+  // Collect Earth already signed in to this server (another project's join) takes an invitation with that session: no
+  // password asked again. The account is the session's, never one the client names. Two-step sign-in holds: every
+  // session of an account with it passed its second step (login asks for it; turning it on signs the others out).
+  app.post(
+    '/v1/auth/join',
+    { preHandler: [limiter.guard('register'), requireSession(store)] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const body = (request.body ?? {}) as { inviteToken?: unknown };
+      const inviteToken = typeof body.inviteToken === 'string' ? body.inviteToken.trim() : '';
+      if (!inviteToken) return reply.code(400).send({ error: 'bad_request', reason: 'inviteToken is required' });
+      const taken = await takeInvite(request, request.userId!, inviteToken);
+      if ('error' in taken) return reply.code(taken.status).send({ error: taken.error });
+      return reply.send(taken satisfies JoinedProject);
+    },
+  );
 
   app.post(
     '/v1/auth/logout',

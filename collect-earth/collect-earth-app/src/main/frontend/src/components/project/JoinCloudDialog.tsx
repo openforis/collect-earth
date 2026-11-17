@@ -8,6 +8,7 @@ import DialogContentText from "@mui/material/DialogContentText";
 import DialogTitle from "@mui/material/DialogTitle";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
+import { ApiError } from "../../apiClient";
 import { errorText } from "../../appBar";
 import { useT } from "../../i18n";
 import { joinPreviewText } from "../../cloud";
@@ -34,9 +35,10 @@ export function JoinCloudDialog({ open, texts, onClose }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [restarting, setRestarting] = useState(false);
+  const [signInAgain, setSignInAgain] = useState<string | null>(null);
 
   useEffect(() => {
-    if (open) { setUrl(""); setStep("link"); setPreview(null); setError(null); setBusy(false); }
+    if (open) { setUrl(""); setStep("link"); setPreview(null); setError(null); setBusy(false); setSignInAgain(null); }
   }, [open]);
 
   const fail = (e: unknown) => { setError(errorText(e, t("appBar.unreachable"))); setBusy(false); };
@@ -45,16 +47,24 @@ export function JoinCloudDialog({ open, texts, onClose }: Props) {
     setError(null);
     cloudPreview(url.trim()).then((p) => { setPreview(p); setStep("confirm"); setBusy(false); }, fail);
   };
-  const join = async (credentials: { username: string; password: string; register: boolean }) => {
+  const join = async (credentials: { username: string; password: string; register: boolean; useAccount?: boolean }) => {
     if (!preview) return;
     const r = await cloudJoin({ baseUrl: preview.baseUrl, inviteToken: preview.inviteToken, projectId: preview.projectId, ...credentials });
     if (r.restart) setRestarting(true);
+  };
+  // Signed in to that server already: its account joins, no password; its sign-in ended, the login is asked for
+  const joinAsAccount = () => {
+    setBusy(true);
+    setError(null);
+    join({ username: "", password: "", register: false, useAccount: true }).catch((e) => {
+      if (e instanceof ApiError && e.code === "cloud.signInAgain") { setSignInAgain(e.message); setStep("login"); setBusy(false); } else fail(e);
+    });
   };
 
   if (restarting) return <RestartingOverlay text={s("SettingsPage.restarting")} />;
   if (step === "login" && preview) {
     return <CloudLoginDialog open={open} texts={texts} canRegister onSubmit={join} onCancel={onClose}
-      intro={joinPreviewText(s("CloudJoin.previewMessage"), preview, t).split("\n")[0]} />;
+      intro={signInAgain ?? joinPreviewText(s("CloudJoin.previewMessage"), preview, t).split("\n")[0]} />;
   }
 
   return (
@@ -72,12 +82,17 @@ export function JoinCloudDialog({ open, texts, onClose }: Props) {
               {joinPreviewText(s("CloudJoin.previewMessage"), preview, t)}
             </DialogContentText>
           )}
+          {step === "confirm" && preview?.account && (
+            <Alert severity="info" data-testid="join-as-account">{t("cloud.join.as", { account: preview.account })}</Alert>
+          )}
         </Stack>
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose} disabled={busy}>{s("OptionWizard.24")}</Button>
         {step === "link" && <Button variant="contained" onClick={check} disabled={!looksLikeInvitation(url) || busy}>{s("ProjectPage.join.check")}</Button>}
-        {step === "confirm" && <Button variant="contained" onClick={() => setStep("login")}>{s("ProjectPage.join.continue")}</Button>}
+        {step === "confirm" && preview?.account && <Button onClick={() => setStep("login")} disabled={busy}>{t("cloud.join.otherAccount")}</Button>}
+        {step === "confirm" && preview?.account && <Button variant="contained" onClick={joinAsAccount} disabled={busy}>{t("cloud.join.join")}</Button>}
+        {step === "confirm" && !preview?.account && <Button variant="contained" onClick={() => setStep("login")}>{s("ProjectPage.join.continue")}</Button>}
       </DialogActions>
     </Dialog>
   );

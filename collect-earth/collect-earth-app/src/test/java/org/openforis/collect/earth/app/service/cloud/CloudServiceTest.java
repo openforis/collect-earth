@@ -174,6 +174,59 @@ public class CloudServiceTest {
 	}
 
 	@Test
+	public void signedInToTheServerAlreadyJoinsWithThatAccountWithNoPassword() throws Exception {
+		when(properties.getCloudAccounts()).thenReturn(java.util.Collections.singletonMap("https://c.org", "maria"));
+		when(properties.getCloudToken("https://c.org")).thenReturn("session-token");
+		// the preview names the account signed in to the invitation's server, and none for another server
+		when(api.getJoinPreview(any(), any())).thenReturn(new JoinPreview("p1", "Kenya 2025", "operator", true));
+		assertEquals("maria", service.preview("https://c.org/join/tok").get("account"));
+		assertNull(service.preview("https://other.org/join/tok").get("account"));
+
+		File cep = new File(folder, "kenya.cep");
+		java.nio.file.Files.write(cep.toPath(), new byte[] { 1 });
+		when(api.downloadCep("https://c.org", "p1", "session-token")).thenReturn(cep);
+		JoinRequest request = new JoinRequest();
+		request.baseUrl = "https://c.org";
+		request.inviteToken = "tok";
+		request.projectId = "p1";
+		request.useAccount = true;
+		service.join(request);
+		verify(api).joinWithSession("https://c.org", "session-token", "tok");
+		verify(api, never()).login(any(), any(), any(), any(), any());
+		verify(projects).loadCompressedProjectFile(cep);
+		verify(properties).saveCloudToken("https://c.org", "maria", "session-token");
+		verify(properties).saveOperator("maria");
+		verify(properties).setCloudSyncEnabled(true);
+	}
+
+	@Test
+	public void anEndedSessionOrAnotherServerAsksForTheSignInAgain() throws Exception {
+		when(properties.getCloudAccounts()).thenReturn(java.util.Collections.singletonMap("https://c.org", "maria"));
+		when(properties.getCloudToken("https://c.org")).thenReturn("session-token");
+		JoinRequest request = new JoinRequest();
+		request.baseUrl = "https://other.org";
+		request.inviteToken = "tok";
+		request.projectId = "p1";
+		request.useAccount = true;
+		// not signed in to the invitation's server
+		assertEquals("cloud.signInAgain", assertThrows(InvalidCloudRequestException.class, () -> service.join(request)).getCode());
+		// the session ended (401), or a server from before /v1/auth/join (404)
+		request.baseUrl = "https://c.org";
+		org.mockito.Mockito.doThrow(new CloudApiException("join failed with HTTP 401", 401, "unauthorized"))
+				.doThrow(new CloudApiException("join failed with HTTP 404", 404, "not_found"))
+				.doThrow(new CloudApiException("join failed with HTTP 410", 410, "invite_exhausted"))
+				.when(api).joinWithSession("https://c.org", "session-token", "tok");
+		InvalidCloudRequestException e = assertThrows(InvalidCloudRequestException.class, () -> service.join(request));
+		assertEquals("cloud.signInAgain", e.getCode());
+		assertEquals(Messages.getString("CloudJoin.signInAgain"), e.getMessage());
+		assertEquals("cloud.signInAgain", assertThrows(InvalidCloudRequestException.class, () -> service.join(request)).getCode());
+		// a link used up meanwhile is said as such
+		assertEquals("cloud.inviteInvalid", assertThrows(InvalidCloudRequestException.class, () -> service.join(request)).getCode());
+		verify(api, never()).downloadCep(any(), any(), any());
+		verify(properties, never()).setCloudSyncEnabled(true);
+	}
+
+	@Test
 	public void registeringUsesTheInvitation() throws Exception {
 		when(api.register("https://c.org", "maria", "password12", "tok")).thenReturn("t");
 		when(api.downloadCep("https://c.org", "p1", "t")).thenReturn(new File(folder, "none.cep"));

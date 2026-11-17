@@ -218,6 +218,9 @@ const en = {
   "cloud.role.change": "Your coordinator can change your role in the cloud dashboard.",
   "cloud.serverAdmin": "server administrator",
   "cloud.alreadyHere": "Already on this computer",
+  "cloud.join.as": "You join with the account you are signed in with on this server: {account}.",
+  "cloud.join.join": "Join",
+  "cloud.join.otherAccount": "Use another account",
 };
 
 export type MessageKey = keyof typeof en;
@@ -436,6 +439,9 @@ const es: Catalogue = {
   "cloud.role.change": "Su coordinador puede cambiar su rol en el panel de la nube.",
   "cloud.serverAdmin": "administrador del servidor",
   "cloud.alreadyHere": "Ya en este ordenador",
+  "cloud.join.as": "Se unirá con la cuenta con la que ha iniciado sesión en este servidor: {account}.",
+  "cloud.join.join": "Unirse",
+  "cloud.join.otherAccount": "Usar otra cuenta",
 };
 
 const fr: Catalogue = {
@@ -651,6 +657,9 @@ const fr: Catalogue = {
   "cloud.role.change": "Votre coordinateur peut changer votre rôle dans le tableau de bord cloud.",
   "cloud.serverAdmin": "administrateur du serveur",
   "cloud.alreadyHere": "Déjà sur cet ordinateur",
+  "cloud.join.as": "Vous rejoignez le projet avec le compte connecté à ce serveur : {account}.",
+  "cloud.join.join": "Rejoindre",
+  "cloud.join.otherAccount": "Utiliser un autre compte",
 };
 
 const pt: Catalogue = {
@@ -866,6 +875,9 @@ const pt: Catalogue = {
   "cloud.role.change": "O seu coordenador pode mudar o seu papel no painel da nuvem.",
   "cloud.serverAdmin": "administrador do servidor",
   "cloud.alreadyHere": "Já neste computador",
+  "cloud.join.as": "Vai entrar com a conta com que tem sessão iniciada neste servidor: {account}.",
+  "cloud.join.join": "Entrar",
+  "cloud.join.otherAccount": "Usar outra conta",
 };
 
 const tr: Catalogue = {
@@ -1065,6 +1077,9 @@ const tr: Catalogue = {
   "cloud.role.change": "Koordinatörünüz bulut panosunda rolünüzü değiştirebilir.",
   "cloud.serverAdmin": "sunucu yöneticisi",
   "cloud.alreadyHere": "Zaten bu bilgisayarda",
+  "cloud.join.as": "Bu sunucuda oturum açtığınız hesapla katılırsınız: {account}.",
+  "cloud.join.join": "Katıl",
+  "cloud.join.otherAccount": "Başka bir hesap kullan",
   "periodFilter.label": "Önceki dönemle karşılaştırıldığında",
   "periodFilter.all": "Tüm parseller",
   "periodFilter.same": "Hâlâ aynı",
