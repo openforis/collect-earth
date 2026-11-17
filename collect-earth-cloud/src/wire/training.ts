@@ -167,6 +167,10 @@ export interface TrainingSetSummary {
   passMark: number | null;
   createdAt: number;
   participants: TrainingPerson[];
+  /** Given to everyone in the project, and whoever joins (participants are then who that is now). */
+  everyone: boolean;
+  /** When the training was finished (its answers deleted, its results kept as they were), or null while it runs. */
+  finishedAt: number | null;
 }
 
 export interface TrainingListItem extends TrainingSetSummary {
@@ -181,6 +185,26 @@ export interface TrainingList {
   sets: TrainingListItem[];
   members: TrainingPerson[];
   max: number;
+}
+
+/**
+ * POST /v1/projects/:pid/training-sets/from-plot-file (coordinators): a new set of `count` plots copied from a plot file
+ * of the project, spread through it, with new ids (`T-17` for plot 17 of a text id, `-17` of a number id): the same
+ * places, never the project's plots. The set is given to everyone unless `everyone` is false.
+ */
+export interface TrainingFromPlotFileInput {
+  csvFileId: string;
+  count: number;
+  name: string;
+  kind?: TrainingKind;
+  passMark?: number | null;
+  everyone?: boolean;
+}
+
+/** POST /v1/projects/:pid/training/:setId/finish (coordinators): the training records deleted. */
+export interface TrainingFinishAnswer {
+  set: TrainingSetSummary;
+  recordsDeleted: number;
 }
 
 /** GET /v1/projects/:pid/training/:setId (coordinators): one set in full. */
@@ -246,6 +270,8 @@ export interface MyTrainingSet {
   passMark: number | null;
   attempt: TrainingAttemptStart;
   submitted: number;
+  /** When the training was finished (nothing more is sent for it), or null while it runs. */
+  finishedAt: number | null;
   /** Learning sets only: their answers next to the golden ones. */
   score?: Omit<LearningScore, 'byPlot'> & { byPlot: MyScoredPlot[] };
   history?: TrainingAttemptPast[];

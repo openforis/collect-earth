@@ -151,7 +151,9 @@ public class LocalPropertiesService extends Observable {
 				 */
 				CLOUD_TRAINING_FILE("cloud_training_file"),
 				/** The training sets offered at a start (id:checksum, by commas): each version is offered once (CloudService) */
-				CLOUD_TRAINING_OFFERED("cloud_training_offered"),;
+				CLOUD_TRAINING_OFFERED("cloud_training_offered"),
+				/** Which training that is over had its plots' records deleted here (TrainingPlotFiles): done once for each */
+				CLOUD_TRAINING_CLEANED("cloud_training_cleaned"),;
 
 		private String name;
 

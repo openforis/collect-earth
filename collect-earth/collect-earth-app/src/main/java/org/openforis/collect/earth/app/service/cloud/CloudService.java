@@ -27,6 +27,7 @@ import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthPrope
 import org.openforis.collect.earth.app.service.cloud.CloudApiClient.AssignmentInfo;
 import org.openforis.collect.earth.app.service.cloud.CloudApiClient.CloudApiException;
 import org.openforis.collect.earth.app.service.cloud.CloudApiClient.JoinPreview;
+import org.openforis.collect.earth.app.service.cloud.CloudApiClient.MyAssignment;
 import org.openforis.collect.earth.app.service.cloud.CloudSyncQueueDao.QueueStatus;
 import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.model.CollectSurvey;
@@ -660,7 +661,15 @@ public class CloudService {
 	 * starts afresh) and made the plots file, which stays until the person goes back to their plots. @return its path
 	 */
 	public File openTraining(String id) throws InvalidCloudRequestException {
-		File file = downloadAssignment(id);
+		return opened(downloadAssignment(id));
+	}
+
+	/** {@link #openTraining(String)} of a set already listed */
+	File openTraining(AssignmentInfo info) throws InvalidCloudRequestException {
+		return opened(downloadAssignment(info));
+	}
+
+	private File opened(File file) {
 		properties.setValue(EarthProperty.SAMPLE_FILE, file.getAbsolutePath());
 		properties.setValue(EarthProperty.CLOUD_TRAINING_FILE, file.getAbsolutePath());
 		EarthApp.reloadPlots();
@@ -676,32 +685,57 @@ public class CloudService {
 	}
 
 	/**
-	 * At a start with the person's plots: a training set the person takes part in (calibration, learning) is offered to
-	 * open, once for each of its versions, unless one is open already. Never throws.
+	 * At a start with the person's plots, and at the checks of TrainingPlotFiles: a training set the person takes part in
+	 * (calibration, learning) is offered to open, once for each of its versions, unless one is open already. Never throws.
 	 */
 	public void offerTraining() {
 		if (notices == null || myPlots == null || myPlots.onTraining()) {
 			return;
 		}
+		try {
+			offerTraining(fetchAssignments());
+		} catch (InvalidCloudRequestException | RuntimeException e) {
+			// asked again at the next start or check
+		}
+	}
+
+	/**
+	 * {@link #offerTraining()} of the sets listed. One set new to this computer, while the person holds no plot of their
+	 * own (the first days of a project, when the team trains together: docs/plans/2026-11-17-training-the-team.md), is
+	 * opened by itself and said; nobody's work is switched away. A learning set in a new attempt is only offered (taking
+	 * it deletes earlier answers).
+	 */
+	void offerTraining(List<AssignmentInfo> listed) {
+		if (notices == null || myPlots == null || myPlots.onTraining()) {
+			return;
+		}
 		List<AssignmentInfo> sets = new ArrayList<>();
 		Set<String> offered = new LinkedHashSet<>(Arrays.asList(StringUtils.defaultString(properties.getValue(EarthProperty.CLOUD_TRAINING_OFFERED)).split(",")));
-		try {
-			for (AssignmentInfo info : fetchAssignments()) {
-				if (info.getTrainingKind() != null && info.getCsvFileId() != null && !offered.contains(info.getCsvFileId() + ":" + info.getChecksum())) {
-					sets.add(info);
-				}
+		for (AssignmentInfo info : listed) {
+			if (info.getTrainingKind() != null && info.getCsvFileId() != null && !offered.contains(info.getCsvFileId() + ":" + info.getChecksum())) {
+				sets.add(info);
 			}
-		} catch (InvalidCloudRequestException | RuntimeException e) {
-			return; // asked again at the next start
 		}
 		if (sets.isEmpty()) {
 			return;
 		}
+		AssignmentInfo first = sets.get(0);
+		boolean newHere = offered.stream().noneMatch(entry -> entry.startsWith(first.getCsvFileId() + ":"));
 		for (AssignmentInfo info : sets) {
 			offered.add(info.getCsvFileId() + ":" + info.getChecksum());
 		}
 		offered.remove("");
 		properties.setValue(EarthProperty.CLOUD_TRAINING_OFFERED, String.join(",", offered));
+		if (sets.size() == 1 && newHere && first.getFreshSince() == null && myPlots.holdsNoPlots()) {
+			try {
+				openTraining(first);
+				notices.post(new Notice(MyPlotsService.NOTICE, Notice.INFO, Messages.getString("MyPlots.title"), //$NON-NLS-1$
+						MessageFormat.format(Messages.getString("CloudTraining.opened"), StringUtils.defaultIfBlank(first.getFilename(), first.getCsvFileId()), first.getPlotCount()))); //$NON-NLS-1$
+				return;
+			} catch (InvalidCloudRequestException e) {
+				logger.warn("The training set {} could not be opened by itself: offered", first.getFilename()); //$NON-NLS-1$
+			}
+		}
 		List<String> names = new ArrayList<>();
 		for (AssignmentInfo info : sets) {
 			names.add(StringUtils.defaultIfBlank(info.getFilename(), info.getCsvFileId()));
@@ -724,9 +758,54 @@ public class CloudService {
 		});
 	}
 
+	/** The training set open (Settings › Project) is no longer running: back to the person's plots. @return whether it was */
+	boolean leaveTraining() {
+		return myPlots != null && myPlots.useMyPlots();
+	}
+
+	/** Whether the person's plots come from the server (not an older server's files of before) */
+	boolean hasPersonsPlots() {
+		return myPlots != null && !myPlots.isOlderServer();
+	}
+
+	/** The training set the person opened (CLOUD_TRAINING_FILE), while it is the plots file; null otherwise */
+	File openTrainingFile() {
+		return myPlots != null && myPlots.onTraining() ? new File(properties.getValue(EarthProperty.CLOUD_TRAINING_FILE)).getAbsoluteFile() : null;
+	}
+
 	/** The plot files the cloud server assigns to the operator in the open cloud project, as it lists them. */
 	List<AssignmentInfo> assignedPlotFiles() throws InvalidCloudRequestException {
 		return fetchAssignments();
+	}
+
+	/** {@link #assignedPlotFiles()} with the training that is over (TrainingPlotFiles) */
+	MyAssignment myAssignment() throws InvalidCloudRequestException {
+		try {
+			MyAssignment mine = api.getMyAssignment();
+			if (mine == null) {
+				throw new IOException("No answer"); //$NON-NLS-1$
+			}
+			return mine;
+		} catch (IOException | RuntimeException e) {
+			logger.warn("Could not load the cloud assignments: {}", e.getMessage());
+			throw new InvalidCloudRequestException("cloud.assignments", Messages.getString("SampleDataPanel.assignmentsError"));
+		}
+	}
+
+	/**
+	 * Deletes this computer's records of the plots of a training that is over (their record keys, the key values of a
+	 * plot of several keys joined by commas). @return how many were deleted; -1 without a survey to delete them from
+	 */
+	int deleteTrainingRecords(List<String> recordKeys) {
+		if (surveyService == null || surveyService.getCollectSurvey() == null) {
+			return -1;
+		}
+		int keyCount = Math.max(1, surveyService.getKeyAttributeCount());
+		List<String[]> keys = new ArrayList<>();
+		for (String recordKey : recordKeys) {
+			keys.add(keyCount == 1 ? new String[] { recordKey } : recordKey.split(",", keyCount)); //$NON-NLS-1$
+		}
+		return surveyService.deleteRecordsOf(keys);
 	}
 
 	/**

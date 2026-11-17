@@ -21,8 +21,10 @@ import org.openforis.collect.earth.app.service.AbstractEarthSurveyService.PlotSt
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.KmlGeneratorService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
+import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.service.PlotFileIndex;
 import org.openforis.collect.earth.app.service.PlotGeoJsonBuilder;
+import org.openforis.collect.earth.app.service.cloud.TrainingPlotFiles;
 import org.openforis.collect.earth.core.utils.CsvReaderUtils;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
@@ -170,7 +172,7 @@ public class LeafletMapController {
 				// No plot file yet: a valid, final state; the page says so instead of trying again forever
 				body = "{\"plots\":\"\",\"ids\":[],\"labels\":[],\"latitudes\":[],\"longitudes\":[],\"warning\":\"No survey plot file loaded\"}";
 			} else {
-				body = plotFileIndex.indexOf(csvFile).json;
+				body = withTraining(plotFileIndex.indexOf(csvFile).json, csvFile);
 			}
 		} catch (Exception e) {
 			logger.error("Error reading the plot file for the plots map", e);
@@ -292,6 +294,15 @@ public class LeafletMapController {
 		generator.fillSamplePoints(plot);
 		generator.fillExternalLine(plot);
 		return plot;
+	}
+
+	/** The index, with {@code training}, the set's name, when the plots file is the training set the person opened (the list says so) */
+	private String withTraining(String index, String csvFile) throws IOException {
+		if (!localPropertiesService.isCloudSyncEnabled()) {
+			return index;
+		}
+		String training = TrainingPlotFiles.trainingName(csvFile, localPropertiesService.getValue(EarthProperty.CLOUD_TRAINING_FILE));
+		return training == null ? index : "{\"training\":" + json.writeValueAsString(training) + "," + index.substring(1); //$NON-NLS-1$
 	}
 
 	/**

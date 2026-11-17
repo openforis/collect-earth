@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Divider from "@mui/material/Divider";
@@ -34,7 +35,7 @@ const ROW_HEIGHT = 40;
  */
 export function PlotSidebar({ controller, state, onHide }: { controller: MapController; state: UiState; onHide?: () => void }) {
   const t = useT();
-  const { order, labels, statuses, filter, query, activeId, loaded } = state;
+  const { order, labels, statuses, filter, query, activeId, loaded, training } = state;
   const counts = useMemo(() => countStatuses(order, statuses), [order, statuses]);
   const { repeat, periods, periodFilter } = state;
   // a repeat survey's filter by what the collector said against the earlier period (see MapController.periodView)
@@ -74,6 +75,13 @@ export function PlotSidebar({ controller, state, onHide }: { controller: MapCont
       </Stack>
 
       <Stack spacing={1.5} sx={{ px: 2, pb: 1.5 }}>
+        {training && order.length > 0 && (
+          <Tooltip title={t("training.help")}>
+            <Alert severity="info" variant="outlined" data-testid="training-plots" sx={{ py: 0, "& .MuiAlert-message": { overflow: "hidden" } }}>
+              <Typography variant="body2" noWrap>{t("training", { name: training })}</Typography>
+            </Alert>
+          </Tooltip>
+        )}
         <LinearProgress variant="buffer" aria-label={t("completedPlots")}
           value={counts.total ? (counts.saved * 100) / counts.total : 0}
           valueBuffer={counts.total ? ((counts.saved + counts.partial) * 100) / counts.total : 0}

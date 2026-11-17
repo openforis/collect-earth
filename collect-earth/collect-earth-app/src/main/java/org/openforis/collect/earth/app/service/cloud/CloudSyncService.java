@@ -30,6 +30,7 @@ import org.openforis.collect.model.CollectRecord;
 import org.openforis.collect.model.CollectRecordSummary;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.event.ContextRefreshedEvent;
@@ -81,6 +82,9 @@ public class CloudSyncService implements ApplicationListener<ContextRefreshedEve
 	private NoticeService notices;
 	@Autowired(required = false)
 	private CloudCoordinatorSettings coordinatorSettings;
+	/** Taken when the cycle runs: it needs CloudService, which needs this service */
+	@Autowired
+	private ObjectProvider<TrainingPlotFiles> trainingPlotFiles;
 
 	private final AtomicBoolean started = new AtomicBoolean(false);
 	private final ReentrantLock syncLock = new ReentrantLock();
@@ -156,6 +160,10 @@ public class CloudSyncService implements ApplicationListener<ContextRefreshedEve
 			refreshProject();
 			if (coordinatorSettings != null) {
 				coordinatorSettings.checkIfDue(System.currentTimeMillis()); // the coordinator may have changed them on the dashboard
+			}
+			TrainingPlotFiles training = trainingPlotFiles == null ? null : trainingPlotFiles.getIfAvailable();
+			if (training != null) {
+				training.checkIfDue(System.currentTimeMillis()); // a training started or finished on the dashboard
 			}
 
 			Date now = new Date();

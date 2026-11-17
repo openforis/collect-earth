@@ -32,6 +32,7 @@ import { useT, type MessageKey } from "../i18n";
 import { linkProps, pathFor, type ProjectTab } from "../router";
 import { storageLevel, storagePercent, storageText, storageWarningKey } from "../storageUse";
 import { useLoad } from "../useLoad";
+import { useLocalMode } from "../appContext";
 import { shownImagery } from "./imageryView";
 import { setupLines } from "./setupOverviewView";
 
@@ -112,6 +113,25 @@ function StorageLine({ usedBytes, limitBytes }: { usedBytes: number; limitBytes:
  * Once every step is done: each Setup section with a line on where it stands and a link to it. Its figures come from
  * the loads the sections make themselves (the same cache keys), so opening a section after shows it at once.
  */
+/** Before the work starts: train the team on copies of the plots (not in the local mode, which has no training) */
+function TrainFirst({ onGo }: { onGo: (tab: ProjectTab) => void }) {
+  const t = useT();
+  return (
+    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }} component="section" aria-labelledby="overview-training-title">
+      <Typography variant="h2" id="overview-training-title" gutterBottom>
+        {t("overview.trainTitle")}
+      </Typography>
+      <Typography color="text.secondary" sx={{ mb: 2 }}>
+        {t("overview.trainText")}
+        <MoreInfo text={t("overview.trainMore")} />
+      </Typography>
+      <Button variant="outlined" endIcon={<ArrowForward />} onClick={() => onGo("training")}>
+        {t("overview.trainAction")}
+      </Button>
+    </Paper>
+  );
+}
+
 function SetupGlance({ projectId, overview, status }: { projectId: string; overview: Overview; status: ProjectStatus }) {
   const t = useT();
   const { language } = useApp();
@@ -182,6 +202,7 @@ export function stepsOf({ overview, openInvites, assignments, dividedFiles }: Aw
 
 export function OverviewTab({ projectId, status, onGo }: { projectId: string; status: ProjectStatus; onGo: (tab: ProjectTab, view?: string) => void }) {
   const t = useT();
+  const local = useLocalMode();
   const state = useSetupOverview(projectId);
 
   if (state.loading && !state.data) return <Loading />;
@@ -257,7 +278,14 @@ export function OverviewTab({ projectId, status, onGo }: { projectId: string; st
   );
 
   // Once every step is done, the checklist gives way to where each section stands
-  if (allDone) return <SetupGlance projectId={projectId} overview={overview} status={status} />;
+  if (allDone) {
+    return (
+      <Stack spacing={3}>
+        <SetupGlance projectId={projectId} overview={overview} status={status} />
+        {!local && overview.records.total === 0 && <TrainFirst onGo={onGo} />}
+      </Stack>
+    );
+  }
   return (
     <Stack spacing={3}>
       <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
@@ -267,6 +295,7 @@ export function OverviewTab({ projectId, status, onGo }: { projectId: string; st
         {progressBar}
         {list}
       </Paper>
+      {!local && overview.records.total === 0 && <TrainFirst onGo={onGo} />}
       <StorageUse usedBytes={overview.storage.usedBytes} limitBytes={overview.storage.limitBytes} />
     </Stack>
   );

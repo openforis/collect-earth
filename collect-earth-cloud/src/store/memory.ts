@@ -98,6 +98,7 @@ import {
   type CreateProjectResult,
   type Store,
   type TokenMembership,
+  type TrainingFinish,
   type TrainingSetChange,
   type TrainingSetInput,
   type UserPlots,
@@ -265,8 +266,10 @@ export class InMemoryStore implements Store {
   private readonly training = new Map<
     string,
     {
-      sets: Map<string, { set: TrainingSet; data: Buffer; golden: Map<string, TrainingGolden>; attempts: TrainingAttempt[] }>;
+      sets: Map<string, { set: TrainingSet; data: Buffer; golden: Map<string, TrainingGolden>; attempts: TrainingAttempt[]; results: unknown | null }>;
       records: Map<string, RecordRow>;
+      /** Plot ids of deleted sets (listRetiredTrainingPlots) */
+      retired: Set<string>;
     }
   >();
 
@@ -274,23 +277,33 @@ export class InMemoryStore implements Store {
     this.requireProject(projectId);
     let t = this.training.get(projectId);
     if (!t) {
-      t = { sets: new Map(), records: new Map() };
+      t = { sets: new Map(), records: new Map(), retired: new Set() };
       this.training.set(projectId, t);
     }
     return t;
   }
 
-  private static copySet(set: TrainingSet): TrainingSet {
-    return { ...set, plotKeys: [...set.plotKeys], memberIds: [...set.memberIds] };
+  /** A set as read: a set given to everyone has every member who is not a coordinator nor disabled, by user id. */
+  private copySet(set: TrainingSet): TrainingSet {
+    let memberIds = [...set.memberIds];
+    if (set.everyone) {
+      memberIds = [];
+      for (const [key, role] of this.memberships) {
+        const [projectId, userId] = key.split(' ');
+        if (projectId === set.projectId && role !== 'admin' && !this.users.get(userId)?.disabledAt) memberIds.push(userId);
+      }
+      memberIds.sort();
+    }
+    return { ...set, plotKeys: [...set.plotKeys], memberIds };
   }
 
   async listTrainingSets(projectId: string): Promise<TrainingSet[]> {
-    return [...(this.training.get(projectId)?.sets.values() ?? [])].map((e) => InMemoryStore.copySet(e.set));
+    return [...(this.training.get(projectId)?.sets.values() ?? [])].map((e) => this.copySet(e.set));
   }
 
   async getTrainingSet(projectId: string, setId: string): Promise<(TrainingSet & { data: Buffer }) | null> {
     const e = this.training.get(projectId)?.sets.get(setId);
-    return e ? { ...InMemoryStore.copySet(e.set), data: Buffer.from(e.data) } : null;
+    return e ? { ...this.copySet(e.set), data: Buffer.from(e.data) } : null;
   }
 
   async createTrainingSet(projectId: string, input: TrainingSetInput): Promise<TrainingSet> {
@@ -308,15 +321,20 @@ export class InMemoryStore implements Store {
       createdAt: input.at,
       createdBy: input.createdBy,
       updatedAt: input.at,
-      memberIds: [...new Set(input.memberIds)],
+      memberIds: input.everyone ? [] : [...new Set(input.memberIds)],
+      everyone: input.everyone === true,
+      finishedAt: null,
+      finishedBy: null,
     };
     t.sets.set(set.id, {
       set,
       data: Buffer.from(input.data),
       golden: new Map(),
       attempts: set.memberIds.map((userId) => ({ userId, number: 1, startedAt: input.at, results: null })),
+      results: null,
     });
-    return InMemoryStore.copySet(set);
+    for (const plot of set.plotKeys) t.retired.delete(plot);
+    return this.copySet(set);
   }
 
   async updateTrainingSet(projectId: string, setId: string, change: TrainingSetChange): Promise<TrainingSet | null> {
@@ -325,8 +343,9 @@ export class InMemoryStore implements Store {
     if (change.name !== undefined) e.set.name = change.name;
     if (change.kind !== undefined) e.set.kind = change.kind;
     if (change.passMark !== undefined) e.set.passMark = change.passMark;
+    if (change.everyone !== undefined) e.set.everyone = change.everyone;
     e.set.updatedAt = Date.now();
-    return InMemoryStore.copySet(e.set);
+    return this.copySet(e.set);
   }
 
   async deleteTrainingSet(projectId: string, setId: string): Promise<boolean> {
@@ -334,12 +353,43 @@ export class InMemoryStore implements Store {
     const e = t?.sets.get(setId);
     if (!t || !e) return false;
     t.sets.delete(setId);
-    const units = new Set(e.set.plotKeys);
+    for (const plot of e.set.plotKeys) t.retired.add(plot);
+    await this.deleteTrainingRecordsOf(projectId, e.set.plotKeys);
+    return true;
+  }
+
+  private async deleteTrainingRecordsOf(projectId: string, plotKeys: readonly string[]): Promise<void> {
+    const t = this.training.get(projectId);
+    if (!t) return;
+    const units = new Set(plotKeys);
     const info = await this.getRoundInfo(projectId);
     for (const [id, r] of t.records) {
       if (unitOfRecord(r.recordKey, units, info) !== null) t.records.delete(id);
     }
+  }
+
+  async finishTrainingSet(projectId: string, setId: string, finish: TrainingFinish): Promise<boolean> {
+    const e = this.training.get(projectId)?.sets.get(setId);
+    if (!e || e.set.finishedAt !== null) return false;
+    for (const { userId, results } of finish.closing) {
+      const open = e.attempts.find((a) => a.userId === userId && a.results === null);
+      if (open) open.results = results ?? {};
+      else if (!e.attempts.some((a) => a.userId === userId)) e.attempts.push({ userId, number: 1, startedAt: finish.at, results: results ?? {} });
+    }
+    e.results = finish.results;
+    e.set.finishedAt = finish.at;
+    e.set.finishedBy = finish.by;
+    e.set.updatedAt = finish.at;
+    await this.deleteTrainingRecordsOf(projectId, e.set.plotKeys);
     return true;
+  }
+
+  async getTrainingResults(projectId: string, setId: string): Promise<unknown | null> {
+    return this.training.get(projectId)?.sets.get(setId)?.results ?? null;
+  }
+
+  async listRetiredTrainingPlots(projectId: string): Promise<string[]> {
+    return [...(this.training.get(projectId)?.retired ?? [])];
   }
 
   async setTrainingMembers(projectId: string, setId: string, userIds: readonly string[], at: number): Promise<void> {

@@ -121,6 +121,7 @@ describe("the log's sentences", () => {
     expect(logSentence(t, audit("training.synced", { records: 3 }), page, "en")).toBe("ana's Collect Earth sent training plots (3)");
     expect(logSentence(t, audit("export.downloaded", { kind: "training_scores", completed: true }), page, "en")).toBe("ana downloaded the scores of a training set");
     expect(logSentence(t, audit("training.changed", { setId: "s1", change: "odd", name: "Week 1" }), page, "en")).toBe("ana changed the training set Week 1");
+    expect(logSentence(t, audit("training.changed", { setId: "s1", change: "finished", name: "Week 1", records: 40 }), page, "en")).toBe("ana finished the training Week 1: its answers were deleted");
     expect(logSentence(t, audit("reference.changed", { added: 0, removed: 1 }), page, "en")).toBe("ana removed 1 reference plot");
     expect(logSentence(t, audit("export.downloaded", { records: 1 }), page, "en")).toBe("ana downloaded the data (1 record)");
     expect(logSentence(t, audit("division.applied", { csvFileId: "f1", mode: "equal", people: 1 }), page, "en")).toBe("ana divided north.csv: all of it to one person");

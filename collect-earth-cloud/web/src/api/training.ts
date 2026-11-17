@@ -18,6 +18,8 @@ import type {
   MyTrainingAnswer,
   MyTrainingSet,
   TrainingFiguresAnswer,
+  TrainingFinishAnswer,
+  TrainingFromPlotFileInput,
   TrainingGolden,
   TrainingKind,
   TrainingList,
@@ -47,6 +49,8 @@ export type {
   TrainingAttemptStart,
   TrainingFiguresAnswer,
   TrainingFiguresSet,
+  TrainingFinishAnswer,
+  TrainingFromPlotFileInput,
   TrainingGolden,
   TrainingKind,
   TrainingList,
@@ -65,11 +69,12 @@ export function getTraining(projectId: string): Promise<TrainingList> {
 export function createTrainingSet(
   projectId: string,
   file: File,
-  options: { kind: TrainingKind; name: string; passMark: number | null },
+  options: { kind: TrainingKind; name: string; passMark: number | null; everyone?: boolean },
   onProgress?: Progress,
 ): Promise<TrainingSetSummary> {
   const q = new URLSearchParams({ kind: options.kind, name: options.name });
   if (options.passMark !== null) q.set("passMark", String(options.passMark));
+  if (options.everyone) q.set("everyone", "true");
   return upload<TrainingSetSummary>("PUT", `${p(projectId)}/training-sets/${encodeURIComponent(file.name)}?${q}`, file, "text/csv", onProgress);
 }
 
@@ -81,8 +86,19 @@ export async function deleteTrainingSet(projectId: string, setId: string): Promi
   await send("DELETE", `${p(projectId)}/training/${encodeURIComponent(setId)}`);
 }
 
-export async function setTrainingMembers(projectId: string, setId: string, userIds: string[]): Promise<void> {
-  await send("PUT", `${p(projectId)}/training/${encodeURIComponent(setId)}/members`, { json: { userIds } });
+/** A new set of plots copied from a plot file of the project, with new ids (the server's TrainingFromPlotFileInput). */
+export function createTrainingFromPlotFile(projectId: string, input: TrainingFromPlotFileInput): Promise<TrainingSetSummary> {
+  return request("POST", `${p(projectId)}/training-sets/from-plot-file`, { json: input });
+}
+
+/** The training is over: the answers deleted everywhere, the results kept. */
+export function finishTraining(projectId: string, setId: string): Promise<TrainingFinishAnswer> {
+  return request("POST", `${p(projectId)}/training/${encodeURIComponent(setId)}/finish`);
+}
+
+/** The participants: chosen people, or everyone in the project (and whoever joins). */
+export async function setTrainingMembers(projectId: string, setId: string, who: string[] | { everyone: true }): Promise<void> {
+  await send("PUT", `${p(projectId)}/training/${encodeURIComponent(setId)}/members`, { json: Array.isArray(who) ? { userIds: who } : who });
 }
 
 export function getTrainingSet(projectId: string, setId: string): Promise<TrainingSetView> {

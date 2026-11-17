@@ -137,7 +137,6 @@ const OPEN_WHEN_CLOSED = new Set([
   'POST /v1/projects/:pid/quality/places',
   'POST /v1/projects/:pid/ai/runs',
 ]);
-const RECORDS_BATCH = 'POST /v1/projects/:pid/records:batch';
 
 /**
  * Why the project's status refuses this request, or null. Reading (GET, HEAD) is never refused.
@@ -151,11 +150,13 @@ async function statusRefusal(store: Store, request: FastifyRequest, projectId: s
   if (status === 'closed' || status === 'archived') {
     return { error: 'project_closed', reason: 'This project is closed: it takes no new records or changes. Ask its coordinator to reopen it.' };
   }
-  if (status === 'draft' && route === RECORDS_BATCH) {
-    return { error: 'project_draft', reason: 'This project is still being set up: records can be sent once its coordinator makes it active.' };
-  }
+  // A draft's records are refused by the intake itself: it takes those of a training running (training before the
+  // project is published), and answers PROJECT_DRAFT for the others
   return null;
 }
+
+/** The answer to records sent to a project still being set up (a draft): Collect Earth keeps them to send later. */
+export const PROJECT_DRAFT = { error: 'project_draft', reason: 'This project is still being set up: records can be sent once its coordinator makes it active.' } as const;
 
 type MembershipResolution = RequestMembership | 'invalid' | 'no_access';
 

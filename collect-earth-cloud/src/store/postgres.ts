@@ -102,6 +102,7 @@ import {
   type CreateProjectResult,
   type Store,
   type TokenMembership,
+  type TrainingFinish,
   type TrainingSetChange,
   type TrainingSetInput,
   type UserPlots,
@@ -2567,9 +2568,13 @@ export class PostgresStore implements Store {
 
   // --- Training: calibration and learning plots (025_training) ---
 
+  // A set given to everyone has every member who is not a coordinator nor disabled (project_members and users are
+  // global tables, read here under the project's setting as listMembers reads them)
   private static readonly TRAINING_SET_COLUMNS = `s.id, s.project_id, s.kind, s.name, s.filename, s.checksum, s.plot_keys, s.pass_mark,
-    s.created_at, s.created_by, s.updated_at,
-    COALESCE((SELECT array_agg(m.user_id::text ORDER BY m.user_id) FROM training_members m WHERE m.set_id = s.id), '{}') AS member_ids`;
+    s.created_at, s.created_by, s.updated_at, s.everyone, s.finished_at, s.finished_by,
+    CASE WHEN s.everyone THEN COALESCE((SELECT array_agg(pm.user_id::text ORDER BY pm.user_id) FROM project_members pm JOIN users u ON u.id = pm.user_id
+                                         WHERE pm.project_id = s.project_id AND pm.role <> 'admin' AND u.disabled_at IS NULL), '{}')
+         ELSE COALESCE((SELECT array_agg(m.user_id::text ORDER BY m.user_id) FROM training_members m WHERE m.set_id = s.id), '{}') END AS member_ids`;
 
   async listTrainingSets(projectId: string): Promise<TrainingSet[]> {
     return this.withProject(projectId, async (client) => {
@@ -2594,14 +2599,16 @@ export class PostgresStore implements Store {
 
   async createTrainingSet(projectId: string, input: TrainingSetInput): Promise<TrainingSet> {
     const id = randomUUID();
-    const members = [...new Set(input.memberIds)];
+    const members = input.everyone ? [] : [...new Set(input.memberIds)];
     await this.withProject(projectId, async (client) => {
       const at = new Date(input.at);
       await client.query(
-        `INSERT INTO training_sets (id, project_id, kind, name, filename, data, checksum, plot_keys, pass_mark, created_at, created_by, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $10)`,
-        [id, projectId, input.kind, input.name, input.filename, input.data, checksumOf(input.data), input.plotKeys, input.passMark, at, input.createdBy],
+        `INSERT INTO training_sets (id, project_id, kind, name, filename, data, checksum, plot_keys, pass_mark, created_at, created_by, updated_at, everyone)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $10, $12)`,
+        [id, projectId, input.kind, input.name, input.filename, input.data, checksumOf(input.data), input.plotKeys, input.passMark, at, input.createdBy, input.everyone === true],
       );
+      // Its plot ids are a set's again: no longer retired
+      await client.query('DELETE FROM training_retired_plots WHERE project_id = $1 AND plot_key = ANY($2::text[])', [projectId, input.plotKeys]);
       for (const userId of members) {
         await client.query('INSERT INTO training_members (project_id, set_id, user_id) VALUES ($1, $2, $3)', [projectId, id, userId]);
         await client.query('INSERT INTO training_attempts (project_id, set_id, user_id, number, started_at) VALUES ($1, $2, $3, 1, $4)', [projectId, id, userId, at]);
@@ -2618,9 +2625,10 @@ export class PostgresStore implements Store {
            name = COALESCE($3, name),
            kind = COALESCE($4, kind),
            pass_mark = CASE WHEN $5 THEN $6::integer ELSE pass_mark END,
+           everyone = COALESCE($7, everyone),
            updated_at = now()
          WHERE project_id = $1 AND id = $2`,
-        [projectId, setId, change.name ?? null, change.kind ?? null, change.passMark !== undefined, change.passMark ?? null],
+        [projectId, setId, change.name ?? null, change.kind ?? null, change.passMark !== undefined, change.passMark ?? null, change.everyone ?? null],
       );
       return (res.rowCount ?? 0) > 0;
     });
@@ -2633,18 +2641,73 @@ export class PostgresStore implements Store {
     return this.withProject(projectId, async (client) => {
       const res = await client.query('SELECT plot_keys FROM training_sets WHERE project_id = $1 AND id = $2 FOR UPDATE', [projectId, setId]);
       if (res.rowCount === 0) return false;
-      const units = new Set(res.rows[0].plot_keys as string[]);
-      const records = await client.query('SELECT record_key, operator FROM training_records WHERE project_id = $1', [projectId]);
-      for (const r of records.rows) {
-        if (unitOfRecord(r.record_key as string, units, info) !== null) {
-          await client.query('DELETE FROM training_records WHERE project_id = $1 AND record_key = $2 AND operator = $3', [projectId, r.record_key, r.operator]);
-        }
-      }
+      const plotKeys = res.rows[0].plot_keys as string[];
+      await PostgresStore.deleteTrainingRecordsOf(client, projectId, plotKeys, info);
+      await client.query(
+        `INSERT INTO training_retired_plots (project_id, plot_key) SELECT $1, k FROM unnest($2::text[]) AS k ON CONFLICT DO NOTHING`,
+        [projectId, plotKeys],
+      );
       for (const table of ['training_attempts', 'training_golden', 'training_members']) {
         await client.query(`DELETE FROM ${table} WHERE project_id = $1 AND set_id = $2`, [projectId, setId]);
       }
       await client.query('DELETE FROM training_sets WHERE project_id = $1 AND id = $2', [projectId, setId]);
       return true;
+    });
+  }
+
+  /** Deletes the training records of these plots (their record keys resolved as the figures resolve them). */
+  private static async deleteTrainingRecordsOf(client: pg.PoolClient, projectId: string, plotKeys: readonly string[], info: RoundInfo | null): Promise<void> {
+    const units = new Set(plotKeys);
+    const records = await client.query('SELECT record_key, operator FROM training_records WHERE project_id = $1', [projectId]);
+    for (const r of records.rows) {
+      if (unitOfRecord(r.record_key as string, units, info) !== null) {
+        await client.query('DELETE FROM training_records WHERE project_id = $1 AND record_key = $2 AND operator = $3', [projectId, r.record_key, r.operator]);
+      }
+    }
+  }
+
+  async finishTrainingSet(projectId: string, setId: string, finish: TrainingFinish): Promise<boolean> {
+    if (!isUuid(setId)) return false;
+    const info = await this.getRoundInfo(projectId);
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query('SELECT plot_keys, finished_at FROM training_sets WHERE project_id = $1 AND id = $2 FOR UPDATE', [projectId, setId]);
+      if (res.rowCount === 0 || res.rows[0].finished_at !== null) return false;
+      const at = new Date(finish.at);
+      for (const { userId, results } of finish.closing) {
+        const closed = await client.query(
+          'UPDATE training_attempts SET results = $4 WHERE project_id = $1 AND set_id = $2 AND user_id = $3 AND results IS NULL',
+          [projectId, setId, userId, JSON.stringify(results ?? {})],
+        );
+        if ((closed.rowCount ?? 0) === 0) {
+          // Someone of a set given to everyone who never had an attempt row: their only attempt, closed
+          await client.query(
+            `INSERT INTO training_attempts (project_id, set_id, user_id, number, started_at, results)
+             SELECT $1, $2, $3, 1, $4, $5 WHERE NOT EXISTS (SELECT 1 FROM training_attempts WHERE project_id = $1 AND set_id = $2 AND user_id = $3)`,
+            [projectId, setId, userId, at, JSON.stringify(results ?? {})],
+          );
+        }
+      }
+      await client.query(
+        'UPDATE training_sets SET finished_at = $3, finished_by = $4, results = $5, updated_at = $3 WHERE project_id = $1 AND id = $2',
+        [projectId, setId, at, finish.by, JSON.stringify(finish.results ?? null)],
+      );
+      await PostgresStore.deleteTrainingRecordsOf(client, projectId, res.rows[0].plot_keys as string[], info);
+      return true;
+    });
+  }
+
+  async getTrainingResults(projectId: string, setId: string): Promise<unknown | null> {
+    if (!isUuid(setId)) return null;
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query('SELECT results FROM training_sets WHERE project_id = $1 AND id = $2', [projectId, setId]);
+      return res.rowCount === 0 ? null : ((res.rows[0].results as unknown) ?? null);
+    });
+  }
+
+  async listRetiredTrainingPlots(projectId: string): Promise<string[]> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query('SELECT plot_key FROM training_retired_plots WHERE project_id = $1 ORDER BY plot_key', [projectId]);
+      return res.rows.map((r) => r.plot_key as string);
     });
   }
 
@@ -4004,6 +4067,9 @@ function mapTrainingSet(r: Record<string, unknown>): TrainingSet {
     createdBy: (r.created_by as string | null) ?? null,
     updatedAt: (r.updated_at as Date).getTime(),
     memberIds: (r.member_ids as string[] | null) ?? [],
+    everyone: r.everyone === true,
+    finishedAt: r.finished_at ? (r.finished_at as Date).getTime() : null,
+    finishedBy: (r.finished_by as string | null) ?? null,
   };
 }
 

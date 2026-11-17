@@ -475,3 +475,54 @@ export function withRowsOnly(file: PlotFile, keep: (plotId: string) => boolean):
   });
   return Buffer.concat(parts);
 }
+
+/**
+ * `count` plots of a plot file spread through it (every n-th plot, the first one included), copied with a new first key
+ * (`newFirst` of its value): training plots on the same places as the project's, never taken for them. Every row of
+ * a chosen plot is copied, with the header; the other key columns and every other column stay as they are. A plot whose
+ * new id is `taken` (another training's) is left out, and the plots are spread through those left: a second training
+ * copied from the same file has other plots. Null when no plot is left.
+ */
+export function copyPlotsWithNewIds(
+  file: PlotFile,
+  count: number,
+  keyFields: number,
+  newFirst: (value: string) => string,
+  taken: ReadonlySet<string> = new Set(),
+): { data: Buffer; plotIds: string[] } | null {
+  const fields = Math.max(1, Math.floor(keyFields));
+  const newIdOf = (row: PlotRow) => {
+    const first = newFirst(row.fields[0] ?? '');
+    return { first, id: fields === 1 ? first : [first, ...row.fields.slice(1, fields)].join(',') };
+  };
+  // The plots (their source ids, in the file's order) whose new id is free
+  const free: string[] = [];
+  const looked = new Set<string>();
+  for (const row of file.rows) {
+    if (looked.has(row.id)) continue;
+    looked.add(row.id);
+    if (!taken.has(newIdOf(row).id)) free.push(row.id);
+  }
+  if (free.length === 0 || count < 1) return null;
+  const n = Math.min(count, free.length);
+  const chosen = new Set<string>();
+  for (let i = 0; i < n; i += 1) chosen.add(free[Math.floor((i * free.length) / n)]);
+  const sepChar = file.separator;
+  const encode = (value: string) => (/["\r\n]/.test(value) || value.includes(sepChar) ? `"${value.replace(/"/g, '""')}"` : value);
+  const lineEnding = Buffer.from(file.lineEnding, 'ascii');
+  const parts: Buffer[] = file.bom ? [BOM] : [];
+  const plotIds: string[] = [];
+  const seen = new Set<string>();
+  const ending = (row: PlotRow) => (row.next > row.end ? file.data.subarray(row.end, row.next) : lineEnding);
+  if (file.header) parts.push(file.data.subarray(file.header.start, file.header.end), ending(file.header));
+  for (const row of file.rows) {
+    if (!chosen.has(row.id)) continue;
+    const { first, id } = newIdOf(row);
+    parts.push(file.data.subarray(row.start, row.fieldStarts[0]), Buffer.from(encode(first), 'utf8'), file.data.subarray(row.fieldEnds[0], row.end), ending(row));
+    if (!seen.has(id)) {
+      seen.add(id);
+      plotIds.push(id);
+    }
+  }
+  return { data: Buffer.concat(parts), plotIds };
+}

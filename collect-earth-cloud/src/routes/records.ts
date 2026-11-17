@@ -1,14 +1,14 @@
 import { telemetry } from '../telemetry.js';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { RecordUpload, Store } from '../store/store.js';
-import { requireProjectMembership } from '../plugins/projectAuth.js';
+import { PROJECT_DRAFT, requireProjectMembership } from '../plugins/projectAuth.js';
 import { audit, noteActivity } from '../activity.js';
 import { isServerMadeName } from '../anonymize.js';
 import { applyLww, recordEventOf } from '../lww.js';
 import { plotOwnershipOf } from '../plotOwnership.js';
 import type { SamplingService } from '../samplingService.js';
 import type { BatchItemResult, RecordEnvelope, RoundInfo } from '../types.js';
-import { isTrainingRecord, trainingUnits } from './training.js';
+import { isTrainingRecord, trainingPlots } from './training.js';
 import { keyShape, splitKey } from '../rounds.js';
 
 interface BatchBody {
@@ -70,14 +70,22 @@ export async function registerRecordRoutes(app: FastifyInstance, store: Store, s
         name !== username && name.toLowerCase() === username && (await store.getUserByUsername(name)) === null;
       const body = (request.body ?? {}) as BatchBody;
       const envelopes = Array.isArray(body.records) ? body.records : [];
+      // The plots of a training: those running take their records apart, those over discard them (trainingPlots)
+      const plotsOfTraining = await trainingPlots(store, projectId);
+      const trainingInfo = plotsOfTraining.open.size + plotsOfTraining.closed.size > 0 ? await store.getRoundInfo(projectId) : null;
+      // A project still being set up takes only the records of a training running (the team trained before it is
+      // published); a batch with none of them is refused whole, as it always was, and Collect Earth keeps it to send later
+      const draft = (await store.getProjectStatus(projectId)) === 'draft';
+      if (draft && !envelopes.some((raw) => isTrainingRecord(keyOf(raw), plotsOfTraining.open, trainingInfo))) {
+        return reply.code(409).send(PROJECT_DRAFT);
+      }
 
       const receivedAt = Date.now();
       const results: BatchItemResult[] = [];
       let storedCount = 0;
       // A first submission stored: the check sampling may draw (coalesced, SamplingService).
       let firstSubmission = false;
-      // The plots of training sets: their records go to training_records (read once per batch).
-      let training: { units: Set<string>; info: RoundInfo | null } | null = null;
+      // Training records stored (training_records), for the Activity log
       let trainingStored = 0;
       // The project's records of the batch, written together once all are read (putRecordsWithEvents): where each answer goes
       const uploads: { index: number; recordKey: string; operator: string; apply: RecordUpload['apply']; submitted: () => boolean }[] = [];
@@ -143,8 +151,18 @@ export async function registerRecordRoutes(app: FastifyInstance, store: Store, s
             continue;
           }
           const operator = envelope.operator ?? '';
-          training ??= { units: await trainingUnits(store, projectId), info: await store.getRoundInfo(projectId) };
-          if (isTrainingRecord(envelope.recordKey, training.units, training.info)) {
+          if (isTrainingRecord(envelope.recordKey, plotsOfTraining.closed, trainingInfo)) {
+            // A plot of a training over, sent by a computer that was offline when it ended: discarded ("stale", so
+            // that Collect Earth stops sending it), never stored as the project's
+            results.push({ recordKey: envelope.recordKey, status: 'stale' });
+            continue;
+          }
+          if (draft && !isTrainingRecord(envelope.recordKey, plotsOfTraining.open, trainingInfo)) {
+            // Kept by Collect Earth to send once the project is published
+            results.push({ recordKey: envelope.recordKey, status: 'error', reason: PROJECT_DRAFT.reason });
+            continue;
+          }
+          if (isTrainingRecord(envelope.recordKey, plotsOfTraining.open, trainingInfo)) {
             // A calibration or learning plot: kept apart, never in the project's figures (no event either).
             const kept = await store.putTrainingRecord(projectId, envelope.recordKey, operator, (existing) => {
               const { row, status } = applyLww(envelope, existing, receivedAt);

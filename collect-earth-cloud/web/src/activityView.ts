@@ -239,7 +239,7 @@ export function logSentence(t: Translate, item: LogItem, page: Pick<ActivityPage
     case "training.synced":
       return t(Number(d.records) === 1 ? "activity.audit.trainingSyncedOne" : "activity.audit.trainingSynced", { actor, count: num(d.records, language) });
     case "training.changed": {
-      const change = typeof d.change === "string" && ["created", "changed", "deleted", "members", "golden", "attempts"].includes(d.change) ? d.change : "changed";
+      const change = typeof d.change === "string" && ["created", "changed", "deleted", "members", "golden", "attempts", "finished"].includes(d.change) ? d.change : "changed";
       return t(`activity.audit.training.${change}` as "activity.audit.training.changed", { actor, name: typeof d.name === "string" ? d.name : "" });
     }
     case "export.downloaded":

@@ -298,8 +298,16 @@ export interface TrainingSet {
   createdAt: number;
   createdBy: string | null;
   updatedAt: number;
-  /** Participants (user ids). */
+  /**
+   * Participants (user ids). For a set given to everyone, every member of the project who is not a coordinator nor
+   * disabled, worked out when the set is read: someone who joins later takes part too.
+   */
   memberIds: string[];
+  /** Given to everyone in the project, and whoever joins (memberIds is then worked out). */
+  everyone: boolean;
+  /** When the coordinator finished the training (its records deleted, its results kept), or null while it runs. */
+  finishedAt: number | null;
+  finishedBy: string | null;
 }
 
 

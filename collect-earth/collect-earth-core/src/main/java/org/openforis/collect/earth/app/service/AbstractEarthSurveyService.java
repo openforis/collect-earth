@@ -521,6 +521,16 @@ public abstract class AbstractEarthSurveyService implements DisposableBean {
 		return deleted;
 	}
 
+	/**
+	 * Deletes every record of these plots (their key values): the training plots, once the training is over, are no plots
+	 * of the project, so the interpreter's answers to them go (docs/plans/2026-11-17-training-the-team.md).
+	 *
+	 * @return how many records were deleted
+	 */
+	public int deleteRecordsOf(List<String[]> keys) {
+		return deleteRecordsSavedBefore(keys, new Date(Long.MAX_VALUE));
+	}
+
 	/** How many key attributes identify a plot (the first columns of a plot file). */
 	public int getKeyAttributeCount() {
 		return getRootEntityDefinition().getKeyAttributeDefinitions().size();

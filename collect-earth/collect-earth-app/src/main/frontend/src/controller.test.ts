@@ -63,6 +63,21 @@ describe("the plot list", () => {
     expect(controller.getSnapshot().order).toEqual(["3"]);
   });
 
+  it("knows the plots are a training's, and no longer once the plot file is the interpreter's own", async () => {
+    vi.mocked(fetchPlots).mockResolvedValueOnce({ ...index(["T-1", "T-3"], "day1.csv@1"), training: "Learning – Day 1" });
+    vi.mocked(fetchStatuses).mockResolvedValue({ now: 100, statuses: {}, plots: "day1.csv@1" });
+    const controller = new MapController();
+    await controller.start();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(controller.getSnapshot()).toMatchObject({ order: ["T-1", "T-3"], training: "Learning – Day 1" });
+
+    // The training over: Collect Earth takes the interpreter's own plot file
+    vi.mocked(fetchPlots).mockResolvedValueOnce(index(["1"], "north.csv@2"));
+    vi.mocked(fetchStatuses).mockResolvedValue({ now: 200, statuses: {}, plots: "north.csv@2" });
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(controller.getSnapshot()).toMatchObject({ order: ["1"], training: null });
+  });
+
   it("names a plot by the label the index gives, by its place when every key is hidden", async () => {
     vi.mocked(fetchPlots).mockResolvedValueOnce({ ids: ["105,2", "7,1", "9"], labels: ["105", "", null], latitudes: [1, 1, 1], longitudes: [2, 2, 2], plots: "p.csv@1" });
     vi.mocked(fetchStatuses).mockResolvedValue({ now: 100, statuses: {}, plots: "p.csv@1" });

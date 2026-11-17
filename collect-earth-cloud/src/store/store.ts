@@ -91,6 +91,8 @@ export interface TrainingSetInput {
   plotKeys: string[];
   passMark: number | null;
   memberIds: string[];
+  /** Given to everyone in the project, and whoever joins (memberIds left empty). */
+  everyone?: boolean;
   createdBy: string | null;
   at: number;
 }
@@ -99,6 +101,17 @@ export interface TrainingSetChange {
   name?: string;
   kind?: TrainingKind;
   passMark?: number | null;
+  everyone?: boolean;
+}
+
+/** A training finished (finishTrainingSet): when, by whom, what is kept of it, and each participant's closing snapshot. */
+export interface TrainingFinish {
+  at: number;
+  by: string | null;
+  /** The set's results as they were (its figures and scores), shown from then on: its records are gone. */
+  results: unknown;
+  /** The open attempt of each participant, closed with this snapshot. */
+  closing: readonly { userId: string; results: unknown }[];
 }
 
 export interface CreateProjectResult {
@@ -512,12 +525,25 @@ export interface Store {
   /** The project's training sets, oldest first (no data). */
   listTrainingSets(projectId: string): Promise<TrainingSet[]>;
   getTrainingSet(projectId: string, setId: string): Promise<(TrainingSet & { data: Buffer }) | null>;
-  /** Adds a set, with attempt 1 of each participant started at its creation. */
+  /** Adds a set, with attempt 1 of each participant started at its creation; its plot ids are no longer retired. */
   createTrainingSet(projectId: string, input: TrainingSetInput): Promise<TrainingSet>;
   /** Changes a set's name, kind or pass mark; null when there is no such set. */
   updateTrainingSet(projectId: string, setId: string, change: TrainingSetChange): Promise<TrainingSet | null>;
-  /** Deletes a set with its participants, golden answers, attempts and the training records of its plots. */
+  /**
+   * Deletes a set with its participants, golden answers, attempts and the training records of its plots. Its plot ids
+   * are retired (listRetiredTrainingPlots): a record of them sent later is discarded, never stored as the project's.
+   */
   deleteTrainingSet(projectId: string, setId: string): Promise<boolean>;
+  /**
+   * Finishes a set: closes each participant's open attempt with its snapshot, deletes the training records of its plots
+   * and keeps `results`; false when there is no such set or it is finished already. Its plot ids stay the set's, so a
+   * record of them sent later is discarded.
+   */
+  finishTrainingSet(projectId: string, setId: string, finish: TrainingFinish): Promise<boolean>;
+  /** What finishTrainingSet kept of a set, or null. */
+  getTrainingResults(projectId: string, setId: string): Promise<unknown | null>;
+  /** Plot ids of training sets deleted: never a plot of the project (a new set may take them again). */
+  listRetiredTrainingPlots(projectId: string): Promise<string[]>;
   /** Replaces the participants; a new participant's attempt 1 starts at `at`. */
   setTrainingMembers(projectId: string, setId: string, userIds: readonly string[], at: number): Promise<void>;
   listTrainingGolden(projectId: string, setId: string): Promise<TrainingGolden[]>;

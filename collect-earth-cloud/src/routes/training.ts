@@ -6,7 +6,7 @@ import type { RoundInfo } from '../cep.js';
 import { attachment } from '../download.js';
 import { checkUploadFits } from '../limits.js';
 import { plotFileOf } from '../plotFileCache.js';
-import { idsNotFittingKeys, parsePlotFile } from '../plots.js';
+import { copyPlotsWithNewIds, idsNotFittingKeys, parsePlotFile } from '../plots.js';
 import { readCep, surveyInfo } from '../cep.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import type { Log } from '../qualityService.js';
@@ -40,6 +40,7 @@ import type {
   TrainingAttemptPast,
   TrainingFiguresAnswer,
   TrainingFiguresSet,
+  TrainingFinishAnswer,
   TrainingList,
   TrainingListItem,
   TrainingPerson,
@@ -65,11 +66,41 @@ export function servedName(set: Pick<TrainingSet, 'kind' | 'filename'>): string 
   return `${set.kind === 'learning' ? 'Learning' : 'Calibration'} – ${set.filename}`;
 }
 
-/** Every plot id (unit) of the project's training sets: the records of these go to training_records. */
+/**
+ * Every plot id (unit) that is a training plot, never a plot of the project: of the sets running, finished or deleted
+ * (retired). Their records go to training_records, or are discarded once the training is over (trainingPlots).
+ */
 export async function trainingUnits(store: Store, projectId: string): Promise<Set<string>> {
-  const units = new Set<string>();
-  for (const set of await store.listTrainingSets(projectId)) for (const plot of set.plotKeys) units.add(plot);
-  return units;
+  const { open, closed } = await trainingPlots(store, projectId);
+  return new Set([...open, ...closed]);
+}
+
+/**
+ * The training plots of the sets running (`open`: their records are kept apart in training_records), and of those
+ * finished or deleted (`closed`: a record of them, sent by a computer that was offline when the training ended, is
+ * discarded: never stored as the project's, nor as a training record).
+ */
+export async function trainingPlots(store: Store, projectId: string): Promise<{ open: Set<string>; closed: Set<string> }> {
+  const open = new Set<string>();
+  const closed = new Set<string>(await store.listRetiredTrainingPlots(projectId));
+  for (const set of await store.listTrainingSets(projectId)) for (const plot of set.plotKeys) (set.finishedAt === null ? open : closed).add(plot);
+  return { open, closed };
+}
+
+/**
+ * What a person's Collect Earth cleans up after trainings ended (my-assignment's `finishedTraining`): the files of the
+ * finished sets they took part in, to take away, and every plot id of a finished or deleted set, whose records it
+ * deletes from its own database.
+ */
+export async function finishedTraining(store: Store, projectId: string, userId: string | null): Promise<{ files: string[]; plots: string[] }> {
+  const files: string[] = [];
+  const plots = new Set<string>(await store.listRetiredTrainingPlots(projectId));
+  for (const set of await store.listTrainingSets(projectId)) {
+    if (set.finishedAt === null) continue;
+    for (const plot of set.plotKeys) plots.add(plot);
+    if (userId !== null && set.memberIds.includes(userId)) files.push(servedName(set));
+  }
+  return { files, plots: [...plots] };
 }
 
 /** The plot file entries of the sets a person takes part in, for my-assignment. */
@@ -84,7 +115,8 @@ export async function trainingAssignments(store: Store, projectId: string, userI
     training: { kind: TrainingKind; attempt: number; freshSince: number | null; serverTime: number };
   }[] = [];
   for (const meta of await store.listTrainingSets(projectId)) {
-    if (!meta.memberIds.includes(userId)) continue;
+    // A finished training is no plot file any more: Collect Earth takes its file away (finishedTraining)
+    if (meta.finishedAt !== null || !meta.memberIds.includes(userId)) continue;
     const set = await store.getTrainingSet(projectId, meta.id);
     if (!set) continue;
     const served = wholeFile(set, info);
@@ -130,6 +162,7 @@ async function plotClash(store: Store, projectId: string, plots: readonly string
   }
   for (const set of await store.listTrainingSets(projectId)) {
     if (set.id === exceptSet) continue;
+    // A finished set's plots stay its own: records of them sent late are discarded, which a new set would not do
     const clash = set.plotKeys.filter((id) => wanted.has(id));
     if (clash.length > 0) return { code: 'in_other_set', plots: clash.slice(0, 20), file: set.name };
   }
@@ -251,7 +284,57 @@ function summaryOf(set: TrainingSet, people: TrainingPerson[]): TrainingSetSumma
     passMark: set.passMark,
     createdAt: set.createdAt,
     participants: people,
+    everyone: set.everyone,
+    finishedAt: set.finishedAt,
   };
+}
+
+/** What a finished set keeps (store.getTrainingResults): its view and its progress as they were when it was finished. */
+interface FinishedResults {
+  view: TrainingSetView;
+  golden: number;
+  progress: TrainingListItem['progress'];
+}
+
+/** A set's progress: each participant in their open attempt. */
+function progressOf(loaded: Loaded): TrainingListItem['progress'] {
+  return loaded.people.map((p) => {
+    let submitted = 0;
+    for (const byPerson of loaded.answers.values()) if (byPerson.has(p.username)) submitted += 1;
+    const score = loaded.set.kind === 'learning' ? scoreOf(loaded, p.username) : null;
+    return { userId: p.userId, attempt: loaded.startOf.get(p.username)!.number, submitted, accuracy: score?.answers.rate ?? null, passed: score?.passed ?? null };
+  });
+}
+
+/** One set in full: its calibration figures, golden answers, scores and attempts. */
+function viewOf(loaded: Loaded): TrainingSetView {
+  const calibration = calibrationFigures({
+    plots: loaded.set.plotKeys,
+    answers: loaded.answers,
+    participants: loaded.people.map((p) => p.username),
+    outline: loaded.outline,
+    margins: loaded.margins,
+  });
+  return {
+    set: summaryOf(loaded.set, loaded.people),
+    plots: loaded.set.plotKeys,
+    calibration,
+    golden: [...loaded.golden.values()],
+    questions: goldenQuestions(loaded.outline),
+    staleQuestions: staleQuestions(loaded.golden.values(), loaded.outline),
+    scores: loaded.people.map((p) => ({
+      userId: p.userId,
+      username: p.username,
+      attempt: loaded.startOf.get(p.username)!,
+      score: scoreOf(loaded, p.username),
+      history: history(loaded.attempts, p.userId),
+    })),
+  };
+}
+
+/** 409 for what a finished training no longer takes (answers, attempts, participants). */
+function finished(reply: FastifyReply) {
+  return reply.code(409).send({ error: 'training_finished', reason: 'This training is finished: its answers were deleted, and only its results are kept.' });
 }
 
 function bad(reply: FastifyReply, reason: string, code = 'bad_request', extra: Record<string, unknown> = {}) {
@@ -282,18 +365,15 @@ export async function registerTrainingRoutes(
     const members = shared.members;
     const out: TrainingListItem[] = [];
     for (const meta of sets) {
+      if (meta.finishedAt !== null) {
+        // Its records are gone: as it was when it was finished
+        const kept = (await store.getTrainingResults(projectId, meta.id)) as FinishedResults | null;
+        out.push({ ...summaryOf(meta, kept?.view.set.participants ?? participants(meta, members)), golden: kept?.golden ?? 0, progress: kept?.progress ?? [] });
+        continue;
+      }
       const loaded = await loadSet(store, projectId, meta.id, deps.outline, request.log, shared);
       if (!loaded) continue;
-      out.push({
-        ...summaryOf(loaded.set, loaded.people),
-        golden: loaded.golden.size,
-        progress: loaded.people.map((p) => {
-          let submitted = 0;
-          for (const byPerson of loaded.answers.values()) if (byPerson.has(p.username)) submitted += 1;
-          const score = loaded.set.kind === 'learning' ? scoreOf(loaded, p.username) : null;
-          return { userId: p.userId, attempt: loaded.startOf.get(p.username)!.number, submitted, accuracy: score?.answers.rate ?? null, passed: score?.passed ?? null };
-        }),
-      });
+      out.push({ ...summaryOf(loaded.set, loaded.people), golden: loaded.golden.size, progress: progressOf(loaded) });
     }
     return reply.send({ sets: out, members: members.filter((m) => !m.disabled).map((m) => ({ userId: m.userId, username: m.username, role: m.role })), max: MAX_TRAINING_SETS } satisfies TrainingList);
   });
@@ -303,7 +383,7 @@ export async function registerTrainingRoutes(
     const projectId = request.membership!.projectId;
     const filename = (request.params as { filename: string }).filename;
     if (!filename || /[/\\\0]/.test(filename) || filename.includes('..')) return bad(reply, 'invalid filename');
-    const q = (request.query ?? {}) as { kind?: string; name?: string; passMark?: string };
+    const q = (request.query ?? {}) as { kind?: string; name?: string; passMark?: string; everyone?: string };
     const kind = (q.kind ?? 'calibration') as TrainingKind;
     if (!KINDS.includes(kind)) return bad(reply, 'kind must be calibration or learning');
     const name = (q.name ?? filename.replace(/\.csv$/i, '')).trim();
@@ -336,11 +416,69 @@ export async function registerTrainingRoutes(
       plotKeys: plots,
       passMark: passMark ?? null,
       memberIds: [],
+      everyone: q.everyone === 'true' || q.everyone === '1',
       createdBy: request.userId ?? null,
       at: now(),
     });
     await audit(store, request, 'training.changed', { setId: set.id, change: 'created', name: set.name, kind: set.kind, plots: set.plotCount });
-    return reply.code(201).send(summaryOf(set, []));
+    return reply.code(201).send(summaryOf(set, participants(set, await store.listMembers(projectId))));
+  });
+
+  // A new set of plots copied from a plot file of the project, with new ids (TrainingFromPlotFileInput; coordinators).
+  app.post('/v1/projects/:pid/training-sets/from-plot-file', admin, async (request, reply) => {
+    const projectId = request.membership!.projectId;
+    const body = (request.body ?? {}) as Record<string, unknown>;
+    const kind = (body.kind ?? 'calibration') as TrainingKind;
+    if (!KINDS.includes(kind)) return bad(reply, 'kind must be calibration or learning');
+    const name = typeof body.name === 'string' ? body.name.trim() : '';
+    if (name.length === 0 || name.length > MAX_NAME) return bad(reply, `name must be 1-${MAX_NAME} characters`);
+    const count = body.count;
+    if (typeof count !== 'number' || !Number.isInteger(count) || count < 1 || count > MAX_TRAINING_PLOTS) {
+      return bad(reply, `count must be a whole number from 1 to ${MAX_TRAINING_PLOTS}`);
+    }
+    const passMark = readPassMark(body.passMark ?? undefined);
+    if (passMark === undefined && body.passMark !== undefined && body.passMark !== null) return bad(reply, 'passMark must be a whole number from 0 to 100');
+    if (typeof body.csvFileId !== 'string' || !isUuid(body.csvFileId)) return bad(reply, 'csvFileId must be the id of a plot file of the project');
+    const source = await store.getCsvFile(projectId, body.csvFileId);
+    if (!source) return reply.code(404).send({ error: 'not_found', reason: 'No such plot file.' });
+    const sets = await store.listTrainingSets(projectId);
+    if (sets.length >= MAX_TRAINING_SETS) return bad(reply, `A project can have at most ${MAX_TRAINING_SETS} training sets.`, 'too_many_sets');
+    const keys = await surveyKeysOf(store, projectId, request.log);
+    if (!keys || keys.length === 0) return reply.code(409).send({ error: 'no_project_file', reason: 'Upload the project file first: the new plot ids are made to fit its survey.' });
+    const info = await store.getRoundInfo(projectId);
+    // A new id the survey's first key takes: "T-17" for a text id, "-17" for a number id (none of the project's: plot
+    // ids are not negative). A number id that is negative already cannot be told apart this way.
+    const numeric = keys[0].type === 'integer' || keys[0].type === 'real';
+    const plotFile = parsePlotFile(source.data, fileKeyCount(info));
+    if (numeric && plotFile.plotIds.some((id) => id.startsWith('-'))) {
+      return reply.code(409).send({ error: 'negative_ids', reason: 'This plot file has negative plot ids: training plots cannot be copied from it. Upload a training file instead.' });
+    }
+    // The plots of the other sets, running or finished (whose scores are kept), are not copied again: other plots
+    const taken = new Set(sets.flatMap((set) => set.plotKeys));
+    const copy = copyPlotsWithNewIds(plotFile, count, fileKeyCount(info), (id) => (numeric ? `-${id}` : `T-${id}`), taken);
+    if (!copy) {
+      return plotFile.plotIds.length === 0
+        ? bad(reply, 'This plot file has no plots.', 'no_plots')
+        : reply.code(409).send({ error: 'no_plots_left', reason: 'Every plot of this plot file is in a training set already. Copy from another plot file, or upload a training file.' });
+    }
+    const clash = await plotClash(store, projectId, copy.plotIds, info);
+    if (clash) return reply.code(409).send({ error: 'training_plot_clash', code: clash.code, reason: REASONS[clash.code], plots: clash.plots, file: clash.file });
+    const over = await checkUploadFits(store, projectId, { kind: 'csv', filename: '\u0000training' }, copy.data.length);
+    if (over) return reply.code(413).send(over);
+    const set = await store.createTrainingSet(projectId, {
+      kind,
+      name,
+      filename: `${name.replace(/[^\p{L}\p{N} _-]+/gu, '_').slice(0, 80) || 'training'}.csv`,
+      data: copy.data,
+      plotKeys: copy.plotIds,
+      passMark: passMark ?? null,
+      memberIds: [],
+      everyone: body.everyone !== false,
+      createdBy: request.userId ?? null,
+      at: now(),
+    });
+    await audit(store, request, 'training.changed', { setId: set.id, change: 'created', name: set.name, kind: set.kind, plots: set.plotCount, from: source.filename });
+    return reply.code(201).send(summaryOf(set, participants(set, await store.listMembers(projectId))));
   });
 
   // Name, kind, pass mark (coordinators).
@@ -361,6 +499,11 @@ export async function registerTrainingRoutes(
       if (pm === undefined) return bad(reply, 'passMark must be a whole number from 0 to 100, or null');
       change.passMark = pm;
     }
+    // A finished training keeps its results as they were: it can be renamed, not scored otherwise
+    if (change.kind !== undefined || change.passMark !== undefined) {
+      const current = await store.getTrainingSet(projectId, setIdOf(request));
+      if (current && current.finishedAt !== null) return finished(reply);
+    }
     const set = await store.updateTrainingSet(projectId, setIdOf(request), change);
     if (!set) return reply.code(404).send({ error: 'not_found' });
     await audit(store, request, 'training.changed', { setId: set.id, change: 'changed', name: set.name, kind: set.kind });
@@ -375,47 +518,66 @@ export async function registerTrainingRoutes(
     return reply.send({ ok: true });
   });
 
-  // The participants (coordinators): members of the project, any role.
+  // The participants (coordinators): { everyone: true } (every member but the coordinators, whoever joins included), or
+  // { userIds } (members of the project, any role).
   app.put('/v1/projects/:pid/training/:setId/members', admin, async (request, reply) => {
     const projectId = request.membership!.projectId;
-    const ids = (request.body as { userIds?: unknown } | null)?.userIds;
-    if (!Array.isArray(ids) || !ids.every((id): id is string => typeof id === 'string' && isUuid(id))) return bad(reply, 'userIds must be a list of user ids');
-    const members = new Set((await store.listMembers(projectId)).map((m) => m.userId));
-    if (!ids.every((id) => members.has(id))) return bad(reply, 'Everyone taking part must be a member of the project.', 'not_member');
+    const body = (request.body ?? {}) as { userIds?: unknown; everyone?: unknown };
     const set = await store.getTrainingSet(projectId, setIdOf(request));
     if (!set) return reply.code(404).send({ error: 'not_found' });
+    if (set.finishedAt !== null) return finished(reply);
+    if (body.everyone === true) {
+      await store.updateTrainingSet(projectId, set.id, { everyone: true });
+      await audit(store, request, 'training.changed', { setId: set.id, change: 'members', name: set.name, everyone: true });
+      return reply.send({ ok: true });
+    }
+    const ids = body.userIds;
+    if (!Array.isArray(ids) || !ids.every((id): id is string => typeof id === 'string' && isUuid(id))) return bad(reply, 'userIds must be a list of user ids, or everyone: true');
+    const members = new Set((await store.listMembers(projectId)).map((m) => m.userId));
+    if (!ids.every((id) => members.has(id))) return bad(reply, 'Everyone taking part must be a member of the project.', 'not_member');
     await store.setTrainingMembers(projectId, set.id, ids, now());
+    if (set.everyone) await store.updateTrainingSet(projectId, set.id, { everyone: false });
     await audit(store, request, 'training.changed', { setId: set.id, change: 'members', name: set.name, people: new Set(ids).size });
     return reply.send({ ok: true });
+  });
+
+  // The training is over (coordinators): every open attempt closed with its score, the results kept as they are now,
+  // the answers deleted. Collect Earth then takes the set's file away, deletes its own records of these plots and
+  // moves to the person's plot file (finishedTraining); a record of them sent later is discarded.
+  app.post('/v1/projects/:pid/training/:setId/finish', admin, async (request, reply) => {
+    const projectId = request.membership!.projectId;
+    const loaded = await loadSet(store, projectId, setIdOf(request), deps.outline, request.log);
+    if (!loaded) return reply.code(404).send({ error: 'not_found' });
+    if (loaded.set.finishedAt !== null) return finished(reply);
+    const at = now();
+    const units = new Set(loaded.set.plotKeys);
+    const recordsDeleted = loaded.records.filter((r) => unitOfRecord(r.recordKey, units, loaded.info) !== null).length;
+    const results: FinishedResults = { view: viewOf(loaded), golden: loaded.golden.size, progress: progressOf(loaded) };
+    const done = await store.finishTrainingSet(projectId, loaded.set.id, {
+      at,
+      by: request.userId ?? null,
+      results,
+      closing: loaded.people.map((p) => ({ userId: p.userId, results: { score: scoreOf(loaded, p.username), closedAt: at } satisfies AttemptSnapshot })),
+    });
+    if (!done) return finished(reply);
+    await audit(store, request, 'training.changed', { setId: loaded.set.id, change: 'finished', name: loaded.set.name, records: recordsDeleted });
+    const set = (await store.getTrainingSet(projectId, loaded.set.id))!;
+    return reply.send({ set: summaryOf(set, loaded.people), recordsDeleted } satisfies TrainingFinishAnswer);
   });
 
   // One set in full (coordinators): calibration figures, golden answers, scores and attempts.
   app.get('/v1/projects/:pid/training/:setId', admin, async (request, reply) => {
     const projectId = request.membership!.projectId;
-    const loaded = await loadSet(store, projectId, setIdOf(request), deps.outline, request.log);
+    const set = await store.getTrainingSet(projectId, setIdOf(request));
+    if (!set) return reply.code(404).send({ error: 'not_found' });
+    if (set.finishedAt !== null) {
+      // As it was when it was finished (its answers are gone), under its name of now
+      const kept = (await store.getTrainingResults(projectId, set.id)) as FinishedResults | null;
+      if (kept) return reply.send({ ...kept.view, set: summaryOf(set, kept.view.set.participants) } satisfies TrainingSetView);
+    }
+    const loaded = await loadSet(store, projectId, set.id, deps.outline, request.log);
     if (!loaded) return reply.code(404).send({ error: 'not_found' });
-    const calibration = calibrationFigures({
-      plots: loaded.set.plotKeys,
-      answers: loaded.answers,
-      participants: loaded.people.map((p) => p.username),
-      outline: loaded.outline,
-      margins: loaded.margins,
-    });
-    return reply.send({
-      set: summaryOf(loaded.set, loaded.people),
-      plots: loaded.set.plotKeys,
-      calibration,
-      golden: [...loaded.golden.values()],
-      questions: goldenQuestions(loaded.outline),
-      staleQuestions: staleQuestions(loaded.golden.values(), loaded.outline),
-      scores: loaded.people.map((p) => ({
-        userId: p.userId,
-        username: p.username,
-        attempt: loaded.startOf.get(p.username)!,
-        score: scoreOf(loaded, p.username),
-        history: history(loaded.attempts, p.userId),
-      })),
-    } satisfies TrainingSetView);
+    return reply.send(viewOf(loaded) satisfies TrainingSetView);
   });
 
   // The golden interpretation of one plot (coordinators): { answers, note }.
@@ -425,6 +587,7 @@ export async function registerTrainingRoutes(
     const body = (request.body ?? {}) as { answers?: unknown; note?: unknown };
     const set = await store.getTrainingSet(projectId, setIdOf(request));
     if (!set) return reply.code(404).send({ error: 'not_found' });
+    if (set.finishedAt !== null) return finished(reply);
     if (!set.plotKeys.includes(plot)) return bad(reply, 'This plot is not in the set.', 'unknown_plot');
     const answers = body.answers ?? {};
     if (typeof answers !== 'object' || answers === null || Array.isArray(answers) || !Object.values(answers).every((v) => typeof v === 'string' && v.length <= 1000)) {
@@ -452,6 +615,7 @@ export async function registerTrainingRoutes(
     const body = (request.body ?? {}) as { from?: unknown; userId?: unknown };
     const loaded = await loadSet(store, projectId, setIdOf(request), deps.outline, request.log);
     if (!loaded) return reply.code(404).send({ error: 'not_found' });
+    if (loaded.set.finishedAt !== null) return finished(reply);
     let rows: { plotKey: string; answers: Record<string, string> }[];
     if (body.from === 'consensus') {
       rows = goldenFromConsensus(
@@ -484,6 +648,7 @@ export async function registerTrainingRoutes(
     const projectId = request.membership!.projectId;
     const loaded = await loadSet(store, projectId, setIdOf(request), deps.outline, request.log);
     if (!loaded) return reply.code(404).send({ error: 'not_found' });
+    if (loaded.set.finishedAt !== null) return finished(reply);
     const stale = new Set(staleQuestions(loaded.golden.values(), loaded.outline));
     const at = now();
     const rows = [...loaded.golden.values()]
@@ -499,7 +664,7 @@ export async function registerTrainingRoutes(
     const what = (request.query as { what?: string } | undefined)?.what === 'answers' ? 'answers' : 'scores';
     const loaded = await loadSet(store, projectId, setIdOf(request), deps.outline, request.log);
     if (!loaded) return reply.code(404).send({ error: 'not_found' });
-    const csv = `\uFEFF${exportRows(loaded, what).map((r) => r.map((v) => csvField(v)).join(',')).join('\r\n')}\r\n`;
+    const csv = `\uFEFF${exportRows(loaded, what, loaded.set.finishedAt === null).map((r) => r.map((v) => csvField(v)).join(',')).join('\r\n')}\r\n`;
     const name = `${loaded.set.name.replace(/[^\p{L}\p{N}_-]+/gu, '_').slice(0, 60) || 'training'}-${what}-${new Date(now()).toISOString().slice(0, 10)}.csv`;
     await audit(store, request, 'export.downloaded', { kind: `training_${what}`, completed: true });
     return reply.header('content-type', 'text/csv; charset=utf-8').header('content-disposition', attachment(name)).send(csv);
@@ -511,6 +676,9 @@ export async function registerTrainingRoutes(
     const body = (request.body ?? {}) as { userIds?: unknown; all?: unknown };
     const loaded = await loadSet(store, projectId, setIdOf(request), deps.outline, request.log);
     if (!loaded) return reply.code(404).send({ error: 'not_found' });
+    if (loaded.set.finishedAt !== null) return finished(reply);
+    // A set given to everyone: each participant's attempt 1 written, so that the next one is their second
+    if (loaded.set.everyone) await store.setTrainingMembers(projectId, loaded.set.id, loaded.set.memberIds, loaded.set.createdAt);
     let people = loaded.people;
     if (body.all !== true) {
       if (!Array.isArray(body.userIds) || !body.userIds.every((id) => typeof id === 'string')) return bad(reply, 'give userIds or all: true');
@@ -535,6 +703,8 @@ export async function registerTrainingRoutes(
     const out: TrainingFiguresSet[] = [];
     const shared = await loadShared(store, projectId, deps.outline, request.log);
     for (const meta of await store.listTrainingSets(projectId)) {
+      // A finished training's answers are gone
+      if (meta.finishedAt !== null) continue;
       const loaded = await loadSet(store, projectId, meta.id, deps.outline, request.log, shared);
       if (!loaded) continue;
       // A learning set's spread shows its golden answers nearly: reviewers see calibration sets only.
@@ -570,6 +740,26 @@ export async function registerTrainingRoutes(
     const shared = await loadShared(store, projectId, deps.outline, request.log);
     for (const meta of await store.listTrainingSets(projectId)) {
       if (!meta.memberIds.includes(userId)) continue;
+      if (meta.finishedAt !== null) {
+        // As it was when it was finished: their last score and their attempts
+        const kept = (await store.getTrainingResults(projectId, meta.id)) as FinishedResults | null;
+        const mine = kept?.view.scores.find((x) => x.userId === userId);
+        if (!kept || !mine) continue;
+        const base = {
+          id: meta.id,
+          kind: meta.kind,
+          name: meta.name,
+          servedName: servedName(meta),
+          plotCount: meta.plotCount,
+          passMark: meta.passMark,
+          attempt: mine.attempt,
+          submitted: kept.progress.find((x) => x.userId === userId)?.submitted ?? 0,
+          finishedAt: meta.finishedAt,
+        };
+        if (meta.kind !== 'learning') out.push(base);
+        else out.push({ ...base, score: { ...mine.score, byPlot: mine.score.byPlot.map((p) => ({ ...p, note: kept.view.golden.find((g) => g.plotKey === p.plot)?.note ?? null })) }, history: mine.history });
+        continue;
+      }
       const loaded = await loadSet(store, projectId, meta.id, deps.outline, request.log, shared);
       const me = loaded?.people.find((p) => p.userId === userId);
       if (!loaded || !me) continue;
@@ -584,6 +774,7 @@ export async function registerTrainingRoutes(
         passMark: loaded.set.passMark,
         attempt: loaded.startOf.get(me.username)!,
         submitted,
+        finishedAt: null,
       };
       if (loaded.set.kind !== 'learning') {
         // A calibration: no one's answers (each assesses on their own) and no golden ones yet.
@@ -607,7 +798,7 @@ export async function registerTrainingRoutes(
     const key = (request.query as { key?: string } | undefined)?.key ?? '';
     const userId = request.userId;
     if (!userId || key === '' || key.length > 1000) return reply.send({ status: 'none' });
-    const sets = (await store.listTrainingSets(projectId)).filter((s) => s.memberIds.includes(userId));
+    const sets = (await store.listTrainingSets(projectId)).filter((s) => s.finishedAt === null && s.memberIds.includes(userId));
     if (sets.length === 0) return reply.send({ status: 'none' });
     const info = await store.getRoundInfo(projectId);
     const meta = sets.find((s) => unitOfRecord(key, new Set(s.plotKeys), info) !== null);
@@ -629,7 +820,7 @@ export async function registerTrainingRoutes(
   app.get('/v1/projects/:pid/training/:setId/content', member, async (request, reply) => {
     const projectId = request.membership!.projectId;
     const set = await store.getTrainingSet(projectId, setIdOf(request));
-    const allowed = set && (request.membership!.role === 'admin' || (request.userId !== undefined && set.memberIds.includes(request.userId)));
+    const allowed = set && set.finishedAt === null && (request.membership!.role === 'admin' || (request.userId !== undefined && set.memberIds.includes(request.userId)));
     if (!set || !allowed) return reply.code(404).send({ error: 'not_found' });
     const served = wholeFile(set, await store.getRoundInfo(projectId));
     const expected = (request.query as { v?: string } | undefined)?.v;
@@ -646,7 +837,7 @@ export async function registerTrainingRoutes(
 
 /** People who submitted every plot with golden answers of a learning set in their open attempt (the bell's card). */
 export async function finishedTrainees(store: Store, projectId: string, outline: OutlineOf, log: Log): Promise<{ username: string; set: string; passed: boolean | null }[]> {
-  const sets = (await store.listTrainingSets(projectId)).filter((s) => s.kind === 'learning' && s.memberIds.length > 0);
+  const sets = (await store.listTrainingSets(projectId)).filter((s) => s.kind === 'learning' && s.finishedAt === null && s.memberIds.length > 0);
   if (sets.length === 0) return [];
   const shared = await loadShared(store, projectId, outline, log);
   const out: { username: string; set: string; passed: boolean | null }[] = [];
@@ -662,7 +853,7 @@ export async function finishedTrainees(store: Store, projectId: string, outline:
 }
 
 /** The rows of a set's export: each person's attempts (`scores`), or every answer scored (`answers`). */
-function exportRows(loaded: Loaded, what: 'scores' | 'answers'): string[][] {
+function exportRows(loaded: Loaded, what: 'scores' | 'answers', withOpenAttempt = true): string[][] {
   const iso = (ms: number | null) => (ms === null || ms <= 0 ? '' : new Date(ms).toISOString());
   const pct = (rate: number | null) => (rate === null ? '' : String(Math.round(rate * 1000) / 10));
   const rows: string[][] = [];
@@ -678,8 +869,9 @@ function exportRows(loaded: Loaded, what: 'scores' | 'answers'): string[][] {
       const snap = a.results as Partial<AttemptSnapshot>;
       if (snap.score) attempts.push({ number: a.number, startedAt: a.startedAt, closedAt: snap.closedAt ?? null, score: snap.score });
     }
+    // A finished set has no open attempt: its last one was closed with its score
     const open = loaded.startOf.get(p.username)!;
-    attempts.push({ number: open.number, startedAt: open.startedAt, closedAt: null, score: scoreOf(loaded, p.username) });
+    if (withOpenAttempt) attempts.push({ number: open.number, startedAt: open.startedAt, closedAt: null, score: scoreOf(loaded, p.username) });
     for (const a of attempts) {
       if (what === 'scores') {
         const s = a.score;

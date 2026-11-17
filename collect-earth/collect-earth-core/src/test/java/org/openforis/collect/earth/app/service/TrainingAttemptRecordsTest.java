@@ -28,7 +28,8 @@ import org.openforis.idm.model.expression.ExpressionFactory;
 
 /**
  * A learning set's new attempt: Collect Earth deletes the interpreter's records of the set's plots saved before the
- * attempt started (deleteRecordsSavedBefore), on the survey of the tests, keeping the ones saved since and the other plots.
+ * attempt started (deleteRecordsSavedBefore), on the survey of the tests, keeping the ones saved since and the other plots;
+ * and once a training is over, every record of its plots (deleteRecordsOf).
  */
 class TrainingAttemptRecordsTest {
 
@@ -78,6 +79,17 @@ class TrainingAttemptRecordsTest {
 
 		assertEquals(1, service.deleteRecordsSavedBefore(Arrays.asList(new String[] { "9001" }, new String[] { "9002" }), start));
 		assertEquals(Arrays.asList("9001"), records.keys());
+	}
+
+	/** A training that is over: every record of its plots goes, whenever it was saved; the project's plots stay */
+	@Test
+	void everyRecordOfTheTrainingPlotsGoes() {
+		records.add(1, "T-1", new Date(4_000_000_000_000L));
+		records.add(2, "T-3", null);
+		records.add(3, "1", new Date(0));
+
+		assertEquals(2, service.deleteRecordsOf(Arrays.asList(new String[] { "T-1" }, new String[] { "T-3" }, new String[] { "T-9" })));
+		assertEquals(Arrays.asList("1"), records.keys());
 	}
 
 	@Test

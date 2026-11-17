@@ -27,6 +27,8 @@ export interface UiState {
   labels: Record<string, string>;
   statuses: Record<string, PlotStatus>;
   loaded: boolean;
+  /** The plot file is a training set's: its name (the list says so); null otherwise */
+  training: string | null;
   activeId: string | null;
   /** Counts the plots selected, the one open selected again included: the one-pane layout then shows its form again */
   selected: number;
@@ -90,7 +92,7 @@ export class MapController {
 
   constructor() {
     this.state = {
-      order: [], labels: byId(), statuses: byId(), loaded: false, activeId: null, selected: 0, formUrl: null,
+      order: [], labels: byId(), statuses: byId(), loaded: false, training: null, activeId: null, selected: 0, formUrl: null,
       filter: this.prefs.filter ?? "all", query: "", repeat: false, periods: byId(), periodFilter: this.prefs.periodFilter ?? "all", language: "en",
       imagery: { sources: [], visible: null }, submitted: null, unsubmitted: null,
     };
@@ -142,7 +144,7 @@ export class MapController {
       // None (e.g. no survey loaded): the list says so; the statuses tell when there is a plot file to load
       if (!index.ids || index.ids.length === 0) {
         this.plots = byId();
-        this.set({ order: [], labels: byId(), statuses: byId(), loaded: true, ...(this.state.activeId !== null ? { activeId: null, formUrl: null } : {}) });
+        this.set({ order: [], labels: byId(), statuses: byId(), loaded: true, training: null, ...(this.state.activeId !== null ? { activeId: null, formUrl: null } : {}) });
         this.startStatusPolling();
         return;
       }
@@ -160,7 +162,7 @@ export class MapController {
       const activeGone = this.state.activeId !== null && !(this.state.activeId in plots);
       // nothing to go back to
       if (this.changedAfterSubmit != null && !(this.changedAfterSubmit in plots)) this.changedAfterSubmit = null;
-      this.set({ order, labels, statuses, loaded: true, ...(activeGone ? { activeId: null, formUrl: null } : {}) });
+      this.set({ order, labels, statuses, loaded: true, training: index.training ?? null, ...(activeGone ? { activeId: null, formUrl: null } : {}) });
       this.startStatusPolling();
     } catch {
       window.setTimeout(() => this.loadPlots(), 5000);

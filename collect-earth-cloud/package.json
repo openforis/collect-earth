@@ -24,6 +24,7 @@
     "smoke:pg:batch": "tsx scripts/pg-smoke-batch.mts",
     "load:mapathon": "tsx scripts/load-mapathon.mts",
     "smoke:pg:reference": "tsx scripts/pg-smoke-reference.mts",
+    "smoke:pg:training-team": "tsx scripts/pg-smoke-training-team.mts",
     "smoke:pg:backup": "tsx scripts/pg-smoke-backup.mts",
     "smoke:pg:links": "tsx scripts/pg-smoke-share-links.mts",
     "smoke:pg:mail": "tsx scripts/pg-smoke-mail.mts",

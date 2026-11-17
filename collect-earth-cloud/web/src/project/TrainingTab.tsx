@@ -34,8 +34,11 @@ import Download from "@mui/icons-material/Download";
 import Add from "@mui/icons-material/Add";
 import { useEffect, useState, type ReactNode } from "react";
 import {
+  createTrainingFromPlotFile,
   createTrainingSet,
   deleteTrainingSet,
+  finishTraining,
+  listCsvFiles,
   downloadTrainingExport,
   getTraining,
   getTrainingSet,
@@ -56,7 +59,7 @@ import { ErrorAlert } from "../components/ErrorAlert";
 import { Explain } from "../components/Explain";
 import { FileDrop } from "../components/FileDrop";
 import { Loading } from "../components/Loading";
-import { formatNumber } from "../format";
+import { formatDate, formatNumber } from "../format";
 import { useT } from "../i18n";
 import { linkProps, navigate, pathFor } from "../router";
 import { saveBlob } from "../saveBlob";
@@ -136,9 +139,17 @@ export function TrainingTab({ projectId, setId }: { projectId: string; setId?: s
                       <Chip size="small" variant="outlined" color={set.kind === "learning" ? "primary" : "default"} label={t(set.kind === "learning" ? "training.kindLearning" : "training.kindCalibration")} />
                     </TableCell>
                     <TableCell align="right">{n(set.plotCount)}</TableCell>
-                    <TableCell align="right">{n(set.participants.length)}</TableCell>
+                    <TableCell align="right">{set.everyone ? t("training.everyoneCount", { count: n(set.participants.length) }) : n(set.participants.length)}</TableCell>
                     <TableCell align="right">{n(set.golden)}</TableCell>
-                    <TableCell>{set.participants.length > 0 ? t("training.progressCell", { done: n(finished), people: n(set.participants.length) }) : "–"}</TableCell>
+                    <TableCell>
+                      {set.finishedAt !== null ? (
+                        <Chip size="small" color="success" variant="outlined" label={t("training.finishedOn", { date: formatDate(set.finishedAt, language) })} />
+                      ) : set.participants.length > 0 ? (
+                        t("training.progressCell", { done: n(finished), people: n(set.participants.length) })
+                      ) : (
+                        "–"
+                      )}
+                    </TableCell>
                     <TableCell align="right">
                       <Button size="small" {...linkProps(pathFor({ name: "trainingSet", projectId, setId: set.id }))} aria-label={t("training.openLabel", { name: set.name })}>
                         {t("training.open")}
@@ -164,17 +175,59 @@ export function TrainingTab({ projectId, setId }: { projectId: string; setId?: s
   );
 }
 
-/** Adding a set: its kind, name, pass mark and the CSV file. */
+/** How many plots a training copied from a plot file has unless the coordinator says otherwise. */
+const DEFAULT_TRAINING_PLOTS = 20;
+
+/**
+ * Adding a set: its kind, name and pass mark, who takes part (everyone, whoever joins included, unless chosen later),
+ * and its plots: copied from a plot file of the project (the same places, new ids), or a CSV file of its own.
+ */
 function AddSet({ projectId, onAdded }: { projectId: string; onAdded: (setId: string) => void }) {
   const t = useT();
   const { language } = useApp();
+  const files = useLoad(["project", projectId, "TrainingTab.csvFiles"], () => listCsvFiles(projectId));
   const [kind, setKind] = useState<TrainingKind>("calibration");
   const [name, setName] = useState("");
   const [passMark, setPassMark] = useState("");
+  const [everyone, setEveryone] = useState(true);
+  // Copied from a plot file when the project has one, else a file of its own
+  const [source, setSource] = useState<"copy" | "upload" | null>(null);
+  const [fileId, setFileId] = useState("");
+  const [count, setCount] = useState(String(DEFAULT_TRAINING_PLOTS));
   const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const mark = readPassMark(passMark);
+  const plotFiles = files.data ?? [];
+  const from = source ?? (files.data ? (plotFiles.length > 0 ? "copy" : "upload") : null);
+  const chosenFile = plotFiles.find((f) => f.id === fileId) ?? plotFiles[0];
+  const howMany = /^\d+$/.test(count.trim()) ? Number(count.trim()) : NaN;
+  const countOk = Number.isInteger(howMany) && howMany >= 1 && howMany <= 500;
+
+  const copy = async () => {
+    setError(null);
+    setProblem(null);
+    if (!chosenFile) return;
+    if (mark === undefined) return setProblem(t("training.passMarkBad"));
+    if (name.trim() === "") return setProblem(t("training.nameNeeded"));
+    setProgress(0);
+    try {
+      const set = await createTrainingFromPlotFile(projectId, {
+        csvFileId: chosenFile.id,
+        count: howMany,
+        name: name.trim(),
+        kind,
+        passMark: kind === "learning" ? (mark ?? null) : null,
+        everyone,
+      });
+      setName("");
+      onAdded(set.id);
+    } catch (err) {
+      setError(err);
+    } finally {
+      setProgress(null);
+    }
+  };
 
   const add = async (files: File[]) => {
     setError(null);
@@ -184,7 +237,7 @@ function AddSet({ projectId, onAdded }: { projectId: string; onAdded: (setId: st
     if (mark === undefined) return setProblem(t("training.passMarkBad"));
     setProgress(0);
     try {
-      const set = await createTrainingSet(projectId, file, { kind, name: name.trim() || file.name.replace(/\.csv$/i, ""), passMark: kind === "learning" ? mark : null }, setProgress);
+      const set = await createTrainingSet(projectId, file, { kind, name: name.trim() || file.name.replace(/\.csv$/i, ""), passMark: kind === "learning" ? mark : null, everyone }, setProgress);
       setName("");
       onAdded(set.id);
     } catch (err) {
@@ -236,9 +289,61 @@ function AddSet({ projectId, onAdded }: { projectId: string; onAdded: (setId: st
           />
         )}
       </Stack>
-      <FileDrop label={t("training.drop")} buttonLabel={t("training.choose")} accept=".csv,text/csv" disabled={progress !== null} onFiles={add} />
-      <Explain variant="body2" text={t("training.fileHelp.short")} more={t("training.fileHelp")} />
-      {progress !== null && <LinearProgress variant="determinate" value={progress * 100} aria-label={t("plots.uploading", { name: name || "", pct: Math.round(progress * 100) })} />}
+      <FormControlLabel
+        control={<Checkbox checked={everyone} onChange={(e) => setEveryone(e.target.checked)} />}
+        label={
+          <Box>
+            <Typography>{t("training.everyone")}</Typography>
+            <Typography variant="body2" color="text.secondary">
+              {t("training.everyoneHelp")}
+            </Typography>
+          </Box>
+        }
+        sx={{ alignItems: "flex-start", "& .MuiCheckbox-root": { pt: 0.5 } }}
+      />
+      <FormControl>
+        <FormLabel id="training-source">{t("training.source")}</FormLabel>
+        <RadioGroup aria-labelledby="training-source" value={from ?? "upload"} onChange={(e) => setSource(e.target.value as "copy" | "upload")}>
+          <FormControlLabel value="copy" disabled={plotFiles.length === 0} control={<Radio />} label={plotFiles.length === 0 ? t("training.sourceCopyNone") : t("training.sourceCopy")} />
+          <FormControlLabel value="upload" control={<Radio />} label={t("training.sourceUpload")} />
+        </RadioGroup>
+      </FormControl>
+      {from === "copy" && chosenFile ? (
+        <Stack spacing={2}>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+            <TextField select label={t("training.copyFile")} value={chosenFile.id} onChange={(e) => setFileId(e.target.value)} sx={{ flex: 2 }}>
+              {plotFiles.map((f) => (
+                <MenuItem key={f.id} value={f.id}>
+                  {t("training.copyFileItem", { name: f.filename, count: formatNumber(f.plotCount, language) })}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              label={t("training.copyCount")}
+              value={count}
+              onChange={(e) => setCount(e.target.value)}
+              error={!countOk}
+              helperText={countOk ? t("training.copyCountHelp") : t("training.copyCountBad")}
+              slotProps={{ htmlInput: { inputMode: "numeric" } }}
+              sx={{ flex: 1 }}
+            />
+          </Stack>
+          <Explain variant="body2" text={t("training.copyHelp.short")} more={t("training.copyHelp")} />
+          <Box>
+            <Button variant="contained" disabled={progress !== null || !countOk || mark === undefined} onClick={() => void copy()}>
+              {t("training.copyMake")}
+            </Button>
+          </Box>
+        </Stack>
+      ) : from === "upload" ? (
+        <>
+          <FileDrop label={t("training.drop")} buttonLabel={t("training.choose")} accept=".csv,text/csv" disabled={progress !== null} onFiles={add} />
+          <Explain variant="body2" text={t("training.fileHelp.short")} more={t("training.fileHelp")} />
+        </>
+      ) : (
+        <Loading />
+      )}
+      {progress !== null && <LinearProgress variant={from === "copy" ? "indeterminate" : "determinate"} value={progress * 100} aria-label={t("plots.uploading", { name: name || "", pct: Math.round(progress * 100) })} />}
       {problem && <Alert severity="warning">{problem}</Alert>}
       <ClashAlert error={error} language={language} />
     </Stack>
@@ -283,10 +388,20 @@ function SetPage({ projectId, setId, members, onBack }: { projectId: string; set
       ) : (
         <>
           <Settings projectId={projectId} view={data} onChanged={state.reload} onDeleted={onBack} />
-          <Participants projectId={projectId} view={data} members={members} onSaved={state.reload} />
-          <Calibration projectId={projectId} view={data} onGolden={state.reload} />
-          <Golden projectId={projectId} view={data} onChanged={state.reload} />
-          {data.set.kind === "learning" && <Scores projectId={projectId} view={data} onStarted={state.reload} />}
+          {data.set.finishedAt === null ? (
+            <>
+              <Participants projectId={projectId} view={data} members={members} onSaved={state.reload} />
+              <Calibration projectId={projectId} view={data} onGolden={state.reload} />
+              <Golden projectId={projectId} view={data} onChanged={state.reload} />
+              {data.set.kind === "learning" && <Scores projectId={projectId} view={data} onStarted={state.reload} />}
+            </>
+          ) : (
+            <>
+              {/* Finished: the results as they were, nothing more to change (the report has the golden answers) */}
+              {data.set.kind === "learning" && <Scores projectId={projectId} view={data} onStarted={state.reload} finished />}
+              <Calibration projectId={projectId} view={data} onGolden={state.reload} finished />
+            </>
+          )}
         </>
       )}
     </Stack>
@@ -301,6 +416,9 @@ function Settings({ projectId, view, onChanged, onDeleted }: { projectId: string
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [deleting, setDeleting] = useState(false);
+  const [finishing, setFinishing] = useState(false);
+  const { language } = useApp();
+  const done = set.finishedAt !== null;
   useEffect(() => {
     setName(set.name);
     setPassMark(set.passMark === null ? "" : String(set.passMark));
@@ -326,10 +444,27 @@ function Settings({ projectId, view, onChanged, onDeleted }: { projectId: string
       <Stack spacing={2}>
         <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap", alignItems: "center" }}>
           <Chip color={set.kind === "learning" ? "primary" : "default"} label={t(set.kind === "learning" ? "training.kindLearning" : "training.kindCalibration")} />
-          <Typography variant="body2" color="text.secondary">
-            {t("training.servedAs", { file: set.servedName })}
-          </Typography>
+          {done && <Chip color="success" variant="outlined" label={t("training.finishedOn", { date: formatDate(set.finishedAt, language) })} />}
+          {!done && (
+            <Typography variant="body2" color="text.secondary">
+              {t("training.servedAs", { file: set.servedName })}
+            </Typography>
+          )}
         </Stack>
+        {done && <Alert severity="info">{t("training.finishedNote")}</Alert>}
+        {!done && (
+          <Alert
+            severity="info"
+            icon={false}
+            action={
+              <Button color="inherit" variant="outlined" size="small" onClick={() => setFinishing(true)} sx={{ whiteSpace: "nowrap" }}>
+                {t("training.finish")}
+              </Button>
+            }
+          >
+            {t("training.finishHint")}
+          </Alert>
+        )}
         <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
           <TextField label={t("training.name")} value={name} onChange={(e) => setName(e.target.value)} slotProps={{ htmlInput: { maxLength: 200 } }} sx={{ flex: 2 }} />
           {set.kind === "learning" && (
@@ -337,6 +472,7 @@ function Settings({ projectId, view, onChanged, onDeleted }: { projectId: string
               label={t("training.passMark")}
               value={passMark}
               onChange={(e) => setPassMark(e.target.value)}
+              disabled={done}
               error={mark === undefined}
               helperText={mark === undefined ? t("training.passMarkBad") : t("training.passMarkHelp")}
               slotProps={{ htmlInput: { inputMode: "numeric" } }}
@@ -348,18 +484,20 @@ function Settings({ projectId, view, onChanged, onDeleted }: { projectId: string
           <Button
             variant="contained"
             disabled={busy || !changed || name.trim() === "" || mark === undefined}
-            onClick={() => void run(() => updateTrainingSet(projectId, set.id, { name: name.trim(), ...(set.kind === "learning" ? { passMark: mark ?? null } : {}) }), onChanged)}
+            onClick={() => void run(() => updateTrainingSet(projectId, set.id, { name: name.trim(), ...(set.kind === "learning" && !done ? { passMark: mark ?? null } : {}) }), onChanged)}
           >
             {t("common.save")}
           </Button>
-          <Button variant="outlined" disabled={busy} onClick={() => void run(() => updateTrainingSet(projectId, set.id, { kind: set.kind === "learning" ? "calibration" : "learning" }), onChanged)}>
-            {t(set.kind === "learning" ? "training.toCalibration" : "training.toLearning")}
-          </Button>
+          {!done && (
+            <Button variant="outlined" disabled={busy} onClick={() => void run(() => updateTrainingSet(projectId, set.id, { kind: set.kind === "learning" ? "calibration" : "learning" }), onChanged)}>
+              {t(set.kind === "learning" ? "training.toCalibration" : "training.toLearning")}
+            </Button>
+          )}
           <Button color="error" disabled={busy} onClick={() => setDeleting(true)}>
             {t("training.delete")}
           </Button>
         </Stack>
-        {set.kind === "calibration" && (
+        {set.kind === "calibration" && !done && (
           <Explain variant="body2" text={t("training.toLearningHelp.short")} more={t("training.toLearningHelp")} />
         )}
         <ErrorAlert error={error} />
@@ -378,6 +516,44 @@ function Settings({ projectId, view, onChanged, onDeleted }: { projectId: string
           </Button>
         </DialogActions>
       </Dialog>
+      <Dialog open={finishing} onClose={() => !busy && setFinishing(false)} aria-labelledby="training-finish-title">
+        <DialogTitle id="training-finish-title">{t("training.finishTitle", { name: set.name })}</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2}>
+            <DialogContentText>{t("training.finishText")}</DialogContentText>
+            <Box component="ul" sx={{ m: 0, pl: 3 }}>
+              <li>
+                <Typography variant="body2">{t("training.finishKept")}</Typography>
+              </li>
+              <li>
+                <Typography variant="body2">{t("training.finishDeleted")}</Typography>
+              </li>
+              <li>
+                <Typography variant="body2">{t("training.finishCollectEarth")}</Typography>
+              </li>
+            </Box>
+            <Alert
+              severity="info"
+              action={
+                <Button color="inherit" size="small" startIcon={<Print />} {...linkProps(pathFor({ name: "trainingReport", projectId, setId: set.id }))} target="_blank" rel="noopener">
+                  {t("training.reportLink")}
+                </Button>
+              }
+            >
+              {t("training.finishReport")}
+            </Alert>
+            <ErrorAlert error={error} />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setFinishing(false)} disabled={busy} autoFocus>
+            {t("common.cancel")}
+          </Button>
+          <Button variant="contained" disabled={busy} onClick={() => void run(() => finishTraining(projectId, set.id), () => (setFinishing(false), onChanged()))}>
+            {t("training.finish")}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Section>
   );
 }
@@ -386,10 +562,11 @@ function Participants({ projectId, view, members, onSaved }: { projectId: string
   const t = useT();
   const saved = view.set.participants.map((p) => p.userId);
   const [chosen, setChosen] = useState<Set<string>>(() => new Set(saved));
+  const [everyone, setEveryone] = useState(view.set.everyone);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<unknown>(null);
-  const changed = chosen.size !== saved.length || saved.some((id) => !chosen.has(id));
+  const changed = everyone !== view.set.everyone || (!everyone && (chosen.size !== saved.length || saved.some((id) => !chosen.has(id))));
   const people = [...members].sort((a, b) => a.username.localeCompare(b.username));
   const toggle = (id: string) => {
     setDone(false);
@@ -404,7 +581,7 @@ function Participants({ projectId, view, members, onSaved }: { projectId: string
     setBusy(true);
     setError(null);
     try {
-      await setTrainingMembers(projectId, view.set.id, [...chosen]);
+      await setTrainingMembers(projectId, view.set.id, everyone ? { everyone: true } : [...chosen]);
       setDone(true);
       onSaved();
     } catch (err) {
@@ -416,11 +593,24 @@ function Participants({ projectId, view, members, onSaved }: { projectId: string
   return (
     <Section title={t("training.participants")} explain={t("training.participantsHelp.short")} more={t("training.participantsHelp")}>
       <Stack spacing={2}>
+        <FormControlLabel
+          control={<Checkbox checked={everyone} onChange={(e) => (setDone(false), setEveryone(e.target.checked))} />}
+          label={
+            <Box>
+              <Typography>{t("training.everyone")}</Typography>
+              <Typography variant="body2" color="text.secondary">
+                {t("training.everyoneHelp")}
+              </Typography>
+            </Box>
+          }
+          sx={{ alignItems: "flex-start", "& .MuiCheckbox-root": { pt: 0.5 } }}
+        />
         <FormGroup row>
           {people.map((m) => (
             <FormControlLabel
               key={m.userId}
-              control={<Checkbox checked={chosen.has(m.userId)} onChange={() => toggle(m.userId)} />}
+              disabled={everyone}
+              control={<Checkbox checked={everyone ? saved.includes(m.userId) : chosen.has(m.userId)} onChange={() => toggle(m.userId)} />}
               label={`${m.username} · ${t(`role.${m.role}`)}`}
               sx={{ minWidth: 220, overflowWrap: "anywhere" }}
             />
@@ -442,7 +632,7 @@ function Participants({ projectId, view, members, onSaved }: { projectId: string
   );
 }
 
-function Calibration({ projectId, view, onGolden }: { projectId: string; view: TrainingSetView; onGolden: () => void }) {
+function Calibration({ projectId, view, onGolden, finished = false }: { projectId: string; view: TrainingSetView; onGolden: () => void; finished?: boolean }) {
   const t = useT();
   const { language } = useApp();
   const n = (v: number) => formatNumber(v, language);
@@ -572,11 +762,13 @@ function Calibration({ projectId, view, onGolden }: { projectId: string; view: T
             </Alert>
           )}
           <ErrorAlert error={error} />
-          <Box>
-            <Button variant="contained" disabled={busy} onClick={() => void useConsensus()}>
-              {t("training.useConsensus")}
-            </Button>
-          </Box>
+          {!finished && (
+            <Box>
+              <Button variant="contained" disabled={busy} onClick={() => void useConsensus()}>
+                {t("training.useConsensus")}
+              </Button>
+            </Box>
+          )}
         </Stack>
       )}
     </Section>
@@ -765,7 +957,7 @@ function GoldenPlot({
   );
 }
 
-function Scores({ projectId, view, onStarted }: { projectId: string; view: TrainingSetView; onStarted: () => void }) {
+function Scores({ projectId, view, onStarted, finished = false }: { projectId: string; view: TrainingSetView; onStarted: () => void; finished?: boolean }) {
   const t = useT();
   const { language } = useApp();
   const n = (v: number) => formatNumber(v, language);
@@ -812,7 +1004,7 @@ function Scores({ projectId, view, onStarted }: { projectId: string; view: Train
                   <TableCell align="right">{t("training.colPlotsRight")}</TableCell>
                   <TableCell>{t("training.colPassed")}</TableCell>
                   <TableCell>{t("training.colEarlier")}</TableCell>
-                  <TableCell />
+                  {!finished && <TableCell />}
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -829,11 +1021,13 @@ function Scores({ projectId, view, onStarted }: { projectId: string; view: Train
                     <TableCell align="right">{n(s.score.plotsRight)}</TableCell>
                     <TableCell>{passedText(s.score.passed)}</TableCell>
                     <TableCell>{s.history.length === 0 ? "–" : s.history.map((h) => t("training.historyItem", { n: n(h.number), rate: shareText(h.answers, language) })).join(" · ")}</TableCell>
-                    <TableCell align="right">
-                      <Button size="small" disabled={busy} onClick={() => void start({ userIds: [s.userId] })} aria-label={t("training.newAttemptLabel", { name: s.username })} sx={{ whiteSpace: "nowrap" }}>
-                        {t("training.newAttempt")}
-                      </Button>
-                    </TableCell>
+                    {!finished && (
+                      <TableCell align="right">
+                        <Button size="small" disabled={busy} onClick={() => void start({ userIds: [s.userId] })} aria-label={t("training.newAttemptLabel", { name: s.username })} sx={{ whiteSpace: "nowrap" }}>
+                          {t("training.newAttempt")}
+                        </Button>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>
@@ -853,9 +1047,11 @@ function Scores({ projectId, view, onStarted }: { projectId: string; view: Train
         <ErrorAlert error={error} />
         {view.scores.length > 0 && (
           <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
-            <Button variant="outlined" disabled={busy} onClick={() => void start({ all: true })}>
-              {t("training.newAttemptAll")}
-            </Button>
+            {!finished && (
+              <Button variant="outlined" disabled={busy} onClick={() => void start({ all: true })}>
+                {t("training.newAttemptAll")}
+              </Button>
+            )}
             <Button startIcon={<Download />} disabled={busy} onClick={() => void download("scores")}>
               {t("training.exportScores")}
             </Button>

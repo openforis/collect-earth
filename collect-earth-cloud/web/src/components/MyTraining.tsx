@@ -58,10 +58,10 @@ function MySet({ set }: { set: MyTrainingSet }) {
         {set.name}
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-        {t("training.mineFile", { file: set.servedName })}
+        {set.finishedAt !== null ? t("training.mineFinished", { date: formatDate(set.finishedAt, language) }) : t("training.mineFile", { file: set.servedName })}
         {set.attempt.number > 1 && ` · ${t("training.mineAttempt", { n: n(set.attempt.number) })}`}
       </Typography>
-      {set.attempt.number > 1 && set.submitted === 0 && (
+      {set.finishedAt === null && set.attempt.number > 1 && set.submitted === 0 && (
         <Alert severity="info" sx={{ mb: 1 }}>
           {t("training.mineNewAttempt", { n: n(set.attempt.number), date: formatDate(set.attempt.startedAt, language) })}
         </Alert>

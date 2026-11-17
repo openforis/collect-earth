@@ -45,8 +45,8 @@ import org.openforis.collect.earth.app.service.SecretProtector;
 import org.openforis.collect.earth.app.service.ShellFolderFallback;
 import org.openforis.collect.earth.app.service.UpdateIniUtils;
 import org.openforis.collect.earth.app.service.cloud.AssignedPlotFileSetup;
-import org.openforis.collect.earth.app.service.cloud.CloudService;
 import org.openforis.collect.earth.app.service.cloud.MyPlotsService;
+import org.openforis.collect.earth.app.service.cloud.TrainingPlotFiles;
 import org.openforis.collect.earth.app.service.notices.Notice;
 import org.openforis.collect.earth.app.service.notices.NoticeService;
 import org.openforis.collect.earth.app.service.WindowLayoutService;
@@ -741,7 +741,8 @@ public class EarthApp {
 				if (outcome == MyPlotsService.Outcome.OLDER_SERVER) {
 					controller.getContext().getBean(AssignedPlotFileSetup.class).run();
 				} else if (outcome != MyPlotsService.Outcome.NOT_CLOUD && outcome != MyPlotsService.Outcome.NOT_MEMBER) {
-					controller.getContext().getBean(CloudService.class).offerTraining();
+					// A training over is cleaned up, then a new one is opened or offered
+					controller.getContext().getBean(TrainingPlotFiles.class).run();
 				}
 			} catch (BeanCreationNotAllowedException e) {
 				// Collect Earth closed or restarted before the setup ran: the next start does it (Sentry JAVA-COLLECT-EARTH-57C)

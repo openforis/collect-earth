@@ -196,6 +196,17 @@ public class MyPlotsService implements ApplicationListener<ContextRefreshedEvent
 		return StringUtils.trimToEmpty(properties.getValue(EarthProperty.SAMPLE_FILE));
 	}
 
+	/** Whether the server was found this run to have no person's plots (an older one): the files of before apply */
+	boolean isOlderServer() {
+		return olderServer;
+	}
+
+	/** Whether the person holds no plot of their own (none in the copy, or no copy yet) */
+	boolean holdsNoPlots() {
+		Object plots = status().get("plots"); //$NON-NLS-1$
+		return !(plots instanceof Integer) || (Integer) plots == 0;
+	}
+
 	/** The person opened a training set: the plots file stays on it */
 	boolean onTraining() {
 		String training = StringUtils.trimToEmpty(properties.getValue(EarthProperty.CLOUD_TRAINING_FILE));

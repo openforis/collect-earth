@@ -695,26 +695,88 @@ public class CloudApiClient {
 		return result;
 	}
 
+	/**
+	 * What my-assignment answers: the files assigned to the operator (the training sets they take part in among them),
+	 * and the training that is over (docs/plans/2026-11-17-training-the-team.md).
+	 */
+	public static class MyAssignment {
+		private final List<AssignmentInfo> assignments;
+		private final List<String> finishedFiles;
+		private final List<String> finishedPlots;
+
+		public MyAssignment(List<AssignmentInfo> assignments, List<String> finishedFiles, List<String> finishedPlots) {
+			this.assignments = assignments;
+			this.finishedFiles = finishedFiles;
+			this.finishedPlots = finishedPlots;
+		}
+
+		public List<AssignmentInfo> getAssignments() {
+			return assignments;
+		}
+
+		/** The files of the finished training sets the operator took part in, as they were served */
+		public List<String> getFinishedFiles() {
+			return finishedFiles;
+		}
+
+		/**
+		 * The plot ids (record keys, a plot of several keys with them joined by commas) of the training that is over,
+		 * finished or deleted: their records are no use any more, here or on the server
+		 */
+		public List<String> getFinishedPlots() {
+			return finishedPlots;
+		}
+	}
+
 	/** Lists the CSV files assigned to the logged-in operator for the configured project. */
 	public List<AssignmentInfo> getMyAssignments() throws IOException {
+		return getMyAssignment().getAssignments();
+	}
+
+	/** {@link #getMyAssignments()} with the training that is over */
+	public MyAssignment getMyAssignment() throws IOException {
 		HttpGet request = new HttpGet(baseUrl() + "/v1/projects/" + projectId() + "/my-assignment");
 		prepare(request);
-		JsonNode response = executeForJson("getMyAssignments", request);
+		return readMyAssignment(executeForJson("getMyAssignments", request), System.currentTimeMillis());
+	}
+
+	static MyAssignment readMyAssignment(JsonNode response, long localNow) {
 		List<AssignmentInfo> result = new ArrayList<>();
 		JsonNode assignments = response.get("assignments");
 		if (assignments != null && assignments.isArray()) {
 			for (JsonNode a : assignments) {
 				JsonNode training = a.get("training");
-				JsonNode fresh = training != null ? training.get("freshSince") : null;
-				JsonNode serverTime = training != null ? training.get("serverTime") : null;
+				boolean isTraining = training != null && training.isObject();
+				JsonNode fresh = isTraining ? training.get("freshSince") : null;
+				JsonNode serverTime = isTraining ? training.get("serverTime") : null;
 				result.add(new AssignmentInfo(textOrNull(a, "csvFileId"), textOrNull(a, "filename"),
 						textOrNull(a, "checksum"), textOrNull(a, "downloadPath"),
 						a.has("plotCount") ? a.get("plotCount").asInt() : 0,
-						fresh != null && fresh.isNumber() ? freshSinceHere(fresh.asLong(), serverTime, System.currentTimeMillis()) : null)
-								.training(training != null && training.isObject() ? StringUtils.defaultIfBlank(textOrNull(training, "kind"), "training") : null));
+						fresh != null && fresh.isNumber() ? freshSinceHere(fresh.asLong(), serverTime, localNow) : null)
+								.training(isTraining ? kindOf(training) : null));
 			}
 		}
-		return result;
+		// Absent from a server older than the training the team has (docs/plans/2026-11-17-training-the-team.md)
+		JsonNode finished = response.get("finishedTraining");
+		return new MyAssignment(result, texts(finished == null ? null : finished.get("files")),
+				texts(finished == null ? null : finished.get("plots")));
+	}
+
+	private static String kindOf(JsonNode training) {
+		String kind = textOrNull(training, "kind"); //$NON-NLS-1$
+		return kind == null || kind.isEmpty() ? "training" : kind; //$NON-NLS-1$
+	}
+
+	private static List<String> texts(JsonNode array) {
+		List<String> list = new ArrayList<>();
+		if (array != null && array.isArray()) {
+			for (JsonNode item : array) {
+				if (item.isTextual() && !item.asText().isEmpty()) {
+					list.add(item.asText());
+				}
+			}
+		}
+		return list;
 	}
 
 	/** What the server says of the person's plots (GET my-plots): asked every few minutes */

@@ -29,7 +29,7 @@ import type { Question } from '../surveyOutline.js';
 import { registerDivisionRoutes } from './division.js';
 import { hasPolygonColumn } from '../plotShape.js';
 import { coordinate, isWgs84, PlotPlaceReader } from './plotPlaces.js';
-import { trainingAssignments, trainingUnits } from './training.js';
+import { finishedTraining, trainingAssignments, trainingUnits } from './training.js';
 
 interface AssignmentsBody {
   assignments?: { userId?: string; csvFileId?: string }[];
@@ -582,8 +582,17 @@ export async function registerAssignmentRoutes(
         }
         if (sets) assignments.push(...sets);
       }
+      // Trainings over: Collect Earth takes their files away, deletes its records of their plots and moves to the
+      // person's plot file (docs/plans/2026-11-17-training-the-team.md). Absent when there was none.
+      let ended: Awaited<ReturnType<typeof finishedTraining>> | null = null;
+      try {
+        ended = await finishedTraining(store, projectId, userId ?? null);
+      } catch (err) {
+        telemetry.captureError(err, { route: 'my-assignment finished training', project: projectId });
+        request.log.error({ err }, 'my-assignment: could not list the training over');
+      }
       noteActivity(request, { plotsDownload: true }, { desktop: true });
-      return reply.send({ assignments });
+      return reply.send({ assignments, ...(ended && ended.plots.length > 0 ? { finishedTraining: ended } : {}) });
     },
   );
 
