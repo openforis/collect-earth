@@ -401,7 +401,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   await registerPlotsGeoRoutes(app, store, quality, states, places, config.mapBuildsKept ? { maxBuilds: config.mapBuildsKept } : {});
   await registerActivityRoutes(app, store, quality, states, places, now);
   // No check sampling in the local mode: there is no one else to check.
-  await registerRecordRoutes(app, store, local ? undefined : sampling);
+  await registerRecordRoutes(app, store, local ? undefined : sampling, { concurrency: config.recordsBatchConcurrency });
   await registerSamplingRoutes(app, store, sampling);
   await registerReferenceRoutes(app, store, quality, states, now);
   await registerTrainingRoutes(app, store, { outline: (projectId, log) => quality.outline(projectId, log), now });

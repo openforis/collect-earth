@@ -155,16 +155,18 @@ async function call(label: string, method: string, path: string, token: string |
   const started = performance.now();
   let status = 0;
   let text = '';
+  let retryAfter: string | null = null;
   try {
     const res = await fetch(BASE + path, { method, headers, body: payload, signal: AbortSignal.timeout(60_000) });
     status = res.status;
+    retryAfter = res.headers.get('retry-after');
     text = await res.text();
   } catch (err) {
     text = String(err);
   }
   const ms = performance.now() - started;
   record(label, ms, status);
-  if (status === 0 || status >= 500) {
+  if (status === 0 || (status >= 500 && status !== 503)) {
     serverFailures += 1;
     if (token) failuresOf.set(token, (failuresOf.get(token) ?? 0) + 1);
   }
@@ -181,11 +183,13 @@ async function call(label: string, method: string, path: string, token: string |
       return {};
     }
   };
-  return { status, text, json };
+  return { status, text, json, headers: { retryAfter } };
 }
 
 /** Collect Earth's starts tried again after the server failed them (a 5xx or no answer), as it tries at its next check */
 let startRetries = 0;
+/** Sync batches the server answered busy (503) and that were sent again */
+let batchRetries = 0;
 
 /** Answers of the server that were a failure (no answer, or 5xx) */
 var serverFailures = 0;
@@ -258,8 +262,14 @@ let modifiedClock = Date.now();
 async function send(m: Mapathon, person: Person, saves: { plot: string; activelySaved: boolean }[], training = false) {
   const envelopes = saves.map((s) => envelope(person, s.plot, ++modifiedClock, s.activelySaved));
   const data = gzipSync(Buffer.from(JSON.stringify({ records: envelopes }), 'utf8'));
-  const res = await call(saves.length > 1 ? `records:batch (${saves.length} saves)` : 'records:batch (1 save)', 'POST', `/v1/projects/${m.pid}/records:batch`, person.token, undefined,
+  let res = await call(saves.length > 1 ? `records:batch (${saves.length} saves)` : 'records:batch (1 save)', 'POST', `/v1/projects/${m.pid}/records:batch`, person.token, undefined,
     { data, type: 'application/json', gzip: true });
+  // The server busy (503): sent again after its Retry-After, as Collect Earth sends a failed batch at a later cycle
+  for (let attempt = 1; res.status === 503 && attempt <= 20; attempt++) {
+    batchRetries += 1;
+    await sleep(Number(res.headers?.retryAfter ?? 10) * 1000 * between(1, 2));
+    res = await call('records:batch (sent again after busy)', 'POST', `/v1/projects/${m.pid}/records:batch`, person.token, undefined, { data, type: 'application/json', gzip: true });
+  }
   const stats = phaseOf.get(phase);
   if (stats) { stats.batches += 1; stats.records += saves.length; }
   if (res.status === 200) {
@@ -728,11 +738,11 @@ for (const m of mapathons) {
 const lines0: string[] = [];
 // --- the report --------------------------------------------------------------------------------------------------
 
-lines0.push(`Collect Earth starts tried again after a server failure: ${startRetries}; never started: ${neverStarted}; server failures (5xx or no answer): ${serverFailures}`);
+lines0.push(`Collect Earth starts tried again after a server failure: ${startRetries}; never started: ${neverStarted}; server failures (5xx but busy, or no answer): ${serverFailures}; sync batches sent again after busy (503): ${batchRetries}`);
 if (crashed) lines0.push(`THE RUN STOPPED EARLY: ${crashed}`);
 checks.unshift({ what: 'Every person\'s Collect Earth started', ok: neverStarted === 0, detail: `${neverStarted} of ${allPeople.length} could not` });
 if (crashed) checks.unshift({ what: 'The run went to its end', ok: false, detail: crashed });
-const report: Record<string, unknown> = { startRetries, neverStarted, crashed, serverFailures, base: BASE, mapathons: MAPATHONS, peoplePerMapathon: PEOPLE, plotsPerMapathon: PLOTS, training: TRAINING, survey: survey.uri, scale: SCALE, setupSeconds: +(setupMs / 1000).toFixed(1), phases: [] as unknown[], checks, errors: errors.slice(0, 50) };
+const report: Record<string, unknown> = { startRetries, batchRetries, neverStarted, crashed, serverFailures, base: BASE, mapathons: MAPATHONS, peoplePerMapathon: PEOPLE, plotsPerMapathon: PLOTS, training: TRAINING, survey: survey.uri, scale: SCALE, setupSeconds: +(setupMs / 1000).toFixed(1), phases: [] as unknown[], checks, errors: errors.slice(0, 50) };
 const lines: string[] = [...lines0];
 lines.push(`Setup: ${MAPATHONS} mapathons x ${PEOPLE} people, ${PLOTS} plots each${TRAINING ? `, a training day of ${TRAINING} plots` : ''}, survey ${survey.uri}, in ${(setupMs / 1000).toFixed(1)} s`);
 for (const [name, st] of phaseOf) {

@@ -81,6 +81,11 @@ export interface Config {
   dbConnectTimeoutMs?: number;
   /** A statement of a project's transaction that runs longer is stopped (PG_STATEMENT_TIMEOUT_MS; off by default). */
   dbStatementTimeoutMs?: number;
+  /**
+   * Sync batches (records:batch) an instance takes at once (RECORDS_BATCH_CONCURRENCY, default 16; 0: no limit); the
+   * others are answered 503 busy before their body is read, and Collect Earth sends them again later.
+   */
+  recordsBatchConcurrency?: number;
   mapBuildsKept?: number;
   projectStatesKept?: number;
   /**
@@ -235,6 +240,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     dbPoolMax: wholeAtLeast('PG_POOL_MAX', env.PG_POOL_MAX, 1),
     dbConnectTimeoutMs: env.PG_CONNECT_TIMEOUT_MS === undefined || env.PG_CONNECT_TIMEOUT_MS.trim() === '' ? DEFAULT_CONNECT_TIMEOUT_MS : wholeAtLeast('PG_CONNECT_TIMEOUT_MS', env.PG_CONNECT_TIMEOUT_MS, 0),
     dbStatementTimeoutMs: wholeAtLeast('PG_STATEMENT_TIMEOUT_MS', env.PG_STATEMENT_TIMEOUT_MS, 1000),
+    recordsBatchConcurrency: wholeAtLeast('RECORDS_BATCH_CONCURRENCY', env.RECORDS_BATCH_CONCURRENCY, 0),
     ...aiConfigOf(env, storeBackend),
     mapTiles: mapTilesOf(env),
     ...mailConfigOf(env),
