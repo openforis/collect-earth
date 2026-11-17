@@ -154,7 +154,7 @@ public class PlotFileIndex {
 				longitudes[i] = places.get(i)[1];
 			}
 			Map<String, Object> answer = new LinkedHashMap<>();
-			answer.put("plots", plotsVersion(csvPath));
+			answer.put("plots", csvPath + "@" + stamp); // the file as it was read, not as it is now (it may have been replaced meanwhile)
 			answer.put("ids", this.ids);
 			answer.put("labels", labels);
 			answer.put("latitudes", latitudes);

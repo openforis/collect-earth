@@ -622,7 +622,10 @@ export async function registerAssignmentRoutes(
     } else {
       const parts: PlotFilePart[] = [];
       for (const f of ordered) {
-        const file = await served(request, f);
+        // Not `served`, which takes a failure for a file with none of the person's plots: a part left out would be
+        // answered and cached under the version of the whole set, and Collect Earth told 304 (the same) from then on.
+        // A failure fails the request: Collect Earth keeps its copy and asks again at its next check.
+        const file = await f.serve();
         if (file) parts.push({ csvFileId: f.sourceId, filename: f.sourceFilename, data: file.data });
       }
       merged = mergePlotFiles(parts, keyCount, { plotFile, readable });
@@ -664,7 +667,8 @@ export async function registerAssignmentRoutes(
       if (typeof query.v === 'string' && query.v !== '' && query.v !== version) {
         return changed(reply);
       }
-      const etag = `"${version}"`;
+      // The file with the plot_file column is another file: its own tag, so a 304 is never for the other one
+      const etag = merged.plotFileColumn ? `"${version}-f"` : `"${version}"`;
       reply.header('etag', etag).header('cache-control', 'private, no-cache');
       if (request.headers['if-none-match'] === etag) {
         return reply.code(304).send();
