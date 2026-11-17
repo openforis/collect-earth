@@ -345,6 +345,32 @@ public class ImageryBrowser {
 	}
 
 	/**
+	 * Sends the tab shown in the window of the other sources to the page, when that tab was never sent to one: it is
+	 * blank before the first plot. Nothing without that window, or once a plot was loaded there (checked on the worker,
+	 * after any load sent before). Called once the tabs are open: a page still loading in it would keep the tabs opened
+	 * beside it from opening there (see {@code BidiTabDriver.createTab}).
+	 */
+	public void showWhileNoPlot(String url) {
+		ImagerySource source;
+		synchronized (tabsLock) {
+			source = shownIn.get(ImageryWindow.OTHERS);
+		}
+		if (source == null) {
+			return;
+		}
+		callIfOpen(source, (d, tab) -> {
+			synchronized (tabsLock) {
+				if (navigatedAt.containsKey(tab)) {
+					return null;
+				}
+			}
+			d.navigate(tab, url);
+			navigated(tab);
+			return null;
+		});
+	}
+
+	/**
 	 * A count that changes each time the worker starts or ends opening a tab, odd while it opens one: the same even value
 	 * read before and after a wait says no tab was opened meanwhile. Opening a tab can keep the worker for seconds (see
 	 * {@code BidiTabDriver.createTab}), and the commands of the other tabs wait behind it.

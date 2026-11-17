@@ -598,6 +598,26 @@ public class ImageryBrowserTest {
 	}
 
 	@Test
+	public void theWindowOfTheOtherSourcesShowsThePageBeforeTheFirstPlotOnly() {
+		imagery.separateWindowsWhen(() -> true);
+		imagery.openTabs(EnumSet.of(ImagerySource.GOOGLE_EARTH_WEB, ImagerySource.ESRI_WAYBACK, ImagerySource.PLANET));
+		imagery.showWhileNoPlot("http://localhost/earth/waiting");
+		// In the tab shown in that window, after the tabs beside it were opened
+		assertEquals(Arrays.asList("window tab1", "create tab2", "navigate tab1 http://localhost/earth/waiting"),
+				browser.calls);
+		imagery.tab(ImagerySource.ESRI_WAYBACK).navigate("https://wayback/1");
+		imagery.showWhileNoPlot("http://localhost/earth/waiting");
+		assertEquals("navigate tab1 https://wayback/1", browser.calls.get(browser.calls.size() - 1));
+	}
+
+	@Test
+	public void withoutAWindowOfTheirOwnTheOtherSourcesShowNoPage() {
+		imagery.openTabs(EnumSet.of(ImagerySource.GOOGLE_EARTH_WEB, ImagerySource.ESRI_WAYBACK));
+		imagery.showWhileNoPlot("http://localhost/earth/waiting");
+		assertEquals(Arrays.asList("create tab1"), browser.calls);
+	}
+
+	@Test
 	public void theWindowsAreSeparateEvenWhenGoogleEarthWebStartsTheBrowserAlone() {
 		imagery.separateWindowsWhen(() -> true);
 		// Its load comes first, before the sources are known

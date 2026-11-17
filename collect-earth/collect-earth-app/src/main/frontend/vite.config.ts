@@ -4,7 +4,8 @@ import react from "@vitejs/plugin-react";
 
 // Production build goes straight into the collect-earth-app classpath, where
 // LeafletMapController serves it: /earth/map -> leafletmap/map.html, /earth/form ->
-// leafletmap/form.html (the data entry form) and /earth/map/assets/<file> -> leafletmap/<file>. All assets (JS, CSS, fonts) are
+// leafletmap/form.html (the data entry form), /earth/waiting -> leafletmap/waiting.html (the window of the other
+// imagery before the first plot) and /earth/map/assets/<file> -> leafletmap/<file>. All assets (JS, CSS, fonts) are
 // bundled locally - Collect Earth must not depend on a CDN.
 //
 // `npm run dev` serves the page at http://localhost:5173/ and proxies the data
@@ -26,7 +27,8 @@ export default defineConfig(({ command }) => ({
     manifest: "build-manifest.json",
     // React + MUI (+ Leaflet for the plot preview of the settings) loaded from localhost: the two pages share a chunk
     chunkSizeWarningLimit: 1000,
-    rollupOptions: { input: { map: resolve(import.meta.dirname, "map.html"), form: resolve(import.meta.dirname, "form.html") } },
+    rollupOptions: { input: { map: resolve(import.meta.dirname, "map.html"), form: resolve(import.meta.dirname, "form.html"),
+      waiting: resolve(import.meta.dirname, "waiting.html") } },
   },
   server: {
     proxy: { "/earth": "http://localhost:8028" },

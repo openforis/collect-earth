@@ -1149,6 +1149,12 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 		return base + "map";
 	}
 
+	/** The page of the window of the other imagery before the first plot (the frontend's waiting.html), in the UI language. */
+	public String waitingPageUrl() {
+		return ServerController.getHostAddress(localPropertiesService.getHost(), localPropertiesService.getLocalPort())
+				+ "waiting?lang=" + localPropertiesService.getUiLanguage().getLocale().getLanguage();
+	}
+
 	/**
 	 * Called after Google Earth Web, with the plots map in its panel, was asked to open, on the thread that asked: {@link PlotsMapKeeper}
 	 * keeps it open from then on.

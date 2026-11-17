@@ -259,6 +259,15 @@ public class PlotImageryService {
 		executor.submit(() -> {
 			googleEarthWebService.openOverview(center);
 			openImageryTabs();
+			if (lastShown == null) {
+				try {
+					// The Collect Earth logo and "pick the first plot" rather than a blank window
+					imageryBrowser.showWhileNoPlot(browserService.waitingPageUrl());
+				} catch (RuntimeException e) {
+					logger.warn("The window of the other imagery could not show the page before the first plot: {}",
+							e.getMessage());
+				}
+			}
 		});
 	}
 
