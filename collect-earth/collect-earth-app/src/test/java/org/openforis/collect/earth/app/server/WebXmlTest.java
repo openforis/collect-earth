@@ -44,7 +44,7 @@ public class WebXmlTest {
 			}
 		}
 		for (String pattern : new String[] { "/api/*", "/googleEarthWeb/*", "/imagery/*", "/balloon", "/plotsGeoJson",
-				"/plotsIndex", "/plotDetail", "/plotStatuses", "/surveyForm/*" }) {
+				"/plotsIndex", "/plotDetail", "/plotStatuses", "/surveyForm/*", "/openAuxiliaryWindows", "/generated/*" }) {
 			assertTrue(patterns.get(OWN_PAGES).contains(pattern), pattern);
 		}
 		for (String pattern : new String[] { "/placemark-info-expanded", "/save-data-expanded",

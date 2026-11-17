@@ -461,6 +461,8 @@ public class EarthApp {
 
 		} catch (final Exception e) {
 			logger.error("Error while restarting Collect Earth", e); //$NON-NLS-1$
+			// The server may be stopped and QuitService.STOPPING is set: this process could neither serve nor quit
+			System.exit(1);
 		}
 	}
 

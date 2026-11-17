@@ -740,6 +740,21 @@ public class MyPlotsService implements ApplicationListener<ContextRefreshedEvent
 		}
 	}
 
+	/** The plots of the person's plots of the open cloud project (their keys, as {@link #keyOf}); none without a copy */
+	public Set<String> plotKeys() {
+		File copy = copy();
+		if (!copy.isFile()) {
+			return Collections.emptySet();
+		}
+		try {
+			List<String[]> rows = read(copy);
+			int keyColumns = Math.max(1, Integer.parseInt(readState(copy.getParentFile()).getProperty("keyColumns", "1"))); //$NON-NLS-1$ //$NON-NLS-2$
+			return keysOf(rows, !rows.isEmpty() && isHeader(rows.get(0)), keyColumns);
+		} catch (IOException | RuntimeException e) {
+			return Collections.emptySet();
+		}
+	}
+
 	/** What Settings › Project shows: whether the plots come from the server, how many, when, and the training set open */
 	public Map<String, Object> status() {
 		Map<String, Object> status = new LinkedHashMap<>();
@@ -747,17 +762,7 @@ public class MyPlotsService implements ApplicationListener<ContextRefreshedEvent
 		File copy = cloud ? copy() : null;
 		Properties state = cloud ? readState(copy.getParentFile()) : new Properties();
 		status.put("mode", !cloud ? "none" : olderServer ? "files" : copy.isFile() ? "myPlots" : "pending"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
-		int plots = 0;
-		if (copy != null && copy.isFile()) {
-			try {
-				List<String[]> rows = read(copy);
-				int keyColumns = Math.max(1, Integer.parseInt(state.getProperty("keyColumns", "1"))); //$NON-NLS-1$ //$NON-NLS-2$
-				plots = keysOf(rows, !rows.isEmpty() && isHeader(rows.get(0)), keyColumns).size();
-			} catch (IOException | RuntimeException e) {
-				plots = 0;
-			}
-		}
-		status.put("plots", plots); //$NON-NLS-1$
+		status.put("plots", cloud ? plotKeys().size() : 0); //$NON-NLS-1$
 		status.put("updatedAt", longOf(state.getProperty("updatedAt"))); //$NON-NLS-1$ //$NON-NLS-2$
 		status.put("checkedAt", longOf(state.getProperty("checkedAt"))); //$NON-NLS-1$ //$NON-NLS-2$
 		String leftOut = state.getProperty("leftOut", ""); //$NON-NLS-1$ //$NON-NLS-2$

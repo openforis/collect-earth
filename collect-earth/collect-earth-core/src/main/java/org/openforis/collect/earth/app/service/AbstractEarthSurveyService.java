@@ -324,10 +324,11 @@ public abstract class AbstractEarthSurveyService implements DisposableBean {
 	/**
 	 * Saves the pending changes and forgets the records kept in memory: called around the jobs that write the database
 	 * without this service (imports, deletions), so an open plot is read again rather than written back over them.
+	 * A record whose save failed is kept, still unsaved, so its changes are not lost.
 	 */
 	public synchronized void flushAndForgetWorkingRecords() {
 		flushAll();
-		workingRecords.clear();
+		workingRecords.values().removeIf(wr -> !wr.dirty);
 	}
 
 	/** On the close of the context, before the database it depends on: the last changes are saved. */

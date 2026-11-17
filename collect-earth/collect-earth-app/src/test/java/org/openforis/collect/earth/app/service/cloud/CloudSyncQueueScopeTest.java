@@ -119,8 +119,12 @@ public class CloudSyncQueueScopeTest {
 		when(serializer.serialize(any(), any(), eq("uri:kenya"))).thenReturn(CloudRecordSerializer.tombstone("1", "uri:kenya", "ana", saved));
 		when(api.uploadRecordsBatch(anyList())).thenReturn(java.util.Arrays.asList(new BatchResult("1", "stored", null), new BatchResult("2", "stale", null)));
 		sync.syncCycle();
-		assertEquals(2, queue.getStatus("uri:kenya", "p-kenya").getSynced());
-		assertEquals(0, queue.countUnsent("p-kenya"));
+		assertEquals(1, queue.getStatus("uri:kenya", "p-kenya").getSynced());
+		// stale: the server kept a newer save, so this edit is not there and must not be replaced by the server's copy
+		assertEquals(1, queue.getStatus("uri:kenya", "p-kenya").getFailed());
+		assertEquals("CONFLICT", queue.getRecordStatus("2", "uri:kenya", "p-kenya"));
+		assertEquals("failed", sync.recordState("2"), "the fetcher leaves a failed record alone");
+		assertEquals(1, queue.countUnsent("p-kenya"));
 	}
 
 	@Test
