@@ -5,6 +5,9 @@ import { isUuid } from './accountRules.js';
 import { isMailFrom, parseSmtpUrl } from './mail.js';
 import type { MapTiles } from './wire/account.js';
 
+/** How long a request waits for a database connection by default before 503 busy (PG_CONNECT_TIMEOUT_MS) */
+export const DEFAULT_CONNECT_TIMEOUT_MS = 10_000;
+
 export interface Config {
   port: number;
   host: string;
@@ -75,6 +78,20 @@ export interface Config {
    * them: raise it within what the database plan allows (its max_connections, less the other clients').
    */
   dbPoolMax?: number;
+  /**
+   * How long a request waits for a connection of the pool before it is answered 503 busy (PG_CONNECT_TIMEOUT_MS,
+   * default 10 s; 0 waits for ever, as the driver does). Without a bound, a pool held by slow queries queues every
+   * request that needs the database until the load stops: the proxy in front answers "upstream request timeout"
+   * while /health still answers (cloud.collectearth.org, 17 Nov 2026). Collect Earth and the dashboard try again.
+   */
+  dbConnectTimeoutMs?: number;
+  /** A statement of a project's transaction that runs longer is stopped (PG_STATEMENT_TIMEOUT_MS; off by default). */
+  dbStatementTimeoutMs?: number;
+  /**
+   * Sync batches (records:batch) an instance takes at once (RECORDS_BATCH_CONCURRENCY, default 16; 0: no limit); the
+   * others are answered 503 busy before their body is read, and Collect Earth sends them again later.
+   */
+  recordsBatchConcurrency?: number;
   mapBuildsKept?: number;
   projectStatesKept?: number;
   /**
@@ -228,6 +245,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     mapBuildsKept: wholeAtLeast('MAP_BUILDS_KEPT', env.MAP_BUILDS_KEPT, 1),
     projectStatesKept: wholeAtLeast('PROJECT_STATES_KEPT', env.PROJECT_STATES_KEPT, 1),
     dbPoolMax: wholeAtLeast('PG_POOL_MAX', env.PG_POOL_MAX, 1),
+    dbConnectTimeoutMs: env.PG_CONNECT_TIMEOUT_MS === undefined || env.PG_CONNECT_TIMEOUT_MS.trim() === '' ? DEFAULT_CONNECT_TIMEOUT_MS : wholeAtLeast('PG_CONNECT_TIMEOUT_MS', env.PG_CONNECT_TIMEOUT_MS, 0),
+    dbStatementTimeoutMs: wholeAtLeast('PG_STATEMENT_TIMEOUT_MS', env.PG_STATEMENT_TIMEOUT_MS, 1000),
+    recordsBatchConcurrency: wholeAtLeast('RECORDS_BATCH_CONCURRENCY', env.RECORDS_BATCH_CONCURRENCY, 0),
     ...aiConfigOf(env, storeBackend),
     mapTiles: mapTilesOf(env),
     ...mailConfigOf(env),

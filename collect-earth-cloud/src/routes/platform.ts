@@ -185,6 +185,46 @@ const MAX_EXCLUDED_REASON = 500;
 /** How long an invitation link lasts when its maker does not say (the dashboard's own default) */
 export const DEFAULT_INVITE_DAYS = 30;
 
+/**
+ * The stored project file of the projects downloaded lately, by project, size and date (getCepInfo, which reads
+ * neither): every Collect Earth reads it at its start, so a mapathon's 9:00 read the whole file (megabytes with a
+ * survey guide) from the database once per person, holding a connection for each (cloud.collectearth.org, 17 Nov
+ * 2026). A file changed meanwhile, on any instance, has another date and is read again.
+ */
+const STORED_CEPS = 8;
+const STORED_CEP_BYTES = 32 * 1024 * 1024;
+const storedCeps = new Map<string, Buffer>();
+let storedCepBytes = 0;
+
+export async function storedCep(store: Store, projectId: string): Promise<Buffer | null> {
+  const info = await store.getCepInfo(projectId);
+  if (!info) return null;
+  const key = `${projectId}\u0000${info.bytes}\u0000${info.updatedAt}`;
+  const hit = storedCeps.get(key);
+  if (hit) {
+    storedCeps.delete(key);
+    storedCeps.set(key, hit);
+    return hit;
+  }
+  const cep = await store.getCep(projectId);
+  // Changed between the two reads, or too big to keep: served as it is, not kept
+  if (!cep || cep.length !== info.bytes || cep.length > STORED_CEP_BYTES / 4) return cep;
+  for (const k of [...storedCeps.keys()]) {
+    if (k.startsWith(`${projectId}\u0000`)) {
+      storedCepBytes -= storedCeps.get(k)!.length;
+      storedCeps.delete(k);
+    }
+  }
+  storedCeps.set(key, cep);
+  storedCepBytes += cep.length;
+  while (storedCeps.size > STORED_CEPS || storedCepBytes > STORED_CEP_BYTES) {
+    const [oldest, value] = storedCeps.entries().next().value as [string, Buffer];
+    storedCeps.delete(oldest);
+    storedCepBytes -= value.length;
+  }
+  return cep;
+}
+
 export async function registerPlatformRoutes(app: FastifyInstance, store: Store, config: Config): Promise<void> {
   // The logged-in user's projects (dashboard home). Session-only: returns strictly
   // the caller's memberships — there is no global project listing.
@@ -388,7 +428,7 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
     '/v1/projects/:pid/cep',
     { preHandler: requireProjectMembership(store) },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const cep = await store.getCep(request.membership!.projectId);
+      const cep = await storedCep(store, request.membership!.projectId);
       if (!cep) {
         return reply.code(404).send({ error: 'not_found' });
       }

@@ -130,7 +130,28 @@ export class WorkerUnavailableError extends Error {
  */
 function workerExecArgv(): string[] {
   // The bootstrap registers tsx itself (qualityWorkerFromSources.mjs): only the process's own flags.
-  return process.execArgv;
+  return workerFlags(process.execArgv);
+}
+
+/** Flags of a whole process that a worker refuses ("invalid execArgv flags"): the heap's size and its snapshots */
+const PROCESS_ONLY = /^--(max-old-space-size|max-semi-space-size|max-heap-size|heapsnapshot-near-heap-limit|heapsnapshot-signal|diagnostic-dir)(=|$)/;
+
+/**
+ * The server's flags a worker can take: without those of the whole process (a server started as `node
+ * --max-old-space-size=224 ...` could not start its worker, whose heap has its own limit, resourceLimits).
+ */
+export function workerFlags(execArgv: readonly string[]): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < execArgv.length; i++) {
+    const flag = execArgv[i];
+    if (!PROCESS_ONLY.test(flag)) {
+      out.push(flag);
+      continue;
+    }
+    // "--diagnostic-dir /path": its value goes with it
+    if (!flag.includes('=') && i + 1 < execArgv.length && !execArgv[i + 1].startsWith('-')) i++;
+  }
+  return out;
 }
 
 /** Run from the sources (tsx, vitest), not from built JavaScript. */
