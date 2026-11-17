@@ -1,32 +1,28 @@
 REQUIREMENTS
 
-Collect Earth is a visual interpretation tool that depends on Google Earth and an installed browser for its use.
+Collect Earth is a visual interpretation tool. It shows the plots in Google Earth Web and in other imagery sources (ESRI Wayback, Planet, Collect Earth Explorer, Earth Map) inside a web browser.
 
 
-GOOGLE EARTH PRO
-Google Earth Pro must be installed in your computer, if you do not have it please download it before starting Collect Earth:
-https://www.google.com/earth/
+A BROWSER: GOOGLE CHROME, MICROSOFT EDGE OR MOZILLA FIREFOX
+Keep one of them installed and up to date. Collect Earth opens its own browser windows; the browser can be chosen in Settings.
+Google Earth Pro is no longer needed.
 
 
-CHROME / FIREFOX
-Keep in mind that for the Earth Map and Google Earth Engine integrations you will need to have the LATEST version of Mozilla Firefox or Google Chrome installed in your computer.
+CREATING A SURVEY
+To create your own survey, install Open Foris Collect and use its Survey Designer:
+https://www.openforis.org/tools/collect.html
+Videos on creating a survey: https://www.youtube.com/channel/UCxu8NZPvPxGBjBp0g6LCV4w
 
 
-GENERATION OF SURVEYS
-In order to create your own survey you will need to install Open Foris Collect and use the Survey Designer
-Download from this link : http://www.openforis.org/tools/collect.html
-See some videos on survey creation here :  https://www.youtube.com/channel/UCxu8NZPvPxGBjBp0g6LCV4w 
-
-
-GENERATION OF THE SAMPLING DESING (GIRD OF PLOTS)
-The easiest way to generate a systematic or random grid is using this tool:
+THE SAMPLING DESIGN (GRID OF PLOTS)
+The easiest way to generate a systematic or random grid of plots is this tool:
 https://collectearth.users.earthengine.app/view/collect-earth-grid-generator
 
-Also, follow this video in order to test Collect Earth on hand picked plots:
-https://www.youtube.com/watch?v=cwAvGVqhS-E  
+
+WORKING AS A TEAM
+A coordinator can run a project on a Collect Earth Cloud server: the team joins it from Collect Earth (Join cloud project) and each person receives the plots assigned to them.
 
 
 OPEN FORIS WEBSITE
-For documentation and downloads you can visit http://www.openforis.org
-For the change-log please visit : https://github.com/openforis/collect-earth/blob/master/collect-earth/CHANGELOG.md
-
+Documentation and downloads: https://www.openforis.org/tools/collect-earth.html
+What changed in each version: https://github.com/openforis/collect-earth/blob/master/collect-earth/CHANGELOG.md
