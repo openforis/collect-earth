@@ -540,12 +540,21 @@ async function coordinate(m: Mapathon, ms: number, every: [number, number]) {
   }
 }
 
+/** A phase that failed outright (the script's own error): the later phases are skipped, the report is still written */
+let crashed: string | null = null;
+
 async function runPhase(name: string, body: () => Promise<unknown>) {
+  if (crashed) return;
   phase = name;
   const stats = { start: performance.now(), end: 0, records: 0, batches: 0 };
   phaseOf.set(name, stats);
   process.stderr.write(`${new Date().toISOString()} ${name}...\n`);
-  await body();
+  try {
+    await body();
+  } catch (err) {
+    crashed = `${name}: ${(err as Error).stack?.split('\n').slice(0, 3).join(' | ') ?? String(err)}`;
+    process.stderr.write(`${new Date().toISOString()} CRASHED ${crashed}\n`);
+  }
   stats.end = performance.now();
 }
 
@@ -555,7 +564,9 @@ const stopWatching = watchServer();
 const setupStart = performance.now();
 const mapathons = await setup();
 const setupMs = performance.now() - setupStart;
-const everyone = mapathons.flatMap((m) => m.people.filter((p) => !p.desktop).map((p) => ({ m, p })));
+const allPeople = mapathons.flatMap((m) => m.people.filter((p) => !p.desktop).map((p) => ({ m, p })));
+/** The people whose Collect Earth started (signed in and read its plots): the others sit out the rest of the run */
+let everyone = allPeople;
 const desktopNames = new Set(mapathons.flatMap((m) => m.people.filter((p) => p.desktop).map((p) => p.username)));
 const waitFor = async (file: string, what: string, minutes: number) => {
   const until = Date.now() + minutes * 60_000;
@@ -578,6 +589,9 @@ const coordinators = (ms: number) => mapathons.map((m) => coordinate(m, ms, [300
 // (Collect Earth signs in and reads its plots in any case: without phase 1 they do it one after the other)
 if (PHASES.has('1')) await runPhase('1 everyone starts at once', () => Promise.all(everyone.map(({ m, p }) => startCollectEarth(m, p))));
 else for (const { m, p } of everyone) await startCollectEarth(m, p);
+everyone = allPeople.filter(({ p }) => p.token && trainingOf.has(p));
+const neverStarted = allPeople.length - everyone.length;
+if (neverStarted > 0) process.stderr.write(`${new Date().toISOString()} ${neverStarted} people's Collect Earth could not start: left out of the rest\n`);
 
 // T. The training day: everyone answers the training plots; the coordinators follow it on the dashboard. Then each
 // coordinator finishes the training (its answers deleted, its scores kept) and divides the project's plots; Collect
@@ -616,7 +630,7 @@ if (TRAINING > 0) {
     await readMyPlots(m, p, versions.get(p)!);
   })));
   for (const m of mapathons) {
-    const ppl = m.people.filter((p) => !p.desktop);
+    const ppl = m.people.filter((p) => !p.desktop && trainingOf.has(p) && p.token);
     const answered = ppl.filter((p) => { const t = trainingOf.get(p)!; return t.training.length === TRAINING && t.training.every((x) => t.trainingDone.get(`${x},1`) === true); });
     trainingChecks.push({ what: `${m.name}: every person got the ${TRAINING} training plots and answered them all`, ok: answered.length === ppl.length, detail: `${answered.length} of ${ppl.length}` });
     const stale = ppl.filter((p) => trainingOf.get(p)!.staleAnswer === 'stale');
@@ -714,8 +728,11 @@ for (const m of mapathons) {
 const lines0: string[] = [];
 // --- the report --------------------------------------------------------------------------------------------------
 
-lines0.push(`Collect Earth starts tried again after a server failure: ${startRetries}; server failures (5xx or no answer): ${serverFailures}`);
-const report: Record<string, unknown> = { startRetries, serverFailures, base: BASE, mapathons: MAPATHONS, peoplePerMapathon: PEOPLE, plotsPerMapathon: PLOTS, training: TRAINING, survey: survey.uri, scale: SCALE, setupSeconds: +(setupMs / 1000).toFixed(1), phases: [] as unknown[], checks, errors: errors.slice(0, 50) };
+lines0.push(`Collect Earth starts tried again after a server failure: ${startRetries}; never started: ${neverStarted}; server failures (5xx or no answer): ${serverFailures}`);
+if (crashed) lines0.push(`THE RUN STOPPED EARLY: ${crashed}`);
+checks.unshift({ what: 'Every person\'s Collect Earth started', ok: neverStarted === 0, detail: `${neverStarted} of ${allPeople.length} could not` });
+if (crashed) checks.unshift({ what: 'The run went to its end', ok: false, detail: crashed });
+const report: Record<string, unknown> = { startRetries, neverStarted, crashed, serverFailures, base: BASE, mapathons: MAPATHONS, peoplePerMapathon: PEOPLE, plotsPerMapathon: PLOTS, training: TRAINING, survey: survey.uri, scale: SCALE, setupSeconds: +(setupMs / 1000).toFixed(1), phases: [] as unknown[], checks, errors: errors.slice(0, 50) };
 const lines: string[] = [...lines0];
 lines.push(`Setup: ${MAPATHONS} mapathons x ${PEOPLE} people, ${PLOTS} plots each${TRAINING ? `, a training day of ${TRAINING} plots` : ''}, survey ${survey.uri}, in ${(setupMs / 1000).toFixed(1)} s`);
 for (const [name, st] of phaseOf) {
