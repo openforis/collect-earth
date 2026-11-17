@@ -125,6 +125,54 @@ describe('the mail "someone joined your project"', () => {
   });
 });
 
+describe('a group joining at once', () => {
+  it('makes one mail at once, then one grouped mail an hour later', async () => {
+    let clock = Date.parse('2026-11-16T09:00:00Z');
+    const mailer = new TestMailer();
+    const ctx = await makeContext({ publicBaseUrl: BASE, linkSecret: 'a-link-secret-of-at-least-32-characters!' }, { mailer, ai: { now: () => clock } });
+    try {
+      const coordinator = await setupPlatformAdmin(ctx.app, 'coordinator', 'coordinator-pw');
+      await ctx.store.setEmail(coordinator.userId, 'coord@example.org');
+      await ctx.store.confirmEmail(coordinator.userId, 'coord@example.org', Date.now());
+      const projectId = (await ctx.app.inject({ method: 'POST', url: '/v1/projects', headers: bearer(coordinator.token), payload: { name: 'Land use 2026' } })).json().projectId;
+      const token = (await ctx.app.inject({ method: 'POST', url: `/v1/projects/${projectId}/invites`, headers: bearer(coordinator.token), payload: { role: 'operator', maxUses: 20 } })).json().inviteToken;
+      const register = async (username: string) => {
+        await ctx.app.inject({ method: 'POST', url: '/v1/auth/register', payload: { username, password: `${username}-password`, inviteToken: token } });
+        await ctx.app.mailWork?.idle();
+      };
+      const single = () => mailer.sent.filter((m) => m.tag === 'project.joined');
+      const grouped = () => mailer.sent.filter((m) => m.tag === 'project.joined.summary');
+
+      for (const u of ['ana', 'bea', 'cid', 'dan']) await register(u);
+      // ana's mail at once; the three others wait
+      expect(single().map((m) => m.subject)).toEqual([expect.stringContaining('ana joined')]);
+      expect(await ctx.app.flushJoinMails!()).toBe(0);
+      // an hour later, one mail lists them
+      clock += 61 * 60_000;
+      expect(await ctx.app.flushJoinMails!()).toBe(1);
+      expect(grouped()).toHaveLength(1);
+      expect(grouped()[0].subject).toContain('3 more people joined Land use 2026');
+      expect(grouped()[0].text).toContain('bea, as a collector: no plots yet');
+      expect(grouped()[0].text).toContain('dan, as a collector');
+      expect(grouped()[0].text).toContain('The project now has 5 people.');
+      expect(grouped()[0].headers?.['List-Unsubscribe']).toBeTruthy();
+      // nothing more waits; a join within the hour of that mail waits again
+      expect(await ctx.app.flushJoinMails!()).toBe(0);
+      await register('eva');
+      expect(single()).toHaveLength(1);
+      clock += 61 * 60_000;
+      expect(await ctx.app.flushJoinMails!()).toBe(1);
+      expect(grouped()[1].subject).toContain('one more person joined');
+      // after a quiet hour, the next join is mailed at once again
+      clock += 2 * 60 * 60_000;
+      await register('fay');
+      expect(single().map((m) => m.subject).at(-1)).toContain('fay joined');
+    } finally {
+      await ctx.app.close();
+    }
+  });
+});
+
 describe('its words', () => {
   it('has every text in every language, each filled', () => {
     const keys = Object.keys(JOIN_WORDS.en).sort();

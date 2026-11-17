@@ -306,3 +306,9 @@ export function linkProps(path: string): { href: string; onClick: (event: MouseE
     },
   };
 }
+
+/**
+ * The plot file page's id of the project's plots (every plot file, one set): /projects/:id/plots/all. A plot file's id
+ * is a uuid, so it is never this.
+ */
+export const PROJECT_PLOTS = "all";

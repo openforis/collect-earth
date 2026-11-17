@@ -14,6 +14,7 @@ import org.apache.commons.text.StringEscapeUtils;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.PlotFileIndex;
+import org.openforis.collect.earth.app.service.cloud.MyPlotsService;
 import org.openforis.collect.earth.app.service.SurveyFormModelBuilder;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openforis.collect.model.CollectSurvey;
@@ -50,6 +51,10 @@ public class SurveyFormController {
 
 	@Autowired
 	private PlotFileIndex plotFileIndex;
+
+	/** In a cloud project, the plot file each of the person's plots comes from (absent in some tests) */
+	@Autowired(required = false)
+	private MyPlotsService myPlots;
 
 	private final Logger logger = LoggerFactory.getLogger(SurveyFormController.class);
 	private final ObjectMapper json = new ObjectMapper();
@@ -148,7 +153,11 @@ public class SurveyFormController {
 			}
 		}
 		String csvFile = localPropertiesService.getCsvFile();
-		if (csvFile != null) {
+		// The person's plots of a cloud project are one file: each plot keeps the name of the plot file it comes from
+		String source = myPlots == null ? null : myPlots.plotFileOf(placemarkId);
+		if (source != null) {
+			values.put("collect_text_plot_file", source);
+		} else if (csvFile != null) {
 			values.put("collect_text_plot_file", csvFile);
 		}
 		return values;

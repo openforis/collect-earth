@@ -77,18 +77,20 @@ import { linkProps, pathFor, type ProjectTab } from "../router";
 import { useLoad } from "../useLoad";
 import { OnlyYou } from "./PlotsTab";
 import { RebalanceCard } from "./RebalanceCard";
+import { TakePlots } from "./TakePlots";
 
 // One plot file's page: divide its plots between people, see who has how many, and
 // move someone's unfinished plots to another person.
 
-async function loadFile(projectId: string, fileId: string) {
+/** One plot file's, or (fileId null) the project's plots: every plot file, one set */
+async function loadFile(projectId: string, fileId: string | null) {
   const [files, members, current, columns] = await Promise.all([
     listCsvFiles(projectId),
     listMembers(projectId),
     getDistribution(projectId, fileId),
     getCsvColumns(projectId, fileId),
   ]);
-  return { file: files.find((f) => f.id === fileId) ?? null, members, current, columns };
+  return { file: fileId === null ? null : (files.find((f) => f.id === fileId) ?? null), files, members, current, columns };
 }
 
 const holders = (state: DistributionSummary) => state.people.filter((p) => p.plots > 0).map((p) => p.userId);
@@ -232,7 +234,8 @@ function DivideForm({
   onApplied,
 }: {
   projectId: string;
-  fileId: string;
+  /** null: the project's plots */
+  fileId: string | null;
   members: Member[];
   columns: CsvColumns;
   current: DistributionSummary;
@@ -286,7 +289,8 @@ function DivideForm({
   };
 
   const modes: { id: DivisionMode; label: string; help: string }[] = [
-    { id: "whole", label: t("divide.modeWhole"), help: t("divide.modeWholeHelp") },
+    // giving a file whole is for one plot file: the project's plots are divided
+    ...(fileId === null ? [] : [{ id: "whole" as const, label: t("divide.modeWhole"), help: t("divide.modeWholeHelp") }]),
     { id: "even", label: t("divide.modeEven"), help: t("divide.modeEvenHelp") },
     { id: "column", label: t("divide.modeColumn"), help: t("divide.modeColumnHelp") },
   ];
@@ -496,7 +500,8 @@ function CurrentDivision({
   onChanged,
 }: {
   projectId: string;
-  fileId: string;
+  /** null: the project's plots */
+  fileId: string | null;
   members: Member[];
   current: DistributionSummary;
   onChanged: (state: DistributionSummary) => void;
@@ -669,8 +674,13 @@ const visuallyHidden = {
   whiteSpace: "nowrap",
 } as const;
 
-export function PlotFilePage({ projectId, fileId, onGo }: { projectId: string; fileId: string; onGo: (tab: ProjectTab) => void }) {
+/**
+ * One plot file's division page, or (fileId null, /projects/:id/plots/all) the project's plots: every plot file divided
+ * once, someone's unfinished plots moved over the project, plots taken by the coordinator to assess themselves.
+ */
+export function PlotFilePage({ projectId, fileId, onGo }: { projectId: string; fileId: string | null; onGo: (tab: ProjectTab) => void }) {
   const t = useT();
+  const { language } = useApp();
   const state = useLoad(["project", projectId, "loadFile", fileId], () => loadFile(projectId, fileId));
   // Bumped by a move, so the form starts again from the new holders (and drops its old notice).
   const [moves, setMoves] = useState(0);
@@ -684,16 +694,19 @@ export function PlotFilePage({ projectId, fileId, onGo }: { projectId: string; f
 
   if (state.loading && !state.data) return <Loading />;
   const missing = state.error instanceof ApiError && state.error.status === 404;
-  if (missing || (state.data && !state.data.file)) {
+  if (missing || (state.data && fileId !== null && !state.data.file)) {
     return (
       <Paper variant="outlined">
         <EmptyState title={t("divide.fileGone")} action={back} />
       </Paper>
     );
   }
-  if (state.error || !state.data || !state.data.file) return <ErrorAlert error={state.error} onRetry={state.reload} />;
+  if (state.error || !state.data || (fileId !== null && !state.data.file)) return <ErrorAlert error={state.error} onRetry={state.reload} />;
 
-  const { file, members, current, columns } = state.data;
+  const { file, files, members, current, columns } = state.data;
+  const project = fileId === null;
+  // The files that break the rules of one set of plots (a project from before them): the project's plots wait for them
+  const broken = files.filter((f) => f.columnsDiffer || f.sharedPlots > 0);
   const setCurrent = (next: DistributionSummary) => state.setData({ ...state.data!, current: next });
   // After a move or a new share of what is left: the new holders, and the divide form starts again from them.
   const moved = (next: DistributionSummary) => {
@@ -706,11 +719,16 @@ export function PlotFilePage({ projectId, fileId, onGo }: { projectId: string; f
       {back}
       <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
         <Typography variant="h2" gutterBottom sx={{ wordBreak: "break-word" }} data-page-heading>
-          {t("divide.title", { file: file.filename })}
+          {project ? t("projectPlots.title") : t("divide.title", { file: file!.filename })}
         </Typography>
         <Typography color="text.secondary" sx={{ mb: 3 }}>
-          {t("divide.intro")}
+          {project ? t("projectPlots.intro", { count: formatNumber(current.plotCount, language), files: formatNumber(files.length, language) }) : t("divide.intro")}
         </Typography>
+        {project && broken.length > 0 && (
+          <Alert severity="warning" sx={{ mb: 3 }}>
+            {t("projectPlots.notOneSet", { files: broken.map((f) => f.filename).join(", ") })}
+          </Alert>
+        )}
         {members.length <= 1 && (
           <Box sx={{ mb: 3 }}>
             <OnlyYou onGo={onGo} />
@@ -722,11 +740,16 @@ export function PlotFilePage({ projectId, fileId, onGo }: { projectId: string; f
         </Typography>
         <CurrentDivision projectId={projectId} fileId={fileId} members={members} current={current} onChanged={moved} />
       </Paper>
+      {project && (
+        <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
+          <TakePlots projectId={projectId} columns={columns} onTaken={moved} />
+        </Paper>
+      )}
       <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
         <DivideForm projectId={projectId} fileId={fileId} members={members} columns={columns} current={current} onApplied={setCurrent} key={moves} />
       </Paper>
-      {/* Sharing again what is left needs a divided file: nothing to show for one given whole */}
-      {current.distribution !== null && (
+      {/* Sharing again what is left needs a divided file: nothing to show for one given whole (nor yet for the project's plots) */}
+      {!project && fileId !== null && current.distribution !== null && (
         <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
           <Typography variant="h2" gutterBottom>
             {t("divide.move.shareTitle")}

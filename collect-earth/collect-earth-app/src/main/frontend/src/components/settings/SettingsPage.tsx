@@ -35,7 +35,7 @@ import {
 import { serverText, type Texts } from "../../serverTexts";
 import { PlotPreview } from "./PlotPreview";
 import { CloudAccountsCard } from "./CloudAccountsCard";
-import { CloudAssignmentsCard } from "./CloudAssignmentsCard";
+import { CloudPlotsCard } from "./CloudPlotsCard";
 import { ProjectsCard } from "./ProjectsCard";
 import { CloudLoginDialog } from "../project/CloudLoginDialog";
 import { cloudToken } from "../../projectApi";
@@ -196,7 +196,7 @@ export function SettingsPage({ texts, compact, width, onClose, onApplied }: Prop
       if (!data?.info.cloudMode) return card;
       return (
         <Stack key={field.key} spacing={1.5}>
-          <CloudAssignmentsCard texts={texts} onChosen={(path) => change(PLOT_FILE, path)} />
+          <CloudPlotsCard texts={texts} onChosen={(path) => change(PLOT_FILE, path)} />
           {props.readOnly && <Typography variant="body2" color="text.secondary" data-testid="plot-file-assigned">{s("SettingsPage.sampleFile.cloudHint")}</Typography>}
           {card}
         </Stack>

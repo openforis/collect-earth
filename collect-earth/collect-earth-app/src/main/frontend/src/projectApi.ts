@@ -53,9 +53,13 @@ export const recordSync = (key: string, signal?: AbortSignal) =>
 
 /** The records this computer has of the project (CloudSendController) */
 export const localRecordCount = (signal?: AbortSignal) => apiGet<{ count: number }>("cloud/localRecords", signal).then((r) => r.count);
+/** The records of the project on this computer: in all, the person's (under a name typed here before the join, or their username), the others */
+export interface LocalRecords { count: number; mine: number; others: number; names: string[] }
+export const localRecords = (signal?: AbortSignal) => apiGet<LocalRecords>("cloud/localRecords", signal);
 
 /** Starts sending them to the cloud project; answers the job's id */
-export const startSendToCloud = () => apiPost<{ id: string }>("jobs/sendToCloud").then((r) => r.id);
+/** Sends the person's records; with `all`, those under other names too (they then count as the person's) */
+export const startSendToCloud = (all = false) => apiPost<{ id: string }>(all ? "jobs/sendToCloud?all=true" : "jobs/sendToCloud").then((r) => r.id);
 
 export const setLanguage = (language: string) => apiPut<void>("app/language", { language });
 

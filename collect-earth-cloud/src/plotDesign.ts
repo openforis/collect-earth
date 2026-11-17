@@ -365,16 +365,24 @@ const ZERO = new Set(USUAL_EXTRA);
  * survey's extra columns in its order (`extra`: plotFileExtraColumns; null without a project file),
  * since Collect Earth reads them by position: elevation, slope and aspect 0, the others empty. The
  * stratum goes in the survey's own `stratum` column (any case), else in a column after them all. A plot
- * with its own `id` keeps it (else plots are numbered 1, 2...), and its `columns` fill those columns.
+ * with its own `id` keeps it (else plots are numbered from `firstNumber`, 1 by default: a project's next free number,
+ * as a plot is in one plot file only), and its `columns` fill those columns. Without `stratumColumn` (the project's
+ * plot files have their columns, which the file must have too: one set of plots), no stratum column is added.
  */
-export function plotFileCsv(plots: readonly DesignedPlot[], keys: { count: number; roundIndex: number | null; roundCode: string }, extra: readonly string[] | null = null): string {
+export function plotFileCsv(
+  plots: readonly DesignedPlot[],
+  keys: { count: number; roundIndex: number | null; roundCode: string },
+  extra: readonly string[] | null = null,
+  options: { firstNumber?: number; stratumColumn?: boolean } = {},
+): string {
   const stratified = plots.some((p) => p.stratum !== undefined);
   const keyNames = Array.from({ length: keys.count }, (_, i) => (i === keys.roundIndex ? 'round' : 'id'));
   const columns = [...(extra ?? USUAL_EXTRA)];
   let at = columns.findIndex((c) => c.toLowerCase() === 'stratum');
-  if (stratified && at < 0) at = columns.push('stratum') - 1;
+  if (stratified && at < 0 && options.stratumColumn !== false) at = columns.push('stratum') - 1;
+  const first = options.firstNumber ?? 1;
   const lines = plots.map((p, n) => [
-    ...keyNames.map((k) => (k === 'round' ? keys.roundCode : field(p.id ?? String(n + 1)))),
+    ...keyNames.map((k) => (k === 'round' ? keys.roundCode : field(p.id ?? String(first + n)))),
     p.lat.toFixed(6),
     p.lon.toFixed(6),
     ...columns.map((c, i) => (i === at ? field(p.stratum ?? '') : field(p.columns?.[c.toLowerCase()] ?? (ZERO.has(c.toLowerCase()) ? '0' : '')))),

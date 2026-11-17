@@ -16,7 +16,10 @@ import { fileKeyCount, keyShape, recordKeysOfUnit, unitOfRecord } from '../round
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import type { Store, UserPlots } from '../store/store.js';
 import type { Assignment, RecordRow, StoredDistribution } from '../types.js';
-import type { AssignmentsAnswer, AssignmentsSaved, CsvFilesAnswer, CsvFileWarnings, CsvUploadAnswer, ReplaceImpact } from '../wire/plotFiles.js';
+import type { AssignmentsAnswer, AssignmentsSaved, CsvFilesAnswer, CsvFileWarnings, CsvUploadAnswer, MyPlotsAnswer, ReplaceImpact } from '../wire/plotFiles.js';
+import { mergePlotFiles, myPlotsVersion, type MergedPlots, type PlotFilePart } from '../myPlots.js';
+import { oneSetFlags, oneSetRefusal } from '../projectPlots.js';
+import { standaloneCep } from '../standaloneCep.js';
 import { plotFileOf } from '../plotFileCache.js';
 import type { ProjectStateCache } from '../projectState.js';
 import type { SamplingService } from '../samplingService.js';
@@ -261,6 +264,11 @@ export async function registerAssignmentRoutes(
           });
         }
       }
+      // The project's plots are one set (src/projectPlots.ts): a plot in one plot file only, every plot file with the
+      // same columns, so the plots are divided over the project and each person gets theirs in one file. Not in the local
+      // mode: one person, and Collect Earth's plot file of the moment
+      const oneSet = config.localMode ? null : await oneSetRefusal(store, projectId, filename, parsed, keyCount);
+      if (oneSet) return reply.code(409).send(oneSet);
       // Replacing a file: plots it loses take their holdings and submitted work out of every file
       // (unless another file has them). Asked first when there is any (?confirm=replace goes ahead).
       const confirmed = (request.query as { confirm?: string } | undefined)?.confirm === 'replace';
@@ -302,12 +310,16 @@ export async function registerAssignmentRoutes(
     { preHandler: requireProjectMembership(store, 'admin') },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const projectId = request.membership!.projectId;
-      const [files, holders] = await Promise.all([store.listCsvFiles(projectId), store.countPlotHolders(projectId)]);
+      const [files, holders, info] = await Promise.all([store.listCsvFiles(projectId), store.countPlotHolders(projectId), store.getRoundInfo(projectId)]);
+      // A project from before the rules of one set of plots may break them: said per file
+      const flags = files.length > 1 ? await oneSetFlags(store, projectId, fileKeyCount(info)) : new Map();
       return reply.send({
         csvFiles: files.map((f) => ({
           ...f,
           divided: Boolean(f.distribution),
           dividedPeople: f.distribution ? holders.get(f.id) ?? 0 : 0,
+          columnsDiffer: flags.get(f.id)?.columnsDiffer ?? false,
+          sharedPlots: flags.get(f.id)?.sharedPlots ?? 0,
         })),
       } satisfies CsvFilesAnswer);
     },
@@ -410,6 +422,128 @@ export async function registerAssignmentRoutes(
     },
   );
 
+  /**
+   * The plot files one person gets, as my-assignment lists them and in its order, without the training sets: their
+   * whole files, their own file of each divided file, then the plots sent back to them to check again. Nothing is
+   * built here: each comes with what its content depends on (`key`, from the plots held and the file's checksum) and
+   * builds itself when served, so asking whether a person's plots changed builds nothing. Before the list: a due
+   * check draw is made (a checker's Refresh gets its copies), and a collector gets their copies of the reference plots.
+   */
+  const personFiles = async (request: FastifyRequest, projectId: string, userId: string | undefined): Promise<{ files: PersonFile[]; info: RoundInfo | null }> => {
+    await deps.sampling?.runIfDue(projectId, request.log);
+    // A collector without a copy of a reference plot yet (joined since it was marked, or a
+    // collector since) gets it now, so it is in the plot list below (Task 14).
+    if (userId && request.membership!.role === 'operator') {
+      await addOwnReferenceCopies(store, projectId, userId).catch((err: unknown) =>
+        request.log.error({ err, projectId }, 'my-assignment: could not add the reference plots'),
+      );
+    }
+    const info = await store.getRoundInfo(projectId);
+    if (!userId) return { files: [], info };
+    const files: PersonFile[] = [];
+    // A round column or the coordinator's note column (Task 16): every file is built.
+    const withRound = roundColumnOf(info, new Set()) !== null || noteColumnOf(info) !== undefined;
+    for (const f of await store.listAssignmentsForUser(projectId, userId)) {
+      const common = { csvFileId: f.id, filename: f.filename, sourceId: f.id, sourceFilename: f.filename };
+      if (!withRound) {
+        // Served as uploaded: its stored checksum (as ?v= too, so a file replaced in between is refused, 409, before
+        // the desktop app writes it)
+        files.push({
+          ...common,
+          built: false,
+          key: `stored:${f.checksum}`,
+          listed: { checksum: f.checksum, plotCount: f.plotCount },
+          serve: async () => {
+            const file = await store.getCsvFile(projectId, f.id);
+            return file ? { data: file.data, checksum: file.checksum, plotCount: file.plotCount } : null;
+          },
+        });
+        continue;
+      }
+      // The file as this person gets it, with the round column.
+      files.push({
+        ...common,
+        built: true,
+        key: wholeKey(f, info),
+        listed: null,
+        serve: async () => {
+          const cached = cachedWholeFile(f, info);
+          if (cached) {
+            return cached;
+          }
+          const file = await store.getCsvFile(projectId, f.id);
+          return file ? wholeFile(file, info) : null;
+        },
+      });
+    }
+    // Divided files where the person holds plots: their own file.
+    const holdings = await store.listPlotHoldings(projectId, userId);
+    const asMainOf = copiesServedAsMain(store, projectId, userId, info);
+    const metas = new Map((await store.listCsvFiles(projectId)).map((f) => [f.id, f]));
+    for (const holding of holdings) {
+      const meta = metas.get(holding.csvFileId);
+      if (!meta) {
+        continue;
+      }
+      const asMain = await asMainOf(holding);
+      files.push({
+        csvFileId: meta.id,
+        filename: meta.filename,
+        sourceId: meta.id,
+        sourceFilename: meta.filename,
+        built: true,
+        key: ownKey(meta, holding, info, asMain),
+        listed: null,
+        serve: async () => {
+          const cached = cachedOwnFile(meta, holding, info, asMain);
+          if (cached !== undefined) {
+            return cached;
+          }
+          const file = await store.getCsvFile(projectId, holding.csvFileId);
+          return file ? ownFile(file, holding, info, asMain, await rowRank(projectId, file, info, request.log)) : null;
+        },
+      });
+    }
+    // The plots sent back for another look, one file per plot file, after the others: Collect
+    // Earth keeps selected the last listed file whose name ends the path of the file in use,
+    // and "To check again – north.csv" ends with "north.csv".
+    let rechecks: RecheckFile[] = [];
+    try {
+      rechecks = await recheckFilesFor(projectId, userId, info, request.log);
+    } catch (err) {
+      request.log.error({ err, csvFileId: 'to-check-again' }, 'my-assignment: could not build the plot file');
+    }
+    for (const recheck of rechecks) {
+      const meta = metas.get(recheck.sourceFileId);
+      if (!meta) {
+        continue;
+      }
+      files.push({
+        csvFileId: recheck.id,
+        filename: recheck.filename,
+        sourceId: meta.id,
+        sourceFilename: meta.filename,
+        built: true,
+        key: recheckKey(meta, recheck, info),
+        listed: null,
+        serve: async () => {
+          const file = await store.getCsvFile(projectId, recheck.sourceFileId);
+          return file ? recheckServed(file, recheck, info) : null;
+        },
+      });
+    }
+    return { files, info };
+  };
+  /** A file's content as served, or null when it cannot be read or built (logged, never a 500) */
+  const served = async (request: FastifyRequest, f: PersonFile): Promise<ServedFile | null> => {
+    try {
+      return await f.serve();
+    } catch (err) {
+      request.log.error({ err, csvFileId: f.sourceId }, 'my-assignment: could not build the plot file');
+      return null;
+    }
+  };
+
   // The caller's own assigned CSVs, with download URLs + checksums (operator view).
   app.get(
     '/v1/projects/:pid/my-assignment',
@@ -419,109 +553,175 @@ export async function registerAssignmentRoutes(
       // A user session yields request.userId; a bare project (operator) token has no
       // user, so it has no personal assignment — return an empty list rather than 404.
       const userId = request.userId;
-      // A check draw put off by its 10 minutes is made now, so a checker's Refresh gets its copies.
-      await deps.sampling?.runIfDue(projectId, request.log);
-      // A collector without a copy of a reference plot yet (joined since it was marked, or a
-      // collector since) gets it now, so it is in the plot list below (Task 14).
-      if (userId && request.membership!.role === 'operator') {
-        await addOwnReferenceCopies(store, projectId, userId).catch((err: unknown) =>
-          request.log.error({ err, projectId }, 'my-assignment: could not add the reference plots'),
-        );
-      }
-      const files = userId ? await store.listAssignmentsForUser(projectId, userId) : [];
+      const { files, info } = await personFiles(request, projectId, userId);
       const base = config.publicBaseUrl ? config.publicBaseUrl.replace(/\/+$/, '') : '';
-      const entry = (f: { id: string; filename: string; checksum: string; plotCount: number }, query = '') => {
-        const path = `/v1/projects/${projectId}/csv-files/${f.id}/content${query}`;
-        return {
-          csvFileId: f.id,
+      const assignments: { csvFileId: string; filename: string; checksum: string; plotCount: number; downloadPath: string; downloadUrl: string | null }[] = [];
+      for (const f of files) {
+        // A file served as uploaded is listed as stored; the others are built (none of the person's plots left: not listed)
+        const listed = f.listed ?? (await served(request, f));
+        if (!listed) continue;
+        // Built files are downloaded with ?mine=1 and the checksum listed here (?v=).
+        const path = `/v1/projects/${projectId}/csv-files/${f.csvFileId}/content${f.built ? `?mine=1&v=${listed.checksum}` : `?v=${listed.checksum}`}`;
+        assignments.push({
+          csvFileId: f.csvFileId,
           filename: f.filename,
-          checksum: f.checksum,
-          plotCount: f.plotCount,
+          checksum: listed.checksum,
+          plotCount: listed.plotCount,
           downloadPath: path,
           downloadUrl: base ? `${base}${path}` : null,
-        };
-      };
-      const info = await store.getRoundInfo(projectId);
-      // A round column or the coordinator's note column (Task 16): every file is built.
-      const withRound = roundColumnOf(info, new Set()) !== null || noteColumnOf(info) !== undefined;
-      // Built files are downloaded with ?mine=1 and the checksum listed here (?v=).
-      const built = (f: Parameters<typeof entry>[0], served: ServedFile) =>
-        entry({ ...f, checksum: served.checksum, plotCount: served.plotCount }, `?mine=1&v=${served.checksum}`);
-      // A file that cannot be read or built is left out (and logged), never a 500.
-      const tryBuild = async <T>(csvFileId: string, build: () => Promise<T>): Promise<T | null> => {
-        try {
-          return await build();
-        } catch (err) {
-          request.log.error({ err, csvFileId }, 'my-assignment: could not build the plot file');
-          return null;
-        }
-      };
-      const assignments: ReturnType<typeof entry>[] = [];
-      for (const f of files) {
-        if (!withRound) {
-          // Served as uploaded: its stored checksum, also as ?v= so a file replaced
-          // in between is refused (409) before the desktop app writes it.
-          assignments.push(entry(f, `?v=${f.checksum}`));
-          continue;
-        }
-        // The file as this person gets it, with the round column.
-        const whole = await tryBuild(f.id, async () => {
-          const cached = cachedWholeFile(f, info);
-          if (cached) {
-            return cached;
-          }
-          const file = await store.getCsvFile(projectId, f.id);
-          return file ? wholeFile(file, info) : null;
         });
-        if (whole) {
-          assignments.push(built(f, whole));
-        }
-      }
-      // Divided files where the caller holds plots: their own file's checksum and count.
-      const holdings = userId ? await store.listPlotHoldings(projectId, userId) : [];
-      const asMainOf = userId ? copiesServedAsMain(store, projectId, userId, info) : null;
-      const metas = holdings.length > 0 ? new Map((await store.listCsvFiles(projectId)).map((f) => [f.id, f])) : new Map();
-      for (const holding of holdings) {
-        const meta = metas.get(holding.csvFileId);
-        if (!meta) {
-          continue;
-        }
-        const own = await tryBuild(holding.csvFileId, async () => {
-          const asMain = await asMainOf!(holding);
-          const cached = cachedOwnFile(meta, holding, info, asMain);
-          if (cached !== undefined) {
-            return cached;
-          }
-          const file = await store.getCsvFile(projectId, holding.csvFileId);
-          return file ? ownFile(file, holding, info, asMain, await rowRank(projectId, file, info, request.log)) : null;
-        });
-        if (own) {
-          assignments.push(built(meta, own));
-        }
-      }
-      // The plots sent back for another look, one file per plot file, after the others: Collect
-      // Earth keeps selected the last listed file whose name ends the path of the file in use,
-      // and "To check again – north.csv" ends with "north.csv".
-      const rechecks = (await tryBuild('to-check-again', () => recheckFilesFor(projectId, userId, info, request.log))) ?? [];
-      for (const recheck of rechecks) {
-        const servedRecheck = await tryBuild(recheck.sourceFileId, async () => {
-          const file = await store.getCsvFile(projectId, recheck.sourceFileId);
-          return file ? recheckServed(file, recheck, info) : null;
-        });
-        if (servedRecheck) {
-          assignments.push(built({ id: recheck.id, filename: recheck.filename, checksum: servedRecheck.checksum, plotCount: servedRecheck.plotCount }, servedRecheck));
-        }
       }
       // Calibration and learning sets the person takes part in, last.
       if (userId) {
-        const sets = await tryBuild('training', () => trainingAssignments(store, projectId, userId, info, base).catch((err: unknown) => {
+        let sets: Awaited<ReturnType<typeof trainingAssignments>> | null = null;
+        try {
+          sets = await trainingAssignments(store, projectId, userId, info, base);
+        } catch (err) {
           telemetry.captureError(err, { route: 'my-assignment training', project: projectId });
-          throw err;
-        }));
+          request.log.error({ err, csvFileId: 'training' }, 'my-assignment: could not build the plot file');
+        }
         if (sets) assignments.push(...sets);
       }
       noteActivity(request, { plotsDownload: true }, { desktop: true });
       return reply.send({ assignments });
+    },
+  );
+
+  /**
+   * The person's plots (docs/plans/2026-11-16-plots-from-the-server.md): every plot they hold, of every role, in one
+   * plot file (src/myPlots.ts), which Collect Earth keeps on the computer and asks about every few minutes. Training
+   * sets stay apart (my-assignment). Built once per version.
+   */
+  const myPlots = async (request: FastifyRequest, plotFile: boolean, userId = request.userId): Promise<{ version: string; merged: MergedPlots; keyCount: number }> => {
+    const projectId = request.membership!.projectId;
+    const { files, info } = await personFiles(request, projectId, userId);
+    // The plots sent back first: their row carries the coordinator's note
+    const ordered = [...files.filter((f) => f.csvFileId !== f.sourceId), ...files.filter((f) => f.csvFileId === f.sourceId)];
+    const keyCount = keyShape(info).count;
+    // A row whose coordinates Collect Earth cannot read stops Google Earth Pro's plot file: left out (a file of
+    // polygons has its shapes, as the upload's warnings take it)
+    const { srid } = await placeReader.surveyFacts(projectId, request.log);
+    const [latLimit, lonLimit] = isWgs84(srid) ? [90, 180] : [Infinity, Infinity];
+    const readable = (fields: readonly string[]) =>
+      hasPolygonColumn(fields) || (coordinate(fields[keyCount], latLimit) !== null && coordinate(fields[keyCount + 1], lonLimit) !== null);
+    // From what each part depends on: nothing is built to answer whether the person's plots changed
+    const version = myPlotsVersion(ordered.map((f) => ({ csvFileId: f.csvFileId, checksum: f.key })), [srid]);
+    const cacheKey = `${projectId}:${userId ?? '-'}:${version}:${plotFile ? 1 : 0}`;
+    let merged = mergedPlots.get(cacheKey);
+    if (merged) {
+      mergedPlots.delete(cacheKey);
+    } else {
+      const parts: PlotFilePart[] = [];
+      for (const f of ordered) {
+        const file = await served(request, f);
+        if (file) parts.push({ csvFileId: f.sourceId, filename: f.sourceFilename, data: file.data });
+      }
+      merged = mergePlotFiles(parts, keyCount, { plotFile, readable });
+      mergedBytes += merged.data.length;
+    }
+    mergedPlots.set(cacheKey, merged);
+    while (mergedPlots.size > MERGED_CACHE_ENTRIES || mergedBytes > MERGED_CACHE_BYTES) {
+      const [oldest, value] = mergedPlots.entries().next().value as [string, MergedPlots];
+      mergedPlots.delete(oldest);
+      mergedBytes -= value.data.length;
+    }
+    return { version, merged, keyCount };
+  };
+  app.get(
+    '/v1/projects/:pid/my-plots',
+    { preHandler: requireProjectMembership(store) },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { version, merged, keyCount } = await myPlots(request, false);
+      const projectId = request.membership!.projectId;
+      return reply.header('cache-control', 'no-store').send({
+        version,
+        plots: merged.plots,
+        keyColumns: keyCount,
+        sources: merged.sources,
+        leftOut: merged.leftOut,
+        repeated: merged.repeated,
+        unreadable: merged.unreadable,
+        downloadPath: `/v1/projects/${projectId}/my-plots.csv?v=${version}`,
+      } satisfies MyPlotsAnswer);
+    },
+  );
+  app.get(
+    '/v1/projects/:pid/my-plots.csv',
+    { preHandler: requireProjectMembership(store) },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const query = (request.query ?? {}) as { v?: unknown; plotFile?: unknown };
+      const { version, merged } = await myPlots(request, query.plotFile === '1' || query.plotFile === 'true');
+      // Listed by my-plots a moment ago and changed since: 409, as a plot file that changed (the desktop asks again)
+      if (typeof query.v === 'string' && query.v !== '' && query.v !== version) {
+        return changed(reply);
+      }
+      const etag = `"${version}"`;
+      reply.header('etag', etag).header('cache-control', 'private, no-cache');
+      if (request.headers['if-none-match'] === etag) {
+        return reply.code(304).send();
+      }
+      noteActivity(request, { plotsDownload: true }, { desktop: true });
+      return reply
+        .header('content-type', 'text/csv')
+        .header('x-checksum-sha256', merged.checksum)
+        .header('x-plots', String(merged.plots))
+        // Whether the last column is the plot_file asked for (?plotFile=1): Collect Earth takes it off the file it reads
+        .header('x-plot-file-column', merged.plotFileColumn ? '1' : '0')
+        .header('content-disposition', attachment('my-plots.csv'))
+        .send(merged.data);
+    },
+  );
+
+  /**
+   * The project file for working alone (src/standaloneCep.ts): with the person's plots (`?plots=mine`, any member), all
+   * the project's plots (`?plots=all`) or one person's (`?userId=`), the last two for coordinators. The plots as Collect
+   * Earth gets them from the server (the round and note columns, rows it cannot read left out).
+   */
+  app.get(
+    '/v1/projects/:pid/cep/standalone',
+    { preHandler: requireProjectMembership(store) },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const projectId = request.membership!.projectId;
+      const query = (request.query ?? {}) as { plots?: unknown; userId?: unknown };
+      const isAdmin = request.membership!.role === 'admin';
+      const all = query.plots === 'all';
+      const forUser = typeof query.userId === 'string' && query.userId !== '' ? query.userId : null;
+      if ((all || forUser) && !isAdmin) return reply.code(403).send({ error: 'forbidden', reason: 'only coordinators download all the plots, or another person’s' });
+      if (!all && !forUser && query.plots !== 'mine') return reply.code(400).send({ error: 'bad_request', reason: 'plots=mine, plots=all or userId=' });
+      const cep = await store.getCep(projectId);
+      if (!cep) return reply.code(409).send({ error: 'no_project_file', reason: 'the project has no project file yet' });
+      const [project, members] = await Promise.all([store.getProject(projectId), store.listMembers(projectId)]);
+      let who: string;
+      let plots: Buffer;
+      let count: number;
+      if (all) {
+        const info = await store.getRoundInfo(projectId);
+        const keyCount = keyShape(info).count;
+        const parts: PlotFilePart[] = [];
+        for (const meta of await store.listCsvFiles(projectId)) {
+          const file = await store.getCsvFile(projectId, meta.id);
+          if (file) parts.push({ csvFileId: meta.id, filename: meta.filename, data: wholeFile(file, info).data });
+        }
+        const { srid } = await placeReader.surveyFacts(projectId, request.log);
+        const [latLimit, lonLimit] = isWgs84(srid) ? [90, 180] : [Infinity, Infinity];
+        const merged = mergePlotFiles(parts, keyCount, {
+          readable: (fields) => hasPolygonColumn(fields) || (coordinate(fields[keyCount], latLimit) !== null && coordinate(fields[keyCount + 1], lonLimit) !== null),
+        });
+        ({ data: plots, plots: count } = merged);
+        who = 'all';
+      } else {
+        const userId = forUser ?? request.userId;
+        const member = members.find((m) => m.userId === userId);
+        if (!userId || !member) return reply.code(forUser ? 400 : 403).send({ error: 'bad_request', reason: 'userId: a person of the project' });
+        const { merged } = await myPlots(request, false, userId);
+        ({ data: plots, plots: count } = merged);
+        who = member.username;
+      }
+      if (count === 0) return reply.code(409).send({ error: 'no_plots', reason: 'there are no plots to put in the project file' });
+      const zip = standaloneCep(cep, plots, new Date());
+      await audit(store, request, 'export.downloaded', { kind: 'standalone', plots: count, ...(forUser ? { userId: forUser } : {}), ...(all ? { all: true } : {}) });
+      const name = `${(project?.name ?? 'project').replace(/[^\p{L}\p{N} ._-]+/gu, '_').trim() || 'project'} - ${who}.cep`;
+      return reply.header('content-type', 'application/zip').header('x-plots', String(count)).header('content-disposition', attachment(name)).send(zip);
     },
   );
 
@@ -704,6 +904,30 @@ interface ServedFile {
   plotCount: number;
 }
 
+/** A plot file as one person gets it (personFiles) */
+interface PersonFile {
+  /** Its id in my-assignment's list: the plot file's, or a "To check again" file's (recheckFileId) */
+  csvFileId: string;
+  filename: string;
+  /** The plot file its plots come from */
+  sourceId: string;
+  sourceFilename: string;
+  /** Built for the person (downloaded with ?mine=1), or served as uploaded */
+  built: boolean;
+  /** What its content depends on (the plots held, the file's checksum, the round and the note): known without building it */
+  key: string;
+  /** A file served as uploaded: its stored checksum and plot count; null for one built */
+  listed: { checksum: string; plotCount: number } | null;
+  /** The file as served, built when needed; null when none of the person's plots is in it any more, or it went */
+  serve: () => Promise<ServedFile | null>;
+}
+
+/** The person's plots (my-plots) recently built, by project, person and version: at most 16, and 64 MB in all. */
+const MERGED_CACHE_ENTRIES = 16;
+const MERGED_CACHE_BYTES = 64 * 1024 * 1024;
+const mergedPlots = new Map<string, MergedPlots>();
+let mergedBytes = 0;
+
 /**
  * Recently built files, the same for my-assignment and the download that follows it:
  * at most 32, and SERVED_FILES_CACHE_MB in all (default 32 MB for a 512 MiB instance; it was
@@ -813,11 +1037,8 @@ export function wholeFile(file: { checksum: string; data: Buffer; plotCount: num
  * row carries the decision's comment in it.
  */
 function recheckServed(file: { checksum: string; data: Buffer }, recheck: RecheckFile, info: RoundInfo | null): ServedFile | null {
-  const notes = new Map([...recheck.notes].map(([plot, comment]) => [plot, noteText(comment)]));
-  const hash = createHash('sha256')
-    .update(JSON.stringify([[...recheck.plots].sort(), [...recheck.checks].sort(), noteColumn(info) === null ? [] : [...notes].sort()]))
-    .digest('hex');
-  const key = `recheck:${roundKey(file, info)}:${hash}`;
+  const notes = recheckNotes(recheck);
+  const key = recheckKey(file, recheck, info);
   const cached = cacheGet(key);
   if (cached !== undefined) {
     return cached;
@@ -832,6 +1053,19 @@ function recheckServed(file: { checksum: string; data: Buffer }, recheck: Rechec
   }
   cacheSet(key, built);
   return built;
+}
+
+/** The coordinator's comments of a "To check again" file, as its note column writes them */
+function recheckNotes(recheck: RecheckFile): Map<string, string> {
+  return new Map([...recheck.notes].map(([plot, comment]) => [plot, noteText(comment)]));
+}
+
+/** What a "To check again" file's content depends on: its plots and checks, their comments, the plot file's content */
+function recheckKey(file: { checksum: string }, recheck: RecheckFile, info: RoundInfo | null): string {
+  const hash = createHash('sha256')
+    .update(JSON.stringify([[...recheck.plots].sort(), [...recheck.checks].sort(), noteColumn(info) === null ? [] : [...recheckNotes(recheck)].sort()]))
+    .digest('hex');
+  return `recheck:${roundKey(file, info)}:${hash}`;
 }
 
 /**

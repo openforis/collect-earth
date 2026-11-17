@@ -92,8 +92,10 @@ import {
   TrainingGolden,
   TrainingKind,
   TrainingSet,
+  QueuedJoin,
 } from '../types.js';
 import type { OwnerAlertKind } from '../wire/serverAdmin.js';
+import type { InvitePlots } from '../wire/account.js';
 import {
   checkCursor,
   type CreateInviteInput,
@@ -666,6 +668,16 @@ export class PostgresStore implements Store {
     });
   }
 
+  async listOperatorRecordKeys(projectId: string, operator: string): Promise<{ recordKey: string; modifiedOn: number }[]> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query(
+        'SELECT record_key, modified_on FROM records WHERE project_id = $1 AND operator = $2 AND NOT deleted AND xml IS NOT NULL ORDER BY record_key COLLATE "C"',
+        [projectId, operator],
+      );
+      return res.rows.map((row) => ({ recordKey: row.record_key as string, modifiedOn: (row.modified_on as Date).getTime() }));
+    });
+  }
+
   async listRecordsByKeys(projectId: string, recordKeys: readonly string[], operator?: string): Promise<RecordRow[]> {
     if (recordKeys.length === 0) {
       return [];
@@ -1130,6 +1142,32 @@ export class PostgresStore implements Store {
 
   async setMailPreferences(userId: string, prefs: { language: MailLanguage | null; timeZone: string | null }): Promise<void> {
     await this.pool.query('UPDATE users SET mail_language = $2, mail_time_zone = $3 WHERE id = $1', [userId, prefs.language, prefs.timeZone]);
+  }
+
+  async noteJoinForMail(coordinatorId: string, projectId: string, join: QueuedJoin, at: number, windowMs: number): Promise<'now' | 'queued'> {
+    // One statement: two joins at once never both mail at once (the row's lock orders them)
+    const res = await this.pool.query(
+      `INSERT INTO join_mail_queue AS q (user_id, project_id, last_sent_at, pending) VALUES ($1, $2, $3, '[]'::jsonb)
+       ON CONFLICT (user_id, project_id) DO UPDATE SET
+         last_sent_at = CASE WHEN q.pending = '[]'::jsonb AND q.last_sent_at <= $4 THEN $3 ELSE q.last_sent_at END,
+         pending = CASE WHEN q.pending = '[]'::jsonb AND q.last_sent_at <= $4 THEN '[]'::jsonb ELSE q.pending || jsonb_build_array($5::jsonb) END
+       RETURNING (xmax = 0) AS inserted, last_sent_at = $3 AS now`,
+      [coordinatorId, projectId, new Date(at), new Date(at - windowMs), JSON.stringify(join)],
+    );
+    const r = res.rows[0];
+    return r.inserted || r.now ? 'now' : 'queued';
+  }
+
+  async takeDueJoinMails(at: number, windowMs: number): Promise<{ coordinatorId: string; projectId: string; joins: QueuedJoin[] }[]> {
+    const res = await this.pool.query(
+      `UPDATE join_mail_queue q SET pending = '[]'::jsonb, last_sent_at = $1
+         FROM (SELECT user_id, project_id, pending FROM join_mail_queue
+                WHERE pending <> '[]'::jsonb AND last_sent_at <= $2 FOR UPDATE SKIP LOCKED) d
+        WHERE q.user_id = d.user_id AND q.project_id = d.project_id
+        RETURNING d.user_id, d.project_id, d.pending`,
+      [new Date(at), new Date(at - windowMs)],
+    );
+    return res.rows.map((r) => ({ coordinatorId: r.user_id as string, projectId: r.project_id as string, joins: r.pending as QueuedJoin[] }));
   }
 
   async setJoinMail(userId: string, on: boolean): Promise<void> {
@@ -1958,8 +1996,8 @@ export class PostgresStore implements Store {
     const token = generateToken();
     const id = randomUUID();
     await this.pool.query(
-      `INSERT INTO invites (id, token_hash, project_id, role, max_uses, expires_at, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      `INSERT INTO invites (id, token_hash, project_id, role, max_uses, expires_at, created_by, plots)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
       [
         id,
         hashToken(token),
@@ -1968,6 +2006,7 @@ export class PostgresStore implements Store {
         input.maxUses,
         input.expiresAt === null ? null : new Date(input.expiresAt),
         input.createdBy,
+        input.plots ? JSON.stringify(input.plots) : null,
       ],
     );
     return { token, id };
@@ -1981,7 +2020,7 @@ export class PostgresStore implements Store {
     try {
       await client.query('BEGIN READ ONLY');
       const res = await client.query(
-        'SELECT project_id, role, max_uses, used_count, expires_at, revoked_at FROM invites WHERE token_hash = $1',
+        'SELECT project_id, role, max_uses, used_count, expires_at, revoked_at, plots FROM invites WHERE token_hash = $1',
         [hashToken(token)],
       );
       if (res.rowCount === 0) {
@@ -2010,12 +2049,13 @@ export class PostgresStore implements Store {
       usedCount: r.used_count,
       expiresAt: r.expires_at === null ? null : (r.expires_at as Date).getTime(),
       revoked: r.revoked_at !== null,
+      plots: (r.plots as InvitePlots | null) ?? null,
     };
   }
 
   async listInvites(projectId: string, now: number): Promise<InviteSummary[]> {
     const res = await this.pool.query(
-      `SELECT id, role, max_uses, used_count, expires_at, created_at
+      `SELECT id, role, max_uses, used_count, expires_at, created_at, plots
          FROM invites
         WHERE project_id = $1
           AND revoked_at IS NULL
@@ -2031,6 +2071,7 @@ export class PostgresStore implements Store {
       usedCount: r.used_count,
       expiresAt: r.expires_at === null ? null : (r.expires_at as Date).getTime(),
       createdAt: (r.created_at as Date).getTime(),
+      plots: (r.plots as InvitePlots | null) ?? null,
     }));
   }
 
@@ -2228,6 +2269,41 @@ export class PostgresStore implements Store {
     });
   }
 
+  async addAssignment(projectId: string, csvFileId: string, userId: string): Promise<boolean> {
+    return this.withProject(projectId, async (client) => {
+      const file = await client.query('SELECT distribution FROM csv_files WHERE project_id = $1 AND id = $2', [projectId, csvFileId]);
+      if (file.rowCount === 0 || file.rows[0].distribution !== null) return false;
+      await client.query('INSERT INTO assignments (project_id, csv_file_id, user_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING', [projectId, csvFileId, userId]);
+      return true;
+    });
+  }
+
+  async claimUnheldPlots(projectId: string, csvFileId: string, userId: string, candidates: readonly string[], count: number): Promise<number | 'whole_assigned' | 'not_found'> {
+    return this.withProject(projectId, async (client) => {
+      // The division's lock: a division, a move or another person's share is before or after, never in between
+      await client.query(SAMPLING_LOCK, [projectId]);
+      const file = await client.query('SELECT distribution FROM csv_files WHERE project_id = $1 AND id = $2', [projectId, csvFileId]);
+      if (file.rowCount === 0) return 'not_found';
+      if (file.rows[0].distribution === null) {
+        const whole = await client.query('SELECT 1 FROM assignments WHERE project_id = $1 AND csv_file_id = $2 LIMIT 1', [projectId, csvFileId]);
+        if ((whole.rowCount ?? 0) > 0) return 'whole_assigned';
+        await client.query('UPDATE csv_files SET distribution = $3 WHERE project_id = $1 AND id = $2', [projectId, csvFileId, JSON.stringify({ mode: 'manual' })]);
+      }
+      const held = new Set(
+        (await client.query('SELECT DISTINCT plot_key FROM plot_assignments WHERE project_id = $1 AND csv_file_id = $2', [projectId, csvFileId])).rows.map((r) => r.plot_key as string),
+      );
+      const taken = candidates.filter((k) => !held.has(k)).slice(0, Math.max(0, count));
+      if (taken.length > 0) {
+        await client.query(
+          `INSERT INTO plot_assignments (project_id, csv_file_id, plot_key, user_id, overlap)
+           SELECT $1, $2, k, $3, false FROM unnest($4::text[]) AS k ON CONFLICT DO NOTHING`,
+          [projectId, csvFileId, userId, taken],
+        );
+      }
+      return taken.length;
+    });
+  }
+
   async listAssignments(projectId: string): Promise<AssignmentDetail[]> {
     return this.withProject(projectId, async (client) => {
       const res = await client.query(
@@ -2283,6 +2359,26 @@ export class PostgresStore implements Store {
     await this.withProject(projectId, async (client) => {
       // The check sampling's lock: a draw's copies are added before or after, never in between.
       await client.query(SAMPLING_LOCK, [projectId]);
+      await this.applyDivision(client, projectId, csvFileId, distribution, plots);
+    });
+  }
+
+  async setDivisions(projectId: string, divisions: readonly { csvFileId: string; distribution: StoredDistribution; plots: PlotAssignment[] }[]): Promise<void> {
+    await this.withProject(projectId, async (client) => {
+      await client.query(SAMPLING_LOCK, [projectId]);
+      for (const d of divisions) await this.applyDivision(client, projectId, d.csvFileId, d.distribution, d.plots);
+    });
+  }
+
+  /** One file's setDivision, in the caller's transaction, under the sampling lock */
+  private async applyDivision(
+    client: pg.PoolClient,
+    projectId: string,
+    csvFileId: string,
+    distribution: StoredDistribution | null,
+    plots: PlotAssignment[],
+  ): Promise<void> {
+    {
       await client.query('UPDATE csv_files SET distribution = $3 WHERE project_id = $1 AND id = $2', [
         projectId,
         csvFileId,
@@ -2327,7 +2423,7 @@ export class PostgresStore implements Store {
           ],
         );
       }
-    });
+    }
   }
 
   async listPlotAssignments(projectId: string, csvFileId: string): Promise<PlotAssignment[]> {

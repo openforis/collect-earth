@@ -3,6 +3,8 @@ import { zipSync } from 'fflate';
 import type { FastifyInstance } from 'fastify';
 import type { Config } from '../src/config.js';
 import { buildServer, type BuildServerOptions } from '../src/server.js';
+import { parsePlotFile } from '../src/plots.js';
+import { fileKeyCount } from '../src/rounds.js';
 import { InMemoryStore } from '../src/store/memory.js';
 import type { CreateProjectResult } from '../src/store/store.js';
 import type { RecordEnvelope } from '../src/types.js';
@@ -141,4 +143,14 @@ export async function sendAsPeople(ctx: TestContext, projectId: string, projectT
     answers.push(res);
   }
   return answers;
+}
+
+/**
+ * A plot file as a project from before the rules of one set of plots has it (src/projectPlots.ts): a plot another file
+ * has, or other columns, which an upload now refuses. Written in the store as an upload stores it, nothing else done.
+ */
+export async function legacyPlotFile(ctx: TestContext, projectId: string, filename: string, text: string): Promise<string> {
+  const keyCount = fileKeyCount(await ctx.store.getRoundInfo(projectId));
+  const data = Buffer.from(text, 'utf8');
+  return (await ctx.store.putCsvFile(projectId, filename, data, parsePlotFile(data, keyCount).plotIds)).id;
 }

@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import { batchRequest, bearer, createProject, envelope, makeContext, type TestContext } from './helpers.js';
+import { batchRequest, bearer, createProject, envelope, legacyPlotFile, makeContext, type TestContext } from './helpers.js';
 import { demoCep, idOnlyCep, noNote } from './fixtures/cep.js';
 
 async function createInvite(app: FastifyInstance, pid: string, adminToken: string, role: string): Promise<string> {
@@ -78,8 +78,8 @@ describe('CSV files and assignments', () => {
     const drops = await uploadCsv(ctx.app, pid, project.adminToken, 'a.csv', 'id,lat,lon\n4,3,3\n');
     expect(drops.statusCode).toBe(409);
     expect(drops.json()).toMatchObject({ error: 'replace_needs_confirm', removedPlots: 1, submittedRemoved: 1, heldRemoved: 0, keptPlots: 1, newPlots: 0 });
-    // Another file having plot 2 keeps it in the project.
-    await uploadCsv(ctx.app, pid, project.adminToken, 'b.csv', 'id,lat,lon\n2,1,1\n');
+    // Another file having plot 2 keeps it in the project (a project from before the rules of one set of plots).
+    await legacyPlotFile(ctx, pid, 'b.csv', 'id,lat,lon\n2,1,1\n');
     expect((await uploadCsv(ctx.app, pid, project.adminToken, 'a.csv', 'id,lat,lon\n4,3,3\n')).statusCode).toBe(201);
     const res = await ctx.app.inject({
       method: 'PUT',
@@ -189,7 +189,7 @@ describe('CSV files and assignments', () => {
   it('replacing the assignment set removes prior assignments', async () => {
     const maria = await registerUser(ctx.app, project.projectId, project.adminToken, 'operator', 'maria');
     const a = await uploadCsv(ctx.app, project.projectId, project.adminToken, 'a.csv', 'id\n1\n');
-    const b = await uploadCsv(ctx.app, project.projectId, project.adminToken, 'b.csv', 'id\n1\n');
+    const b = await uploadCsv(ctx.app, project.projectId, project.adminToken, 'b.csv', 'id\n2\n');
 
     const assign = (csvFileId: string) =>
       ctx.app.inject({
@@ -341,10 +341,11 @@ describe('plot files served with a round column', () => {
       const [plot, value] = row.split(',');
       expect(value, row).toBe(copies.includes(`${plot},1`) ? '2' : '1');
     }
-    // A whole file has no copies: it is served as uploaded.
-    const whole = await upload('whole.csv', csv);
+    // A whole file has no copies: it is served as uploaded (other plots: one set of plots).
+    const wholeCsv = 'id,round,lat,lon\n21,1,0,0\n22,1,0,0\n';
+    const whole = await upload('whole.csv', wholeCsv);
     await assign(maria.userId, whole);
-    expect((await served(maria.token, whole)).body).toBe(csv);
+    expect((await served(maria.token, whole)).body).toBe(wholeCsv);
   });
 
   it('a project without round serves plot files exactly as uploaded (whole) or as before (divided)', async () => {
@@ -369,11 +370,11 @@ describe('plot files served with a round column', () => {
     expect((await served(maria.token, whole)).body).toBe(csv + '4,3,3\n');
     expect((await download(admin, contentPath(whole, '?mine=1'))).body).toBe(csv + '4,3,3\n');
 
-    const divided = await upload('divided.csv', csv);
+    const divided = await upload('divided.csv', 'id,lat,lon\n5,0,0\n6,1,1\n7,2,2\n');
     expect((await divide(divided, [maria.userId, jose.userId], 50)).statusCode).toBe(200);
     const holdings = await ctx.store.listPlotAssignments(pid, divided);
     const joseKeys = holdings.filter((h) => h.userId === jose.userId).map((h) => h.plotKey);
-    const expected = 'id,lat,lon\n' + ['1,0,0\n', '2,1,1\n', '3,2,2\n'].filter((r) => joseKeys.includes(r[0])).join('');
+    const expected = 'id,lat,lon\n' + ['5,0,0\n', '6,1,1\n', '7,2,2\n'].filter((r) => joseKeys.includes(r[0])).join('');
     expect((await served(jose.token, divided)).body).toBe(expected);
   });
 

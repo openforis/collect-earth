@@ -4,7 +4,7 @@ import { readCep, type RoundInfo } from '../src/cep.js';
 import { answerLabels, csvFormatOf, exportRoundOf, recordsCsv, recordsTable } from '../src/export.js';
 import type { RecordRow } from '../src/types.js';
 import { demoCep, idOnlyCep, realDemoCep } from './fixtures/cep.js';
-import { batchRequest, bearer, createProject, envelope, makeContext, setupPlatformAdmin, type TestContext } from './helpers.js';
+import { batchRequest, bearer, createProject, envelope, legacyPlotFile, makeContext, setupPlatformAdmin, type TestContext } from './helpers.js';
 
 function row(summary: Record<string, string>, recordKey = '1', operator = 'maria'): RecordRow {
   return {
@@ -234,7 +234,8 @@ describe('GET export.csv', () => {
     const maria = await join('maria');
     const jose = await join('jose');
     const a = await uploadPlots('id,lat,lon\n1,0,0\n', 'a.csv');
-    const b = await uploadPlots('id,lat,lon\n1,0,0\n2,0,0\n', 'b.csv');
+    // plot 1 in two files: a project from before the rules of one set of plots
+    const b = await legacyPlotFile(ctx, pid, 'b.csv', 'id,lat,lon\n1,0,0\n2,0,0\n');
     await ctx.store.setDivision(pid, a, { mode: 'manual' }, [{ plotKey: '1', userId: maria.userId, overlap: false }]);
     await ctx.store.setDivision(pid, b, { mode: 'manual' }, [
       { plotKey: '1', userId: jose.userId, overlap: false },

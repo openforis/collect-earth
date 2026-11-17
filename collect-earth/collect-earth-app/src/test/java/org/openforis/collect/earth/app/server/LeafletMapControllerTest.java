@@ -36,6 +36,12 @@ public class LeafletMapControllerTest {
 		// the same file, changed
 		all.setLastModified(all.lastModified() + 5000);
 		assertNotEquals(version, LeafletMapController.plotsVersion(all.getPath()));
+		// replaced within the same second of the file system's clock: its size tells
+		long at = all.lastModified();
+		String before = LeafletMapController.plotsVersion(all.getPath());
+		Files.writeString(all.toPath(), "id,x,y\n1,2,3\n");
+		all.setLastModified(at);
+		assertNotEquals(before, LeafletMapController.plotsVersion(all.getPath()));
 	}
 
 	private static org.openforis.collect.earth.app.service.PlotFileIndex.PlotIndex index(String[] ids, String[] labels, double[][] places) throws Exception {
@@ -45,7 +51,7 @@ public class LeafletMapControllerTest {
 			position.put(ids[i], i);
 			rows.add(new String[] { ids[i] });
 		}
-		return new org.openforis.collect.earth.app.service.PlotFileIndex.PlotIndex("", 0, "", null, new String[] { "id" }, java.util.Arrays.asList(ids),
+		return new org.openforis.collect.earth.app.service.PlotFileIndex.PlotIndex("", "", "", null, new String[] { "id" }, java.util.Arrays.asList(ids),
 				java.util.Arrays.asList(labels), java.util.Arrays.asList(places), rows, position, new com.fasterxml.jackson.databind.ObjectMapper());
 	}
 

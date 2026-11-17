@@ -54,6 +54,11 @@ describe("the log's sentences", () => {
     expect(logSentence(t, audit("csv.uploaded", { csvFileId: "f1", plots: 1200 }), page, "en")).toBe("ana uploaded the plot file north.csv (1,200 plots)");
     expect(logSentence(t, audit("csv.uploaded", { csvFileId: "f2", plots: 3 }), page, "en")).toBe("ana uploaded the plot file a plot file since removed (3 plots)");
     expect(logSentence(t, audit("division.applied", { csvFileId: "f1", mode: "equal", people: 3, plots: 90 }), page, "en")).toBe("ana divided north.csv between 3 people");
+    // over the project's plots (one set of plots): no file named
+    expect(logSentence(t, audit("division.applied", { scope: "project", mode: "even", people: 4, plots: 900 }), page, "en")).toBe("ana divided the project’s plots between 4 people");
+    expect(logSentence(t, audit("plots.moved", { scope: "project", fromUserId: "u1", toUserId: "u1", moved: 7 }), page, "en")).toBe("ana moved 7 of the project’s plots from ana to ana");
+    expect(logSentence(t, audit("plots.taken", { count: 50 }), page, "en")).toBe("ana took 50 of the project’s plots to assess");
+    expect(logSentence(fr, audit("plots.taken", { count: 1 }), page, "fr")).toBe("ana a pris 1 parcelle du projet à évaluer");
     expect(logSentence(t, audit("member.removed", { userId: "u2" }), page, "en")).toBe("ana removed ben (no longer in the project) from the project");
     expect(logSentence(t, audit("member.role", { userId: "u1", role: "reviewer" }), page, "en")).toBe("ana made ana a Reviewer");
     expect(logSentence(t, audit("member.signed_out", { userId: "u1" }), page, "en")).toBe("ana signed ana out everywhere");

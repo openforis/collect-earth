@@ -506,6 +506,7 @@ describe('invites, overview and export', () => {
       expiresAt: expect.any(Number),
       createdAt: expect.any(Number),
       forUsername: null,
+      plots: null,
     });
     expect(JSON.stringify(invites)).not.toContain(inviteToken);
 

@@ -1,11 +1,15 @@
 package org.openforis.collect.earth.app.service.cloud;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -14,6 +18,7 @@ import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
@@ -55,6 +60,8 @@ public class CloudRecordsSenderTest {
 		when(properties.getOperator()).thenReturn("ana");
 		when(source.surveyUri()).thenReturn(SURVEY);
 		when(api.cloudDestination()).thenReturn(cloud);
+		// "Juan": the name typed on this computer before it joined, so the records under it are the person's
+		when(properties.getValue(EarthProperty.CLOUD_LOCAL_NAMES)).thenReturn("Juan");
 	}
 
 	private static RecordEnvelope envelope(int id) {
@@ -164,5 +171,54 @@ public class CloudRecordsSenderTest {
 		records(4);
 		sender.onApplicationEvent(null);
 		assertTrue(notices.pending().isEmpty());
+	}
+
+	@Test
+	public void byDefaultOnlyThePersonsRecordsGoTheOthersWhenAsked() throws Exception {
+		// 2 under the name typed here, 1 under the username (any letter case), 2 copied from a colleague's computer
+		String[] operators = { "Juan", "juan", "ANA", "Rosa", "Rosa" };
+		when(source.recordIds()).thenReturn(Arrays.asList(1, 2, 3, 4, 5));
+		when(source.load(anyInt())).thenAnswer(invocation -> {
+			int id = invocation.getArgument(0, Integer.class);
+			return new RecordEnvelope("plot" + id, SURVEY, operators[id - 1], new Date(), true, 1, "<plot/>", Collections.emptyMap(), false);
+		});
+		Map<String, Object> local = sender.localRecords();
+		assertEquals(5, local.get("count"));
+		assertEquals(3, local.get("mine"));
+		assertEquals(2, local.get("others"));
+		assertEquals(Arrays.asList("Juan"), local.get("names"));
+		List<String> sent = new java.util.ArrayList<>();
+		when(api.uploadRecordsBatch(eq(cloud), any())).thenAnswer(invocation -> {
+			List<RecordEnvelope> batch = invocation.getArgument(1);
+			List<BatchResult> answers = new java.util.ArrayList<>();
+			for (RecordEnvelope e : batch) {
+				sent.add(e.getOperator());
+				answers.add(new BatchResult(e.getRecordKey(), "stored", null));
+			}
+			return answers;
+		});
+		sender.sendJob().run(new RecordingContext());
+		assertEquals(Arrays.asList("Juan", "juan", "ANA"), sent);
+		sent.clear();
+		sender.sendJob(true).run(new RecordingContext());
+		assertEquals(5, sent.size());
+
+		// which copies here a newer save of the person's from the cloud may replace: theirs, and one with nothing in it
+		assertTrue(sender.isMineHere(2));
+		assertTrue(sender.isMineHere(3));
+		assertFalse(sender.isMineHere(4));
+		doReturn(null).when(source).load(9);
+		assertTrue(sender.isMineHere(9));
+		doThrow(new IOException("unreadable")).when(source).load(10);
+		assertFalse(sender.isMineHere(10));
+	}
+
+	@Test
+	public void theNameTypedBeforeJoiningIsRemembered() {
+		when(properties.getValue(EarthProperty.CLOUD_LOCAL_NAMES)).thenReturn("Juan");
+		CloudRecordsSender.rememberLocalName(properties, " Juan Perez ");
+		verify(properties).setValue(EarthProperty.CLOUD_LOCAL_NAMES, "Juan\nJuan Perez");
+		CloudRecordsSender.rememberLocalName(properties, "  ");
+		verify(properties, times(1)).setValue(eq(EarthProperty.CLOUD_LOCAL_NAMES), any());
 	}
 }

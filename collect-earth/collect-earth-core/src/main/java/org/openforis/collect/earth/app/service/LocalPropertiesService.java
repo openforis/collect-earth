@@ -134,7 +134,24 @@ public class LocalPropertiesService extends Observable {
 				 * "true" from joining or opening a cloud project to the next start, which brings the account's own records of
 				 * it to this computer (CloudOwnRecordsFetcher)
 				 */
-				CLOUD_FETCH_OWN_RECORDS("cloud_fetch_own_records"),;
+				CLOUD_FETCH_OWN_RECORDS("cloud_fetch_own_records"),
+				/**
+				 * The names typed on this computer before it joined a cloud project, one per line: the records under them are
+				 * this person's, and "Send this computer's records" sends those by default (CloudRecordsSender)
+				 */
+				CLOUD_LOCAL_NAMES("cloud_local_names"),
+				/**
+				 * The database this computer used before it joined a cloud project (POSTGRESQL for an office's shared one,
+				 * else empty): opening a project that is not a cloud one goes back to it (EarthProjectsService)
+				 */
+				DB_DRIVER_BEFORE_CLOUD("db_driver_before_cloud"),
+				/**
+				 * The training set's file the person opened in a cloud project (a calibration or learning set): the plots
+				 * file stays on it, not on the person's plots, until they go back to them (MyPlotsService)
+				 */
+				CLOUD_TRAINING_FILE("cloud_training_file"),
+				/** The training sets offered at a start (id:checksum, by commas): each version is offered once (CloudService) */
+				CLOUD_TRAINING_OFFERED("cloud_training_offered"),;
 
 		private String name;
 

@@ -7,7 +7,7 @@ import { recheckFileId, recheckFilename, recheckFilesOf, sentBackOf, sentBackTo 
 import { InMemoryStore } from '../src/store/memory.js';
 import type { QualityDecision, RecordRow } from '../src/types.js';
 import { demoCep, idOnlyCep, noNote } from './fixtures/cep.js';
-import { bearer, createProject, envelope, makeContext, setupPlatformAdmin, type TestContext, sendAsPeople } from './helpers.js';
+import { bearer, createProject, envelope, legacyPlotFile, makeContext, setupPlatformAdmin, type TestContext, sendAsPeople } from './helpers.js';
 
 const LAND_USE = 'collect_code_land_use_category';
 const FOREST = 'collect_integer_forest_percentage';
@@ -425,7 +425,8 @@ describe('"To check again" plot files in my-assignment', () => {
     const csv = 'id,lat,lon\n1,0,0\n2,1,1\n';
     fileId = (await call('PUT', '/csv-files/whole.csv', owner.token, csv, { 'content-type': 'text/csv' })).json().id;
     await call('PUT', '/assignments', owner.token, { assignments: [{ userId: maria.userId, csvFileId: fileId }] });
-    const other = (await call('PUT', '/csv-files/checks.csv', owner.token, 'id,lat,lon\n2,1,1\n', { 'content-type': 'text/csv' })).json().id;
+    // plot 2 in two files: a project from before the rules of one set of plots
+    const other = await legacyPlotFile(ctx, pid, 'checks.csv', 'id,lat,lon\n2,1,1\n');
     await ctx.store.setDivision(pid, other, { mode: 'manual' }, [
       { plotKey: '2', userId: jose.userId, overlap: true },
       { plotKey: '2', userId: ana.userId, overlap: false },

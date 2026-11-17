@@ -295,7 +295,8 @@ public class LeafletMapController {
 	}
 
 	/**
-	 * The plot file the plots map shows, and its version: its path and when it was last changed, "" when there is none.
+	 * The plot file the plots map shows, and its version: its path, when it was last changed and its size, "" when there
+	 * is none.
 	 * The plots map loads its plots again when the statuses tell another one (settings applied, a plot file dropped, the
 	 * cloud project's assigned file), as nothing reloads the panel of Google Earth Web.
 	 */
@@ -304,7 +305,7 @@ public class LeafletMapController {
 			return "";
 		}
 		File csv = new File(csvFile);
-		return csv.exists() ? csvFile + "@" + csv.lastModified() : "";
+		return csv.exists() ? csvFile + "@" + csv.lastModified() + ":" + csv.length() : "";
 	}
 
 	@GetMapping("/mapConfig")

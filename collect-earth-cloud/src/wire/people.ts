@@ -1,6 +1,6 @@
 // The People tab, a person's page, My work and the time spent on each plot, as the server sends them.
 // Types only: see README.md in this folder.
-import type { Role } from './account.js';
+import type { InvitePlots, Role } from './account.js';
 import type { FlagCounts } from './quality.js';
 import type { ReferencePerson } from './checks.js';
 
@@ -75,6 +75,8 @@ export interface InviteRow {
   createdAt: number;
   /** Made from a person's page for someone already in the project (to get the new project file): their name. */
   forUsername: string | null;
+  /** The plots the link gives each person who joins with it (null: none) */
+  plots: InvitePlots | null;
 }
 
 export interface WeekSummary {

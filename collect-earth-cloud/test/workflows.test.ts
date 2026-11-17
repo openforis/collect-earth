@@ -332,8 +332,8 @@ describe('a person joining gets their own earlier plots on their computer (GET m
     expect(res.headers['content-type']).toBe('application/zip');
     expect(res.headers['x-records']).toBe('2');
     // what Collect Earth asks at each start
-    expect((await ctx.app.inject({ method: 'GET', url: `/v1/projects/${projectId}/my-records`, headers: bearer(marta) })).json()).toEqual({ records: 2 });
-    expect((await ctx.app.inject({ method: 'GET', url: `/v1/projects/${projectId}/my-records`, headers: bearer(rosa) })).json()).toEqual({ records: 0 });
+    expect((await ctx.app.inject({ method: 'GET', url: `/v1/projects/${projectId}/my-records`, headers: bearer(marta) })).json()).toMatchObject({ records: 2, keys: ['P1,1', 'P1,2'], modifiedOn: [expect.any(Number), expect.any(Number)] });
+    expect((await ctx.app.inject({ method: 'GET', url: `/v1/projects/${projectId}/my-records`, headers: bearer(rosa) })).json()).toEqual({ records: 0, keys: [], modifiedOn: [] });
     const zip = unzipSync(new Uint8Array(res.rawPayload));
     const names = Object.keys(zip).sort();
     expect(names[names.length - 1]).toBe('idml.xml');
@@ -341,6 +341,12 @@ describe('a person joining gets their own earlier plots on their computer (GET m
     const xmls = names.filter((n) => n !== 'idml.xml').map((n) => strFromU8(zip[n]));
     expect(xmls.every((x) => x.includes('marta') && !x.includes('Rosa Vidal'))).toBe(true);
     // rosa has none of hers yet (the coordinator has not given "Rosa Vidal"): only the survey
+    // only some of them: those a computer lacks, or has an older copy of
+    const one = await ctx.app.inject({ method: 'GET', url: `/v1/projects/${projectId}/my-records.zip?key=${encodeURIComponent('P1,2')}&key=nothing`, headers: bearer(marta) });
+    expect(one.headers['x-records']).toBe('1');
+    expect(Object.keys(unzipSync(new Uint8Array(one.rawPayload))).filter((n) => n !== 'idml.xml')).toHaveLength(1);
+    const many = Array.from({ length: 201 }, (_, i) => `key=K${i}`).join('&');
+    expect((await ctx.app.inject({ method: 'GET', url: `/v1/projects/${projectId}/my-records.zip?${many}`, headers: bearer(marta) })).statusCode).toBe(400);
     const none = await ctx.app.inject({ method: 'GET', url: `/v1/projects/${projectId}/my-records.zip`, headers: bearer(rosa) });
     expect(none.headers['x-records']).toBe('0');
     expect(Object.keys(unzipSync(new Uint8Array(none.rawPayload)))).toEqual(['idml.xml']);

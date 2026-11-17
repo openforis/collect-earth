@@ -323,6 +323,7 @@ export function peopleTable(input: PeopleInput): PeopleTable {
       expiresAt: i.expiresAt,
       createdAt: i.createdAt,
       forUsername: input.inviteFor?.get(i.id) ?? null,
+      plots: i.plots ?? null,
     })),
     week: {
       days: dailyOf(byDay, p.today, WEEK_DAYS).map((d) => ({ date: d.date, submitted: d.submitted })),

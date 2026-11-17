@@ -91,7 +91,7 @@ export async function waitUp() {
   throw new Error('the desktop did not start');
 }
 /** Starts the desktop of a person (its own home folder); `props` are written into earth.properties before it starts */
-export async function startDesktop(name, props = null) {
+export async function startDesktop(name, props = null, jvmArgs = []) {
   stopDesktops();
   await waitDown();
   mkdirSync(home(name), { recursive: true });
@@ -105,7 +105,7 @@ export async function startDesktop(name, props = null) {
     writeFileSync(propsFile(name), text);
   }
   const log = `${E}/desktop-${name}.log`;
-  const child = spawn('java', [`-Duser.home=${home(name)}`, '-Dcollectearth.viewerType=plots_map', '-jar', 'target/CollectEarth.jar'], {
+  const child = spawn('java', [`-Duser.home=${home(name)}`, '-Dcollectearth.viewerType=plots_map', ...jvmArgs, '-jar', 'target/CollectEarth.jar'], {
     cwd: APP, env: { ...process.env, DISPLAY: ':99' }, detached: true, stdio: ['ignore', 'ignore', 'ignore'],
   });
   child.unref();

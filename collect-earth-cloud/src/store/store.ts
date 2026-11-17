@@ -30,7 +30,9 @@ import type {
   MemberActivityPatch,
   Membership,
   PlatformStats,
+  InvitePlots,
   PlotAssignment,
+  QueuedJoin,
   ProgressSettings,
   TwoFactorState,
   SharedAnalysisView,
@@ -124,6 +126,8 @@ export interface CreateInviteInput {
   expiresAt: number | null;
   /** The user who made it; null when made with a Phase-0 project admin token (no user). */
   createdBy: string | null;
+  /** The plots the link gives each person who joins with it */
+  plots?: InvitePlots | null;
 }
 
 /**
@@ -247,6 +251,14 @@ export interface Store {
   confirmEmail(userId: string, email: string, at: number): Promise<boolean>;
   /** The language and time zone the mails are written in. */
   setMailPreferences(userId: string, prefs: { language: MailLanguage | null; timeZone: string | null }): Promise<void>;
+  /**
+   * A join to tell a coordinator of (join_mail_queue): 'now' when no mail about the project went to them in the last
+   * `windowMs` and none waits (the mail is to go at once, and is noted as sent at `at`); otherwise it waits for the
+   * next grouped mail ('queued').
+   */
+  noteJoinForMail(coordinatorId: string, projectId: string, join: QueuedJoin, at: number, windowMs: number): Promise<'now' | 'queued'>;
+  /** The grouped mails due (the window over since the last), taken: their joins are cleared and they count as sent at `at`. */
+  takeDueJoinMails(at: number, windowMs: number): Promise<{ coordinatorId: string; projectId: string; joins: QueuedJoin[] }[]>;
   /** Turns the mail "someone joined your project" on or off for the account (AccountMail.joinMail). */
   setJoinMail(userId: string, on: boolean): Promise<void>;
   /**
@@ -438,6 +450,15 @@ export interface Store {
   listAssignments(projectId: string): Promise<AssignmentDetail[]>;
   listAssignmentsForUser(projectId: string, userId: string): Promise<CsvFile[]>;
   isAssigned(projectId: string, csvFileId: string, userId: string): Promise<boolean>;
+  /** Gives a whole file to one person more (an invitation link's plots): false when the file is gone or divided. */
+  addAssignment(projectId: string, csvFileId: string, userId: string): Promise<boolean>;
+  /**
+   * An invitation link's share: gives the person the first `count` of `candidates` (plot keys in the file's order, the
+   * plots nobody has done) that nobody holds, in one transaction under the division's lock, so two people joining at
+   * once never take the same plots. A whole file nobody has becomes divided (manual); one people have whole is left
+   * as it is ('whole_assigned'). The number of plots given, or 'not_found'.
+   */
+  claimUnheldPlots(projectId: string, csvFileId: string, userId: string, candidates: readonly string[], count: number): Promise<number | 'whole_assigned' | 'not_found'>;
 
   /**
    * Divides a file (distribution set): its holdings become `plots` and its whole-file
@@ -445,6 +466,11 @@ export interface Store {
    * reference plots (whole files hold no copies).
    */
   setDivision(projectId: string, csvFileId: string, distribution: StoredDistribution | null, plots: PlotAssignment[]): Promise<void>;
+  /**
+   * setDivision of several files at once, all or none (a division over the project's plots, src/routes/projectDivision.ts):
+   * under one lock, so a draw or another division is before or after it.
+   */
+  setDivisions(projectId: string, divisions: readonly { csvFileId: string; distribution: StoredDistribution; plots: PlotAssignment[] }[]): Promise<void>;
   /** Who holds which plot of a file (a copy drawn by the check sampling with its sampledAt). */
   listPlotAssignments(projectId: string, csvFileId: string): Promise<PlotAssignment[]>;
 
@@ -582,6 +608,12 @@ export interface Store {
   getRecordXml(projectId: string, keys: readonly { recordKey: string; operator: string }[]): Promise<RecordXml[]>;
   /** The records (not deleted) the server has no XML for: the Collect Earth backup cannot carry them. */
   listRecordKeysWithoutXml(projectId: string): Promise<{ recordKey: string; operator: string }[]>;
+  /**
+   * The keys of one person's records (`operator`, their username) that are not deleted and have their XML, with when each
+   * was last saved, in key order:
+   * what GET my-records answers, asked by each Collect Earth every few minutes (only those rows are read).
+   */
+  listOperatorRecordKeys(projectId: string, operator: string): Promise<{ recordKey: string; modifiedOn: number }[]>;
   /**
    * Every record (any operator) whose key is one of `recordKeys`, with its summary and without
    * XML, deleted ones too: one plot's records for the plot page (rounds.recordKeysOfUnit), in

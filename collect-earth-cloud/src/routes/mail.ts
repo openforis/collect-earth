@@ -16,7 +16,8 @@ import { emailChangedMail, longMoment, passwordChangedMail, resetLinkMail,
   adminMessageMail, testMail, welcomeMail, SELF_RESET_TTL_MS, type MessageAudience, type SecurityContext } from '../securityMail.js';
 import type { Store } from '../store/store.js';
 import { DIGEST_KINDS, MAIL_LANGUAGES, type AccountMail, type DigestKind, type MailLanguage, type Role } from '../types.js';
-import { joinedMail } from '../joinMail.js';
+import { joinedMail, joinedSummaryMail, type JoinedPerson } from '../joinMail.js';
+import type { GivenPlots } from '../invitePlots.js';
 import type { DigestView, Notifications, UnsubscribeAnswer } from '../wire/account.js';
 import type { MailCheck, MessagePreview, MessageSentAnswer, TestMailAnswer } from '../wire/serverAdmin.js';
 
@@ -44,6 +45,10 @@ export const TEST_MAILS_PER_HOUR = 10;
 export const MESSAGE_INTERVAL_MS = HOUR_MS;
 export const MAX_MESSAGE_SUBJECT = 150;
 export const MAX_MESSAGE_TEXT = 5000;
+/** The mails "someone joined": the first at once, then at most one (grouped) per coordinator and project in this long. */
+export const JOIN_MAIL_WINDOW_MS = HOUR_MS;
+/** How often the grouped join mails due are looked for. */
+export const JOIN_MAIL_CHECK_MS = 60_000;
 
 /**
  * What other routes may ask of the mail routes: sign-up sends the confirmation link of the address
@@ -71,11 +76,13 @@ export interface AccountMailHooks {
    * "someone joined your project" to each coordinator of it with a confirmed address who has not turned it off (not the
    * person who joined). In the background: never awaited by the request, never throws (a failure is logged).
    */
-  memberJoined?: (request: FastifyRequest, projectId: string, userId: string, role: Role) => void;
+  memberJoined?: (request: FastifyRequest, projectId: string, userId: string, role: Role, given?: GivenPlots | null) => void;
 }
 
 declare module 'fastify' {
   interface FastifyInstance {
+    /** Sends the grouped join mails due now (the server does it every minute; tests call it): how many went. */
+    flushJoinMails?: () => Promise<number>;
     /** The mails sent after the answer (reset links, security notices): `idle()` waits for them (tests, closing). */
     mailWork?: BackgroundMail;
   }
@@ -311,7 +318,27 @@ export async function registerMailRoutes(app: FastifyInstance, store: Store, con
   };
   if (deps.accountMail) deps.accountMail.mailWelcome = mailWelcome;
 
-  const memberJoined = (request: FastifyRequest, projectId: string, userId: string, role: Role): void => {
+  /** A coordinator's address and context for the join mails, when they want them and can get them (null otherwise) */
+  const joinMailTo = async (coordinatorId: string, serverName: string) => {
+    const mail = await store.getAccountMail(coordinatorId);
+    if (!mail?.joinMail || mail.email === null || mail.emailConfirmedAt === null || !isEmailAddress(mail.email)) return null;
+    return {
+      email: mail.email,
+      ctx: {
+        serverName,
+        language: mail.language ?? 'en',
+        baseUrl,
+        unsubscribeUrl: `${baseUrl}/v1/unsubscribe/${writeUnsubscribeToken(coordinatorId, 'joined', secret)}`,
+      },
+    };
+  };
+
+  /**
+   * Someone joined: each coordinator who wants it gets the mail at once when none about the project went to them in the
+   * last hour; otherwise the join waits for the grouped mail (flushJoinMails), so a group joining at once makes one
+   * mail an hour, not one per person.
+   */
+  const memberJoined = (request: FastifyRequest, projectId: string, userId: string, role: Role, given: GivenPlots | null = null): void => {
     if (!deps.mailer.delivers) return;
     work.run(request, 'project.joined', async () => {
       const [project, members, joiner, settings] = await Promise.all([
@@ -321,24 +348,66 @@ export async function registerMailRoutes(app: FastifyInstance, store: Store, con
         store.getSettings(),
       ]);
       if (!project || !joiner) return;
+      const at = deps.now();
+      const queued = { userId, role, given: given ? { csvFileId: given.csvFileId, mode: given.mode, plots: given.plots } : null, at };
       for (const coordinator of members.filter((m) => m.role === 'admin' && m.userId !== userId && !m.disabled)) {
-        const mail = await store.getAccountMail(coordinator.userId);
-        if (!mail?.joinMail || mail.email === null || mail.emailConfirmedAt === null || !isEmailAddress(mail.email)) continue;
-        const message = joinedMail(
-          {
-            serverName: settings.serverName ?? 'Collect Earth Cloud',
-            language: mail.language ?? 'en',
-            baseUrl,
-            unsubscribeUrl: `${baseUrl}/v1/unsubscribe/${writeUnsubscribeToken(coordinator.userId, 'joined', secret)}`,
-          },
-          { projectId, projectName: project.name, username: joiner.username, role, people: members.length },
-          mail.email,
-        );
+        const to = await joinMailTo(coordinator.userId, settings.serverName ?? 'Collect Earth Cloud');
+        if (!to) continue;
+        if ((await store.noteJoinForMail(coordinator.userId, projectId, queued, at, JOIN_MAIL_WINDOW_MS)) === 'queued') continue;
+        const message = joinedMail(to.ctx, { projectId, projectName: project.name, username: joiner.username, role, people: members.length, given }, to.email);
         // One coordinator's refused address does not keep the others' mail from going
         await deps.mailer.send(message).catch((err: unknown) => request.log.warn({ err: errorSummary(err), projectId }, 'the mail "someone joined" could not be sent to a coordinator'));
       }
     });
   };
+
+  /** The grouped join mails due: each coordinator's joins of the past hour about one project, in one mail. */
+  const flushJoinMails = async (log: FastifyRequest['log']): Promise<number> => {
+    if (!deps.mailer.delivers) return 0;
+    const due = await store.takeDueJoinMails(deps.now(), JOIN_MAIL_WINDOW_MS);
+    if (due.length === 0) return 0;
+    const settings = await store.getSettings();
+    let sent = 0;
+    for (const d of due) {
+      try {
+        const to = await joinMailTo(d.coordinatorId, settings.serverName ?? 'Collect Earth Cloud');
+        const project = await store.getProject(d.projectId);
+        if (!to || !project) continue;
+        const [members, files] = await Promise.all([store.listMembers(d.projectId), store.listCsvFiles(d.projectId)]);
+        // Still a coordinator of it
+        if (!members.some((m) => m.userId === d.coordinatorId && m.role === 'admin')) continue;
+        const fileName = new Map(files.map((f) => [f.id, f.filename]));
+        const people: JoinedPerson[] = [];
+        for (const j of [...d.joins].sort((a, b) => a.at - b.at)) {
+          const user = await store.getUserById(j.userId);
+          if (!user) continue;
+          people.push({ username: user.username, role: j.role, given: j.given ? { filename: j.given.csvFileId === null ? null : (fileName.get(j.given.csvFileId) ?? '…'), mode: j.given.mode, plots: j.given.plots } : null });
+        }
+        if (people.length === 0) continue;
+        await deps.mailer.send(joinedSummaryMail(to.ctx, { projectId: d.projectId, projectName: project.name, people: members.length }, people, to.email));
+        sent += 1;
+      } catch (err) {
+        log.warn({ err: errorSummary(err), projectId: d.projectId }, 'the grouped mail "people joined" could not be sent to a coordinator');
+      }
+    }
+    return sent;
+  };
+  // Checked every minute on an instance that keeps running, and, at most once a minute, on the requests of one that
+  // runs only while answering (Cloud Run without a minimum instance): a mapathon's people sync all the time.
+  let lastFlush = 0;
+  const maybeFlush = (log: FastifyRequest['log']) => {
+    const now = deps.now();
+    if (now - lastFlush < JOIN_MAIL_CHECK_MS) return;
+    lastFlush = now;
+    void flushJoinMails(log).catch((err: unknown) => log.warn({ err: errorSummary(err) }, 'grouped join mails: the check failed'));
+  };
+  if (deps.mailer.delivers) {
+    app.addHook('onRequest', async (request) => maybeFlush(request.log));
+    const timer = setInterval(() => maybeFlush(app.log), JOIN_MAIL_CHECK_MS);
+    timer.unref();
+    app.addHook('onClose', async () => clearInterval(timer));
+  }
+  app.decorate('flushJoinMails', () => flushJoinMails(app.log));
   if (deps.accountMail) deps.accountMail.memberJoined = memberJoined;
 
   /**

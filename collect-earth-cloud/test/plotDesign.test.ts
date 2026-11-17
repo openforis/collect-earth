@@ -214,6 +214,22 @@ describe('POST /plot-design', () => {
     expect(up.json().warnings).toBeUndefined();
   });
 
+  it('a second design joins the project’s plots: numbered after them, with their columns', async () => {
+    await ctx.app.inject({ method: 'PUT', url: `/v1/projects/${pid}/cep`, headers: { ...bearer(admin), 'content-type': 'application/zip' }, payload: idOnlyCep() });
+    const upload = (filename: string, text: string) =>
+      ctx.app.inject({ method: 'PUT', url: `/v1/projects/${pid}/csv-files/${filename}`, headers: { ...bearer(admin), 'content-type': 'text/csv' }, payload: text });
+    // the project's plots so far: 1 to 12, with columns of their own
+    const rows = Array.from({ length: 12 }, (_, i) => `${i + 1},-5.5,150.5,North,7`).join('\n');
+    expect((await upload('plots.csv', `plot,lat,lon,zone,slope\n${rows}\n`)).statusCode).toBe(201);
+    const made = await post({ geojson, design: { method: 'stratified', field: 'zone', allocation: 'equal', count: 4 }, seed: 3, generate: true });
+    const lines = made.body.trim().split('\n');
+    // the project's extra columns (no stratum column of its own), numbers from 13 (4 plots in each of the 2 strata)
+    expect(lines[0]).toBe('id,YCoordinate,XCoordinate,zone,slope');
+    expect(lines.slice(1).map((l) => l.split(',')[0])).toEqual(['13', '14', '15', '16', '17', '18', '19', '20']);
+    const up = await upload('design.csv', made.body);
+    expect(up.statusCode, up.body).toBe(201);
+  });
+
   it("a survey with its own round key gets the first round's code in its column", async () => {
     await ctx.app.inject({ method: 'PUT', url: `/v1/projects/${pid}/cep`, headers: { ...bearer(admin), 'content-type': 'application/zip' }, payload: demoCep() });
     const made = await post({ geojson, design: { method: 'random', count: 3 }, seed: 1, generate: true });

@@ -33,6 +33,7 @@ class CloudApiClientDownloadTest {
 
 	private HttpServer server;
 	private final CloudApiClient client = new CloudApiClient();
+	private final AtomicReference<String> query = new AtomicReference<>();
 	private final AtomicReference<byte[]> csv = new AtomicReference<>("id,x,y\n2,3,4\n".getBytes(StandardCharsets.UTF_8));
 
 	@BeforeEach
@@ -42,6 +43,15 @@ class CloudApiClientDownloadTest {
 			exchange.sendResponseHeaders(200, csv.get().length);
 			try (OutputStream out = exchange.getResponseBody()) {
 				out.write(csv.get());
+			}
+		});
+		server.createContext("/v1/projects/p1/my-records.zip", exchange -> {
+			query.set(exchange.getRequestURI().getRawQuery());
+			byte[] zip = "PK".getBytes(StandardCharsets.UTF_8);
+			exchange.getResponseHeaders().add("X-Records", "2");
+			exchange.sendResponseHeaders(200, zip.length);
+			try (OutputStream out = exchange.getResponseBody()) {
+				out.write(zip);
 			}
 		});
 		server.start();
@@ -72,5 +82,31 @@ class CloudApiClientDownloadTest {
 		assertEquals(plots.getCanonicalFile(), got);
 		assertArrayEquals(csv.get(), Files.readAllBytes(plots.toPath()));
 		assertEquals(1, folder.list().length);
+	}
+
+	@Test
+	void theOwnRecordsAskedForAreNamedInTheLinkAllOfThemWhenTooMany() throws IOException {
+		CloudApiClient.Destination cloud = new CloudApiClient.Destination("http://127.0.0.1:" + server.getAddress().getPort(), "p1", "t");
+		CloudApiClient.OwnRecords own = client.downloadOwnRecords(cloud, java.util.Arrays.asList("P1,1", "a b"));
+		assertEquals("key=P1%2C1&key=a+b", query.get());
+		assertEquals(2, own.getCount());
+		Files.delete(own.getFile().toPath());
+		java.util.List<String> many = new java.util.ArrayList<>();
+		for (int i = 0; i <= CloudApiClient.OWN_RECORDS_KEYS; i++) {
+			many.add("P" + i);
+		}
+		Files.delete(client.downloadOwnRecords(cloud, many).getFile().toPath());
+		assertEquals(null, query.get());
+		Files.delete(client.downloadOwnRecords(cloud).getFile().toPath());
+		assertEquals(null, query.get());
+	}
+
+	@Test
+	void aNameTheFileSystemCannotWriteIsWrittenWithItsOtherCharactersReplaced() {
+		assertEquals("plots.csv", CloudApiClient.fileNameHere(folder, "plots.csv"));
+		// "Calibration – set.csv": as it is where file names are UTF-8, with "_" where they are not (a POSIX locale)
+		String name = CloudApiClient.fileNameHere(folder, "Calibration \u2013 set.csv");
+		folder.toPath().resolve(name);
+		org.junit.jupiter.api.Assertions.assertTrue(name.equals("Calibration \u2013 set.csv") || name.equals("Calibration _ set.csv"), name);
 	}
 }

@@ -83,6 +83,7 @@ const EXPORT_KEYS: Record<string, MessageKey> = {
   "collect-backup": "activity.export.collectBackup",
   ipcc: "ipcc.logged",
   analysis: "activity.export.analysis",
+  standalone: "activity.export.standalone",
   training_scores: "activity.export.trainingScores",
   training_answers: "activity.export.trainingAnswers",
 };
@@ -197,10 +198,17 @@ export function logSentence(t: Translate, item: LogItem, page: Pick<ActivityPage
     case "assignments.set":
       return t("activity.audit.assignments", { actor });
     case "division.applied":
+      // over the project's plots (every plot file, one set)
+      if (d.scope === "project") return t(byCount(d.people, "activity.audit.dividedProjectOne", "activity.audit.dividedProject"), { actor, count: num(d.people, language) });
       if (d.mode === "whole") return t("activity.audit.whole", { actor, file: fileOf(t, page, d.csvFileId) });
       return t(byCount(d.people, "activity.audit.dividedOne", "activity.audit.divided"), { actor, file: fileOf(t, page, d.csvFileId), count: num(d.people, language) });
     case "plots.moved":
+      if (d.scope === "project")
+        return t(d.moved === 1 ? "activity.audit.movedProjectOne" : "activity.audit.movedProject", { actor, count: num(d.moved, language), from: personOf(t, page, d.fromUserId), to: personOf(t, page, d.toUserId) });
       return t(d.moved === 1 ? "activity.audit.movedOne" : "activity.audit.moved", { actor, count: num(d.moved, language), file: fileOf(t, page, d.csvFileId), from: personOf(t, page, d.fromUserId), to: personOf(t, page, d.toUserId) });
+    case "plots.taken":
+      // a coordinator taking plots of the project to assess themselves
+      return t(d.count === 1 ? "activity.audit.takenOne" : "activity.audit.taken", { actor, count: num(d.count, language) });
     case "plots.rebalanced":
       // "Share again what is left" on a plot file's page: how many people shared the plots left, how many moved.
       return t("activity.audit.moved.rebalanced", { actor, count: num(d.people, language), file: fileOf(t, page, d.csvFileId), moved: num(d.moved, language) });

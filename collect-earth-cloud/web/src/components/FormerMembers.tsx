@@ -17,7 +17,7 @@ import { useState } from "react";
 import { anonymizeFormerMember, getFormerMembers, giveTypedName, listMembers, type FormerMember } from "../api";
 import { useApp } from "../appContext";
 import { formatNumber } from "../format";
-import { formerMembersView, giveCandidates } from "../formerMembersView";
+import { formerMembersView, giveCandidates, isDefaultName } from "../formerMembersView";
 import { useT } from "../i18n";
 import { queryClient } from "../queryClient";
 import { useLoad } from "../useLoad";
@@ -154,6 +154,11 @@ export function FormerMembers({ projectId }: { projectId: string }) {
                 ))}
               </TextField>
               <DialogContentText>{t("typed.giveText", { records: giving ? records(giving) : "" })}</DialogContentText>
+              {giving && isDefaultName(giving.operator) && (
+                <Alert severity="warning" sx={{ mt: 2 }}>
+                  {t("typed.defaultName", { name: giving.operator })}
+                </Alert>
+              )}
             </>
           )}
           <ErrorAlert error={members.error} onRetry={members.reload} />

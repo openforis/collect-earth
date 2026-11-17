@@ -45,6 +45,8 @@ import org.openforis.collect.earth.app.service.SecretProtector;
 import org.openforis.collect.earth.app.service.ShellFolderFallback;
 import org.openforis.collect.earth.app.service.UpdateIniUtils;
 import org.openforis.collect.earth.app.service.cloud.AssignedPlotFileSetup;
+import org.openforis.collect.earth.app.service.cloud.CloudService;
+import org.openforis.collect.earth.app.service.cloud.MyPlotsService;
 import org.openforis.collect.earth.app.service.notices.Notice;
 import org.openforis.collect.earth.app.service.notices.NoticeService;
 import org.openforis.collect.earth.app.service.WindowLayoutService;
@@ -723,9 +725,10 @@ public class EarthApp {
 	}
 
 	/**
-	 * The first start in a cloud project after a join, or after it was opened again, has the project file's plots file:
-	 * the plot file assigned to the collector replaces it, or a notice says what to do (AssignedPlotFileSetup). On a
-	 * thread of its own, so the window does not wait for the server.
+	 * In a cloud project, the person's plots are asked for at each start (MyPlotsService: the copy kept up to date, a
+	 * training set waiting offered); an older server, which has none, gives the plot file assigned to the collector at
+	 * the first start after a join, or a notice says what to do (AssignedPlotFileSetup). On a thread of its own, so the
+	 * window does not wait for the server.
 	 */
 	private static void setUpAssignedPlotFile() {
 		final ServerController controller = serverController;
@@ -734,7 +737,12 @@ public class EarthApp {
 		}
 		Thread thread = new Thread(() -> {
 			try {
-				controller.getContext().getBean(AssignedPlotFileSetup.class).run();
+				MyPlotsService.Outcome outcome = controller.getContext().getBean(MyPlotsService.class).atStart();
+				if (outcome == MyPlotsService.Outcome.OLDER_SERVER) {
+					controller.getContext().getBean(AssignedPlotFileSetup.class).run();
+				} else if (outcome != MyPlotsService.Outcome.NOT_CLOUD && outcome != MyPlotsService.Outcome.NOT_MEMBER) {
+					controller.getContext().getBean(CloudService.class).offerTraining();
+				}
 			} catch (BeanCreationNotAllowedException e) {
 				// Collect Earth closed or restarted before the setup ran: the next start does it (Sentry JAVA-COLLECT-EARTH-57C)
 				logger.info("No assigned plot file setup: Collect Earth is closing"); //$NON-NLS-1$

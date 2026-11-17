@@ -1,4 +1,6 @@
 import type { FastifyBaseLogger, FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { invitePlotsRefusal } from '../invitePlots.js';
+import type { InvitePlots } from '../types.js';
 import { isUuid, publicBaseUrl } from '../accountRules.js';
 import { audit, noteActivity } from '../activity.js';
 import {
@@ -20,6 +22,8 @@ interface InviteBody {
   role?: Role;
   maxUses?: number;
   expiresInDays?: number;
+  /** The plots each person who joins with the link gets (src/invitePlots.ts) */
+  plots?: unknown;
   /**
    * A link for someone already in the project, so Collect Earth downloads the project
    * file as it is now (File > Join cloud project..., then Log in: the link is not used
@@ -214,6 +218,15 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
       // a forgotten link that still lets anyone in is how a project gets people nobody invited
       const days = forUserId !== null ? 7 : typeof body.expiresInDays === 'number' && body.expiresInDays >= 0 ? body.expiresInDays : DEFAULT_INVITE_DAYS;
       const expiresAt = days > 0 ? Date.now() + days * 24 * 60 * 60 * 1000 : null;
+      // A person's own link (the new project file) gives no plots: they have theirs
+      let plots: InvitePlots | null = null;
+      if (forUserId === null && body.plots !== undefined && body.plots !== null) {
+        // Plots are for the people who collect: a reviewer or a coordinator gets none from a link
+        if (role !== 'operator') return reply.code(400).send({ error: 'bad_request', reason: 'plots: a link gives plots to collectors only' });
+        const checked = await invitePlotsRefusal(store, request.membership!.projectId, body.plots);
+        if ('error' in checked) return reply.code(checked.error === 'bad_request' ? 400 : 409).send(checked);
+        plots = checked;
+      }
       const { token, id: inviteId } = await store.createInvite({
         projectId: request.membership!.projectId,
         role,
@@ -221,8 +234,9 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
         expiresAt,
         // A Phase-0 project admin token has no user behind it: made by nobody.
         createdBy: request.userId ?? null,
+        plots,
       });
-      await audit(store, request, 'invite.created', forUserId !== null ? { inviteId, role, maxUses, forUserId } : { inviteId, role, maxUses });
+      await audit(store, request, 'invite.created', forUserId !== null ? { inviteId, role, maxUses, forUserId } : { inviteId, role, maxUses, ...(plots ? { plots: plots.mode, count: plots.count, csvFileId: plots.csvFileId } : {}) });
       const joinPath = `/join/${token}`;
       return reply.code(201).send({
         inviteToken: token,
@@ -231,6 +245,7 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
         role,
         maxUses,
         expiresAt,
+        plots,
       } satisfies NewInvite);
     },
   );

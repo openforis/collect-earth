@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { idOnlyCep } from './fixtures/cep.js';
-import { batchRequest, bearer, envelope, makeContext, setupPlatformAdmin, type TestContext } from './helpers.js';
+import { batchRequest, bearer, envelope, legacyPlotFile, makeContext, setupPlatformAdmin, type TestContext } from './helpers.js';
 
 const LAND_USE = 'collect_code_land_use_category';
 const FOREST = 'collect_integer_forest_percentage';
@@ -32,7 +32,8 @@ describe('GET /quality/answers and /quality/answers/columns', () => {
     // Plots 1-40 with a region column (north for 1-20, south for 21-40), and plots 41-50 in another file.
     const rows = Array.from({ length: 40 }, (_, i) => `${i + 1},0,0,${i < 20 ? 'north' : 'south'}`);
     csvId = (await call('PUT', '/csv-files/plots.csv', owner.token, ['id,lat,lon,region', ...rows].join('\n'), { 'content-type': 'text/csv' })).json().id;
-    otherId = (await call('PUT', '/csv-files/more.csv', owner.token, ['id,lat,lon', ...Array.from({ length: 10 }, (_, i) => `${i + 41},0,0`)].join('\n'), { 'content-type': 'text/csv' })).json().id;
+    // a file of other columns: a project from before the rules of one set of plots
+    otherId = await legacyPlotFile(ctx, pid, 'more.csv', ['id,lat,lon', ...Array.from({ length: 10 }, (_, i) => `${i + 41},0,0`)].join('\n'));
     const ana = await join('ana', 'operator');
     const ben = await join('ben', 'operator');
     const records: ReturnType<typeof envelope>[] = [];
@@ -106,7 +107,7 @@ describe('GET /quality/answers and /quality/answers/columns', () => {
 
   it('refuses filters that make no sense', async () => {
     // A column of over 200 values is not offered, nor taken (as for dividing a file).
-    const many = (await call('PUT', '/csv-files/many.csv', owner.token, ['id,lat,lon', ...Array.from({ length: 201 }, (_, i) => `${i + 101},${i},0`)].join('\n'), { 'content-type': 'text/csv' })).json().id;
+    const many = await legacyPlotFile(ctx, pid, 'many.csv', ['id,lat,lon', ...Array.from({ length: 201 }, (_, i) => `${i + 101},${i},0`)].join('\n'));
     const columns = (await call('GET', `/quality/answers/columns?file=${many}`, owner.token)).json().columns;
     expect(columns.find((c: { index: number }) => c.index === 1).values).toBeNull();
     for (const q of [`file=${many}&column=1&value=5`, 'from=2026-10-05&to=2026-10-01', 'file=nope', `file=${'0'.repeat(8)}-0000-4000-8000-${'0'.repeat(12)}`, `file=${csvId}&column=9&value=x`, `file=${csvId}&column=0&value=1`, 'column=3&value=x', `file=${csvId}&column=3`, 'from=2026-13-01', 'to=yesterday']) {

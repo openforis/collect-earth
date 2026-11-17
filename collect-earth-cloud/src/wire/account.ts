@@ -194,6 +194,18 @@ export interface UnsubscribeAnswer {
 // --- invites ---
 
 /** An open invite as the project admin sees it (the token itself is only shown at creation). */
+/**
+ * The plots an invitation link gives each person who joins with it: a plot file whole (`whole`), or the next `count`
+ * plots of it that nobody holds or has done (`share`; the file is divided then).
+ */
+export interface InvitePlots {
+  /** The plot file; null: the project's plots, all of its plot files (a share only) */
+  csvFileId: string | null;
+  mode: 'whole' | 'share';
+  /** `share`: how many plots each person takes; null for `whole` */
+  count: number | null;
+}
+
 export interface InviteSummary {
   id: string;
   role: Role;
@@ -201,6 +213,8 @@ export interface InviteSummary {
   usedCount: number;
   expiresAt: number | null;
   createdAt: number;
+  /** The plots the link gives (null: none) */
+  plots: InvitePlots | null;
 }
 
 /** An open invitation link; `forUsername`: made for someone already in the project, to get the new project file. */
@@ -221,6 +235,7 @@ export interface NewInvite {
   role: Role;
   maxUses: number;
   expiresAt: number | null;
+  plots: InvitePlots | null;
 }
 
 /** GET /v1/join/:token: which project and role an invitation grants, before registering. */

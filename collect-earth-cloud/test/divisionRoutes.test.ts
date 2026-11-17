@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import { batchRequest, bearer, createProject, envelope, makeContext, type TestContext } from './helpers.js';
+import { batchRequest, bearer, createProject, envelope, legacyPlotFile, makeContext, type TestContext } from './helpers.js';
 import { strFromU8, strToU8, unzipSync } from 'fflate';
 import { cepWith, demoCep, idOnlyCep, noNote } from './fixtures/cep.js';
 import { nearbyOrder } from '../src/nearby.js';
@@ -170,7 +170,7 @@ describe('dividing plots between people', () => {
   });
 
   it('the grid ignores divided files, and "whole file" makes it a grid file again', async () => {
-    const other = (await upload('id,lat,lon\n1,0,0\n', 'other.csv')).json().id;
+    const other = await legacyPlotFile(ctx, pid, 'other.csv', 'id,lat,lon\n1,0,0\n');
     await divideFile({ mode: 'even', people: [maria.userId], order: 'file' });
     const put = await ctx.app.inject({
       method: 'PUT',
@@ -446,7 +446,7 @@ describe('dividing plots between people', () => {
   it('someone holding a plot as main in one file and as a copy in another did its main assessment, as the export says', async () => {
     // Plot 1: maria's main plot in this file; in b.csv jose holds it as main and maria as a copy.
     await ctx.store.setDivision(pid, fileId, { mode: 'manual' }, [{ plotKey: '1', userId: maria.userId, overlap: false }]);
-    const fileB = (await upload('id,lat,lon\n1,0,0\n2,0,0\n', 'b.csv')).json().id as string;
+    const fileB = await legacyPlotFile(ctx, pid, 'b.csv', 'id,lat,lon\n1,0,0\n2,0,0\n') as string;
     await ctx.store.setDivision(pid, fileB, { mode: 'manual' }, [
       { plotKey: '1', userId: jose.userId, overlap: false },
       { plotKey: '1', userId: maria.userId, overlap: true },
@@ -516,9 +516,9 @@ describe('dividing plots between people', () => {
 
   it('with a survey of two keys, a plot is its first two columns', async () => {
     expect((await putCep(demoCep())).state).toBe('own');
-    const put = await upload('id,round,lat,lon\n17,1,0,0\n17,1,5,5\n18,1,0,0\n18,3,0,0\n', 'own.csv');
-    expect(put.json().plotCount).toBe(3);
-    const ownId = put.json().id as string;
+    // beside the file of before, with the survey's two keys (a project from before the rules of one set of plots)
+    const ownId = await legacyPlotFile(ctx, pid, 'own.csv', 'id,round,lat,lon\n17,1,0,0\n17,1,5,5\n18,1,0,0\n18,3,0,0\n');
+    expect((await ctx.store.listCsvFiles(pid)).find((f) => f.id === ownId)?.plotCount).toBe(3);
     const columns = await ctx.app.inject({ method: 'GET', url: `/v1/projects/${pid}/csv-files/${ownId}/columns`, headers: bearer(admin) });
     expect(columns.json().plotCount).toBe(3);
     // A check record (round 2, the reassessment code) belongs to plot 18 whatever its round.
@@ -547,7 +547,7 @@ describe('dividing plots between people', () => {
       (await ctx.app.inject({ method: 'GET', url: `/v1/projects/${pid}/csv-files/${id}/columns`, headers: bearer(admin) })).json();
     let gridId: string;
     beforeEach(async () => {
-      gridId = (await upload(GRID, 'grid.csv')).json().id;
+      gridId = await legacyPlotFile(ctx, pid, 'grid.csv', GRID);
     });
 
     it('is offered for a latitude and longitude file; each person gets a compact area, the rows of their file along the curve', async () => {
@@ -687,7 +687,7 @@ describe('dividing plots between people', () => {
       ];
       const all = [...scrambled, ...far];
       const csv = `id,lat,lon,note${CRLF}${all.map((c) => `${c.id},${c.lat.toFixed(2)},${c.lon.toFixed(2)},x`).join(CRLF)}${CRLF}`;
-      const id = (await upload(csv, 'far.csv')).json().id as string;
+      const id = await legacyPlotFile(ctx, pid, 'far.csv', csv) as string;
       await divideFile({ mode: 'even', people: [maria.userId, jose.userId], order: 'file' }, id);
       await ctx.store.changeReferencePlots(pid, {
         unmark: [],
@@ -715,13 +715,13 @@ describe('dividing plots between people', () => {
     });
 
     it('is refused, with the reason, for another coordinate system or a file without places', async () => {
-      const noPlaces = (await upload('id,a,b,c\nx1,north,,1\nx2,south,,2\n', 'names.csv')).json().id as string;
+      const noPlaces = await legacyPlotFile(ctx, pid, 'names.csv', 'id,a,b,c\nx1,north,,1\nx2,south,,2\n') as string;
       expect((await columns(noPlaces)).nearby).toEqual({ available: false, reason: 'no_places', withPlace: 0, withoutPlace: 2 });
       const refused = await divideFile({ mode: 'even', people: [maria.userId], order: 'nearby' }, noPlaces);
       expect(refused.statusCode).toBe(400);
       expect(refused.json().reason).toContain('latitude and longitude');
       // Some plots without a place: offered, those go last.
-      const some = (await upload(`${GRID}g99,,,"none"${CRLF}`, 'some.csv')).json().id as string;
+      const some = await legacyPlotFile(ctx, pid, 'some.csv', `${GRID}g99,,,"none"${CRLF}`) as string;
       expect((await columns(some)).nearby).toEqual({ available: true, reason: null, withPlace: 16, withoutPlace: 1 });
       // The survey in another coordinate system (Collect Earth transforms it; this server does not).
       const files = unzipSync(idOnlyCep());

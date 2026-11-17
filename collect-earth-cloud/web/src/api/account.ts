@@ -3,6 +3,7 @@
 import type {
   AccountDeletion,
   DigestKind,
+  InvitePlots,
   InvitesAnswer,
   JoinPreview,
   LoginAnswer,
@@ -117,7 +118,7 @@ export async function deleteAccount(password: string): Promise<void> {
 
 // --- email digests (Task 19) ----------------------------------------------------
 
-export type { DigestKind, DigestView, Notifications } from "../../../src/wire/account";
+export type { DigestKind, DigestView, InvitePlots, Notifications } from "../../../src/wire/account";
 
 export function getNotifications(): Promise<Notifications> {
   return request<Notifications>("GET", "/v1/me/notifications");
@@ -186,9 +187,11 @@ export async function forgotPassword(login: string, language: string): Promise<v
 
 export function createInvite(
   projectId: string,
-  options: { role: Role; maxUses: number; expiresInDays: number | null; forUserId?: string },
+  options: { role: Role; maxUses: number; expiresInDays: number | null; forUserId?: string; plots?: InvitePlots | null },
 ): Promise<NewInvite> {
-  const json: { role: Role; maxUses: number; expiresInDays?: number; forUserId?: string } = { role: options.role, maxUses: options.maxUses };
+  const json: { role: Role; maxUses: number; expiresInDays?: number; forUserId?: string; plots?: InvitePlots } = { role: options.role, maxUses: options.maxUses };
+  // The plots each person who joins gets (none: the coordinator gives them later)
+  if (options.plots) json.plots = options.plots;
   // Never to expire (null) is said as 0: the server gives a link without a word about it 30 days
   json.expiresInDays = options.expiresInDays ?? 0;
   // A link for someone already in the project: the server makes it a one-person, one-week collector link.

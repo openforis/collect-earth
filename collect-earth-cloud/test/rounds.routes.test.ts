@@ -218,7 +218,8 @@ describe('project file and round routes', () => {
       const res = await upload('b.csv', csv);
       expect(res.statusCode).toBe(409);
       expect(res.json()).toMatchObject({ error: 'note_column_in_file', reason: expect.stringMatching(/coordinator_note/) });
-      expect((await upload('c.csv', 'id,lat,lon,notes\n1,0,0,x\n')).statusCode).toBe(201);
+      // a column named otherwise is just a column (a.csv replaced: the project's plots are one set)
+      expect((await upload('a.csv', 'id,lat,lon,notes\n1,0,0,x\n')).statusCode).toBe(201);
     });
 
     it('is refused, once records exist, when the file can no longer have it (note_removed); nothing changes', async () => {

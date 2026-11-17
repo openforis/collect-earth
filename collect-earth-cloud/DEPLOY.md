@@ -24,7 +24,7 @@ managed Postgres (Option B).
 | `PUBLIC_BASE_URL` | advised with a custom domain; **required with `SMTP_URL`** | `https://ce-cloud.example.org` | Base of the `/join/<token>` and `/reset/<token>` links and of every link in an email. If unset: `RENDER_EXTERNAL_URL`, else (screens only, never emails) the request's `x-forwarded-proto` + `Host` (correct on Cloud Run's own `*.run.app` address; see below) |
 | `TRUST_FORWARDED_HOST` | no | `true` | Use `X-Forwarded-Host` instead of `Host` for links derived from a request. Only behind a proxy that sets it itself; a client can write it (see below). `true` or `1`; default off |
 | `RENDER_EXTERNAL_URL` | no | `https://ce-cloud.onrender.com` | Honoured only as an environment fallback for the link base when `PUBLIC_BASE_URL` is unset (some hosts set it automatically) |
-| `RATE_LIMIT_PER_MINUTE` | no | `60` | Requests per minute per client IP on login, register, signup, setup and reset (429 `rate_limited` above it). Kept generous because a training room joins from one office IP; failed logins are also limited to 10 per minute per account. `0` disables both. Per instance, in memory |
+| `RATE_LIMIT_PER_MINUTE` | no | `60` | Requests per minute per client IP on login, register, signup, setup and reset (429 `rate_limited` above it). Kept generous because a training room joins from one office IP (Collect Earth tells the people beyond it to wait a minute; for a room of more than 60 joining at once, raise it for the event); failed logins are also limited to 10 per minute per account. `0` disables both. Per instance, in memory |
 | `TELEMETRY` | no | `1` | Turns on Sentry error reports only, as the desktop app sends them (the cloud sends no usage events: Collect Earth counts plots when they are submitted). Off unless `1` or `true`, so a self-hosted server sends nothing by default. Nothing personal: Sentry gets no request body, header, query string, user nor link token (`src/telemetry.ts`) |
 | `SENTRY_DSN` | no | `https://key@o1.ingest.sentry.io/2` | With `TELEMETRY`: where the server and the dashboard send error reports. Default: the desktop app's Sentry project |
 | `SENTRY_ENVIRONMENT` | no | `staging` | With `TELEMETRY`: the reports' environment (default `production`) |
@@ -910,7 +910,8 @@ decided (30 October 2026) to keep it. What it means:
 To remove this, switch the service to **instance-based billing**:
 `gcloud run services update collect-earth-cloud --region=<REGION> --no-cpu-throttling`.
 With up to 4 instances scaling to zero, that is about free to US$2 a month at light
-use, and up to about US$45 a month with one instance always up. `deploy.sh` does
+use, and up to about US$45 a month with one instance always up (with the default request-based billing, one
+minimum instance kept up idle costs about US$10 a month instead, at November 2026 prices). `deploy.sh` does
 not change this setting. A later option is to hand AI runs to Cloud Tasks, so that
 each runs inside a request of its own.
 

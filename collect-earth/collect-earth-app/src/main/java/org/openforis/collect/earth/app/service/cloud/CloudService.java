@@ -1,5 +1,10 @@
 package org.openforis.collect.earth.app.service.cloud;
 
+import org.openforis.collect.earth.app.service.notices.NoticeService;
+import org.openforis.collect.earth.app.service.notices.Notice;
+import java.util.Set;
+import java.util.LinkedHashSet;
+import java.util.Arrays;
 import java.io.File;
 import java.io.IOException;
 import java.text.MessageFormat;
@@ -15,6 +20,7 @@ import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
 import org.openforis.collect.earth.app.logging.GAlogger;
 import org.openforis.collect.earth.app.service.EarthProjectsService;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
+import org.openforis.collect.earth.app.desktop.EarthApp;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.CloudBinding;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
@@ -74,6 +80,14 @@ public class CloudService {
 
 	/** To start a learning set's new attempt afresh (deleting earlier records); absent in some tests. */
 	private EarthSurveyService surveyService;
+
+	/** The person's plots (downloaded at the join; a training set opened instead of them); absent in some tests. */
+	private MyPlotsService myPlots;
+
+	@Autowired(required = false)
+	public void setMyPlots(MyPlotsService myPlots) {
+		this.myPlots = myPlots;
+	}
 
 	@Autowired(required = false)
 	public void setSurveyService(EarthSurveyService surveyService) {
@@ -156,6 +170,8 @@ public class CloudService {
 		// Log in with the invitation: someone who has an account (another project's) joins this one with it
 		String token = request.register ? authenticate(() -> api.register(request.baseUrl, username, request.password, request.inviteToken), request)
 				: authenticate(() -> login(request.baseUrl, username, request.password, request.code, request.inviteToken), request);
+		// The name typed on this computer until now: its records are this person's (CloudRecordsSender sends those)
+		CloudRecordsSender.rememberLocalName(properties, properties.getOperator());
 		useProject(request.baseUrl, request.projectId, token, username);
 		// The next start offers to send the records this computer already has (CloudRecordsSender)
 		properties.setValue(EarthProperty.CLOUD_OFFER_LOCAL_RECORDS, Boolean.TRUE.toString());
@@ -184,9 +200,20 @@ public class CloudService {
 			properties.saveOperator(username);
 		}
 		properties.setCloudSyncEnabled(true);
+		// An office computer (on its shared PostgreSQL) goes back to it when a project that is not a cloud one is opened
+		CollectDBDriver before = properties.getCollectDBDriver();
+		if (before == CollectDBDriver.POSTGRESQL) {
+			properties.setValue(EarthProperty.DB_DRIVER_BEFORE_CLOUD, before.name());
+		} else if (before == CollectDBDriver.SQLITE) {
+			properties.setValue(EarthProperty.DB_DRIVER_BEFORE_CLOUD, "");
+		}
 		properties.saveCollectDBDriver(CollectDBDriver.CLOUD);
 		// The next start brings the account's own records of the project to this computer (CloudOwnRecordsFetcher)
 		CloudOwnRecordsFetcher.requestAtNextStart(properties);
+		// The person's plots, so the first start shows them (an older server: the assigned plot file at the start)
+		if (myPlots != null) {
+			myPlots.atJoin(new CloudApiClient.Destination(server, projectId, token));
+		}
 	}
 
 	/**
@@ -460,6 +487,11 @@ public class CloudService {
 			if ("invite_exhausted".equals(e.getErrorCode()) || "invalid_invite".equals(e.getErrorCode())) {
 				throw new InvalidCloudRequestException("cloud.inviteInvalid", Messages.getString("CloudJoin.inviteInvalid"));
 			}
+			// The server's limit per address: a training room joins from one office address, so when a big group joins
+			// at once the last of a minute are told to wait, not shown the server's answer
+			if ("rate_limited".equals(e.getErrorCode())) {
+				throw new InvalidCloudRequestException("cloud.rateLimited", Messages.getString("CloudLoginDialog.rateLimited"));
+			}
 			throw new InvalidCloudRequestException("cloud.login", StringUtils.defaultIfBlank(e.getMessage(), Messages.getString("CloudLoginDialog.failed")));
 		} catch (IOException | RuntimeException e) {
 			logger.warn("The cloud login failed: {}", e.getMessage());
@@ -588,6 +620,8 @@ public class CloudService {
 			entry.put("filename", info.getFilename());
 			entry.put("plots", info.getPlotCount());
 			entry.put("active", info.getFilename() != null && new File(current).getName().equals(new File(info.getFilename()).getName()));
+			// A training set (calibration, learning): apart from the person's plots
+			entry.put("training", info.getTrainingKind());
 			list.add(entry);
 		}
 		return list;
@@ -619,6 +653,75 @@ public class CloudService {
 			logger.warn("Could not download the assigned CSV {}: {}", info.getFilename(), e.getMessage());
 			throw new InvalidCloudRequestException("cloud.download", Messages.getString("SampleDataPanel.downloadError"));
 		}
+	}
+
+	/**
+	 * Opens a training set (calibration, learning) instead of the person's plots: downloaded (a learning set's new attempt
+	 * starts afresh) and made the plots file, which stays until the person goes back to their plots. @return its path
+	 */
+	public File openTraining(String id) throws InvalidCloudRequestException {
+		File file = downloadAssignment(id);
+		properties.setValue(EarthProperty.SAMPLE_FILE, file.getAbsolutePath());
+		properties.setValue(EarthProperty.CLOUD_TRAINING_FILE, file.getAbsolutePath());
+		EarthApp.reloadPlots();
+		return file;
+	}
+
+	/** Where a training set waiting is offered at a start (absent in some tests) */
+	private NoticeService notices;
+
+	@Autowired(required = false)
+	public void setNotices(NoticeService notices) {
+		this.notices = notices;
+	}
+
+	/**
+	 * At a start with the person's plots: a training set the person takes part in (calibration, learning) is offered to
+	 * open, once for each of its versions, unless one is open already. Never throws.
+	 */
+	public void offerTraining() {
+		if (notices == null || myPlots == null || myPlots.onTraining()) {
+			return;
+		}
+		List<AssignmentInfo> sets = new ArrayList<>();
+		Set<String> offered = new LinkedHashSet<>(Arrays.asList(StringUtils.defaultString(properties.getValue(EarthProperty.CLOUD_TRAINING_OFFERED)).split(",")));
+		try {
+			for (AssignmentInfo info : fetchAssignments()) {
+				if (info.getTrainingKind() != null && info.getCsvFileId() != null && !offered.contains(info.getCsvFileId() + ":" + info.getChecksum())) {
+					sets.add(info);
+				}
+			}
+		} catch (InvalidCloudRequestException | RuntimeException e) {
+			return; // asked again at the next start
+		}
+		if (sets.isEmpty()) {
+			return;
+		}
+		for (AssignmentInfo info : sets) {
+			offered.add(info.getCsvFileId() + ":" + info.getChecksum());
+		}
+		offered.remove("");
+		properties.setValue(EarthProperty.CLOUD_TRAINING_OFFERED, String.join(",", offered));
+		List<String> names = new ArrayList<>();
+		for (AssignmentInfo info : sets) {
+			names.add(StringUtils.defaultIfBlank(info.getFilename(), info.getCsvFileId()));
+		}
+		Notice notice = new Notice(MyPlotsService.NOTICE, Notice.INFO, Messages.getString("MyPlots.title"), //$NON-NLS-1$
+				MessageFormat.format(Messages.getString("MyPlots.trainingOffer"), String.join(", ", names))); //$NON-NLS-1$ //$NON-NLS-2$
+		for (AssignmentInfo info : sets) {
+			notice.choice(info.getCsvFileId(), StringUtils.defaultIfBlank(info.getFilename(), info.getCsvFileId()),
+					MessageFormat.format(Messages.getString("CloudPlotFile.plots"), info.getPlotCount())); //$NON-NLS-1$
+		}
+		notice.option(AssignedPlotFileSetup.LATER, Messages.getString("CloudPlotFile.later")); //$NON-NLS-1$
+		notices.post(notice, chosen -> {
+			try {
+				if (!AssignedPlotFileSetup.LATER.equals(chosen)) {
+					openTraining(chosen);
+				}
+			} catch (InvalidCloudRequestException e) {
+				notices.post(new Notice(MyPlotsService.NOTICE, Notice.WARNING, Messages.getString("MyPlots.title"), e.getMessage())); //$NON-NLS-1$
+			}
+		});
 	}
 
 	/** The plot files the cloud server assigns to the operator in the open cloud project, as it lists them. */

@@ -40,13 +40,21 @@ public class PlotFileIndex {
 	/** The plot file read once, against its path, last change and the plot settings (see {@link #indexOf}). */
 	private volatile PlotIndex cachedIndex;
 
-	/** "path@lastModified" of the plot file, "" when there is none (LeafletMapController.plotsVersion). */
+	/**
+	 * "path@lastModified:length" of the plot file, "" when there is none (LeafletMapController.plotsVersion): a file
+	 * replaced within the same second (Collect Earth's copy of a cloud person's plots) still changes it.
+	 */
 	static String plotsVersion(String csvFile) {
 		if (csvFile == null || csvFile.trim().isEmpty()) {
 			return "";
 		}
 		File csv = new File(csvFile);
-		return csv.exists() ? csvFile + "@" + csv.lastModified() : "";
+		return csv.exists() ? csvFile + "@" + stampOf(csv) : "";
+	}
+
+	/** The file's date and size, taken before it is read: a file replaced while it is read is read again next time */
+	static String stampOf(File csv) {
+		return csv.lastModified() + ":" + csv.length(); //$NON-NLS-1$
 	}
 
 	/**
@@ -56,11 +64,12 @@ public class PlotFileIndex {
 	 */
 	public synchronized PlotIndex indexOf(String csvFile) throws Exception {
 		File csv = new File(csvFile);
+		String stamp = stampOf(csv);
 		PlotIndex index = cachedIndex;
 		// Kept while the plot file is the same and so are the plot settings (the shape, its distances, the CRS): with
 		// another shape the plots have other outlines, and in another CRS other places
 		String settings = kmlGeneratorService.plotShapeSettings();
-		if (index != null && csvFile.equals(index.csvPath) && csv.lastModified() == index.lastModified && settings.equals(index.settings)) {
+		if (index != null && csvFile.equals(index.csvPath) && stamp.equals(index.stamp) && settings.equals(index.settings)) {
 			return index;
 		}
 		KmlGenerator kmlGenerator = kmlGeneratorService.getKmlGenerator();
@@ -105,7 +114,7 @@ public class PlotFileIndex {
 				}
 			}
 		}
-		index = new PlotIndex(csvFile, csv.lastModified(), settings, kmlGenerator, headerRow, ids, labels, places, rows, position, json);
+		index = new PlotIndex(csvFile, stamp, settings, kmlGenerator, headerRow, ids, labels, places, rows, position, json);
 		cachedIndex = index;
 		return index;
 	}
@@ -113,7 +122,8 @@ public class PlotFileIndex {
 	/** The plot file read: each plot's id, label, place and row, and the index's answer. */
 	public static final class PlotIndex {
 		public final String csvPath;
-		public final long lastModified;
+		/** The file's date and size when it was read ({@link PlotFileIndex#stampOf}) */
+		public final String stamp;
 		public final String settings;
 		/** The plot shape's generator, which reads the whole plot file to be chosen (KmlGeneratorService.getKmlGenerator) */
 		public final KmlGenerator generator;
@@ -126,10 +136,10 @@ public class PlotFileIndex {
 		public final Set<String> idSet;
 		public final String json;
 
-		public PlotIndex(String csvPath, long lastModified, String settings, KmlGenerator generator, String[] header, List<String> ids, List<String> labels, List<double[]> places,
+		public PlotIndex(String csvPath, String stamp, String settings, KmlGenerator generator, String[] header, List<String> ids, List<String> labels, List<double[]> places,
 				List<String[]> rows, Map<String, Integer> position, com.fasterxml.jackson.databind.ObjectMapper mapper) throws IOException {
 			this.csvPath = csvPath;
-			this.lastModified = lastModified;
+			this.stamp = stamp;
 			this.settings = settings;
 			this.generator = generator;
 			this.header = header;

@@ -6,6 +6,7 @@ import java.util.Map;
 
 import org.openforis.collect.earth.app.service.RestartService;
 import org.openforis.collect.earth.app.service.cloud.CloudService;
+import org.openforis.collect.earth.app.service.cloud.MyPlotsService;
 import org.openforis.collect.earth.app.service.cloud.CloudService.InvalidCloudRequestException;
 import org.openforis.collect.earth.app.service.cloud.CloudService.JoinRequest;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,6 +42,21 @@ public class CloudController {
 	CloudController(CloudService cloud, Runnable restart) {
 		this.cloud = cloud;
 		this.restart = restart;
+	}
+
+	/** The person's plots in a cloud project (absent in some tests) */
+	private MyPlotsService myPlots;
+
+	@Autowired(required = false)
+	public void setMyPlots(MyPlotsService myPlots) {
+		this.myPlots = myPlots;
+	}
+
+	private MyPlotsService plots() {
+		if (myPlots == null) {
+			throw new ApiException("cloud.myPlots", "The person's plots are not available"); //$NON-NLS-1$ //$NON-NLS-2$
+		}
+		return myPlots;
 	}
 
 	@PostMapping("/api/cloud/preview")
@@ -183,6 +199,39 @@ public class CloudController {
 
 	public static class AssignmentRequest {
 		public String id;
+	}
+
+	/** The person's plots (MyPlotsService): whether they come from the server, how many, when, the training set open */
+	@GetMapping("/api/cloud/myPlots")
+	public Map<String, Object> myPlots() {
+		return plots().status();
+	}
+
+	/** Asks the server now whether the person's plots changed ("Refresh now") */
+	@PostMapping("/api/cloud/myPlots/refresh")
+	public Map<String, Object> refreshMyPlots() {
+		Map<String, Object> status = new java.util.LinkedHashMap<>();
+		status.put("outcome", plots().check().name());
+		status.putAll(plots().status());
+		return status;
+	}
+
+	/** Back to the person's plots from a training set */
+	@PostMapping("/api/cloud/myPlots/use")
+	public Map<String, Object> useMyPlots() {
+		plots().useMyPlots();
+		return plots().status();
+	}
+
+	/** Opens a training set instead of the person's plots, at once (no Apply) */
+	@PostMapping("/api/cloud/training/open")
+	public Map<String, Object> openTraining(@RequestBody AssignmentRequest request) {
+		try {
+			cloud.openTraining(request.id);
+			return plots().status();
+		} catch (InvalidCloudRequestException e) {
+			throw new ApiException(e.getCode(), e.getMessage());
+		}
 	}
 
 	/** Downloads one of them: the page then makes it the plots file, which Apply saves */

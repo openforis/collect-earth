@@ -28,15 +28,17 @@ public class CloudSendController {
 		this.jobs = jobs;
 	}
 
+	/** {count, mine, others, names}: the records of the project here, the person's and those under other names */
 	@GetMapping("/api/cloud/localRecords")
-	public Map<String, Object> localRecords() {
-		return Collections.singletonMap("count", sender.localRecordCount());
+	public Map<String, Object> localRecords() throws java.io.IOException {
+		return sender.localRecords();
 	}
 
+	/** The person's records; with {@code all=true} those under other names too (they are then the person's in the cloud) */
 	@PostMapping("/api/jobs/sendToCloud")
-	public Map<String, String> send() {
+	public Map<String, String> send(@org.springframework.web.bind.annotation.RequestParam(value = "all", defaultValue = "false") boolean all) {
 		try {
-			return Collections.singletonMap("id", jobs.start(SEND_TO_CLOUD, sender.sendJob()));
+			return Collections.singletonMap("id", jobs.start(SEND_TO_CLOUD, sender.sendJob(all)));
 		} catch (InvalidCloudRequestException e) {
 			throw new ApiException(e.getCode(), e.getMessage());
 		} catch (IllegalStateException e) {
