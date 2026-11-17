@@ -17,6 +17,7 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import HighlightAlt from "@mui/icons-material/HighlightAlt";
 import Refresh from "@mui/icons-material/Refresh";
+import visuallyHidden from "@mui/utils/visuallyHidden";
 import type * as Leaflet from "leaflet";
 import { useEffect, useId, useMemo, useRef, useState, type MouseEvent, type MutableRefObject } from "react";
 import { getMapPlots, getPeriods, getRepeatChange, MAP_STATUSES, type MapPlots, type MapStatus, type MapTiles } from "../api";
@@ -34,9 +35,6 @@ import { clusterIcon, loadLeaflet, type LeafletModule } from "./leaflet";
 import { useLoad } from "../useLoad";
 import { areaOf, MARK_AT_MOST, selectInAreas, summarizeSelection, type Area } from "../mapSelectView";
 import { MapSelection } from "./MapSelection";
-
-/** Read by screen readers, not shown. */
-const HIDDEN = { position: "absolute", width: "1px", height: "1px", overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap" } as const;
 
 /** A circle marker that knows which plot it is. */
 type PlotMarker = Leaflet.CircleMarker & { plotIndex: number };
@@ -732,7 +730,7 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
         {loading !== null && (
           <Box sx={{ mb: 2 }}>
             {/* Said once, when the reading starts (the count of plots shown says the end); the numbers in between are not read out. */}
-            <Box role="status" sx={HIDDEN}>
+            <Box role="status" sx={visuallyHidden}>
               {t("map.loadingStart")}
             </Box>
             <Typography variant="body2" color="text.secondary" aria-hidden="true">

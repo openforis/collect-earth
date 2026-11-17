@@ -27,6 +27,7 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { useEffect, useId, useRef, useState } from "react";
 import Chip from "@mui/material/Chip";
+import visuallyHidden from "@mui/utils/visuallyHidden";
 import {
   ApiError,
   deleteReferenceAnswers,
@@ -599,7 +600,6 @@ function PlotList({ projectId, view, onDone }: { projectId: string; view: Refere
   );
 }
 
-const visuallyHidden = { position: "absolute", width: "1px", height: "1px", overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap" } as const;
 
 /**
  * "Reference plots" on the Quality tab (Task 14). Coordinators (`canEdit`) choose the reference

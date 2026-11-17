@@ -13,6 +13,7 @@ import Typography from "@mui/material/Typography";
 import Download from "@mui/icons-material/Download";
 import EventNote from "@mui/icons-material/EventNote";
 import ExpandMore from "@mui/icons-material/ExpandMore";
+import visuallyHidden from "@mui/utils/visuallyHidden";
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { ApiError, getActivity, type ActivityPage, type ExportKind, type LogItem, type LogKind } from "../api";
 import { useApp, useLocalMode } from "../appContext";
@@ -252,7 +253,7 @@ function ActivityLog({ projectId }: { projectId: string }) {
       ) : (
         <Explain variant="body2" sx={{ mt: 2 }} text={t("activity.timesNote.short")} more={t("activity.timesNote")} />
       )}
-      <Box role="status" aria-live="polite" sx={{ position: "absolute", width: "1px", height: "1px", overflow: "hidden", clip: "rect(0 0 0 0)" }}>
+      <Box role="status" aria-live="polite" sx={visuallyHidden}>
         {announce}
       </Box>
     </Section>

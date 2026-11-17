@@ -33,6 +33,9 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import ArrowBack from "@mui/icons-material/ArrowBack";
 import ArrowForward from "@mui/icons-material/ArrowForward";
+// Its sizes are pixel strings ("1px"): in MUI's sx a number of 1 or less is a fraction (width: 1 is 100%), which made
+// a hidden label as wide as the page and gave the page a horizontal scroll.
+import visuallyHidden from "@mui/utils/visuallyHidden";
 import { useMemo, useState, type ReactNode } from "react";
 import {
   ApiError,
@@ -84,12 +87,13 @@ import { TakePlots } from "./TakePlots";
 
 /** One plot file's, or (fileId null) the project's plots: every plot file, one set */
 async function loadFile(projectId: string, fileId: string | null) {
-  const [files, members, current, columns] = await Promise.all([
-    listCsvFiles(projectId),
-    listMembers(projectId),
-    getDistribution(projectId, fileId),
-    getCsvColumns(projectId, fileId),
-  ]);
+  // For the project's plots the division and the columns each read every plot file and record on the server: those
+  // two one after the other, beside the light ones.
+  const heavy = async () => {
+    const current = await getDistribution(projectId, fileId);
+    return [current, await getCsvColumns(projectId, fileId)] as const;
+  };
+  const [files, members, [current, columns]] = await Promise.all([listCsvFiles(projectId), listMembers(projectId), heavy()]);
   return { file: fileId === null ? null : (files.find((f) => f.id === fileId) ?? null), files, members, current, columns };
 }
 
@@ -244,7 +248,7 @@ function DivideForm({
   const t = useT();
   const { language } = useApp();
   const people = useMemo(() => sortPeople(members), [members]);
-  const [form, setForm] = useState<DivisionForm>(() => initialForm(current.distribution, holders(current), members));
+  const [form, setForm] = useState<DivisionForm>(() => initialForm(current.distribution, holders(current), members, fileId !== null));
   // The last preview, for the request it was made for (any change to the form drops it).
   const [preview, setPreview] = useState<DistributionSummary | null>(null);
   const [problemShown, setProblemShown] = useState(false);
@@ -662,17 +666,6 @@ function CurrentDivision({
     </Stack>
   );
 }
-
-// Pixel sizes as strings: in MUI's sx a number of 1 or less is a fraction (width: 1 is 100%),
-// which made this hidden label as wide as the page and gave the page a horizontal scroll.
-const visuallyHidden = {
-  position: "absolute",
-  width: "1px",
-  height: "1px",
-  overflow: "hidden",
-  clip: "rect(0 0 0 0)",
-  whiteSpace: "nowrap",
-} as const;
 
 /**
  * One plot file's division page, or (fileId null, /projects/:id/plots/all) the project's plots: every plot file divided

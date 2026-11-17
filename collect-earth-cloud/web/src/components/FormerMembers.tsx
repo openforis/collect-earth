@@ -54,8 +54,10 @@ export function FormerMembers({ projectId }: { projectId: string }) {
       setDone(await work());
       setAsking(null);
       setGiving(null);
-      // The figures of every page move with the plots
-      void queryClient.invalidateQueries({ queryKey: ["project", projectId] });
+      // The figures of every page move with the plots: asked again when each page opens, the People tab's at once
+      void queryClient.invalidateQueries({ queryKey: ["project", projectId], refetchType: "none" });
+      void queryClient.invalidateQueries({ queryKey: ["project", projectId, "getPeople"] });
+      void queryClient.invalidateQueries({ queryKey: ["project", projectId, "getFormerMembers"] });
     } catch (err) {
       setError(err);
     } finally {

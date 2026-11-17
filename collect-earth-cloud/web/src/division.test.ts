@@ -113,6 +113,10 @@ describe("initialForm", () => {
     expect(base).toMatchObject({ mode: "whole", people: ["u1", "u2"], order: "file", overlap: false, overlapPercent: "10" });
   });
 
+  it("the project's plots, not divided yet, start on evenly: they cannot be given whole", () => {
+    expect(initialForm(null, [], members, false)).toMatchObject({ mode: "even", people: ["u1", "u2"] });
+  });
+
   it("ticks the people who hold the file now, if any", () => {
     expect(initialForm(null, ["u0", "gone"], members).people).toEqual(["u0"]);
   });

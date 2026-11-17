@@ -16,6 +16,7 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import OpenInNew from "@mui/icons-material/OpenInNew";
+import visuallyHidden from "@mui/utils/visuallyHidden";
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from "react";
 import {
   ApiError,
@@ -614,7 +615,7 @@ export function ReviewQueue({
             <MoreInfo text={t("queue.keys")} />
           </Box>
           {/* What was decided, said to screen readers (the page moves on by itself). */}
-          <Box role="status" aria-live="polite" sx={{ position: "absolute", width: "1px", height: "1px", margin: "-1px", padding: 0, border: 0, overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap" }}>
+          <Box role="status" aria-live="polite" sx={visuallyHidden}>
             {announce}
           </Box>
           {!data && loading && <Loading />}

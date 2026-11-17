@@ -37,6 +37,7 @@ import FolderOpen from "@mui/icons-material/FolderOpen";
 import Insights from "@mui/icons-material/Insights";
 import People from "@mui/icons-material/People";
 import Tune from "@mui/icons-material/Tune";
+import visuallyHidden from "@mui/utils/visuallyHidden";
 import {
   getAiUsage,
   getCollectEarthVersions,
@@ -482,9 +483,6 @@ function AlertsCard({ onSeen }: { onSeen: () => void }) {
     </Paper>
   );
 }
-
-/** Read by screen readers only. */
-const visuallyHidden = { position: "absolute", width: "1px", height: "1px", overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap" } as const;
 
 /** For the server administrator only: server settings and accounts. */
 const SECTION_ICON: Record<ServerSection, ReactElement> = {

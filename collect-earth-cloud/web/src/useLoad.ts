@@ -6,6 +6,8 @@ export interface Loaded<T> {
   data: T | null;
   error: unknown;
   loading: boolean;
+  /** When the data was last answered (ms), also when an identical answer kept the same data object; 0 before any. */
+  dataUpdatedAt: number;
   reload: () => void;
   /**
    * Replace the loaded data here (after a successful change): the new data, or a function of the data as it is then
@@ -43,6 +45,7 @@ export function useLoad<T>(key: QueryKey, load: () => Promise<T>): Loaded<T> {
     // As before: no error shown while it is asked again
     error: query.isFetching ? null : query.error,
     loading: query.isFetching || query.isPending,
+    dataUpdatedAt: query.dataUpdatedAt,
     reload,
     setData,
   };
