@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   type Field, type FormModel, availableItems, clickCode, dateFromInput, dateToInput, entityCount, errorList, fieldsByName,
   indexedField, isTabVisible, joinValues, mergeInfos, parseCodes, plainMessage, qualify, rangeFromInput, rangeToInput,
-  requiredMessage, saveBody, selectCodes, splitValues, summaryLines, tabsWithErrors, timeToInput, unansweredRequired, errorsByTab, neededByTab, updateRequired,
+  requiredMessage, saveBody, sharedColumnError, selectCodes, splitValues, summaryLines, tabsWithErrors, timeToInput, unansweredRequired, errorsByTab, neededByTab, updateRequired,
   DROPDOWN_AS_BUTTONS, advanceTarget, answeredWithKeys, openingTarget, answersToCopy, answersToRemember, codeControl, firstToAnswer, numberProblem,
   draftErrors, stepsOf, columnFillTargets, type FieldInfo, type TableItem, stepAfterAnswer, stepComplete,
 } from "./model";
@@ -445,5 +445,19 @@ describe("stepComplete and stepAfterAnswer", () => {
     const done = [{ tab: 0, questions: [q("lu", true, true)] }, { tab: 1, questions: [q("canopy", true, false)] }];
     expect(stepAfterAnswer(done, 1, none)).toBe("submit");
     expect(stepAfterAnswer(done, 1, new Set([0]))).toBeNull();
+  });
+});
+
+describe("sharedColumnError", () => {
+  it("is the message every row of a column has, said once", () => {
+    const sum = "La somme des points de contrôle doit être au moins 45-49";
+    expect(sharedColumnError([sum, sum, sum])).toBe(sum);
+  });
+  it("is none for one row, a row without a message, different messages or messages with nothing to say", () => {
+    expect(sharedColumnError(["a"])).toBeNull();
+    expect(sharedColumnError(["a", null])).toBeNull();
+    expect(sharedColumnError(["a", "b"])).toBeNull();
+    expect(sharedColumnError([" ", " "])).toBeNull();
+    expect(sharedColumnError([])).toBeNull();
   });
 });

@@ -45,8 +45,21 @@ export interface FieldProps {
   required?: boolean;
   /** just copied from the plot submitted before ("Same as previous plot"): marked until it is looked at */
   copied?: boolean;
+  /**
+   * the id of a message said once for the field's table column (every row of it has the same one): the cell is still
+   * outlined in red and described by it, with no message of its own
+   */
+  errorAt?: string;
   /** told that a number box holds what is no number (see numberProblem), or no longer (null): Submit is refused meanwhile */
   onDraftProblem?: (name: string, problem: MessageKey | null) => void;
+}
+
+/**
+ * The message a field shows: null when it is not in error, or not yet (quiet), " " when it is with nothing to say (the
+ * control still outlined in red).
+ */
+export function shownError(t: Translate, field: Field, value: string, info: FieldInfo | undefined, quiet?: boolean): string | null {
+  return info?.inError && !quiet ? errorText(t, field, value, info.errorMessage) || " " : null;
 }
 
 /** The message under a field in error: what to do when it is not answered yet, else the server's. */
@@ -103,9 +116,14 @@ function Description({ title, children }: { title: string; children: ReactElemen
 const errorId = (field: Field) => `${field.name}-error`;
 
 function ErrorMessage({ field, text }: { field: Field; text: string | null }) {
+  return <ErrorLine id={errorId(field)} text={text} />;
+}
+
+/** A message in red with its icon, under a field or, once for a whole column, under a table's column header */
+export function ErrorLine({ id, text, testId = "entry-field-error" }: { id: string; text: string | null; testId?: string }) {
   if (!text || !text.trim()) return null;
   return (
-    <FormHelperText error id={errorId(field)} data-testid="entry-field-error"
+    <FormHelperText error id={id} data-testid={testId}
       sx={{ mx: 0, mt: 0.5, display: "flex", alignItems: "flex-start", gap: 0.5, fontWeight: 500 }}>
       <ErrorOutlineIcon sx={{ fontSize: 15, mt: "1px", flex: "none" }} />
       <span>{text}</span>
@@ -116,10 +134,9 @@ function ErrorMessage({ field, text }: { field: Field; text: string | null }) {
 /** Label, description, control and the error message of one field. */
 export const FieldView = memo(function FieldView(props: FieldProps) {
   const t = useT();
-  const { field, info, value, dense, quiet, required, copied } = props;
+  const { field, info, value, dense, quiet, required, copied, errorAt } = props;
   if (info?.visible === false) return null;
-  // " ": in error, with nothing to say, the control is still outlined in red
-  const error = info?.inError && !quiet ? errorText(t, field, value, info.errorMessage) || " " : null;
+  const error = shownError(t, field, value, info, quiet);
   // Nothing to answer: the value goes on the label's line, one row instead of two
   if (field.readOnly && !dense) {
     return (
@@ -149,8 +166,8 @@ export const FieldView = memo(function FieldView(props: FieldProps) {
           {copied && <CopiedBadge />}
         </Stack>
       )}
-      <Control {...props} error={!!error} describedBy={error?.trim() ? errorId(field) : undefined} />
-      <ErrorMessage field={field} text={error} />
+      <Control {...props} error={!!error} describedBy={error?.trim() ? errorAt ?? errorId(field) : undefined} />
+      {!errorAt && <ErrorMessage field={field} text={error} />}
     </Box>
   );
 });

@@ -281,6 +281,17 @@ export function columnFillTargets(item: TableItem, column: number, infos: Record
   return fields.filter((f) => isVisible(infos, f.name));
 }
 
+/**
+ * The message every shown cell of a table's column has, when they all have the same one: said once for the column
+ * instead of under each cell (a rule over the whole table, as a sum of the rows, is broken on every row at once). Null
+ * when there are fewer than two cells, one without a message, or different ones.
+ */
+export function sharedColumnError(messages: (string | null)[]): string | null {
+  const first = messages[0];
+  if (messages.length < 2 || !first || !first.trim()) return null;
+  return messages.every((m) => m === first) ? first : null;
+}
+
 export function isVisible(infos: Record<string, FieldInfo>, name: string): boolean {
   return infos[name]?.visible !== false;
 }

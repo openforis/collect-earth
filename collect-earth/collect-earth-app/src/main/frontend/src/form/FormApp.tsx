@@ -1,4 +1,4 @@
-import { type ReactElement, type Ref, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { type ReactElement, type Ref, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -39,11 +39,11 @@ import { type SaveIcon, type SaveView, saveView, useRecordSync } from "../cloud"
 import { type MessageKey, useT } from "../i18n";
 import { escapeBlurs, isCopyKey, isTyping, mayAdvance, mayTakeFocus, panelKey, questionKey, submitOnKey } from "../shortcuts";
 import { Logo } from "../components/Logo";
-import { Answered, AnsweredByKey, Copied, FieldView, errorText } from "./fields";
+import { Answered, AnsweredByKey, Copied, ErrorLine, FieldView, errorText, shownError } from "./fields";
 import {
   type Field, type FocusTarget, type FormModel, type GroupItem, type InfoItem, type Item, type MultipleItem, type Step,
   type TableItem, type TableTotal, type TotalRule, advanceTarget, answeredWithKeys, answersToCopy, availableItems, columnFillTargets, columnTotal,
-  draftErrors, entityCount, errorList, ruleMet, totalGap,
+  draftErrors, entityCount, errorList, ruleMet, sharedColumnError, totalGap,
   fieldsOfStep, firstToAnswer, indexedField, isTabVisible, isVisible, itemFields, neededByTab, openingTarget, parseCodes,
   stepAfterAnswer, stepsOf, summaryLines, tabsWithErrors,
 } from "./model";
@@ -1018,14 +1018,17 @@ function TabContent({ store, state, items }: { store: FormStore; state: FormStat
   );
 }
 
-function BoundField({ store, state, field, dense }: { store: FormStore; state: FormState; field: Field; dense?: boolean }) {
+/** Not answered yet, and Submit not pressed: its error (the answer is required) is not shown yet */
+const isQuiet = (store: FormStore, state: FormState, name: string) => !state.attempted && !store.value(name);
+
+function BoundField({ store, state, field, dense, errorAt }: { store: FormStore; state: FormState; field: Field; dense?: boolean; errorAt?: string }) {
   const byName = store.fieldsByName();
   const copied = useContext(Copied).has(field.name);
   const parent = field.code?.parent ? byName[field.code.parent] : undefined;
   const items = field.code ? availableItems(field, state.infos, state.pending, byName) : NO_ITEMS;
   return (
     <FieldView field={field} value={store.value(field.name)} info={state.infos[field.name]} items={items}
-      parentLabel={parent?.label} onChange={store.setValue} dense={dense} quiet={!state.attempted && !store.value(field.name)}
+      parentLabel={parent?.label} onChange={store.setValue} dense={dense} quiet={isQuiet(store, state, field.name)} errorAt={errorAt}
       required={store.isRequired(field.name)} copied={copied} onDraftProblem={store.setDraftProblem} />
   );
 }
@@ -1064,6 +1067,13 @@ function EntityTable({ store, state, item }: { store: FormStore; state: FormStat
   const cellFields = useMemo(() => new Map(item.rows.flatMap((r) =>
     r.fields.map((f): [string, Field] => [f.name, { ...f, label: `${r.label} – ${f.label}` }]))), [item]);
   const rows = item.rows.filter((r) => r.fields.some((f) => isVisible(state.infos, f.name)));
+  // A column whose rows all have the same message (a rule over the whole table, as the sum of its rows) says it once,
+  // under its header: each cell stays outlined in red, without the message repeated under it
+  const tableId = useId();
+  const shared = item.columns.map((_, c) => sharedColumnError(rows.map((r) => r.fields[c])
+    .filter((f): f is Field => !!f && isVisible(state.infos, f.name))
+    .map((f) => shownError(t, f, store.value(f.name), state.infos[f.name], isQuiet(store, state, f.name)))));
+  const sharedId = (c: number) => (shared[c] ? `${tableId}-column-${c}-error` : undefined);
   if (!rows.length) return null;
   return (
     <Box>
@@ -1079,6 +1089,11 @@ function EntityTable({ store, state, item }: { store: FormStore; state: FormStat
                   {c.label}
                   {calculated[i] && <Typography component="span" variant="caption" color="text.secondary" sx={{ display: "block", fontWeight: 400 }}>{t("entry.calculated")}</Typography>}
                   <FillColumn store={store} state={state} item={item} column={i} label={c.label} />
+                  {shared[i] && (
+                    <Box sx={{ whiteSpace: "normal", fontWeight: 400, maxWidth: 280 }}>
+                      <ErrorLine id={sharedId(i)!} text={shared[i]} testId="entry-column-error" />
+                    </Box>
+                  )}
                 </TableCell>
               ))}
             </TableRow>
@@ -1087,9 +1102,9 @@ function EntityTable({ store, state, item }: { store: FormStore; state: FormStat
             {rows.map((row) => (
               <TableRow key={row.code} data-row={row.code}>
                 <TableCell component="th" scope="row" sx={{ fontWeight: 500, [NARROW]: { width: "1%" } }} title={row.description}>{row.label}</TableCell>
-                {row.fields.map((f) => (
+                {row.fields.map((f, c) => (
                   <TableCell key={f.name} sx={{ minWidth: f.calculated ? 0 : 140, [NARROW]: { minWidth: 0 } }}>
-                    <BoundField store={store} state={state} field={cellFields.get(f.name) ?? f} dense />
+                    <BoundField store={store} state={state} field={cellFields.get(f.name) ?? f} dense errorAt={sharedId(c)} />
                   </TableCell>
                 ))}
               </TableRow>
