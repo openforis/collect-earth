@@ -60,6 +60,21 @@ class WorkingRecordsTest {
 	}
 
 	@Test
+	void aRecordThatCouldNotBeSavedIsNotForgotten() throws Exception {
+		AbstractEarthSurveyService service = service(false);
+		save(service);
+		database.failing = true;
+
+		service.flushAndForgetWorkingRecords();
+		assertTrue(service.hasUnsavedChanges("105"), "the unsaved changes stay in memory");
+
+		database.failing = false;
+		service.flushAndForgetWorkingRecords();
+		assertEquals(1, database.saves, "saved at the next flush");
+		assertFalse(service.hasUnsavedChanges("105"));
+	}
+
+	@Test
 	void theResetOfALearningSetForgetsTheRecordsItDeletes() throws Exception {
 		AbstractEarthSurveyService service = service(true);
 		save(service);

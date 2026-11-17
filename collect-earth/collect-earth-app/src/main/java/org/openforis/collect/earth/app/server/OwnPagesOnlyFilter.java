@@ -25,7 +25,9 @@ import org.springframework.web.context.support.WebApplicationContextUtils;
  * web.xml) only the requests of Collect Earth's own pages: the plots map and its form, served by this server. Those
  * endpoints are GETs that act (show a plot, move the camera, open and arrange windows), and any web page open in a
  * browser on the same computer could otherwise send them, with an image or a fetch, while Collect Earth runs. It
- * guards the API (/api/*) too, ahead of ApiHeaderFilter.
+ * guards the API (/api/*) too, ahead of ApiHeaderFilter, /openAuxiliaryWindows (which the plots map fetches from its
+ * own origin), and /generated/*, the folder of applicationContext.xml with the database password, whose only other
+ * files are the balloon's (earthFiles/, webFiles/), loaded by the balloon page this server serves.
  * <ul>
  * <li>{@code Sec-Fetch-Site}, which browsers send on fetches, images and navigations alike, must be {@code same-origin}
  * (the plots map's requests) or {@code none} (an address the user opened) when it is there. Not {@code same-site}: for
@@ -42,9 +44,8 @@ import org.springframework.web.context.support.WebApplicationContextUtils;
  * The endpoints Google Earth Pro's balloons call too (the plot data) get it with the init-param
  * {@code allowGoogleEarthPro}: a balloon is no page of this server, and may send an Origin that is no web address
  * ("null", file://), which is let through there; a web address of another site and the Sec-Fetch-Site of a browser's
- * cross-site request are refused all the same. /openAuxiliaryWindows and /ancillaryWindows are not guarded: what
- * their callers send is not known. Mapped before the other filters in web.xml, as GoogleEarthHeaderFilter answers "*"
- * for a missing Origin.
+ * cross-site request are refused all the same. Mapped before the other filters in web.xml, as GoogleEarthHeaderFilter
+ * answers "*" for a missing Origin.
  * <p>
  * The configured host comes from the LocalPropertiesService bean of the root application context, which the
  * ContextLoaderListener of web.xml starts before the filters: a filter that Jetty makes from web.xml is not a Spring

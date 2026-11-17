@@ -491,10 +491,18 @@ public class CloudApiClient {
 				throw new IOException("The cloud server returned an empty project file");
 			}
 			File tempFile = File.createTempFile("ce-cloud-project-", ".zip");
-			try (java.io.OutputStream out = Files.newOutputStream(tempFile.toPath())) {
-				entity.writeTo(out);
+			boolean done = false;
+			try {
+				try (java.io.OutputStream out = Files.newOutputStream(tempFile.toPath())) {
+					entity.writeTo(out);
+				}
+				done = true;
+				return tempFile;
+			} finally {
+				if (!done) {
+					Files.deleteIfExists(tempFile.toPath());
+				}
 			}
-			return tempFile;
 		}
 	}
 
@@ -577,10 +585,18 @@ public class CloudApiClient {
 				// an older server's answer: the count is not known
 			}
 			File tempFile = File.createTempFile("ce-cloud-own-records-", ".zip");
-			try (java.io.OutputStream out = Files.newOutputStream(tempFile.toPath())) {
-				entity.writeTo(out);
+			boolean done = false;
+			try {
+				try (java.io.OutputStream out = Files.newOutputStream(tempFile.toPath())) {
+					entity.writeTo(out);
+				}
+				done = true;
+				return new OwnRecords(tempFile, count);
+			} finally {
+				if (!done) {
+					Files.deleteIfExists(tempFile.toPath());
+				}
 			}
-			return new OwnRecords(tempFile, count);
 		}
 	}
 

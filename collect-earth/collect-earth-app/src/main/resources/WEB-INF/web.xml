@@ -23,7 +23,7 @@
 		<listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>
 	</listener>
 
-	<!-- Only Collect Earth's own pages may drive the imagery window and Google Earth Web, or call the API: see OwnPagesOnlyFilter -->
+	<!-- Only Collect Earth's own pages may drive the imagery window and Google Earth Web, call the API or read the generated files: see OwnPagesOnlyFilter -->
 	<filter>
 		<filter-name>ownPagesOnlyFilter</filter-name>
 		<filter-class>org.openforis.collect.earth.app.server.OwnPagesOnlyFilter</filter-class>
@@ -93,6 +93,9 @@
 		<url-pattern>/plotStatuses</url-pattern>
 		<url-pattern>/mapConfig</url-pattern>
 		<url-pattern>/surveyForm/*</url-pattern>
+		<url-pattern>/openAuxiliaryWindows</url-pattern>
+		<!-- applicationContext.xml, with the database password, is there; the rest is the balloon's, loaded by /balloon -->
+		<url-pattern>/generated/*</url-pattern>
 	</filter-mapping>
 	<filter-mapping>
 		<filter-name>ownPagesOrGoogleEarthProFilter</filter-name>

@@ -60,7 +60,8 @@ public class TrainingPlotFilesTest {
 	private final NoticeService notices = new NoticeService();
 	private final Map<EarthProperty, String> values = new HashMap<>();
 	private final AtomicInteger reloads = new AtomicInteger();
-	private final CloudService cloud = new CloudService(api, mock(CloudSyncService.class), mock(EarthProjectsService.class), properties);
+	private final CloudSyncService sync = mock(CloudSyncService.class);
+	private final CloudService cloud = new CloudService(api, sync, mock(EarthProjectsService.class), properties);
 	private MyPlotsService myPlots;
 	private TrainingPlotFiles training;
 	private File assignments;
@@ -207,6 +208,20 @@ public class TrainingPlotFilesTest {
 		assertTrue(running.exists());
 		assertTrue(before.exists(), "an assigned file of before is no training's");
 		verify(surveys).deleteRecordsOf(any());
+	}
+
+	@Test
+	public void aTrainingPlotThatIsOneOfThePersonsPlotsOrNotSentYetKeepsItsRecord() throws Exception {
+		myPlots("007,1,1\n");
+		when(sync.recordState("T-3")).thenReturn("pending");
+		when(sync.recordState("T-4")).thenReturn("failed");
+		when(sync.recordState("T-5")).thenReturn("sent");
+		cloud.deleteTrainingRecords(Arrays.asList("7", "T-3", "T-4", "T-5"));
+		@SuppressWarnings("unchecked")
+		ArgumentCaptor<List<String[]>> keys = ArgumentCaptor.forClass(List.class);
+		verify(surveys).deleteRecordsOf(keys.capture());
+		assertEquals(1, keys.getValue().size(), "the person's plot 007 and the unsent records stay");
+		assertArrayEquals(new String[] { "T-5" }, keys.getValue().get(0));
 	}
 
 	@Test

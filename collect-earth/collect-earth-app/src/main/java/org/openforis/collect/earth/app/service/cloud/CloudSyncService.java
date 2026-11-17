@@ -256,8 +256,12 @@ public class CloudSyncService implements ApplicationListener<ContextRefreshedEve
 
 	private void applyResult(QueueItem item, BatchResult result, Date now) {
 		String status = result.getStatus() == null ? "" : result.getStatus();
-		if (STATUS_STORED.equalsIgnoreCase(status) || STATUS_STALE.equalsIgnoreCase(status)) {
+		if (STATUS_STORED.equalsIgnoreCase(status)) {
 			queueDao.markSynced(item, now);
+		} else if (STATUS_STALE.equalsIgnoreCase(status)) {
+			// The server kept a newer save (the person's other computer): this edit is not there, so it must not count as
+			// sent, which would let CloudOwnRecordsFetcher replace it with the server's copy
+			queueDao.markConflict(item, result.getReason() != null ? result.getReason() : "The server has a newer save of this record"); //$NON-NLS-1$
 		} else if (STATUS_CONFLICT.equalsIgnoreCase(status)) {
 			queueDao.markConflict(item, result.getReason());
 		} else {

@@ -882,10 +882,15 @@
 										<delete file="${gh.dir}/${gh.sums}.asc" quiet="true" unless:set="gh.sums.verified" />
 
 										<echo message="Publishing the installers of ${project.version} to the GitHub release ${gh.tag} of ${github.repo}" />
+										<!-- An alpha, beta, release candidate or snapshot is a pre-release on GitHub: not the "latest" one -->
+										<condition property="gh.prerelease">
+											<matches string="${project.version}" pattern="(alpha|beta|rc|snapshot)" casesensitive="false" />
+										</condition>
 										<!-- create first; it fails harmlessly when the release already exists. Neither call
 										     can fail the build, not even when gh is not installed. -->
 										<exec executable="gh" failonerror="false" failifexecutionfails="false" dir="${gh.dir}">
 											<arg value="release" /><arg value="create" /><arg value="${gh.tag}" />
+											<arg value="--prerelease" if:set="gh.prerelease" />
 											<arg value="--repo" /><arg value="${github.repo}" />
 											<arg value="--title" /><arg value="Collect Earth ${project.version}" />
 											<arg value="--notes" /><arg value="Installers for Collect Earth ${project.version}. The Java artifacts of this version are on Maven Central; the installers are here, because a Maven repository is not a place for a gigabyte of desktop installers. To check a download: gpg --verify SHA256SUMS.asc SHA256SUMS, then sha256sum -c SHA256SUMS --ignore-missing." />
@@ -974,40 +979,48 @@
 								<configuration>
 									<skip>${autoupdate.upload.skip}</skip>
 									<target xmlns:if="ant:if" xmlns:unless="ant:unless">
-										<property name="gh.download" value="https://github.com/${github.repo}/releases/download/collect-earth-${project.version}" />
-										<condition property="updaters.downloadable">
-											<or>
-												<!-- Published somewhere else on purpose : the manifest lists Central as well -->
-												<istrue value="${installer.github.skip}" />
-												<and>
-													<http url="${gh.download}/collect-earth-installer-${project.version}-windows-updater.exe" requestMethod="HEAD" followRedirects="true" readTimeout="60000" />
-													<http url="${gh.download}/collect-earth-installer-${project.version}-osx-updater.zip" requestMethod="HEAD" followRedirects="true" readTimeout="60000" />
-													<http url="${gh.download}/collect-earth-installer-${project.version}-linux-x64-updater.run" requestMethod="HEAD" followRedirects="true" readTimeout="60000" />
-												</and>
-											</or>
+										<!-- An alpha, beta, release candidate or snapshot is never announced to the installed copies: the manifests
+										     and the download pages stay those of the last release -->
+										<condition property="autoupdate.prerelease">
+											<matches string="${project.version}" pattern="(alpha|beta|rc|snapshot)" casesensitive="false" />
 										</condition>
-										<echo message=" WARNING : the updaters of ${project.version} cannot be downloaded from ${gh.download}, so ${autoupdater-xml-file-name} and the download pages were NOT uploaded - they would send every installation to files that are not there. Once the installers are on the GitHub release, copy ${installer-build-path}/${autoupdater-xml-file-name} and ${installer-build-path}/${download-page-pattern} to ${openforis-update-folder} by hand." unless:set="updaters.downloadable" />
+										<echo message="${project.version} is a pre-release: ${autoupdater-xml-file-name}, the previous manifest and the download pages are NOT uploaded" if:set="autoupdate.prerelease" />
+										<sequential unless:set="autoupdate.prerelease">
+											<property name="gh.download" value="https://github.com/${github.repo}/releases/download/collect-earth-${project.version}" />
+											<condition property="updaters.downloadable">
+												<or>
+													<!-- Published somewhere else on purpose : the manifest lists Central as well -->
+													<istrue value="${installer.github.skip}" />
+													<and>
+														<http url="${gh.download}/collect-earth-installer-${project.version}-windows-updater.exe" requestMethod="HEAD" followRedirects="true" readTimeout="60000" />
+														<http url="${gh.download}/collect-earth-installer-${project.version}-osx-updater.zip" requestMethod="HEAD" followRedirects="true" readTimeout="60000" />
+														<http url="${gh.download}/collect-earth-installer-${project.version}-linux-x64-updater.run" requestMethod="HEAD" followRedirects="true" readTimeout="60000" />
+													</and>
+												</or>
+											</condition>
+											<echo message=" WARNING : the updaters of ${project.version} cannot be downloaded from ${gh.download}, so ${autoupdater-xml-file-name} and the download pages were NOT uploaded - they would send every installation to files that are not there. Once the installers are on the GitHub release, copy ${installer-build-path}/${autoupdater-xml-file-name} and ${installer-build-path}/${download-page-pattern} to ${openforis-update-folder} by hand." unless:set="updaters.downloadable" />
 
-										<condition property="previous.manifest">
-											<istrue value="${autoupdate.previous-manifest.upload}" />
-										</condition>
-										<echo message="Uploading ${autoupdater-xml-file-name} (version ${project.version}, build ${buildNumber}) to ${openforis-update-user}@${openforis-update-host}:${openforis-update-folder}" if:set="updaters.downloadable" />
-										<echo message="Uploading ${previous-autoupdater-xml-file-name} too: the installations on the previous Java are offered ${project.version}, whose updater moves them to this one (see autoupdater-xml-file-name)" if:set="previous.manifest" />
-										<!-- failonerror is false, and deliberately. The release itself is finished by the
-										     time this runs : the artifacts are uploaded and the tag is pushed. Failing
-										     the build here would fail a release that has already succeeded, over a file
-										     that can be copied up afterwards in a second. The upload is announced when
-										     it does not happen, loudly enough to be seen in the log. -->
-										<scp todir="${openforis-update-user}@${openforis-update-host}:${openforis-update-folder}" keyfile="${openforis-update-keyfile}" passphrase="${openforis-update-passphrase}" trust="yes" verbose="true" failonerror="false" if:set="updaters.downloadable">
-											<fileset dir="${installer-build-path}">
-												<include name="${autoupdater-xml-file-name}" />
-												<include name="${previous-autoupdater-xml-file-name}" if="previous.manifest" />
-												<!-- Beside the manifest, so that openforis.org can link to a URL that
-												     never changes and this release repoints it. -->
-												<include name="${download-page-pattern}" />
-											</fileset>
-										</scp>
-										<echo message=" If the upload above failed the release is unaffected : copy ${installer-build-path}/${autoupdater-xml-file-name} to ${openforis-update-folder} by hand and the new version becomes visible to installed clients." if:set="updaters.downloadable" />
+											<condition property="previous.manifest">
+												<istrue value="${autoupdate.previous-manifest.upload}" />
+											</condition>
+											<echo message="Uploading ${autoupdater-xml-file-name} (version ${project.version}, build ${buildNumber}) to ${openforis-update-user}@${openforis-update-host}:${openforis-update-folder}" if:set="updaters.downloadable" />
+											<echo message="Uploading ${previous-autoupdater-xml-file-name} too: the installations on the previous Java are offered ${project.version}, whose updater moves them to this one (see autoupdater-xml-file-name)" if:set="previous.manifest" />
+											<!-- failonerror is false, and deliberately. The release itself is finished by the
+											     time this runs : the artifacts are uploaded and the tag is pushed. Failing
+											     the build here would fail a release that has already succeeded, over a file
+											     that can be copied up afterwards in a second. The upload is announced when
+											     it does not happen, loudly enough to be seen in the log. -->
+											<scp todir="${openforis-update-user}@${openforis-update-host}:${openforis-update-folder}" keyfile="${openforis-update-keyfile}" passphrase="${openforis-update-passphrase}" trust="yes" verbose="true" failonerror="false" if:set="updaters.downloadable">
+												<fileset dir="${installer-build-path}">
+													<include name="${autoupdater-xml-file-name}" />
+													<include name="${previous-autoupdater-xml-file-name}" if="previous.manifest" />
+													<!-- Beside the manifest, so that openforis.org can link to a URL that
+													     never changes and this release repoints it. -->
+													<include name="${download-page-pattern}" />
+												</fileset>
+											</scp>
+											<echo message=" If the upload above failed the release is unaffected : copy ${installer-build-path}/${autoupdater-xml-file-name} to ${openforis-update-folder} by hand and the new version becomes visible to installed clients." if:set="updaters.downloadable" />
+										</sequential>
 									</target>
 								</configuration>
 							</execution>

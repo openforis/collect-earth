@@ -54,6 +54,14 @@ class CloudApiClientDownloadTest {
 				out.write(zip);
 			}
 		});
+		// Says 1000 bytes, sends 2, and closes: a connection dropped in the middle of the download
+		server.createContext("/v1/projects/cut/", exchange -> {
+			exchange.getResponseHeaders().add("X-Records", "2");
+			exchange.sendResponseHeaders(200, 1000);
+			exchange.getResponseBody().write("PK".getBytes(StandardCharsets.UTF_8));
+			exchange.getResponseBody().flush();
+			exchange.close();
+		});
 		server.start();
 		LocalPropertiesService properties = mock(LocalPropertiesService.class);
 		when(properties.getCloudSyncUrl()).thenReturn("http://127.0.0.1:" + server.getAddress().getPort());
@@ -99,6 +107,22 @@ class CloudApiClientDownloadTest {
 		assertEquals(null, query.get());
 		Files.delete(client.downloadOwnRecords(cloud).getFile().toPath());
 		assertEquals(null, query.get());
+	}
+
+	@Test
+	void aDownloadCutOffLeavesNoTemporaryFile() throws IOException {
+		String base = "http://127.0.0.1:" + server.getAddress().getPort();
+		int project = temporaryFiles("ce-cloud-project-");
+		int own = temporaryFiles("ce-cloud-own-records-");
+		assertThrows(IOException.class, () -> client.downloadCep(base, "cut", "t"));
+		assertThrows(IOException.class, () -> client.downloadOwnRecords(new CloudApiClient.Destination(base, "cut", "t")));
+		assertEquals(project, temporaryFiles("ce-cloud-project-"));
+		assertEquals(own, temporaryFiles("ce-cloud-own-records-"));
+	}
+
+	private static int temporaryFiles(String prefix) {
+		String[] names = new File(System.getProperty("java.io.tmpdir")).list((dir, name) -> name.startsWith(prefix));
+		return names == null ? 0 : names.length;
 	}
 
 	@Test

@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - A coordinator who has not set up two-step sign-in where the server requires it no longer opens the analysis (the record-level data and its stand-alone file)
   - A project file that is no zip the server reads is refused (422 `not_a_project_file`) instead of kept as it came; one whose survey cannot be read is cleaned of keys too; files stored before are cleaned when anybody downloads them or when the project is copied; the warning about a key in a web address covers every address of the settings
 - The Planet key is no longer part of the address sent to openforis.org when the monthly mosaics open: it goes after the `#`, which the browser keeps to itself, and the page takes it out of the address bar and the history. `resources/planet.html` reads both forms and has to be published at openforis.org/fileadmin/planet.html **before** this version is released: the page published today does not find the key after the `#`
+- The files of Collect Earth's `generated` folder, `applicationContext.xml` with the database password among them, and `/openAuxiliaryWindows` answer only Collect Earth's own pages, not any web page open on the same computer
 ### Added
 - Collect Earth Cloud: training the whole team on the same plots in the first days of a project, then throwing the training answers away (`docs/plans/2026-11-17-training-the-team.md`)
   - A new training set copies a number of plots (20 by default) from a plot file of the project, evenly spaced, with new ids, so the project's own plots stay to do (a second day's training from the same file gets other plots); uploading a plot file for the training is still possible. "Everyone in the project", ticked by default, takes in every collector and reviewer, those who join later too, never the coordinators. Setup > Overview suggests training the team first while nothing has been collected
@@ -103,6 +104,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The analysis page no longer fails with "Something went wrong" on a project with a yes/no question that nobody answered (every row of its column empty)
 - An answer cleared because its question was no longer asked reads as missing when the question is asked again: the form said "Invalid code" and the error counts were wrong, until another answer was chosen
 - Join cloud project works for someone who already has an account on the server (from another project): Log in with the invitation now adds its project to the account. It failed with an internal error (the project file could not be downloaded), and Register said the username was taken
+- A plot's changes that could not be written to the database (a locked database) are kept and written later, instead of being lost when an import, a deletion, a project change or the cloud's fetch of the person's records came next
+- Collect Earth Cloud: a save the server refused because it kept a newer one of the same plot (from the person's other computer) no longer counts as sent, and the server's copy no longer replaces it; it is counted with the records not sent
+- Collect Earth Cloud: the end of a training no longer deletes the record of a plot that is also one of the person's plots (a training file uploaded with the project's own plot ids), nor one not sent yet
+- Collect Earth Cloud: a project file or records download cut off halfway no longer leaves a temporary file behind
+- A restart that fails to start the new Collect Earth ends this one, instead of leaving it running without its server and unable to quit
+- A beta, release candidate or snapshot build is published on GitHub as a pre-release, and its autoupdate manifests and download pages are not uploaded, so installed copies are never offered it
 
 ### Removed
 - Google Earth Desktop (Google Earth Pro) is no longer supported: Collect Earth makes no KMZ of the plots for it any more, and the endpoints only its balloons and network links called are gone (`/placemarkUpdate`, which refreshed the plot icons, and `/openInBrowser`, which opened the form in a separate browser), with the `open_separate_browser_form` and `alternative_balloon_for_browser` settings. Earlier projects and settings keep working:
@@ -111,6 +118,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - the settings of Google Earth Pro left in an `earth.properties` or a project file are ignored without a warning, and the `gePlugin.kmz` and `plots.kml` of earlier versions are deleted from the user folder
   - a missing plot file is still said at start, now with where the project expected it
   - the Data > Export to KML is unchanged, its plot icons included
+- `/ancillaryWindows` and `/placemarkInfo`, which nothing called any more
 - Saiku and its Tomcat server: "Tools > Analyse the data" (the dashboard's analysis page) replaces "Start SAIKU Analysis", and the analysis page's stand-alone file replaces "Generate Stand-Alone Saiku tool". The installers no longer include Saiku (about 75 MB), the update removes the `saiku-server_2.6` folder of the installation, and the "Path to Saiku folder" setting is gone
 
 ## [1.23.19] - 2026-09-29
