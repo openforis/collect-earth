@@ -31,6 +31,23 @@ interface SurveyBody {
 }
 
 /**
+ * The account an import may name for a collector's records (docs/plans/2026-11-11-backup-import.md, decision 3): an
+ * enabled one that shares a project with the importer (or is them), so the coordinator names their team. Null for any
+ * other, whether it exists or not: the answer tells nothing of accounts outside the importer's projects.
+ */
+export async function teamAccount(store: Store, userId: string, username: string): Promise<User | null> {
+  const account = await store.getUserByUsername(username);
+  if (!account || account.disabledAt) return null;
+  if (account.id === userId) return account;
+  const [mine, theirs] = await Promise.all([store.listMemberships(userId), store.listMemberships(account.id)]);
+  const shared = new Set(mine.map((m) => m.projectId));
+  return theirs.some((m) => shared.has(m.projectId)) ? account : null;
+}
+
+/** Records an import writes per transaction (Store.putRecordsWithEvents), as a sync's batch does. */
+export const IMPORT_CHUNK = 500;
+
+/**
  * Why this account may not make a new project (403), or null: projectCreation, and the per-account
  * limit on the projects one coordinates (the hosted model). Platform admins own the server and are exempt.
  */
@@ -239,7 +256,8 @@ export async function registerProjectRoutes(
         store.getCepInfo(projectId),
         store.listMembers(projectId),
         store.listCsvFiles(projectId),
-        store.listRecordSummaries(projectId),
+        // (what is counted, without the answers)
+        store.listRecordStates(projectId),
         storageSummary(store, projectId),
       ]);
       const byOperator = new Map<string, OperatorProgress>();

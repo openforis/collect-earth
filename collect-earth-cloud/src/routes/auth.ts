@@ -106,7 +106,8 @@ export async function registerAuthRoutes(
   // coordinator's link to bring a member the new project file). consumeInvite refuses a revoked, expired or used-up link.
   const takeInvite = async (request: FastifyRequest, userId: string, inviteToken: string): Promise<JoinedProject | { status: number; error: string }> => {
     const invite = await store.getInvite(inviteToken);
-    if (!invite || invite.revoked) return { status: 400, error: 'invalid_invite' };
+    // A person's own link is theirs alone: to anyone else, as an unknown one
+    if (!invite || invite.revoked || (invite.forUserId !== null && invite.forUserId !== userId)) return { status: 400, error: 'invalid_invite' };
     const member = (await store.listMemberships(userId)).find((m) => m.projectId === invite.projectId);
     if (!member) {
       if (!(await store.consumeInvite(inviteToken, Date.now()))) return { status: 410, error: 'invite_exhausted' };
@@ -136,8 +137,8 @@ export async function registerAuthRoutes(
     // The invitation first: whether a username is taken is said only to someone holding a valid
     // one, not to anyone asking with a made-up token.
     const invite = await store.getInvite(inviteToken);
-    // A revoked invite answers exactly like an unknown one.
-    if (!invite || invite.revoked) {
+    // A revoked invite answers exactly like an unknown one; so does a person's own link (a new account is never them).
+    if (!invite || invite.revoked || invite.forUserId !== null) {
       return reply.code(400).send({ error: 'invalid_invite' });
     }
     // Fast pre-check so an obvious duplicate does not consume an invite use.

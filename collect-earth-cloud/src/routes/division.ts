@@ -33,7 +33,8 @@ async function loadFile(store: Store, projectId: string, csvFileId: string, log:
   }
   const [members, records, info] = await Promise.all([
     store.listMembers(projectId),
-    store.listRecordSummaries(projectId),
+    // (who submitted what: no answers)
+    store.listRecordStates(projectId),
     store.getRoundInfo(projectId),
   ]);
   const plotFile = plotFileOf(file, fileKeyCount(info));

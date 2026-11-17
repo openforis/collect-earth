@@ -598,7 +598,8 @@ export class PostgresStore implements Store {
     });
   }
 
-  async listRecordSummaries(projectId: string, options: { firstSubmissions?: boolean } = {}): Promise<RecordRow[]> {
+  async listRecordSummaries(projectId: string, options: { firstSubmissions?: boolean; operator?: string } = {}): Promise<RecordRow[]> {
+    const operator = options.operator ?? null;
     return this.withProject(projectId, async (client) => {
       if (options.firstSubmissions) {
         // The first submission as listRecordStates reads it (its event `submitted`).
@@ -608,11 +609,11 @@ export class PostgresStore implements Store {
              FROM records r
              LEFT JOIN (SELECT record_key, operator, min(modified_on) AS first_submitted_on
                           FROM record_events
-                         WHERE project_id = $1 AND change = 'submitted'
+                         WHERE project_id = $1 AND change = 'submitted' AND ($2::text IS NULL OR operator = $2)
                          GROUP BY record_key, operator) e
                ON e.record_key = r.record_key AND e.operator = r.operator
-            WHERE r.project_id = $1 AND NOT r.deleted`,
-          [projectId],
+            WHERE r.project_id = $1 AND NOT r.deleted AND ($2::text IS NULL OR r.operator = $2)`,
+          [projectId, operator],
         );
         return res.rows.map((r) => ({ ...mapRecord(r), firstSubmittedOn: (r.first_submitted_on as number | null) ?? null }));
       }
@@ -620,8 +621,8 @@ export class PostgresStore implements Store {
         `SELECT project_id, record_key, operator, modified_on, received_at, actively_saved, step, NULL AS xml, summary,
                 deleted, deleted_on
            FROM records
-          WHERE project_id = $1 AND NOT deleted`,
-        [projectId],
+          WHERE project_id = $1 AND NOT deleted AND ($2::text IS NULL OR operator = $2)`,
+        [projectId, operator],
       );
       return res.rows.map(mapRecord);
     });
@@ -1997,8 +1998,8 @@ export class PostgresStore implements Store {
     const token = generateToken();
     const id = randomUUID();
     await this.pool.query(
-      `INSERT INTO invites (id, token_hash, project_id, role, max_uses, expires_at, created_by, plots)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      `INSERT INTO invites (id, token_hash, project_id, role, max_uses, expires_at, created_by, plots, for_user_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
       [
         id,
         hashToken(token),
@@ -2008,6 +2009,7 @@ export class PostgresStore implements Store {
         input.expiresAt === null ? null : new Date(input.expiresAt),
         input.createdBy,
         input.plots ? JSON.stringify(input.plots) : null,
+        input.forUserId ?? null,
       ],
     );
     return { token, id };
@@ -2021,7 +2023,7 @@ export class PostgresStore implements Store {
     try {
       await client.query('BEGIN READ ONLY');
       const res = await client.query(
-        'SELECT project_id, role, max_uses, used_count, expires_at, revoked_at, plots FROM invites WHERE token_hash = $1',
+        'SELECT project_id, role, max_uses, used_count, expires_at, revoked_at, plots, for_user_id FROM invites WHERE token_hash = $1',
         [hashToken(token)],
       );
       if (res.rowCount === 0) {
@@ -2051,6 +2053,7 @@ export class PostgresStore implements Store {
       expiresAt: r.expires_at === null ? null : (r.expires_at as Date).getTime(),
       revoked: r.revoked_at !== null,
       plots: (r.plots as InvitePlots | null) ?? null,
+      forUserId: (r.for_user_id as string | null) ?? null,
     };
   }
 

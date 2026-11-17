@@ -235,6 +235,7 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
         // A Phase-0 project admin token has no user behind it: made by nobody.
         createdBy: request.userId ?? null,
         plots,
+        forUserId,
       });
       await audit(store, request, 'invite.created', forUserId !== null ? { inviteId, role, maxUses, forUserId } : { inviteId, role, maxUses, ...(plots ? { plots: plots.mode, count: plots.count, csvFileId: plots.csvFileId } : {}) });
       const joinPath = `/join/${token}`;

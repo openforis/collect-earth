@@ -38,7 +38,8 @@ async function loadProject(store: Store, projectId: string, log: Log) {
   const [metas, members, records, info, assignments, references] = await Promise.all([
     store.listCsvFiles(projectId),
     store.listMembers(projectId),
-    store.listRecordSummaries(projectId),
+    // (who submitted what: no answers)
+    store.listRecordStates(projectId),
     store.getRoundInfo(projectId),
     store.listAssignments(projectId),
     store.listReferencePlots(projectId),

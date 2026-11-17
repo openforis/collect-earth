@@ -22,11 +22,11 @@ import { applyLww, recordEventOf } from '../lww.js';
 import { plotFileCsv, type DesignedPlot } from '../plotDesign.js';
 import { isNumber, parsePlotFile } from '../plots.js';
 import { requireSession } from '../plugins/projectAuth.js';
-import type { Store } from '../store/store.js';
+import type { RecordUpload, Store } from '../store/store.js';
 import type { BackupImportAnswer, BackupImportPreview } from '../wire/projects.js';
 import { acceptCep } from './platform.js';
 import { plotFileFormat, type PlotFileFormat } from './plotDesign.js';
-import { creationRefusal } from './projects.js';
+import { creationRefusal, IMPORT_CHUNK, teamAccount } from './projects.js';
 
 interface ImportBody {
   /** the backup zip, in base64 */
@@ -247,9 +247,9 @@ export async function registerBackupImportRoutes(app: FastifyInstance, store: St
     for (const { name: typed } of collectorsOf(read.records)) {
       const username = typeof named[typed] === 'string' ? (named[typed] as string).trim() : '';
       if (username) {
-        const account = await store.getUserByUsername(username);
-        if (!account || account.disabledAt) {
-          return reply.code(400).send({ error: 'unknown_account', reason: `No account "${username}" can take the work of "${typed}" on this server.`, username });
+        const account = await teamAccount(store, user.id, username);
+        if (!account) {
+          return reply.code(400).send({ error: 'unknown_account', reason: `No account "${username}" in your projects can take the work of "${typed}".`, username });
         }
         operators.set(typed, { username: account.username, userId: account.id });
       } else if (typed !== '' && (await store.isAccountUsername(typed))) {
@@ -361,13 +361,16 @@ export async function registerBackupImportRoutes(app: FastifyInstance, store: St
       }
 
       // The records, as a sync stores them (last write wins, record events), each read against the served survey (with
-      // the round, when the server added it) and stored one at a time
-      for (const { userId } of operators.values()) {
-        if (userId && !(await store.listMemberships(userId)).some((m) => m.projectId === projectId)) await store.addMembership(projectId, userId, 'operator');
-      }
+      // the round, when the server added it) and stored IMPORT_CHUNK at a time. The accounts named are not made members:
+      // the coordinator invites whom they choose (their records wait under their username).
       const readServed = backupReader(servedXml, info);
       let records = 0;
       const receivedAt = Date.now();
+      let chunk: RecordUpload[] = [];
+      const flush = async () => {
+        if (chunk.length > 0) records += (await store.putRecordsWithEvents(projectId, chunk)).filter(Boolean).length;
+        chunk = [];
+      };
       for (const entry of read.zip.records) {
         const r = readServed({ name: entry.name, step: stepOf(entry.name), xml: new TextDecoder().decode(entry.read()) });
         if ('problem' in r) continue;
@@ -388,15 +391,20 @@ export async function registerBackupImportRoutes(app: FastifyInstance, store: St
           payloadVersion: 1,
           activeSeconds: null,
         };
-        const kept = await store.putRecordWithEvent(projectId, recordKey, operator, (existing, submittedBefore) => {
-          // Received when it was saved: it did not come late (the Progress tab's "work that arrives late")
-          const { row, status } = applyLww(envelope, existing, modifiedOn);
-          if (status !== 'stored') return null;
-          const next = { ...row, projectId };
-          return { row: next, event: recordEventOf(existing, next, submittedBefore) };
+        chunk.push({
+          recordKey,
+          operator,
+          apply: (existing, submittedBefore) => {
+            // Received when it was saved: it did not come late (the Progress tab's "work that arrives late")
+            const { row, status } = applyLww(envelope, existing, modifiedOn);
+            if (status !== 'stored') return null;
+            const next = { ...row, projectId };
+            return { row: next, event: recordEventOf(existing, next, submittedBefore) };
+          },
         });
-        if (kept) records++;
+        if (chunk.length >= IMPORT_CHUNK) await flush();
       }
+      await flush();
 
       try {
         await store.appendAudit(projectId, {

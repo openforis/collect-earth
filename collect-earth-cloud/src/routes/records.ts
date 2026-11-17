@@ -67,7 +67,7 @@ export async function registerRecordRoutes(app: FastifyInstance, store: Store, s
       // A typed name with the username as one of its words, in any letter case ("Juan Perez", the account juan)
       const nameHas = (name: string, username: string): boolean => name.toLowerCase().split(/[^\p{L}\p{N}]+/u).includes(username.toLowerCase());
       const ownNameInOtherCase = async (name: string, username: string): Promise<boolean> =>
-        name !== username && name.toLowerCase() === username && (await store.getUserByUsername(name)) === null;
+        name !== username && name.toLowerCase() === username.toLowerCase() && (await store.getUserByUsername(name)) === null;
       const body = (request.body ?? {}) as BatchBody;
       const envelopes = Array.isArray(body.records) ? body.records : [];
       // The plots of a training: those running take their records apart, those over discard them (trainingPlots)

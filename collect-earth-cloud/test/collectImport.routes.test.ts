@@ -1,5 +1,5 @@
 import { strFromU8, unzipSync } from 'fflate';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { zipCep } from '../src/cep.js';
 import { FIXTURE_DATE, idOnlyCep } from './fixtures/cep.js';
 import { applyLww } from '../src/lww.js';
@@ -95,24 +95,33 @@ describe('importing a Collect Earth backup', () => {
     expect(audit?.details).toMatchObject({ source: 'collect-earth', records: 3, kept: 1, problems: 1 });
   });
 
-  it('keeps an operator under the account the coordinator names, who becomes a member', async () => {
+  it('keeps an operator under the account the coordinator names, one of the project; never anyone else, nor makes members', async () => {
     await account('bob');
     const named = encodeURIComponent(JSON.stringify({ 'Bob Smith': 'bob' }));
-    const res = await post(`?operators=${named}`, zip());
-    expect(res.statusCode).toBe(200);
-    expect(res.json().operators).toContainEqual({ name: 'Bob Smith', username: 'bob', records: 1, member: false });
-    expect(await ctx.store.getRecord(pid, '103,1', 'bob')).not.toBeNull();
-    expect((await ctx.store.listMembers(pid)).map((m) => m.username)).toContain('bob');
-    const unknown = await post(`?operators=${encodeURIComponent(JSON.stringify({ anna: 'nobody' }))}`, zip());
+    // bob is another project's: answered as an account that does not exist, and nobody is made a member
+    const outside = await post(`?operators=${named}`, zip());
+    expect(outside.statusCode).toBe(400);
+    const unknown = await post(`?operators=${encodeURIComponent(JSON.stringify({ 'Bob Smith': 'nobody' }))}`, zip());
     expect(unknown.statusCode).toBe(400);
     expect(unknown.json().error).toBe('unknown_account');
+    expect(outside.json()).toEqual({ ...unknown.json(), username: 'bob', reason: expect.any(String) });
+    expect((await ctx.store.listMembers(pid)).map((m) => m.username)).not.toContain('bob');
+    expect(await ctx.store.listRecordStates(pid)).toEqual([]);
+    await ctx.store.addMembership(pid, (await ctx.store.getUserByUsername('bob'))!.id, 'operator');
+    const res = await post(`?operators=${named}`, zip());
+    expect(res.statusCode).toBe(200);
+    expect(res.json().operators).toContainEqual({ name: 'Bob Smith', username: 'bob', records: 1, member: true });
+    expect(await ctx.store.getRecord(pid, '103,1', 'bob')).not.toBeNull();
   });
 
   it('imports a backup of many records one file at a time, the copy of the last step folder being the record', async () => {
     const many: [string, string][] = Array.from({ length: 500 }, (_, i) => [`1/${i}.xml`, recordXml(String(1000 + i), 'anna', true, '2026-10-02T10:00:00.000+02:00')]);
     // Collect writes a record once per step up to its own: 1/7.xml and 2/7.xml are one record, at step 2
     many.push(['2/7.xml', recordXml('1007', 'anna', true, '2026-10-02T10:00:00.000+02:00')]);
+    // stored as a sync's batch is (IMPORT_CHUNK per transaction), not one transaction per record
+    const together = vi.spyOn(ctx.store, 'putRecordsWithEvents');
     const res = await post('', backup(many));
+    expect(together.mock.calls.map(([, items]) => items.length)).toEqual([500]);
     expect(res.statusCode).toBe(200);
     expect(res.json()).toMatchObject({ records: 500, stored: 500, kept: 0, problemCount: 0 });
     expect((await ctx.store.listRecordStates(pid)).length).toBe(500);

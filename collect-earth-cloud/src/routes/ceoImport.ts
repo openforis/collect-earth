@@ -32,7 +32,7 @@ import type { Store } from '../store/store.js';
 import type { CeoFetchAnswer, CeoImportAnswer, CeoImportPreview, CeoImportSummary } from '../wire/projects.js';
 import { acceptCep } from './platform.js';
 import { plotFileFormat } from './plotDesign.js';
-import { creationRefusal } from './projects.js';
+import { creationRefusal, teamAccount } from './projects.js';
 
 interface ImportBody {
   /** the saved file: its JSON, or its text */
@@ -201,9 +201,9 @@ export async function registerCeoImportRoutes(app: FastifyInstance, store: Store
       for (const { email } of survey.answers.collectors) {
         const username = typeof named[email] === 'string' ? (named[email] as string).trim() : '';
         if (!username) continue;
-        const account = await store.getUserByUsername(username);
-        if (!account || account.disabledAt) {
-          return reply.code(400).send({ error: 'unknown_account', reason: `No account "${username}" can take the work of a CEO collector on this server.`, username });
+        const account = await teamAccount(store, user.id, username);
+        if (!account) {
+          return reply.code(400).send({ error: 'unknown_account', reason: `No account "${username}" in your projects can take the work of a CEO collector.`, username });
         }
         operators.set(email, { username: account.username, userId: account.id });
       }
@@ -281,9 +281,6 @@ export async function registerCeoImportRoutes(app: FastifyInstance, store: Store
       // CEO's answers, as records Collect Earth would have sent, stored as a sync stores them (last write wins, events)
       let records = 0;
       if (survey.answers && survey.plots && survey.answers.plots.length > 0) {
-        for (const { userId } of operators.values()) {
-          if (userId && !(await store.listMemberships(userId)).some((m) => m.projectId === projectId)) await store.addMembership(projectId, userId, 'operator');
-        }
         const stored = readCep(await store.getCep(projectId) as Buffer);
         const surveyXml = new TextDecoder().decode(stored.entries.get(stored.surveyPath)!);
         const info = await store.getRoundInfo(projectId);
