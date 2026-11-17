@@ -164,13 +164,33 @@ async function call(label: string, method: string, path: string, token: string |
   }
   const ms = performance.now() - started;
   record(label, ms, status);
+  if (status === 0 || status >= 500) {
+    serverFailures += 1;
+    if (token) failuresOf.set(token, (failuresOf.get(token) ?? 0) + 1);
+  }
   // A server set up by an earlier run answers 409 to the setup: then the coordinator signs in
   if ((status === 0 || status >= 400) && !(label === 'setup' && status === 409)) {
     if (errors.length < 200) errors.push(`${phase} ${label} ${status} ${text.slice(0, 200)}`);
   }
-  return { status, text, json: () => JSON.parse(text) };
+  // An answer that is no JSON (a proxy's page in front of the server: "upstream connect error...") is an error already
+  // counted above; the caller gets an empty answer and carries on, as Collect Earth does at its next try
+  const json = () => {
+    try {
+      return JSON.parse(text);
+    } catch {
+      return {};
+    }
+  };
+  return { status, text, json };
 }
 
+/** Collect Earth's starts tried again after the server failed them (a 5xx or no answer), as it tries at its next check */
+let startRetries = 0;
+
+/** Answers of the server that were a failure (no answer, or 5xx) */
+var serverFailures = 0;
+/** The failures of each session (a person's Collect Earth) */
+var failuresOf = new Map<string, number>();
 const pct = (sorted: number[], p: number) => (sorted.length ? sorted[Math.min(sorted.length - 1, Math.floor((p / 100) * sorted.length))] : 0);
 
 // --- the server's process ----------------------------------------------------------------------------------------
@@ -392,7 +412,7 @@ async function readMyPlots(m: Mapathon, p: Person, version: { v?: string }) {
     }
   }
   const mine = await call('my-assignment', 'GET', `/v1/projects/${m.pid}/my-assignment`, p.token);
-  const a = (mine.json().assignments as { downloadPath: string; training?: unknown }[]).find((x) => !x.training);
+  const a = ((mine.json().assignments ?? []) as { downloadPath: string; training?: unknown }[]).find((x) => !x.training);
   if (a) p.plots = idsOf((await call('assigned plot file', 'GET', a.downloadPath, p.token)).text);
 }
 
@@ -405,8 +425,8 @@ const versions = new Map<Person, { v?: string }>();
  */
 async function readTraining(m: Mapathon, p: Person): Promise<{ finished: boolean }> {
   const mine = await call('my-assignment', 'GET', `/v1/projects/${m.pid}/my-assignment`, p.token);
-  const answer = mine.json() as { assignments: { downloadPath: string; training?: unknown }[]; finishedTraining?: { plots: string[] } };
-  const set = answer.assignments.find((a) => a.training);
+  const answer = mine.json() as { assignments?: { downloadPath: string; training?: unknown }[]; finishedTraining?: { plots: string[] } };
+  const set = (answer.assignments ?? []).find((a) => a.training);
   if (set && trainingOf.get(p)!.training.length === 0) {
     trainingOf.get(p)!.training = idsOf((await call('training plot file', 'GET', set.downloadPath, p.token)).text);
   }
@@ -415,8 +435,22 @@ async function readTraining(m: Mapathon, p: Person): Promise<{ finished: boolean
 
 /** Collect Earth starting in the cloud project: signs in, reads the project, its file, the person's plots and the training. */
 async function startCollectEarth(m: Mapathon, p: Person) {
+  for (let attempt = 1; ; attempt++) {
+    await startOnce(m, p);
+    if (p.token && !failuresOf.get(p.token)) return;
+    if (attempt >= 6) {
+      if (errors.length < 200) errors.push(`${phase} ${p.username}: Collect Earth could not start after ${attempt} tries`);
+      return;
+    }
+    startRetries += 1;
+    await sleep(between(5000, 20000));
+  }
+}
+
+async function startOnce(m: Mapathon, p: Person) {
   const login = await call('login', 'POST', '/v1/auth/login', null, { username: p.username, password: PASSWORD });
-  p.token = login.json().token;
+  p.token = login.json().token ?? '';
+  if (!p.token) return;
   await call('project', 'GET', `/v1/projects/${m.pid}`, p.token);
   await call('project file (cep)', 'GET', `/v1/projects/${m.pid}/cep`, p.token);
   if (!versions.has(p)) versions.set(p, {});
@@ -677,10 +711,12 @@ for (const m of mapathons) {
   checks.push({ what: `${m.name}: the People tab counts each person's submitted plots as sent`, ok: wrong.length === 0, detail: wrong.length ? wrong.slice(0, 3).join('; ') : `${m.people.filter((p) => !p.desktop).length} people` });
 }
 
+const lines0: string[] = [];
 // --- the report --------------------------------------------------------------------------------------------------
 
-const report: Record<string, unknown> = { base: BASE, mapathons: MAPATHONS, peoplePerMapathon: PEOPLE, plotsPerMapathon: PLOTS, training: TRAINING, survey: survey.uri, scale: SCALE, setupSeconds: +(setupMs / 1000).toFixed(1), phases: [] as unknown[], checks, errors: errors.slice(0, 50) };
-const lines: string[] = [];
+lines0.push(`Collect Earth starts tried again after a server failure: ${startRetries}; server failures (5xx or no answer): ${serverFailures}`);
+const report: Record<string, unknown> = { startRetries, serverFailures, base: BASE, mapathons: MAPATHONS, peoplePerMapathon: PEOPLE, plotsPerMapathon: PLOTS, training: TRAINING, survey: survey.uri, scale: SCALE, setupSeconds: +(setupMs / 1000).toFixed(1), phases: [] as unknown[], checks, errors: errors.slice(0, 50) };
+const lines: string[] = [...lines0];
 lines.push(`Setup: ${MAPATHONS} mapathons x ${PEOPLE} people, ${PLOTS} plots each${TRAINING ? `, a training day of ${TRAINING} plots` : ''}, survey ${survey.uri}, in ${(setupMs / 1000).toFixed(1)} s`);
 for (const [name, st] of phaseOf) {
   const secs = (st.end - st.start) / 1000;
