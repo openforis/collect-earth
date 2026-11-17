@@ -104,6 +104,9 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	private EarthSurveyService earthSurveyService;
 
 	@Autowired
+	private PlotFileIndex plotFileIndex;
+
+	@Autowired
 	private ImageryErrorReporter imageryErrorReporter;
 
 	/**
@@ -995,7 +998,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 						visiblePlotIdOf(placemarkObject, survey), survey.getName(),
 						localPropertiesService.getValue(EarthProperty.GEEAPP_FROM_DATE),
 						localPropertiesService.getValue(EarthProperty.GEEAPP_TO_DATE),
-						localPropertiesService.getValue(EarthProperty.EXPLORER_CONFIG)));
+						localPropertiesService.getValue(EarthProperty.EXPLORER_CONFIG), nextPlotOf(placemarkObject, survey)));
 			} catch (final Exception e) {
 				logger.error("Problems loading GEE APP window", e);
 			}
@@ -1003,12 +1006,39 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	}
 
 	/**
+	 * The plot after this one in the plot file, its outline filled in, for the Explorer to load ahead; null for the last
+	 * plot, a plot not in the file or any failure, which never stops the plot from opening. Plain file order: plots
+	 * already filled are not skipped. One row made into a plot; the file itself is read once (PlotFileIndex).
+	 */
+	private SimplePlacemarkObject nextPlotOf(SimplePlacemarkObject placemarkObject, CollectSurvey survey) {
+		try {
+			String csvFile = localPropertiesService.getCsvFile();
+			if (csvFile == null || !new File(csvFile).exists()) {
+				return null;
+			}
+			PlotFileIndex.PlotIndex index = plotFileIndex.indexOf(csvFile);
+			Integer at = index.nextOf(placemarkObject.getPlacemarkId());
+			if (at == null) {
+				return null;
+			}
+			SimplePlacemarkObject next = index.generator.getPlotObject(index.rows[at], index.header, survey, false);
+			index.generator.fillSamplePoints(next);
+			index.generator.fillExternalLine(next);
+			return next;
+		} catch (Exception e) {
+			logger.debug("No next plot for the Explorer after {}", placemarkObject.getPlacemarkId(), e);
+			return null;
+		}
+	}
+
+	/**
 	 * The address of the plot in Collect Earth Explorer (gee_app_url): its outline, its id as the collector sees it ( see
-	 * {@link #visiblePlotIdOf} ), the survey name, the optional dates and the optional configuration of the Explorer's
-	 * window (EXPLORER_CONFIG, which the old Earth Engine App ignores), in the fragment.
+	 * {@link #visiblePlotIdOf} ), the survey name, the optional dates, the outline of the next plot when there is one (for
+	 * the Explorer to load its charts ahead) and the optional configuration of the Explorer's window (EXPLORER_CONFIG,
+	 * which the old Earth Engine App ignores), in the fragment.
 	 */
 	static String geeAppUrl(String base, SimplePlacemarkObject placemarkObject, String visiblePlotId, String surveyName,
-			String fromDate, String toDate, String config) {
+			String fromDate, String toDate, String config, SimplePlacemarkObject nextPlot) {
 		StringBuilder url = new StringBuilder(base);
 		url.append("#geoJson=").append(fragmentValue(getGeoJson(placemarkObject, "MultiLineString"))).append(";");
 		url.append("plotId=").append(fragmentValue(visiblePlotId)).append(";");
@@ -1018,6 +1048,9 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 		}
 		if (StringUtils.isNotBlank(toDate)) {
 			url.append("endTime=").append(toDate).append(";");
+		}
+		if (nextPlot != null) {
+			url.append("next=").append(fragmentValue(getGeoJson(nextPlot, "MultiLineString"))).append(";");
 		}
 		if (StringUtils.isNotBlank(config)) {
 			url.append("config=").append(fragmentValue(config.trim())).append(";");

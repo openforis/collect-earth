@@ -2,6 +2,7 @@ package org.openforis.collect.earth.app.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -11,6 +12,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.Map;
 import java.util.Properties;
 
 import org.junit.jupiter.api.Test;
@@ -123,7 +125,7 @@ public class AuxiliaryWindowUrlTest {
 
 	@Test
 	public void theEarthEngineAppGetsTheVisibleId() {
-		String url = BrowserService.geeAppUrl("https://app/view/plot", plot("101,2"), "101", "t21_round_check", null, "", null);
+		String url = BrowserService.geeAppUrl("https://app/view/plot", plot("101,2"), "101", "t21_round_check", null, "", null, null);
 		String fragment = url.substring(url.indexOf('#') + 1);
 		assertEquals("101", param(fragment, "plotId", ";"));
 		assertEquals("t21_round_check", param(fragment, "survey", ";"));
@@ -136,7 +138,7 @@ public class AuxiliaryWindowUrlTest {
 	@Test
 	public void theEarthEngineAppKeepsItsDates() {
 		String url = BrowserService.geeAppUrl("https://app/view/plot", plot("101,2"), "101", "s", "2020-01-01",
-				"2024-12-31", " ");
+				"2024-12-31", " ", null);
 		assertTrue(url.endsWith("startTime=2020-01-01;endTime=2024-12-31;"), url);
 	}
 
@@ -150,7 +152,7 @@ public class AuxiliaryWindowUrlTest {
 		String config = "{\"v\":1,\"layers\":[{\"type\":\"sentinel2\",\"params\":{\"label\":\"Dry season; ç\"}}],"
 				+ "\"charts\":[{\"type\":\"index\",\"params\":{\"formula\":\"(nir - red) / (nir + red)\"}}]}";
 		String url = BrowserService.geeAppUrl("https://app/view/plot", plot("101,2"), "101", "s", "2020-01-01", "2024-12-31",
-				" " + config + " ");
+				" " + config + " ", null);
 		assertTrue(url.contains(";endTime=2024-12-31;config="), url);
 		assertTrue(url.endsWith(";"), url);
 		String value = url.substring(url.indexOf(";config=") + ";config=".length(), url.length() - 1);
@@ -173,7 +175,7 @@ public class AuxiliaryWindowUrlTest {
 		String base = defaultAddress("earth.properties_initial");
 		assertEquals("https://explorer.collectearth.org/", base);
 		assertEquals(base, defaultAddress("earth.properties_forced_update"));
-		String url = BrowserService.geeAppUrl(base, plot("7 a+b"), "7 a+b", "dry forest", "2020-01-01", "2024-12-31", "{\"v\":1}");
+		String url = BrowserService.geeAppUrl(base, plot("7 a+b"), "7 a+b", "dry forest", "2020-01-01", "2024-12-31", "{\"v\":1}", null);
 		assertTrue(url.startsWith("https://explorer.collectearth.org/#geoJson="), url);
 		assertTrue(url.matches("[^;]*#geoJson=[^;]+;plotId=[^;]+;survey=[^;]+;startTime=2020-01-01;endTime=2024-12-31;config=[^;]+;"), url);
 		String fragment = url.substring(url.indexOf('#') + 1);
@@ -192,7 +194,44 @@ public class AuxiliaryWindowUrlTest {
 
 	@Test
 	public void noConfigurationAddsNoPair() {
-		assertFalse(BrowserService.geeAppUrl("https://app/view/plot", plot("101,2"), "101", "s", null, null, null).contains("config="));
-		assertFalse(BrowserService.geeAppUrl("https://app/view/plot", plot("101,2"), "101", "s", null, null, "  ").contains("config="));
+		assertFalse(BrowserService.geeAppUrl("https://app/view/plot", plot("101,2"), "101", "s", null, null, null, null).contains("config="));
+		assertFalse(BrowserService.geeAppUrl("https://app/view/plot", plot("101,2"), "101", "s", null, null, "  ", null).contains("config="));
+	}
+
+	@Test
+	public void theExplorerGetsTheNextPlotsOutlineLikeTheCurrentOne() {
+		SimplePlacemarkObject next = plot("102");
+		next.setShape(Arrays.asList(new SimpleCoordinate(41.1, -4.7), new SimpleCoordinate(41.2, -4.7),
+				new SimpleCoordinate(41.2, -4.6), new SimpleCoordinate(41.1, -4.7)));
+		String url = BrowserService.geeAppUrl("https://explorer.collectearth.org/", plot("101"), "101", "s", "2020-01-01",
+				"2024-12-31", "{\"v\":1}", next);
+		assertTrue(url.matches("[^;]*#geoJson=[^;]+;plotId=101;survey=s;startTime=2020-01-01;endTime=2024-12-31;next=[^;]+;config=[^;]+;"), url);
+		String nextValue = url.substring(url.indexOf(";next=") + ";next=".length()).split(";")[0];
+		assertFalse(nextValue.contains("+") || nextValue.contains(" "), nextValue);
+		String nextGeoJson = decodedAsTheExplorer(nextValue);
+		assertTrue(nextGeoJson.startsWith("{\"type\":\"MultiLineString\""), nextGeoJson);
+		assertTrue(nextGeoJson.contains("-4.7"), nextGeoJson);
+		// The very value geoJson has when that plot is the one opened
+		String opened = BrowserService.geeAppUrl("https://explorer.collectearth.org/", next, "102", "s", null, null, null, null);
+		assertEquals(param(opened.substring(opened.indexOf('#') + 1), "geoJson", ";"), nextGeoJson);
+	}
+
+	@Test
+	public void noNextPlotAddsNoPair() {
+		assertFalse(BrowserService.geeAppUrl("https://app/view/plot", plot("101"), "101", "s", null, null, null, null).contains("next="));
+	}
+
+	@Test
+	public void theNextPlotIsTheOneAfterInThePlotFile() throws IOException {
+		PlotFileIndex.PlotIndex index = new PlotFileIndex.PlotIndex("plots.csv", "1:1", "", null, null,
+				Arrays.asList("a", "b", "c"), Arrays.asList(null, null, null),
+				Arrays.asList(new double[] { 0, 0 }, new double[] { 0, 1 }, new double[] { 0, 2 }),
+				Arrays.asList(new String[] { "a" }, new String[] { "b" }, new String[] { "c" }),
+				Map.of("a", 0, "b", 1, "c", 2), new ObjectMapper());
+		assertEquals(1, index.nextOf("a"));
+		assertEquals(2, index.nextOf("b"));
+		assertNull(index.nextOf("c"), "the last plot has none");
+		assertNull(index.nextOf("z"), "a plot not in the plot file has none");
+		assertNull(index.nextOf(null));
 	}
 }

@@ -162,6 +162,12 @@ public class PlotFileIndex {
 			this.json = mapper.writeValueAsString(answer);
 		}
 
+		/** The position of the plot after `id` in the plot file; null for the last plot or one not in the file. */
+		public Integer nextOf(String id) {
+			Integer at = id == null ? null : position.get(id);
+			return at == null || at + 1 >= ids.length ? null : at + 1;
+		}
+
 		/** The plots within `radiusMeters` of the plot at `at`, itself included, the nearest first, at most `limit`. */
 		public List<Integer> near(int at, double radiusMeters, int limit) {
 			double cosLat = Math.cos(Math.toRadians(latitudes[at]));
