@@ -101,6 +101,8 @@ function LayerRow({ i, entry }: { i: number; entry: LayerEntry }) {
           min={min}
           max={lastStop}
           value={draftYear === LAST_12_MONTHS ? lastStop : draftYear}
+          // The last stop's number is a year that does not exist for this slider: say what it is.
+          aria-valuetext={draftYear === LAST_12_MONTHS ? "Last 12 months" : undefined}
           onChange={(e) => setPendingYear(Number(e.target.value) > max ? LAST_12_MONTHS : Number(e.target.value))}
           style={{ width: "100%" }}
         />

@@ -305,6 +305,7 @@ describe("LayersPanel", () => {
       expect(s2Slider().min).toBe("2016");
       expect(s2Slider().max).toBe("2026");
       expect(s2Slider().value).toBe("2026");
+      expect(s2Slider().getAttribute("aria-valuetext")).toBe("Last 12 months");
       expect(radio(/Sentinel-2/).parentElement!.textContent).toBe("Sentinel-2, last 12 months");
       expect(s2Year()).toBe(LAST_12_MONTHS);
     });

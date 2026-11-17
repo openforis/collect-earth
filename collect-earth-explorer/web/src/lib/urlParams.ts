@@ -16,6 +16,8 @@ export function toPolygon(g: AnyGeometry): Polygon {
   if (g.type === "Polygon") return g as Polygon;
   if (g.type === "MultiLineString" || g.type === "LineString") {
     const ring: number[][] = g.type === "LineString" ? g.coordinates : g.coordinates[0];
+    // Collect Earth sends empty coordinates for plots it holds only as a polygon (KML/WKT column, NFI tracts).
+    if (!ring?.length) throw new Error("the plot has no outline");
     const first = ring[0], last = ring[ring.length - 1];
     const closed = first[0] === last[0] && first[1] === last[1] ? ring : [...ring, first];
     return { type: "Polygon", coordinates: [closed] };
@@ -45,10 +47,12 @@ export function parsePlotUrl(search: string, now: Date = new Date(), hash: strin
   }
   const geoJson = q.get("geoJson");
   if (!geoJson) throw new Error("geoJson URL parameter is required");
+  const end = q.get("endTime") || iso(now);
   return {
     plot: toPolygon(JSON.parse(geoJson)),
     start: q.get("startTime") || "1984-01-01",
-    end: q.get("endTime") || iso(now),
+    // A future end is clamped to today, as the API does: the year sliders would otherwise offer years it rejects.
+    end: Date.parse(end) > now.getTime() ? iso(now) : end,
     plotId: q.get("plotId") || q.get("plot_id") || "",
     configText: q.get("config"),
     next: readPolygon(q.get("next")),

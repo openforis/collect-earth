@@ -18,6 +18,14 @@ describe("parsePlotUrl", () => {
     expect(p.end).toBe("2026-11-01");
     expect(p.plotId).toBe("");
   });
+  it("clamps a future endTime to today, as the API does", () => {
+    const p = parsePlotUrl(`?geoJson=${encodeURIComponent(geoJson)}&endTime=2030-12-31`, new Date("2026-11-01"));
+    expect(p.end).toBe("2026-11-01");
+  });
+  it("says the plot has no outline when Collect Earth sends empty coordinates", () => {
+    const empty = JSON.stringify({ type: "MultiLineString", coordinates: [[]] });
+    expect(() => parsePlotUrl(`?geoJson=${encodeURIComponent(empty)}`)).toThrow("the plot has no outline");
+  });
   it("throws when geoJson is missing", () => {
     expect(() => parsePlotUrl("?", new Date())).toThrow(/geoJson/);
   });
