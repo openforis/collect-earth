@@ -2215,7 +2215,8 @@ export class PostgresStore implements Store {
   async listCsvFiles(projectId: string): Promise<CsvFile[]> {
     return this.withProject(projectId, async (client) => {
       const res = await client.query(
-        'SELECT id, filename, checksum, plot_count, distribution FROM csv_files WHERE project_id = $1 ORDER BY filename',
+        // COLLATE "C": the same order whatever the database's locale, and the memory store's
+        'SELECT id, filename, checksum, plot_count, distribution FROM csv_files WHERE project_id = $1 ORDER BY filename COLLATE "C"',
         [projectId],
       );
       return res.rows.map(mapCsvFile);

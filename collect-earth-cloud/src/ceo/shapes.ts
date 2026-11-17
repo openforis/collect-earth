@@ -137,11 +137,14 @@ const field = (v: string) => `"${v.replace(/"/g, '""')}"`;
 
 /**
  * The plot file with the shapes in a last column (plots without one: `fallback` around their centre); null when it
- * has a polygon column already or no plots. `keyCount`: its key columns (the plot id is the first, CEO's).
+ * has a polygon column already, or no plots and no header row. `keyCount`: its key columns (the plot id is the first, CEO's).
  */
 export function withShapes(data: Buffer, keyCount: number, shapes: Readonly<Record<string, string>>, fallback: PlotOutline): Buffer | null {
   const file = parsePlotFile(data, keyCount);
-  if (file.rows.length === 0 || hasPolygonColumn(file.rows[0].fields)) return null;
+  if (file.rows.length > 0 && hasPolygonColumn(file.rows[0].fields)) return null;
+  // A file of a header row only gets the column too: the project's plot files keep the same columns
+  // (src/projectPlots.ts), or this one is left out of the person's plots and the project cannot be divided
+  if (file.rows.length === 0 && (!file.header || file.header.fields.some((f) => f.trim() === SHAPE_COLUMN))) return null;
   const sep = file.separator;
   const lines: string[] = [];
   if (file.header) lines.push(data.toString('utf8', file.header.start, file.header.end) + sep + SHAPE_COLUMN);

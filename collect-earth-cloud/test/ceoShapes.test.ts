@@ -52,6 +52,10 @@ describe('a CEO plot and its samples as one shape', () => {
     expect(withShapes(Buffer.from(out), 1, {}, { kind: 'square', sideMeters: 100 })).toBeNull();
     // Without a shape Collect Earth can draw for every plot, none: it tests the first plot for the whole file
     expect(withShapes(file, 1, { '1': 'MULTIPOLYGON(((1 1,2 2,3 1,1 1)))' }, { kind: 'place' })).toBeNull();
+    // a file of a header row only gets the column too, so that the project's plot files keep the same columns
+    const empty = withShapes(Buffer.from('id,YCoordinate,XCoordinate,elevation\n'), 1, {}, { kind: 'square', sideMeters: 100 });
+    expect(empty?.toString()).toBe('id,YCoordinate,XCoordinate,elevation,plot_shape\n');
+    expect(withShapes(empty!, 1, {}, { kind: 'square', sideMeters: 100 })).toBeNull();
   });
 });
 

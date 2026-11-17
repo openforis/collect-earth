@@ -125,11 +125,22 @@ describe('the project’s plots, divided once', () => {
   });
 
   it('refuses to divide the plots of a project whose files break the rules of one set, and says which', async () => {
-    await legacyPlotFile(ctx, pid, 'again.csv', `id,lat,lon,province\n${rows([10, 11], () => 'Beni')}\n`);
+    await legacyPlotFile(ctx, pid, 'west.csv', `id,lat,lon,province\n${rows([10, 11], () => 'Beni')}\n`);
     const res = await call('PUT', '/plots/division', owner.token, { mode: 'even', people: [people.ana.userId], order: 'file' });
     expect(res.statusCode).toBe(409);
-    expect(res.json()).toMatchObject({ error: 'not_one_set', files: [{ filename: 'again.csv', reason: 'plots_in_other_file' }] });
+    expect(res.json()).toMatchObject({ error: 'not_one_set', files: [{ filename: 'west.csv', reason: 'plots_in_other_file' }] });
     // coordinators only
     expect((await call('GET', '/plots/division', people.ana.token)).statusCode).toBe(403);
+    // moving and taking too: the file a plot is not counted in would lose it, or the plot be taken twice
+    expect((await call('POST', '/plots/move-unfinished', owner.token, { fromUserId: people.ana.userId, toUserId: people.bo.userId })).statusCode).toBe(409);
+    expect((await call('POST', '/plots/take', owner.token, { count: 1 })).statusCode).toBe(409);
+  });
+
+  it('shares a plot two files have once, and none of a file with other columns, by a link', async () => {
+    await legacyPlotFile(ctx, pid, 'west.csv', `id,lat,lon,province\n${rows([10, 11], () => 'Beni')}\n`);
+    await legacyPlotFile(ctx, pid, 'wide.csv', `id,lat,lon,province,extra\n${rows([12], () => 'Pando')},x\n`);
+    await join('dee', { plots: { csvFileId: null, mode: 'share', count: 50 } });
+    // 1 to 11 once each (10 is in south.csv and west.csv); 12 is in a file with other columns
+    expect(await myPlots('dee')).toBe(11);
   });
 });

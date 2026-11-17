@@ -1812,7 +1812,11 @@ export class InMemoryStore implements Store {
     if (!entry) {
       return [];
     }
-    return [...entry.csvFiles.values()].map((f) => InMemoryStore.csvMeta(f));
+    // By name, character by character, as PostgresStore (ORDER BY filename COLLATE "C"): the order decides which file
+    // sets the project's columns, which file a plot two files have is counted in, and the order plots are given in
+    return [...entry.csvFiles.values()]
+      .map((f) => InMemoryStore.csvMeta(f))
+      .sort((a, b) => (a.filename < b.filename ? -1 : a.filename > b.filename ? 1 : 0));
   }
 
   async recountPlots(projectId: string, keyCount: number): Promise<void> {

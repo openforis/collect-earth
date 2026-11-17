@@ -234,6 +234,8 @@ export async function registerProjectDivisionRoutes(app: FastifyInstance, store:
       }
       which.count = body.count;
     }
+    // As a division: with a plot in two files, the file it is not counted in would be rewritten without it
+    if (project.broken.length > 0) return reply.code(409).send(NOT_ONE_SET(project.broken));
     const held = [...project.holdingsOf.values()].flat().filter((a) => !project.referenceUnits.has(a.plotKey));
     if (!held.some((a) => a.userId === from)) {
       return reply.send({ ...summaryOf(project), moved: 0, notMoved: 0, droppedChecks: 0 } satisfies MoveUnfinishedAnswer);
@@ -260,6 +262,8 @@ export async function registerProjectDivisionRoutes(app: FastifyInstance, store:
     const userId = request.userId;
     if (!userId) return reply.code(403).send({ error: 'forbidden', reason: 'plots are taken by a person, not a project token' });
     const project = await loadProject(store, projectId, request.log);
+    // A plot in two files could be taken twice, and plots of a file with other columns would never reach my-plots
+    if (project.broken.length > 0) return reply.code(409).send(NOT_ONE_SET(project.broken));
     const body = (request.body ?? {}) as { count?: unknown; column?: unknown; value?: unknown };
     if (typeof body.count !== 'number' || !Number.isInteger(body.count) || body.count < 1 || body.count > MAX_MOVE) {
       return reply.code(400).send({ error: 'bad_request', reason: `count must be a whole number from 1 to ${MAX_MOVE}` });
@@ -274,9 +278,11 @@ export async function registerProjectDivisionRoutes(app: FastifyInstance, store:
     // Nobody holds it as main, nobody submitted it, no reference plot
     const heldMain = new Set([...project.holdingsOf.values()].flat().filter((a) => !a.overlap).map((a) => a.plotKey));
     const done = new Set<string>();
+    // Once, not per record: plots × records was minutes for a big project
+    const known = new Set(project.plotIds);
     for (const r of project.records) {
       if (!r.activelySaved || r.deleted) continue;
-      const unit = unitOfRecord(r.recordKey, new Set(project.plotIds), project.info);
+      const unit = unitOfRecord(r.recordKey, known, project.info);
       if (unit !== null) done.add(unit);
     }
     const free = project.plotIds.filter((id, i) => !heldMain.has(id) && !done.has(id) && !project.referenceUnits.has(id) && (values === null || values[i] === body.value));
