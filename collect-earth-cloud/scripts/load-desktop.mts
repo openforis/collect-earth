@@ -145,9 +145,19 @@ const isTraining = (id: string) => /^(T-|-)/.test(id);
  * plots: the person's (the plots file Collect Earth keeps from the server), or with a training day the training, which
  * Collect Earth opens by itself as the person holds no plot yet (opened here only if it did not, which is checked).
  */
+/** Joins failed and tried again, as the person would (the server failing to give the project file, say) */
+const joinFailures: string[] = [];
+
 async function joinMapathon(i: Instance, inviteToken: string) {
-  const res = await api(i, 'cloud/join', { baseUrl: handoff.base, inviteToken, projectId: i.pid, username: i.username, password: handoff.password, register: false });
-  if (res.status !== 200) throw new Error(`instance ${i.n} could not join: ${res.status} ${await res.text()}`);
+  for (let attempt = 1; ; attempt++) {
+    const res = await api(i, 'cloud/join', { baseUrl: handoff.base, inviteToken, projectId: i.pid, username: i.username, password: handoff.password, register: false });
+    if (res.status === 200) break;
+    const why = `instance ${i.n} could not join (try ${attempt}): ${res.status} ${(await res.text()).slice(0, 200)}`;
+    joinFailures.push(why);
+    log(why);
+    if (attempt >= 5) throw new Error(why);
+    await sleep(between(10_000, 30_000));
+  }
   await sleep(8000);
   await waitUp(i);
   const until = Date.now() + (TRAINING > 0 ? 6 : 3) * 60_000;
@@ -448,6 +458,7 @@ if (TRAINING > 0) {
     checks.push({ what: `Collect Earth ${i.n}: after the training, its own check brought the person's plots and deleted the training's records here`, ok: i.switchSeconds !== undefined && i.trainingLeftHere === 0, detail: `${i.plots.length} plots after ${i.switchSeconds?.toFixed(0) ?? 'never'} s; ${i.trainingLeftHere} training records left` });
   }
 }
+checks.push({ what: 'Every Collect Earth joined at its first try', ok: joinFailures.length === 0, detail: joinFailures.length ? joinFailures.slice(0, 3).join('; ') : `${instances.length} instances` });
 allLatencies.sort((a, b) => a - b);
 lines.push(`All instances: ${allLatencies.length} plots timed from completed to on the server: median ${(pct(allLatencies, 50) / 1000).toFixed(1)} s, p95 ${(pct(allLatencies, 95) / 1000).toFixed(1)} s, max ${((allLatencies.at(-1) ?? NaN) / 1000).toFixed(1)} s`);
 for (const c of checks) lines.push(`${c.ok ? 'ok  ' : 'FAIL'} ${c.what} (${c.detail})`);
