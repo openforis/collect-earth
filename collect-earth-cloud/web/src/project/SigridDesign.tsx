@@ -97,8 +97,8 @@ export function SigridDesign({ projectId, busy, onFile }: { projectId: string; b
     try {
       const csv = await generateSigrid(projectId, choice);
       const name = sigridFileName(country.file, spacing);
-      await onFile(new File([csv], name, { type: "text/csv" }));
-      setMade(name);
+      // false: the upload failed or replacing a file of that name was declined (the plot tab says which)
+      if (await onFile(new File([csv], name, { type: "text/csv" }))) setMade(name);
     } catch (err) {
       setError(err);
     } finally {

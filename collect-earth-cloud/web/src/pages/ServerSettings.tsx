@@ -178,6 +178,7 @@ function AnnouncementGroup({ settings, onSave }: { settings: ServerSettings; onS
   const text = editedText ?? initialText;
   const until = editedUntil ?? initialUntil;
   const [clearing, setClearing] = useState(false);
+  const [clearError, setClearError] = useState<unknown>(null);
   const end = fromLocalInput(until);
   const past = text.trim() !== "" && end !== null && end <= Date.now();
   const unsaved = text !== initialText || until !== initialUntil;
@@ -187,10 +188,13 @@ function AnnouncementGroup({ settings, onSave }: { settings: ServerSettings; onS
   };
   const clear = async () => {
     setClearing(true);
+    setClearError(null);
     try {
       await save({ announcement: null, announcementUntil: null });
       setText(null);
       setUntil(null);
+    } catch (err) {
+      setClearError(err);
     } finally {
       setClearing(false);
     }
@@ -210,6 +214,7 @@ function AnnouncementGroup({ settings, onSave }: { settings: ServerSettings; onS
         helperText={t(past ? "server.announcementPast" : "server.announcementUntilHelp")}
         slotProps={{ inputLabel: { shrink: true } }}
       />
+      <ErrorAlert error={clearError} />
     </SettingsGroup>
   );
 }

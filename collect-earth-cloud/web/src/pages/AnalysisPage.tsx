@@ -188,6 +188,8 @@ export function Pivot({ projectId, projectName, role, data, language, standalone
   const [selected, setSelected] = useState<ViewKey>("tpl:default");
   const [changed, setChanged] = useState(false);
   const [saving, setSaving] = useState<"mine" | "team" | null>(null);
+  // A share refused: said in the dialog, which stays open over the page (the name typed is kept)
+  const [saveError, setSaveError] = useState<unknown>(null);
   const [drill, setDrill] = useState<Filter[] | null>(null);
   const [fullScreen, setFullScreen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -474,6 +476,7 @@ export function Pivot({ projectId, projectName, role, data, language, standalone
     const v = viewer.current;
     if (!v) return;
     const kept = keepable(await v.save());
+    setSaveError(null);
     try {
       if (saving === "team") {
         team.setData(await shareAnalysisView(projectId, { name, table, language, config: kept }));
@@ -486,7 +489,7 @@ export function Pivot({ projectId, projectName, role, data, language, standalone
       setChanged(false);
       setSaving(null);
     } catch (e) {
-      setError(e);
+      setSaveError(e);
     }
   };
   const remove = async () => {
@@ -804,7 +807,8 @@ export function Pivot({ projectId, projectName, role, data, language, standalone
           <Paper variant="outlined" sx={{ position: "relative", flex: "1 1 0", minWidth: 0, height: { xs: "70vh", md: "auto" }, minHeight: 440, overflow: "hidden" }}>
             {step === "ready" && working > 0 && <LinearProgress sx={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 2 }} aria-label={t("analysis.working")} />}
             <Box ref={host} sx={{ height: "100%", width: "100%", display: flowing ? "none" : "block" }} data-testid="analysis-pivot" />
-            {flowing && shown && question && <ChangeFlows model={data.model} cube={shown.cube} filters={question.filters} measure={flowMeasure} query={query} onPick={setDrill} />}
+            {/* keyed: its fields are column names, which another table or language does not have */}
+            {flowing && shown && question && <ChangeFlows key={`${shown.cube.table}\u0000${shown.language}`} model={data.model} cube={shown.cube} filters={question.filters} measure={flowMeasure} query={query} onPick={setDrill} />}
           </Paper>
           {showMap && canMap && shown && question && (
             <Paper variant="outlined" sx={{ flex: { md: "0 0 40%" }, height: { xs: "60vh", md: "auto" }, minHeight: 320, overflow: "hidden" }}>
@@ -826,7 +830,11 @@ export function Pivot({ projectId, projectName, role, data, language, standalone
         team={saving === "team"}
         initial={selected.startsWith(saving === "team" ? "team:" : "mine:") || selected.startsWith("ai:") ? selectedLabel() : ""}
         taken={(name) => (saving === "team" ? teamViews : myViews).some((v) => v.name === name)}
-        onCancel={() => setSaving(null)}
+        error={saveError}
+        onCancel={() => {
+          setSaving(null);
+          setSaveError(null);
+        }}
         onSave={(name) => void save(name)}
       />
       {drill && shown && (
@@ -862,7 +870,7 @@ export function Pivot({ projectId, projectName, role, data, language, standalone
   );
 }
 
-function SaveDialog({ open, team, initial, taken, onCancel, onSave }: { open: boolean; team: boolean; initial: string; taken: (name: string) => boolean; onCancel: () => void; onSave: (name: string) => void }) {
+function SaveDialog({ open, team, initial, taken, error, onCancel, onSave }: { open: boolean; team: boolean; initial: string; taken: (name: string) => boolean; error: unknown; onCancel: () => void; onSave: (name: string) => void }) {
   const t = useT();
   const [name, setName] = useState(initial);
   useEffect(() => setName(initial), [initial, open]);
@@ -885,6 +893,7 @@ function SaveDialog({ open, team, initial, taken, onCancel, onSave }: { open: bo
             </Typography>
           )}
           <TextField autoFocus fullWidth label={t("analysis.viewName")} value={name} onChange={(e) => setName(e.target.value)} helperText={trimmed && taken(trimmed) ? t("analysis.replaces") : " "} slotProps={{ htmlInput: { maxLength: 80 } }} />
+          <ErrorAlert error={error} />
         </DialogContent>
         <DialogActions>
           <Button onClick={onCancel}>{t("common.cancel")}</Button>
