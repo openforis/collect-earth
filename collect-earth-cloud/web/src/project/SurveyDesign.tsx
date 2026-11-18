@@ -190,7 +190,7 @@ function Detail({ children, tone }: { children: ReactNode; tone?: "warning" }) {
   );
 }
 
-function QuestionView({ w, q }: { w: Words; q: DesignQuestion }) {
+function QuestionView({ w, q, inTable }: { w: Words; q: DesignQuestion; inTable?: boolean }) {
   const { t } = w;
   const label = textIn(q.label, w.language, w.design.languages);
   const help = textIn(q.help, w.language, w.design.languages);
@@ -202,7 +202,8 @@ function QuestionView({ w, q }: { w: Words; q: DesignQuestion }) {
       <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap", my: 0.5 }}>
         <Chip size="small" label={t(TYPE_KEYS[q.type])} />
         {required && q.required === "always" && <Chip size="small" color="primary" variant="outlined" label={required} />}
-        {q.key && <Chip size="small" variant="outlined" label={t("survey.key")} />}
+        {/* A table's key column gives its rows, said on the table already */}
+        {q.key && !inTable && <Chip size="small" variant="outlined" label={t("survey.key")} />}
         {q.hidden && <Chip size="small" variant="outlined" label={t("survey.notShown")} />}
         {q.formulas && <Chip size="small" variant="outlined" label={t("survey.isCalculated")} />}
         {q.layout && <Chip size="small" variant="outlined" label={t(q.layout === "buttons" ? "survey.layout.buttons" : "survey.layout.dropdown")} />}
@@ -265,7 +266,7 @@ function TableView({ w: survey, table }: { w: Words; table: DesignTable }) {
       {table.shownWhen && <Detail>{t("survey.shownWhen", { condition: conditionWords(w, table.shownWhen) })}</Detail>}
       <Stack spacing={2} sx={{ mt: 1.5 }}>
         {table.columns.map((c) => (
-          <QuestionView key={c.name} w={w} q={c} />
+          <QuestionView key={c.name} w={w} q={c} inTable />
         ))}
       </Stack>
     </Box>
