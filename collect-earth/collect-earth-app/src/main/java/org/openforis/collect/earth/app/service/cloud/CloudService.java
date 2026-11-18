@@ -243,6 +243,8 @@ public class CloudService {
 		String server = LocalPropertiesService.normalizeServer(baseUrl);
 		CloudBinding binding = new CloudBinding(properties.getProjectFolder(), server, projectId, null, username);
 		describe(api, binding, token);
+		// The survey just downloaded: a later one is offered when the coordinator changes it (SurveyUpdateService)
+		binding.surveyRevision = SurveyUpdateService.revisionOrNull(api, binding, token);
 		properties.saveCloudBinding(binding);
 		properties.saveCloudToken(server, username, token);
 		if (StringUtils.isNotBlank(username)) {

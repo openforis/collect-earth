@@ -32,6 +32,7 @@ import type {
   SurveyOperation,
   SurveyNewInput,
   SurveyRestoreInput,
+  SurveyRevisionAnswer,
   SurveyTemplate,
   SurveyVersionsAnswer,
   TotalTest,
@@ -464,6 +465,21 @@ export async function registerSurveyDesignRoutes(app: FastifyInstance, store: St
     if (!accepted.ok) return reply.code(accepted.status).send(accepted.body);
     await audit(store, request, 'cep.replaced', { bytes: cep.length, template: b.template as string });
     return designAnswer(store, config, projectId, request.log);
+  });
+
+  // The served survey's revision, for every member (stage 6): Collect Earth compares it with the one it opened, and
+  // offers to take the survey again when the coordinator changed it. null without a project file
+  app.get('/v1/projects/:pid/survey/revision', { preHandler: requireProjectMembership(store) }, async (request, reply) => {
+    const cep = await store.getCep(request.membership!.projectId);
+    let revision: string | null = null;
+    if (cep) {
+      try {
+        revision = revisionOf(surveyOf(readCep(cep)));
+      } catch {
+        revision = null;
+      }
+    }
+    return reply.header('cache-control', 'private, no-cache').send({ revision } satisfies SurveyRevisionAnswer);
   });
 
   app.get('/v1/projects/:pid/survey/versions', admin, async (request) => {

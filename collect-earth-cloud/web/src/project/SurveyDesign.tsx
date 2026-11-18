@@ -85,6 +85,7 @@ import { conditionWords, firstLanguage, requiredWords, ruleWords, tableWords, te
 import { ConditionDialog, RequiredControl, RuleDialog } from "./SurveyLogic";
 import { ExplainButton, HelpContext, SuggestRulesDialog, TranslateDialog, type SurveyHelp } from "./SurveyHelp";
 import { NewSurvey } from "./SurveyNew";
+import { SurveyPreview } from "./SurveyPreview";
 import AutoAwesome from "@mui/icons-material/AutoAwesomeOutlined";
 import { builderRule, conditionQuestions, listOptions, ruleKinds } from "./surveyLogicView";
 
@@ -145,6 +146,7 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
   const [questionFor, setQuestionFor] = useState<{ page?: string; table?: number } | null>(null);
   const [tableFor, setTableFor] = useState<string | null>(null);
   const [suggesting, setSuggesting] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
   // The AI assistant's help, when it is switched on for the project (never in the dashboard inside Collect Earth)
   const ai = useLoad(["project", projectId, "SurveyDesign.ai", answer?.editable === true], () =>
     answer?.editable ? getProjectAi(projectId).catch(() => null) : Promise.resolve(null),
@@ -269,11 +271,18 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
           <Typography variant="h2" id="survey-design-title" gutterBottom>
             {t("survey.title")}
           </Typography>
-          {answer?.editable && design && !editing && (
-            <Button variant="outlined" startIcon={<EditOutlined />} onClick={() => setEditing(true)}>
-              {t("survey.edit.start")}
-            </Button>
-          )}
+          <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
+            {w && w.design.pages.length > 0 && (
+              <Button variant="outlined" startIcon={<VisibilityOutlined />} onClick={() => setPreviewing(true)}>
+                {t("survey.preview.open")}
+              </Button>
+            )}
+            {answer?.editable && design && !editing && (
+              <Button variant="outlined" startIcon={<EditOutlined />} onClick={() => setEditing(true)}>
+                {t("survey.edit.start")}
+              </Button>
+            )}
+          </Stack>
         </Stack>
         <Explain sx={{ mb: 2 }} text={t("survey.explain.short")} more={t("survey.explain")} />
         {loaded.error ? (
@@ -378,6 +387,7 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
           }}
         />
       )}
+      {w && previewing && <SurveyPreview w={w} onClose={() => setPreviewing(false)} />}
       {w && suggesting && (
         <SuggestRulesDialog
           w={w}

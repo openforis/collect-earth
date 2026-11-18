@@ -607,3 +607,18 @@ calculated values are not regenerated: Collect Earth's IPCC export adds those of
 `DesignedSurveyIdmlTest`. An empty page holding only hidden fields is listed to put questions on, and is not
 deletable (`emptyPages[].deletable`).
 
+**Stage 6, done (18 Nov), a survey in use.** Collect Earth takes a changed survey by itself: `GET /survey/revision`
+(every member) gives the served survey's revision; the desktop keeps the one it opened in the project's cloud binding
+(`CloudBinding.surveyRevision`, set when a project is joined or opened), and `SurveyUpdateService` compares them twenty
+seconds after the start and every ten minutes. When the coordinator changed the survey, a notice says so ("The survey
+has changed") with "Update now", which opens the project again as the list of projects does (download, load,
+restart: the records collected stay, those not sent are sent after), or "Later", asked again at the next start. A
+project opened before this version takes the revision it first reads as its own; a server without the designer
+answers 404 and nothing is asked. `SurveyUpdateServiceTest` (a local HTTP server, the notice answered both ways, a
+refused update). The coordinator's banner says who gets the change and when. In the dashboard, "Preview the form"
+shows the survey page by page as a person collecting meets it, answered there to try it (`surveyPreviewView.ts`):
+questions show and hide by their conditions, required marks follow theirs, rules say when an answer breaks them
+(ranges with numbers or another answer, lengths, a table's column totals under it), a sub-list offers the answers
+under its parent's answer. What the preview cannot work out (advanced conditions, calculated values) is shown as
+shown and said so; the desktop's own form stays the reference (stage 7's "desktop's form as preview" is not done).
+

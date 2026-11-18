@@ -85,5 +85,18 @@ describe('POST /survey/new', () => {
     const cep = await ctx.app.inject({ method: 'GET', url: `/v1/projects/${p.projectId}/cep`, headers: bearer(p.adminToken) });
     expect(cep.statusCode).toBe(200);
     expect((await make({ template: 'blank', title: 'Again', language: 'en' })).json().error).toBe('has_project_file');
+    // Every member reads the survey's revision (Collect Earth compares it with the survey it opened)
+    const revision = await ctx.app.inject({ method: 'GET', url: `/v1/projects/${p.projectId}/survey/revision`, headers: bearer(p.projectToken) });
+    expect(revision.json()).toEqual({ revision: answer.revision });
+    const changed = await ctx.app.inject({
+      method: 'POST',
+      url: `/v1/projects/${p.projectId}/survey/design`,
+      headers: bearer(p.adminToken),
+      payload: { revision: answer.revision, operations: [{ op: 'setText', target: { kind: 'title' }, part: 'label', language: 'es', text: 'Inventario' }] },
+    });
+    expect(changed.statusCode, changed.body).toBe(200);
+    const after = (await ctx.app.inject({ method: 'GET', url: `/v1/projects/${p.projectId}/survey/revision`, headers: bearer(p.projectToken) })).json();
+    expect(after.revision).not.toBe(answer.revision);
+    expect(after.revision).toBe((changed.json() as SurveyDesignAnswer).revision);
   });
 });

@@ -427,3 +427,11 @@ export interface SurveyNewInput {
   /** multipurpose and ipcc: the list of years, from the first to the last */
   years?: { first: number; last: number };
 }
+
+/**
+ * GET /v1/projects/:pid/survey/revision (any member): the served survey's revision, the one a change names; Collect
+ * Earth compares it with the survey it opened. null without a project file.
+ */
+export interface SurveyRevisionAnswer {
+  revision: string | null;
+}
