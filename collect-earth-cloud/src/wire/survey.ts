@@ -91,6 +91,8 @@ export interface DesignQuestion {
   uses: string[];
   /** Left out of the exports */
   notExported: boolean;
+  /** One of the fields Collect Earth or the server needs (the plot's keys, who and where, the round...): kept */
+  fixed: boolean;
 }
 
 /** A group of questions asked once per item of a list (a table), or once in all (a group) */
@@ -149,6 +151,10 @@ export interface SurveyDesign {
   hidden: DesignQuestion[];
   lists: DesignList[];
   counts: { formulas: number };
+  /** Every page, in the order of the form, those with no question among them */
+  pageOrder: string[];
+  /** The pages nothing is on yet: shown while the survey is edited, to put questions on (or delete) */
+  emptyPages: Array<{ name: string; label: Localized }>;
 }
 
 /** What the survey check finds (src/survey/check.ts): Collect's checks of expressions, Collect Earth's survey rules */
@@ -202,10 +208,70 @@ export type WordTarget =
   | { kind: 'rule'; node: number; index: number };
 
 /** A change of the survey designer (stage 2: its words) */
+/** The kinds of question the designer adds */
+export type NewQuestionType = 'choice' | 'choices' | 'yesNo' | 'integer' | 'decimal' | 'text' | 'memo' | 'date';
+
+/** An answer of a list, as the designer adds it */
+export interface NewItem {
+  code: string;
+  label: Localized;
+}
+
+/** A change of the survey designer: its words (stage 2), its pages, questions and lists (stage 3) */
 export type SurveyOperation =
   /** A text in a language; "" takes it away (the form shows another language's) */
   | { op: 'setText'; target: WordTarget; part: 'label' | 'help' | 'message'; language: string; text: string }
-  | { op: 'addLanguage'; language: string };
+  | { op: 'addLanguage'; language: string }
+  /** A page, before another or last */
+  | { op: 'addPage'; label: Localized; before?: string }
+  | { op: 'movePage'; name: string; before?: string }
+  /** A page nothing is on */
+  | { op: 'deletePage'; name: string }
+  /**
+   * A question on a page (of the plot), or a column of a table, before another question of the same page or table, or
+   * last; its name made from its label when not given
+   */
+  | {
+      op: 'addQuestion';
+      type: NewQuestionType;
+      label: Localized;
+      name?: string;
+      page?: string;
+      table?: number;
+      before?: number;
+      /** For a choice: the answer list */
+      list?: string;
+      required?: boolean;
+    }
+  /** A question moved before another of the same page or table, or last; to another page of the plot */
+  | { op: 'moveQuestion'; id: number; page?: string; before?: number }
+  /** A question nothing else uses (no condition, rule or formula names it) */
+  | { op: 'deleteQuestion'; id: number }
+  | { op: 'setRequired'; id: number; required: boolean }
+  /** A new answer list, its name made from its label when not given */
+  | { op: 'addList'; name?: string; label: Localized; items: NewItem[] }
+  /** A list no question uses */
+  | { op: 'deleteList'; name: string }
+  | { op: 'addItem'; list: string; item: NewItem; before?: string }
+  | { op: 'moveItem'; list: string; code: string; before?: string }
+  | { op: 'deleteItem'; list: string; code: string };
+
+/** What a change does to the plots already collected (POST /v1/projects/:pid/survey/design/impact) */
+export type SurveyEffect =
+  /** Questions added: the plots collected have no answer to them, and are not reopened by themselves */
+  | { kind: 'newQuestions'; count: number }
+  /** A question deleted: its answers stay in the records, but leave the form, the exports and the analysis */
+  | { kind: 'questionDeleted'; question: string; answered: number }
+  /** An answer deleted: the plots that chose it keep a code that matches nothing */
+  | { kind: 'itemDeleted'; list: string; code: string; chosen: number }
+  /** A question made required: the plots that have no answer to it are flagged when they are opened again */
+  | { kind: 'nowRequired'; question: string; unanswered: number };
+
+export interface SurveyImpactAnswer {
+  /** The plots collected so far */
+  plots: number;
+  effects: SurveyEffect[];
+}
 
 /** POST /v1/projects/:pid/survey/design */
 export interface SurveyChangeInput {

@@ -523,3 +523,20 @@ versions" brings any of them back, keeping the survey of the moment so the resto
 dashboard inside Collect Earth (its project file is Collect Earth's own). Words change no answer, so stage 2 needs no
 warning about the data; that comes with stage 3. `npm run smoke:pg:survey-designer` covers the PostgreSQL side.
 
+**Stage 3, done (18 Nov), the structure.** "Edit the survey" (was "Edit the words") adds, moves and deletes pages,
+questions and answer lists, and sets Required. A page is added at the end and deleted while nothing is on it; pages
+move up and down. A question is added on a page or in a table (as a column), with a label, a kind (one or several
+answers from a list, yes or no, whole number, decimal, short text, long text, date), its answers (an existing list,
+or a new one written one per line, codes made from the words) and Required; its name in the data, made from the
+label, is shown before it is added. Questions move up and down and to another page; one is deleted unless Collect
+Earth fills it in (id, operator, location, plot_file and the like) or a condition or formula uses it (the server
+says which). Lists are added, deleted when unused, and their answers added, moved and deleted (not a code a
+condition names). Before saving, `POST /survey/design/impact` counts from the records' summaries what the change
+does to the plots collected: new questions they have no answer to, answers lost with a deleted question or answer,
+plots without an answer to a question now required; the dashboard shows it and asks to confirm, and asks before
+every deletion. Every change goes through the same save, check and versions as stage 2; the Java
+`DesignedSurveyIdmlTest` passes on `designer/structure.idm.xml`, written by `test/surveyStructure.test.ts` with each
+operation. Left for later: the plot file's columns (read by position, a change there needs the plot files changed
+too), changing an answer's code or a question's kind, deleting a table, and the conditions and rules (stage 4).
+The server's reasons for a refusal show in English.
+

@@ -16,11 +16,13 @@ import type { Store } from '../store/store.js';
 import { checkSurvey, type SurveyProblem } from '../survey/check.js';
 import { surveyDesign } from '../survey/design.js';
 import { SurveyEdit, SurveyEditError } from '../survey/edit.js';
+import { surveyImpact } from '../survey/impact.js';
 import { XmlTreeError } from '../survey/xmlTree.js';
 import type {
   SurveyChangeInput,
   SurveyChangeRefusal,
   SurveyDesignAnswer,
+  SurveyImpactAnswer,
   SurveyOperation,
   SurveyRestoreInput,
   SurveyVersionsAnswer,
@@ -85,26 +87,114 @@ function readTarget(v: unknown): WordTarget | null {
   }
 }
 
+/** Texts by language, as an operation gives them */
+function readLocalized(v: unknown): Record<string, string> | null {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+  const out: Record<string, string> = {};
+  for (const [k, t] of Object.entries(v as Record<string, unknown>)) {
+    if (!isString(k, 20) || !isString(t, 10_000)) return null;
+    out[k] = t;
+  }
+  return out;
+}
+
+const optionalString = (v: unknown, max = 200): v is string | undefined => v === undefined || isString(v, max);
+const optionalId = (v: unknown): v is number | undefined => v === undefined || Number.isInteger(v);
+const NEW_TYPES = new Set(['choice', 'choices', 'yesNo', 'integer', 'decimal', 'text', 'memo', 'date']);
+
+function readItem(v: unknown): { code: string; label: Record<string, string> } | null {
+  const o = (v ?? {}) as Record<string, unknown>;
+  const label = readLocalized(o.label);
+  return isString(o.code, 100) && label ? { code: o.code, label } : null;
+}
+
+/** One operation as the designer sends it, or null */
+function readOperation(raw: unknown): SurveyOperation | null {
+  const o = (raw ?? {}) as Record<string, unknown>;
+  switch (o.op) {
+    case 'addLanguage':
+      return isString(o.language, 20) ? { op: 'addLanguage', language: o.language } : null;
+    case 'setText': {
+      const target = readTarget(o.target);
+      return target && ['label', 'help', 'message'].includes(o.part as string) && isString(o.language, 20) && isString(o.text, 10_000)
+        ? { op: 'setText', target, part: o.part as 'label' | 'help' | 'message', language: o.language, text: o.text }
+        : null;
+    }
+    case 'addPage': {
+      const label = readLocalized(o.label);
+      return label && optionalString(o.before) ? { op: 'addPage', label, ...(o.before !== undefined ? { before: o.before } : {}) } : null;
+    }
+    case 'movePage':
+      return isString(o.name) && optionalString(o.before) ? { op: 'movePage', name: o.name, ...(o.before !== undefined ? { before: o.before } : {}) } : null;
+    case 'deletePage':
+      return isString(o.name) ? { op: 'deletePage', name: o.name } : null;
+    case 'addQuestion': {
+      const label = readLocalized(o.label);
+      if (!label || !NEW_TYPES.has(o.type as string) || !optionalString(o.name, 63) || !optionalString(o.page) || !optionalId(o.table) || !optionalId(o.before)) return null;
+      if (!optionalString(o.list) || (o.required !== undefined && typeof o.required !== 'boolean')) return null;
+      return {
+        op: 'addQuestion',
+        type: o.type as Extract<SurveyOperation, { op: 'addQuestion' }>['type'],
+        label,
+        ...(o.name !== undefined ? { name: o.name } : {}),
+        ...(o.page !== undefined ? { page: o.page } : {}),
+        ...(o.table !== undefined ? { table: o.table } : {}),
+        ...(o.before !== undefined ? { before: o.before } : {}),
+        ...(o.list !== undefined ? { list: o.list } : {}),
+        ...(o.required !== undefined ? { required: o.required } : {}),
+      };
+    }
+    case 'moveQuestion':
+      return Number.isInteger(o.id) && optionalString(o.page) && optionalId(o.before)
+        ? { op: 'moveQuestion', id: o.id as number, ...(o.page !== undefined ? { page: o.page } : {}), ...(o.before !== undefined ? { before: o.before } : {}) }
+        : null;
+    case 'deleteQuestion':
+      return Number.isInteger(o.id) ? { op: 'deleteQuestion', id: o.id as number } : null;
+    case 'setRequired':
+      return Number.isInteger(o.id) && typeof o.required === 'boolean' ? { op: 'setRequired', id: o.id as number, required: o.required } : null;
+    case 'addList': {
+      const label = readLocalized(o.label);
+      if (!label || !optionalString(o.name, 63) || !Array.isArray(o.items) || o.items.length > 1000) return null;
+      const items = o.items.map(readItem);
+      if (items.some((i) => i === null)) return null;
+      return { op: 'addList', label, items: items as Array<{ code: string; label: Record<string, string> }>, ...(o.name !== undefined ? { name: o.name } : {}) };
+    }
+    case 'deleteList':
+      return isString(o.name) ? { op: 'deleteList', name: o.name } : null;
+    case 'addItem': {
+      const item = readItem(o.item);
+      return isString(o.list) && item && optionalString(o.before, 100)
+        ? { op: 'addItem', list: o.list, item, ...(o.before !== undefined ? { before: o.before } : {}) }
+        : null;
+    }
+    case 'moveItem':
+      return isString(o.list) && isString(o.code, 100) && optionalString(o.before, 100)
+        ? { op: 'moveItem', list: o.list, code: o.code, ...(o.before !== undefined ? { before: o.before } : {}) }
+        : null;
+    case 'deleteItem':
+      return isString(o.list) && isString(o.code, 100) ? { op: 'deleteItem', list: o.list, code: o.code } : null;
+    default:
+      return null;
+  }
+}
+
+function readOperationList(v: unknown): SurveyOperation[] | string {
+  if (!Array.isArray(v) || v.length === 0) return 'operations is missing';
+  if (v.length > MAX_OPERATIONS) return `at most ${MAX_OPERATIONS} operations at once`;
+  const operations: SurveyOperation[] = [];
+  for (const [i, raw] of v.entries()) {
+    const op = readOperation(raw);
+    if (!op) return `operation ${i + 1} is not one the designer makes`;
+    operations.push(op);
+  }
+  return operations;
+}
+
 function readOperations(body: unknown): { revision: string; operations: SurveyOperation[] } | string {
   const b = (body ?? {}) as Partial<Record<keyof SurveyChangeInput, unknown>>;
   if (!isString(b.revision, 100)) return 'revision is missing';
-  if (!Array.isArray(b.operations) || b.operations.length === 0) return 'operations is missing';
-  if (b.operations.length > MAX_OPERATIONS) return `at most ${MAX_OPERATIONS} operations at once`;
-  const operations: SurveyOperation[] = [];
-  for (const [i, raw] of b.operations.entries()) {
-    const o = (raw ?? {}) as Record<string, unknown>;
-    if (o.op === 'addLanguage' && isString(o.language, 20)) {
-      operations.push({ op: 'addLanguage', language: o.language });
-      continue;
-    }
-    const target = readTarget(o.target);
-    if (o.op === 'setText' && target && ['label', 'help', 'message'].includes(o.part as string) && isString(o.language, 20) && isString(o.text, 10_000)) {
-      operations.push({ op: 'setText', target, part: o.part as 'label' | 'help' | 'message', language: o.language, text: o.text });
-      continue;
-    }
-    return `operation ${i + 1} is not one the designer makes`;
-  }
-  return { revision: b.revision, operations };
+  const operations = readOperationList(b.operations);
+  return typeof operations === 'string' ? operations : { revision: b.revision, operations };
 }
 
 /** The problems a changed survey has that the survey before had not */
@@ -210,8 +300,32 @@ export async function registerSurveyDesignRoutes(app: FastifyInstance, store: St
     });
     if (refused) return reply.code(refused.status).send(refused.body);
     const languages = asked.operations.filter((o) => o.op === 'addLanguage').map((o) => (o as { language: string }).language);
-    await audit(store, request, 'survey.edited', { changes: asked.operations.length, ...(languages.length > 0 ? { languages: languages.join(',') } : {}) });
+    const structure = asked.operations.filter((o) => o.op !== 'setText' && o.op !== 'addLanguage').length;
+    await audit(store, request, 'survey.edited', {
+      changes: asked.operations.length,
+      ...(languages.length > 0 ? { languages: languages.join(',') } : {}),
+      ...(structure > 0 ? { structure } : {}),
+    });
     return designAnswer(store, config, projectId, request.log);
+  });
+
+  // What the changes would do to the plots already collected, before they are saved (nothing is written)
+  app.post('/v1/projects/:pid/survey/design/impact', admin, async (request, reply) => {
+    const projectId = request.membership!.projectId;
+    const operations = readOperationList(((request.body ?? {}) as { operations?: unknown }).operations);
+    if (typeof operations === 'string') return reply.code(400).send({ error: 'bad_request', reason: operations } satisfies SurveyChangeRefusal);
+    const served = await store.getCep(projectId);
+    if (!served) return reply.code(404).send({ error: 'not_found' });
+    const survey = surveyOf(readCep(served));
+    try {
+      const edit = new SurveyEdit(survey);
+      for (const op of operations) edit.apply(op);
+    } catch (err) {
+      if (err instanceof SurveyEditError) return reply.code(400).send({ error: 'bad_request', reason: err.message } satisfies SurveyChangeRefusal);
+      throw err;
+    }
+    const records = await store.listRecordSummaries(projectId);
+    return surveyImpact(survey, operations, records) satisfies SurveyImpactAnswer;
   });
 
   app.get('/v1/projects/:pid/survey/versions', admin, async (request) => {

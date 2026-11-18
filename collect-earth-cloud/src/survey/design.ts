@@ -19,8 +19,25 @@ import type {
   RuleBound,
   SurveyDesign,
 } from '../wire/survey.js';
+import { NOTE_NAME, PERIOD_STATUS_NAME } from '../cep.js';
 import { namesUsed, readCondition, type QuestionLookup } from './condition.js';
 import { attrValue, childElements, childrenNamed, firstChild, readXml, textValue, type XmlDocument, type XmlElement } from './xmlTree.js';
+
+/**
+ * The fields the survey cannot do without: the plot's keys and the ones Collect Earth needs
+ * (CollectEarthSurveyValidator.REQUIRED_FIELDS), and those the server adds (the round, the coordinator's note, the
+ * period status)
+ */
+const FIXED = new Set(['id', 'operator', 'location', 'plot_file', 'actively_saved', 'actively_saved_on', 'round', NOTE_NAME, PERIOD_STATUS_NAME]);
+export const isFixed = (name: string, key: boolean): boolean => key || FIXED.has(name);
+
+/** Every element under e, e left out */
+function* descendantsOf(e: XmlElement): Generator<XmlElement> {
+  for (const c of childElements(e)) {
+    yield c;
+    yield* descendantsOf(c);
+  }
+}
 
 /** The fields Collect Earth fills itself (SurveyFormModelBuilder.BUILT_IN_ATTRIBUTE_NAMES) */
 const BUILT_IN = new Set(['operator', 'location', 'plot_file', 'actively_saved', 'actively_saved_on']);
@@ -113,10 +130,19 @@ class DesignReader {
       else page.items.push(q);
     }
     const lists = this.lists();
+    // The pages nothing names (no question, shown or hidden, has its tab): empty, so they can be deleted
+    const named = new Set<string>();
+    for (const node of descendantsOf(plot)) {
+      const tab = attrLocal(this.doc, node, 'tab', this.ui);
+      if (tab !== undefined) named.add(tab);
+    }
+    if (rootTab !== undefined) named.add(rootTab);
     return {
       languages: this.languages,
       title: this.localized(this.doc.root, 'project'),
       pages: [...pages.values()].filter((p) => p.items.length > 0),
+      pageOrder: tabs.map((t) => t.name),
+      emptyPages: tabs.filter((t) => !named.has(t.name)).map((t) => ({ name: t.name, label: t.label })),
       fromPlotFile,
       calculated,
       hidden,
@@ -254,6 +280,7 @@ class DesignReader {
       formulas: isCalculated ? formulas : null,
       uses: isCalculated ? [...used] : [],
       notExported: attrLocal(this.doc, e, 'includeInDataExport', this.collect) === 'false',
+      fixed: isFixed(attrValue(this.doc, e, 'name') ?? '', attrValue(this.doc, e, 'key') === 'true'),
     };
   }
 

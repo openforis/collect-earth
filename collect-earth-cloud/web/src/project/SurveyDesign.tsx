@@ -7,7 +7,12 @@ import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogContentText from "@mui/material/DialogContentText";
 import DialogTitle from "@mui/material/DialogTitle";
+import Checkbox from "@mui/material/Checkbox";
+import FormControlLabel from "@mui/material/FormControlLabel";
+import IconButton from "@mui/material/IconButton";
+import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
+import Tooltip from "@mui/material/Tooltip";
 import TextField from "@mui/material/TextField";
 import Chip from "@mui/material/Chip";
 import Collapse from "@mui/material/Collapse";
@@ -19,13 +24,20 @@ import Typography from "@mui/material/Typography";
 import ExpandMore from "@mui/icons-material/ExpandMore";
 import EditOutlined from "@mui/icons-material/EditOutlined";
 import Translate from "@mui/icons-material/Translate";
+import Add from "@mui/icons-material/Add";
+import ArrowDownward from "@mui/icons-material/ArrowDownward";
+import ArrowUpward from "@mui/icons-material/ArrowUpward";
+import DeleteOutline from "@mui/icons-material/DeleteOutlined";
+import DriveFileMoveOutlined from "@mui/icons-material/DriveFileMoveOutlined";
 import { createContext, useContext, useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import {
   ApiError,
   getSurveyDesign,
+  getSurveyImpact,
   listSurveyVersions,
   restoreSurveyVersion,
   saveSurveyChanges,
+  type DesignItem,
   type DesignList,
   type DesignListItem,
   type DesignPage,
@@ -33,12 +45,30 @@ import {
   type DesignTable,
   type SurveyDesign,
   type SurveyDesignAnswer,
+  type SurveyImpactAnswer,
+  type SurveyOperation,
+  type NewQuestionType,
   type SurveyProblem,
   type WordTarget,
 } from "../api";
 import { formatDate } from "../format";
 import { queryClient } from "../queryClient";
-import { COMMON_LANGUAGES, editKey, isLanguageCode, operationsOf, withText, type PendingText, type WordPart } from "./surveyEditView";
+import {
+  COMMON_LANGUAGES,
+  editKey,
+  isItemCode,
+  isLanguageCode,
+  itemMoveTarget,
+  itemsFromLines,
+  moveTarget,
+  operationsOf,
+  pageMoveTarget,
+  slugName,
+  uniqueName,
+  withText,
+  type PendingText,
+  type WordPart,
+} from "./surveyEditView";
 import { useApp } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Explain } from "../components/Explain";
@@ -59,6 +89,24 @@ interface Editing {
   firstLanguageName: string;
   pending: ReadonlyMap<string, PendingText>;
   set: (target: WordTarget, part: WordPart, text: string, current: string) => void;
+  /**
+   * A change of the questions, pages or lists (stage 3): saved at once with the texts changed so far, after what it
+   * does to the plots collected is shown (and always asked about when `what` names something deleted)
+   */
+  change: (ops: SurveyOperation[], what?: string) => void;
+  /** A change is being saved */
+  busy: boolean;
+  /** The pages a question can move to */
+  pages: Array<{ name: string; label: string }>;
+  /** Opens the dialog adding a question to a page, or a column to a table */
+  addQuestion: (where: { page?: string; table?: number }) => void;
+}
+
+/** A change waiting for the coordinator's yes: what it does to the plots collected, what it deletes */
+interface PendingChange {
+  ops: SurveyOperation[];
+  impact: SurveyImpactAnswer;
+  what?: string;
 }
 
 const EditContext = createContext<Editing | null>(null);
@@ -81,6 +129,8 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
   const [stale, setStale] = useState(false);
   const [saved, setSaved] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [confirm, setConfirm] = useState<PendingChange | null>(null);
+  const [questionFor, setQuestionFor] = useState<{ page?: string; table?: number } | null>(null);
   // The languages added and not saved yet are shown as the survey's, for their texts to be written
   const design = useMemo<SurveyDesign | null>(() => {
     const d = answer?.design ?? null;
@@ -116,9 +166,16 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
               setSaved(false);
               setPending((before) => withText(before, { target, part, language, text, current }));
             },
+            change: (ops, what) => void change(ops, what),
+            busy: saving,
+            pages: design.pageOrder
+              .map((name) => design.pages.find((p) => p.name === name) ?? design.emptyPages.find((p) => p.name === name))
+              .filter((p): p is { name: string; label: Record<string, string> } => p !== undefined)
+              .map((p) => ({ name: p.name, label: textIn(p.label, language, design.languages) || t("survey.noLabel") })),
+            addQuestion: (where) => setQuestionFor(where),
           }
         : null,
-    [editing, design, language, names, pending],
+    [editing, design, language, names, pending, saving, added, operations, answer],
   );
 
   const discard = () => {
@@ -135,14 +192,16 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
     void queryClient.invalidateQueries({ queryKey: ["project", projectId, "listSurveyVersions"] });
   };
 
-  const save = async () => {
-    if (!answer?.revision || operations.length === 0) return;
+  /** Saves the texts changed so far, and the changes of questions given */
+  const save = async (extra: SurveyOperation[] = []) => {
+    const all = [...operations, ...extra];
+    if (!answer?.revision || all.length === 0) return;
     setSaving(true);
     setError(null);
     setRefused(null);
     setStale(false);
     try {
-      afterChange(await saveSurveyChanges(projectId, { revision: answer.revision, operations }));
+      afterChange(await saveSurveyChanges(projectId, { revision: answer.revision, operations: all }));
       setPending(new Map());
       setAdded([]);
       setSaved(true);
@@ -153,6 +212,27 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
     } finally {
       setSaving(false);
     }
+  };
+
+  /** A change of the questions: what it does to the plots collected first, asked about when it touches them */
+  const change = async (ops: SurveyOperation[], what?: string) => {
+    setSaving(true);
+    setError(null);
+    setRefused(null);
+    try {
+      // The languages added and not saved yet come first: the new texts may be in them
+      const impact = await getSurveyImpact(projectId, [...operationsOf(new Map(), added), ...ops]);
+      if (impact.effects.length > 0 || what !== undefined) {
+        setConfirm({ ops, impact, what });
+        setSaving(false);
+        return;
+      }
+    } catch (err) {
+      setError(err);
+      setSaving(false);
+      return;
+    }
+    await save(ops);
   };
 
   const reach =
@@ -246,6 +326,30 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
       {answer?.editable && answer.design && (
         <VersionsCard projectId={projectId} revision={answer.revision} disabled={operations.length > 0} onRestored={afterChange} />
       )}
+      {w && (
+        <AddQuestionDialog
+          w={w}
+          where={questionFor}
+          onClose={() => setQuestionFor(null)}
+          onAdd={(ops) => {
+            setQuestionFor(null);
+            void change(ops);
+          }}
+        />
+      )}
+      {w && (
+        <ConfirmChangeDialog
+          w={w}
+          pending={confirm}
+          busy={saving}
+          onCancel={() => setConfirm(null)}
+          onConfirm={() => {
+            const ops = confirm?.ops ?? [];
+            setConfirm(null);
+            void save(ops);
+          }}
+        />
+      )}
       {design && (
         <AddLanguageDialog
           open={adding}
@@ -304,6 +408,8 @@ function DesignView({ w, onLanguage, addLanguage }: { w: Words; onLanguage: (lan
   const { language: uiLanguage } = useApp();
   const missing = useMemo(() => untranslated(design, language), [design, language]);
   const names = useMemo(() => languageNames(uiLanguage), [uiLanguage]);
+  const edit = useContext(EditContext);
+  const [addingPage, setAddingPage] = useState(false);
   const questions = design.pages.reduce((n, p) => n + p.items.reduce((m, i) => m + (i.kind === "table" ? i.columns.length : 1), 0), 0);
 
   return (
@@ -344,17 +450,44 @@ function DesignView({ w, onLanguage, addLanguage }: { w: Words; onLanguage: (lan
         </Box>
       )}
       <Stack spacing={1.5} lang={language}>
-        {design.pages.map((page, i) => (
-          <PageView key={page.name} w={w} page={page} defaultOpen={i === 0} />
+        {shownPages(design, edit !== null).map((page, i, all) => (
+          <PageView key={page.name} w={w} page={page} defaultOpen={i === 0 || page.empty === true} order={all.map((p) => p.name)} />
         ))}
       </Stack>
+      {edit && (
+        <Box>
+          <Button startIcon={<Add />} onClick={() => setAddingPage(true)} disabled={edit.busy}>
+            {t("survey.edit.addPage")}
+          </Button>
+          <NameDialog
+            open={addingPage}
+            title={t("survey.edit.addPage")}
+            label={t("survey.edit.page")}
+            onClose={() => setAddingPage(false)}
+            onDone={(text) => {
+              setAddingPage(false);
+              edit.change([{ op: "addPage", label: { [language]: text } }]);
+            }}
+          />
+        </Box>
+      )}
     </Stack>
   );
+}
+
+/** The pages shown: those with questions, and while the survey is edited the empty ones too, in the form's order */
+function shownPages(design: SurveyDesign, editing: boolean): Array<DesignPage & { empty?: boolean }> {
+  if (!editing) return design.pages;
+  return design.pageOrder
+    .map((name) => design.pages.find((p) => p.name === name) ?? (design.emptyPages.some((p) => p.name === name) ? { ...design.emptyPages.find((p) => p.name === name)!, items: [], empty: true } : undefined))
+    .filter((p): p is DesignPage & { empty?: boolean } => p !== undefined);
 }
 
 /** What the form fills itself, the hidden fields and the lists: folded cards under the survey */
 function DesignCards({ w }: { w: Words }) {
   const { design, language, t } = w;
+  const edit = useContext(EditContext);
+  const [addingList, setAddingList] = useState(false);
   return (
     <>
       {design.fromPlotFile.length > 0 && (
@@ -379,6 +512,14 @@ function DesignCards({ w }: { w: Words }) {
       </FoldingCard>
       <FoldingCard keepFolded title={t("survey.lists.title")} summary={t("survey.lists.summary", { count: design.lists.length })}>
         <Explain variant="body2" sx={{ mb: 2 }} text={t("survey.lists.explain")} />
+        {edit && (
+          <Box sx={{ mb: 2 }}>
+            <Button startIcon={<Add />} variant="outlined" disabled={edit.busy} onClick={() => setAddingList(true)}>
+              {t("survey.list.add")}
+            </Button>
+            <AddListDialog w={w} open={addingList} onClose={() => setAddingList(false)} onAdd={(op) => { setAddingList(false); edit.change([op]); }} />
+          </Box>
+        )}
         <Stack spacing={2} lang={language}>
           {design.lists.map((l) => (
             <ListView key={l.name} w={w} list={l} />
@@ -427,7 +568,8 @@ function Problems({ w, problems, title }: { w: Words; problems: SurveyProblem[];
 }
 
 /** A page of the form, folding under its name */
-function PageView({ w, page, defaultOpen }: { w: Words; page: DesignPage; defaultOpen: boolean }) {
+function PageView({ w, page, defaultOpen, order }: { w: Words; page: DesignPage & { empty?: boolean }; defaultOpen: boolean; order: string[] }) {
+  const edit = useContext(EditContext);
   const [open, setOpen] = useState(defaultOpen);
   const id = useId();
   const label = textIn(page.label, w.language, w.design.languages) || w.t("survey.noLabel");
@@ -449,7 +591,32 @@ function PageView({ w, page, defaultOpen }: { w: Words; page: DesignPage; defaul
           <Words target={{ kind: "page", name: page.name }} part="label" value={page.label} label={w.t("survey.edit.page")}>
             {null}
           </Words>
-          {page.items.map((item) => (item.kind === "table" ? <TableView key={item.name} w={w} table={item} /> : <QuestionView key={item.name} w={w} q={item} />))}
+          {edit && (
+            <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap", alignItems: "center" }}>
+              <Button size="small" variant="outlined" startIcon={<Add />} disabled={edit.busy} onClick={() => edit.addQuestion({ page: page.name })}>
+                {w.t("survey.edit.addQuestion")}
+              </Button>
+              <MoveButtons
+                label={w.t("survey.edit.page")}
+                up={pageMoveTarget(order, page.name, -1)}
+                down={pageMoveTarget(order, page.name, 1)}
+                onMove={(to) => edit.change([{ op: "movePage", name: page.name, ...(to.before !== undefined ? { before: to.before as string } : {}) }])}
+              />
+              {page.empty && (
+                <Button size="small" color="error" startIcon={<DeleteOutline />} disabled={edit.busy} onClick={() => edit.change([{ op: "deletePage", name: page.name }], label)}>
+                  {w.t("survey.edit.deletePage")}
+                </Button>
+              )}
+            </Stack>
+          )}
+          {page.empty && <Typography color="text.secondary">{w.t("survey.edit.emptyPage")}</Typography>}
+          {page.items.map((item) =>
+            item.kind === "table" ? (
+              <TableView key={item.name} w={w} table={item} siblings={page.items} page={page.name} />
+            ) : (
+              <QuestionView key={item.name} w={w} q={item} siblings={page.items} page={page.name} />
+            ),
+          )}
         </Stack>
       </Collapse>
     </Box>
@@ -475,20 +642,30 @@ function Detail({ children, tone }: { children: ReactNode; tone?: "warning" }) {
   );
 }
 
-function QuestionView({ w, q, inTable }: { w: Words; q: DesignQuestion; inTable?: boolean }) {
+function QuestionView({ w, q, inTable, siblings, page }: {
+  w: Words;
+  q: DesignQuestion;
+  inTable?: boolean;
+  /** The items of its page or table, for moving it among them; none for the lists of hidden fields */
+  siblings?: readonly DesignItem[];
+  page?: string;
+}) {
   const { t } = w;
   const label = textIn(q.label, w.language, w.design.languages);
   const help = textIn(q.help, w.language, w.design.languages);
   const required = requiredWords(w, q);
   const list = q.list ? w.lists.get(q.list) : undefined;
+  // While editing, the Required box of the tools says it already
+  const requiredBox = useContext(EditContext) !== null && siblings !== undefined && canRequire(q);
   return (
     <Box sx={{ pl: 1.5, borderLeft: 3, borderColor: q.hidden || q.formulas ? "divider" : "primary.light" }}>
       <Words target={{ kind: "node", id: q.id }} part="label" value={q.label} label={t("survey.edit.label")} multiline>
         <Typography sx={{ fontWeight: 600, overflowWrap: "anywhere" }}>{label || q.name}</Typography>
       </Words>
+      {siblings && <ItemTools w={w} item={q} siblings={siblings} page={page} />}
       <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap", my: 0.5 }}>
         <Chip size="small" label={t(TYPE_KEYS[q.type])} />
-        {required && q.required === "always" && <Chip size="small" color="primary" variant="outlined" label={required} />}
+        {required && q.required === "always" && !requiredBox && <Chip size="small" color="primary" variant="outlined" label={required} />}
         {/* A table's key column gives its rows, said on the table already */}
         {q.key && !inTable && <Chip size="small" variant="outlined" label={t("survey.key")} />}
         {q.hidden && <Chip size="small" variant="outlined" label={t("survey.notShown")} />}
@@ -537,7 +714,8 @@ function QuestionView({ w, q, inTable }: { w: Words; q: DesignQuestion; inTable?
   );
 }
 
-function TableView({ w: survey, table }: { w: Words; table: DesignTable }) {
+function TableView({ w: survey, table, siblings, page }: { w: Words; table: DesignTable; siblings: readonly DesignItem[]; page: string }) {
+  const edit = useContext(EditContext);
   // A name the table's conditions use is its own column first, as the server reads them (another table may have one alike)
   const w = useMemo(() => tableWords(survey, table), [survey, table]);
   const { t } = w;
@@ -555,6 +733,7 @@ function TableView({ w: survey, table }: { w: Words; table: DesignTable }) {
       <Words target={{ kind: "node", id: table.id }} part="label" value={table.label} label={t("survey.edit.label")} multiline>
         <Typography sx={{ fontWeight: 600 }}>{textIn(table.label, w.language, w.design.languages) || table.name}</Typography>
       </Words>
+      <ItemTools w={w} item={table} siblings={siblings} page={page} />
       <Detail>{kind}</Detail>
       {list && <Detail>{t("survey.answers", { items: answersText(w, list.items) })}</Detail>}
       <Words target={{ kind: "node", id: table.id }} part="help" value={table.help} label={t("survey.edit.help")} multiline>
@@ -563,8 +742,15 @@ function TableView({ w: survey, table }: { w: Words; table: DesignTable }) {
       {table.shownWhen && <Detail>{t("survey.shownWhen", { condition: conditionWords(w, table.shownWhen) })}</Detail>}
       <Stack spacing={2} sx={{ mt: 1.5 }}>
         {table.columns.map((c) => (
-          <QuestionView key={c.name} w={w} q={c} inTable />
+          <QuestionView key={c.name} w={w} q={c} inTable siblings={table.columns} />
         ))}
+        {edit && (
+          <Box>
+            <Button size="small" variant="outlined" startIcon={<Add />} disabled={edit.busy} onClick={() => edit.addQuestion({ table: table.id })}>
+              {t("survey.edit.addColumn")}
+            </Button>
+          </Box>
+        )}
       </Stack>
     </Box>
   );
@@ -572,6 +758,7 @@ function TableView({ w: survey, table }: { w: Words; table: DesignTable }) {
 
 function ListView({ w, list }: { w: Words; list: DesignList }) {
   const { t } = w;
+  const edit = useContext(EditContext);
   return (
     <Box sx={{ pl: 1.5, borderLeft: 3, borderColor: "divider" }}>
       <Words target={{ kind: "list", name: list.name }} part="label" value={list.label} label={t("survey.edit.list")}>
@@ -585,6 +772,13 @@ function ListView({ w, list }: { w: Words; list: DesignList }) {
         ].join(" · ")}
       </Detail>
       <ItemTree w={w} list={list.name} items={list.items} />
+      {edit && !list.external && <AddItemForm w={w} list={list} />}
+      {edit && list.usedBy.length === 0 && (
+        <Button size="small" color="error" startIcon={<DeleteOutline />} disabled={edit.busy} sx={{ mt: 0.5 }}
+          onClick={() => edit.change([{ op: "deleteList", name: list.name }], textIn(list.label, w.language, w.design.languages) || list.name)}>
+          {t("survey.list.delete")}
+        </Button>
+      )}
       <Typography variant="caption" color="text.secondary">
         {t("survey.name", { name: list.name })}
       </Typography>
@@ -593,15 +787,38 @@ function ListView({ w, list }: { w: Words; list: DesignList }) {
 }
 
 function ItemTree({ w, list, items }: { w: Words; list: string; items: DesignListItem[] }) {
-  const editing = useContext(EditContext) !== null;
+  const edit = useContext(EditContext);
+  const editing = edit !== null;
   if (items.length === 0) return null;
   return (
     <Box component="ul" sx={{ m: 0, pl: 3 }}>
       {items.map((i) => (
         <Typography component="li" variant="body2" key={i.code} sx={{ overflowWrap: "anywhere" }}>
-          <Words target={{ kind: "item", list, code: i.code }} part="label" value={i.label} label={w.t("survey.edit.answer", { code: i.code })}>
-            {textIn(i.label, w.language, w.design.languages) || i.code}{" "}
-          </Words>
+          <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Words target={{ kind: "item", list, code: i.code }} part="label" value={i.label} label={w.t("survey.edit.answer", { code: i.code })}>
+                {textIn(i.label, w.language, w.design.languages) || i.code}{" "}
+              </Words>
+            </Box>
+            {edit && (
+              <>
+                <MoveButtons
+                  label={textIn(i.label, w.language, w.design.languages) || i.code}
+                  up={itemMoveTarget(items.map((x) => x.code), i.code, -1)}
+                  down={itemMoveTarget(items.map((x) => x.code), i.code, 1)}
+                  onMove={(to) => edit.change([{ op: "moveItem", list, code: i.code, ...(to.before !== undefined ? { before: to.before as string } : {}) }])}
+                />
+                <Tooltip title={w.t("survey.edit.delete")}>
+                  <span>
+                    <IconButton size="small" aria-label={`${w.t("survey.edit.delete")}: ${i.code}`} disabled={edit.busy || i.items.length > 0}
+                      onClick={() => edit.change([{ op: "deleteItem", list, code: i.code }], `${textIn(i.label, w.language, w.design.languages) || i.code} (${i.code})`)}>
+                      <DeleteOutline fontSize="small" />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              </>
+            )}
+          </Stack>
           {!editing && (
             <Typography component="span" variant="caption" color="text.secondary">
               ({i.code})
@@ -748,6 +965,317 @@ function AddLanguageDialog({ open, present, names, onClose, onAdd }: {
           }}
         >
           {t("survey.edit.addLanguage.add")}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+/** Up and down: one step among the items of a page, table or list, or among the pages */
+function MoveButtons<T>({ label, up, down, onMove }: { label: string; up: T | null; down: T | null; onMove: (to: T) => void }) {
+  const edit = useContext(EditContext);
+  const t = useT();
+  if (!edit) return null;
+  return (
+    <>
+      <Tooltip title={t("survey.edit.moveUp")}>
+        <span>
+          <IconButton size="small" aria-label={`${t("survey.edit.moveUp")}: ${label}`} disabled={edit.busy || up === null} onClick={() => up && onMove(up)}>
+            <ArrowUpward fontSize="small" />
+          </IconButton>
+        </span>
+      </Tooltip>
+      <Tooltip title={t("survey.edit.moveDown")}>
+        <span>
+          <IconButton size="small" aria-label={`${t("survey.edit.moveDown")}: ${label}`} disabled={edit.busy || down === null} onClick={() => down && onMove(down)}>
+            <ArrowDownward fontSize="small" />
+          </IconButton>
+        </span>
+      </Tooltip>
+    </>
+  );
+}
+
+/** Whether the editor offers the Required box: not on the fields Collect Earth fills in, nor on calculated answers */
+const canRequire = (q: DesignQuestion) => !q.fixed && !q.formulas;
+
+/** What can be done with a question or table while the survey is edited: move it, require it, delete it */
+function ItemTools({ w, item, siblings, page }: { w: Words; item: DesignItem; siblings: readonly DesignItem[]; page?: string }) {
+  const edit = useContext(EditContext);
+  const [menu, setMenu] = useState<HTMLElement | null>(null);
+  if (!edit) return null;
+  const { t } = w;
+  const label = textIn(item.label, w.language, w.design.languages) || item.name;
+  const question = item.kind === "question" ? item : null;
+  const others = edit.pages.filter((p) => p.name !== page);
+  return (
+    <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: "wrap", alignItems: "center", my: 0.5 }}>
+      <MoveButtons
+        label={label}
+        up={moveTarget(siblings, item.id, -1)}
+        down={moveTarget(siblings, item.id, 1)}
+        onMove={(to) => edit.change([{ op: "moveQuestion", id: item.id, ...(to.before !== undefined ? { before: to.before } : {}) }])}
+      />
+      {page !== undefined && others.length > 0 && (
+        <>
+          <Tooltip title={t("survey.edit.moveTo")}>
+            <IconButton size="small" aria-label={`${t("survey.edit.moveTo")}: ${label}`} disabled={edit.busy} onClick={(e) => setMenu(e.currentTarget)}>
+              <DriveFileMoveOutlined fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Menu anchorEl={menu} open={menu !== null} onClose={() => setMenu(null)}>
+            {others.map((p) => (
+              <MenuItem key={p.name} onClick={() => { setMenu(null); edit.change([{ op: "moveQuestion", id: item.id, page: p.name }]); }}>
+                {p.label}
+              </MenuItem>
+            ))}
+          </Menu>
+        </>
+      )}
+      {question && canRequire(question) && (
+        <FormControlLabel
+          sx={{ ml: 0.5 }}
+          control={
+            <Checkbox size="small" checked={question.required === "always"} disabled={edit.busy}
+              onChange={(e) => edit.change([{ op: "setRequired", id: question.id, required: e.target.checked }])} />
+          }
+          label={<Typography variant="body2">{t("survey.required")}</Typography>}
+        />
+      )}
+      {question && !question.fixed && (
+        <Tooltip title={t("survey.edit.delete")}>
+          <IconButton size="small" color="error" aria-label={`${t("survey.edit.delete")}: ${label}`} disabled={edit.busy}
+            onClick={() => edit.change([{ op: "deleteQuestion", id: question.id }], label)}>
+            <DeleteOutline fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      )}
+    </Stack>
+  );
+}
+
+/** An answer added at the end of a list: its code and its text in the language chosen */
+function AddItemForm({ w, list }: { w: Words; list: DesignList }) {
+  const edit = useContext(EditContext);
+  const [label, setLabel] = useState("");
+  const [code, setCode] = useState("");
+  if (!edit) return null;
+  const { t } = w;
+  const taken = new Set(list.items.map((i) => i.code));
+  const proposed = code.trim() || uniqueName(slugName(label, "answer"), taken);
+  const bad = code.trim() !== "" && (!isItemCode(code.trim()) || taken.has(code.trim()));
+  return (
+    <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ mt: 1, alignItems: { sm: "flex-start" } }}>
+      <TextField size="small" label={t("survey.list.itemLabel")} value={label} onChange={(e) => setLabel(e.target.value)} sx={{ flex: 2 }} />
+      <TextField size="small" label={t("survey.list.itemCode")} value={code} placeholder={label ? proposed : ""} onChange={(e) => setCode(e.target.value)}
+        error={bad} helperText={bad ? t("survey.list.codeBad") : t("survey.list.codeHelp")} sx={{ flex: 1 }} />
+      <Button variant="outlined" startIcon={<Add />} disabled={edit.busy || label.trim() === "" || bad}
+        onClick={() => {
+          edit.change([{ op: "addItem", list: list.name, item: { code: proposed, label: { [w.language]: label.trim() } } }]);
+          setLabel("");
+          setCode("");
+        }}>
+        {t("survey.list.addItem")}
+      </Button>
+    </Stack>
+  );
+}
+
+/** A text asked for in a dialog: a new page's name */
+function NameDialog({ open, title, label, onClose, onDone }: { open: boolean; title: string; label: string; onClose: () => void; onDone: (text: string) => void }) {
+  const t = useT();
+  const [text, setText] = useState("");
+  const close = () => {
+    setText("");
+    onClose();
+  };
+  return (
+    <Dialog open={open} onClose={close} aria-labelledby="name-dialog-title" maxWidth="xs" fullWidth>
+      <DialogTitle id="name-dialog-title">{title}</DialogTitle>
+      <DialogContent>
+        <TextField autoFocus fullWidth label={label} value={text} onChange={(e) => setText(e.target.value)} sx={{ mt: 1 }} />
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={close}>{t("common.cancel")}</Button>
+        <Button variant="contained" disabled={text.trim() === ""} onClick={() => { onDone(text.trim()); setText(""); }}>
+          {t("survey.add.add")}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+const NEW_TYPES: NewQuestionType[] = ["choice", "choices", "yesNo", "integer", "decimal", "text", "memo", "date"];
+const NEW_LIST = "";
+
+/** A question added to a page, or a column to a table: its text, its kind of answer, its list, required or not */
+function AddQuestionDialog({ w, where, onClose, onAdd }: {
+  w: Words;
+  where: { page?: string; table?: number } | null;
+  onClose: () => void;
+  onAdd: (ops: SurveyOperation[]) => void;
+}) {
+  const { t, design, language } = w;
+  const [label, setLabel] = useState("");
+  const [type, setType] = useState<NewQuestionType>("choice");
+  const [listName, setListName] = useState(NEW_LIST);
+  const [lines, setLines] = useState("");
+  const [required, setRequired] = useState(false);
+  const choice = type === "choice" || type === "choices";
+  const taken = new Set(w.questions.keys());
+  const name = uniqueName(slugName(label, "question"), taken);
+  const items = itemsFromLines(lines, language);
+  const ready = label.trim() !== "" && (!choice || listName !== NEW_LIST || items.length > 0);
+  const close = () => {
+    setLabel("");
+    setType("choice");
+    setListName(NEW_LIST);
+    setLines("");
+    setRequired(false);
+    onClose();
+  };
+  const add = () => {
+    const ops: SurveyOperation[] = [];
+    let list = listName;
+    if (choice && listName === NEW_LIST) {
+      list = uniqueName(slugName(label, "list"), new Set(design.lists.map((l) => l.name)));
+      ops.push({ op: "addList", name: list, label: { [language]: label.trim() }, items });
+    }
+    ops.push({
+      op: "addQuestion",
+      type,
+      label: { [language]: label.trim() },
+      name,
+      ...(where?.page !== undefined ? { page: where.page } : {}),
+      ...(where?.table !== undefined ? { table: where.table } : {}),
+      ...(choice ? { list } : {}),
+      ...(required ? { required: true } : {}),
+    });
+    onAdd(ops);
+    setLabel("");
+    setLines("");
+    setRequired(false);
+  };
+  return (
+    <Dialog open={where !== null} onClose={close} aria-labelledby="add-question-title" maxWidth="sm" fullWidth>
+      <DialogTitle id="add-question-title">{where?.table !== undefined ? t("survey.add.columnTitle") : t("survey.add.title")}</DialogTitle>
+      <DialogContent>
+        <Stack spacing={2} sx={{ mt: 1 }}>
+          <TextField autoFocus label={t("survey.add.label")} value={label} onChange={(e) => setLabel(e.target.value)} multiline
+            helperText={label.trim() ? t("survey.add.name", { name }) : " "} slotProps={{ htmlInput: { lang: language } }} />
+          <TextField select label={t("survey.add.type")} value={type} onChange={(e) => setType(e.target.value as NewQuestionType)}>
+            {NEW_TYPES.map((k) => (
+              <MenuItem key={k} value={k}>
+                {t(TYPE_KEYS[k])}
+              </MenuItem>
+            ))}
+          </TextField>
+          {choice && (
+            <TextField select label={t("survey.add.list")} value={listName} onChange={(e) => setListName(e.target.value)}>
+              <MenuItem value={NEW_LIST}>{t("survey.add.newList")}</MenuItem>
+              {design.lists.filter((l) => !l.external).map((l) => (
+                <MenuItem key={l.name} value={l.name}>
+                  {textIn(l.label, language, design.languages) || l.name} ({l.items.length})
+                </MenuItem>
+              ))}
+            </TextField>
+          )}
+          {choice && listName === NEW_LIST && (
+            <TextField label={t("survey.add.answers")} value={lines} onChange={(e) => setLines(e.target.value)} multiline minRows={4}
+              helperText={t("survey.add.answersHelp")} slotProps={{ htmlInput: { lang: language } }} />
+          )}
+          <FormControlLabel control={<Checkbox checked={required} onChange={(e) => setRequired(e.target.checked)} />} label={t("survey.add.required")} />
+        </Stack>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={close}>{t("common.cancel")}</Button>
+        <Button variant="contained" disabled={!ready} onClick={add}>
+          {t("survey.add.add")}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+/** A new answer list: its name and its answers, one per line */
+function AddListDialog({ w, open, onClose, onAdd }: { w: Words; open: boolean; onClose: () => void; onAdd: (op: SurveyOperation) => void }) {
+  const { t, language } = w;
+  const [label, setLabel] = useState("");
+  const [lines, setLines] = useState("");
+  const close = () => {
+    setLabel("");
+    setLines("");
+    onClose();
+  };
+  return (
+    <Dialog open={open} onClose={close} aria-labelledby="add-list-title" maxWidth="sm" fullWidth>
+      <DialogTitle id="add-list-title">{t("survey.list.addTitle")}</DialogTitle>
+      <DialogContent>
+        <Stack spacing={2} sx={{ mt: 1 }}>
+          <TextField autoFocus label={t("survey.edit.list")} value={label} onChange={(e) => setLabel(e.target.value)} />
+          <TextField label={t("survey.add.answers")} value={lines} onChange={(e) => setLines(e.target.value)} multiline minRows={4} helperText={t("survey.add.answersHelp")} />
+        </Stack>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={close}>{t("common.cancel")}</Button>
+        <Button variant="contained" disabled={label.trim() === ""}
+          onClick={() => {
+            onAdd({ op: "addList", label: { [language]: label.trim() }, items: itemsFromLines(lines, language) });
+            setLabel("");
+            setLines("");
+          }}>
+          {t("survey.add.add")}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+/** Before a change is saved: what it deletes, and what it does to the plots already collected */
+function ConfirmChangeDialog({ w, pending, busy, onCancel, onConfirm }: {
+  w: Words;
+  pending: PendingChange | null;
+  busy: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const { t } = w;
+  const questionLabel = (name: string) => {
+    const q = w.questions.get(name);
+    return `${(q && textIn(q.label, w.language, w.design.languages)) || name} (${name})`;
+  };
+  const effects = pending?.impact.effects ?? [];
+  return (
+    <Dialog open={pending !== null} onClose={onCancel} aria-labelledby="confirm-change-title" maxWidth="sm" fullWidth>
+      <DialogTitle id="confirm-change-title">{pending?.what !== undefined ? t("survey.confirm.deleteTitle") : t("survey.confirm.title")}</DialogTitle>
+      <DialogContent>
+        <Stack spacing={1.5}>
+          {pending?.what !== undefined && <DialogContentText>{t("survey.confirm.delete", { what: pending.what })}</DialogContentText>}
+          {effects.length > 0 && (
+            <Alert severity="warning">
+              <Typography sx={{ mb: 1 }}>{t("survey.confirm.effects", { plots: pending?.impact.plots ?? 0 })}</Typography>
+              <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
+                {effects.map((e, i) => (
+                  <Typography component="li" variant="body2" key={i}>
+                    {e.kind === "newQuestions"
+                      ? t("survey.confirm.newQuestions")
+                      : e.kind === "questionDeleted"
+                        ? t("survey.confirm.questionDeleted", { question: questionLabel(e.question), count: e.answered })
+                        : e.kind === "itemDeleted"
+                          ? t("survey.confirm.itemDeleted", { code: e.code, list: e.list, count: e.chosen })
+                          : t("survey.confirm.nowRequired", { question: questionLabel(e.question), count: e.unanswered })}
+                  </Typography>
+                ))}
+              </Box>
+              {effects.some((e) => e.kind !== "newQuestions") && <Typography variant="body2" sx={{ mt: 1 }}>{t("survey.confirm.copy")}</Typography>}
+            </Alert>
+          )}
+        </Stack>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onCancel}>{t("common.cancel")}</Button>
+        <Button variant="contained" color={pending?.what !== undefined ? "error" : "primary"} disabled={busy} onClick={onConfirm}>
+          {pending?.what !== undefined ? t("survey.edit.delete") : t("survey.confirm.save")}
         </Button>
       </DialogActions>
     </Dialog>

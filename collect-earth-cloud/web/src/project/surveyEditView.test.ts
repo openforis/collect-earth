@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { changedTexts, editKey, isLanguageCode, operationsOf, withText, type PendingText } from "./surveyEditView";
+import { changedTexts, editKey, isItemCode, isLanguageCode, itemsFromLines, moveTarget, operationsOf, pageMoveTarget, slugName, uniqueName, withText, type PendingText } from "./surveyEditView";
 
 const label = (text: string, current = "Land use"): PendingText => ({ target: { kind: "node", id: 8 }, part: "label", language: "en", text, current });
 
@@ -32,5 +32,31 @@ describe("the words changed before they are saved", () => {
   it("takes language codes as the survey writes them", () => {
     expect(["fr", "pt_BR", "fil"].every(isLanguageCode)).toBe(true);
     expect(["French", "pt-BR", "", "FR"].some(isLanguageCode)).toBe(false);
+  });
+});
+
+describe("the questions changed (stage 3)", () => {
+  it("makes names and codes as the server does", () => {
+    expect(slugName("Tree cover (%)", "question")).toBe("tree_cover");
+    expect(slugName("Land use 2020", "question")).toBe("land_use2020");
+    expect(uniqueName("water", new Set(["water", "water_b"]))).toBe("water_c");
+    expect(itemsFromLines("Forest\n\n  Crop land \nForest", "en")).toEqual([
+      { code: "forest", label: { en: "Forest" } },
+      { code: "crop_land", label: { en: "Crop land" } },
+      { code: "forest_b", label: { en: "Forest" } },
+    ]);
+    expect(isItemCode("F.1-a_b")).toBe(true);
+    expect(isItemCode("F 1")).toBe(false);
+  });
+
+  it("works out where a question, a page goes one step up or down", () => {
+    const items = [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }];
+    expect(moveTarget(items, 1, -1)).toBeNull();
+    expect(moveTarget(items, 3, -1)).toEqual({ before: 2 });
+    expect(moveTarget(items, 2, 1)).toEqual({ before: 4 });
+    expect(moveTarget(items, 3, 1)).toEqual({ before: undefined });
+    expect(moveTarget(items, 4, 1)).toBeNull();
+    expect(pageMoveTarget(["a", "b", "c"], "a", 1)).toEqual({ before: "c" });
+    expect(pageMoveTarget(["a", "b", "c"], "c", -1)).toEqual({ before: "b" });
   });
 });
