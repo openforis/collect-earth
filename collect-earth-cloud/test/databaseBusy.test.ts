@@ -73,6 +73,24 @@ describe('a busy database', () => {
     expect(reads.mock.calls.filter(([pid]) => pid === p.projectId)).toHaveLength(1);
   });
 
+  it('reads each survey once when the coordinators of many mapathons follow their training in turn', async () => {
+    // cloud.collectearth.org, 18 Nov 2026: 10 mapathons' training pages, polled in turn, missed an 8-project cache
+    // of the survey outline at every visit, each miss reading the whole project file.
+    const projects: Awaited<ReturnType<typeof createProject>>[] = [];
+    for (let i = 0; i < 12; i++) {
+      const p = await createProject(ctx.app, `Mapathon ${i}`);
+      expect((await ctx.app.inject({ method: 'PUT', url: `/v1/projects/${p.projectId}/cep`, headers: { ...bearer(p.adminToken), 'content-type': 'application/zip' }, payload: idOnlyCep() })).statusCode).toBeLessThan(300);
+      projects.push(p);
+    }
+    const reads = vi.spyOn(ctx.store, 'getCep');
+    const round = () => Promise.all(projects.flatMap((p) => [1, 2, 3].map(() => ctx.app.inject({ method: 'GET', url: `/v1/projects/${p.projectId}/training`, headers: bearer(p.adminToken) }))));
+    for (const res of await round()) expect(res.statusCode).toBe(200);
+    const first = reads.mock.calls.length;
+    for (const p of projects) expect(reads.mock.calls.filter(([pid]) => pid === p.projectId).length).toBeLessThanOrEqual(2);
+    for (let i = 0; i < 3; i++) await round();
+    expect(reads.mock.calls.length).toBe(first);
+    }, 60_000);
+
   it('waits 10 s for a connection by default; PG_CONNECT_TIMEOUT_MS=0 waits for ever', () => {
     expect(loadConfig({}).dbConnectTimeoutMs).toBe(10_000);
     expect(loadConfig({ PG_CONNECT_TIMEOUT_MS: '2500' }).dbConnectTimeoutMs).toBe(2500);

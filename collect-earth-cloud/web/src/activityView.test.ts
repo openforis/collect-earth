@@ -103,6 +103,8 @@ describe("the log's sentences", () => {
     expect(logSentence(t, audit("sampling.drawn", { automatic: true, drawn: 3 }, null), page, "en")).toBe("Plots drawn automatically for checks (3 plots)");
     expect(logSentence(t, audit("settings.changed", { setting: "sampling" }), page, "en")).toBe("ana changed the automatic checks settings");
     expect(logSentence(t, audit("settings.changed", { setting: "plotLayout" }), page, "en")).toBe("ana changed the plot layout settings");
+    expect(logSentence(t, audit("survey.edited", { changes: 3 }), page, "en")).toBe("ana changed the survey's words (changes: 3)");
+    expect(logSentence(t, audit("survey.edited", { restored: true }), page, "en")).toBe("ana brought back an earlier version of the survey");
     expect(logSentence(t, audit("settings.changed", { setting: "imagery" }), page, "en")).toBe("ana changed the imagery window settings");
     expect(logSentence(t, audit("settings.changed", { setting: "status", from: "active", status: "closed" }), page, "en")).toBe("ana set the project's status to closed");
     expect(logSentence(t, audit("settings.changed", { setting: "copy", from: "Bolivia 2026" }), page, "en")).toBe("ana made this project as a copy of “Bolivia 2026”");

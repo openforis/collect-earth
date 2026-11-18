@@ -464,6 +464,9 @@ seeing what the survey asks and fixing its wording without another program.
 4. **Preview:** in the designer and in Collect Earth through a draft project first.
 5. **Time questions:** later.
 6. **Stages 0 and 1** go ahead.
+7. **How surveys are checked** (18 Nov): on the server, in TypeScript ("Checking the survey", layer 2), held to
+   Collect's own verdicts by the corpus test. No Java service next to the cloud server: Collect is not in the cloud
+   code, and its exact check stays in the desktop's tests (and is at hand in local mode).
 
 ## Progress
 
@@ -492,3 +495,31 @@ the hidden fields and the answer lists.
 
 Measured on the way: the IPCC template's formulas are 561, over 105 calculated values (up to 11
 each), not 563 in one.
+
+**Stage 3b, done (18 Nov), the expression check brought forward.** `src/survey/expression.ts` parses Collect's
+expressions as JXPath does (XPath 1.0, after `parent()` becomes the step `__parent`), with Collect's function
+libraries and their numbers of arguments; `check.ts` resolves every path they name as Collect does, and checks
+Collect Earth's survey rules (the six fields, keys, names, lists, codes, tables in tables). The corpus is every
+expression of the three templates and the 14 CEO imports, and 85 written cases, broken and not: 1,749 in all,
+`collect-earth-app/src/test/resources/designer/expressions.json`. The desktop's `ExpressionVerdictsTest` keeps
+Collect's verdict on each (`expression-verdicts.json`, 30 refusals); `test/expressionCheck.test.ts` requires the
+server's to be the same. They are, but in three cases where the server is knowingly stricter, as the form then fails:
+a core function with the wrong number of arguments (`concat()`), a variable other than `$this` and `$context`, an
+unknown function inside a table's brackets (Collect does not look there). `requiredIf` is checked too, which Collect's
+SurveyValidator skips. The edits refuse a condition that fails (`setShownWhen`, `setRequired`), and
+`SurveyEdit.problems()` checks the whole survey before a save. Setup › Survey form shows the problems of an uploaded
+project file as a warning, in the five languages (the server sends codes, `SurveyCheckCode`); uploads are not refused.
+
+**Stage 2, done (18 Nov), the words.** Setup › Survey form has "Edit the words": every text people read becomes a field
+in the language chosen (the survey's first language's text under it when another): the title, the pages' names, the
+questions' and tables' labels and help, the rules' messages, the lists' names and their answers. A language is added
+there (common ones offered by name, any code accepted). A bar counts the changes not saved, says who they reach (the
+people who have the project file keep theirs until they open the project again from their list; those who join get
+it) and saves them in one `POST /survey/design` with the revision they were made on (409 when someone saved
+meanwhile: the changes stay, to save again on top). The server makes them through the lossless tree on both project
+files (the served one and the upload), refuses a save that brings a problem the survey check finds, keeps the survey
+before as a version (migration 048, the last 20, gzipped; an upload forgets them) and logs `survey.edited`. "Earlier
+versions" brings any of them back, keeping the survey of the moment so the restore can be undone. Off in the
+dashboard inside Collect Earth (its project file is Collect Earth's own). Words change no answer, so stage 2 needs no
+warning about the data; that comes with stage 3. `npm run smoke:pg:survey-designer` covers the PostgreSQL side.
+

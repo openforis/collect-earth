@@ -2,6 +2,7 @@ import { OPERATOR_SUMMARY_KEY, operatorXmlPattern } from '../anonymize.js';
 import pg from 'pg';
 import { DatabaseBusyError, isPoolWaitTimeout } from './busy.js';
 import { randomUUID } from 'node:crypto';
+import { gunzipSync, gzipSync } from 'node:zlib';
 import { isUuid } from '../accountRules.js';
 import { generateShareToken, generateToken, hashToken, SESSION_IDLE_MS, SESSION_TOUCH_MS } from '../auth.js';
 import { PUBLIC_SCHEMA_FIX } from './migrate.js';
@@ -94,6 +95,9 @@ import {
   TrainingKind,
   TrainingSet,
   QueuedJoin,
+  type SurveyVersion,
+  type SurveyVersionInput,
+  SURVEY_VERSIONS_KEPT,
 } from '../types.js';
 import type { OwnerAlertKind } from '../wire/serverAdmin.js';
 import type { InvitePlots } from '../wire/account.js';
@@ -354,6 +358,7 @@ export class PostgresStore implements Store {
       await client.query('DELETE FROM assignments WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM csv_files WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM records WHERE project_id = $1', [projectId]);
+      await client.query('DELETE FROM survey_versions WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM project_ceps WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM invites WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM share_links WHERE project_id = $1', [projectId]);
@@ -749,6 +754,57 @@ export class PostgresStore implements Store {
            updated_at = now()`,
         [projectId, served, original, JSON.stringify(info)],
       );
+    });
+  }
+
+  async addSurveyVersion(projectId: string, input: SurveyVersionInput): Promise<SurveyVersion> {
+    return this.withProject(projectId, async (client) => {
+      const id = randomUUID();
+      const res = await client.query(
+        `INSERT INTO survey_versions (id, project_id, created_by, changes, restored_from, survey_gz, original_gz)
+         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING created_at`,
+        [id, projectId, input.createdBy, input.changes, input.restoredFrom, gzipSync(input.survey), input.original === null ? null : gzipSync(input.original)],
+      );
+      // Only the last ones stay
+      await client.query(
+        `DELETE FROM survey_versions WHERE project_id = $1 AND id NOT IN (
+           SELECT id FROM survey_versions WHERE project_id = $1 ORDER BY created_at DESC, id LIMIT $2)`,
+        [projectId, SURVEY_VERSIONS_KEPT],
+      );
+      return { id, createdAt: (res.rows[0].created_at as Date).getTime(), createdBy: input.createdBy, changes: input.changes, restoredFrom: input.restoredFrom };
+    });
+  }
+
+  async listSurveyVersions(projectId: string): Promise<SurveyVersion[]> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query(
+        `SELECT id, created_at, created_by, changes, restored_from FROM survey_versions
+         WHERE project_id = $1 ORDER BY created_at DESC, id`,
+        [projectId],
+      );
+      return res.rows.map((r) => ({
+        id: r.id as string,
+        createdAt: (r.created_at as Date).getTime(),
+        createdBy: (r.created_by as string | null) ?? null,
+        changes: Number(r.changes),
+        restoredFrom: (r.restored_from as string | null) ?? null,
+      }));
+    });
+  }
+
+  async getSurveyVersionData(projectId: string, versionId: string): Promise<{ survey: Buffer; original: Buffer | null } | null> {
+    if (!isUuid(versionId)) return null;
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query('SELECT survey_gz, original_gz FROM survey_versions WHERE project_id = $1 AND id = $2', [projectId, versionId]);
+      if (res.rowCount === 0) return null;
+      const original = res.rows[0].original_gz as Buffer | null;
+      return { survey: gunzipSync(res.rows[0].survey_gz as Buffer), original: original === null ? null : gunzipSync(original) };
+    });
+  }
+
+  async deleteSurveyVersions(projectId: string): Promise<void> {
+    await this.withProject(projectId, async (client) => {
+      await client.query('DELETE FROM survey_versions WHERE project_id = $1', [projectId]);
     });
   }
 

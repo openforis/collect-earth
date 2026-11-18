@@ -21,6 +21,8 @@ import {
   type XmlDocument,
   type XmlElement,
 } from './xmlTree.js';
+import type { SurveyOperation } from '../wire/survey.js';
+import { checkExpression, checkSurvey, problemText, schemaOf, type ExpressionKind, type SchemaNode, type SurveyProblem } from './check.js';
 
 export const IDML_NS = 'http://www.openforis.org/idml/3.0';
 export const UI_NS = 'http://www.openforis.org/collect/3.0/ui';
@@ -34,6 +36,15 @@ const isNode = (e: XmlElement) => (NODE_TAGS as readonly string[]).includes(e.na
 const SURVEY_ORDER = ['project', 'uri', 'cycle', 'description', 'language', 'applicationOptions', 'versioning', 'codeLists', 'units', 'spatialReferenceSystems', 'referenceDataSchema', 'schema'];
 /** Collect's order of the children of a node of the schema (NodeDefinitionXS, AttributeDefinitionXS) */
 const NODE_ORDER = ['label', 'description', 'prompt', 'fieldLabel', 'default', 'check', 'compare', 'distance', 'pattern', 'unique'];
+/** Collect's order of the children of a code list, and of an item (CodeListXS, CodeListItemXS) */
+const LIST_ORDER = ['label', 'description', 'codingScheme', 'hierarchy', 'items'];
+const ITEM_ORDER = ['code', 'label', 'description', 'item'];
+const CHECK_TAGS = ['check', 'compare', 'distance', 'pattern', 'unique'];
+/** A language as Collect writes it: ISO 639 (en), with a country when needed (pt_BR) */
+const LANGUAGE_CODE = /^[a-z]{2,3}(_[A-Z]{2})?$/;
+/** The longest text the designer writes */
+export const MAX_TEXT = 4000;
+const localName = (e: XmlElement) => e.name.slice(e.name.indexOf(':') + 1);
 
 export class SurveyEditError extends Error {}
 
@@ -128,7 +139,18 @@ export class SurveyEdit {
     this.setLocalized(e, 'description', language, text);
   }
 
-  private setLocalized(e: XmlElement, tag: string, language: string, text: string | undefined, type?: string): void {
+  /**
+   * A text of an element in a language: the child `tag` of that language (and `type`), changed, added or taken away.
+   * Added after the others of its kind, else where `order` (Collect's order of the children) puts it.
+   */
+  private setLocalized(
+    e: XmlElement,
+    tag: string,
+    language: string,
+    text: string | undefined,
+    type?: string,
+    order: readonly string[] = NODE_ORDER,
+  ): void {
     const fallback = this.languages()[0];
     const same = childrenNamed(e, tag).filter((l) => type === undefined || (attrValue(this.doc, l, 'type') ?? '') === type);
     const existing =
@@ -139,15 +161,15 @@ export class SurveyEdit {
       return;
     }
     if (existing) {
-      setText(existing, text);
+      // The same text but for spaces around it (as the dashboard shows it): left as written
+      if (textValue(this.doc, existing).trim() !== text.trim()) setText(existing, text);
       return;
     }
     const attrs: Array<[string, string]> = [];
     if (type !== undefined) attrs.push(['type', type]);
     attrs.push(['xml:lang', language]);
-    // After the others of its kind and type, else where Collect puts it
     const after = same[same.length - 1];
-    this.insertInOrder(e, newElement(tag, attrs, [text]), NODE_ORDER, after);
+    this.insertInOrder(e, newElement(tag, attrs, [text]), order, after);
   }
 
   /**
@@ -167,6 +189,91 @@ export class SurveyEdit {
       });
     }
     insertElement(this.doc, parent, child, before);
+  }
+
+  // -------------------------------------------------------------------------------------
+  // The designer's operations on words (stage 2)
+
+  /** A question or table by its id */
+  nodeById(id: number): XmlElement {
+    for (const e of descendants(this.schema())) {
+      if (isNode(e) && Number(attrValue(this.doc, e, 'id')) === id) return e;
+    }
+    throw new SurveyEditError(`No question ${id}.`);
+  }
+
+  /** A page (a tab of the root's tab set) by its name */
+  page(name: string): XmlElement {
+    const options = firstChild(this.survey, 'applicationOptions');
+    if (options) {
+      for (const e of descendants(options)) {
+        if (localName(e) === 'tab' && attrValue(this.doc, e, 'name') === name) return e;
+      }
+    }
+    throw new SurveyEditError(`No page ${name}.`);
+  }
+
+  /** Applies one of the designer's operations; throws SurveyEditError when it cannot be */
+  apply(op: SurveyOperation): void {
+    if (op.op === 'addLanguage') {
+      this.addLanguage(op.language);
+      return;
+    }
+    const languages = this.languages();
+    if (!languages.includes(op.language)) throw new SurveyEditError(`The survey has no language ${op.language}: add it first.`);
+    const text = op.text.trim() === '' ? undefined : op.text;
+    if (text !== undefined && text.length > MAX_TEXT) throw new SurveyEditError(`A text has at most ${MAX_TEXT} characters.`);
+    const t = op.target;
+    switch (t.kind) {
+      case 'title':
+        if (op.part !== 'label') break;
+        this.setLocalized(this.survey, 'project', op.language, text, undefined, SURVEY_ORDER);
+        return;
+      case 'page': {
+        if (op.part !== 'label') break;
+        const tab = this.page(t.name);
+        // The tab's labels carry its prefix (n0:label)
+        const prefix = tab.name.includes(':') ? tab.name.slice(0, tab.name.indexOf(':') + 1) : '';
+        this.setLocalized(tab, `${prefix}label`, op.language, text, undefined, [`${prefix}label`, `${prefix}tab`]);
+        return;
+      }
+      case 'node': {
+        const node = this.nodeById(t.id);
+        if (op.part === 'label') this.setLabel(node, op.language, text, 'instance');
+        else if (op.part === 'help') this.setDescription(node, op.language, text);
+        else break;
+        return;
+      }
+      case 'list': {
+        if (op.part !== 'label') break;
+        this.setLocalized(this.list(t.name), 'label', op.language, text, 'item', LIST_ORDER);
+        return;
+      }
+      case 'item': {
+        const item = this.item(this.list(t.list), t.code);
+        if (op.part === 'label') this.setLocalized(item, 'label', op.language, text, undefined, ITEM_ORDER);
+        else if (op.part === 'help') this.setLocalized(item, 'description', op.language, text, undefined, ITEM_ORDER);
+        else break;
+        return;
+      }
+      case 'rule': {
+        if (op.part !== 'message') break;
+        const node = this.nodeById(t.node);
+        const rule = childElements(node).filter((c) => CHECK_TAGS.includes(c.name))[t.index];
+        if (!rule) throw new SurveyEditError(`The question has no rule ${t.index + 1}.`);
+        this.setLocalized(rule, 'message', op.language, text, undefined, ['message']);
+        return;
+      }
+    }
+    throw new SurveyEditError(`A ${t.kind} has no ${op.part}.`);
+  }
+
+  /** Adds a language to the survey, after its others; its texts are then written in it */
+  addLanguage(language: string): void {
+    if (!LANGUAGE_CODE.test(language)) throw new SurveyEditError(`${language} is not a language code (such as fr, or pt_BR).`);
+    const existing = childrenNamed(this.survey, 'language');
+    if (existing.some((l) => textValue(this.doc, l).trim() === language)) return;
+    this.insertInOrder(this.survey, newElement('language', [], [language]), SURVEY_ORDER, existing[existing.length - 1]);
   }
 
   // -------------------------------------------------------------------------------------
@@ -275,9 +382,29 @@ export class SurveyEdit {
   // -------------------------------------------------------------------------------------
   // Logic
 
+  /** Everything Collect or Collect Earth would refuse in the survey as it is now: a survey is saved only without any */
+  problems(): SurveyProblem[] {
+    return checkSurvey(this.bytes());
+  }
+
+  /** The schema node of an element of the tree */
+  private schemaNode(e: XmlElement): SchemaNode {
+    const find = (n: SchemaNode): SchemaNode | undefined => (n.element === e ? n : n.children.map(find).find((x) => x));
+    const node = find(schemaOf(this.doc));
+    if (!node) throw new SurveyEditError('Not a question of the survey.');
+    return node;
+  }
+
+  /** Refuses an expression Collect would refuse, or the form could not evaluate, before it is written */
+  private checked(e: XmlElement, kind: ExpressionKind, text: string): string {
+    const verdict = checkExpression(this.schemaNode(e), kind, text);
+    if (!verdict.ok) throw new SurveyEditError(problemText(verdict));
+    return text;
+  }
+
   /** When a question is shown (Collect's relevance), an XPath condition; undefined: always */
   setShownWhen(question: XmlElement, condition: string | undefined): void {
-    setAttr(question, 'relevant', condition);
+    setAttr(question, 'relevant', condition === undefined ? undefined : this.checked(question, 'boolean', condition));
     const uiPrefix = this.uiPrefix();
     if (uiPrefix && condition !== undefined && attrValue(this.doc, question, `${uiPrefix}:hideWhenNotRelevant`) === undefined) {
       setAttr(question, `${uiPrefix}:hideWhenNotRelevant`, 'true');
@@ -287,7 +414,7 @@ export class SurveyEdit {
   /** Required always (true), never (false) or when a condition holds */
   setRequired(question: XmlElement, required: boolean | string): void {
     setAttr(question, 'required', required === true ? 'true' : undefined);
-    setAttr(question, 'requiredIf', typeof required === 'string' ? required : undefined);
+    setAttr(question, 'requiredIf', typeof required === 'string' ? this.checked(question, 'boolean', required) : undefined);
   }
 
   /**

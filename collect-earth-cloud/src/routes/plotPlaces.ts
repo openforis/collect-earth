@@ -26,7 +26,8 @@ export interface SurveyFacts {
 }
 
 /** Served project files whose facts are kept. */
-const MAX_CACHED_SRS = 16;
+/** Survey facts kept (a few hundred bytes each): one per project in use; each miss reads the whole project file. */
+export const MAX_CACHED_SRS = 256;
 
 export type { PlotPlace, PlotPlaces } from '../wire/map.js';
 
@@ -97,6 +98,8 @@ export class PlotPlaceReader {
   private readonly files = new Map<string, FilePlaces>();
   private cachedPlaces = 0;
   private readonly facts = new Map<string, SurveyFacts>();
+  /** Facts being read, by the same key as `facts`: asked again meanwhile, the same read */
+  private readonly readingFacts = new Map<string, Promise<SurveyFacts>>();
 
   constructor(private readonly store: Store) {}
 
@@ -151,6 +154,18 @@ export class PlotPlaceReader {
       touch(this.facts, key, hit);
       return hit;
     }
+    const pending = this.readingFacts.get(key);
+    if (pending) return pending;
+    const reading = this.readFacts(projectId, key, none, log);
+    this.readingFacts.set(key, reading);
+    try {
+      return await reading;
+    } finally {
+      this.readingFacts.delete(key);
+    }
+  }
+
+  private async readFacts(projectId: string, key: string, none: SurveyFacts, log: FastifyRequest['log']): Promise<SurveyFacts> {
     let facts = none;
     try {
       const cep = await this.store.getCep(projectId);

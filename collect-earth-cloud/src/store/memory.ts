@@ -89,6 +89,9 @@ import {
   TrainingGolden,
   TrainingSet,
   QueuedJoin,
+  type SurveyVersion,
+  type SurveyVersionInput,
+  SURVEY_VERSIONS_KEPT,
 } from '../types.js';
 import type { OwnerAlertKind } from '../wire/serverAdmin.js';
 import type { InvitePlots } from '../wire/account.js';
@@ -127,6 +130,8 @@ interface ProjectEntry {
   /** The upload, when the server serves a changed copy of it. */
   cepOriginal: Buffer | null;
   roundInfo: RoundInfo | null;
+  /** The survey designer's kept versions, newest first */
+  surveyVersions: Array<SurveyVersion & { survey: Buffer; original: Buffer | null }>;
   csvFiles: Map<string, CsvFileEntry>; // key = csvFileId
   assignments: Set<string>; // `${userId} ${csvFileId}`
   plotAssignments: Map<string, PlotAssignment[]>; // key = csvFileId (divided files)
@@ -537,6 +542,7 @@ export class InMemoryStore implements Store {
       cep: null,
       cepUpdatedAt: null,
       cepOriginal: null,
+      surveyVersions: [],
       roundInfo: null,
       csvFiles: new Map(),
       assignments: new Set(),
@@ -654,6 +660,39 @@ export class InMemoryStore implements Store {
     entry.roundInfo = structuredClone(info);
     // Always later than the last one (two uploads in one millisecond): caches key on it.
     entry.cepUpdatedAt = Math.max(Date.now(), (entry.cepUpdatedAt ?? 0) + 1);
+  }
+
+  async addSurveyVersion(projectId: string, input: SurveyVersionInput): Promise<SurveyVersion> {
+    const entry = this.requireProject(projectId);
+    const before = entry.surveyVersions[0]?.createdAt ?? 0;
+    const version: SurveyVersion = {
+      id: randomUUID(),
+      // Always later than the one before (two saves in one millisecond): the list's order holds
+      createdAt: Math.max(Date.now(), before + 1),
+      createdBy: input.createdBy,
+      changes: input.changes,
+      restoredFrom: input.restoredFrom,
+    };
+    entry.surveyVersions.unshift({ ...version, survey: Buffer.from(input.survey), original: input.original === null ? null : Buffer.from(input.original) });
+    entry.surveyVersions.length = Math.min(entry.surveyVersions.length, SURVEY_VERSIONS_KEPT);
+    return { ...version };
+  }
+
+  async listSurveyVersions(projectId: string): Promise<SurveyVersion[]> {
+    return (this.projects.get(projectId)?.surveyVersions ?? []).map(({ id, createdAt, createdBy, changes, restoredFrom }) => {
+      const user = createdBy === null ? undefined : this.users.get(createdBy);
+      return { id, createdAt, createdBy: user ? createdBy : null, changes, restoredFrom };
+    });
+  }
+
+  async getSurveyVersionData(projectId: string, versionId: string): Promise<{ survey: Buffer; original: Buffer | null } | null> {
+    const v = this.projects.get(projectId)?.surveyVersions.find((x) => x.id === versionId);
+    return v ? { survey: Buffer.from(v.survey), original: v.original === null ? null : Buffer.from(v.original) } : null;
+  }
+
+  async deleteSurveyVersions(projectId: string): Promise<void> {
+    const entry = this.projects.get(projectId);
+    if (entry) entry.surveyVersions = [];
   }
 
   async getOriginalCep(projectId: string): Promise<Buffer | null> {

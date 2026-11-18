@@ -116,6 +116,16 @@ describe('changing a survey', () => {
     expect(() => s.addItem(s.list('demo_codelist'), 'A', {})).toThrow(SurveyEditError);
   });
 
+  it('refuses a condition Collect would refuse, before writing it', () => {
+    const before = template('');
+    const s = new SurveyEdit(before);
+    expect(() => s.setShownWhen(s.node('memo_text_demo'), 'yes_no_demo = tru()')).toThrow('There is no function tru.');
+    expect(() => s.setShownWhen(s.node('memo_text_demo'), "no_such = 'A'")).toThrow('There is no question no_such in plot.');
+    expect(() => s.setRequired(s.node('demo_date'), "code_demo = 'B")).toThrow(/cannot be read/);
+    expect(s.bytes().equals(before)).toBe(true);
+    expect(s.problems()).toEqual([]);
+  });
+
   it('refuses to delete a question another one uses, and deletes it once nothing does', () => {
     const before = template('');
     const s = new SurveyEdit(before);
