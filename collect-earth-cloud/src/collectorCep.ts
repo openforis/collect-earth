@@ -86,7 +86,8 @@ export function withPlotFilesEmptied(served: Buffer): Buffer | null {
 
 /** Bounds of the cache of emptied project files. */
 const MAX_CACHED = 16;
-const MAX_CACHED_BYTES = 256 * 1024 * 1024;
+/** 32 MB: a server instance has 512 MiB in all (DEPLOY.md), the built plot files' cache 32 MB beside it (it was 256) */
+const MAX_CACHED_BYTES = 32 * 1024 * 1024;
 
 /** Emptied project files by the served file's sha256 (null: nothing to empty), least recently used first. */
 const cache = new Map<string, Buffer | null>();

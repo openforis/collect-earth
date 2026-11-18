@@ -70,6 +70,7 @@ import { registerSamplingRoutes } from './routes/sampling.js';
 import { SamplingService } from './samplingService.js';
 import { disableLocalOffRoutes, registerLocalRoutes, type LocalSetup } from './local.js';
 import { InMemoryStore } from './store/memory.js';
+import { DatabaseBusyError, isPoolWaitTimeout } from './store/busy.js';
 import type { AlertsMarkedAnswer, OwnerAlertsPage, WebhookTestAnswer } from './wire/serverAdmin.js';
 
 export interface BuildServerOptions {
@@ -166,6 +167,17 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     // own proxies add are trusted, each from a proxy's address (src/trustProxy.ts): `true`,
     // or a bare count, would let a client pick its IP.
     trustProxy: trustProxyOf(config.trustProxyHops ?? 1, config.trustProxyAddresses),
+  });
+
+  // The database busy (no connection of the pool came free in time, PG_CONNECT_TIMEOUT_MS): 503 with Retry-After, which
+  // Collect Earth and the dashboard try again after, instead of a 500. Every other error as Fastify answers it.
+  app.setErrorHandler((err, request, reply) => {
+    if (err instanceof DatabaseBusyError || isPoolWaitTimeout(err)) {
+      request.log.warn({ url: request.url }, 'database busy: no connection of the pool came free in time');
+      void reply.code(503).header('retry-after', '15').send({ error: 'busy', reason: 'The server is busy: try again in a moment.' });
+      return;
+    }
+    void reply.send(err);
   });
 
   // The local mode (src/local.ts): before any route, so the routes about other people or the
@@ -391,7 +403,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   await registerPlotsGeoRoutes(app, store, quality, states, places, config.mapBuildsKept ? { maxBuilds: config.mapBuildsKept } : {});
   await registerActivityRoutes(app, store, quality, states, places, now);
   // No check sampling in the local mode: there is no one else to check.
-  await registerRecordRoutes(app, store, local ? undefined : sampling);
+  await registerRecordRoutes(app, store, local ? undefined : sampling, { concurrency: config.recordsBatchConcurrency });
   await registerSamplingRoutes(app, store, sampling);
   await registerReferenceRoutes(app, store, quality, states, now);
   await registerTrainingRoutes(app, store, { outline: (projectId, log) => quality.outline(projectId, log), now });

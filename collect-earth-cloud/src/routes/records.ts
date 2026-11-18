@@ -36,10 +36,35 @@ interface BatchBody {
  * hook in buildServer() decompresses it before this handler runs. The route path
  * contains a literal ':batch' segment (Collect Earth posts to `records:batch`).
  */
-export async function registerRecordRoutes(app: FastifyInstance, store: Store, sampling?: SamplingService): Promise<void> {
+/** Sync batches an instance takes at once by default (RECORDS_BATCH_CONCURRENCY) */
+export const DEFAULT_BATCH_CONCURRENCY = 16;
+
+export async function registerRecordRoutes(app: FastifyInstance, store: Store, sampling?: SamplingService, options: { concurrency?: number } = {}): Promise<void> {
+  // Batches taken at once, the others answered 503 busy before their body is read. A room of Collect Earths back
+  // online sends a backlog each at the same moment (50 records of 10-20 KB a batch): parsed all at once, they waited
+  // in memory for one of the pool's connections until the heap ran out and the instance stopped (load test, 17 Nov
+  // 2026: 200 batches at once, a heap of 224 MB). Collect Earth sends a refused batch again later (CloudSyncService).
+  const limit = options.concurrency ?? DEFAULT_BATCH_CONCURRENCY;
+  let inFlight = 0;
+  const taken = new WeakSet<FastifyRequest>();
+  const release = async (request: FastifyRequest) => {
+    if (taken.delete(request)) inFlight -= 1;
+  };
   app.post(
     '/v1/projects/:pid/records:batch',
-    { preHandler: requireProjectMembership(store) },
+    {
+      onRequest: async (request: FastifyRequest, reply: FastifyReply) => {
+        if (limit > 0 && inFlight >= limit) {
+          void reply.code(503).header('retry-after', '10').send({ error: 'busy', reason: 'The server is busy: the records will be sent again in a moment.' });
+          return reply;
+        }
+        inFlight += 1;
+        taken.add(request);
+      },
+      onResponse: release,
+      onRequestAbort: release,
+      preHandler: requireProjectMembership(store),
+    },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const projectId = request.membership!.projectId;
       let sessionUsername: string | null = null;
