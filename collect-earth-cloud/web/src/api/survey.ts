@@ -20,6 +20,8 @@ export type {
   RuleBound,
   SurveyDesign,
   SurveyDesignAnswer,
+  SurveyCheckCode,
+  SurveyProblem,
 } from "../../../src/wire/survey";
 
 /** The project's survey, read-only: its pages, questions, lists, conditions and rules (coordinators). */

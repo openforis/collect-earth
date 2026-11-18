@@ -10,13 +10,13 @@ import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Typography from "@mui/material/Typography";
 import ExpandMore from "@mui/icons-material/ExpandMore";
 import { useId, useMemo, useState, type ReactNode } from "react";
-import { getSurveyDesign, type DesignList, type DesignListItem, type DesignPage, type DesignQuestion, type DesignTable } from "../api";
+import { getSurveyDesign, type SurveyProblem, type DesignList, type DesignListItem, type DesignPage, type DesignQuestion, type DesignTable } from "../api";
 import { useApp } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Explain } from "../components/Explain";
 import { FoldingCard } from "../components/FoldingCard";
 import { Loading } from "../components/Loading";
-import { useT } from "../i18n";
+import { useT, type MessageKey } from "../i18n";
 import { useLoad } from "../useLoad";
 import { conditionWords, firstLanguage, requiredWords, ruleWords, tableWords, textIn, TYPE_KEYS, untranslated, words, type Words } from "./surveyDesignView";
 
@@ -52,7 +52,10 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
         ) : !w ? (
           <Alert severity="info">{t("survey.none")}</Alert>
         ) : (
-          <DesignView w={w} onLanguage={setChosen} />
+          <Stack spacing={2}>
+            {loaded.data.problems.length > 0 && <Problems w={w} problems={loaded.data.problems} />}
+            <DesignView w={w} onLanguage={setChosen} />
+          </Stack>
         )}
       </Paper>
       {w && <DesignCards w={w} />}
@@ -141,6 +144,43 @@ function DesignCards({ w }: { w: Words }) {
         </Stack>
       </FoldingCard>
     </>
+  );
+}
+
+/**
+ * What Collect or Collect Earth would refuse in the survey (the server's survey check): for a project file made in
+ * Collect's designer, which the people collecting would then fail to open
+ */
+function Problems({ w, problems }: { w: Words; problems: SurveyProblem[] }) {
+  const { t } = w;
+  return (
+    <Alert severity="warning" role="alert">
+      <Typography sx={{ fontWeight: 600 }}>{t("survey.problems.title")}</Typography>
+      <Typography variant="body2" sx={{ mb: 1 }}>{t("survey.problems.explain")}</Typography>
+      <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
+        {problems.map((p, i) => {
+          const name = p.node?.split("/").pop() ?? "";
+          const question = w.questions.get(name);
+          const label = (question && textIn(question.label, w.language, w.design.languages)) || name;
+          return (
+            <Typography component="li" variant="body2" key={i} sx={{ overflowWrap: "anywhere" }}>
+              {p.node && p.node !== "plot" && <>{t("survey.problems.where", { question: label, name })} </>}
+              {t(`surveyCheck.${p.code}` as MessageKey, p.values)}
+              {p.expression && (
+                <Box component="code" sx={{ display: "block", fontSize: "0.8125rem", color: "text.secondary" }}>
+                  {p.expression}
+                </Box>
+              )}
+              {p.beyondCollect && (
+                <Typography component="span" variant="caption" sx={{ display: "block" }}>
+                  {t("survey.problems.beyondCollect")}
+                </Typography>
+              )}
+            </Typography>
+          );
+        })}
+      </Box>
+    </Alert>
   );
 }
 

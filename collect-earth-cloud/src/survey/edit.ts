@@ -21,6 +21,7 @@ import {
   type XmlDocument,
   type XmlElement,
 } from './xmlTree.js';
+import { checkExpression, checkSurvey, problemText, schemaOf, type ExpressionKind, type SchemaNode, type SurveyProblem } from './check.js';
 
 export const IDML_NS = 'http://www.openforis.org/idml/3.0';
 export const UI_NS = 'http://www.openforis.org/collect/3.0/ui';
@@ -275,9 +276,29 @@ export class SurveyEdit {
   // -------------------------------------------------------------------------------------
   // Logic
 
+  /** Everything Collect or Collect Earth would refuse in the survey as it is now: a survey is saved only without any */
+  problems(): SurveyProblem[] {
+    return checkSurvey(this.bytes());
+  }
+
+  /** The schema node of an element of the tree */
+  private schemaNode(e: XmlElement): SchemaNode {
+    const find = (n: SchemaNode): SchemaNode | undefined => (n.element === e ? n : n.children.map(find).find((x) => x));
+    const node = find(schemaOf(this.doc));
+    if (!node) throw new SurveyEditError('Not a question of the survey.');
+    return node;
+  }
+
+  /** Refuses an expression Collect would refuse, or the form could not evaluate, before it is written */
+  private checked(e: XmlElement, kind: ExpressionKind, text: string): string {
+    const verdict = checkExpression(this.schemaNode(e), kind, text);
+    if (!verdict.ok) throw new SurveyEditError(problemText(verdict));
+    return text;
+  }
+
   /** When a question is shown (Collect's relevance), an XPath condition; undefined: always */
   setShownWhen(question: XmlElement, condition: string | undefined): void {
-    setAttr(question, 'relevant', condition);
+    setAttr(question, 'relevant', condition === undefined ? undefined : this.checked(question, 'boolean', condition));
     const uiPrefix = this.uiPrefix();
     if (uiPrefix && condition !== undefined && attrValue(this.doc, question, `${uiPrefix}:hideWhenNotRelevant`) === undefined) {
       setAttr(question, `${uiPrefix}:hideWhenNotRelevant`, 'true');
@@ -287,7 +308,7 @@ export class SurveyEdit {
   /** Required always (true), never (false) or when a condition holds */
   setRequired(question: XmlElement, required: boolean | string): void {
     setAttr(question, 'required', required === true ? 'true' : undefined);
-    setAttr(question, 'requiredIf', typeof required === 'string' ? required : undefined);
+    setAttr(question, 'requiredIf', typeof required === 'string' ? this.checked(question, 'boolean', required) : undefined);
   }
 
   /**

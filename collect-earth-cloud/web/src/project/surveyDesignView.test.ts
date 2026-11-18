@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { surveyDesign } from "../../../src/survey/design";
-import { translator } from "../i18n";
-import type { DesignTable } from "../api";
+import type { DesignTable, SurveyCheckCode } from "../api";
+import { CATALOGUES, LANGUAGES, translator, type MessageKey } from "../i18n";
 import { conditionWords, firstLanguage, questionLabel, requiredWords, ruleWords, tableWords, textIn, untranslated, words } from "./surveyDesignView";
 
 const template = (name: string) =>
@@ -65,5 +65,25 @@ describe("the survey in words", () => {
   it("starts in the dashboard's language when the survey has it", () => {
     expect(firstLanguage(basic, "fr")).toBe("fr");
     expect(firstLanguage(basic, "tr")).toBe("en");
+  });
+});
+
+describe("the survey check's problems", () => {
+  // Every code the server's check gives (src/survey/check.ts): a code added there without words here fails the typecheck
+  const CODES = {
+    syntax: true, unknownFunction: true, argumentCount: true, unknownQuestion: true, unknownField: true, insideField: true,
+    insideQuestion: true, aboveThePlot: true, unknownVariable: true, noPlot: true, rootName: true, missingField: true,
+    fieldKind: true, noKey: true, tooManyKeys: true, listTwice: true, codeTwice: true, questionTwice: true, badName: true,
+    nameSuffix: true, longName: true, nestedTable: true, unknownList: true,
+  } satisfies Record<SurveyCheckCode, true>;
+
+  it("are worded in every language, with their values", () => {
+    for (const language of LANGUAGES) {
+      for (const code of Object.keys(CODES)) {
+        const key = `surveyCheck.${code}` as MessageKey;
+        expect(CATALOGUES[language][key], `${language} ${key}`).toBeTruthy();
+      }
+    }
+    expect(translator("es")("surveyCheck.unknownQuestion", { name: "lu", in: "plot" })).toBe("No hay ninguna pregunta lu en plot.");
   });
 });

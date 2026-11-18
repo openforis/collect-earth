@@ -464,6 +464,9 @@ seeing what the survey asks and fixing its wording without another program.
 4. **Preview:** in the designer and in Collect Earth through a draft project first.
 5. **Time questions:** later.
 6. **Stages 0 and 1** go ahead.
+7. **How surveys are checked** (18 Nov): on the server, in TypeScript ("Checking the survey", layer 2), held to
+   Collect's own verdicts by the corpus test. No Java service next to the cloud server: Collect is not in the cloud
+   code, and its exact check stays in the desktop's tests (and is at hand in local mode).
 
 ## Progress
 
@@ -492,3 +495,18 @@ the hidden fields and the answer lists.
 
 Measured on the way: the IPCC template's formulas are 561, over 105 calculated values (up to 11
 each), not 563 in one.
+
+**Stage 3b, done (18 Nov), the expression check brought forward.** `src/survey/expression.ts` parses Collect's
+expressions as JXPath does (XPath 1.0, after `parent()` becomes the step `__parent`), with Collect's function
+libraries and their numbers of arguments; `check.ts` resolves every path they name as Collect does, and checks
+Collect Earth's survey rules (the six fields, keys, names, lists, codes, tables in tables). The corpus is every
+expression of the three templates and the 14 CEO imports, and 85 written cases, broken and not: 1,749 in all,
+`collect-earth-app/src/test/resources/designer/expressions.json`. The desktop's `ExpressionVerdictsTest` keeps
+Collect's verdict on each (`expression-verdicts.json`, 30 refusals); `test/expressionCheck.test.ts` requires the
+server's to be the same. They are, but in three cases where the server is knowingly stricter, as the form then fails:
+a core function with the wrong number of arguments (`concat()`), a variable other than `$this` and `$context`, an
+unknown function inside a table's brackets (Collect does not look there). `requiredIf` is checked too, which Collect's
+SurveyValidator skips. The edits refuse a condition that fails (`setShownWhen`, `setRequired`), and
+`SurveyEdit.problems()` checks the whole survey before a save. Setup › Survey form shows the problems of an uploaded
+project file as a warning, in the five languages (the server sends codes, `SurveyCheckCode`); uploads are not refused.
+

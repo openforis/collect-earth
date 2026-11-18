@@ -151,8 +151,49 @@ export interface SurveyDesign {
   counts: { formulas: number };
 }
 
+/** What the survey check finds (src/survey/check.ts): Collect's checks of expressions, Collect Earth's survey rules */
+export type SurveyCheckCode =
+  | 'syntax'
+  | 'unknownFunction'
+  | 'argumentCount'
+  | 'unknownQuestion'
+  | 'unknownField'
+  | 'insideField'
+  | 'insideQuestion'
+  | 'aboveThePlot'
+  | 'unknownVariable'
+  | 'noPlot'
+  | 'rootName'
+  | 'missingField'
+  | 'fieldKind'
+  | 'noKey'
+  | 'tooManyKeys'
+  | 'listTwice'
+  | 'codeTwice'
+  | 'questionTwice'
+  | 'badName'
+  | 'nameSuffix'
+  | 'longName'
+  | 'nestedTable'
+  | 'unknownList';
+
+/** Something Collect or Collect Earth would refuse in a survey */
+export interface SurveyProblem {
+  /** The node's path ("plot/land_use/lu"), or null for the survey as a whole */
+  node: string | null;
+  code: SurveyCheckCode;
+  /** The names and numbers the problem's words take */
+  values: Record<string, string>;
+  /** The expression concerned, as written */
+  expression: string | null;
+  /** Collect's own check lets it through, but the form fails on it */
+  beyondCollect: boolean;
+}
+
 export interface SurveyDesignAnswer {
   /** null: no project file yet, or a survey the server cannot read (unreadable) */
   design: SurveyDesign | null;
   unreadable: boolean;
+  /** What Collect or Collect Earth would refuse in the survey: none for a survey that opens */
+  problems: SurveyProblem[];
 }
