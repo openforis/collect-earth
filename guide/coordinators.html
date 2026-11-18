@@ -46,15 +46,16 @@
     <ol>
       <li><a href="#roles">Who does what</a></li>
       <li><a href="#account">Your account and a new project</a></li>
-      <li><a href="#file">The project file</a></li>
-      <li><a href="#plots">The plot files</a></li>
+      <li><a href="#file">The survey and the project file</a></li>
+      <li><a href="#plots">The plots</a></li>
       <li><a href="#people">Inviting people</a></li>
       <li><a href="#give-out">Giving out the plots</a></li>
       <li><a href="#follow">Following the work</a></li>
       <li><a href="#quality">Checking the quality</a></li>
       <li><a href="#training">Training the team</a></li>
+      <li><a href="#mapathon">A mapathon to start: train together, then start for real</a></li>
       <li><a href="#data">Getting the data out</a></li>
-      <li><a href="#settings">Project settings</a></li>
+      <li><a href="#settings">The rest of Setup</a></li>
       <li><a href="#ceo">Bringing in a Collect Earth Online project</a></li>
     </ol>
   </div>
@@ -77,114 +78,160 @@
     <li>Open <a href="https://cloud.collectearth.org">cloud.collectearth.org</a>, the free server run by FAO, and <span class="ui">Log in</span>. On this server only the administrators create projects: ask FAO to create yours, or to let your account create projects. On <a href="own-server.html">your own server</a>, its administrator decides <span class="ui">Who can create projects</span>.</li>
     <li>With project creation allowed, press <span class="ui">New project</span> on <span class="ui">My projects</span> and choose how to start: <span class="ui">From a project file (.cep)</span> (type the project's name, then upload the file), <span class="ui">From a Collect Earth backup</span>, <span class="ui">From Collect Earth Online</span> (see <a href="#ceo">below</a>), or <span class="ui">Copy one of your projects</span>. <span class="ui">Design the survey here</span>, to write the survey in the dashboard itself, is coming soon.</li>
     <li>To start from work already done, choose <span class="ui">From a Collect Earth backup</span>: it takes Collect Earth's compressed XML export, or an Open Foris Collect backup, with the survey and the plots already assessed. Those plots go in a plot file of their own, ending in <code>_done.csv</code>; leave it out when you give out the plots.</li>
-    <li>The project opens on <span class="ui">Setup</span>, with a <span class="ui">Getting started</span> checklist: upload the project file, add plot files, invite people, choose who collects each plot file, follow the progress.</li>
+    <li>The project opens on <span class="ui">Setup › Overview</span>, with a <span class="ui">Getting started</span> checklist: upload the project file, add plot files, invite people, choose who collects each plot file, follow the progress. While nobody has sent a plot yet, it also suggests to <span class="ui">Train the team first (optional)</span>: see <a href="#mapathon">a mapathon to start</a>.</li>
   </ol>
   <figure><img src="../img/screens/new-project.png" alt="The New project dialog" loading="lazy"><figcaption>New project: from a project file, a backup, Collect Earth Online or a copy of one of your projects.</figcaption></figure>
   <figure><img src="../img/screens/my-projects.png" alt="The My projects page" loading="lazy"><figcaption>My projects: every project you belong to, with your role in it.</figcaption></figure>
   <figure><img src="../img/screens/project-checklist.png" alt="A new project's Getting started checklist" loading="lazy"><figcaption>A new project shows what to do next.</figcaption></figure>
-  <p>On a wide screen the tabs sit in a sidebar, grouped as <span class="ui">Monitor</span>, <span class="ui">Team and plots</span>, <span class="ui">Results</span> and <span class="ui">Project</span>.</p>
+  <p>On a wide screen the tabs sit in a sidebar, grouped as <span class="ui">Monitor</span> (Progress, Map, Quality, Activity), <span class="ui">Team and plots</span> (People, Training), <span class="ui">Results</span> (Data) and <span class="ui">Project</span> (Setup). Everything you set once lives in <span class="ui">Setup</span>, one section at a time: <span class="ui">Overview</span>, <span class="ui">Survey form</span>, <span class="ui">Plots</span>, <span class="ui">Areas</span>, <span class="ui">Plot layout &amp; imagery</span>, <span class="ui">Quality rules</span>, <span class="ui">Schedule</span>, <span class="ui">Sharing</span>, <span class="ui">Next round</span> and <span class="ui">Project</span>. A section gets a tick once its steps of the checklist are done.</p>
 
-  <h2 id="file">The project file</h2>
+  <h2 id="file">The survey and the project file</h2>
   <p>The project file (<code>.cep</code>) holds the survey: the questions, the form and the project's settings. It is the same file Collect Earth opens on a computer. Design it in the Open Foris Collect survey designer and export it as a Collect Earth project.</p>
   <ol class="steps">
-    <li>Open the <span class="ui">Project file</span> tab and drag the <code>.cep</code> onto it, or press <span class="ui">Choose the .cep file</span>.</li>
+    <li>Open <span class="ui">Setup › Survey form</span> and drag the <code>.cep</code> onto it, or press <span class="ui">Choose the .cep file</span>.</li>
     <li>If the file carries plot grids, choose <span class="ui">Merge into one plot file</span> or add them as separate files.</li>
+    <li>Under the file, <span class="ui">The survey</span> shows what it asks, page by page, as people see it in Collect Earth: each question with when it is shown, whether it is required, its limits and its list of answers, written in words (&ldquo;shown when Land use is Forest&rdquo;) and in each of the survey's languages. Check it here before you invite anyone.</li>
     <li>To change the survey later, press <span class="ui">Choose a new version</span>. People who join from now on get the new version; people already in keep the old one. For each of them, open their page in <span class="ui">People</span> and press <span class="ui">Make a link for the new project file</span>; they paste it in Collect Earth with <span class="ui">File › Join cloud project...</span>.</li>
   </ol>
+
   <h3 id="layout">Plot layout and imagery windows</h3>
-  <p>Under the project file, two cards set how every collector's Collect Earth shows the plots. They hold the same choices as Collect Earth's own settings, with the same rules.</p>
+  <p><span class="ui">Setup › Plot layout &amp; imagery</span> sets how every collector's Collect Earth shows the plots. It holds the same choices as Collect Earth's own settings, with the same rules.</p>
   <ul>
     <li><span class="ui">Plot layout</span>: the plot's shape, its sampling points, the distances and the reference area around it, with a drawing of the plot. Once data has been collected, saving asks first: the plots already collected keep their answers, but if you change the number of sampling points, the answers given per point may no longer line up with the points drawn.</li>
-    <li><span class="ui">Imagery windows</span>: the windows Collect Earth opens beside Google Earth Web on each plot. These are the Earth Engine app and its dates, Earth Map, ESRI Wayback, Planet's monthly mosaics and their months, and an extra map. The extra map's address should hold <code>LATITUDE</code> and <code>LONGITUDE</code>, <code>PLOT_ID</code> or <code>GEOJSON</code>, which Collect Earth replaces with each plot's values. Planet opens for the people who have entered their own Planet key in Collect Earth.</li>
+    <li><span class="ui">Imagery windows</span>: the windows Collect Earth opens beside Google Earth Web on each plot. These are Collect Earth Explorer (Earth Engine imagery and charts) and its dates, Earth Map, ESRI Wayback, Planet and an extra map. For Planet, choose <span class="ui">Daily images</span> or <span class="ui">Monthly mosaics</span>; it opens only for the people who have entered their own Planet key in Collect Earth. The extra map's address should hold <code>LATITUDE</code> and <code>LONGITUDE</code>, <code>PLOT_ID</code> or <code>GEOJSON</code>, which Collect Earth replaces with each plot's values.</li>
+    <li><span class="ui">Explorer window</span>: what Collect Earth Explorer shows on each plot, in order: its imagery layers (Sentinel-2, Landsat and others, with their band combination, dates and cloud limit) and its charts (NDVI, NDMI, NBR, EVI or a formula of your own over the bands). Press <span class="ui">Preview</span> to try it on a plot; <span class="ui">Reset to standard</span> goes back to the standard set.</li>
   </ul>
   <p>Press <span class="ui">Save</span>. Within a few minutes each person's Collect Earth applies the change by itself and says what changed. You don't need to send new links, and the collectors cannot change these settings themselves. A new version of the project file brings its own plot layout and imagery windows.</p>
 
-  <h2 id="plots">The plot files</h2>
-  <p>A plot file is a CSV with one row per plot: the plot id, the latitude and the longitude, then any extra columns the survey expects. On the <span class="ui">Plot files</span> tab, drag one or more CSV files in. They appear under <span class="ui">Files uploaded</span>.</p>
+  <h2 id="plots">The plots</h2>
+  <p>A plot file is a CSV with one row per plot: the plot id, the latitude and the longitude, then any extra columns the survey expects. In <span class="ui">Setup › Plots</span>, drag one or more CSV files in.</p>
+  <p>The project's plot files make <span class="ui">The project's plots</span>, one set: each plot is in one file only, and every file has the same columns. A file that breaks these rules is named, and its plots don't reach Collect Earth until you replace it.</p>
   <p>No plot file yet? <span class="ui">Design the plots</span> makes one for you: draw plots <span class="ui">At random</span>, <span class="ui">On a grid</span> or <span class="ui">At random within strata</span> in an area, or take them from SIGRID, the global systematic grid, by country, province or district. <a href="sampling.html">Designing the sample</a> explains these, and the Grid Generator on Google Earth Engine, which adds elevation, climate, soil and more to each plot.</p>
-  <p>To turn plots into hectares, give the areas under <span class="ui">Strata and areas</span>: choose the question or the plot-file columns that make the strata (a province, a forest class…) and type each stratum's area, give <span class="ui">One total area</span>, or drop an <code>areas_per_attribute.csv</code>. The analysis, the IPCC uncertainty and the downloads then share each stratum's area among its assessed plots.</p>
-  <figure><img src="../img/screens/plot-files.png" alt="The Plot files tab, with the files uploaded and Strata and areas" loading="lazy"><figcaption>The plot files, and the strata with their areas.</figcaption></figure>
+  <p>To turn plots into hectares, give the areas in <span class="ui">Setup › Areas</span>: choose the question or the plot-file columns that make the strata (a province, a forest class…) and type each stratum's area, give <span class="ui">One total area</span>, or drop an <code>areas_per_attribute.csv</code>. The analysis, the IPCC uncertainty and the downloads then share each stratum's area among its assessed plots.</p>
+  <p>Someone going where there is no internet, or a project leaving the cloud? Under <span class="ui">Download for working alone</span>, choose <span class="ui">All the project's plots</span> or one person's plots and press <span class="ui">Download the project file</span>. Collect Earth opens it as a project of its own, with no server. The work comes back when they send the computer's records to the cloud project, or when you import their export on the <span class="ui">Data</span> tab.</p>
+  <figure><img src="../img/screens/plot-files.png" alt="The plot files of a project" loading="lazy"><figcaption>The plot files of a project.</figcaption></figure>
 
   <h2 id="people">Inviting people</h2>
   <ol class="steps">
     <li>On the <span class="ui">People</span> tab, under <span class="ui">Invite people</span>, choose how they join: <span class="ui">Collector</span>, <span class="ui">Reviewer</span> or <span class="ui">Coordinator</span>.</li>
     <li>Choose <span class="ui">How many people can use it</span> and how long <span class="ui">The link works for</span>. One link for many people works well for a training room.</li>
+    <li>Choose the <span class="ui">Plots for the people who join</span>: <span class="ui">None: I give them plots later</span>, a whole plot file, or a number of plots each (<span class="ui">Plots each</span>). With a number, each person who joins takes the next plots nobody has yet, and Collect Earth opens them at once.</li>
     <li>Press <span class="ui">Make the invitation link</span> and copy it. It is shown only once. Send it by email or chat.</li>
   </ol>
   <figure><img src="../img/screens/invite.png" alt="Making an invitation link" loading="lazy"><figcaption>One link can invite a whole team.</figcaption></figure>
-  <p>The person who opens the link sees how to join: install Collect Earth, join the project from its menu, paste the link, and choose a username and password. Collect Earth then downloads the project by itself. See <a href="interpreters.html#cloud">joining a cloud project</a> in the interpreters' guide.</p>
-  <p>Open links are listed under <span class="ui">Invitation links still open</span>; <span class="ui">Stop this link</span> closes one. Under <span class="ui">People in this project</span> you can change someone's role, remove them, or leave them out of the results.</p>
+  <p>The person who opens the link sees how to join: install Collect Earth, join the project from its menu, paste the link, and choose a username and password. Collect Earth then downloads the project and their plots by itself. See <a href="interpreters.html#cloud">joining a cloud project</a> in the interpreters' guide. Each coordinator gets an email when someone joins: the first one at once, then at most one an hour for each project.</p>
+  <p>Open links are listed under <span class="ui">Invitation links still open</span>; <span class="ui">Stop this link</span> closes one. Under <span class="ui">People in this project</span> you can change someone's role, remove them, or <span class="ui">Leave out of the results</span>.</p>
 
   <h2 id="give-out">Giving out the plots</h2>
-  <p>Under <span class="ui">Who collects each file</span>, tick the people for each file and press <span class="ui">Save</span> to give a whole file to them. You can tick yourself too: a coordinator collects the plots they give themselves. To share a file out, press <span class="ui">Divide plots</span>:</p>
+  <p>In <span class="ui">Setup › Plots</span>, press <span class="ui">Divide the project's plots</span> to share the whole set between people at once:</p>
   <ul>
-    <li><span class="ui">Evenly between people</span>, about the same number each, or with <span class="ui">Give each person a share in percent</span>. The percentages can add up to less than 100: the rest of the plots goes to nobody for now. To share it when the others start, divide the file again.</li>
+    <li><span class="ui">Evenly between people</span>, about the same number each, or with <span class="ui">Give each person a share in percent</span>. The percentages can add up to less than 100: the rest of the plots goes to nobody for now. To share it when the others start, divide again.</li>
     <li><span class="ui">By a column</span> such as a province or a stratum: choose who collects the plots of each value.</li>
     <li><span class="ui">Which plots go together</span>: <span class="ui">In the order of the file</span>, <span class="ui">Mix them</span>, or <span class="ui">Keep plots that are close on the map together</span>.</li>
     <li><span class="ui">Quality check</span>: also give some plots to a second person, to compare their answers. Neither knows which plots are shared.</li>
   </ul>
-  <p>Press <span class="ui">Preview</span> to see the result, then <span class="ui">Apply</span>.</p>
-  <p>When someone joins, Collect Earth takes their assigned plot file by itself, or asks which one when they have several. Plots you give out or move later are not sent to Collect Earth. Collectors get their new list the next time they open <span class="ui">Settings › Project</span> in Collect Earth, or press <span class="ui">Refresh assignments</span> there, and then <span class="ui">Apply</span>. Tell them when you give out or move plots.</p>
-  <figure><img src="../img/screens/give-out.png" alt="Dividing a plot file between people" loading="lazy"><figcaption>Divide a file between people, with an overlap for blind quality checks.</figcaption></figure>
+  <p>Press <span class="ui">Preview</span> to see the result, then <span class="ui">Apply</span>. You can still give one plot file whole to people (<span class="ui">Who collects</span>, on its row) or divide one file alone (<span class="ui">Divide plots</span>). <span class="ui">Take plots to assess yourself</span> gives you a number of plots nobody holds, of one value of a column if you like.</p>
+  <p>Each person's plots reach their Collect Earth by themselves, as one list: at the start, and then within five minutes of any change you make here. You don't need to send files or tell people to refresh anything. A plot taken away from someone while they still have work on it to send stays with them until that work is sent.</p>
+  <figure><img src="../img/screens/give-out.png" alt="Dividing plots between people" loading="lazy"><figcaption>Divide the plots between people, with an overlap for blind quality checks.</figcaption></figure>
   <p>When someone leaves or falls behind, move their plots; what they submitted always stays with them:</p>
   <ul>
-    <li><span class="ui">Move unfinished plots to…</span>, on the plot file's page, hands all of a person's remaining plots to someone else.</li>
-    <li><span class="ui">Move plots…</span>, on the <span class="ui">People</span> tab under <span class="ui">Who finishes when</span>, gives some of a person's plots, or all of them, in one file to someone else.</li>
-    <li><span class="ui">Share again what is left</span>, on the plot file's page, shares the plots not submitted yet again between the people you tick: <span class="ui">Equally</span>, <span class="ui">By percentage</span>, or <span class="ui">By pace</span> so that everyone finishes around the same day. Untick someone to give all their unfinished plots to the others. A preview shows the moves before you apply them.</li>
+    <li><span class="ui">Move unfinished plots to…</span>, on a plot file's page, hands all of a person's remaining plots to someone else.</li>
+    <li><span class="ui">Move plots…</span>, under <span class="ui">People › How they are doing › Who finishes when</span>, gives some of a person's plots, or all of them, to someone else.</li>
+    <li><span class="ui">Share again what is left</span>, on a plot file's page, shares the plots not submitted yet again between the people you tick: <span class="ui">Equally</span>, <span class="ui">By percentage</span>, or <span class="ui">By pace</span> so that everyone finishes around the same day. Untick someone to give all their unfinished plots to the others. A preview shows the moves before you apply them.</li>
     <li><span class="ui">Select plots</span>, on the <span class="ui">Map</span>, draws a rectangle around plots still to assess and gives them to one person, saying which plots cannot move and why.</li>
   </ul>
 
   <h2 id="follow">Following the work</h2>
-  <p><span class="ui">Progress</span> shows how many plots are submitted, day by day, who <span class="ui">Needs attention</span>, and <span class="ui">When will it be done?</span>: at the pace of the last 7 days, against your deadline.</p>
+  <p><span class="ui">Progress</span> shows how many plots are submitted, day by day, who <span class="ui">Needs attention</span>, and <span class="ui">When will it be done?</span>: at the pace of the last 7 days, against your deadline (set it in <span class="ui">Setup › Schedule</span>).</p>
   <figure><img src="../img/screens/progress.png" alt="The Progress tab" loading="lazy"><figcaption>Progress, with a forecast against the deadline.</figcaption></figure>
-  <p><span class="ui">People</span> shows how each person is doing: plots, speed, last sync and agreement, with a page per person. Only coordinators see the time spent on each plot; very quick plots are flagged. <span class="ui">Who finishes when</span> lists each person's plots left, their pace over the last 7 days and the day they would finish at that pace, the last to finish first, with <span class="ui">Move plots…</span> to give some of their plots to someone ahead.</p>
+  <p><span class="ui">People › How they are doing</span> shows how each person is doing: plots, speed, last sync and agreement, with a page per person. Only coordinators see the time spent on each plot; very quick plots are flagged. <span class="ui">Who finishes when</span> lists each person's plots left, their pace over the last 7 days and the day they would finish at that pace, the last to finish first, with <span class="ui">Move plots…</span> to give some of their plots to someone ahead.</p>
   <figure><img src="../img/screens/people.png" alt="Who finishes when, on the People tab" loading="lazy"><figcaption>Who finishes when: the plots left, each person's pace and their finishing day.</figcaption></figure>
   <p><span class="ui">Map</span> shows every plot coloured by its status. Click a plot to open its page with every answer it received.</p>
   <figure><img src="../img/screens/map.png" alt="The Map tab" loading="lazy"><figcaption>Every plot, coloured by status.</figcaption></figure>
-  <p><span class="ui">Activity</span> lists what happened (plots submitted, files changed, people joined), and gives a weekly summary and downloads.</p>
+  <p><span class="ui">Activity</span> lists what happened (plots submitted, files changed, people joined, trainings finished), and gives a weekly summary and downloads.</p>
 
   <h2 id="quality">Checking the quality</h2>
-  <p>The <span class="ui">Quality</span> tab compares the answers of plots that two people assessed blind.</p>
+  <p>Set the checks once in <span class="ui">Setup › Quality rules</span>:</p>
   <ul>
     <li><span class="ui">Automatic checks</span>: copy the first plots each person submits, or a share of all their plots, to chosen checkers as blind second assessments. Press <span class="ui">Draw now</span> to start at once.</li>
-    <li><span class="ui">Review queue</span>: for each plot where the answers differ, decide <span class="ui">First is right</span>, <span class="ui">Check is right</span> or <span class="ui">Both need another look</span>. <span class="ui">Decide many plots at once</span> speeds this up.</li>
+    <li><span class="ui">Very fast plots</span>: how many seconds on a plot is too fast, so such plots are flagged.</li>
+  </ul>
+  <p>The <span class="ui">Quality</span> tab then compares the answers of plots that two people assessed blind:</p>
+  <ul>
+    <li><span class="ui">Review</span>: for each plot where the answers differ, decide <span class="ui">First is right</span>, <span class="ui">Check is right</span> or <span class="ui">Both need another look</span>. <span class="ui">Decide many plots at once</span> speeds this up.</li>
     <li><span class="ui">Reference plots</span>: plots an expert has assessed. Every collector also gets them blind, which measures each person's accuracy.</li>
-    <li><span class="ui">Agreement by question</span>, <span class="ui">Agreement by person</span>, <span class="ui">Mixed-up answers</span> and <span class="ui">Over time</span> show where the team disagrees.</li>
-    <li><span class="ui">Plots worth a look</span> lists plots done very fast, with the same answers as before, with required answers missing, or edited after a decision.</li>
-    <li><span class="ui">Guidance notes</span> share decisions with the team, so everyone answers the same way next time.</li>
+    <li><span class="ui">Figures</span>: <span class="ui">Agreement by question</span>, <span class="ui">Agreement by person</span>, <span class="ui">Mixed-up answers</span> and <span class="ui">Over time</span> show where the team disagrees. <span class="ui">Plots worth a look</span> lists plots done very fast, with the same answers as before, with required answers missing, or edited after a decision.</li>
+    <li><span class="ui">Notes</span>: <span class="ui">Guidance notes</span> share decisions with the team, so everyone answers the same way next time.</li>
   </ul>
   <figure><img src="../img/screens/quality.png" alt="The Quality tab" loading="lazy"><figcaption>Agreement between first assessments and checks.</figcaption></figure>
   <p>Collectors don't need the dashboard to work, but they can follow their own progress, quality and training on <span class="ui">My work</span>.</p>
   <figure><img src="../img/screens/my-work.png" alt="A collector's My work page" loading="lazy"><figcaption>What a collector sees: their own work only.</figcaption></figure>
-  <p>Reviewers can help with the review queue: their decisions are kept with their name, and their own plots go to someone else. They also see plots worth a look, the team's answers and the accuracy against reference plots, but no figures per person and no decisions on many plots at once.</p>
+  <p>Reviewers can help with the review: their decisions are kept with their name, and their own plots go to someone else. They also see plots worth a look, the team's answers and the accuracy against reference plots, but no figures per person and no decisions on many plots at once.</p>
 
   <h2 id="training">Training the team</h2>
-  <p>On <span class="ui">Training</span>, press <span class="ui">Add a training set</span> and choose the kind:</p>
+  <p>A training set is a set of plots kept apart from the project's data: nothing done on them counts in progress, quality figures or downloads. On <span class="ui">Training</span>, press <span class="ui">Add a training set</span> and choose:</p>
   <ul>
-    <li><span class="ui">Calibration</span>: everyone assesses the same plots, to measure how much the team agrees before the real work starts.</li>
-    <li><span class="ui">Learning plots</span>: plots with a golden interpretation, so each person sees where they went wrong.</li>
+    <li><span class="ui">Kind</span>: <span class="ui">Calibration</span>, where everyone assesses the same plots and you see where they agree, or <span class="ui">Learning plots</span>, where each person sees their answers next to the golden interpretation after each plot, and gets a score.</li>
+    <li><span class="ui">The training plots</span>: <span class="ui">Copies of plots of a plot file of the project (recommended)</span>, with the <span class="ui">Number of plots</span> (20 is enough for a day), taken spread through the file. Each copy keeps its place and every column, under a new id (<code>T-17</code> for plot 17, or <code>-17</code> when the survey's ids are numbers), so it is never taken for the real plot. A second set from the same file gets other plots. Or upload <span class="ui">A plot file of their own</span>.</li>
+    <li><span class="ui">Who takes part</span>: <span class="ui">Everyone in the project, and whoever joins</span> (every collector and reviewer, never the coordinators), or people ticked one by one.</li>
   </ul>
-  <p>Each set has its own page with the golden interpretation, how much people agree, scores, plot by plot results and a printable report. Training plots are kept apart: they never count in progress, quality figures or downloads.</p>
+  <p>The people taking part get the training plots in Collect Earth within a few minutes. For someone who has no plots of their own yet, they open by themselves; the others are asked first, so nobody's work is switched away under them. Collect Earth says <span class="ui">Training plots: …</span> above the plot list while a set is open, and <span class="ui">Back to my plots</span> in its <span class="ui">Settings › Project</span> leaves it.</p>
+  <p>Each set has its own page: how much people agree, question by question and person by person, the plots where answers differ, the golden interpretation, scores and a printable report. <span class="ui">Use the proposed answers as golden</span> takes the answer most people gave on each plot; then <span class="ui">Use as learning plots</span> turns a calibration into learning plots, so each person gets a score against those answers.</p>
+  <p>When the training is over, press <span class="ui">Finish the training</span> on the set's page:</p>
+  <ul>
+    <li><strong>Kept</strong>: the scores, the agreement figures and the golden answers, as they are at that moment, on the set's page and in the printable report. The set stays, read-only.</li>
+    <li><strong>Deleted</strong>: every answer given on the training plots, on the server. An answer sent later by a computer that was offline is thrown away, never stored as the project's.</li>
+    <li><strong>In Collect Earth</strong>: at its next sync, each person's Collect Earth deletes its own records of the training plots, takes the training file away and opens their own plots.</li>
+  </ul>
+  <p>The report holds the answers plot by plot, which are deleted after: print it or save it first. <span class="ui">Delete the set</span>, instead, deletes everything, the results too.</p>
   <figure><img src="../img/screens/training.png" alt="The Training tab" loading="lazy"><figcaption>Calibration and learning sets, kept apart from the real data.</figcaption></figure>
+
+  <h2 id="mapathon">A mapathon to start: train together, then start for real</h2>
+  <p>Many teams start a project with a mapathon: everyone in one room, or on one call, for a day or two, assessing the same plots and talking about them. These first days are for testing: the survey, the imagery, the plot layout, and how each person reads the land. Their answers should not end up in the project's data. Here is how to run them so that nothing has to be cleaned up afterwards.</p>
+
+  <h3 id="mapathon-before">Before the mapathon</h3>
+  <ol class="steps">
+    <li><strong>Set up the project</strong> as for the real work: the project file, the plot files, the plot layout and imagery windows. Check the survey in <span class="ui">Setup › Survey form</span>.</li>
+    <li><strong>Don't give out the real plots yet.</strong> Leave <span class="ui">Divide the project's plots</span> for after the mapathon. People without plots of their own get the training plots by themselves, and no real answer can reach the project.</li>
+    <li><strong>Make the training set</strong>: on <span class="ui">Training</span>, <span class="ui">Add a training set</span>, kind <span class="ui">Calibration</span>, <span class="ui">Copies of plots of a plot file of the project (recommended)</span>, 20 plots for a day, <span class="ui">Everyone in the project, and whoever joins</span>. Give it a name people will recognise, such as &ldquo;Mapathon day 1&rdquo;.</li>
+    <li><strong>Make one invitation link for the room</strong>: role <span class="ui">Collector</span>, as many people as will come, <span class="ui">1 week</span>, and <span class="ui">None: I give them plots later</span>. Send it a day ahead so people install Collect Earth before they come.</li>
+  </ol>
+
+  <h3 id="mapathon-during">During the mapathon</h3>
+  <ul>
+    <li>Each person joins with the link. Their Collect Earth opens the training plots by itself and says they are for the training only.</li>
+    <li>Everyone assesses the same plots. Follow them on the set's page: who has submitted how many, and how much the answers agree, question by question.</li>
+    <li>Open the plots where answers differ and discuss them together on the screen. What you agree on becomes the golden interpretation, and the rules you settle go into <span class="ui">Quality › Notes</span> as guidance notes.</li>
+    <li>Found a problem in the survey, a missing answer or a confusing question? Fix the project file now, before the real work, and upload the new version. People who join from then on get it; for those already in, make a link for the new version on their page in <span class="ui">People</span> (<span class="ui">Make a link for the new project file</span>).</li>
+    <li>A second day? Add a second set from the same plot file, with a new name: it gets other plots. Once the golden answers are set, <span class="ui">Use as learning plots</span> lets each person check themselves against them.</li>
+  </ul>
+
+  <h3 id="mapathon-after">Starting the real collection</h3>
+  <ol class="steps">
+    <li><strong>Print or save the report</strong> of each set: it is the only place where the answers plot by plot stay.</li>
+    <li><strong>Press <span class="ui">Finish the training</span></strong> on each set. Its answers are deleted from the server and, at the next sync, from everyone's Collect Earth. The scores, agreement figures and golden answers are kept. Answers sent late by a computer that was offline are thrown away.</li>
+    <li><strong>Give out the real plots</strong> with <span class="ui">Divide the project's plots</span>. Each person's own plots reach their Collect Earth within five minutes, in place of the training plots.</li>
+  </ol>
+  <p>That's all: the training plots were copies with ids of their own, so the project's plots are all still to do, and its progress, quality figures and downloads start empty.</p>
+  <div class="note">Did the team test on the project's own plots instead, without a training set? Then their answers are the project's data. The cleanest way out is to start the real work in a fresh copy: <span class="ui">Setup › Next round › Copy this project</span> copies the survey, the plot files and the settings without the data. The copy starts as a draft: make it active in its <span class="ui">Setup › Project</span>, then invite the team to it with a new link. Next time, use a training set: it saves this step.</div>
 
   <h2 id="data">Getting the data out</h2>
   <p>On the <span class="ui">Data</span> tab:</p>
   <ul>
     <li><span class="ui">Download the data</span>: every answer, with the coordinator's final decision for each plot, as a <span class="ui">Spreadsheet (CSV)</span> or as a map file (GeoJSON, KML for Google Earth, or a zipped shapefile). Under <span class="ui">Records to download</span>, take all records, those changed since your last download or from a date, or those with a given answer. Tick <span class="ui">Add the labels of the answers</span> for a column with the names of the answers after each column of codes, in your language when the survey has it, and <span class="ui">Leave out where the plots are</span> to share it without coordinates. The spreadsheet follows your language's number format, and when the project has areas each plot comes with its expansion factor and weight.</li>
     <li><span class="ui">Open the analysis</span>: tables and charts in the browser, a stand-alone file to share, and the <span class="ui">Uncertainty (IPCC)</span> of the land areas.</li>
-    <li><span class="ui">IPCC exports</span>: the files of Collect Earth's IPCC tool, from the plots' first assessments: land use change matrices (Excel, also by climate, soil and ecological zone), the land uses of each plot year by year, the land units, the land use changes as XML, and a file for the IPCC Inventory Software. Give the strata their areas first (<a href="#plots">Strata and areas</a>).</li>
+    <li><span class="ui">IPCC exports</span>: the files of Collect Earth's IPCC tool, from the plots' first assessments: land use change matrices (Excel, also by climate, soil and ecological zone), the land uses of each plot year by year, the land units, the land use changes as XML, and a file for the IPCC Inventory Software. Give the strata their areas first (<a href="#plots">Setup › Areas</a>).</li>
     <li><span class="ui">Collect Earth backup</span>: the survey and all records in one file, first assessments only or every round: a zip that Collect Earth imports with <span class="ui">Data Import/Export › Import data (ZIP or CSV)</span>, or an Open Foris Collect backup (<code>.collect-backup</code>) that Collect restores. Either can also start a new project on another server.</li>
     <li><span class="ui">Import data from Collect Earth</span>: bring in plots assessed in a stand-alone Collect Earth (its compressed XML export), matching each person in the file to an account. Each person can also send their records from Collect Earth itself, with <span class="ui">Data Import/Export › Send this computer's records to the cloud project</span>.</li>
   </ul>
   <figure><img src="../img/screens/data.png" alt="The Data tab" loading="lazy"><figcaption>Downloads, the analysis and the IPCC exports.</figcaption></figure>
 
-  <h2 id="settings">Project settings</h2>
+  <h2 id="settings">The rest of Setup</h2>
   <ul>
-    <li><span class="ui">Progress</span>: a deadline, a target in plots, and after how many quiet days a person is flagged.</li>
-    <li><span class="ui">Progress links for funders</span>: a read-only progress page you can share without an account.</li>
-    <li><span class="ui">AI assistant</span>: an optional helper for reviews, if the server allows it.</li>
-    <li><span class="ui">Project status</span>: close a finished project, archive it, or reopen it.</li>
-    <li><span class="ui">Copy this project</span>, with or without its people and assignments, to start a similar one. The copy starts as a draft: Collect Earth can't send records to it until you press <span class="ui">Make active</span> under <span class="ui">Project status</span>.</li>
+    <li><span class="ui">Schedule</span>: a deadline, a target in plots, and after how many quiet days a person is flagged.</li>
+    <li><span class="ui">Sharing</span>: <span class="ui">Progress links for funders</span>, a read-only progress page you can share without an account, and the <span class="ui">AI assistant</span>, an optional helper for reviews, if the server allows it.</li>
+    <li><span class="ui">Next round</span>: <span class="ui">Repeat this survey</span> starts the next campaign, years later, on the same plots, with this project's answers kept as an earlier period to compare with. <span class="ui">Copy this project</span>, with or without its people and who does which plots, starts a similar one. Both start as drafts: Collect Earth can't send records to them until you press <span class="ui">Make active</span>.</li>
+    <li><span class="ui">Project</span>: its name, its <span class="ui">Project status</span> (close a finished project, archive it, or reopen it), and deleting it.</li>
   </ul>
   <p>If a laptop is lost or shared, open the person's page in <span class="ui">People</span> and press <span class="ui">Sign out everywhere</span>. A sign-in left unused for 90 days also ends by itself.</p>
 

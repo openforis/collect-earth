@@ -72,7 +72,7 @@
         <tr><td><strong>Designs</strong></td><td>Systematic, 1 to 100 km apart</td><td>Systematic (from 100 m) or random</td><td>Random, systematic, stratified random</td></tr>
         <tr><td><strong>Area</strong></td><td>A country, its provinces or districts, optionally clipped to your own area</td><td>A country, province or district, your own asset, a drawn polygon or pasted GeoJSON</td><td>Your own area file (GeoJSON or a zipped shapefile)</td></tr>
         <tr><td><strong>Extra columns</strong></td><td>Province and district (when the survey has <code>adm1nm</code> and <code>adm2nm</code> columns); elevation, slope and aspect are 0</td><td>Elevation, slope, aspect, soil, climate, ecological zone, mountain class, land productivity, administrative units, columns of your own layers</td><td>None (elevation, slope and aspect are 0)</td></tr>
-        <tr><td><strong>Plot ids</strong></td><td>Permanent, the same worldwide</td><td>Numbered for this grid</td><td>Numbered for this grid</td></tr>
+        <tr><td><strong>Plot ids</strong></td><td>Permanent, the same worldwide</td><td>Numbered for this grid</td><td>Numbered after the project's other plots</td></tr>
         <tr><td><strong>Needs</strong></td><td>A cloud project (on the dashboard), or nothing (download)</td><td>A Google account with Earth Engine</td><td>A cloud project</td></tr>
       </tbody>
     </table>
@@ -85,7 +85,7 @@
   <p>That makes it <strong>iterative</strong>: start with a coarse grid (say 8 km) for a first national estimate, then intensify to 4 km, 2 km or 1 km where you need more precision. The plots already assessed keep their ids and stay part of the finer grid, so no work is lost, and assessments of later years land on exactly the same plots.</p>
   <h3>Getting a SIGRID plot file</h3>
   <ul>
-    <li><strong>On the dashboard</strong> (easiest, in a cloud project): on the <span class="ui">Plot files</span> tab, under <span class="ui">Design the plots</span>, choose <span class="ui">From SIGRID</span>. Pick the <span class="ui">Country</span>, optionally some <span class="ui">Provinces</span> or <span class="ui">Districts</span>, optionally drop your own area to keep only the plots in it, and choose the <span class="ui">Distance between plots</span>: each option shows how many plots it makes. Press <span class="ui">Make the plot file</span>.</li>
+    <li><strong>On the dashboard</strong> (easiest, in a cloud project): in <span class="ui">Setup › Plots</span>, under <span class="ui">Design the plots</span>, choose <span class="ui">From SIGRID</span>. Pick the <span class="ui">Country</span>, optionally some <span class="ui">Provinces</span> or <span class="ui">Districts</span>, optionally drop your own area to keep only the plots in it, and choose the <span class="ui">Distance between plots</span>: each option shows how many plots it makes. Press <span class="ui">Make the plot file</span>.</li>
     <li><strong>Downloads</strong>: Open Foris publishes one package per country, with a 1 km file tagged with province and district names (UN boundaries) and one file per coarser spacing, and 10° by 10° tiles for any area. A KMZ in the repository lets you browse them in Google Earth.</li>
     <li><strong>Generate it yourself</strong>: the <a href="https://github.com/herrtunante/SIGRID">SIGRID repository</a> holds the Java code (MIT licence) to rebuild any region or the whole world, into CSV files or a database.</li>
   </ul>
@@ -114,19 +114,20 @@
   <p>The address in the browser changes with every choice: copy it to make the same grid again later, or to share the exact design with a colleague. If the download link times out, the grid is too large for the app: follow its link to run the same script in the Earth Engine Code Editor, which exports the file to your Google Drive. The app also links to a test project file (<code>.cep</code>) that reads its standard extra columns, and to the area of each province and district, handy for turning plot counts into hectares.</p>
 
   <h2 id="dashboard">Design the plots on the dashboard</h2>
-  <p>In a cloud project, the <span class="ui">Plot files</span> tab can lay plots out over your own area without leaving the dashboard. Under <span class="ui">Design the plots</span>, choose <span class="ui">From an area</span> and drop a GeoJSON file, or a shapefile of polygons in a <code>.zip</code>, in latitude and longitude. Then choose <span class="ui">How to lay out the plots</span>:</p>
+  <p>In a cloud project, <span class="ui">Setup › Plots</span> can lay plots out over your own area without leaving the dashboard. Under <span class="ui">Design the plots</span>, choose <span class="ui">From an area</span> and drop a GeoJSON file, or a shapefile of polygons in a <code>.zip</code>, in latitude and longitude. Then choose <span class="ui">How to lay out the plots</span>:</p>
   <ul>
     <li><span class="ui">At random</span>: the <span class="ui">Number of plots</span>.</li>
     <li><span class="ui">On a grid</span>: the <span class="ui">Distance between plots (metres)</span>, optionally starting the grid at a random place.</li>
     <li><span class="ui">At random within strata</span>: the <span class="ui">Field with the strata</span> in your area file, and the plots per stratum: <span class="ui">The same number in each</span>, or <span class="ui">Shared by area</span>.</li>
   </ul>
-  <p>The dashboard shows how many plots the design makes, and per stratum how many plots and how many km². <span class="ui">Create the plot file</span> adds it to the project as if you had uploaded it. Nothing is sent outside your server; elevation, slope and aspect are left at 0, so if your survey needs them, use the Grid Generator instead.</p>
+  <p>The dashboard shows how many plots the design makes, and per stratum how many plots and how many km². <span class="ui">Create the plot file</span> adds it to the project as if you had uploaded it, with the columns of the project's other plot files, and its plots numbered after theirs. Nothing is sent outside your server; elevation, slope and aspect are left at 0, so if your survey needs them, use the Grid Generator instead.</p>
   <figure><img src="../img/screens/design-area.png" alt="Designing plots over an area on the dashboard" loading="lazy"><figcaption>Plots laid out over your own area, at random, on a grid or within strata.</figcaption></figure>
 
   <h2 id="use">Using the plot file</h2>
   <ul>
-    <li><strong>Cloud project</strong>: upload the CSV on the <span class="ui">Plot files</span> tab (files made on the dashboard are there already), then give it out: whole, divided evenly, or by a column such as the province. See <a href="coordinators.html#plots">Running a cloud project</a>.</li>
-    <li><strong>On one computer</strong>: in Collect Earth, <span class="ui">Settings › Project › Path to ced/csv file with plot data</span>. The settings show how many plots the file holds, its first rows and where the plots are.</li>
+    <li><strong>Cloud project</strong>: upload the CSV in <span class="ui">Setup › Plots</span> (files made on the dashboard are there already), then give it out: whole, divided evenly, or by a column such as the province. The project's plots are one set: every plot file has the same columns, and a plot is in one file only. Each person's plots reach their Collect Earth by themselves. See <a href="coordinators.html#plots">Running a cloud project</a>.</li>
+    <li><strong>On one computer</strong>: in Collect Earth, <span class="ui">Settings › Project › Path to CSV file with plot data</span>. The settings show how many plots the file holds, its first rows and where the plots are.</li>
+    <li><strong>Large plot files</strong>: Collect Earth is made for up to 40,000 plots in a file. A larger file still works but opens more slowly, and Collect Earth warns about it.</li>
     <li><strong>The plot's shape</strong> on the imagery (a square, a circle, a hexagon, clusters, and the sampling points inside it) is set in <span class="ui">Settings › Plot layout</span>; in a cloud project, the coordinator sets it for everyone on the dashboard (<a href="coordinators.html#layout">Plot layout and imagery windows</a>). A plot file can also carry its own polygons in a WKT, KML or GeoJSON column, drawn as they are.</li>
     <li><strong>Too many plots for one person</strong>: <span class="ui">Utilities › Divide large CSV plot files</span> in Collect Earth splits a file, at random or by a column; on the dashboard, <span class="ui">Divide plots</span> does it for you.</li>
   </ul>

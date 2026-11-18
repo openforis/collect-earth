@@ -58,7 +58,7 @@
     <img class="emblem" src="img/emblem.png" alt="" width="512" height="512" loading="lazy">
     <div>
     <h2>What it is for</h2>
-    <p class="lead">Interpreters look at high and very high resolution imagery from Google Earth Web, ESRI Wayback, Earth Map, Google Earth Engine and Planet (with your own key), and answer a survey for each plot. It is fast to learn, cheap to run, and adapts to your methodology.</p>
+    <p class="lead">Interpreters look at high and very high resolution imagery from Google Earth Web, ESRI Wayback, Earth Map, Google Earth Engine (in Collect Earth Explorer, with charts of each plot over the years) and Planet (with your own key), and answer a survey for each plot. It is fast to learn, cheap to run, and adapts to your methodology.</p>
     <ul class="ticks" style="margin-top:28px">
       <li>Multi-phase national forest inventories</li>
       <li>Land use, land-use change and forestry (LULUCF) assessments</li>
@@ -221,7 +221,7 @@
           <tr><th>Who runs the server</th><td>Nobody</td><td>Nobody (or your IT, for PostgreSQL)</td><td>FAO, for free</td><td>You</td></tr>
           <tr><th>Internet connection</th><td>Always, for the imagery</td><td>Always, for the imagery</td><td>Always: the imagery, and sending plots to FAO's server</td><td>Always: the imagery, and sending plots to your server</td></tr>
           <tr><th>Plots reach the coordinator</th><td>Already there</td><td>The administrator imports each person's exports</td><td>Automatically</td><td>Automatically</td></tr>
-          <tr><th>Giving out plots</th><td>Not needed</td><td>One plot file per person, by hand</td><td>In the dashboard, whole files or divided automatically</td><td>As in set-up 3</td></tr>
+          <tr><th>Giving out plots</th><td>Not needed</td><td>One plot file per person, by hand</td><td>In the dashboard or with the invitation link: whole files, or divided automatically</td><td>As in set-up 3</td></tr>
           <tr><th>Progress dashboard</th><td>Your own</td><td>Each computer's own</td><td>Web dashboard for the team</td><td>Web dashboard for the team</td></tr>
           <tr><th>Quality checks, training, time spent</th><td>Self-checks on My dashboard</td><td>By hand</td><td>Built in</td><td>Built in</td></tr>
           <tr><th>Cost</th><td>Free</td><td>Free</td><td>Free</td><td>About 10 to 15 US$ a month on Google Cloud</td></tr>
@@ -236,19 +236,19 @@
   <div class="wrap split">
     <div>
       <h2>Collect Earth Cloud</h2>
-      <p class="lead">A web dashboard for coordinators. Nobody installs a server: interpreters click an invitation link, choose <em>Join cloud project…</em> in Collect Earth, and every plot they save reaches the dashboard by itself. On cloud.collectearth.org the administrators create the projects: ask FAO for one.</p>
+      <p class="lead">A web dashboard for coordinators. Nobody installs a server: interpreters click an invitation link, choose <em>Join cloud project…</em> in Collect Earth, and every plot they save reaches the dashboard by itself. The plots they are given reach their Collect Earth the same way. On cloud.collectearth.org the administrators create the projects: ask FAO for one.</p>
       <p style="margin-top:16px">Your project stays private: only the people you invite see it, each according to their role, and the coordinators can download everything, or delete the project, at any time.</p>
       <div class="actions" style="margin-top:28px"><a class="btn primary" href="https://cloud.collectearth.org">Open the dashboard</a> <a class="btn ghost" href="guide/coordinators.html">Read the guide</a></div>
     </div>
     <ul class="ticks" style="grid-template-columns:1fr">
       <li><strong>Progress</strong> per day and per person, with a forecast against your deadline and the day each person would finish at their pace</li>
-      <li><strong>Plots given out</strong> as whole files, divided evenly, by percentage, or by a column such as province; later, move part of someone's plots, pick plots on the map, or share what is left again by pace</li>
-      <li><strong>One plot layout and imagery for everyone</strong>: set the plot's shape, its sampling points and the imagery windows on the dashboard, and every collector's Collect Earth applies them within minutes</li>
+      <li><strong>Plots given out</strong> as whole files, divided evenly, by percentage, or by a column such as province, or by the invitation link itself as people join; later, move part of someone's plots, pick plots on the map, or share what is left again by pace. Each person's plots reach their Collect Earth by themselves and stay up to date</li>
+      <li><strong>One plot layout and imagery for everyone</strong>: set the plot's shape, its sampling points, the imagery windows and the layers and charts of Collect Earth Explorer on the dashboard, and every collector's Collect Earth applies them within minutes</li>
       <li><strong>Blind quality checks</strong>: some plots go to a second person, and the dashboard measures agreement per question and per person</li>
-      <li><strong>Training</strong>: calibration and learning sets with scores, kept apart from the real data</li>
+      <li><strong>Training</strong>: the whole team trains on the same plots before the real work, with calibration and learning sets and scores. The training answers stay apart from the real data, and are deleted when you finish the training; the scores are kept</li>
       <li><strong>Reference plots</strong>: plots with known answers, given to every collector, that their work is measured against</li>
       <li><strong>Time spent on each plot</strong>, with very quick plots flagged for a second look</li>
-      <li><strong>Downloads</strong>: every answer with the coordinator's decisions, as CSV (in your language, with the answers' names), GeoJSON, KML or shapefile; the IPCC exports (land use change matrices, land uses year by year, a file for the IPCC Inventory Software); and a backup for Collect Earth or Open Foris Collect</li>
+      <li><strong>Downloads</strong>: every answer with the coordinator's decisions, as CSV (in your language, with the answers' names), GeoJSON, KML or shapefile; the IPCC exports (land use change matrices, land uses year by year, a file for the IPCC Inventory Software); a backup for Collect Earth or Open Foris Collect; and a project file with the plots, for working alone where there is no internet</li>
       <li><strong>Start from a backup</strong>: a new project with the survey and the plots already assessed in Collect Earth, or from an Open Foris Collect backup</li>
       <li><strong>Import from Collect Earth Online</strong>: bring in a CEO project's questions, plots and shapes</li>
     </ul>

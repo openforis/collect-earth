@@ -60,7 +60,7 @@
   <h2 id="why">Is it for you?</h2>
   <p>A private server is the same Collect Earth Cloud that FAO runs at <a href="https://cloud.collectearth.org">cloud.collectearth.org</a>: the web dashboard, the sync service Collect Earth talks to, and a database with nightly backups. Coordinators and interpreters work exactly as on the shared server. The difference is where it runs and who controls it.</p>
   <ul class="ticks one">
-    <li><strong>The data stays with you.</strong> Everything runs in your organisation's own Google Cloud project, or on your own hardware. Nobody else, including FAO and the Collect Earth team, can see it, and the server sends no usage data anywhere unless you switch it on.</li>
+    <li><strong>The data stays with you.</strong> Everything runs in your organisation's own Google Cloud project, or on your own hardware. Nobody else, including FAO and the Collect Earth team, can see it, and the server sends no usage data, and error reports only if you switch them on.</li>
     <li><strong>You decide the rules:</strong> who gets an account, who may create projects, how much each project may hold, and which projects exist at all.</li>
     <li><strong>No programming needed.</strong> On Google Cloud a guided panel and one command do the work. You need someone comfortable with a web console and copying a command, and a payment card on a Google Cloud billing account.</li>
   </ul>
@@ -204,7 +204,7 @@
   <p>The script prints the DNS records to add where the domain was bought. This works in Belgium, Iowa, South Carolina and Singapore among others; in other regions, such as Johannesburg, Mumbai or São Paulo, the script says so, and a load balancer or another proxy is needed in front (DEPLOY.md, "Your own address").</p>
 
   <h3>Emails</h3>
-  <p>Without email the server works fully; you make password reset links yourself (<span class="ui">Server › Accounts › Make a reset link</span>). With a mail provider that sends for your domain, people can use <span class="ui">Forgot your password?</span> and ask for a weekly summary. You give the server the provider's details (<code>SMTP_URL</code>), a sender address, the server's address and a signing secret; the commands are in DEPLOY.md, "Weekly emails (optional)".</p>
+  <p>Without email the server works fully; you make password reset links yourself (<span class="ui">Server › Accounts › Make a reset link</span>). With a mail provider that sends for your domain, people can use <span class="ui">Forgot your password?</span> and ask for a weekly summary, and coordinators get an email when someone joins their project: the first at once, then at most one an hour, listing everyone who joined meanwhile. You give the server the provider's details (<code>SMTP_URL</code>), a sender address, the server's address and a signing secret; the commands are in DEPLOY.md, "Weekly emails (optional)".</p>
 
   <h3>The AI assistant</h3>
   <p>Off unless you set it up. It needs the Vertex AI service turned on in your project, then <span class="ui">Allow the AI assistant on this server</span> in the server settings, and each coordinator who wants it turns it on in their project. It sends Google's Gemini the choice and number answers, the questions and the quality figures, never coordinates, plot ids, comments or names. Limits per project (by default 5 reviews a day and 2 million tokens a month) keep the cost small. Steps: DEPLOY.md, "AI assistant (optional)".</p>
@@ -221,7 +221,7 @@
   <p>When there is a new version, press <a href="https://shell.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https://github.com/openforis/collect-earth&amp;cloudshell_git_branch=master&amp;cloudshell_workspace=collect-earth-cloud&amp;cloudshell_tutorial=deploy/gcp/tutorial.md&amp;show=terminal">Open in Cloud Shell</a> again and run the same command, <code>bash deploy/gcp/deploy.sh</code>. It fetches the latest code, rebuilds the server and switches to it in about 5 minutes, without asking the questions again. The data stays: the database is never recreated, and people working at that moment don't notice.</p>
 
   <h3>The Server page</h3>
-  <p>A line at the top of <span class="ui">Server</span> says whether anything needs your attention, with a link to where it is fixed. The page has five sections:</p>
+  <p>The <span class="ui">Server</span> page has five sections. <span class="ui">Overview</span> says whether anything needs your attention, and the other sections show a count on their name when something there does.</p>
   <ul>
     <li><span class="ui">Overview</span>: the figures, and the alerts (failed logins, server errors, refused records, a project running out of space). Alerts are mailed to the administrators, and sent to a Slack or Microsoft Teams webhook if you add one.</li>
     <li><span class="ui">Accounts</span>: every account, to search and filter. From here you can add accounts (each gets a link to choose its password), make or remove administrators, unlock an account, reset a password or two-step sign-in, sign someone out everywhere, disable or delete an account, and send a message to all coordinators or everyone.</li>
@@ -252,9 +252,9 @@
   <p>A project that started on cloud.collectearth.org, or on a computer, moves with its survey and its plots:</p>
   <ol class="steps">
     <li>On the old project's <span class="ui">Data</span> tab, take a <span class="ui">Collect Earth backup</span>. From a computer, export <em>XML (compressed)</em> instead.</li>
-    <li>On your server, <span class="ui">My projects › New project › From a Collect Earth backup</span>. The survey and the plots already assessed come in; those plots go into a plot file of their own, ending in <code>_done.csv</code>, to leave out when you give out plots.</li>
-    <li>Add the plot files for the remaining work, invite the team again, and give out the plots. Interpreters join the new project with its link, as the first time.</li>
-    <li>When everything is there, delete the old project (its <span class="ui">Settings</span> tab).</li>
+    <li>On your server, <span class="ui">My projects › New project › From a Collect Earth backup</span>, with the project's plot file. The survey and the plots already assessed come in; the submitted plots go into a plot file of their own, ending in <code>_done.csv</code>, to leave out when you give out plots, and the others into a plot file for the remaining work. A plot can be in one plot file of a project only, so don't upload the whole plot file again afterwards.</li>
+    <li>Invite the team again, and give out the plots. Interpreters join the new project with its link, as the first time.</li>
+    <li>When everything is there, delete the old project (in its <span class="ui">Setup › Project</span>).</li>
   </ol>
 
   <h2 id="docker">On any other host, with Docker</h2>
