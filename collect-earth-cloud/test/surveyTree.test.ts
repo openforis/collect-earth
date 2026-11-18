@@ -19,7 +19,7 @@ const template = (name: string) => readFileSync(`${TEMPLATES}collect_earth${name
 /** Every survey at hand: the three templates of Collect, the demo project's, the desktop's test ones, the CEO imports */
 function allSurveys(): Array<[string, Buffer]> {
   const out: Array<[string, Buffer]> = [];
-  for (const f of readdirSync(TEMPLATES)) out.push([f, readFileSync(TEMPLATES + f)]);
+  for (const f of readdirSync(TEMPLATES)) if (f.endsWith('.xml')) out.push([f, readFileSync(TEMPLATES + f)]);
   out.push(['demo_survey.cep', Buffer.from(unzipSync(realDemoCep())['placemark.idm.xml'])]);
   out.push(['test_survey.idm.xml', readFileSync(`${DESKTOP_RESOURCES}test_survey.idm.xml`)]);
   for (const f of readdirSync(`${DESKTOP_RESOURCES}ceo/`)) {

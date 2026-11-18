@@ -28,6 +28,7 @@ import { CATALOGUES, useT, type MessageKey } from "../i18n";
 import { noteMessage, originalFileName, roundCodeLabel, roundMessage } from "../roundText";
 import { saveBlob } from "../saveBlob";
 import { useLoad } from "../useLoad";
+import { SurveyDesignCards } from "./SurveyDesign";
 import { queryClient } from "../queryClient";
 
 /** The Select's value for "None" (a code is never empty). */
@@ -247,8 +248,8 @@ export function FileTab({ projectId }: { projectId: string }) {
       setCleaned({ removed: answer.removedSettings ?? [], keyInExtraMap: answer.keyInExtraMap ?? false });
       setUploaded(true);
       setUploads((n) => n + 1);
-      // The new file's plot layout and imagery (Setup's section of them): asked again when it opens, not the old file's
-      for (const what of ["getPlotLayout", "getImagery"]) queryClient.removeQueries({ queryKey: ["project", projectId, what] });
+      // The new file's survey, plot layout and imagery (Setup's sections of them): asked again when it opens, not the old file's
+      for (const what of ["getPlotLayout", "getImagery", "getSurveyDesign"]) queryClient.removeQueries({ queryKey: ["project", projectId, what] });
       overview.reload();
       round.setData(info);
       await addGridFiles(file);
@@ -263,6 +264,8 @@ export function FileTab({ projectId }: { projectId: string }) {
 
   return (
     <Stack spacing={3}>
+      {/* What the survey asks, read from the project file; the file itself, and a new one, below */}
+      <SurveyDesignCards projectId={projectId} />
       <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
         <Typography variant="h2" gutterBottom>
           {t("file.title")}

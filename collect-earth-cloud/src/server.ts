@@ -67,6 +67,7 @@ import { registerRecordRoutes } from './routes/records.js';
 import { registerTrainingRoutes } from './routes/training.js';
 import { referenceSyncer, registerReferenceRoutes } from './routes/reference.js';
 import { registerSamplingRoutes } from './routes/sampling.js';
+import { registerSurveyDesignRoutes } from './routes/surveyDesign.js';
 import { SamplingService } from './samplingService.js';
 import { disableLocalOffRoutes, registerLocalRoutes, type LocalSetup } from './local.js';
 import { InMemoryStore } from './store/memory.js';
@@ -370,6 +371,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   await registerCeoShapesRoutes(app, store);
   await registerCollectImportRoutes(app, store);
   await registerPlotDesignRoutes(app, store);
+  await registerSurveyDesignRoutes(app, store);
   await registerSigridRoutes(app, store, places);
   await registerCollectBackupRoutes(app, store, config, limiter, now);
   await registerPlatformRoutes(app, store, config);

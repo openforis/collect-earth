@@ -386,6 +386,7 @@ describe('cross-tenant isolation', () => {
       { method: 'POST' as const, url: `/v1/projects/${b.projectId}/members/${set}/sign-out` },
       { method: 'PUT' as const, url: `/v1/projects/${b.projectId}/members/${set}/excluded`, payload: { excluded: true } },
       { method: 'POST' as const, url: `/v1/projects/${b.projectId}/plot-design`, payload: {} },
+      { method: 'GET' as const, url: `/v1/projects/${b.projectId}/survey/design` },
       { method: 'GET' as const, url: `/v1/projects/${b.projectId}/progress` },
       { method: 'GET' as const, url: `/v1/projects/${b.projectId}/progress/settings` },
       { method: 'PUT' as const, url: `/v1/projects/${b.projectId}/progress/settings`, payload: {} },

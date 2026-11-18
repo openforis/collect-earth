@@ -26,5 +26,5 @@ server-info's `dashboardBuild` changes with each build, and the page offers to r
 Moved here: every area of `web/src/api/`. `account.ts` (accounts, sign-in, the current user,
 two-step sign-in, digests, invites, server-info), `serverAdmin.ts` (the server page), `projects.ts`,
 `plotFiles.ts`, `data.ts`, `progress.ts`, `projectSettings.ts`, `quality.ts`, `ai.ts`, `reports.ts`,
-`checks.ts`, `review.ts`, `map.ts`, `people.ts`, `analysis.ts`, `activity.ts`, `training.ts`. A new
+`checks.ts`, `review.ts`, `map.ts`, `people.ts`, `analysis.ts`, `activity.ts`, `training.ts`, `survey.ts` (the survey designer). A new
 route gets its answer's type here, in the file of its area, and `web/src/api/` uses the answer as it comes.

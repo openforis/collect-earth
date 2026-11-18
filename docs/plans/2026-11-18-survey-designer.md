@@ -204,10 +204,10 @@ builder cannot show is displayed as text under "Advanced condition" and kept as 
 ### Calculated values
 
 A calculated value is a hidden field the form fills by itself from other answers, never asked to
-the interpreter: in the IPCC template, `ipcc_current_category` is worked out from the land use,
-its subdivision and the year of change by 563 formula lines such as
-`concat(ipcc_previous_category, ipcc_previous_category)` *if*
-`land_use_category_has_changed and land_use_subcategory_year_of_change > 2007`. The IPCC
+the interpreter: the IPCC template has 105 of them, with 561 formulas between them (563 default
+values in all), which build the land-use time series from the land use, its subdivision and the
+year of change: `ipcc_2000_subdivision`, for one, has 11 formulas, each a value *if* a condition
+such as `land_use_category_has_changed and land_use_subcategory_year_of_change > 2000`. The IPCC
 package and the analysis read these fields.
 
 They stay in a collapsed "Calculated values (advanced)" list, with their names, their formulas
@@ -385,3 +385,31 @@ seeing what the survey asks and fixing its wording without another program.
 4. **Preview:** in the designer and in Collect Earth through a draft project first.
 5. **Time questions:** later.
 6. **Stages 0 and 1** go ahead.
+
+## Progress
+
+**Stage 0, done (18 Nov).** `collect-earth-cloud/src/survey/xmlTree.ts` reads a survey into a
+tree that keeps every byte; `edit.ts` makes the designer's changes on it (labels, help texts, new
+questions and lists, list items, show when, required, number ranges, moves, deleting a question
+nothing uses). Read and written without a change, the three templates, the demo project's
+survey, the desktop's test survey and the 14 CEO imports come back byte for byte. A change
+touches only its own lines: an attribute changes inside the start tag as it was laid out (the
+multipurpose template puts its root's attributes on lines of their own), new elements take
+their siblings' indentation (tabs or spaces) and line breaks, and Collect's element order. The
+templates with the trial changes (`collect-earth-app/src/test/resources/designer/`) pass, in
+`DesignedSurveyIdmlTest`, Collect's IDML schema, Collect's `SurveyValidator` with the rules of
+`CollectEarthSurveyValidator` (managers mocked), and become the web form; the test reports a
+wrong condition, a name ending in `_2` and a missing `plot_file` when they are planted. Go.
+
+**Stage 1, done (18 Nov).** `src/survey/design.ts` reads the designer model (`src/wire/survey.ts`)
+and `condition.ts` the conditions as rows. On the three templates every condition reads as rows
+but the two `starts-with`, one nested group (IPCC) and the rules' conditions that look into a
+table's rows; they show as written. `GET /v1/projects/:pid/survey/design` (coordinators) serves
+it, and Setup › Survey form shows it above the project file: the survey's pages, folding, with
+each question's type, help text, answers, when it is shown, when required and its rules in
+words; a switch between the survey's languages with the count of texts not translated; folded
+cards for the plot file's values, the calculated values (formulas as text, and what they use),
+the hidden fields and the answer lists.
+
+Measured on the way: the IPCC template's formulas are 561, over 105 calculated values (up to 11
+each), not 563 in one.
