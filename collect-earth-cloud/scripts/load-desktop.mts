@@ -91,7 +91,7 @@ function start(i: Instance) {
   });
 }
 
-async function waitUp(i: Instance, minutes = 4) {
+async function waitUp(i: Instance, minutes = 8) {
   const until = Date.now() + minutes * 60_000;
   while (Date.now() < until) {
     try {
