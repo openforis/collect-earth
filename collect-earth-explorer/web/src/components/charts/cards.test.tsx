@@ -15,6 +15,8 @@ interface MockChartProps {
   name?: string;
   markers?: { x: number[] };
   onClickPoint?: (p: Point) => void;
+  onCompareYears?: (y: number) => void;
+  onCompareScenes?: (a: Point, b: Point) => void;
   selected?: number;
 }
 
@@ -29,6 +31,8 @@ vi.mock("./SeriesChart", () => ({
       data-markers={props.markers ? props.markers.x.length : ""}
       data-selected={props.selected ?? ""}
       onClick={() => props.onClickPoint?.(props.points[0])}
+      onDoubleClick={() => props.onCompareYears?.(2020)}
+      onContextMenu={() => props.onCompareScenes?.(props.points[0], { ...props.points[0], date: props.points[0].date + 86400000 })}
     />
   ),
 }));
@@ -53,6 +57,9 @@ function Probe() {
   return (
     <>
       <span data-testid="layer">{p.activeLayer}</span>
+      <span data-testid="compare">{p.compare ? `${p.activeLayer}@${p.yearOf(p.activeLayer as number)} | ${p.compareLayer}@${p.compareYear}` : ""}</span>
+      <span data-testid="compare-scenes">{p.compare && p.compareScene ? `${p.activeLayer}:${p.scene!.label} | ${p.compareLayer}:${p.compareScene.label}` : ""}</span>
+      <button onClick={() => p.setCompareLayer(0)}>pick right</button>
       <span data-testid="scene">{p.scene ? JSON.stringify(p.scene) : ""}</span>
     </>
   );
@@ -172,6 +179,33 @@ describe("series cards", () => {
     expect(sentinel2.getAttribute("data-selected")).toBe(String(T0));
   });
 
+  it("comparing around a change year puts the year before left and the year after right on that sensor's layer", async () => {
+    fetchMock.mockImplementation(async () => json({ points: [POINT] }));
+    setup(
+      <>
+        <LandsatNdviCard params={paramsOf("landsat-series")} />
+        <Sentinel2NdviCard params={paramsOf("sentinel2-series")} />
+      </>,
+    );
+    await vi.waitFor(() => expect(screen.getAllByTestId("series-chart")).toHaveLength(2));
+    const [landsat, sentinel2] = screen.getAllByTestId("series-chart");
+    const compare = () => screen.getByTestId("compare").textContent;
+    expect(compare()).toBe("");
+    // The standard layers: Sentinel-2 is entry 0, Landsat entry 1.
+    fireEvent.doubleClick(landsat);
+    expect(compare()).toBe("1@2019 | 1@2021");
+    fireEvent.doubleClick(sentinel2);
+    expect(compare()).toBe("0@2019 | 0@2021");
+    // Choosing the right-hand layer by hand drops the year override.
+    fireEvent.click(screen.getByRole("button", { name: "pick right" }));
+    expect(compare()).toBe("0@2019 | 0@undefined");
+    // Two scenes: the first is the selected scene on the left, the second is the right-hand one.
+    fireEvent.contextMenu(landsat);
+    expect(screen.getByTestId("compare-scenes").textContent).toBe("scene:LANDSAT 8 2021-01-01 | scene:LANDSAT 8 2021-01-02");
+    fireEvent.doubleClick(landsat);
+    expect(screen.getByTestId("compare-scenes").textContent).toBe("");
+  });
+
   it("the cloud select filters what the chart gets (keeping points without cloud), is shared by both cards, and the CSV keeps all", async () => {
     const points = [
       { ...POINT, cloud: 5 },
@@ -191,11 +225,13 @@ describe("series cards", () => {
     expect([...selects[0].options].map((o) => o.textContent)).toEqual(["☁️ Any cloud", "🌥️ max 80 %", "🌥️ max 60 %", "⛅ max 40 %", "🌤️ max 20 %", "☀️ max 10 %"]);
     expect(selects[0].disabled).toBe(false);
     const counts = () => screen.getAllByTestId("series-chart").map((c) => c.getAttribute("data-points"));
-    expect(counts()).toEqual(["3", "3"]);
-    fireEvent.change(selects[0], { target: { value: "40" } });
-    expect(selects[1].value).toBe("40");
+    // Nothing stored: 40 %.
+    expect(selects.map((s) => s.value)).toEqual(["40", "40"]);
     expect(counts()).toEqual(["2", "2"]);
-    expect(localStorage.getItem("explorer.maxCloud")).toBe("40");
+    fireEvent.change(selects[0], { target: { value: "any" } });
+    expect(selects[1].value).toBe("any");
+    expect(counts()).toEqual(["3", "3"]);
+    expect(localStorage.getItem("explorer.maxCloud")).toBe("any");
     fireEvent.click(screen.getAllByRole("button", { name: "CSV" })[0]);
     expect(download.mock.calls.at(-1)![1]).toBe(
       "date,value,sensor,cloud\n2021-01-01,0.5,LANDSAT_8,5\n2021-01-02,0.5,LANDSAT_8,50\n2021-01-03,0.5,LANDSAT_8,\n",

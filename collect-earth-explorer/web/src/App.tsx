@@ -38,14 +38,14 @@ function TileStatus({ side, tiles }: { side?: string; tiles: ApiState<TileRespon
 }
 
 function Viewer() {
-  const { plot, plotId, start, end, activeLayer, compare, compareLayer, charts, notices } = usePlot();
+  const { plot, plotId, start, end, activeLayer, compare, compareLayer, compareYear, compareScene, charts, notices } = usePlot();
   const tiles = useLayerTiles(activeLayer);
   // Comparing a layer with itself (same id, and so the same request key: an
   // entry's year and the scene are shared state) just shows the left tiles twice.
-  const sameLayer = compare && activeLayer === compareLayer;
+  const sameLayer = compare && activeLayer === compareLayer && compareYear === undefined && !compareScene;
   // Always mounted (hooks cannot be conditional) but only requested while
   // comparing a different layer, so a plain page load costs one tile request, not two.
-  const rightOwn = useLayerTiles(compareLayer, { enabled: compare && !sameLayer });
+  const rightOwn = useLayerTiles(compareLayer, { enabled: compare && !sameLayer }, { year: compareYear, scene: compareScene });
   const right = sameLayer ? tiles : rightOwn;
   return (
     <div className="viewer">

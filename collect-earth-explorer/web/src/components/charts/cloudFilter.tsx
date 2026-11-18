@@ -16,7 +16,7 @@ const LIMITS = [
  * without a numeric `cloud` is kept), memoised so the chart sees a stable list, and the select for the card.
  */
 export function useCloudFilter(points: Point[] | undefined) {
-  const [maxCloud, setMaxCloud] = usePref("explorer.maxCloud", "any");
+  const [maxCloud, setMaxCloud] = usePref("explorer.maxCloud", "40");
   const filtered = useMemo(() => {
     if (!points || maxCloud === "any") return points;
     const max = Number(maxCloud);

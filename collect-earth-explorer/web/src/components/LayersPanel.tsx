@@ -160,14 +160,14 @@ export default function LayersPanel() {
             value={p.compareLayer}
             onChange={(e) => p.setCompareLayer(e.target.value === "scene" ? "scene" : Number(e.target.value))}
           >
-            {/* The committed year: the right-hand tiles only change when the slider commits. */}
+            {/* The committed year: the right-hand tiles only change when the slider commits. A before/after comparison shows its own year. */}
             {p.layers.map((entry, i) => (
               <option key={i} value={i}>
-                {labelOf(entry, p.yearOf(i))}
+                {labelOf(entry, i === p.compareLayer && p.compareYear !== undefined ? p.compareYear : p.yearOf(i))}
               </option>
             ))}
             <option value="scene" disabled={!p.scene}>
-              {p.scene ? `Scene: ${p.scene.label}` : "Scene (click a chart point)"}
+              {p.scene ? `Scene: ${(p.compareScene ?? p.scene).label}` : "Scene (click a chart point)"}
             </option>
           </select>
         )}

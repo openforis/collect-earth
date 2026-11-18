@@ -11,7 +11,8 @@ import { chartRequest, normaliseFormula, type ChartEntry } from "../../lib/confi
 const isoDay = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 
 export default function LandsatNdviCard({ params }: { params: ChartEntry["params"] }) {
-  const { plot, start, end, plotId, scene, setScene } = usePlot();
+  const { plot, start, end, plotId, scene, setScene, canCompareAround, compareAround, compareScenes } = usePlot();
+  const toScene = (p: Point) => ({ sensor: "landsat" as const, timeStart: p.date, label: `${String(p.sensor).replace("_", " ")} ${isoDay(p.date)}` });
   const index = params.index as string;
   const formula = params.formula === undefined ? undefined : normaliseFormula(params.formula as string);
   // What the chart is called: the index, or the custom formula's name.
@@ -35,9 +36,9 @@ export default function LandsatNdviCard({ params }: { params: ChartEntry["params
           points={cloud.points ?? d.points}
           name={label}
           selected={scene?.sensor === "landsat" ? scene.timeStart : undefined}
-          onClickPoint={(p) =>
-            setScene({ sensor: "landsat", timeStart: p.date, label: `${String(p.sensor).replace("_", " ")} ${isoDay(p.date)}` })
-          }
+          onCompareYears={canCompareAround("landsat") ? (y) => compareAround("landsat", y) : undefined}
+          onClickPoint={(p) => setScene(toScene(p))}
+          onCompareScenes={(a, b) => compareScenes(toScene(a), toScene(b))}
         />
       )}
     </ChartCard>

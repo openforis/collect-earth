@@ -13,6 +13,10 @@ interface Props {
   color?: string;
   markers?: { x: number[]; name: string; color: string };
   onClickPoint?: (p: Point) => void;
+  /** Called with the change year to compare the composites of the years around it on the map. */
+  onCompareYears?: (changeYear: number) => void;
+  /** Called with the least cloudy observations of the 3 months before and after the change to compare those scenes. */
+  onCompareScenes?: (before: Point, after: Point) => void;
   yRange?: [number, number];
   /** Date (epoch ms) of the scene on the map; the point with exactly that date gets a ring. */
   selected?: number;
@@ -35,7 +39,7 @@ const yearOf = (ms: number) => new Date(ms).getUTCFullYear();
  * `data` and `layout` are memoised and `uirevision` is constant, so a re-render neither
  * re-plots nor resets the user's zoom.
  */
-export default function SeriesChart({ points, name, color = "#587F2E", markers, onClickPoint, yRange = DEFAULT_Y_RANGE, selected }: Props) {
+export default function SeriesChart({ points, name, color = "#587F2E", markers, onClickPoint, onCompareYears, onCompareScenes, yRange = DEFAULT_Y_RANGE, selected }: Props) {
   const [yMin, yMax] = yRange;
   const markerX = markers?.x;
   const markerName = markers?.name;
@@ -191,6 +195,15 @@ export default function SeriesChart({ points, name, color = "#587F2E", markers, 
     const m = medianOf(inYear.map((p) => p.value));
     return inYear.reduce((a, b) => (Math.abs(b.value - m) < Math.abs(a.value - m) ? b : a));
   };
+  // The least cloudy observation dated in [from, to); among equals the one nearest the change.
+  const clearest = (from: number, to: number, at: number) =>
+    points
+      .filter((p) => p.date >= from && p.date < to)
+      .sort((a, b) => (a.cloud ?? 101) - (b.cloud ?? 101) || Math.abs(a.date - at) - Math.abs(b.date - at))[0];
+  // The change is drawn at 1 January of its year: the 3 months before it and the 3 months from it.
+  const at = change && Date.UTC(change.year, 0, 1);
+  const clearBefore = change && clearest(Date.UTC(change.year - 1, 9, 1), at!, at!);
+  const clearAfter = change && clearest(at!, Date.UTC(change.year, 3, 1), at!);
   const [helpOpen, setHelpOpen] = useState(false);
   const lines = [
     showTrend && (
@@ -206,6 +219,25 @@ export default function SeriesChart({ points, name, color = "#587F2E", markers, 
             {" "}
             <button onClick={() => onClickPoint(sceneOf(Math.max(...years.filter((y) => y < change.year))))}>Scene before</button>{" "}
             <button onClick={() => onClickPoint(sceneOf(change.year))}>Scene after</button>
+          </>
+        )}
+        {change && onCompareYears && (
+          <>
+            {" "}
+            <button title="Compare the yearly composites of the year before and the year after on the map" onClick={() => onCompareYears(change.year)}>
+              Compare years
+            </button>
+          </>
+        )}
+        {onCompareScenes && clearBefore && clearAfter && (
+          <>
+            {" "}
+            <button
+              title="Compare the least cloudy scene of the 3 months before the change with the least cloudy of the 3 months after"
+              onClick={() => onCompareScenes(clearBefore, clearAfter)}
+            >
+              Compare scenes
+            </button>
           </>
         )}
       </div>

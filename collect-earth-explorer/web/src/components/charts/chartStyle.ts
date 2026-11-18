@@ -10,7 +10,7 @@ export const CONFIG: Partial<Config> = {
   displaylogo: false,
   responsive: true,
   displayModeBar: "hover",
-  modeBarButtonsToRemove: ["lasso2d", "select2d", "zoomIn2d", "zoomOut2d", "autoScale2d"],
+  modeBarButtonsToRemove: ["toImage", "lasso2d","select2d", "zoomIn2d", "zoomOut2d", "autoScale2d"],
 };
 
 /** Plotly treats a JS Date as local time; an ISO string is unambiguous UTC. */

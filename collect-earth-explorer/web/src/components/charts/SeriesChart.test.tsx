@@ -204,9 +204,32 @@ describe("SeriesChart", () => {
     fireEvent.click(screen.getByRole("button", { name: "Scene after" }));
     expect(onClickPoint).toHaveBeenLastCalledWith(pts.find((p) => p.date === Date.UTC(2020, 5, 1)));
     unmount();
-    render(<SeriesChart points={pts} name="NDVI" />);
+    const onCompareYears = vi.fn();
+    render(<SeriesChart points={pts} name="NDVI" onCompareYears={onCompareYears} />);
+    fireEvent.click(screen.getByRole("button", { name: "Compare years" }));
+    expect(onCompareYears).toHaveBeenLastCalledWith(2020);
     expect(screen.queryByRole("button", { name: "Scene before" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Scene after" })).toBeNull();
+  });
+
+  it("Compare scenes passes the least cloudy observation of the 3 months each side of the change, when both exist", () => {
+    const yearly = Array.from({ length: 20 }, (_, i) => ({ date: Date.UTC(2010 + i, 5, 1), value: i < 10 ? 0.2 : 0.7 }));
+    const near = [
+      { date: Date.UTC(2019, 8, 30), value: 0.2, cloud: 0 }, // outside the 3 months
+      { date: Date.UTC(2019, 10, 5), value: 0.2, cloud: 30 },
+      { date: Date.UTC(2019, 11, 5), value: 0.2, cloud: 5 },
+      { date: Date.UTC(2020, 0, 20), value: 0.7, cloud: 8 },
+      { date: Date.UTC(2020, 2, 20), value: 0.7, cloud: 8 },
+      { date: Date.UTC(2020, 1, 20), value: 0.7 }, // no cloud value: last choice
+    ];
+    const pts = [...yearly, ...near].sort((a, b) => a.date - b.date);
+    const onCompareScenes = vi.fn();
+    const { unmount } = render(<SeriesChart points={pts} name="NDVI" onCompareScenes={onCompareScenes} />);
+    fireEvent.click(screen.getByRole("button", { name: "Compare scenes" }));
+    expect(onCompareScenes).toHaveBeenLastCalledWith(near[2], near[3]);
+    unmount();
+    render(<SeriesChart points={yearly} name="NDVI" onCompareScenes={onCompareScenes} />);
+    expect(screen.queryByRole("button", { name: "Compare scenes" })).toBeNull();
   });
 
   it("unusual values colour trace 0 per point and add no trace", () => {

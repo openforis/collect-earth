@@ -34,6 +34,16 @@ export interface PlotState extends PlotParams {
   setCompare: (c: boolean) => void;
   compareLayer: LayerId;
   setCompareLayer: (l: LayerId) => void;
+  /** The year the right-hand side shows instead of its row's year; set by `compareAround`, cleared by the Compare controls. */
+  compareYear?: number;
+  /** Whether a `type` entry with a year slider exists for `compareAround`. */
+  canCompareAround: (type: LayerEntry["type"]) => boolean;
+  /** Compares that entry's composite of the year before `year` (left) with the year after it (right). */
+  compareAround: (type: LayerEntry["type"], year: number) => void;
+  /** The scene the right-hand side shows instead of the selected one; set by `compareScenes`, cleared like `compareYear`. */
+  compareScene?: Scene;
+  /** Compares two scenes: `before` becomes the selected scene (left), `after` the right-hand one. */
+  compareScenes: (before: Scene, after: Scene) => void;
 }
 
 const Ctx = createContext<PlotState | null>(null);
@@ -67,8 +77,50 @@ export function PlotProvider({
     Object.fromEntries(config.layers.map((e, i) => [i, e.params.bands as string])),
   );
   const [scene, setSceneState] = useState<Scene>();
-  const [compare, setCompare] = useState(false);
-  const [compareLayer, setCompareLayer] = useState<LayerId>(config.layers.length > 1 ? 1 : 0);
+  const [compare, setCompareState] = useState(false);
+  const [compareLayer, setCompareLayerState] = useState<LayerId>(config.layers.length > 1 ? 1 : 0);
+  const [compareYear, setCompareYear] = useState<number>();
+  const [compareScene, setCompareScene] = useState<Scene>();
+  // Choosing what to compare by hand drops the right-hand override.
+  const setCompare = useCallback((c: boolean) => {
+    setCompareState(c);
+    setCompareYear(undefined);
+    setCompareScene(undefined);
+  }, []);
+  const setCompareLayer = useCallback((l: LayerId) => {
+    setCompareLayerState(l);
+    setCompareYear(undefined);
+    setCompareScene(undefined);
+  }, []);
+  const compareScenes = useCallback((before: Scene, after: Scene) => {
+    setSceneState(before);
+    setActiveLayer("scene");
+    setCompareLayerState("scene");
+    setCompareYear(undefined);
+    setCompareScene(after);
+    setCompareState(true);
+  }, []);
+  // The first entry of the type whose year can change (not a Sentinel-2 one with a fixed window).
+  const yearEntry = useCallback(
+    (type: LayerEntry["type"]) => config.layers.findIndex((e) => e.type === type && e.params.start === undefined),
+    [config.layers],
+  );
+  const canCompareAround = useCallback((type: LayerEntry["type"]) => yearEntry(type) >= 0, [yearEntry]);
+  const compareAround = useCallback(
+    (type: LayerEntry["type"], year: number) => {
+      const i = yearEntry(type);
+      if (i < 0) return;
+      const [min, max] = yearRange(config.layers[i], params.end);
+      const clamp = (y: number) => Math.min(Math.max(y, min), max);
+      setYears((ys) => ({ ...ys, [i]: clamp(year - 1) }));
+      setActiveLayer(i);
+      setCompareLayerState(i);
+      setCompareYear(clamp(year + 1));
+      setCompareScene(undefined);
+      setCompareState(true);
+    },
+    [yearEntry, config.layers, params.end],
+  );
   // React batches the two state updates below into a single render.
   const setScene = useCallback((s: Scene) => {
     setSceneState(s);
@@ -102,8 +154,13 @@ export function PlotProvider({
       setCompare,
       compareLayer,
       setCompareLayer,
+      compareYear,
+      canCompareAround,
+      compareAround,
+      compareScene,
+      compareScenes,
     }),
-    [params, config, activeLayer, yearOf, setYear, selectYear, bandsOf, setBands, scene, setScene, compare, compareLayer],
+    [params, config, activeLayer, yearOf, setYear, selectYear, bandsOf, setBands, scene, setScene, compare, setCompare, compareLayer, setCompareLayer, compareYear, canCompareAround, compareAround, compareScene, compareScenes],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

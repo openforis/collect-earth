@@ -1,7 +1,7 @@
 import { useApi, type ApiOptions } from "../hooks/useApi";
 import { postApi, type PlotBody, type TileResponse } from "../lib/api";
 import { nonDefault, type LayerEntry } from "../lib/config";
-import { usePlot, type LayerId, type Year } from "../state/PlotContext";
+import { usePlot, type LayerId, type Scene, type Year } from "../state/PlotContext";
 
 /**
  * The request fields for an entry's non-default parameters; the standard entries send none.
@@ -24,10 +24,12 @@ export function layerRequest(entry: LayerEntry, year: Year | undefined, p: PlotB
 /**
  * Fetches the tile URL for one imagery layer; refetches when its inputs change.
  * Pass `{ enabled: false }` to hold the request (see `ApiOptions.enabled`).
+ * `override` replaces the entry's own year or the selected scene (the right-hand side of a before/after comparison).
  */
-export function useLayerTiles(layer: LayerId, options?: ApiOptions) {
-  const { plot, start, end, layers, yearOf, bandsOf, scene } = usePlot();
-  const year = layer === "scene" ? undefined : yearOf(layer);
+export function useLayerTiles(layer: LayerId, options?: ApiOptions, override: { year?: number; scene?: Scene } = {}) {
+  const { plot, start, end, layers, yearOf, bandsOf, scene: selected } = usePlot();
+  const scene = override.scene ?? selected;
+  const year = layer === "scene" ? undefined : (override.year ?? yearOf(layer));
   // The row's band selector overrides the entry's bands.
   const entry = layer === "scene" ? undefined : { ...layers[layer], params: { ...layers[layer].params, bands: bandsOf(layer) } };
   const key = entry ? `${year ?? "fixed"}:${JSON.stringify(layerFields(entry, year))}` : scene && `${scene.sensor}:${scene.timeStart}`;
