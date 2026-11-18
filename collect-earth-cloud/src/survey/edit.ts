@@ -21,8 +21,11 @@ import {
   type XmlDocument,
   type XmlElement,
 } from './xmlTree.js';
-import type { SurveyOperation } from '../wire/survey.js';
+import type { ConditionRows, NewRule, SurveyOperation } from '../wire/survey.js';
 import { isFixed } from './design.js';
+import { SurveyEditError } from './errors.js';
+import { conditionExpression, ruleCheck, type LogicScope } from './logic.js';
+import { namesUsed } from './condition.js';
 import { checkExpression, checkSurvey, problemText, schemaOf, type ExpressionKind, type SchemaNode, type SurveyProblem } from './check.js';
 
 export const IDML_NS = 'http://www.openforis.org/idml/3.0';
@@ -47,7 +50,7 @@ const LANGUAGE_CODE = /^[a-z]{2,3}(_[A-Z]{2})?$/;
 export const MAX_TEXT = 4000;
 const localName = (e: XmlElement) => e.name.slice(e.name.indexOf(':') + 1);
 
-export class SurveyEditError extends Error {}
+export { SurveyEditError };
 
 /** A survey being changed. */
 export class SurveyEdit {
@@ -235,6 +238,14 @@ export class SurveyEdit {
         return this.deleteQuestion(op.id);
       case 'setRequired':
         return this.setQuestionRequired(op.id, op.required);
+      case 'setShownWhen':
+        return this.setNodeShownWhen(op.id, op.when);
+      case 'addRule':
+        return void this.putRule(op.id, op.rule);
+      case 'setRule':
+        return void this.putRule(op.id, op.rule, op.index);
+      case 'deleteRule':
+        return this.deleteRule(op.id, op.index);
       case 'addList':
         return void this.addNewList(op.label, op.items, op.name);
       case 'deleteList':
@@ -465,13 +476,117 @@ export class SurveyEdit {
     this.removeQuestion(node);
   }
 
-  setQuestionRequired(id: number, required: boolean): void {
+  setQuestionRequired(id: number, required: boolean | ConditionRows): void {
+    const node = this.askedNode(id);
+    if (node.name === 'entity') throw new SurveyEditError('A table is not answered itself: its questions are.');
+    if (typeof required !== 'boolean' && (required === null || typeof required !== 'object')) throw new SurveyEditError('Required is yes, no or a condition.');
+    this.setRequired(node, typeof required === 'boolean' ? required : conditionExpression(this.logicScope(), node, required, false));
+  }
+
+  /** A question or table the designer can give logic to: not a field Collect Earth fills, nor a calculated or hidden one */
+  private askedNode(id: number): XmlElement {
     const node = this.nodeById(id);
     const name = attrValue(this.doc, node, 'name') ?? '';
-    if (node.name === 'entity') throw new SurveyEditError('A table is not answered itself: its questions are.');
+    if (node === this.rootEntity()) throw new SurveyEditError('The plot is always there.');
     if (isFixed(name, attrValue(this.doc, node, 'key') === 'true')) throw new SurveyEditError(`${name} is one of the fields Collect Earth needs.`);
     if (attrValue(this.doc, node, 'calculated') === 'true') throw new SurveyEditError('A calculated value is never asked.');
-    this.setRequired(node, required);
+    if (attrValue(this.doc, node, 'relevant')?.trim() === 'false()') throw new SurveyEditError(`${name} is never shown in the form.`);
+    return node;
+  }
+
+  /** What the logic builder reads: the document, the plot and the lists */
+  private logicScope(): LogicScope {
+    return {
+      doc: this.doc,
+      plot: this.rootEntity(),
+      list: (name) => {
+        const lists = firstChild(this.survey, 'codeLists');
+        return lists ? childrenNamed(lists, 'list').find((l) => attrValue(this.doc, l, 'name') === name) : undefined;
+      },
+    };
+  }
+
+  /** When a question or table is shown, from rows; null: always. Refused when shows would depend on each other in a circle. */
+  setNodeShownWhen(id: number, when: ConditionRows | null): void {
+    const node = this.askedNode(id);
+    if (when === null) {
+      setAttr(node, 'relevant', undefined);
+      return;
+    }
+    this.setShownWhen(node, conditionExpression(this.logicScope(), node, when, false));
+    const cycle = this.shownCycle(attrValue(this.doc, node, 'name') ?? '');
+    if (cycle) throw new SurveyEditError(`Shown when would go round in a circle: ${cycle.join(' → ')}.`);
+  }
+
+  /** A circle of questions each shown depending on the next, through `start`; null when there is none */
+  private shownCycle(start: string): string[] | null {
+    const names = this.schemaNames();
+    const uses = new Map<string, string[]>();
+    for (const e of descendants(this.schema())) {
+      const relevant = isNode(e) ? attrValue(this.doc, e, 'relevant') : undefined;
+      if (relevant) uses.set(attrValue(this.doc, e, 'name') ?? '', namesUsed(relevant, names));
+    }
+    const path: string[] = [];
+    const seen = new Set<string>();
+    const walk = (name: string): boolean => {
+      path.push(name);
+      for (const next of uses.get(name) ?? []) {
+        if (next === start) return true;
+        if (!seen.has(next)) {
+          seen.add(next);
+          if (walk(next)) return true;
+        }
+      }
+      path.pop();
+      return false;
+    };
+    return walk(start) ? [...path, start] : null;
+  }
+
+  /** The rules (checks) of a question, in order */
+  private rulesOf(node: XmlElement): XmlElement[] {
+    return childElements(node).filter((c) => CHECK_TAGS.includes(c.name));
+  }
+
+  /**
+   * A rule from the builder, after the question's others, or in place of its rule `index`: the messages of the
+   * languages not given stay
+   */
+  putRule(id: number, rule: NewRule, index?: number): XmlElement {
+    const node = this.askedNode(id);
+    if (node.name === 'entity') throw new SurveyEditError('A rule is on a question: a table\'s are on its columns.');
+    const old = index === undefined ? undefined : this.rulesOf(node)[index];
+    if (index !== undefined && !old) throw new SurveyEditError(`The question has no rule ${index + 1}.`);
+    const { tag, attrs } = ruleCheck(this.logicScope(), node, rule);
+    const languages = this.languages();
+    const messages = new Map<string, string>();
+    if (old) for (const m of childrenNamed(old, 'message')) messages.set(attrValue(this.doc, m, 'xml:lang') ?? languages[0], textValue(this.doc, m));
+    for (const [language, text] of Object.entries(rule.message ?? {})) {
+      if (!languages.includes(language)) throw new SurveyEditError(`The survey has no language ${language}: add it first.`);
+      if (typeof text !== 'string') continue;
+      if (text.length > MAX_TEXT) throw new SurveyEditError(`A text has at most ${MAX_TEXT} characters.`);
+      if (text.trim() === '') messages.delete(language);
+      else messages.set(language, text.trim());
+    }
+    const check = newElement(
+      tag,
+      attrs,
+      [...messages].map(([language, text]) => newElement('message', [['xml:lang', language]], [text])),
+    );
+    if (old) {
+      insertElement(this.doc, node, check, old);
+      removeElement(old);
+    } else {
+      this.insertInOrder(node, check, NODE_ORDER, this.rulesOf(node).pop());
+    }
+    return check;
+  }
+
+  deleteRule(id: number, index: number): void {
+    const node = this.nodeById(id);
+    const rule = this.rulesOf(node)[index];
+    if (!rule) throw new SurveyEditError(`The question has no rule ${index + 1}.`);
+    removeElement(rule);
   }
 
   /** A new answer list with its answers, its name made from its label when not given */

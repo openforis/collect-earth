@@ -38,7 +38,9 @@ describe("the survey in words", () => {
 
   it("writes rules as limits, and the others as written", () => {
     expect(ruleWords(en, question("integer_demo").rules[0])).toBe("The answer must be more than 5 and less than 20");
-    expect(ruleWords(en, question("short_text_demo").rules[0])).toBe("Rule: string-length($this) > 5");
+    expect(ruleWords(en, question("short_text_demo").rules[0])).toBe("The answer must have at least 6 characters");
+    expect(ruleWords(en, { flag: "warning", message: {}, when: null, kind: "total", test: "atMost", total: 100 })).toBe("The column should add up to at most 100 (a warning)");
+    expect(ruleWords(en, { flag: "error", message: {}, when: null, kind: "advanced", text: "a != b" })).toBe("Rule: a != b");
     const w = words(ipcc, "en", translator("en"));
     const year = w.questions.get("second_lu_conversion_year")!;
     expect(ruleWords(w, year.rules[0])).toBe(

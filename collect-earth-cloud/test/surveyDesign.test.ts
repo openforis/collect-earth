@@ -87,7 +87,7 @@ describe('the designer model of the templates', () => {
     expect(d.calculated.length).toBe(3);
 
     const [shortText, code, yesNo, memo, integer] = pageQuestions(d.pages[0].items);
-    expect(shortText.rules).toEqual([{ flag: 'error', message: { en: 'You must fill at least 5 characters', es: expect.any(String), fr: expect.any(String), pt: expect.any(String) }, when: null, kind: 'advanced', text: 'string-length($this) > 5' }]);
+    expect(shortText.rules).toEqual([{ flag: 'error', message: { en: 'You must fill at least 5 characters', es: expect.any(String), fr: expect.any(String), pt: expect.any(String) }, when: null, kind: 'length', min: 6, max: null }]);
     expect(code).toMatchObject({ type: 'choice', list: 'demo_codelist', required: 'always' });
     expect(yesNo.type).toBe('yesNo');
     expect(memo).toMatchObject({ type: 'memo', shownWhen: { kind: 'all', parts: [{ question: 'yes_no_demo', test: 'is', value: true }] } });

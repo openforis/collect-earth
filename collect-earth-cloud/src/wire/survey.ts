@@ -39,6 +39,12 @@ export type DesignCondition =
   | { kind: 'never' }
   | { kind: 'advanced'; text: string };
 
+/** A condition as the designer's builder makes it: rows joined by all (and) or any (or) */
+export interface ConditionRows {
+  kind: 'all' | 'any';
+  parts: ConditionPart[];
+}
+
 /** A limit of a number: a number, another question, or an expression as written */
 export type RuleBound = { number: number } | { question: string } | { expression: string };
 
@@ -51,7 +57,31 @@ export type DesignRule = {
   when: DesignCondition | null;
 } & (
   | { kind: 'range'; min: { bound: RuleBound; inclusive: boolean } | null; max: { bound: RuleBound; inclusive: boolean } | null }
+  /** A text's number of characters, at least and at most */
+  | { kind: 'length'; min: number | null; max: number | null }
+  /** A table's column adds up to at least, at most or exactly a number (written on the column) */
+  | { kind: 'total'; test: TotalTest; total: number }
   | { kind: 'advanced'; text: string }
+);
+
+export type TotalTest = 'atLeast' | 'atMost' | 'exactly';
+
+/** A limit of a number in a rule the builder makes: a number or another question */
+export interface NewRuleLimit {
+  bound: { number: number } | { question: string };
+  inclusive: boolean;
+}
+
+/** A rule as the builder makes it: the server writes Collect's check from it */
+export type NewRule = {
+  flag: 'error' | 'warning';
+  /** In the languages given; another language's message stays when the rule is changed */
+  message: Localized;
+  when: ConditionRows | null;
+} & (
+  | { kind: 'range'; min: NewRuleLimit | null; max: NewRuleLimit | null }
+  | { kind: 'length'; min: number | null; max: number | null }
+  | { kind: 'total'; test: TotalTest; total: number }
 );
 
 /** One formula of a calculated value: its value, or its expression, when its condition holds */
@@ -207,7 +237,6 @@ export type WordTarget =
   /** A rule's message: the rule's place among the node's rules */
   | { kind: 'rule'; node: number; index: number };
 
-/** A change of the survey designer (stage 2: its words) */
 /** The kinds of question the designer adds */
 export type NewQuestionType = 'choice' | 'choices' | 'yesNo' | 'integer' | 'decimal' | 'text' | 'memo' | 'date';
 
@@ -217,7 +246,7 @@ export interface NewItem {
   label: Localized;
 }
 
-/** A change of the survey designer: its words (stage 2), its pages, questions and lists (stage 3) */
+/** A change of the survey designer: its words (stage 2), its pages, questions and lists (stage 3), its logic (stage 4) */
 export type SurveyOperation =
   /** A text in a language; "" takes it away (the form shows another language's) */
   | { op: 'setText'; target: WordTarget; part: 'label' | 'help' | 'message'; language: string; text: string }
@@ -247,7 +276,15 @@ export type SurveyOperation =
   | { op: 'moveQuestion'; id: number; page?: string; before?: number }
   /** A question nothing else uses (no condition, rule or formula names it) */
   | { op: 'deleteQuestion'; id: number }
-  | { op: 'setRequired'; id: number; required: boolean }
+  /** Required always (true), never (false), or when the rows hold */
+  | { op: 'setRequired'; id: number; required: boolean | ConditionRows }
+  /** When a question or table is shown: null, always */
+  | { op: 'setShownWhen'; id: number; when: ConditionRows | null }
+  /** A rule of a question, after its others */
+  | { op: 'addRule'; id: number; rule: NewRule }
+  /** A rule of a question replaced: its place among the question's rules */
+  | { op: 'setRule'; id: number; index: number; rule: NewRule }
+  | { op: 'deleteRule'; id: number; index: number }
   /** A new answer list, its name made from its label when not given */
   | { op: 'addList'; name?: string; label: Localized; items: NewItem[] }
   /** A list no question uses */
@@ -265,7 +302,14 @@ export type SurveyEffect =
   /** An answer deleted: the plots that chose it keep a code that matches nothing */
   | { kind: 'itemDeleted'; list: string; code: string; chosen: number }
   /** A question made required: the plots that have no answer to it are flagged when they are opened again */
-  | { kind: 'nowRequired'; question: string; unanswered: number };
+  | { kind: 'nowRequired'; question: string; unanswered: number }
+  /**
+   * A rule added or changed, tried on the plots collected: those it would flag (the first of them in examples), of
+   * those where it applies (an answer, the question shown, the rule's condition holding)
+   */
+  | { kind: 'ruleFlags'; question: string; flagged: number; checked: number; examples: string[] }
+  /** A question or table shown under a new condition: plots with an answer to it where it would now be hidden */
+  | { kind: 'hiddenAnswers'; question: string; answered: number };
 
 export interface SurveyImpactAnswer {
   /** The plots collected so far */

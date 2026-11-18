@@ -19,6 +19,10 @@ import { SurveyEdit, SurveyEditError } from '../survey/edit.js';
 import { surveyImpact } from '../survey/impact.js';
 import { XmlTreeError } from '../survey/xmlTree.js';
 import type {
+  ConditionPart,
+  ConditionRows,
+  NewRule,
+  NewRuleLimit,
   SurveyChangeInput,
   SurveyChangeRefusal,
   SurveyDesignAnswer,
@@ -26,6 +30,7 @@ import type {
   SurveyOperation,
   SurveyRestoreInput,
   SurveyVersionsAnswer,
+  TotalTest,
   WordTarget,
 } from '../wire/survey.js';
 
@@ -150,8 +155,24 @@ function readOperation(raw: unknown): SurveyOperation | null {
         : null;
     case 'deleteQuestion':
       return Number.isInteger(o.id) ? { op: 'deleteQuestion', id: o.id as number } : null;
-    case 'setRequired':
-      return Number.isInteger(o.id) && typeof o.required === 'boolean' ? { op: 'setRequired', id: o.id as number, required: o.required } : null;
+    case 'setRequired': {
+      const required = typeof o.required === 'boolean' ? o.required : readRows(o.required);
+      return Number.isInteger(o.id) && required !== null ? { op: 'setRequired', id: o.id as number, required } : null;
+    }
+    case 'setShownWhen': {
+      const when = o.when === null ? null : readRows(o.when);
+      return Number.isInteger(o.id) && (o.when === null || when !== null) ? { op: 'setShownWhen', id: o.id as number, when } : null;
+    }
+    case 'addRule': {
+      const rule = readRule(o.rule);
+      return Number.isInteger(o.id) && rule ? { op: 'addRule', id: o.id as number, rule } : null;
+    }
+    case 'setRule': {
+      const rule = readRule(o.rule);
+      return Number.isInteger(o.id) && isIndex(o.index) && rule ? { op: 'setRule', id: o.id as number, index: o.index as number, rule } : null;
+    }
+    case 'deleteRule':
+      return Number.isInteger(o.id) && isIndex(o.index) ? { op: 'deleteRule', id: o.id as number, index: o.index as number } : null;
     case 'addList': {
       const label = readLocalized(o.label);
       if (!label || !optionalString(o.name, 63) || !Array.isArray(o.items) || o.items.length > 1000) return null;
@@ -173,6 +194,62 @@ function readOperation(raw: unknown): SurveyOperation | null {
         : null;
     case 'deleteItem':
       return isString(o.list) && isString(o.code, 100) ? { op: 'deleteItem', list: o.list, code: o.code } : null;
+    default:
+      return null;
+  }
+}
+
+const isIndex = (v: unknown) => Number.isInteger(v) && (v as number) >= 0 && (v as number) < 1000;
+const CONDITION_TESTS = new Set(['is', 'isNot', 'lt', 'lte', 'gt', 'gte', 'answered', 'notAnswered']);
+
+/** A condition's rows as the builder sends them; what they say is checked when they are written (logic.ts) */
+function readRows(v: unknown): ConditionRows | null {
+  const o = (v ?? {}) as Record<string, unknown>;
+  if ((o.kind !== 'all' && o.kind !== 'any') || !Array.isArray(o.parts) || o.parts.length > 50) return null;
+  const parts: ConditionPart[] = [];
+  for (const raw of o.parts) {
+    const p = (raw ?? {}) as Record<string, unknown>;
+    const value = p.value;
+    const valueOk = value === null || typeof value === 'boolean' || (typeof value === 'number' && Number.isFinite(value)) || isString(value, 1000);
+    if (!isString(p.question, 63) || !CONDITION_TESTS.has(p.test as string) || !valueOk) return null;
+    parts.push({ question: p.question, test: p.test as ConditionPart['test'], value: value as ConditionPart['value'] });
+  }
+  return { kind: o.kind, parts };
+}
+
+function readLimit(v: unknown): NewRuleLimit | null | undefined {
+  if (v === null || v === undefined) return null;
+  const o = v as Record<string, unknown>;
+  const b = (o.bound ?? {}) as Record<string, unknown>;
+  if (typeof o.inclusive !== 'boolean') return undefined;
+  if (typeof b.number === 'number' && Number.isFinite(b.number)) return { bound: { number: b.number }, inclusive: o.inclusive };
+  if (isString(b.question, 63)) return { bound: { question: b.question }, inclusive: o.inclusive };
+  return undefined;
+}
+
+const nullableNumber = (v: unknown): v is number | null => v === null || (typeof v === 'number' && Number.isFinite(v));
+
+/** A rule as the builder sends it */
+function readRule(v: unknown): NewRule | null {
+  const o = (v ?? {}) as Record<string, unknown>;
+  if (o.flag !== 'error' && o.flag !== 'warning') return null;
+  const message = o.message === undefined ? {} : readLocalized(o.message);
+  if (!message) return null;
+  const when = o.when === null || o.when === undefined ? null : readRows(o.when);
+  if (o.when !== null && o.when !== undefined && when === null) return null;
+  const base = { flag: o.flag, message, when } as const;
+  switch (o.kind) {
+    case 'range': {
+      const min = readLimit(o.min);
+      const max = readLimit(o.max);
+      return min !== undefined && max !== undefined ? { ...base, kind: 'range', min, max } : null;
+    }
+    case 'length':
+      return nullableNumber(o.min) && nullableNumber(o.max) ? { ...base, kind: 'length', min: o.min, max: o.max } : null;
+    case 'total':
+      return ['atLeast', 'atMost', 'exactly'].includes(o.test as string) && typeof o.total === 'number' && Number.isFinite(o.total)
+        ? { ...base, kind: 'total', test: o.test as TotalTest, total: o.total }
+        : null;
     default:
       return null;
   }
@@ -317,15 +394,17 @@ export async function registerSurveyDesignRoutes(app: FastifyInstance, store: St
     const served = await store.getCep(projectId);
     if (!served) return reply.code(404).send({ error: 'not_found' });
     const survey = surveyOf(readCep(served));
+    let after: Buffer;
     try {
       const edit = new SurveyEdit(survey);
       for (const op of operations) edit.apply(op);
+      after = edit.bytes();
     } catch (err) {
       if (err instanceof SurveyEditError) return reply.code(400).send({ error: 'bad_request', reason: err.message } satisfies SurveyChangeRefusal);
       throw err;
     }
     const records = await store.listRecordSummaries(projectId);
-    return surveyImpact(survey, operations, records) satisfies SurveyImpactAnswer;
+    return surveyImpact(survey, operations, records, after) satisfies SurveyImpactAnswer;
   });
 
   app.get('/v1/projects/:pid/survey/versions', admin, async (request) => {

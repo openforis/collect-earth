@@ -5,6 +5,7 @@ import { p, request } from "./transport";
 
 export type {
   ConditionPart,
+  ConditionRows,
   ConditionTest,
   DesignCondition,
   DesignItem,
@@ -28,6 +29,9 @@ export type {
   SurveyImpactAnswer,
   NewQuestionType,
   NewItem,
+  NewRule,
+  NewRuleLimit,
+  TotalTest,
   SurveyChangeRefusal,
   SurveyVersionView,
   SurveyVersionsAnswer,

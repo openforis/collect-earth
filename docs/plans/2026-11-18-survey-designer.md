@@ -540,3 +540,26 @@ operation. Left for later: the plot file's columns (read by position, a change t
 too), changing an answer's code or a question's kind, deleting a table, and the conditions and rules (stage 4).
 The server's reasons for a refusal show in English.
 
+**Stage 4a, done (18 Nov), conditions and rules from rows.** On each question and table, the eye opens "When is it
+shown?": always, or only when rows of question, test and answer hold, all or any of them (a choice is or is not one
+of its list's answers, a yes/no is yes or no, a number is compared with a number, a text with a text, any question
+is answered or not). The Required choice is no, yes, or "Required when…" with the same rows. "Add a rule" makes a
+number's lowest and highest value (a number or another question's answer, the limit itself allowed or not), a text's
+fewest and most characters, or a table column's total over its rows (at least, at most, exactly), as an error or a
+warning, only when rows hold if asked, with its message (the rule in words when left empty). A rule written in
+Collect's designer that the builder can say (a range with numbers or questions, `string-length($this)`, the column's
+`sum(parent()/table/column)`) can be changed; any other is shown as written and only deleted. The server checks each
+row (`src/survey/logic.ts`: the question exists and can be reached from where the expression is evaluated, its own
+row and the plot's for a table's column; the test suits its kind; a code is of its list; a range is not empty;
+no question shown depending on itself, nor a circle of shows) and writes Collect's expressions:
+`not(idm:blank(q))` and `idm:blank(q)` as the templates do, `q = true()`, `not(q = 'X')` for "is not" on several
+answers, `parent()/q` from a row, `flag="warn"` for a warning (Collect's own word: the reader took "warning" before,
+so a warning written in Collect showed as an error). They read back as the same rows (`condition.ts`, `design.ts`).
+Before saving, the impact evaluates the new rule on the records' summaries (only where the question is answered and
+shown and the rule's condition holds): "the rule would flag 1 of the 2 plots where it applies. Plots: 7"; a new
+show-when counts the answers it would hide, a conditional required the plots it would flag. The desktop's
+`DesignedSurveyIdmlTest` passes on `designer/logic.idm.xml` (the multipurpose template with a column's total, rules
+with conditions in a row and on the plot, a column shown when, a question required when), written by
+`test/surveyLogic.test.ts`. A number without a type now reads as a decimal, as Collect reads it. Left for 4c:
+sub-lists, adding tables and repeated blocks; for 4b, Gemini's help.
+

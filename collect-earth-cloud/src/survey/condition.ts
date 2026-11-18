@@ -13,6 +13,10 @@ const VALUE = `'([^']*)'|"([^"]*)"|(true|false)\\(\\)|(-?\\d+(?:\\.\\d+)?)`;
 const COMPARISON = new RegExp(`^${NAME}\\s*(!=|<=|>=|=|<|>)\\s*(?:${VALUE})$`);
 const BARE = new RegExp(`^${NAME}$`);
 const FUNCTION = new RegExp(`^(boolean|not)\\(\\s*${NAME}\\s*\\)$`);
+/** idm:blank(q): not answered; not(idm:blank(q)): answered (as the templates and the builder write them) */
+const BLANK = new RegExp(`^(not\\(\\s*)?idm:blank\\(\\s*${NAME}\\s*\\)(\\s*\\))?$`);
+/** not(q = 'X'): none of the answers is X (the builder's "is not" on several answers) */
+const NOT_EQUAL = new RegExp(`^not\\(\\s*${NAME}\\s*=\\s*(?:'([^']*)'|"([^"]*)")\\s*\\)$`);
 const TESTS: Record<string, ConditionTest> = { '=': 'is', '!=': 'isNot', '<': 'lt', '<=': 'lte', '>': 'gt', '>=': 'gte' };
 
 /** A condition as rows; an expression the rows cannot say exactly as advanced */
@@ -55,6 +59,17 @@ function readPart(piece: string, lookup: QuestionLookup): ConditionPart | undefi
     if (!target) return undefined;
     // A yes/no alone holds when it is yes; another question when it has an answer
     return target.yesNo ? { question: m[1], test: 'is', value: true } : { question: m[1], test: 'answered', value: null };
+  }
+  m = BLANK.exec(piece);
+  if (m && Boolean(m[1]) === Boolean(m[3])) {
+    if (!lookup(m[2])) return undefined;
+    return { question: m[2], test: m[1] ? 'answered' : 'notAnswered', value: null };
+  }
+  m = NOT_EQUAL.exec(piece);
+  if (m) {
+    const target = lookup(m[1]);
+    if (!target || target.yesNo) return undefined;
+    return { question: m[1], test: 'isNot', value: m[2] ?? m[3] };
   }
   m = FUNCTION.exec(piece);
   if (m) {

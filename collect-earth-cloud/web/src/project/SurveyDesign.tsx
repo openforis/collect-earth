@@ -29,6 +29,7 @@ import ArrowDownward from "@mui/icons-material/ArrowDownward";
 import ArrowUpward from "@mui/icons-material/ArrowUpward";
 import DeleteOutline from "@mui/icons-material/DeleteOutlined";
 import DriveFileMoveOutlined from "@mui/icons-material/DriveFileMoveOutlined";
+import VisibilityOutlined from "@mui/icons-material/VisibilityOutlined";
 import { createContext, useContext, useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import {
   ApiError,
@@ -45,6 +46,7 @@ import {
   type DesignTable,
   type SurveyDesign,
   type SurveyDesignAnswer,
+  type SurveyEffect,
   type SurveyImpactAnswer,
   type SurveyOperation,
   type NewQuestionType,
@@ -77,6 +79,8 @@ import { Loading } from "../components/Loading";
 import { useT, type MessageKey } from "../i18n";
 import { useLoad } from "../useLoad";
 import { conditionWords, firstLanguage, requiredWords, ruleWords, tableWords, textIn, TYPE_KEYS, untranslated, words, type Words } from "./surveyDesignView";
+import { ConditionDialog, RequiredControl, RuleDialog } from "./SurveyLogic";
+import { builderRule, conditionQuestions, ruleKinds } from "./surveyLogicView";
 
 /** The most answers a question shows inline; the list's card has them all */
 const INLINE_ANSWERS = 12;
@@ -642,27 +646,33 @@ function Detail({ children, tone }: { children: ReactNode; tone?: "warning" }) {
   );
 }
 
-function QuestionView({ w, q, inTable, siblings, page }: {
+function QuestionView({ w, q, inTable, table, siblings, page }: {
   w: Words;
   q: DesignQuestion;
   inTable?: boolean;
+  /** The table it is a column of */
+  table?: DesignTable;
   /** The items of its page or table, for moving it among them; none for the lists of hidden fields */
   siblings?: readonly DesignItem[];
   page?: string;
 }) {
   const { t } = w;
-  const label = textIn(q.label, w.language, w.design.languages);
   const help = textIn(q.help, w.language, w.design.languages);
   const required = requiredWords(w, q);
   const list = q.list ? w.lists.get(q.list) : undefined;
-  // While editing, the Required box of the tools says it already
-  const requiredBox = useContext(EditContext) !== null && siblings !== undefined && canRequire(q);
+  const edit = useContext(EditContext);
+  // While editing, the Required choice of the tools says it already
+  const requiredBox = edit !== null && siblings !== undefined && canRequire(q);
+  const kinds = edit && siblings ? ruleKinds(q, table ?? null) : [];
+  const [ruleOpen, setRuleOpen] = useState<{ index: number | null } | null>(null);
+  const candidates = useMemo(() => (ruleOpen ? conditionQuestions(w.design, table ?? null, null) : []), [ruleOpen, w.design, table]);
+  const label = textIn(q.label, w.language, w.design.languages) || q.name;
   return (
-    <Box sx={{ pl: 1.5, borderLeft: 3, borderColor: q.hidden || q.formulas ? "divider" : "primary.light" }}>
+    <Box data-question={q.name} sx={{ pl: 1.5, borderLeft: 3, borderColor: q.hidden || q.formulas ? "divider" : "primary.light" }}>
       <Words target={{ kind: "node", id: q.id }} part="label" value={q.label} label={t("survey.edit.label")} multiline>
-        <Typography sx={{ fontWeight: 600, overflowWrap: "anywhere" }}>{label || q.name}</Typography>
+        <Typography sx={{ fontWeight: 600, overflowWrap: "anywhere" }}>{label}</Typography>
       </Words>
-      {siblings && <ItemTools w={w} item={q} siblings={siblings} page={page} />}
+      {siblings && <ItemTools w={w} item={q} siblings={siblings} page={page} table={table} />}
       <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap", my: 0.5 }}>
         <Chip size="small" label={t(TYPE_KEYS[q.type])} />
         {required && q.required === "always" && !requiredBox && <Chip size="small" color="primary" variant="outlined" label={required} />}
@@ -688,12 +698,51 @@ function QuestionView({ w, q, inTable, siblings, page }: {
         <Box key={i}>
           <Detail tone={r.flag === "warning" ? "warning" : undefined}>
             {ruleWords(w, r)}
+            {edit && siblings && kinds.length + q.rules.length > 0 && (
+              <>
+                {builderRule(r) && kinds.length > 0 && (
+                  <Tooltip title={t("survey.logic.editRule")}>
+                    <IconButton size="small" aria-label={`${t("survey.logic.editRule")}: ${ruleWords(w, r)}`} disabled={edit.busy} onClick={() => setRuleOpen({ index: i })}>
+                      <EditOutlined fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )}
+                <Tooltip title={t("survey.logic.deleteRule")}>
+                  <IconButton size="small" color="error" aria-label={`${t("survey.logic.deleteRule")}: ${ruleWords(w, r)}`} disabled={edit.busy}
+                    onClick={() => edit.change([{ op: "deleteRule", id: q.id, index: i }], t("survey.logic.ruleWhat", { rule: `“${ruleWords(w, r)}”` }))}>
+                    <DeleteOutline fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </>
+            )}
             <Words target={{ kind: "rule", node: q.id, index: i }} part="message" value={r.message} label={t("survey.edit.message")} multiline>
               {textIn(r.message, w.language, w.design.languages) && ` — ${t("survey.rule.message", { message: textIn(r.message, w.language, w.design.languages) })}`}
             </Words>
           </Detail>
         </Box>
       ))}
+      {edit && kinds.length > 0 && (
+        <Box sx={{ my: 0.5 }}>
+          <Button size="small" startIcon={<Add />} disabled={edit.busy} onClick={() => setRuleOpen({ index: null })}>
+            {t("survey.logic.addRule")}
+          </Button>
+        </Box>
+      )}
+      {edit && ruleOpen && (
+        <RuleDialog
+          w={w}
+          q={q}
+          rule={ruleOpen.index === null ? null : q.rules[ruleOpen.index]}
+          kinds={kinds}
+          candidates={candidates}
+          onClose={() => setRuleOpen(null)}
+          onApply={(rule) => {
+            const index = ruleOpen.index;
+            setRuleOpen(null);
+            edit.change([index === null ? { op: "addRule", id: q.id, rule } : { op: "setRule", id: q.id, index, rule }]);
+          }}
+        />
+      )}
       {q.formulas && (
         <Box component="ol" sx={{ m: 0, mt: 0.5, pl: 3, fontFamily: "monospace", fontSize: "0.8125rem", color: "text.secondary" }}>
           {q.formulas.map((f, i) => {
@@ -742,7 +791,7 @@ function TableView({ w: survey, table, siblings, page }: { w: Words; table: Desi
       {table.shownWhen && <Detail>{t("survey.shownWhen", { condition: conditionWords(w, table.shownWhen) })}</Detail>}
       <Stack spacing={2} sx={{ mt: 1.5 }}>
         {table.columns.map((c) => (
-          <QuestionView key={c.name} w={w} q={c} inTable siblings={table.columns} />
+          <QuestionView key={c.name} w={w} q={c} inTable table={table} siblings={table.columns} />
         ))}
         {edit && (
           <Box>
@@ -998,11 +1047,19 @@ function MoveButtons<T>({ label, up, down, onMove }: { label: string; up: T | nu
 
 /** Whether the editor offers the Required box: not on the fields Collect Earth fills in, nor on calculated answers */
 const canRequire = (q: DesignQuestion) => !q.fixed && !q.formulas;
+/** Whether the editor offers "When it is shown": a table, or a question asked in the form */
+const canShow = (item: DesignItem) => item.kind === "table" || (canRequire(item) && !item.hidden);
 
 /** What can be done with a question or table while the survey is edited: move it, require it, delete it */
-function ItemTools({ w, item, siblings, page }: { w: Words; item: DesignItem; siblings: readonly DesignItem[]; page?: string }) {
+function ItemTools({ w, item, siblings, page, table }: { w: Words; item: DesignItem; siblings: readonly DesignItem[]; page?: string; table?: DesignTable }) {
   const edit = useContext(EditContext);
   const [menu, setMenu] = useState<HTMLElement | null>(null);
+  const [showing, setShowing] = useState(false);
+  // The questions its conditions can name: a table's from the plot, a column's from its row and the plot
+  const candidates = useMemo(
+    () => (edit ? conditionQuestions(w.design, item.kind === "table" ? null : (table ?? null), item.name) : []),
+    [edit, w.design, item, table],
+  );
   if (!edit) return null;
   const { t } = w;
   const label = textIn(item.label, w.language, w.design.languages) || item.name;
@@ -1032,14 +1089,29 @@ function ItemTools({ w, item, siblings, page }: { w: Words; item: DesignItem; si
           </Menu>
         </>
       )}
+      {canShow(item) && (
+        <Tooltip title={t("survey.logic.shown")}>
+          <IconButton size="small" aria-label={`${t("survey.logic.shown")}: ${label}`} disabled={edit.busy} onClick={() => setShowing(true)}>
+            <VisibilityOutlined fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      )}
       {question && canRequire(question) && (
-        <FormControlLabel
-          sx={{ ml: 0.5 }}
-          control={
-            <Checkbox size="small" checked={question.required === "always"} disabled={edit.busy}
-              onChange={(e) => edit.change([{ op: "setRequired", id: question.id, required: e.target.checked }])} />
-          }
-          label={<Typography variant="body2">{t("survey.required")}</Typography>}
+        <RequiredControl w={w} q={question} candidates={candidates} busy={edit.busy}
+          onChange={(required) => edit.change([{ op: "setRequired", id: question.id, required }])} />
+      )}
+      {showing && (
+        <ConditionDialog
+          w={w}
+          title={t("survey.logic.shownTitle", { question: label })}
+          initial={item.shownWhen}
+          candidates={candidates}
+          allowAlways
+          onClose={() => setShowing(false)}
+          onApply={(when) => {
+            setShowing(false);
+            edit.change([{ op: "setShownWhen", id: item.id, when }]);
+          }}
         />
       )}
       {question && !question.fixed && (
@@ -1245,6 +1317,24 @@ function ConfirmChangeDialog({ w, pending, busy, onCancel, onConfirm }: {
     return `${(q && textIn(q.label, w.language, w.design.languages)) || name} (${name})`;
   };
   const effects = pending?.impact.effects ?? [];
+  const effectWords = (e: SurveyEffect): string | undefined => {
+    switch (e.kind) {
+      case "newQuestions":
+        return t("survey.confirm.newQuestions");
+      case "questionDeleted":
+        return t("survey.confirm.questionDeleted", { question: questionLabel(e.question), count: e.answered });
+      case "itemDeleted":
+        return t("survey.confirm.itemDeleted", { code: e.code, list: e.list, count: e.chosen });
+      case "nowRequired":
+        return t("survey.confirm.nowRequired", { question: questionLabel(e.question), count: e.unanswered });
+      case "hiddenAnswers":
+        return t("survey.confirm.hiddenAnswers", { question: questionLabel(e.question), count: e.answered });
+      case "ruleFlags":
+        return e.checked === 0
+          ? t("survey.confirm.ruleNone", { question: questionLabel(e.question) })
+          : t("survey.confirm.ruleFlags", { question: questionLabel(e.question), count: e.flagged, checked: e.checked });
+    }
+  };
   return (
     <Dialog open={pending !== null} onClose={onCancel} aria-labelledby="confirm-change-title" maxWidth="sm" fullWidth>
       <DialogTitle id="confirm-change-title">{pending?.what !== undefined ? t("survey.confirm.deleteTitle") : t("survey.confirm.title")}</DialogTitle>
@@ -1257,17 +1347,16 @@ function ConfirmChangeDialog({ w, pending, busy, onCancel, onConfirm }: {
               <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
                 {effects.map((e, i) => (
                   <Typography component="li" variant="body2" key={i}>
-                    {e.kind === "newQuestions"
-                      ? t("survey.confirm.newQuestions")
-                      : e.kind === "questionDeleted"
-                        ? t("survey.confirm.questionDeleted", { question: questionLabel(e.question), count: e.answered })
-                        : e.kind === "itemDeleted"
-                          ? t("survey.confirm.itemDeleted", { code: e.code, list: e.list, count: e.chosen })
-                          : t("survey.confirm.nowRequired", { question: questionLabel(e.question), count: e.unanswered })}
+                    {effectWords(e)}
+                    {e.kind === "ruleFlags" && e.examples.length > 0 && (
+                      <Box component="span" sx={{ display: "block", overflowWrap: "anywhere" }}>
+                        {t("survey.confirm.ruleExamples", { plots: e.examples.join(", ") + (e.flagged > e.examples.length ? ", …" : "") })}
+                      </Box>
+                    )}
                   </Typography>
                 ))}
               </Box>
-              {effects.some((e) => e.kind !== "newQuestions") && <Typography variant="body2" sx={{ mt: 1 }}>{t("survey.confirm.copy")}</Typography>}
+              {effects.some((e) => e.kind === "questionDeleted" || e.kind === "itemDeleted") && <Typography variant="body2" sx={{ mt: 1 }}>{t("survey.confirm.copy")}</Typography>}
             </Alert>
           )}
         </Stack>
