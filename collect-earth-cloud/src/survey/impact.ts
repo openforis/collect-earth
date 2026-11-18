@@ -203,6 +203,9 @@ class Survey {
         }
         return rule.test === 'atLeast' ? sum >= rule.total : rule.test === 'atMost' ? sum <= rule.total : sum === rule.total;
       }
+      default:
+        // A rule written as an expression is not evaluated here: Collect Earth checks it when the plot is opened
+        return undefined;
     }
   }
 }

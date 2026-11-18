@@ -392,6 +392,7 @@ describe('cross-tenant isolation', () => {
       { method: 'POST' as const, url: `/v1/projects/${b.projectId}/survey/help`, payload: { task: 'suggest', language: 'en' } },
       { method: 'POST' as const, url: `/v1/projects/${b.projectId}/survey/new`, payload: { template: 'blank', title: 'x', language: 'en' } },
       { method: 'GET' as const, url: `/v1/projects/${b.projectId}/survey/revision` },
+      { method: 'POST' as const, url: `/v1/projects/${b.projectId}/survey/check`, payload: { id: 1, kind: 'boolean', text: 'true()' } },
       { method: 'GET' as const, url: `/v1/projects/${b.projectId}/survey/versions` },
       { method: 'POST' as const, url: `/v1/projects/${b.projectId}/survey/versions/${set}/restore`, payload: { revision: 'x' } },
       { method: 'GET' as const, url: `/v1/projects/${b.projectId}/progress` },

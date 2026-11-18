@@ -308,7 +308,7 @@ class DesignReader {
             .filter((a) => a.name !== 'flag' && a.name !== 'if')
             .map((a) => `${c.name} ${a.name}=${attrValue(this.doc, c, a.name)}`)
             .join(', ');
-    return { ...base, kind: 'advanced', text: text.trim() };
+    return { ...base, kind: 'advanced', text: text.trim(), expression: c.name === 'check' };
   }
 
   private table(e: XmlElement, plot: XmlElement): DesignTable {

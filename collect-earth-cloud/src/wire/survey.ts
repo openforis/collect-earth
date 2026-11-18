@@ -61,7 +61,8 @@ export type DesignRule = {
   | { kind: 'length'; min: number | null; max: number | null }
   /** A table's column adds up to at least, at most or exactly a number (written on the column) */
   | { kind: 'total'; test: TotalTest; total: number }
-  | { kind: 'advanced'; text: string }
+  /** expression: the text is a check's expression (changed as text); else another of Collect's checks, as written */
+  | { kind: 'advanced'; text: string; expression: boolean }
 );
 
 export type TotalTest = 'atLeast' | 'atMost' | 'exactly';
@@ -82,6 +83,11 @@ export type NewRule = {
   | { kind: 'range'; min: NewRuleLimit | null; max: NewRuleLimit | null }
   | { kind: 'length'; min: number | null; max: number | null }
   | { kind: 'total'; test: TotalTest; total: number }
+  /**
+   * Written as an expression of Collect's language (stage 7): the answer passes when it is true; `whenText`, its
+   * condition written so too (else `when`'s rows)
+   */
+  | { kind: 'expression'; text: string; whenText?: string | null }
 );
 
 /** One formula of a calculated value: its value, or its expression, when its condition holds */
@@ -288,6 +294,10 @@ export type SurveyOperation =
   /** A rule of a question replaced: its place among the question's rules */
   | { op: 'setRule'; id: number; index: number; rule: NewRule }
   | { op: 'deleteRule'; id: number; index: number }
+  /** A question's or table's show-when, or a question's required-when, written as an expression (stage 7); null takes it away */
+  | { op: 'setExpression'; id: number; part: 'shownWhen' | 'required'; text: string | null }
+  /** A calculated value's formulas, the first that holds giving its value (stage 7) */
+  | { op: 'setFormulas'; id: number; formulas: NewFormula[] }
   /** A new answer list, its name made from its label when not given */
   | { op: 'addList'; name?: string; label: Localized; items: NewItem[] }
   /** A list no question uses */
@@ -435,3 +445,23 @@ export interface SurveyNewInput {
 export interface SurveyRevisionAnswer {
   revision: string | null;
 }
+
+/** A formula of a calculated value: its value (a code, a number, a text) or expression, when its condition holds */
+export interface NewFormula {
+  /** An expression of Collect's language giving the value; or `value`, a value as it is */
+  expression?: string;
+  value?: string;
+  /** The condition, written as an expression; none: always */
+  when?: string;
+}
+
+/** POST /v1/projects/:pid/survey/check: an expression typed in the designer, checked as Collect checks it */
+export interface ExpressionCheckInput {
+  /** The question or table it belongs to (its place decides which questions it reaches) */
+  id: number;
+  /** boolean: a condition or a rule; value: a formula */
+  kind: 'boolean' | 'value';
+  text: string;
+}
+
+export type ExpressionCheckAnswer = { ok: true } | { ok: false; code: SurveyCheckCode; values: Record<string, string>; beyondCollect: boolean };

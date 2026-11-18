@@ -458,7 +458,8 @@ seeing what the survey asks and fixing its wording without another program.
 ## Decisions (18 November 2026)
 
 1. **Collect Earth 2.0 and later only** for surveys made by the designer: yes.
-2. **Formulas:** shown, not edited, at first (see "Calculated values"): to be confirmed.
+2. **Formulas:** shown, not edited, at first (see "Calculated values"); from stage 7 edited as text, each checked as
+   Collect checks it before it is saved.
 3. **Changes to a survey in use:** all allowed, with warnings that say how the data already
    collected is affected (the table above).
 4. **Preview:** in the designer and in Collect Earth through a draft project first.
@@ -621,4 +622,22 @@ questions show and hide by their conditions, required marks follow theirs, rules
 (ranges with numbers or another answer, lengths, a table's column totals under it), a sub-list offers the answers
 under its parent's answer. What the preview cannot work out (advanced conditions, calculated values) is shown as
 shown and said so; the desktop's own form stays the reference (stage 7's "desktop's form as preview" is not done).
+
+**Stage 7, done (18 Nov), expressions as text and the texts as a spreadsheet.** What the builder cannot say is
+written as an expression of Collect's language, checked as it is typed (`POST /survey/check`, the 3b checker, from
+the place of the question: "Collect reads it", or the problem in the dashboard's words) and again when saved: a
+show-when or required-when ("Written as an expression" beside "Always" and "Only when…"; an advanced condition opens
+as its text), a rule ("Written as an expression", `$this` the answer, with its condition; a check written in Collect's
+designer changes so too, its other checks — pattern, distance, uniqueness — are only deleted), and a calculated
+value's formulas ("Edit the formulas": each a value or an expression, with its condition, the first that holds giving
+the value; a value must be one of the list's codes, a number, true or false). This answers decision 2: formulas are
+edited, with Collect's check, rather than only shown. A condition typed as text that the rows can say reads back as
+rows. The texts go to translators as a spreadsheet ("Download the texts": a CSV with a row per text people read —
+title, pages, questions, tables, rules' messages, answers of the lists in use — and a column per language; UTF-8 with
+its mark, formula-looking cells guarded) and come back ("Upload the texts": each changed cell becomes a pending change,
+as if typed, a new language column adds the language, rows the survey no longer has are counted and left out; the
+coordinator checks and saves). `designer/text.idm.xml` (a rule written as an expression with its condition, formulas
+replaced, a show-when as text) passes `DesignedSurveyIdmlTest`. Not done: the desktop's own form shown in the
+dashboard as the preview (the browser preview of stage 6 does it for what the builder says; formulas and advanced
+conditions are tried in Collect Earth with a training plot).
 

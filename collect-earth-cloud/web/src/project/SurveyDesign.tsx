@@ -29,11 +29,14 @@ import ArrowDownward from "@mui/icons-material/ArrowDownward";
 import ArrowUpward from "@mui/icons-material/ArrowUpward";
 import DeleteOutline from "@mui/icons-material/DeleteOutlined";
 import DriveFileMoveOutlined from "@mui/icons-material/DriveFileMoveOutlined";
+import Download from "@mui/icons-material/Download";
+import Upload from "@mui/icons-material/Upload";
 import VisibilityOutlined from "@mui/icons-material/VisibilityOutlined";
 import SubdirectoryArrowRight from "@mui/icons-material/SubdirectoryArrowRight";
 import { createContext, useContext, useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import {
   ApiError,
+  checkSurveyExpression,
   getProjectAi,
   getSurveyDesign,
   getSurveyHelp,
@@ -49,6 +52,7 @@ import {
   type DesignTable,
   type SurveyDesign,
   type SurveyDesignAnswer,
+  type ExpressionCheckInput,
   type SurveyEffect,
   type SurveyImpactAnswer,
   type SurveyOperation,
@@ -82,7 +86,9 @@ import { Loading } from "../components/Loading";
 import { useT, type MessageKey } from "../i18n";
 import { useLoad } from "../useLoad";
 import { conditionWords, firstLanguage, requiredWords, ruleWords, tableWords, textIn, TYPE_KEYS, untranslated, words, type Words } from "./surveyDesignView";
-import { ConditionDialog, RequiredControl, RuleDialog } from "./SurveyLogic";
+import { ConditionDialog, ExpressionCheckContext, FormulasDialog, RequiredControl, RuleDialog } from "./SurveyLogic";
+import { importTexts, textsCsv } from "./surveyTextsView";
+import { csvBlob } from "../csv";
 import { ExplainButton, HelpContext, SuggestRulesDialog, TranslateDialog, type SurveyHelp } from "./SurveyHelp";
 import { NewSurvey } from "./SurveyNew";
 import { SurveyPreview } from "./SurveyPreview";
@@ -147,6 +153,8 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
   const [tableFor, setTableFor] = useState<string | null>(null);
   const [suggesting, setSuggesting] = useState(false);
   const [previewing, setPreviewing] = useState(false);
+  const [textsRead, setTextsRead] = useState<{ count: number; languages: string[]; unknown: number } | null>(null);
+  const check = useMemo(() => (answer?.design ? (input: ExpressionCheckInput) => checkSurveyExpression(projectId, input) : null), [answer?.design, projectId]);
   // The AI assistant's help, when it is switched on for the project (never in the dashboard inside Collect Earth)
   const ai = useLoad(["project", projectId, "SurveyDesign.ai", answer?.editable === true], () =>
     answer?.editable ? getProjectAi(projectId).catch(() => null) : Promise.resolve(null),
@@ -202,6 +210,25 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
         : null,
     [editing, design, language, names, pending, saving, added, operations, answer],
   );
+
+  /** The texts as a spreadsheet, in the survey's languages */
+  const downloadTexts = (d: SurveyDesign) => {
+    const url = URL.createObjectURL(csvBlob(textsCsv(d)));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "survey-texts.csv";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  /** A spreadsheet of texts read back: its changes pending as if typed, its new languages added */
+  const readTexts = (d: SurveyDesign, csv: string) => {
+    const result = importTexts(d, csv);
+    if (result.newLanguages.length > 0) setAdded((before) => [...before, ...result.newLanguages.filter((l) => !before.includes(l))]);
+    setPending((before) => result.changes.reduce((acc, change) => withText(acc, change), before as Map<string, PendingText>));
+    setSaved(false);
+    setTextsRead({ count: result.changes.length, languages: result.newLanguages, unknown: result.unknown });
+  };
 
   const discard = () => {
     setPending(new Map());
@@ -264,6 +291,7 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
     answer && answer.peopleWithFile > 0 ? t("survey.edit.reach", { count: answer.peopleWithFile }) : t("survey.edit.reachNone");
 
   return (
+    <ExpressionCheckContext.Provider value={check}>
     <HelpContext.Provider value={help}>
     <EditContext.Provider value={edit}>
       <Paper variant="outlined" component="section" aria-labelledby="survey-design-title" sx={{ p: { xs: 2, sm: 3 } }}>
@@ -312,10 +340,35 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
               <Alert severity="info" icon={<EditOutlined />}>
                 {t("survey.edit.explain")}
                 <Box sx={{ mt: 1 }}>{reach}</Box>
-                {help && (
-                  <Button size="small" variant="outlined" startIcon={<AutoAwesome />} sx={{ mt: 1 }} disabled={saving} onClick={() => setSuggesting(true)}>
-                    {t("survey.help.suggest")}
+                <Stack direction="row" spacing={1} useFlexGap sx={{ mt: 1, flexWrap: "wrap" }}>
+                  {help && (
+                    <Button size="small" variant="outlined" startIcon={<AutoAwesome />} disabled={saving} onClick={() => setSuggesting(true)}>
+                      {t("survey.help.suggest")}
+                    </Button>
+                  )}
+                  <Button size="small" variant="outlined" startIcon={<Download />} onClick={() => design && downloadTexts(design)}>
+                    {t("survey.texts.download")}
                   </Button>
+                  <Button size="small" variant="outlined" component="label" startIcon={<Upload />} disabled={saving}>
+                    {t("survey.texts.upload")}
+                    <input
+                      hidden
+                      type="file"
+                      accept=".csv,text/csv"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = "";
+                        if (file && design) void file.text().then((text) => readTexts(design, text));
+                      }}
+                    />
+                  </Button>
+                </Stack>
+                {textsRead && (
+                  <Alert severity={textsRead.count > 0 ? "success" : "info"} sx={{ mt: 1 }} onClose={() => setTextsRead(null)}>
+                    {textsRead.count > 0 ? t("survey.texts.read", { count: textsRead.count }) : t("survey.texts.none")}
+                    {textsRead.languages.length > 0 && <Box>{t("survey.texts.added", { languages: textsRead.languages.join(", ") })}</Box>}
+                    {textsRead.unknown > 0 && <Box>{t("survey.texts.unknown", { count: textsRead.unknown })}</Box>}
+                  </Alert>
                 )}
               </Alert>
             )}
@@ -435,6 +488,7 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
       )}
     </EditContext.Provider>
     </HelpContext.Provider>
+    </ExpressionCheckContext.Provider>
   );
 }
 
@@ -739,6 +793,7 @@ function QuestionView({ w, q, inTable, table, siblings, page }: {
   const kinds = edit && siblings ? ruleKinds(q, table ?? null) : [];
   const [ruleOpen, setRuleOpen] = useState<{ index: number | null } | null>(null);
   const [translating, setTranslating] = useState<number | null>(null);
+  const [editingFormulas, setEditingFormulas] = useState(false);
   const assistant = useContext(HelpContext);
   const candidates = useMemo(() => (ruleOpen ? conditionQuestions(w.design, table ?? null, null) : []), [ruleOpen, w.design, table]);
   const label = textIn(q.label, w.language, w.design.languages) || q.name;
@@ -857,6 +912,24 @@ function QuestionView({ w, q, inTable, table, siblings, page }: {
         </Box>
       )}
       {q.uses.length > 0 && <Detail>{t("survey.uses", { names: q.uses.join(", ") })}</Detail>}
+      {edit && q.formulas && (
+        <Box sx={{ my: 0.5 }}>
+          <Button size="small" startIcon={<EditOutlined />} disabled={edit.busy} onClick={() => setEditingFormulas(true)}>
+            {t("survey.formulas.edit")}
+          </Button>
+        </Box>
+      )}
+      {edit && editingFormulas && (
+        <FormulasDialog
+          w={w}
+          q={q}
+          onClose={() => setEditingFormulas(false)}
+          onApply={(formulas) => {
+            setEditingFormulas(false);
+            edit.change([{ op: "setFormulas", id: q.id, formulas }]);
+          }}
+        />
+      )}
       <Typography variant="caption" color="text.secondary" sx={{ overflowWrap: "anywhere" }}>
         {t("survey.name", { name: q.name })}
       </Typography>
@@ -1220,7 +1293,8 @@ function ItemTools({ w, item, siblings, page, table }: { w: Words; item: DesignI
       )}
       {question && canRequire(question) && (
         <RequiredControl w={w} q={question} candidates={candidates} busy={edit.busy}
-          onChange={(required) => edit.change([{ op: "setRequired", id: question.id, required }])} />
+          onChange={(required) => edit.change([{ op: "setRequired", id: question.id, required }])}
+          onText={(text) => edit.change([{ op: "setExpression", id: question.id, part: "required", text }])} />
       )}
       {showing && (
         <ConditionDialog
@@ -1229,10 +1303,15 @@ function ItemTools({ w, item, siblings, page, table }: { w: Words; item: DesignI
           initial={item.shownWhen}
           candidates={candidates}
           allowAlways
+          node={item.id}
           onClose={() => setShowing(false)}
           onApply={(when) => {
             setShowing(false);
             edit.change([{ op: "setShownWhen", id: item.id, when }]);
+          }}
+          onApplyText={(text) => {
+            setShowing(false);
+            edit.change([{ op: "setExpression", id: item.id, part: "shownWhen", text }]);
           }}
         />
       )}

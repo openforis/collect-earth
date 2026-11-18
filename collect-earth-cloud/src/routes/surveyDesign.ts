@@ -23,6 +23,8 @@ import { XmlTreeError } from '../survey/xmlTree.js';
 import type {
   ConditionPart,
   ConditionRows,
+  ExpressionCheckAnswer,
+  NewFormula,
   NewRule,
   NewRuleLimit,
   SurveyChangeInput,
@@ -180,6 +182,24 @@ function readOperation(raw: unknown): SurveyOperation | null {
     }
     case 'deleteRule':
       return Number.isInteger(o.id) && isIndex(o.index) ? { op: 'deleteRule', id: o.id as number, index: o.index as number } : null;
+    case 'setExpression':
+      return Number.isInteger(o.id) && (o.part === 'shownWhen' || o.part === 'required') && (o.text === null || isString(o.text, 4000))
+        ? { op: 'setExpression', id: o.id as number, part: o.part, text: o.text as string | null }
+        : null;
+    case 'setFormulas': {
+      if (!Number.isInteger(o.id) || !Array.isArray(o.formulas) || o.formulas.length > 100) return null;
+      const formulas: NewFormula[] = [];
+      for (const raw of o.formulas) {
+        const f = (raw ?? {}) as Record<string, unknown>;
+        if (!optionalString(f.expression, 4000) || !optionalString(f.value, 4000) || !optionalString(f.when, 4000)) return null;
+        formulas.push({
+          ...(f.expression !== undefined ? { expression: f.expression } : {}),
+          ...(f.value !== undefined ? { value: f.value } : {}),
+          ...(f.when !== undefined ? { when: f.when } : {}),
+        });
+      }
+      return { op: 'setFormulas', id: o.id as number, formulas };
+    }
     case 'addList': {
       const label = readLocalized(o.label);
       if (!label || !optionalString(o.name, 63) || !Array.isArray(o.items) || o.items.length > 1000) return null;
@@ -264,6 +284,10 @@ function readRule(v: unknown): NewRule | null {
     case 'total':
       return ['atLeast', 'atMost', 'exactly'].includes(o.test as string) && typeof o.total === 'number' && Number.isFinite(o.total)
         ? { ...base, kind: 'total', test: o.test as TotalTest, total: o.total }
+        : null;
+    case 'expression':
+      return isString(o.text, 4000) && (o.whenText === undefined || o.whenText === null || isString(o.whenText, 4000))
+        ? { ...base, kind: 'expression', text: o.text, ...(typeof o.whenText === 'string' ? { whenText: o.whenText } : {}) }
         : null;
     default:
       return null;
@@ -465,6 +489,24 @@ export async function registerSurveyDesignRoutes(app: FastifyInstance, store: St
     if (!accepted.ok) return reply.code(accepted.status).send(accepted.body);
     await audit(store, request, 'cep.replaced', { bytes: cep.length, template: b.template as string });
     return designAnswer(store, config, projectId, request.log);
+  });
+
+  // An expression typed in the designer, checked as Collect checks it from the place of its question (stage 7); nothing
+  // is written. The words of a problem are the dashboard's (surveyCheck.<code>)
+  app.post('/v1/projects/:pid/survey/check', admin, async (request, reply) => {
+    const b = (request.body ?? {}) as Record<string, unknown>;
+    if (!Number.isInteger(b.id) || (b.kind !== 'boolean' && b.kind !== 'value') || !isString(b.text, 4000)) {
+      return reply.code(400).send({ error: 'bad_request', reason: 'id, kind (boolean or value) and text are needed' } satisfies SurveyChangeRefusal);
+    }
+    const cep = await store.getCep(request.membership!.projectId);
+    if (!cep) return reply.code(404).send({ error: 'not_found' });
+    try {
+      const verdict = new SurveyEdit(surveyOf(readCep(cep))).checkText(b.id as number, b.kind, b.text);
+      return (verdict.ok ? { ok: true } : { ok: false, code: verdict.code, values: verdict.values, beyondCollect: verdict.beyondCollect }) satisfies ExpressionCheckAnswer;
+    } catch (err) {
+      if (err instanceof SurveyEditError) return reply.code(400).send({ error: 'bad_request', reason: err.message } satisfies SurveyChangeRefusal);
+      throw err;
+    }
   });
 
   // The served survey's revision, for every member (stage 6): Collect Earth compares it with the one it opened, and

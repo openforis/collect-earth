@@ -24,7 +24,7 @@ import {
 import type { ConditionRows, NewRule, SurveyOperation } from '../wire/survey.js';
 import { isFixed } from './design.js';
 import { SurveyEditError } from './errors.js';
-import { conditionExpression, ruleCheck, type LogicScope } from './logic.js';
+import { conditionExpression, listCodes, ruleCheck, type LogicScope } from './logic.js';
 import { namesUsed } from './condition.js';
 import { checkExpression, checkSurvey, problemText, schemaOf, type ExpressionKind, type SchemaNode, type SurveyProblem } from './check.js';
 
@@ -49,6 +49,8 @@ const CHECK_TAGS = ['check', 'compare', 'distance', 'pattern', 'unique'];
 const LANGUAGE_CODE = /^[a-z]{2,3}(_[A-Z]{2})?$/;
 /** The longest text the designer writes */
 export const MAX_TEXT = 4000;
+/** The longest expression the designer writes */
+export const MAX_EXPRESSION = 4000;
 const localName = (e: XmlElement) => e.name.slice(e.name.indexOf(':') + 1);
 
 export { SurveyEditError };
@@ -247,6 +249,10 @@ export class SurveyEdit {
         return void this.putRule(op.id, op.rule, op.index);
       case 'deleteRule':
         return this.deleteRule(op.id, op.index);
+      case 'setExpression':
+        return this.setExpressionText(op.id, op.part, op.text);
+      case 'setFormulas':
+        return this.setFormulas(op.id, op.formulas);
       case 'addList':
         return void this.addNewList(op.label, op.items, op.name);
       case 'deleteList':
@@ -641,7 +647,7 @@ export class SurveyEdit {
     if (node.attrs.some((a) => a.name.endsWith(':fromcsv') && attrValue(this.doc, node, a.name) === 'true')) throw new SurveyEditError(`${attrValue(this.doc, node, 'name')} comes from the plot file: nobody answers it.`);
     const old = index === undefined ? undefined : this.rulesOf(node)[index];
     if (index !== undefined && !old) throw new SurveyEditError(`The question has no rule ${index + 1}.`);
-    const { tag, attrs } = ruleCheck(this.logicScope(), node, rule);
+    const { tag, attrs } = rule.kind === 'expression' ? this.expressionRule(node, rule) : ruleCheck(this.logicScope(), node, rule);
     const languages = this.languages();
     const messages = new Map<string, string>();
     if (old) for (const m of childrenNamed(old, 'message')) messages.set(attrValue(this.doc, m, 'xml:lang') ?? languages[0], textValue(this.doc, m));
@@ -690,6 +696,78 @@ export class SurveyEdit {
       if (e.name !== 'code' || attrValue(this.doc, e, 'list') !== listName || attrValue(this.doc, e, 'calculated') !== 'true') continue;
       for (const d of childrenNamed(e, 'default')) if (attrValue(this.doc, d, 'value') !== undefined) setAttr(d, 'value', String(last));
     }
+  }
+
+  /** A rule written as an expression: a check whose expression the answer must make true */
+  private expressionRule(node: XmlElement, rule: Extract<NewRule, { kind: 'expression' }>): { tag: 'check'; attrs: Array<[string, string]> } {
+    if (rule.flag !== 'error' && rule.flag !== 'warning') throw new SurveyEditError('A rule is an error or a warning.');
+    const text = typeof rule.text === 'string' ? rule.text.trim() : '';
+    if (text === '' || text.length > MAX_EXPRESSION) throw new SurveyEditError(`A rule's expression has 1 to ${MAX_EXPRESSION} characters.`);
+    const attrs: Array<[string, string]> = [['flag', rule.flag === 'warning' ? 'warn' : 'error']];
+    const when = typeof rule.whenText === 'string' ? rule.whenText.trim() : '';
+    if (when !== '') attrs.push(['if', this.checked(node, 'boolean', when)]);
+    else if (rule.when) attrs.push(['if', conditionExpression(this.logicScope(), node, rule.when, true)]);
+    attrs.push(['expr', this.checked(node, 'boolean', text)]);
+    return { tag: 'check', attrs };
+  }
+
+  /** A show-when or required-when written as an expression, checked as Collect checks it; null takes it away */
+  setExpressionText(id: number, part: 'shownWhen' | 'required', text: string | null): void {
+    const node = this.askedNode(id);
+    const value = text === null ? '' : text.trim();
+    if (value.length > MAX_EXPRESSION) throw new SurveyEditError(`An expression has at most ${MAX_EXPRESSION} characters.`);
+    if (part === 'required') {
+      if (node.name === 'entity') throw new SurveyEditError('A table is not answered itself: its questions are.');
+      this.setRequired(node, value === '' ? false : value);
+      return;
+    }
+    if (value === '') {
+      setAttr(node, 'relevant', undefined);
+      return;
+    }
+    this.setShownWhen(node, value);
+    const cycle = this.shownCycle(attrValue(this.doc, node, 'name') ?? '');
+    if (cycle) throw new SurveyEditError(`Shown when would go round in a circle: ${cycle.join(' → ')}.`);
+  }
+
+  /**
+   * A calculated value's formulas, replacing its own: each a value or an expression, with its condition; the first that
+   * holds gives the value (Collect's default values of a calculated attribute)
+   */
+  setFormulas(id: number, formulas: ReadonlyArray<{ expression?: string; value?: string; when?: string }>): void {
+    const node = this.nodeById(id);
+    if (attrValue(this.doc, node, 'calculated') !== 'true') throw new SurveyEditError('Only a calculated value has formulas.');
+    if (!Array.isArray(formulas) || formulas.length === 0 || formulas.length > 100) throw new SurveyEditError('A calculated value has 1 to 100 formulas.');
+    const list = node.name === 'code' ? this.logicScope().list(attrValue(this.doc, node, 'list') ?? '') : undefined;
+    const elements = formulas.map((f, i) => {
+      const expression = typeof f.expression === 'string' ? f.expression.trim() : '';
+      const value = typeof f.value === 'string' ? f.value.trim() : '';
+      const when = typeof f.when === 'string' ? f.when.trim() : '';
+      if ((expression === '') === (value === '')) throw new SurveyEditError(`Formula ${i + 1} gives a value or an expression.`);
+      if ([expression, value, when].some((x) => x.length > MAX_EXPRESSION)) throw new SurveyEditError(`A formula has at most ${MAX_EXPRESSION} characters.`);
+      const attrs: Array<[string, string]> = [];
+      if (expression !== '') attrs.push(['expr', this.checked(node, 'value', expression)]);
+      else {
+        // A value as it is: one of the list's codes, a number, yes or no
+        if (list && !listCodes(this.doc, list).has(value)) throw new SurveyEditError(`Formula ${i + 1}: the list has no code ${value}.`);
+        if (node.name === 'number' && !/^-?\d+(\.\d+)?$/.test(value)) throw new SurveyEditError(`Formula ${i + 1}: ${value} is not a number.`);
+        if (node.name === 'boolean' && value !== 'true' && value !== 'false') throw new SurveyEditError(`Formula ${i + 1}: a yes/no value is true or false.`);
+        attrs.push(['value', value]);
+      }
+      if (when !== '') attrs.push(['if', this.checked(node, 'boolean', when)]);
+      return newElement('default', attrs);
+    });
+    for (const d of childrenNamed(node, 'default')) removeElement(d);
+    let after = childElements(node).filter((c) => ['label', 'description', 'prompt', 'fieldLabel'].includes(c.name)).pop();
+    for (const e of elements) {
+      this.insertInOrder(node, e, NODE_ORDER, after);
+      after = e;
+    }
+  }
+
+  /** An expression typed in the designer, checked as Collect checks it, from the place of a question or table */
+  checkText(id: number, kind: ExpressionKind, text: string) {
+    return checkExpression(this.schemaNode(this.nodeById(id)), kind, text);
   }
 
   deleteRule(id: number, index: number): void {
