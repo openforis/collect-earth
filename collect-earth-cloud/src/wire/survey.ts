@@ -184,7 +184,8 @@ export interface SurveyDesign {
   /** Every page, in the order of the form, those with no question among them */
   pageOrder: string[];
   /** The pages nothing is on yet: shown while the survey is edited, to put questions on (or delete) */
-  emptyPages: Array<{ name: string; label: Localized }>;
+  /** deletable: nothing names the page (no hidden field either); the others hold hidden fields and stay */
+  emptyPages: Array<{ name: string; label: Localized; deletable: boolean }>;
 }
 
 /** What the survey check finds (src/survey/check.ts): Collect's checks of expressions, Collect Earth's survey rules */
@@ -371,7 +372,10 @@ export interface SurveyDesignAnswer {
   unreadable: boolean;
   /** The served survey's revision, which a change names; null without a project file */
   revision: string | null;
-  /** The coordinator can change the survey here (not in the dashboard inside Collect Earth) */
+  /**
+   * The coordinator can change the survey here (not in the dashboard inside Collect Earth); without a project file,
+   * start one from a template (POST /v1/projects/:pid/survey/new)
+   */
   editable: boolean;
   /** People who have the project file already: a change reaches them when they open the project again */
   peopleWithFile: number;
@@ -410,3 +414,16 @@ export type SurveyHelpAnswer =
   | { task: 'suggest'; suggestions: SuggestedRule[] }
   | { task: 'translate'; translations: Record<string, string> }
   | { task: 'explain'; text: string };
+
+/** The surveys a new project can start from: Collect's Collect Earth templates, or a blank one */
+export type SurveyTemplate = 'blank' | 'basic' | 'multipurpose' | 'ipcc';
+
+/** POST /v1/projects/:pid/survey/new: a project without a project file starts from a template */
+export interface SurveyNewInput {
+  template: SurveyTemplate;
+  title: string;
+  /** The language the coordinator writes the survey in */
+  language: string;
+  /** multipurpose and ipcc: the list of years, from the first to the last */
+  years?: { first: number; last: number };
+}

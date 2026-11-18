@@ -666,6 +666,32 @@ export class SurveyEdit {
     return check;
   }
 
+  /** The survey's identifier (Collect's uri): Collect Earth tells surveys apart by it */
+  setUri(uri: string): void {
+    const e = firstChild(this.survey, 'uri');
+    if (!e) throw new SurveyEditError('The survey has no uri.');
+    setText(e, uri);
+  }
+
+  /**
+   * A list of years (the years list of the templates: a year of change, a base year) from `last` down to `first`, a
+   * code and a label each; a calculated base year of the list (its fixed default value) becomes the last year
+   */
+  setYears(listName: string, first: number, last: number): void {
+    if (!Number.isInteger(first) || !Number.isInteger(last) || first < 1900 || last > 2100 || first > last || last - first > 100) {
+      throw new SurveyEditError('The years go from a first year to a last one, between 1900 and 2100.');
+    }
+    const list = this.list(listName);
+    const items = firstChild(list, 'items');
+    for (const item of items ? childrenNamed(items, 'item') : []) removeElement(item);
+    const languages = this.languages();
+    for (let y = last; y >= first; y--) this.addItem(list, String(y), Object.fromEntries(languages.map((l) => [l, String(y)])));
+    for (const e of descendants(this.schema())) {
+      if (e.name !== 'code' || attrValue(this.doc, e, 'list') !== listName || attrValue(this.doc, e, 'calculated') !== 'true') continue;
+      for (const d of childrenNamed(e, 'default')) if (attrValue(this.doc, d, 'value') !== undefined) setAttr(d, 'value', String(last));
+    }
+  }
+
   deleteRule(id: number, index: number): void {
     const node = this.nodeById(id);
     const rule = this.rulesOf(node)[index];

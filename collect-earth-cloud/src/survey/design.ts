@@ -131,7 +131,7 @@ class DesignReader {
       else page.items.push(q);
     }
     const lists = this.lists();
-    // The pages nothing names (no question, shown or hidden, has its tab): empty, so they can be deleted
+    // The pages nothing is shown on, to put questions on; deletable when nothing (no question, shown or hidden) has their tab
     const named = new Set<string>();
     for (const node of descendantsOf(plot)) {
       const tab = attrLocal(this.doc, node, 'tab', this.ui);
@@ -143,7 +143,9 @@ class DesignReader {
       title: this.localized(this.doc.root, 'project'),
       pages: [...pages.values()].filter((p) => p.items.length > 0),
       pageOrder: tabs.map((t) => t.name),
-      emptyPages: tabs.filter((t) => !named.has(t.name)).map((t) => ({ name: t.name, label: t.label })),
+      emptyPages: tabs
+        .filter((t) => !pages.get(t.name)?.items.length)
+        .map((t) => ({ name: t.name, label: t.label, deletable: !named.has(t.name) })),
       fromPlotFile,
       calculated,
       hidden,

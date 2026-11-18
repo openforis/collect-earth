@@ -25,6 +25,7 @@ RUN npm ci --omit=dev
 COPY tsconfig.json ./
 COPY src ./src
 COPY migrations ./migrations
+COPY templates ./templates
 COPY --from=build /app/web/dist ./web/dist
 
 ENV NODE_ENV=production

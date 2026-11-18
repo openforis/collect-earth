@@ -14,7 +14,7 @@ import type { DesignQuestion, SurveyDesignAnswer, SurveyImpactAnswer, SurveyOper
 import { FIXTURE_DATE, realDemoCep } from './fixtures/cep.js';
 import { batchRequest, bearer, createProject, envelope, makeContext, type TestContext } from './helpers.js';
 
-const TEMPLATES = fileURLToPath(new URL('./fixtures/templates/', import.meta.url));
+const TEMPLATES = fileURLToPath(new URL('../templates/', import.meta.url));
 const DESIGNER = fileURLToPath(new URL('../../collect-earth/collect-earth-app/src/test/resources/designer/', import.meta.url));
 const basic = readFileSync(`${TEMPLATES}collect_earth.idm.xml`);
 const design = surveyDesign(basic);

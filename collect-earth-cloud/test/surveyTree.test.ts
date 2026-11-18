@@ -10,7 +10,7 @@ import { SurveyEdit, SurveyEditError } from '../src/survey/edit.js';
 import { attrValue, readXml, textValue, writeXml, XmlTreeError } from '../src/survey/xmlTree.js';
 import { realDemoCep } from './fixtures/cep.js';
 
-const TEMPLATES = fileURLToPath(new URL('./fixtures/templates/', import.meta.url));
+const TEMPLATES = fileURLToPath(new URL('../templates/', import.meta.url));
 const DESKTOP_RESOURCES = fileURLToPath(new URL('../../collect-earth/collect-earth-app/src/test/resources/', import.meta.url));
 const DESIGNER_DIR = `${DESKTOP_RESOURCES}designer/`;
 

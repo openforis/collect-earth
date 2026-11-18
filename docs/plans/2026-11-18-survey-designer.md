@@ -591,3 +591,19 @@ text from the dashboard. Each request is a run of kind `survey` (migration 049),
 out of the AI tab; `AI_FAKE=1` answers all four for development. A rule on a value of the plot file is now refused
 (nobody answers it).
 
+**Stage 5, done (18 Nov), design the survey here.** Setup › Survey form of a project without a project file offers
+"Design the survey here": a blank survey, the demonstration (basic) template, the multipurpose one or the IPCC one, a
+title, the language it is written in (added when the template has not it), and for the multipurpose and IPCC
+templates the first and last year of their `years` list (the year of a change; the multipurpose base year becomes the
+last). The server makes the survey (`src/survey/templates.ts`) and the project file around it (`madeProjectFile`, as the
+CEO import and backups do; Collect Earth's 5 x 5 square plot, changed in Setup › Plot layout), stores it as an upload
+(`acceptCep`), and the survey opens in the designer. Its uri and folder name are its own (`<title>_<8 characters of
+the project id>`), as Collect Earth tells surveys apart by them. The templates moved from `test/fixtures/templates` to
+`templates/` (shipped in the image; the expression corpus follows). The blank survey is the basic template without its
+demonstration questions, with one question to start from, "Land use" in IPCC's six categories: a survey with no
+question gives Collect Earth's form no page, which `DesignedSurveyIdmlTest` refused. The IPCC template's yearly
+calculated values are not regenerated: Collect Earth's IPCC export adds those of its own years when a survey lacks them
+(`IPCCSurveyAdapter`). `designer/new-blank.idm.xml` and `new-multipurpose.idm.xml` (2010 to 2024) pass
+`DesignedSurveyIdmlTest`. An empty page holding only hidden fields is listed to put questions on, and is not
+deletable (`emptyPages[].deletable`).
+

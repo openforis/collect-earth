@@ -15,7 +15,7 @@ import { FIXTURE_DATE, realDemoCep } from '../fixtures/cep.js';
 import { batchRequest, bearer, createProject, envelope, makeContext, setupPlatformAdmin, type TestContext } from '../helpers.js';
 import { aiResponse, scripted } from './fakeClient.js';
 
-const basic = readFileSync(fileURLToPath(new URL('../fixtures/templates/collect_earth.idm.xml', import.meta.url)));
+const basic = readFileSync(fileURLToPath(new URL('../../templates/collect_earth.idm.xml', import.meta.url)));
 
 describe('what the model is sent and what is kept of its answer', () => {
   it('sends the questions, their lists and rules, never more', () => {

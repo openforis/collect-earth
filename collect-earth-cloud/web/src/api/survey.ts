@@ -1,6 +1,6 @@
 // The survey designer (docs/plans/2026-11-18-survey-designer.md): the project's survey as the designer shows it.
 
-import type { SurveyChangeInput, SurveyDesignAnswer, SurveyHelpAnswer, SurveyHelpInput, SurveyImpactAnswer, SurveyOperation, SurveyVersionsAnswer } from "../../../src/wire/survey";
+import type { SurveyChangeInput, SurveyDesignAnswer, SurveyHelpAnswer, SurveyHelpInput, SurveyImpactAnswer, SurveyNewInput, SurveyOperation, SurveyVersionsAnswer } from "../../../src/wire/survey";
 import { p, request } from "./transport";
 
 export type {
@@ -35,6 +35,8 @@ export type {
   SurveyChangeRefusal,
   SurveyHelpAnswer,
   SurveyHelpInput,
+  SurveyNewInput,
+  SurveyTemplate,
   SuggestedRule,
   SurveyVersionView,
   SurveyVersionsAnswer,
@@ -72,4 +74,9 @@ export function getSurveyImpact(projectId: string, operations: SurveyOperation[]
 /** The AI assistant's help with the survey's rules (coordinators, the assistant switched on): nothing is saved. */
 export function getSurveyHelp(projectId: string, input: SurveyHelpInput): Promise<SurveyHelpAnswer> {
   return request("POST", `${p(projectId)}/survey/help`, { json: input });
+}
+
+/** A project without a project file starts from a template or a blank survey (coordinators); answers its survey. */
+export function startSurvey(projectId: string, input: SurveyNewInput): Promise<SurveyDesignAnswer> {
+  return request("POST", `${p(projectId)}/survey/new`, { json: input });
 }

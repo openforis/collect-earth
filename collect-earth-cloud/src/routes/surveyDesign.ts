@@ -17,6 +17,8 @@ import { checkSurvey, type SurveyProblem } from '../survey/check.js';
 import { surveyDesign } from '../survey/design.js';
 import { SurveyEdit, SurveyEditError } from '../survey/edit.js';
 import { surveyImpact } from '../survey/impact.js';
+import { newProjectFile, TEMPLATES_WITH_YEARS } from '../survey/templates.js';
+import { acceptCep } from './platform.js';
 import { XmlTreeError } from '../survey/xmlTree.js';
 import type {
   ConditionPart,
@@ -28,7 +30,9 @@ import type {
   SurveyDesignAnswer,
   SurveyImpactAnswer,
   SurveyOperation,
+  SurveyNewInput,
   SurveyRestoreInput,
+  SurveyTemplate,
   SurveyVersionsAnswer,
   TotalTest,
   WordTarget,
@@ -45,7 +49,8 @@ const surveyOf = (files: CepFiles): Buffer => Buffer.from(files.entries.get(file
 async function designAnswer(store: Store, config: Config, projectId: string, log: FastifyRequest['log']): Promise<SurveyDesignAnswer> {
   const empty = { design: null, revision: null, editable: false, peopleWithFile: 0, problems: [] };
   const cep = await store.getCep(projectId);
-  if (!cep) return { ...empty, unreadable: false };
+  // Without a project file, editable says a survey can be started here (POST /survey/new)
+  if (!cep) return { ...empty, editable: !config.localMode, unreadable: false };
   try {
     const survey = surveyOf(readCep(cep));
     const activity = await store.listMemberActivity(projectId);
@@ -414,6 +419,51 @@ export async function registerSurveyDesignRoutes(app: FastifyInstance, store: St
     }
     const records = await store.listRecordSummaries(projectId);
     return surveyImpact(survey, operations, records, after) satisfies SurveyImpactAnswer;
+  });
+
+  // A project without a project file starts from a template (stage 5): the survey made, its project file stored as an
+  // upload is (acceptCep), so the round, the note and everything an upload gets come with it
+  app.post('/v1/projects/:pid/survey/new', admin, async (request, reply) => {
+    const projectId = request.membership!.projectId;
+    const b = (request.body ?? {}) as Partial<Record<keyof SurveyNewInput, unknown>>;
+    const templates: SurveyTemplate[] = ['blank', 'basic', 'multipurpose', 'ipcc'];
+    const years = b.years as { first?: unknown; last?: unknown } | undefined;
+    if (
+      !templates.includes(b.template as SurveyTemplate) ||
+      !isString(b.title, 200) ||
+      (b.title as string).trim() === '' ||
+      typeof b.language !== 'string' ||
+      !/^[a-z]{2,3}(_[A-Z]{2})?$/.test(b.language) ||
+      (years !== undefined && (!Number.isInteger(years?.first) || !Number.isInteger(years?.last)))
+    ) {
+      return reply.code(400).send({ error: 'bad_request', reason: 'template, title and language are needed; years as {first, last}' } satisfies SurveyChangeRefusal);
+    }
+    if (years && !TEMPLATES_WITH_YEARS.includes(b.template as SurveyTemplate)) {
+      return reply.code(400).send({ error: 'bad_request', reason: 'only the multipurpose and IPCC templates have years' } satisfies SurveyChangeRefusal);
+    }
+    if (await store.getCep(projectId)) {
+      return reply.code(409).send({ error: 'has_project_file', reason: 'The project has a project file already: change its survey here, or upload another one.' });
+    }
+    let cep: Buffer;
+    try {
+      cep = newProjectFile(
+        {
+          template: b.template as SurveyTemplate,
+          title: b.title as string,
+          language: b.language,
+          projectId,
+          ...(years ? { years: { first: years.first as number, last: years.last as number } } : {}),
+        },
+        new Date(),
+      );
+    } catch (err) {
+      if (err instanceof SurveyEditError) return reply.code(400).send({ error: 'bad_request', reason: err.message } satisfies SurveyChangeRefusal);
+      throw err;
+    }
+    const accepted = await acceptCep(store, projectId, cep, request.log);
+    if (!accepted.ok) return reply.code(accepted.status).send(accepted.body);
+    await audit(store, request, 'cep.replaced', { bytes: cep.length, template: b.template as string });
+    return designAnswer(store, config, projectId, request.log);
   });
 
   app.get('/v1/projects/:pid/survey/versions', admin, async (request) => {

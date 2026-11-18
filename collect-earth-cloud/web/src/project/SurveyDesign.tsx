@@ -84,6 +84,7 @@ import { useLoad } from "../useLoad";
 import { conditionWords, firstLanguage, requiredWords, ruleWords, tableWords, textIn, TYPE_KEYS, untranslated, words, type Words } from "./surveyDesignView";
 import { ConditionDialog, RequiredControl, RuleDialog } from "./SurveyLogic";
 import { ExplainButton, HelpContext, SuggestRulesDialog, TranslateDialog, type SurveyHelp } from "./SurveyHelp";
+import { NewSurvey } from "./SurveyNew";
 import AutoAwesome from "@mui/icons-material/AutoAwesomeOutlined";
 import { builderRule, conditionQuestions, listOptions, ruleKinds } from "./surveyLogicView";
 
@@ -191,7 +192,7 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
             busy: saving,
             pages: design.pageOrder
               .map((name) => design.pages.find((p) => p.name === name) ?? design.emptyPages.find((p) => p.name === name))
-              .filter((p): p is { name: string; label: Record<string, string> } => p !== undefined)
+              .filter((p) => p !== undefined)
               .map((p) => ({ name: p.name, label: textIn(p.label, language, design.languages) || t("survey.noLabel") })),
             addQuestion: (where) => setQuestionFor(where),
             addTable: (page) => setTableFor(page),
@@ -281,6 +282,18 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
           <Loading />
         ) : answer.unreadable ? (
           <Alert severity="warning">{t("survey.unreadable")}</Alert>
+        ) : !w && answer.editable ? (
+          <NewSurvey
+            projectId={projectId}
+            language={uiLanguage}
+            names={names}
+            onMade={(made) => {
+              loaded.setData(made);
+              // The project's other screens (setup, plots, round) read the new project file
+              void queryClient.invalidateQueries({ queryKey: ["project", projectId] });
+              setEditing(true);
+            }}
+          />
         ) : !w ? (
           <Alert severity="info">{t("survey.none")}</Alert>
         ) : (
@@ -524,11 +537,14 @@ function DesignView({ w, onLanguage, addLanguage }: { w: Words; onLanguage: (lan
 }
 
 /** The pages shown: those with questions, and while the survey is edited the empty ones too, in the form's order */
-function shownPages(design: SurveyDesign, editing: boolean): Array<DesignPage & { empty?: boolean }> {
+function shownPages(design: SurveyDesign, editing: boolean): Array<DesignPage & { empty?: boolean; deletable?: boolean }> {
   if (!editing) return design.pages;
   return design.pageOrder
-    .map((name) => design.pages.find((p) => p.name === name) ?? (design.emptyPages.some((p) => p.name === name) ? { ...design.emptyPages.find((p) => p.name === name)!, items: [], empty: true } : undefined))
-    .filter((p): p is DesignPage & { empty?: boolean } => p !== undefined);
+    .map((name) => {
+      const empty = design.emptyPages.find((p) => p.name === name);
+      return design.pages.find((p) => p.name === name) ?? (empty ? { ...empty, items: [], empty: true } : undefined);
+    })
+    .filter((p): p is DesignPage & { empty?: boolean; deletable?: boolean } => p !== undefined);
 }
 
 /** What the form fills itself, the hidden fields and the lists: folded cards under the survey */
@@ -616,7 +632,7 @@ function Problems({ w, problems, title }: { w: Words; problems: SurveyProblem[];
 }
 
 /** A page of the form, folding under its name */
-function PageView({ w, page, defaultOpen, order }: { w: Words; page: DesignPage & { empty?: boolean }; defaultOpen: boolean; order: string[] }) {
+function PageView({ w, page, defaultOpen, order }: { w: Words; page: DesignPage & { empty?: boolean; deletable?: boolean }; defaultOpen: boolean; order: string[] }) {
   const edit = useContext(EditContext);
   const [open, setOpen] = useState(defaultOpen);
   const id = useId();
@@ -653,7 +669,7 @@ function PageView({ w, page, defaultOpen, order }: { w: Words; page: DesignPage 
                 down={pageMoveTarget(order, page.name, 1)}
                 onMove={(to) => edit.change([{ op: "movePage", name: page.name, ...(to.before !== undefined ? { before: to.before as string } : {}) }])}
               />
-              {page.empty && (
+              {page.empty && page.deletable && (
                 <Button size="small" color="error" startIcon={<DeleteOutline />} disabled={edit.busy} onClick={() => edit.change([{ op: "deletePage", name: page.name }], label)}>
                   {w.t("survey.edit.deletePage")}
                 </Button>

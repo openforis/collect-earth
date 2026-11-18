@@ -11,7 +11,7 @@ import { SurveyEdit, SurveyEditError } from '../src/survey/edit.js';
 import { surveyDesign } from '../src/survey/design.js';
 import type { SurveyChangeRefusal, SurveyDesignAnswer, SurveyOperation, SurveyVersionsAnswer } from '../src/wire/survey.js';
 
-const TEMPLATES = fileURLToPath(new URL('./fixtures/templates/', import.meta.url));
+const TEMPLATES = fileURLToPath(new URL('../templates/', import.meta.url));
 const template = (name: string) => readFileSync(`${TEMPLATES}collect_earth${name}.idm.xml`);
 
 /** The lines that differ between two surveys (both read as Latin-1, lastId left out) */

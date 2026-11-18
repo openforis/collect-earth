@@ -6,7 +6,7 @@ import { CATALOGUES, LANGUAGES, translator, type MessageKey } from "../i18n";
 import { conditionWords, firstLanguage, questionLabel, requiredWords, ruleWords, tableWords, textIn, untranslated, words } from "./surveyDesignView";
 
 const template = (name: string) =>
-  surveyDesign(readFileSync(new URL(`../../../test/fixtures/templates/collect_earth${name}.idm.xml`, import.meta.url)));
+  surveyDesign(readFileSync(new URL(`../../../templates/collect_earth${name}.idm.xml`, import.meta.url)));
 const basic = template("");
 const ipcc = template("_ipcc");
 const en = words(basic, "en", translator("en"));
