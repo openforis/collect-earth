@@ -203,9 +203,20 @@ builder cannot show is displayed as text under "Advanced condition" and kept as 
 
 ### Calculated values
 
-They stay in a collapsed "Calculated values (advanced)" list, with their names and what they
-depend on. At first they are read-only and travel with the template. Editing a formula as text
-comes last, and only with a real check of its syntax (see "Expressions").
+A calculated value is a hidden field the form fills by itself from other answers, never asked to
+the interpreter: in the IPCC template, `ipcc_current_category` is worked out from the land use,
+its subdivision and the year of change by 563 formula lines such as
+`concat(ipcc_previous_category, ipcc_previous_category)` *if*
+`land_use_category_has_changed and land_use_subcategory_year_of_change > 2007`. The IPCC
+package and the analysis read these fields.
+
+They stay in a collapsed "Calculated values (advanced)" list, with their names, their formulas
+as text, and the questions they depend on. **At first a formula is shown, not edited**: the
+coordinator can keep or delete the calculated value, rename its label, and it keeps working, but
+cannot type a new formula. A formula with one wrong character makes the whole survey fail to
+open in Collect Earth, and the server cannot check one yet: Collect's checker is Java. Editing a
+formula as text comes with a check of its syntax (stage 7, see "Expressions"). The questions a
+formula uses are known, so deleting or renaming one of them warns that the formula would break.
 
 ### Languages
 
@@ -227,17 +238,28 @@ yet. Adding a language adds it to the survey. Labels can go out and come back as
 
 ### Changing a survey that is in use
 
-A draft project is edited freely. Once the project has records:
+A draft project is edited freely. Once the project has records, **every change is allowed**
+(decided 18 Nov), and the designer says before saving, in plain words and with numbers, what it
+does to the plots already collected:
 
-| Change | Allowed |
+| Change | What the coordinator is told before saving |
 | --- | --- |
-| Labels, help texts, translations, messages | Always |
-| A new page, question, list item, rule or condition | Always |
-| Reordering pages, questions, list items | Always |
-| Making a question required | Yes, with a note that earlier plots may lack it |
-| Deleting a question or a list item | Asked first, with how many plots answered it; the answers stay in the records |
-| Renaming the internal name of a question, changing its type, its list or its table | Refused (Collect refuses these too) |
-| Changing the keys | Refused |
+| Labels, help texts, translations, messages | Nothing: the answers are untouched |
+| A new page, question, list item, rule or condition | The plots already done do not have the new answer; they are not reopened by themselves |
+| Reordering pages, questions, list items | Nothing |
+| Making a question required, or a rule stricter | How many plots already collected break it, and that they are flagged when reopened |
+| A new "show when" | How many plots have an answer that would now be hidden; the answers stay in the records |
+| Deleting a question | How many plots answered it; their answers stay in the records and the exports of before, but no longer appear in the form, the exports or the analysis |
+| Deleting a list item | How many plots chose it, the same way |
+| Changing a list item's code | How many plots chose it; their answers keep the old code, which then matches no item |
+| Renaming a question's internal name | How many plots answered it; to Collect those answers belong to a question that no longer exists, so they disappear from the form and the exports |
+| Changing a question's type, its list, or the table it is in | The same, as Collect cannot read the old answers as the new type |
+| Changing the keys | The strongest warning: every plot's record is identified by its keys |
+
+The warnings for the last five are shown in a dialog the coordinator confirms, with the count of
+plots affected and a download of the answers concerned (CSV) before the change.
+Collect's designer refuses these changes on a published survey; here they are the coordinator's
+choice, made knowingly.
 
 Each save keeps the previous survey, so a change can be undone, and the Activity tab says who
 changed what.
@@ -354,14 +376,12 @@ seeing what the survey asks and fixing its wording without another program.
 | People keep an old survey | Two people answer different forms | Stage 6; until then the designer says who the change reaches (new joiners, and people who open the project again) |
 | The simple designer cannot show a real survey | A coordinator cannot edit it | Everything unknown is kept and shown as text; the upload path stays |
 
-## Decisions for the owner
+## Decisions (18 November 2026)
 
-1. **Collect Earth 2.0 and later only** for project files made by the designer. Recommended:
-   yes.
-2. **Formulas read-only at first**, travelling with the templates. Recommended: yes.
-3. **Changes to a survey in use:** the table above. Recommended: as written.
-4. **Preview:** in the designer and in Collect Earth through a draft project first; the
-   desktop's form in the dashboard only later. Recommended: yes.
-5. **Question types:** the eight listed. Time is the one Collect's designer offers for Collect
-   Earth that this leaves out. Recommended: leave it out until someone asks.
-6. **Start with stage 0 and stage 1.**
+1. **Collect Earth 2.0 and later only** for surveys made by the designer: yes.
+2. **Formulas:** shown, not edited, at first (see "Calculated values"): to be confirmed.
+3. **Changes to a survey in use:** all allowed, with warnings that say how the data already
+   collected is affected (the table above).
+4. **Preview:** in the designer and in Collect Earth through a draft project first.
+5. **Time questions:** later.
+6. **Stages 0 and 1** go ahead.
