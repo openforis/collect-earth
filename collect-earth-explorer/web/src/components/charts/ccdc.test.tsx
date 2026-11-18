@@ -9,9 +9,10 @@ import CcdcCard from "./CcdcCard";
 // Plotly cannot render under jsdom: replace the chart with a probe that exposes the
 // trace counts and forwards a click as a click on the first observed point.
 vi.mock("./CcdcChart", () => ({
-  default: ({ data, onClickObserved }: CcdcChartProps) => (
+  default: ({ data, onClickObserved, selected }: CcdcChartProps) => (
     <div
       data-testid="ccdc-chart"
+      data-selected={selected ?? ""}
       data-band={data.band}
       data-observed={data.observed.length}
       data-segments={data.segments.length}
@@ -133,8 +134,10 @@ describe("CcdcCard", () => {
     setup();
     const chart = await screen.findByTestId("ccdc-chart");
     expect(screen.getByTestId("layer").textContent).toBe("0");
+    expect(chart.getAttribute("data-selected")).toBe("");
 
     fireEvent.click(chart);
+    expect(chart.getAttribute("data-selected")).toBe(String(T0));
     expect(screen.getByTestId("layer").textContent).toBe("scene");
     expect(JSON.parse(screen.getByTestId("scene").textContent!)).toEqual({
       sensor: "landsat",

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { Data, Layout, PlotMouseEvent, Shape } from "plotly.js";
 import Plot from "../Plot";
 import type { Point } from "../../lib/csv";
+import { CONFIG, baseLayout, iso, selectedRing } from "./chartStyle";
 
 export type CcdcBand = "NDFI" | "NDVI";
 
@@ -18,22 +19,23 @@ export interface CcdcData {
 export interface CcdcChartProps {
   data: CcdcData;
   onClickObserved: (p: Point) => void;
+  /** Date (epoch ms) of the scene on the map; the observed point with exactly that date gets a ring. */
+  selected?: number;
 }
 
-const SEGMENT_COLORS = ["#d32f2f", "#1976d2", "#388e3c", "#f57c00", "#7b1fa2", "#00796b", "#c2185b", "#5d4037"];
-const OBSERVED_COLOR = "#9e9e9e";
-
-const CONFIG = { displaylogo: false, responsive: true, modeBarButtonsToRemove: ["lasso2d" as const, "select2d" as const] };
-/** Plotly treats a JS Date as local time; an ISO string is unambiguous UTC. */
-const iso = (ms: number) => new Date(ms).toISOString();
+const SEGMENT_COLORS = ["#587f2e", "#4a9cd5", "#c9772b", "#7a5ea8", "#2a8c82", "#b8475f"];
+const OBSERVED_COLOR = "#b5b0a6";
+const Y_RANGE: [number, number] = [-1, 1];
+/** The container carries the height too: Plotly drops `height` from the layout it is given, and the next re-plot would collapse the chart. */
+const STYLE = { width: "100%", height: 286 };
 
 /**
  * CCDC chart: grey observed points (trace 0, so a click maps back to its index),
- * one coloured line per fitted segment and a dotted vertical line per break.
+ * one coloured line per fitted segment and a soft red vertical line per break.
  * `data` and `layout` are memoised and `uirevision` is constant, so a re-render
  * neither re-plots nor resets the user's zoom.
  */
-export default function CcdcChart({ data, onClickObserved }: CcdcChartProps) {
+export default function CcdcChart({ data, onClickObserved, selected }: CcdcChartProps) {
   const { band, observed, segments, breaks } = data;
 
   const traces = useMemo<Data[]>(
@@ -44,7 +46,7 @@ export default function CcdcChart({ data, onClickObserved }: CcdcChartProps) {
         type: "scatter",
         mode: "markers",
         name: `${band} observed`,
-        marker: { size: 4, color: OBSERVED_COLOR },
+        marker: { size: 4, color: OBSERVED_COLOR, opacity: 0.85 },
         hovertemplate: "%{x|%Y-%m-%d}<br>%{y:.3f}<extra></extra>",
       },
       ...segments.map(
@@ -54,34 +56,29 @@ export default function CcdcChart({ data, onClickObserved }: CcdcChartProps) {
           type: "scatter",
           mode: "lines",
           name: `Segment ${i + 1}`,
-          line: { width: 2, color: SEGMENT_COLORS[i % SEGMENT_COLORS.length] },
+          line: { width: 2.5, color: SEGMENT_COLORS[i % SEGMENT_COLORS.length] },
           hoverinfo: "skip",
         }),
       ),
+      ...selectedRing(observed, selected),
     ],
-    [band, observed, segments],
+    [band, observed, segments, selected],
   );
 
   const layout = useMemo<Partial<Layout>>(() => {
-    const shapes: Partial<Shape>[] = breaks.map((b) => ({
+    // Per break a soft wide band under a thin line.
+    const line = (b: number, width: number, color: string): Partial<Shape> => ({
       type: "line",
       x0: iso(b),
       x1: iso(b),
       y0: 0,
       y1: 1,
       yref: "paper",
-      line: { color: "#000", width: 1, dash: "dot" },
-    }));
-    return {
-      height: 260,
-      margin: { l: 40, r: 10, t: 10, b: 40 },
-      font: { family: "Poppins, sans-serif", size: 11, color: "#626262" },
-      yaxis: { range: [-1, 1] },
-      legend: { orientation: "h", y: -0.25 },
-      hovermode: "closest",
-      shapes,
-      uirevision: "keep",
-    };
+      layer: "below",
+      line: { color, width },
+    });
+    const shapes = breaks.flatMap((b) => [line(b, 8, "rgba(176,0,32,0.12)"), line(b, 1, "rgba(176,0,32,0.55)")]);
+    return { ...baseLayout(STYLE.height, Y_RANGE), shapes };
   }, [breaks]);
 
   // The handler is stable (so Plot is not re-bound on every render) and reads
@@ -96,5 +93,5 @@ export default function CcdcChart({ data, onClickObserved }: CcdcChartProps) {
     if (hit && hit.curveNumber === 0 && hit.pointIndex !== undefined) cb(current[hit.pointIndex]);
   }, []);
 
-  return <Plot data={traces} layout={layout} config={CONFIG} style={{ width: "100%" }} onClick={onClick} />;
+  return <Plot data={traces} layout={layout} config={CONFIG} style={STYLE} onClick={onClick} />;
 }

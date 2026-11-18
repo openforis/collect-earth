@@ -26,7 +26,7 @@ function sentinelWindow(start, end) {
 /**
  * Per-scene mean of the named `index` (catalogue.json "indices"), or of `formula` when given, at 10 m over
  * `plot` from cloud-masked Sentinel-2 scenes in [start, end). Reflectance is 0..10000, scaled to 0..1 first;
- * copyProperties of the absent SPACECRAFT_ID is harmless.
+ * copyProperties of the absent SPACECRAFT_ID is harmless. Each point carries CLOUDY_PIXEL_PERCENTAGE (whole scene) as `cloud`.
  * A range entirely before the first Sentinel-2 scene yields no points without
  * an Earth Engine round trip.
  */
@@ -34,8 +34,11 @@ async function sentinel2Series(plot, start, end, index = "NDVI", formula = formu
   const w = sentinelWindow(start, end);
   if (!w) return { points: [] };
   const col = sentinel2Images(plot, w.start, w.end).map((img) => indexImage(img, formula, SENTINEL2_BANDS, 10000));
-  const points = await evaluateSeries(meanSeries(col, "index", plot, 10));
+  const points = await evaluateSeries(meanSeries(col, "index", plot, 10, sentinel2PointProps));
   return { points };
 }
 
-module.exports = { sentinel2Series, sentinelWindow, clampSentinelStart, SENTINEL_START };
+/** The scene property each Sentinel-2 point carries besides date, value and id. */
+const sentinel2PointProps = (img) => ({ cloud: img.get("CLOUDY_PIXEL_PERCENTAGE") });
+
+module.exports = { sentinel2Series, sentinel2PointProps, sentinelWindow, clampSentinelStart, SENTINEL_START };

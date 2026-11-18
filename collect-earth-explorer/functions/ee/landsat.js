@@ -3,7 +3,8 @@ const { landsatPeriods, COLLECTIONS, HARMONIZED } = require("../lib/landsatPerio
 const { landsatClearMaskBits } = require("../lib/qaBits");
 
 /** Properties carried through every mapped image so the series can date, identify and label it. */
-const SCENE_PROPS = ["system:time_start", "system:index", "SPACECRAFT_ID"];
+// The cloud properties feed the series' `cloud`; each collection lacks the other's, which copyProperties ignores.
+const SCENE_PROPS = ["system:time_start", "system:index", "SPACECRAFT_ID", "CLOUD_COVER", "CLOUDY_PIXEL_PERCENTAGE"];
 
 /** Every QA_PIXEL bit of the mask must be zero: see lib/qaBits.js for the Collection 2 bit layout. */
 const CLEAR_MASK = landsatClearMaskBits();

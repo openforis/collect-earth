@@ -248,7 +248,7 @@ test("POST /api/series/landsat without a body is a 400 bad_request", async () =>
 test("POST /api/series/landsat with a valid plot but no EE_KEY reaches the auth step and fails as JSON 500", async () => {
   const { res, logged, cache } = await postWithoutKey("/api/series/landsat", { plot: belize, start: "2012-01-01", end: "2016-01-01" });
   assertEeKeyMissing500(res, logged);
-  assert.equal(cache.calls[0].endpoint, "series/landsat");
+  assert.equal(cache.calls[0].endpoint, "series/landsat@cloud");
   assert.equal(cache.calls[0].ttlSeconds, TTL.series);
 });
 
@@ -326,7 +326,7 @@ test("POST /api/series/sentinel2 without a body is a 400 bad_request", async () 
 test("POST /api/series/sentinel2 with a valid plot but no EE_KEY reaches the auth step and fails as JSON 500", async () => {
   const { res, logged, cache } = await postWithoutKey("/api/series/sentinel2", { plot: belize, start: "2022-01-01", end: "2022-07-01" });
   assertEeKeyMissing500(res, logged);
-  assert.equal(cache.calls[0].endpoint, "series/sentinel2");
+  assert.equal(cache.calls[0].endpoint, "series/sentinel2@cloud");
   assert.equal(cache.calls[0].ttlSeconds, TTL.series);
 });
 
@@ -427,4 +427,23 @@ test("POST /api/tiles/sentinel2 with its own window keys the cache without the p
   assert.equal((await keyOf({ end: "2025-06-01", ...window })).end, null);
   assert.equal((await keyOf({ end: "2025-06-01" })).end, "2025-06-01");
   assert.equal((await keyOf({ end: "2025-06-01" })).start, null);
+});
+
+test("only the two series whose points carry `cloud` use a versioned cache key; every other endpoint keeps its name", async () => {
+  const body = { plot: belize, start: "2020-01-01", end: "2021-01-01" };
+  const cases = [
+    ["/api/series/landsat", {}, "series/landsat@cloud"],
+    ["/api/series/sentinel2", {}, "series/sentinel2@cloud"],
+    ["/api/series/modis", {}, "series/modis"],
+    ["/api/tiles/sentinel2", {}, "tiles/sentinel2"],
+    ["/api/tiles/landsat", { year: 2020 }, "tiles/landsat"],
+    ["/api/tiles/scene", { sensor: "landsat", timeStart: 1609459200000 }, "tiles/scene"],
+    ["/api/ccdc", {}, "ccdc"],
+  ];
+  for (const [path, extra, endpoint] of cases) {
+    const cache = fakeCache({ x: 1 });
+    const res = await request(appWith(cache)).post(path).send({ ...body, ...extra });
+    assert.equal(res.status, 200, path);
+    assert.equal(cache.calls[0].endpoint, endpoint, path);
+  }
 });

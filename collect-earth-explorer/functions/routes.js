@@ -107,8 +107,10 @@ function registerRoutes(app, { cache = defaultCache } = {}) {
     )
   );
   app.post("/api/series/modis", route("series/modis", TTL.series, (b) => nonDefault("charts", "modis", b, ["index"]), (p, g, x) => modisSeries(g, p.start, p.end, x.index)));
-  app.post("/api/series/landsat", route("series/landsat", TTL.series, seriesExtras("landsat-series"), (p, g, x) => landsatSeries(g, p.start, p.end, x.index, x.formula)));
-  app.post("/api/series/sentinel2", route("series/sentinel2", TTL.series, seriesExtras("sentinel2-series"), (p, g, x) => sentinel2Series(g, p.start, p.end, x.index, x.formula)));
+  // "@cloud" versions the cache key of the two series whose points gained `cloud`, so answers stored without it
+  // are not served; their URLs, bodies and every other endpoint's key are unchanged.
+  app.post("/api/series/landsat", route("series/landsat@cloud", TTL.series, seriesExtras("landsat-series"), (p, g, x) => landsatSeries(g, p.start, p.end, x.index, x.formula)));
+  app.post("/api/series/sentinel2", route("series/sentinel2@cloud", TTL.series, seriesExtras("sentinel2-series"), (p, g, x) => sentinel2Series(g, p.start, p.end, x.index, x.formula)));
   app.post(
     "/api/tiles/scene",
     route("tiles/scene", TTL.tiles, validateSceneRequest, (p, g, x) => sceneTiles(g, p.start, p.end, x.sensor, x.timeStart), null, noDates)

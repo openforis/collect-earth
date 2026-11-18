@@ -15,6 +15,7 @@ interface MockChartProps {
   name?: string;
   markers?: { x: number[] };
   onClickPoint?: (p: Point) => void;
+  selected?: number;
 }
 
 // Plotly cannot render under jsdom: replace the chart with a probe that exposes its
@@ -26,6 +27,7 @@ vi.mock("./SeriesChart", () => ({
       data-points={props.points.length}
       data-name={props.name}
       data-markers={props.markers ? props.markers.x.length : ""}
+      data-selected={props.selected ?? ""}
       onClick={() => props.onClickPoint?.(props.points[0])}
     />
   ),
@@ -91,6 +93,7 @@ describe("series cards", () => {
   beforeEach(() => {
     fetchMock.mockReset();
     vi.stubGlobal("fetch", fetchMock);
+    localStorage.clear();
   });
   afterEach(() => vi.unstubAllGlobals());
 
@@ -146,6 +149,63 @@ describe("series cards", () => {
     // MODIS has no scene to load: clicking does nothing to the context.
     fireEvent.click(chart);
     expect(screen.getByTestId("layer").textContent).toBe("0");
+  });
+
+  it("only the chart of the selected scene's sensor marks it", async () => {
+    fetchMock.mockImplementation(async () => json({ points: [POINT] }));
+    setup(
+      <>
+        <LandsatNdviCard params={paramsOf("landsat-series")} />
+        <Sentinel2NdviCard params={paramsOf("sentinel2-series")} />
+      </>,
+    );
+    await vi.waitFor(() => expect(screen.getAllByTestId("series-chart")).toHaveLength(2));
+    const [landsat, sentinel2] = screen.getAllByTestId("series-chart");
+    expect(landsat.getAttribute("data-selected")).toBe("");
+    fireEvent.click(landsat);
+    expect(landsat.getAttribute("data-selected")).toBe(String(T0));
+    expect(sentinel2.getAttribute("data-selected")).toBe("");
+    fireEvent.click(sentinel2);
+    expect(landsat.getAttribute("data-selected")).toBe("");
+    expect(sentinel2.getAttribute("data-selected")).toBe(String(T0));
+  });
+
+  it("the cloud select filters what the chart gets (keeping points without cloud), is shared by both cards, and the CSV keeps all", async () => {
+    const points = [
+      { ...POINT, cloud: 5 },
+      { ...POINT, date: T0 + 86400000, cloud: 50 },
+      { ...POINT, date: T0 + 2 * 86400000 },
+    ];
+    fetchMock.mockImplementation(async () => json({ points }));
+    const download = vi.spyOn(csv, "downloadText").mockImplementation(() => {});
+    setup(
+      <>
+        <LandsatNdviCard params={paramsOf("landsat-series")} />
+        <Sentinel2NdviCard params={paramsOf("sentinel2-series")} />
+      </>,
+    );
+    await vi.waitFor(() => expect(screen.getAllByTestId("series-chart")).toHaveLength(2));
+    const selects = screen.getAllByLabelText("Maximum scene cloud cover") as HTMLSelectElement[];
+    expect([...selects[0].options].map((o) => o.textContent)).toEqual(["Any cloud", "≤ 80 %", "≤ 60 %", "≤ 40 %", "≤ 20 %", "≤ 10 %"]);
+    expect(selects[0].disabled).toBe(false);
+    const counts = () => screen.getAllByTestId("series-chart").map((c) => c.getAttribute("data-points"));
+    expect(counts()).toEqual(["3", "3"]);
+    fireEvent.change(selects[0], { target: { value: "40" } });
+    expect(selects[1].value).toBe("40");
+    expect(counts()).toEqual(["2", "2"]);
+    expect(localStorage.getItem("explorer.maxCloud")).toBe("40");
+    fireEvent.click(screen.getAllByRole("button", { name: "CSV" })[0]);
+    expect(download.mock.calls.at(-1)![1]).toBe(
+      "date,value,sensor,cloud\n2021-01-01,0.5,LANDSAT_8,5\n2021-01-02,0.5,LANDSAT_8,50\n2021-01-03,0.5,LANDSAT_8,\n",
+    );
+    download.mockRestore();
+  });
+
+  it("the cloud select is disabled when no loaded point has cloud", async () => {
+    fetchMock.mockResolvedValue(json({ points: [POINT] }));
+    setup(<Sentinel2NdviCard params={paramsOf("sentinel2-series")} />);
+    await screen.findByTestId("series-chart");
+    expect((screen.getByLabelText("Maximum scene cloud cover") as HTMLSelectElement).disabled).toBe(true);
   });
 
   it("the standard series cards post exactly plot, start and end", async () => {

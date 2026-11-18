@@ -1,4 +1,5 @@
-export interface Point { date: number; value: number; [k: string]: unknown }
+/** One observation; `cloud` is the scene's cloud cover in percent (Landsat and Sentinel-2 series only). */
+export interface Point { date: number; value: number; cloud?: number; [k: string]: unknown }
 
 export function pointsToCsv(points: Point[], extraCols: string[] = []): string {
   const header = ["date", "value", ...extraCols].join(",");

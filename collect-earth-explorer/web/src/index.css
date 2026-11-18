@@ -67,6 +67,13 @@ input[type="radio"], input[type="checkbox"], input[type="range"] { accent-color:
 .chart-card-actions { display: flex; gap: 6px; align-items: center; flex: none; }
 .chart-placeholder { height: 220px; display: flex; gap: 8px; align-items: center; justify-content: center; padding: 0 12px; text-align: center; }
 .chart-error { color: var(--error); flex-direction: column; }
+.chart-options { display: flex; flex-wrap: wrap; gap: 12px; padding: 0 12px 10px; font-size: 11px; }
+.chart-options label { display: inline-flex; gap: 4px; align-items: center; }
+.chart-results { display: flex; flex-direction: column; gap: 4px; padding: 0 12px 10px; font-size: 11px; }
+.chart-results button { font-size: 11px; padding: 1px 6px; }
+.chart-help { padding: 0 12px 10px; font-size: 11px; }
+.chart-help summary { cursor: pointer; color: var(--of-link); }
+.chart-help p { margin: 4px 0 0; }
 .spinner { width: 14px; height: 14px; border: 2px solid var(--line); border-top-color: var(--of-blue); border-radius: 50%; animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 4s; } }

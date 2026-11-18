@@ -20,6 +20,7 @@ test("landsat series spans sensors with dated, identified, in-range points", liv
     assert.ok(Number.isInteger(p.date), `date ${p.date} is not an integer`);
     assert.ok(p.date >= rangeStart && p.date < rangeEnd, `date ${new Date(p.date).toISOString()} outside 2012..2015`);
     assert.ok(typeof p.id === "string" && p.id.length > 0, `id ${JSON.stringify(p.id)} is not a non-empty string`);
+    assert.ok(typeof p.cloud === "number" && p.cloud >= 0 && p.cloud <= 100, `cloud ${p.cloud} is not a percentage`);
     const year = new Date(p.date).getUTCFullYear();
     assert.equal(p.sensor, year < 2015 ? "LANDSAT_7" : "LANDSAT_8", `${new Date(p.date).toISOString()} came from ${p.sensor}`);
   }

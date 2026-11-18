@@ -10,7 +10,7 @@ import { chartRequest, type ChartEntry } from "../../lib/config";
 const isoDay = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 
 export default function CcdcCard({ params }: { params: ChartEntry["params"] }) {
-  const { plot, start, end, plotId, setScene } = usePlot();
+  const { plot, start, end, plotId, scene, setScene } = usePlot();
   // The entry's band is only the initial choice; the select changes it.
   const [band, setBand] = useState<CcdcBand>(params.band as CcdcBand);
   const [open, setOpen] = useState(!params.collapsed);
@@ -34,6 +34,7 @@ export default function CcdcCard({ params }: { params: ChartEntry["params"] }) {
       {(d) => (
         <CcdcChart
           data={d}
+          selected={scene?.sensor === "landsat" ? scene.timeStart : undefined}
           onClickObserved={(p) => setScene({ sensor: "landsat", timeStart: p.date, label: `Landsat ${isoDay(p.date)}` })}
         />
       )}

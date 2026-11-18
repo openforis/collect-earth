@@ -56,14 +56,29 @@ describe("CcdcChart", () => {
     expect(seg2.name).toBe("Segment 2");
   });
 
-  it("draws one vertical line per break, positioned by ISO string, and keeps zoom via uirevision", () => {
+  it("draws a wide soft line under a thin one per break, positioned by ISO string, and keeps zoom via uirevision", () => {
     render(<CcdcChart data={DATA} onClickObserved={() => {}} />);
     const shapes = last().layout.shapes!;
-    expect(shapes).toHaveLength(DATA.breaks.length);
-    expect(shapes[0].x0).toBe("2021-02-01T00:00:00.000Z");
-    expect(shapes[0].x1).toBe("2021-02-01T00:00:00.000Z");
-    expect(shapes[0].yref).toBe("paper");
+    expect(shapes).toHaveLength(2 * DATA.breaks.length);
+    for (const s of shapes) {
+      expect(s.x0).toBe("2021-02-01T00:00:00.000Z");
+      expect(s.x1).toBe("2021-02-01T00:00:00.000Z");
+      expect(s.yref).toBe("paper");
+      expect(s.layer).toBe("below");
+    }
+    expect(shapes.map((s) => s.line?.width)).toEqual([8, 1]);
     expect(last().layout.uirevision).toBe("keep");
+    expect(last().layout.hovermode).toBe("closest");
+  });
+
+  it("rings the observed point whose date is the selected scene, after the segments; no match, no ring", () => {
+    render(<CcdcChart data={DATA} onClickObserved={() => {}} selected={T2} />);
+    expect(traces()).toHaveLength(2 + DATA.segments.length);
+    const ring = traces()[traces().length - 1];
+    expect(ring.x).toEqual(["2021-03-01T00:00:00.000Z"]);
+    expect(ring.y).toEqual([-0.2]);
+    render(<CcdcChart data={DATA} onClickObserved={() => {}} selected={T1} />);
+    expect(traces()).toHaveLength(1 + DATA.segments.length);
   });
 
   it("re-rendering with the same data hands Plot the same data and layout objects", () => {
