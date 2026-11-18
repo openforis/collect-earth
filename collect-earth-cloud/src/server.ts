@@ -38,7 +38,7 @@ import { parseWebhookUrl, postWebhook, type Fetch } from './alertWebhook.js';
 import { logServerAction } from './serverActivity.js';
 import { requirePlatformAdmin } from './plugins/projectAuth.js';
 import { registerAuthRoutes } from './routes/auth.js';
-import { registerPlatformRoutes } from './routes/platform.js';
+import { registerPlatformRoutes, setProjectFilesCacheMb } from './routes/platform.js';
 import { ProjectStateCache } from './projectState.js';
 import { registerPeopleRoutes } from './routes/people.js';
 import { registerTimeSpentRoutes } from './routes/timeSpent.js';
@@ -382,6 +382,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   // The plot files' caches are the process's: sized from the config when it says (DEPLOY.md, "Memory").
   if (config.parsedCacheMb) setParsedCacheMb(config.parsedCacheMb);
   if (config.servedCacheMb) setServedCacheMb(config.servedCacheMb);
+  if (config.projectFilesCacheMb) setProjectFilesCacheMb(config.projectFilesCacheMb);
   // The automatic check sampling: drawn after first submissions and before a plot list, at most once per 10 min.
   const sampling = new SamplingService(store, states, { intervalMs: config.samplingIntervalMs, inlineMs: config.samplingInlineMs, now, onLate: () => counters.lateDraw() });
   // The plots sent back for another look compare answers as the figures do (by the survey's
