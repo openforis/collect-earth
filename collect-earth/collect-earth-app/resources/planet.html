@@ -1,411 +1,368 @@
-
 <!DOCTYPE html>
-<html>
-
+<html lang="en">
+<!--
+  Planet's monthly and biannual mosaics (Tropical Forest Observatory), side by side, around a Collect Earth plot.
+  Collect Earth (BrowserService.openPlanetTfoMode) opens it as https://openforis.org/fileadmin/planet.html with:
+  - latlngs: JSON array of the plot's polygons, [[[lat, lng], ...], ...];
+  - planet_date_from, planet_date_to (optional): the mosaics of the left and right side, as 2016-06_2016-11 or 2021-03
+    (PlanetMonths.java lists the same ones); by default the second biannual mosaic and the latest month;
+  - planet_api_key, after the # (planet.html?latlngs=...#planet_api_key=KEY), which the browser sends to no web server;
+    in the query (older versions of Collect Earth) it is still read. It is taken out of the address once read.
+  The source is collect-earth/collect-earth-app/resources/planet.html in the Collect Earth repository.
+-->
 <head>
-  <meta charset="utf-8" />
-  <title>NICFI Planet basemaps</title>
-  <script>
-    document.write('<base href="' + document.location + '" />');
-  </script>
-  <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js" integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA==" crossorigin=""></script>
-  <script src="https://cdn.jsdelivr.net/gh/digidem/leaflet-side-by-side@gh-pages/leaflet-side-by-side.js"></script>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A=="  crossorigin=""/>
-   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
-  <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
-  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
-   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-select@1.13.14/dist/css/bootstrap-select.min.css">
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap-select@1.13.14/dist/js/bootstrap-select.min.js"></script>
-  <!-- Material Icons -->
-  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Planet mosaics · Collect Earth</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="data:image/png;base64,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">
+  <!-- Pinned versions, checked by their hashes: the page holds the person's Planet key -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/gh/digidem/leaflet-side-by-side@2.2.0/leaflet-side-by-side.min.js" integrity="sha384-8sCVDzwuMIXB3QM19MACsoKOwClAamOz3EHWkxfpMzmZSg1W8D9lKspkCkOsmn1j" crossorigin="anonymous"></script>
   <style>
-		body {
-			margin: 0;
-			padding: 0;
-		}
+    :root {
+      --primary: #1565c0;
+      --text: #1f2933;
+      --muted: #52606d;
+      --panel: rgba(255, 255, 255, 0.94);
+      --border: rgba(31, 41, 51, 0.16);
+      --radius: 10px;
+      --plot: #ffeb3b;
+      font-family: Roboto, system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+      color: var(--text);
+    }
+    html, body { margin: 0; height: 100%; }
+    #map { position: absolute; inset: 0; background: #dfe3e8; }
 
-		#map {
-			position: absolute;
-			top: 0;
-			bottom: 0;
-			width: 100%;
-			z-index: 1;
-		}
+    .brand {
+      position: absolute; top: 10px; right: 10px; z-index: 1000;
+      display: flex; align-items: center; gap: 8px;
+      padding: 4px 12px 4px 4px; border-radius: 999px;
+      background: var(--panel); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+      font-size: 14px; font-weight: 600; white-space: nowrap;
+    }
+    .brand img { width: 32px; height: 32px; display: block; }
 
-		.controller-left {
-			position: absolute;
-			bottom: 0px;
-			left: 10vw;
-			z-index: 100;
-			text-align: left;
-		}
+    .side {
+      position: absolute; bottom: 24px; z-index: 1000;
+      display: grid; grid-template-columns: auto auto auto; align-items: end; gap: 4px 6px;
+      box-sizing: border-box; max-width: calc(50% - 40px);
+      padding: 8px 10px; border-radius: var(--radius);
+      background: var(--panel); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+    }
+    .side.left { left: 10px; }
+    .side.right { right: 10px; }
+    .side label { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--muted); }
+    .side .title { grid-column: 1 / -1; font-size: 12px; font-weight: 600; color: var(--text); }
+    .side.right .title { text-align: right; }
+    select, button {
+      font: inherit; font-size: 14px; color: var(--text);
+      border: 1px solid var(--border); border-radius: 8px; background: #fff;
+      padding: 6px 8px; min-height: 34px;
+    }
+    select:focus-visible, button:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+    button { cursor: pointer; font-weight: 600; }
+    button.icon { width: 34px; padding: 0; color: var(--primary); }
 
-		.controller-right {
-			position: absolute;
-			bottom: 0px;
-			right: 10vw;
-			z-index: 100;
-			text-align: right;
-		}
+    .notice {
+      position: absolute; top: 56px; left: 50%; transform: translateX(-50%); z-index: 1000;
+      max-width: min(560px, calc(100% - 40px));
+      padding: 10px 14px; border-radius: var(--radius);
+      background: #fff4e5; color: #663c00; border: 1px solid #ffb74d;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2); font-size: 14px;
+    }
+    .notice[hidden] { display: none; }
 
-		.background {
-			background-color: yellow;
-			opacity: 0.5;
-		}
+    dialog {
+      max-width: min(640px, calc(100% - 32px)); max-height: calc(100% - 64px);
+      border: none; border-radius: var(--radius); padding: 20px 24px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35); color: var(--text); font-size: 14px; line-height: 1.45;
+    }
+    dialog::backdrop { background: rgba(0, 0, 0, 0.4); }
+    dialog h2 { margin: 0 0 12px; font-size: 18px; }
+    dialog dt { font-weight: 600; margin-top: 10px; }
+    dialog dd { margin: 2px 0 0; }
+    dialog code { font-size: 12px; color: var(--muted); }
+    dialog .actions { display: flex; justify-content: flex-end; margin-top: 16px; }
+    dialog .actions button { background: var(--primary); border-color: var(--primary); color: #fff; padding: 6px 16px; }
+    a { color: var(--primary); }
 
-		.popover {
-			background-color: yellow;
-		}
-		
-		 
-    </style>
-	
-	
-	  <!-- Warning modal is shown only when API key is not provided (see script below) -->
-
+    @media (max-width: 640px) {
+      .brand span { display: none; }
+      .brand { padding: 4px; }
+      /* Each side's controls stacked in its own half */
+      .side { grid-template-columns: minmax(0, 1fr); width: calc(50% - 15px); max-width: none; bottom: 16px; padding: 8px; }
+      .side select { width: 100%; min-width: 0; }
+      .side.right .views-help { justify-self: end; }
+    }
+  </style>
 </head>
 
-<body layout="row" layout-wrap flex layout-fill layout-align="start start">
-	<div id='map' ></div>
-	
-	<!-- Bootstrap Modal -->
-	<div class="modal fade" id="warningModal" tabindex="-1" role="dialog" aria-labelledby="warningModalLabel" aria-hidden="true">
-	  <div class="modal-dialog" role="document">
-		<div class="modal-content">
-		  <div class="modal-header">
-			<h5 class="modal-title" id="warningModalLabel">Notice</h5>
-			<button type="button" class="close" data-dismiss="modal" aria-label="Close">
-			  <span aria-hidden="true">&times;</span>
-			</button>
-		  </div>
-		  <div class="modal-body">
-			<p>
-  Please be informed that the NICFI-Planet agreement, which provided high-resolution satellite imagery for tropical forest monitoring, concluded on January 23, 2025.
-  Access to NICFI Planet Imagery within Collect Earth has been discontinued. No new monthly basemaps will be available after December 2024.
-</p>
-<p>
-  To maintain access to similar data, you may:
-</p>
-<ul>
-  <li>
-    <strong>Contact Planet:</strong> Explore obtaining PlanetScope Tropical Mosaic access through the <a href="https://www.planet.com/tropical-forest-observatory/" target="_blank">Tropical Forest Observatory</a>.
-  </li>
-  <li>
-    <strong>Use your own API key:</strong> Collect Earth now supports the integration of Planet imagery using your own access key.
-  </li>
-</ul>
-<p>
-  Historical imagery up to December 2024 remains accessible.
-</p>
+<body>
+  <div id="map" role="region" aria-label="Planet mosaics around the plot, side by side"></div>
 
-		  </div>
-		  <div class="modal-footer">
-			<button type="button" class="btn btn-primary" data-dismiss="modal">OK</button>
-		  </div>
-		</div>
-	  </div>
-	</div>
-	
-	<div class="controller-left">
-		<div class="input-group mb-3">
-			<div class="input-group-prepend" style="margin-right:5px">
-				<select id="leftPicker" class="selectpicker form-control" data-style="btn-primary">
-				  <optgroup label="Biannual Mosaics">
-					<option value="2015-12_2016-05" selected>2015/12 - 2016/05</option>
-					<option value="2016-06_2016-11">2016/06 - 2016/11</option>
-					<option value="2016-12_2017-05">2016/12 - 2017/05</option>
-					<option value="2017-06_2017-11">2017/06 - 2017/11</option>
-					<option value="2017-12_2018-05">2017/12 - 2018/05</option>
-					<option value="2018-06_2018-11">2018/06 - 2018/11</option>
-					<option value="2018-12_2019-05">2018/12 - 2019/05</option>
-					<option value="2019-06_2019-11">2019/06 - 2019/11</option>
-					<option value="2019-12_2020-05">2019/12 - 2020/05</option>
-					<option value="2020-06_2020-08">2020/06 - 2020/08</option>
-				  </optgroup>
-				</select>
-			</div>
-			<div class="input-group-append">
-				<div class="input-group-prepend">
-					<select id="leftVizzPicker" class="selectpicker form-control" data-style="btn-primary">
-				  	<option value="rgb">Natural</option>
-					<option value="cir">CIR</option>
-					<option value="ndvi">NDVI</option>
-					<option value="ndwi">NDWI</option>
-					<option value="msavi2">MSAVI2</option>
-					<option value="mtvi2">MTVI2</option>
-					<option value="vari">VARI</option>
-					<option value="tgi">TGI</option>
-				</select>
-				<button type="button" class="btn btn-info infoButtonMsg" data-toggle="popover" data-placement="top" title="Remote Sensing Indices" data-html="true"  style="height:38px;margin-left:2px;" 
-				data-content="<p><strong>CIR (Color Infrared)</strong><br><strong>Use:</strong> Used in remote sensing and agricultural monitoring for assessing plant health.<br><strong>Calculation:</strong> NIR displayed in red, Red in green, Green in blue.</p><p><strong>NDVI (Normalized Difference Vegetation Index)</strong><br><strong>Use:</strong> Monitoring vegetation health, indicates live green vegetation density.<br><strong>Calculation:</strong> (NIR - RED) / (NIR + RED)</p><p><strong>NDWI (Normalized Difference Water Index)</strong><br><strong>Use:</strong> Monitoring changes in water content of leaves and detecting water bodies.<br><strong>Calculation:</strong> (NIR - SWIR) / (NIR + SWIR)</p><p><strong>MSAVI2 (Modified Soil Adjusted Vegetation Index 2)</strong><br><strong>Use:</strong> Minimizes soil brightness influences on NDVI, useful in sparse vegetation areas.<br><strong>Calculation:</strong> (2 * NIR + 1 - sqrt((2 * NIR + 1)² - 8 * (NIR - RED))) / 2</p><p><strong>MTVI2 (Modified Triangular Vegetation Index 2)</strong><br><strong>Use:</strong> Assesses vegetation health with better sensitivity in high biomass regions.<br><strong>Calculation:</strong> 1.5 * (1.2 * (NIR - Green) - 2.5 * (Red - Green)) / sqrt((2 * NIR + 1)² - (6 * NIR - 5 * sqrt(Red)) - 0.5)</p><p><strong>VARI (Visible Atmospherically Resistant Index)</strong><br><strong>Use:</strong> Vegetation monitoring using visible wavelengths, useful for standard RGB imagery.<br><strong>Calculation:</strong> (Green - Red) / (Green + Red - Blue)</p><p><strong>TGI (Triangular Greenness Index)</strong><br><strong>Use:</strong> Estimates chlorophyll concentration in leaves, indicating plant health.<br><strong>Calculation:</strong> -0.5 * [190 * (Red - Green) - 120 * (Red - Blue)]</p>">
-				  <span class="material-icons input-group-prepend">info</span>
-				</button>
-				</div>
-				
-			</div>
-		</div>
-	</div>
+  <div class="brand">
+    <img src="data:image/png;base64,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" alt="Collect Earth">
+    <span>Planet mosaics</span>
+  </div>
 
-	<div class="controller-right">
+  <div id="notice" class="notice" role="status" hidden></div>
 
-		<div class="input-group mb-3">
-			<div class="input-group-prepend"  style="margin-right:5px">
-				<select id="rightPicker" class="selectpicker form-control" data-style="btn-primary">
-				  <optgroup label="Biannual Mosaics">
-				  	<option value="2015-12_2016-05">2015/12 - 2016/05</option>
-					<option value="2016-06_2016-11">2016/06 - 2016/11</option>
-					<option value="2016-12_2017-05">2016/12 - 2017/05</option>
-					<option value="2017-06_2017-11">2017/06 - 2017/11</option>
-					<option value="2017-12_2018-05">2017/12 - 2018/05</option>
-					<option value="2018-06_2018-11">2018/06 - 2018/11</option>
-					<option value="2018-12_2019-05">2018/12 - 2019/05</option>
-					<option value="2019-06_2019-11">2019/06 - 2019/11</option>
-					<option value="2019-12_2020-05">2019/12 - 2020/05</option>
-					<option value="2020-06_2020-08">2020/06 - 2020/08</option>
-				  </optgroup>
+  <div class="side left">
+    <div class="title">Left side</div>
+    <label>Mosaic <select id="leftMosaic"></select></label>
+    <label>View <select id="leftView"></select></label>
+    <button type="button" class="icon views-help" aria-label="What the views show" title="What the views show">?</button>
+  </div>
 
-				</select>
-			</div>
-			<div class="input-group-append">
-				<div class="input-group-prepend">
-					<select id="rightVizzPicker" class="selectpicker form-control" data-style="btn-primary">
-				  	<option value="rgb">Natural</option>
-					<option value="cir">CIR</option>
-					<option value="ndvi">NDVI</option>
-					<option value="ndwi">NDWI</option>
-					<option value="msavi2">MSAVI2</option>
-					<option value="mtvi2">MTVI2</option>
-					<option value="vari">VARI</option>
-					<option value="tgi">TGI</option>
-				</select>
-				<button type="button" class="btn btn-info infoButtonMsg" data-toggle="popover" data-placement="top" title="Remote Sensing Indices" data-html="true" boundary="viewport" style="height:38px;margin-left:2px;"
-				data-content="<p><strong>CIR (Color Infrared)</strong><br><strong>Use:</strong> Used in remote sensing and agricultural monitoring for assessing plant health.<br><strong>Calculation:</strong> NIR displayed in red, Red in green, Green in blue.</p><p><strong>NDVI (Normalized Difference Vegetation Index)</strong><br><strong>Use:</strong> Monitoring vegetation health, indicates live green vegetation density.<br><strong>Calculation:</strong> (NIR - RED) / (NIR + RED)</p><p><strong>NDWI (Normalized Difference Water Index)</strong><br><strong>Use:</strong> Monitoring changes in water content of leaves and detecting water bodies.<br><strong>Calculation:</strong> (NIR - SWIR) / (NIR + SWIR)</p><p><strong>MSAVI2 (Modified Soil Adjusted Vegetation Index 2)</strong><br><strong>Use:</strong> Minimizes soil brightness influences on NDVI, useful in sparse vegetation areas.<br><strong>Calculation:</strong> (2 * NIR + 1 - sqrt((2 * NIR + 1)² - 8 * (NIR - RED))) / 2</p><p><strong>MTVI2 (Modified Triangular Vegetation Index 2)</strong><br><strong>Use:</strong> Assesses vegetation health with better sensitivity in high biomass regions.<br><strong>Calculation:</strong> 1.5 * (1.2 * (NIR - Green) - 2.5 * (Red - Green)) / sqrt((2 * NIR + 1)² - (6 * NIR - 5 * sqrt(Red)) - 0.5)</p><p><strong>VARI (Visible Atmospherically Resistant Index)</strong><br><strong>Use:</strong> Vegetation monitoring using visible wavelengths, useful for standard RGB imagery.<br><strong>Calculation:</strong> (Green - Red) / (Green + Red - Blue)</p><p><strong>TGI (Triangular Greenness Index)</strong><br><strong>Use:</strong> Estimates chlorophyll concentration in leaves, indicating plant health.<br><strong>Calculation:</strong> -0.5 * [190 * (Red - Green) - 120 * (Red - Blue)]</p>">
-				  <span class="material-icons">info</span>
-				</button>
-				<button type="button" id="apiKeyWarningBtn" class="btn btn-warning"
-                    data-toggle="tooltip" data-placement="left"
-                    title="You need to provide your own API key for Tropical Forest Observatory"
-                    style="height:38px;margin-left:10px;display:none;">
-                    <span class="material-icons">warning</span>
-                </button>
-				</div>
-			</div>
-		</div>
-	</div>
-	
-	<!-- Google Analytics -->
-	<!-- Google tag (gtag.js) -->
-	<script async src="https://www.googletagmanager.com/gtag/js?id=G-JDDM8SK1DH"></script>
-	<script>
-	  window.dataLayer = window.dataLayer || [];
-	  function gtag(){dataLayer.push(arguments);}
-	  gtag('js', new Date());
-	  gtag('config', 'G-JDDM8SK1DH', { 'anonymize_ip': true });
-	</script>
-	<!-- End Google Analytics -->
-	
-    <script>
+  <div class="side right">
+    <div class="title">Right side</div>
+    <label>Mosaic <select id="rightMosaic"></select></label>
+    <label>View <select id="rightView"></select></label>
+    <button type="button" class="icon views-help" aria-label="What the views show" title="What the views show">?</button>
+  </div>
 
-	$('.infoButtonMsg').popover({trigger: 'focus'});
+  <dialog id="viewsDialog" aria-labelledby="viewsTitle">
+    <h2 id="viewsTitle">What the views show</h2>
+    <p>Planet works each view out of the mosaic's bands: blue, green, red and near infrared (NIR).</p>
+    <dl id="viewsList"></dl>
+    <p><a href="https://developers.planet.com/docs/basemaps/tile-services/indices/" target="_blank" rel="noopener noreferrer">Planet's description of the views</a></p>
+    <form method="dialog" class="actions"><button autofocus>Close</button></form>
+  </dialog>
 
-	// URL Parameters:
-	// - latlngs: JSON array of polygon coordinates (required)
-	// - planet_api_key: Planet API key for Tropical Forest Observatory access (required). Collect Earth sends it
-	//   after the # (planet.html?latlngs=...#planet_api_key=KEY), which the browser does not send to the web server;
-	//   in the query (older versions of Collect Earth) it is still read
-	// - planet_date_from: Start date for comparison (optional, defaults to '2016-06_2016-11')
-	// - planet_date_to: End date for comparison (optional, defaults to latest available)
-	// Example: planet.html?latlngs=[[[1,3],[4,4],[4,2],[1,3]]]&planet_api_key=YOUR_API_KEY
-	const params = new URL(location.href).searchParams;
-	var latlngs = JSON.parse( params.get('latlngs' ) );
-	latlngs = latlngs || [[[14.869437,-90.816216],[14.869437,-90.815566],[14.868804,-90.815566],[14.868804,-90.816216],[14.869437,-90.816216]],[[14.869364,-90.81616],[14.869364,-90.816142],[14.869382,-90.816142],[14.869382,-90.81616],[14.869364,-90.81616]],[[14.869238,-90.81616],[14.869238,-90.816142],[14.869256,-90.816142],[14.869256,-90.81616],[14.869238,-90.81616]],[[14.869111,-90.81616],[14.869111,-90.816142],[14.869129,-90.816142],[14.869129,-90.81616],[14.869111,-90.81616]],[[14.868985,-90.81616],[14.868985,-90.816142],[14.869003,-90.816142],[14.869003,-90.81616],[14.868985,-90.81616]],[[14.868858,-90.81616],[14.868858,-90.816142],[14.868876,-90.816142],[14.868876,-90.81616],[14.868858,-90.81616]],[[14.869364,-90.81603],[14.869364,-90.816012],[14.869382,-90.816012],[14.869382,-90.81603],[14.869364,-90.81603]],[[14.869238,-90.81603],[14.869238,-90.816012],[14.869256,-90.816012],[14.869256,-90.81603],[14.869238,-90.81603]],[[14.869111,-90.81603],[14.869111,-90.816012],[14.869129,-90.816012],[14.869129,-90.81603],[14.869111,-90.81603]],[[14.868985,-90.81603],[14.868985,-90.816012],[14.869003,-90.816012],[14.869003,-90.81603],[14.868985,-90.81603]],[[14.868858,-90.81603],[14.868858,-90.816012],[14.868876,-90.816012],[14.868876,-90.81603],[14.868858,-90.81603]],[[14.869364,-90.8159],[14.869364,-90.815882],[14.869382,-90.815882],[14.869382,-90.8159],[14.869364,-90.8159]],[[14.869238,-90.8159],[14.869238,-90.815882],[14.869256,-90.815882],[14.869256,-90.8159],[14.869238,-90.8159]],[[14.869111,-90.8159],[14.869111,-90.815882],[14.869129,-90.815882],[14.869129,-90.8159],[14.869111,-90.8159]],[[14.868985,-90.8159],[14.868985,-90.815882],[14.869003,-90.815882],[14.869003,-90.8159],[14.868985,-90.8159]],[[14.868858,-90.8159],[14.868858,-90.815882],[14.868876,-90.815882],[14.868876,-90.8159],[14.868858,-90.8159]],[[14.869364,-90.81577],[14.869364,-90.815752],[14.869382,-90.815752],[14.869382,-90.81577],[14.869364,-90.81577]],[[14.869238,-90.81577],[14.869238,-90.815752],[14.869256,-90.815752],[14.869256,-90.81577],[14.869238,-90.81577]],[[14.869111,-90.81577],[14.869111,-90.815752],[14.869129,-90.815752],[14.869129,-90.81577],[14.869111,-90.81577]],[[14.868985,-90.81577],[14.868985,-90.815752],[14.869003,-90.815752],[14.869003,-90.81577],[14.868985,-90.81577]],[[14.868858,-90.81577],[14.868858,-90.815752],[14.868876,-90.815752],[14.868876,-90.81577],[14.868858,-90.81577]],[[14.869364,-90.81564],[14.869364,-90.815621],[14.869382,-90.815621],[14.869382,-90.81564],[14.869364,-90.81564]],[[14.869238,-90.81564],[14.869238,-90.815621],[14.869256,-90.815621],[14.869256,-90.81564],[14.869238,-90.81564]],[[14.869111,-90.81564],[14.869111,-90.815621],[14.869129,-90.815621],[14.869129,-90.81564],[14.869111,-90.81564]],[[14.868985,-90.81564],[14.868985,-90.815621],[14.869003,-90.815621],[14.869003,-90.81564],[14.868985,-90.81564]],[[14.868858,-90.81564],[14.868858,-90.815621],[14.868876,-90.815621],[14.868876,-90.81564],[14.868858,-90.81564]]]
-	// For surveys where the start and end date is set!
-	var fromMonthImage = params.get('planet_date_from' );
-	var toMonthImage = params.get('planet_date_to' );
+  <dialog id="keyDialog" aria-labelledby="keyTitle">
+    <h2 id="keyTitle">A Planet key is needed</h2>
+    <p>Planet's mosaics are shown with your own Planet key, one that gives access to the
+      <a href="https://www.planet.com/tropical-forest-observatory/" target="_blank" rel="noopener noreferrer">Tropical Forest Observatory</a>.</p>
+    <p>In Collect Earth, enter it in Settings › Imagery › Planet API key, with Planet imagery set to “Monthly mosaics (Tropical Forest Observatory)”, then open the plot again.</p>
+    <p>Since the NICFI programme ended in January 2025, Collect Earth no longer provides a key of its own.</p>
+    <form method="dialog" class="actions"><button autofocus>Close</button></form>
+  </dialog>
 
-	// Planet API key from URL parameter (required for Tropical Forest Observatory access)
-	const apiKey = new URLSearchParams(location.hash.replace(/^#/, '')).get('planet_api_key') || params.get('planet_api_key');
-	// Out of the address bar and the browser's history once read
-	if (apiKey && window.history && history.replaceState) {
-		try {
-			const shown = new URL(location.href);
-			shown.hash = '';
-			shown.searchParams.delete('planet_api_key');
-			history.replaceState(null, '', shown.toString());
-		} catch (e) { /* the page works with the key left in the address */ }
-	}
+  <!-- Google Analytics: the page's address goes without its query, which holds the plot's location -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-JDDM8SK1DH"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
+    gtag('js', new Date());
+    gtag('config', 'G-JDDM8SK1DH', { anonymize_ip: true, page_location: location.origin + location.pathname });
+  </script>
 
-	// Check if API key is provided
-	if (!apiKey) {
-		// Show warning modal
-		$('#warningModal .modal-title').text('API Key Required');
-		$('#warningModal .modal-body').html(
-			'<p><strong>No Planet API key provided.</strong></p>' +
-			'<p>To use Planet imagery, you need to provide your own API key from the ' +
-			'<a href="https://www.planet.com/tropical-forest-observatory/" target="_blank">Tropical Forest Observatory</a>.</p>' +
-			'<p>Please configure your Planet API key in Collect Earth settings.</p>'
-		);
-		$('#warningModal').modal('show');
+  <script>
+    'use strict';
 
-		// Show warning icon button and initialize tooltip
-		$('#apiKeyWarningBtn').show();
-		$('#apiKeyWarningBtn').tooltip();
-	}
-	const INITIAL_TYPE = "rgb"; // before Benin we used "cir" as default
-	
-    var map = L.map('map');
+    // The views Planet's tile service computes (proc=): https://developers.planet.com/docs/basemaps/tile-services/indices/
+    var VIEWS = [
+      ['rgb', 'Natural colour', 'The colours as the eye sees them.', 'Red, green, blue'],
+      ['cir', 'Colour infrared (CIR)', 'Healthy vegetation shows bright red: plant health, crops.', 'NIR as red, red as green, green as blue'],
+      ['ndvi', 'NDVI', 'How dense and green the vegetation is.', '(NIR − Red) / (NIR + Red)'],
+      ['ndwi', 'NDWI', 'Water bodies and the water in leaves.', '(Green − NIR) / (Green + NIR)'],
+      ['msavi2', 'MSAVI2', 'Vegetation where it is sparse: less influenced by bare soil than NDVI.', '(2·NIR + 1 − √((2·NIR + 1)² − 8·(NIR − Red))) / 2'],
+      ['mtvi2', 'MTVI2', 'Vegetation where it is dense: more sensitive than NDVI in high biomass.', '1.5·(1.2·(NIR − Green) − 2.5·(Red − Green)) / √((2·NIR + 1)² − (6·NIR − 5·√Red) − 0.5)'],
+      ['vari', 'VARI', 'Vegetation from the visible bands only.', '(Green − Red) / (Green + Red − Blue)'],
+      ['tgi', 'TGI', 'Chlorophyll in the leaves.', '−0.5·(190·(Red − Green) − 120·(Red − Blue))']
+    ];
+    var INITIAL_VIEW = 'rgb';
+    var DEFAULT_FROM = '2016-06_2016-11';
+    var BIANNUAL = [
+      [2015, 12, 2016, 5], [2016, 6, 2016, 11], [2016, 12, 2017, 5], [2017, 6, 2017, 11], [2017, 12, 2018, 5],
+      [2018, 6, 2018, 11], [2018, 12, 2019, 5], [2019, 6, 2019, 11], [2019, 12, 2020, 5], [2020, 6, 2020, 8]
+    ];
+    // Monthly from September 2020; a month's mosaic is out around the 10th of the next one (as PlanetMonths.java)
+    var FIRST_MONTHLY = { year: 2020, month: 9 };
+    var PUBLISHED_ON_DAY = 10;
 
-    var polyline = L.polyline(latlngs, {color: 'yellow'}).addTo(map);
+    var two = function (n) { return (n < 10 ? '0' : '') + n; };
 
-	map.fitBounds(polyline.getBounds())
+    // --- What Collect Earth sent ---------------------------------------------------------------------------------
+    var params = new URL(location.href).searchParams;
+    var hash = new URLSearchParams(location.hash.replace(/^#/, ''));
+    var apiKey = hash.get('planet_api_key') || params.get('planet_api_key') || '';
+    // Out of the address bar and the browser's history once read
+    if (hash.has('planet_api_key') || params.has('planet_api_key')) {
+      try {
+        var shown = new URL(location.href);
+        shown.hash = '';
+        shown.searchParams.delete('planet_api_key');
+        history.replaceState(null, '', shown.toString());
+      } catch (e) { /* the page works with the key left in the address */ }
+    }
 
-	var planetLeftLayer;
-	var planetRightLayer;
-	var sideBySide;
+    // An example plot (Guatemala) when the page is opened without one
+    var EXAMPLE = [[[14.869437, -90.816216], [14.869437, -90.815566], [14.868804, -90.815566], [14.868804, -90.816216], [14.869437, -90.816216]]];
+    var latlngs = EXAMPLE;
+    var plotUnreadable = false;
+    if (params.has('latlngs')) {
+      try {
+        latlngs = JSON.parse(params.get('latlngs'));
+        if (!Array.isArray(latlngs) || latlngs.length === 0) throw new Error('no polygon');
+      } catch (e) {
+        latlngs = null;
+        plotUnreadable = true;
+      }
+    }
 
-	const planetFooter = 'Planet ' + new Date().getFullYear();
-	
-	// vizzType  = one of "rgb" , "cir" , "ndvi, " ndwi ,  "msavi2, mtvi2, vari, tgi, see here for explanation https://developers.planet.com/docs/basemaps/tile-services/indices/
-	var getTileUrl = function( layerId, vizzType){
+    // --- The mosaics --------------------------------------------------------------------------------------------
+    function mosaics(today) {
+      var list = { biannual: [], monthly: [] };
+      BIANNUAL.forEach(function (b) {
+        list.biannual.push({
+          value: b[0] + '-' + two(b[1]) + '_' + b[2] + '-' + two(b[3]),
+          label: b[0] + '/' + two(b[1]) + ' – ' + b[2] + '/' + two(b[3])
+        });
+      });
+      var last = new Date(today.getFullYear(), today.getMonth() - (today.getDate() < PUBLISHED_ON_DAY ? 2 : 1), 1);
+      for (var d = new Date(FIRST_MONTHLY.year, FIRST_MONTHLY.month - 1, 1); d <= last; d.setMonth(d.getMonth() + 1)) {
+        list.monthly.push({
+          value: d.getFullYear() + '-' + two(d.getMonth() + 1),
+          label: d.toLocaleString(undefined, { month: 'long', year: 'numeric' })
+        });
+      }
+      return list;
+    }
 
-		// layerId -- > 2020-06_2020-08
-		return( 'https://{s}/basemaps/v1/planet-tiles/planet_medres_normalized_analytic_'+layerId+'_mosaic/gmap/{z}/{x}/{y}?api_key='+apiKey+'&proc='+vizzType);
-	}
-	
-	var getTileLayer = function( layerId, vizzType){
-		var layer = L.tileLayer(
-			getTileUrl(layerId, vizzType),
-			{
-				attribution: planetFooter,
-				subdomains: ['tiles0.planet.com', 'tiles1.planet.com', 'tiles2.planet.com', 'tiles3.planet.com'],
-				errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
-			}
-		);
+    var available = mosaics(new Date());
+    var latest = available.monthly.length ? available.monthly[available.monthly.length - 1].value : DEFAULT_FROM;
 
-		// Add error handling for tile load failures
-		layer.on('tileerror', function(error) {
-			console.warn('Failed to load Planet tile:', error.tile.src);
-		});
+    function fillMosaics(select, chosen) {
+      var known = false;
+      [['Biannual mosaics', available.biannual], ['Monthly mosaics (from September 2020)', available.monthly]].forEach(function (group) {
+        var g = document.createElement('optgroup');
+        g.label = group[0];
+        group[1].forEach(function (m) {
+          g.appendChild(new Option(m.label, m.value));
+          if (m.value === chosen) known = true;
+        });
+        select.appendChild(g);
+      });
+      // A mosaic Collect Earth asked for that this list does not have yet (a month just published): offered all the same
+      if (!known) select.insertBefore(new Option(chosen, chosen), select.firstChild);
+      select.value = chosen;
+    }
 
-		return layer;
-	}
+    function fillViews(select) {
+      VIEWS.forEach(function (v) { select.appendChild(new Option(v[1], v[0])); });
+      select.value = INITIAL_VIEW;
+    }
 
-	var initialize = function( leftLayerId, rightLayerId){
-		$('#leftPicker').val( leftLayerId );
-		$('#rightPicker').val( rightLayerId );
-		$('#rightVizzPicker').val( INITIAL_TYPE );
-		$('#leftVizzPicker').val( INITIAL_TYPE );
-		
-		planetLeftLayer = getTileLayer(leftLayerId, INITIAL_TYPE ).addTo(map);
-		planetRightLayer = getTileLayer(rightLayerId, INITIAL_TYPE).addTo(map);
+    // --- The map ------------------------------------------------------------------------------------------------
+    var map = L.map('map', { zoomControl: true, attributionControl: true });
+    map.attributionControl.setPrefix('<a href="https://leafletjs.com" target="_blank" rel="noopener noreferrer">Leaflet</a>');
+    if (latlngs) {
+      var plot = L.polyline(latlngs, { color: getComputedStyle(document.documentElement).getPropertyValue('--plot').trim() || '#ffeb3b', weight: 2 }).addTo(map);
+      map.fitBounds(plot.getBounds(), { maxZoom: 18, padding: [40, 40] });
+    } else {
+      map.setView([0, 0], 2);
+    }
 
-		return L.control.sideBySide(planetLeftLayer, planetRightLayer).addTo(map);
-	}
+    // What the page has to say, one line per subject (the plot, the key, each side's imagery); null takes it away
+    var notice = document.getElementById('notice');
+    var said = {};
+    function say(subject, text) {
+      if (text) said[subject] = text;
+      else delete said[subject];
+      notice.textContent = '';
+      Object.keys(said).forEach(function (key) {
+        var line = document.createElement('div');
+        line.textContent = said[key];
+        notice.appendChild(line);
+      });
+      notice.hidden = Object.keys(said).length === 0;
+    }
+    if (plotUnreadable) say('plot', 'The plot\'s outline could not be read, so the map does not show where the plot is.');
 
-	var loadSingleSide = function( layerId, vizzType, rightSide){
+    function tileUrl(mosaic, view) {
+      return 'https://tiles{s}.planet.com/basemaps/v1/planet-tiles/planet_medres_normalized_analytic_' + mosaic +
+        '_mosaic/gmap/{z}/{x}/{y}?api_key=' + encodeURIComponent(apiKey) + '&proc=' + encodeURIComponent(view);
+    }
 
-		if( rightSide ){
-			map.removeLayer( planetRightLayer);
-		}else{
-			map.removeLayer( planetLeftLayer);
-		}
+    var EMPTY_TILE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+    var sides = {};
 
-		var planetLayer = getTileLayer(layerId, vizzType).addTo(map);
+    function mosaicLabel(select) {
+      var option = select.options[select.selectedIndex];
+      return option ? option.text : select.value;
+    }
 
-		if( rightSide ){
-			planetRightLayer = planetLayer;
-			sideBySide.setRightLayers( planetLayer ).addTo(map);
-		}else{
-			planetLeftLayer = planetLayer;
-			sideBySide.setLeftLayers( planetLayer ).addTo(map);
-		}
-	}
+    // A side whose tiles Planet refuses, none loading: the key has no access to this mosaic, or is wrong. The blank
+    // tile put in place of a refused one counts as loaded for Leaflet: it is not one of Planet's
+    function watch(layer, side) {
+      var loaded = 0;
+      var failed = 0;
+      layer.on('tileload', function (e) {
+        if (e.tile && e.tile.src === EMPTY_TILE) return;
+        loaded++;
+        say(side, null);
+      });
+      layer.on('tileerror', function () {
+        failed++;
+        if (loaded === 0 && failed === 4 && apiKey) {
+          say(side, 'Planet sends no imagery for ' + mosaicLabel(document.getElementById(side + 'Mosaic')) + ' (' + side +
+            ' side). Check that your Planet key gives access to the Tropical Forest Observatory mosaics, or try another mosaic.');
+        }
+      });
+    }
 
-	var getMonthName = function(idx) {
+    function layerFor(side) {
+      var layer = L.tileLayer(tileUrl(document.getElementById(side + 'Mosaic').value, document.getElementById(side + 'View').value), {
+        subdomains: '0123',
+        attribution: '&copy; Planet Labs PBC ' + new Date().getFullYear(),
+        errorTileUrl: EMPTY_TILE
+      });
+      watch(layer, side);
+      return layer;
+    }
 
-		var objDate = new Date();
-		objDate.setDate(1);
-		objDate.setMonth(idx-1);
+    fillMosaics(document.getElementById('leftMosaic'), params.get('planet_date_from') || DEFAULT_FROM);
+    fillMosaics(document.getElementById('rightMosaic'), params.get('planet_date_to') || latest);
+    fillViews(document.getElementById('leftView'));
+    fillViews(document.getElementById('rightView'));
 
-		var locale = "default",
-		month = objDate.toLocaleString(locale, { month: "long" });
+    sides.left = layerFor('left').addTo(map);
+    sides.right = layerFor('right').addTo(map);
+    var sideBySide = L.control.sideBySide(sides.left, sides.right).addTo(map);
 
-		return month;
-	}
-	
-	var lastMonthAdded; 
-	
-	// Function to generate the optgroup for monthly mosaics
-	function generateMonthlyMosaicsOptgroup() {
-		// Define constants
-		const START_YEAR = 2020;
-		const START_MONTH = 9; // September 2020
-		const DAY_WITH_NEW_MONTHLY_BASEMAP = 8;
+    function reload(side) {
+      var layer = layerFor(side);
+      map.removeLayer(sides[side]);
+      sides[side] = layer.addTo(map);
+      say(side, null);
+      if (side === 'left') sideBySide.setLeftLayers(layer);
+      else sideBySide.setRightLayers(layer);
+    }
 
-		// Get current date for determining available monthly basemaps
-		const today = new Date();
-		const currentYear = today.getFullYear();
-		const currentMonth = today.getMonth() + 1; // Months are 0-based
-		const currentDay = today.getDate();
+    ['left', 'right'].forEach(function (side) {
+      document.getElementById(side + 'Mosaic').addEventListener('change', function () { reload(side); });
+      document.getElementById(side + 'View').addEventListener('change', function () { reload(side); });
+    });
 
-		// Initialize the optgroup HTML
-		let optgroup = "<optgroup label=\"Monthly Mosaics (from September 2020)\">";
+    // --- The dialogs ----------------------------------------------------------------------------------------------
+    var list = document.getElementById('viewsList');
+    VIEWS.forEach(function (v) {
+      var dt = document.createElement('dt');
+      dt.textContent = v[1];
+      var dd = document.createElement('dd');
+      dd.textContent = v[2] + ' ';
+      var code = document.createElement('code');
+      code.textContent = v[3];
+      dd.appendChild(code);
+      list.appendChild(dt);
+      list.appendChild(dd);
+    });
 
-		// Loop through years and months
-		for (let year = START_YEAR; year <= currentYear; year++) {
-			for (let month = 1; month <= 12; month++) {
-				
-				if (
-					(year === START_YEAR && month < START_MONTH) || // Skip months before September 2020
-					(year === currentYear && month > currentMonth - 1) || // Skip months after current month
-					(year === currentYear && month === currentMonth - 1 && currentDay <= DAY_WITH_NEW_MONTHLY_BASEMAP) || // Skip last mont if the planet imagery is not updated yer (before the 8th of the month to be sure
-					(year === currentYear - 1 && currentMonth === 1 && month === 12 && currentDay <= DAY_WITH_NEW_MONTHLY_BASEMAP) // Special case for January
-				) {
-					continue;
-				}
+    function open(dialog) {
+      if (typeof dialog.showModal === 'function') dialog.showModal();
+      else dialog.setAttribute('open', '');
+    }
+    Array.prototype.forEach.call(document.querySelectorAll('.views-help'), function (button) {
+      button.addEventListener('click', function () { open(document.getElementById('viewsDialog')); });
+    });
 
-				// Generate the display name and value for the option
-				const name = getMonthName(month) + " " + year;
-				const value = year +"-"+month.toString().padStart(2, "0");
-
-				lastMonthAdded = value;
-
-				// Add the option to the optgroup
-				optgroup += `<option value='${value}'>${name}</option>`;
-			}
-		}
-
-		// Close the optgroup
-		optgroup += "</optgroup>";
-
-		return optgroup;
-	}
-
-	var loadLeft = function(){loadSingleSide( $('#leftPicker').val(), $('#leftVizzPicker').val(), false );};
-	var loadRight = function(){loadSingleSide( $('#rightPicker').val(), $('#rightVizzPicker').val(), true );};
-
-	$('#leftPicker').on('changed.bs.select', loadLeft);
-	$('#leftVizzPicker').on('changed.bs.select', loadLeft);
-
-	$('#rightPicker').on('changed.bs.select', loadRight);
-	$('#rightVizzPicker').on('changed.bs.select', loadRight);
-	
-	$('[data-toggle="tooltip"]').tooltip();
-	
-	// create opt group
-	var optgroup = generateMonthlyMosaicsOptgroup();
-
-	// create select
-	$('#leftPicker').append(optgroup);
-	$('#rightPicker').append(optgroup);	
-
-	fromMonthImage = fromMonthImage || '2016-06_2016-11';
-	toMonthImage = toMonthImage || lastMonthAdded;
-
-	sideBySide = initialize(fromMonthImage, toMonthImage);
-
-    </script>
-<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"922c117d7d9dea6e","serverTiming":{"name":{"cfExtPri":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.1.0","token":"8a1eede1275a47738e098887c84bd924"}' crossorigin="anonymous"></script>
+    if (!apiKey) {
+      open(document.getElementById('keyDialog'));
+      say('key', 'No Planet key: the mosaics cannot be shown. Enter your key in Collect Earth\'s settings.');
+    }
+  </script>
 </body>
 </html>

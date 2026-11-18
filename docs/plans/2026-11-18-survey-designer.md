@@ -326,6 +326,83 @@ fixed fields, the plot-file values and one empty page. The multipurpose and IPCC
 years (a list of 26 or 27 years, "LU 2026"): a later step asks the first and last year and fills
 them in.
 
+## Checking the survey, and help with rules (proposed 18 Nov)
+
+### Where things stand
+
+Today the only full check of an edited survey is in the desktop's tests: `DesignedSurveyIdmlTest` reads the
+trial surveys with Collect's parser and IDML schema, runs Collect's `SurveyValidator` with Collect Earth's rules and
+`ExpressionValidator`, and builds the web form. That proves the approach on fixtures. It does not check what a
+coordinator saves. `src/survey/edit.ts` guards names, duplicate questions and codes, and refuses to delete a question
+something uses, but a condition handed to `setShownWhen` or `setRequired` is written as given, unchecked. A project
+file made in Collect's designer is not checked either: Collect's designer did that before export.
+
+A survey that Collect cannot read, or with one broken expression, does not open in Collect Earth, for everyone who
+receives it. So **no survey is saved unless it passes the checks below**.
+
+### Three layers
+
+1. **Right by construction.** The coordinator never types an expression for what the builder can say. Conditions and
+   rules are kept as structured rows (question, test, value; a range; another question; a column total; a text
+   pattern) and the server writes the expression from them. The rows are checked before anything is written: the
+   question exists and is in reach (the plot, or the same table); the test suits its type (no "less than" on a
+   choice); a code is an item of the question's list; a range has min ≤ max; a rule does not depend on itself; a
+   "show when" names no question shown later that depends on it in turn.
+2. **A survey check on every save, on the server.** `src/survey/check.ts` refuses the save, naming each problem in
+   plain words:
+   - Collect Earth's survey rules (`CollectEarthSurveyValidator`): root entity `plot`; the six fields and their types;
+     entities only directly under the plot; names `[a-z][a-z0-9_]*`, not ending in `_` and digits, at most 63
+     characters with their ancestors' names, unique within their entity; 1 to 3 keys; every list named exists, codes
+     unique in a list; every page a question names exists.
+   - **Every expression of the survey**, the kept formulas included: a parser of Collect's expression language
+     (XPath 1.0 with Collect's functions: `idm:`, `math:`, `geo:`, `$this`, `parent()`), parsing only, not
+     evaluating. Each path is resolved against the schema, each function is one Collect knows with the right number
+     of arguments, and a condition gives a yes/no. This brings stage 7's parser forward: it is also what makes
+     renaming or deleting a question safe when 561 formulas name questions.
+   - **Agreement with Collect, tested:** a corpus of expressions (every one of the three templates and the fixtures,
+     about 700, plus a set broken on purpose: unknown names, wrong arity, unbalanced brackets, a code compared as a
+     number) is run through Collect's `ExpressionValidator` in a desktop test, which writes its verdicts to a fixture;
+     the server's checker must give the same verdict on each. A disagreement fails the build.
+   - Uploaded project files are checked the same way, but only warned about, not refused (they worked in Collect).
+3. **Collect itself, where it is at hand.** The desktop tests keep running Collect's validator on the designer's
+   output (`DesignedSurveyIdmlTest`). In the dashboard inside Collect Earth (local mode), the save can also ask the
+   running Collect Earth to validate with Collect's own code, which is exact.
+
+### Help with writing rules
+
+- **The builder offers the rules Collect Earth surveys need**, beyond the ranges of "Rules": a year or date not after
+  today; a question compared with another (the year of change after the base year); a table column adding up to
+  a number (land cover points); a consistency between two answers ("if land use is Forest, tree cover is at least 10%");
+  a text's length or pattern (a plot code like `AB-123`). Error or warning; the message in each of the survey's
+  languages.
+- **Each rule in plain words** as it is built (the same words as stage 1): "The answer must be after the answer to
+  Base year, when Land use changed is yes".
+- **Tried on the data already collected.** Before saving, the server runs the draft rule over the project's records
+  and says "This rule would flag 37 of the 1,240 plots collected", with the list. A rule that flags half the plots is
+  probably wrong, or a finding. This needs an evaluator for the builder's rules only (not for free expressions), the
+  same one stage 6 needs for the preview.
+- **Try a value:** type sample answers and see which rules pass.
+
+### Gemini's part
+
+The AI assistant already proposes analysis views this way (`src/ai/analysisViews.ts`): it gets the survey's
+structure, answers JSON in a schema, and the server keeps only what it checks. The rules follow the same pattern.
+
+- **"Describe the rule"**: the coordinator writes "the year of change must be after 2000 and not in the future".
+  Gemini answers a rule in the builder's own structure (a JSON schema listing only this survey's questions and codes),
+  never an expression. The server checks it like any rule (layer 1), shows it in words with its effect on the data
+  already collected, and the coordinator accepts, edits or drops it. When the request cannot be said with the
+  builder, Gemini says so instead of guessing.
+- **"Suggest rules"**: Gemini reads the survey and proposes the rules it lacks: percentages that should add to 100,
+  years outside the survey's list, required questions that are only required sometimes, answers that contradict each
+  other. Each comes with its count of plots it would flag.
+- **Translate a rule's message** into the survey's other languages.
+- **Explain an advanced condition or formula** in plain words (read-only), for the IPCC calculations.
+
+What Gemini receives: the survey's structure only (names, labels, types, list items, existing rules), as data, never
+as instructions. No answers, no plot locations, no people. The counts of plots flagged are computed by the server.
+It follows the server's AI switch (`aiAvailable`): without Gemini, everything above works but these four buttons.
+
 ## What is dropped, and why
 
 | Dropped | Why |
@@ -346,12 +423,14 @@ Each stage is useful by itself and can stop there.
 | --- | --- | --- |
 | 0. Trial | Nothing visible | The tree model reads and writes the three templates, the demo survey and real project files with no loss; checked by Collect's own parser and validator in the desktop's tests. Go or no-go for the approach |
 | 1. See | Setup › Survey form shows pages, questions, lists, tables, conditions in plain words | The designer model, read-only |
-| 2. Words | Edit labels, help texts, list item labels; translations; add a language | The first operations; versions and undo; the rules for a survey in use |
+| 2. Words | Edit labels, help texts, list item labels; translations; add a language | The first operations; versions and undo; the rules for a survey in use; the survey check (Collect Earth's rules) on every save |
 | 3. Questions | Add, move and delete pages, questions and answer lists; required; plot-file columns | Names made from labels; Collect's survey rules |
-| 4. Logic | Show when, rules, sub-lists, tables and repeated blocks | The condition builder and its small reader |
+| 3b. Expressions | Nothing visible: every expression of a survey checked on save and on upload | The parser of Collect's expressions, agreeing with Collect's on a corpus of about 700 |
+| 4. Logic | Show when, rules, sub-lists, tables and repeated blocks; rules in words, tried on the data collected | The condition builder and its small reader; the evaluator of builder rules |
+| 4b. Help | "Describe the rule", "Suggest rules", messages translated, advanced conditions explained | Gemini, answering in the builder's structure |
 | 5. New | "Design the survey here": blank or a template; years for multipurpose and IPCC | Templates in the repository |
 | 6. In use | Collect Earth takes a changed survey by itself; preview that reacts | Desktop work; the browser evaluation of builder conditions |
-| 7. Later | Formulas as text, labels as a spreadsheet, the desktop's form as preview | A TypeScript parser of Collect's expressions |
+| 7. Later | Formulas as text (checked by 3b's parser), labels as a spreadsheet, the desktop's form as preview | |
 
 Stage 0 is small and decides the rest. Stages 1 and 2 already answer the most common need:
 seeing what the survey asks and fixing its wording without another program.
