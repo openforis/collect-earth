@@ -63,6 +63,16 @@ describe('a busy database', () => {
     expect(reads.mock.calls.filter(([pid]) => pid === p.projectId)).toHaveLength(2);
   });
 
+  it('reads it once when many people join at the same moment, before the first read is done', async () => {
+    const p = await createProject(ctx.app, 'Rush at nine');
+    expect((await ctx.app.inject({ method: 'PUT', url: `/v1/projects/${p.projectId}/cep`, headers: { ...bearer(p.adminToken), 'content-type': 'application/zip' }, payload: idOnlyCep() })).statusCode).toBeLessThan(300);
+    const reads = vi.spyOn(ctx.store, 'getCep');
+    const at = await Promise.all(Array.from({ length: 20 }, () => ctx.app.inject({ method: 'GET', url: `/v1/projects/${p.projectId}/cep`, headers: bearer(p.adminToken) })));
+    expect(at.every((r) => r.statusCode === 200 && r.rawPayload.equals(at[0].rawPayload))).toBe(true);
+    // 20 before: each read the file while the first was still reading it
+    expect(reads.mock.calls.filter(([pid]) => pid === p.projectId)).toHaveLength(1);
+  });
+
   it('waits 10 s for a connection by default; PG_CONNECT_TIMEOUT_MS=0 waits for ever', () => {
     expect(loadConfig({}).dbConnectTimeoutMs).toBe(10_000);
     expect(loadConfig({ PG_CONNECT_TIMEOUT_MS: '2500' }).dbConnectTimeoutMs).toBe(2500);
