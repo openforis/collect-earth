@@ -14,9 +14,11 @@ const LIMITS = [
 /**
  * The scene cloud-cover limit shared by the Landsat and Sentinel-2 cards: the points under it (a point
  * without a numeric `cloud` is kept), memoised so the chart sees a stable list, and the select for the card.
+ * `start` is the survey's limit (the chart entry's `maxCloud`); under one that is not the standard 40 the user's
+ * choice is stored apart, as for the analysis switches (SeriesChart `useSwitch`).
  */
-export function useCloudFilter(points: Point[] | undefined) {
-  const [maxCloud, setMaxCloud] = usePref("explorer.maxCloud", "40");
+export function useCloudFilter(points: Point[] | undefined, start = "40") {
+  const [maxCloud, setMaxCloud] = usePref(`explorer.maxCloud${start === "40" ? "" : ".survey"}`, start);
   const filtered = useMemo(() => {
     if (!points || maxCloud === "any") return points;
     const max = Number(maxCloud);

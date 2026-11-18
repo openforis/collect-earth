@@ -22,6 +22,15 @@
         "bands": { "type": "choice", "values": ["false-colour", "true-colour"], "default": "false-colour" },
         "maxCloud": { "type": "int", "min": 1, "max": 100, "default": 50 }
       }
+    },
+    "sentinel1": {
+      "title": "Sentinel-1 radar yearly composite",
+      "params": {
+        "label": { "type": "text", "max": 60 },
+        "years": { "type": "yearRange", "min": 2015 },
+        "year": { "type": "year", "min": 2015 },
+        "bands": { "type": "choice", "values": ["false-colour", "vv", "vh"], "default": "false-colour" }
+      }
     }
   },
   "charts": {
@@ -38,6 +47,12 @@
         "index": { "type": "choice", "values": ["NDVI", "EVI", "EVI2", "SAVI", "MSAVI", "GNDVI", "NDMI", "NBR", "NBR2", "NDWI", "MNDWI", "NDSI", "NDBI", "BSI"], "default": "NDVI" },
         "formula": { "type": "formula", "max": 200 },
         "name": { "type": "text", "max": 30 },
+        "median": { "type": "bool", "default": false },
+        "trend": { "type": "bool", "default": true },
+        "change": { "type": "bool", "default": false },
+        "unusual": { "type": "bool", "default": false },
+        "season": { "type": "bool", "default": false },
+        "maxCloud": { "type": "choice", "values": ["any", "80", "60", "40", "20", "10"], "default": "40" },
         "collapsed": { "type": "bool", "default": false }
       }
     },
@@ -47,6 +62,12 @@
         "index": { "type": "choice", "values": ["NDVI", "EVI", "EVI2", "SAVI", "MSAVI", "GNDVI", "NDMI", "NBR", "NBR2", "NDWI", "MNDWI", "NDSI", "NDBI", "BSI"], "default": "NDVI" },
         "formula": { "type": "formula", "max": 200 },
         "name": { "type": "text", "max": 30 },
+        "median": { "type": "bool", "default": false },
+        "trend": { "type": "bool", "default": true },
+        "change": { "type": "bool", "default": false },
+        "unusual": { "type": "bool", "default": false },
+        "season": { "type": "bool", "default": false },
+        "maxCloud": { "type": "choice", "values": ["any", "80", "60", "40", "20", "10"], "default": "40" },
         "collapsed": { "type": "bool", "default": false }
       }
     },
@@ -54,6 +75,35 @@
       "title": "MODIS 16-day index and burned area",
       "params": {
         "index": { "type": "choice", "values": ["NDVI", "EVI"], "default": "NDVI" },
+        "median": { "type": "bool", "default": false },
+        "trend": { "type": "bool", "default": true },
+        "change": { "type": "bool", "default": false },
+        "unusual": { "type": "bool", "default": false },
+        "season": { "type": "bool", "default": false },
+        "rainfall": { "type": "bool", "default": false },
+        "collapsed": { "type": "bool", "default": false }
+      }
+    },
+    "sentinel1-series": {
+      "title": "Sentinel-1 radar backscatter series",
+      "params": {
+        "band": { "type": "choice", "values": ["VH", "VV"], "default": "VH" },
+        "median": { "type": "bool", "default": false },
+        "trend": { "type": "bool", "default": true },
+        "change": { "type": "bool", "default": false },
+        "unusual": { "type": "bool", "default": false },
+        "season": { "type": "bool", "default": false },
+        "collapsed": { "type": "bool", "default": false }
+      }
+    },
+    "precipitation": {
+      "title": "Monthly rainfall",
+      "params": {
+        "median": { "type": "bool", "default": false },
+        "trend": { "type": "bool", "default": false },
+        "change": { "type": "bool", "default": false },
+        "unusual": { "type": "bool", "default": false },
+        "season": { "type": "bool", "default": false },
         "collapsed": { "type": "bool", "default": false }
       }
     }
@@ -80,7 +130,7 @@
   },
   "standard": {
     "v": 1,
-    "layers": [{ "type": "sentinel2" }, { "type": "landsat" }],
-    "charts": [{ "type": "ccdc" }, { "type": "landsat-series" }, { "type": "sentinel2-series" }, { "type": "modis" }]
+    "layers": [{ "type": "sentinel2" }, { "type": "landsat" }, { "type": "sentinel1" }],
+    "charts": [{ "type": "ccdc" }, { "type": "landsat-series" }, { "type": "sentinel2-series" }, { "type": "modis" }, { "type": "sentinel1-series", "collapsed": true }, { "type": "precipitation", "collapsed": true }]
   }
 }

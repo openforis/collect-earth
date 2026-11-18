@@ -34,12 +34,18 @@ function mayBeEmpty(options = {}) {
   return options.start !== undefined || options.maxCloud !== undefined;
 }
 
-/** Tile URL for the composite ending at `end`; options as buildComposite. 404 not_found when a custom window has no scene. */
-async function sentinel2CompositeTiles(plot, end, options) {
+/** The unvisualised composite ending at `end` with its label; options as buildComposite. 404 not_found when a custom window has no scene. */
+async function sentinel2CompositeImage(plot, end, options) {
   const { image, collection, start, viz } = buildComposite(plot, end, options);
   if (mayBeEmpty(options)) notFoundIfEmpty(await evaluate(collection.size()), `no Sentinel-2 scenes from ${start} to ${end}`);
-  const tileUrl = await getTileUrl(image.visualize(viz));
-  return { tileUrl, label: `Sentinel-2 composite ${start} to ${end}`, dateRange: { start, end } };
+  return { image, start, viz, label: `Sentinel-2 composite ${start} to ${end}` };
 }
 
-module.exports = { sentinel2CompositeTiles, buildComposite, monthsBefore, mayBeEmpty };
+/** Tile URL for the composite ending at `end`; options and 404 as sentinel2CompositeImage. */
+async function sentinel2CompositeTiles(plot, end, options) {
+  const { image, start, viz, label } = await sentinel2CompositeImage(plot, end, options);
+  const tileUrl = await getTileUrl(image.visualize(viz));
+  return { tileUrl, label, dateRange: { start, end } };
+}
+
+module.exports = { sentinel2CompositeTiles, sentinel2CompositeImage, buildComposite, monthsBefore, mayBeEmpty };

@@ -33,24 +33,27 @@ function validateSceneRequest(body) {
  * an empty first().
  */
 async function sceneTiles(plot, start, end, sensor, timeStart) {
+  const { image, viz, label } = await sceneImage(plot, sensor, timeStart);
+  return { tileUrl: await getTileUrl(image.visualize(viz)), label, sensor };
+}
+
+/**
+ * The unvisualised scene sceneTiles shows, its visualisation and label, and `nirRed`, the names of its
+ * near-infrared and red bands (the Sentinel-2 scene keeps the product's band names). 404 as sceneTiles.
+ */
+async function sceneImage(plot, sensor, timeStart) {
   const v = validateSceneRequest({ sensor, timeStart });
   const iso = new Date(v.timeStart).toISOString();
   const date = iso.slice(0, 10);
-  let collection;
-  let viz;
-  let label;
-  if (v.sensor === "landsat") {
-    collection = landsatSceneCollection(plot, v.timeStart);
-    viz = LANDSAT_VIZ;
-    label = `Landsat ${date}`;
-  } else {
-    collection = sentinel2SceneCollection(plot, v.timeStart);
-    viz = SENTINEL_FALSE_COLOUR;
-    label = `Sentinel-2 ${date}`;
-  }
+  const landsat = v.sensor === "landsat";
+  const collection = landsat ? landsatSceneCollection(plot, v.timeStart) : sentinel2SceneCollection(plot, v.timeStart);
   notFoundIfEmpty(await evaluate(collection.size()), `no ${v.sensor} scene at ${iso}`);
-  const image = ee.Image(collection.first()).visualize(viz);
-  return { tileUrl: await getTileUrl(image), label, sensor: v.sensor };
+  return {
+    image: ee.Image(collection.first()),
+    viz: landsat ? LANDSAT_VIZ : SENTINEL_FALSE_COLOUR,
+    label: landsat ? `Landsat ${date}` : `Sentinel-2 ${date}`,
+    nirRed: landsat ? ["nir", "red"] : ["B8", "B4"],
+  };
 }
 
-module.exports = { sceneTiles, validateSceneRequest };
+module.exports = { sceneTiles, sceneImage, validateSceneRequest };

@@ -7,6 +7,8 @@ import CcdcCard from "../components/charts/CcdcCard";
 import LandsatNdviCard from "../components/charts/LandsatNdviCard";
 import Sentinel2NdviCard from "../components/charts/Sentinel2NdviCard";
 import ModisCard from "../components/charts/ModisCard";
+import Sentinel1Card from "../components/charts/Sentinel1Card";
+import PrecipitationCard from "../components/charts/PrecipitationCard";
 import { resolveConfig, type ChartEntry } from "./config";
 import { toPolygon, type PlotParams } from "./urlParams";
 import { plotTiles, warm, warmRequests } from "./prewarm";
@@ -21,6 +23,8 @@ const CARDS: Record<string, ComponentType<{ params: ChartEntry["params"] }>> = {
   "landsat-series": LandsatNdviCard,
   "sentinel2-series": Sentinel2NdviCard,
   modis: ModisCard,
+  "sentinel1-series": Sentinel1Card,
+  precipitation: PrecipitationCard,
 };
 const config = (text?: object) => resolveConfig(text && JSON.stringify(text), 2026);
 
@@ -58,6 +62,7 @@ describe("warmRequests", () => {
       config(),
       config({ v: 1, layers: [{ type: "landsat", bands: "true-colour" }], charts: [{ type: "ccdc", band: "NDVI" }, { type: "landsat-series", index: "NDMI" }, { type: "sentinel2-series", formula: " nir / red ", name: "x" }, { type: "modis", index: "EVI" }] }),
       config({ v: 1, layers: [{ type: "sentinel2", year: 2020, maxCloud: 30 }] }),
+      config({ v: 1, layers: [{ type: "sentinel1", bands: "vh" }], charts: [{ type: "sentinel1-series" }, { type: "sentinel1-series", band: "VV" }, { type: "precipitation" }] }),
     ]) {
       const opened = bodiesOnOpen(cfg);
       // Through JSON, as the server sees it (undefined fields drop out).
@@ -73,7 +78,12 @@ describe("warmRequests", () => {
     expect(reqs.map((r) => r.path)).toEqual(["series/modis", "tiles/sentinel2"]);
   });
 
-  it("the standard configuration warms four charts and one tile request, the slow CCDC last", () => {
+  it("does not warm the MODIS rainfall overlay, which is off by default", () => {
+    const reqs = warmRequests(next, params, config({ v: 1, charts: [{ type: "modis", rainfall: true }] }));
+    expect(reqs.map((r) => r.path)).toEqual(["series/modis", "tiles/sentinel2"]);
+  });
+
+  it("the standard configuration warms four charts (not the collapsed Sentinel-1 and rainfall ones) and one tile request, the slow CCDC last", () => {
     expect(warmRequests(next, params, config()).map((r) => r.path)).toEqual(["series/landsat", "series/sentinel2", "series/modis", "tiles/sentinel2", "ccdc"]);
   });
 });

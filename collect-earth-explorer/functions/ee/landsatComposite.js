@@ -44,14 +44,20 @@ function buildYearlyComposite(plot, year, options) {
 }
 
 /**
- * Tile URL for the yearly Landsat composite (options as sensorImages: `bands`, `maxCloud`);
+ * The unvisualised yearly composite with its label (options as sensorImages: `bands`, `maxCloud`);
  * 404 not_found when the year has no scene over the plot.
  */
-async function landsatCompositeTiles(plot, year, options = {}) {
+async function landsatCompositeImage(plot, year, options = {}) {
   const { image, collection, sensorNames } = buildYearlyComposite(plot, year, options);
   notFoundIfEmpty(await evaluate(collection.size()), `no Landsat scenes for ${year}`);
-  const tileUrl = await getTileUrl(image.visualize(options.bands === "true-colour" ? LANDSAT_TRUE_VIZ : LANDSAT_VIZ));
-  return { tileUrl, sensor: sensorNames.join(" + "), label: `${sensorNames.join("/")} ${year} composite` };
+  return { image, sensorNames, label: `${sensorNames.join("/")} ${year} composite` };
 }
 
-module.exports = { landsatCompositeTiles, buildYearlyComposite, sensorImages, LANDSAT_VIZ, LANDSAT_TRUE_VIZ, MAX_CLOUD_COVER };
+/** Tile URL for the yearly Landsat composite; options and 404 as landsatCompositeImage. */
+async function landsatCompositeTiles(plot, year, options = {}) {
+  const { image, sensorNames, label } = await landsatCompositeImage(plot, year, options);
+  const tileUrl = await getTileUrl(image.visualize(options.bands === "true-colour" ? LANDSAT_TRUE_VIZ : LANDSAT_VIZ));
+  return { tileUrl, sensor: sensorNames.join(" + "), label };
+}
+
+module.exports = { landsatCompositeTiles, landsatCompositeImage, buildYearlyComposite, sensorImages, LANDSAT_VIZ, LANDSAT_TRUE_VIZ, MAX_CLOUD_COVER };

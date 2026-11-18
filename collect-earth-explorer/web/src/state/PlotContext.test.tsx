@@ -30,12 +30,13 @@ describe("PlotProvider / usePlot", () => {
     expect(result.current.start).toBe("2000-01-01");
     expect(result.current.end).toBe("2025-06-15");
     expect(result.current.plotId).toBe("demo");
-    // Layers are entry positions: 0 = Sentinel-2, 1 = Landsat in the standard configuration.
-    expect(result.current.layers.map((l) => l.type)).toEqual(["sentinel2", "landsat"]);
-    expect(result.current.charts).toHaveLength(4);
+    // Layers are entry positions: 0 = Sentinel-2, 1 = Landsat, 2 = Sentinel-1 in the standard configuration.
+    expect(result.current.layers.map((l) => l.type)).toEqual(["sentinel2", "landsat", "sentinel1"]);
+    expect(result.current.charts).toHaveLength(6);
     expect(result.current.notices).toEqual([]);
     expect(result.current.activeLayer).toBe(0);
     expect(result.current.yearOf(1)).toBe(2024);
+    expect(result.current.yearOf(2)).toBe(2024);
     expect(result.current.scene).toBeUndefined();
     expect(result.current.compare).toBe(false);
     expect(result.current.compareLayer).toBe(1);
@@ -47,6 +48,19 @@ describe("PlotProvider / usePlot", () => {
     act(() => result.current.setScene(scene));
     expect(result.current.scene).toEqual(scene);
     expect(result.current.activeLayer).toBe("scene");
+  });
+
+  it("difference starts off, stays on through compareAround, and turning Compare off clears it", () => {
+    const { result } = renderHook(() => usePlot(), { wrapper });
+    expect(result.current.difference).toBe(false);
+    act(() => result.current.setCompare(true));
+    act(() => result.current.setDifference(true));
+    expect(result.current.difference).toBe(true);
+    act(() => result.current.compareAround("landsat", 2015));
+    expect(result.current.difference).toBe(true);
+    act(() => result.current.setCompare(false));
+    expect(result.current.difference).toBe(false);
+    expect(result.current.compare).toBe(false);
   });
 
   it("setActiveLayer and setYear update state", () => {

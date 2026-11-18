@@ -44,6 +44,9 @@ export interface PlotState extends PlotParams {
   compareScene?: Scene;
   /** Compares two scenes: `before` becomes the selected scene (left), `after` the right-hand one. */
   compareScenes: (before: Scene, after: Scene) => void;
+  /** While comparing: one map of the NDVI change from the left side to the right instead of the swipe. */
+  difference: boolean;
+  setDifference: (d: boolean) => void;
 }
 
 const Ctx = createContext<PlotState | null>(null);
@@ -81,11 +84,13 @@ export function PlotProvider({
   const [compareLayer, setCompareLayerState] = useState<LayerId>(config.layers.length > 1 ? 1 : 0);
   const [compareYear, setCompareYear] = useState<number>();
   const [compareScene, setCompareScene] = useState<Scene>();
+  const [difference, setDifference] = useState(false);
   // Choosing what to compare by hand drops the right-hand override.
   const setCompare = useCallback((c: boolean) => {
     setCompareState(c);
     setCompareYear(undefined);
     setCompareScene(undefined);
+    if (!c) setDifference(false);
   }, []);
   const setCompareLayer = useCallback((l: LayerId) => {
     setCompareLayerState(l);
@@ -159,8 +164,10 @@ export function PlotProvider({
       compareAround,
       compareScene,
       compareScenes,
+      difference,
+      setDifference,
     }),
-    [params, config, activeLayer, yearOf, setYear, selectYear, bandsOf, setBands, scene, setScene, compare, setCompare, compareLayer, setCompareLayer, compareYear, canCompareAround, compareAround, compareScene, compareScenes],
+    [params, config, activeLayer, yearOf, setYear, selectYear, bandsOf, setBands, scene, setScene, compare, setCompare, compareLayer, setCompareLayer, compareYear, canCompareAround, compareAround, compareScene, compareScenes, difference],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

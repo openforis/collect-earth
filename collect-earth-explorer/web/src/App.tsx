@@ -3,7 +3,7 @@ import { PlotProvider, usePlot } from "./state/PlotContext";
 import MapView from "./components/MapView";
 import CompareMap from "./components/CompareMap";
 import LayersPanel from "./components/LayersPanel";
-import { useLayerTiles } from "./components/LayerSources";
+import { differenceBlocked, useDifferenceTiles, useLayerTiles } from "./components/LayerSources";
 import type { ApiState } from "./hooks/useApi";
 import { isRetryable, whenIdle, type TileResponse } from "./lib/api";
 import { warm } from "./lib/prewarm";
@@ -18,6 +18,8 @@ const CARDS: Record<string, ComponentType<{ params: ChartEntry["params"] }>> = {
   "landsat-series": lazy(() => import("./components/charts/LandsatNdviCard")),
   "sentinel2-series": lazy(() => import("./components/charts/Sentinel2NdviCard")),
   modis: lazy(() => import("./components/charts/ModisCard")),
+  "sentinel1-series": lazy(() => import("./components/charts/Sentinel1Card")),
+  precipitation: lazy(() => import("./components/charts/PrecipitationCard")),
 };
 
 /** One line of the map status box: loading / error (with Retry when retryable) / the layer label. */
@@ -38,27 +40,39 @@ function TileStatus({ side, tiles }: { side?: string; tiles: ApiState<TileRespon
 }
 
 function Viewer() {
-  const { plot, plotId, start, end, activeLayer, compare, compareLayer, compareYear, compareScene, charts, notices } = usePlot();
-  const tiles = useLayerTiles(activeLayer);
+  const p = usePlot();
+  const { plot, plotId, start, end, activeLayer, compare, compareLayer, compareYear, compareScene, difference, charts, notices } = p;
+  const showDifference = compare && difference && !differenceBlocked(p);
+  // While the difference is shown the two sides' own tiles are not needed.
+  const tiles = useLayerTiles(activeLayer, { enabled: !showDifference });
+  const change = useDifferenceTiles({ enabled: showDifference });
   // Comparing a layer with itself (same id, and so the same request key: an
   // entry's year and the scene are shared state) just shows the left tiles twice.
   const sameLayer = compare && activeLayer === compareLayer && compareYear === undefined && !compareScene;
   // Always mounted (hooks cannot be conditional) but only requested while
   // comparing a different layer, so a plain page load costs one tile request, not two.
-  const rightOwn = useLayerTiles(compareLayer, { enabled: compare && !sameLayer }, { year: compareYear, scene: compareScene });
+  const rightOwn = useLayerTiles(compareLayer, { enabled: compare && !sameLayer && !showDifference }, { year: compareYear, scene: compareScene });
   const right = sameLayer ? tiles : rightOwn;
   return (
     <div className="viewer">
       <div className="map-pane">
-        {compare ? (
+        {showDifference ? (
+          <MapView key="difference" plot={plot} tileUrl={change.data?.tileUrl} />
+        ) : compare ? (
           <CompareMap key="compare" plot={plot} leftTileUrl={tiles.data?.tileUrl} rightTileUrl={right.data?.tileUrl} />
         ) : (
           <MapView key="single" plot={plot} tileUrl={tiles.data?.tileUrl} />
         )}
         <LayersPanel />
         <div className="map-status">
-          <TileStatus side={compare ? "Left" : undefined} tiles={tiles} />
-          {compare && <TileStatus side="Right" tiles={right} />}
+          {showDifference ? (
+            <TileStatus tiles={change} />
+          ) : (
+            <>
+              <TileStatus side={compare ? "Left" : undefined} tiles={tiles} />
+              {compare && <TileStatus side="Right" tiles={right} />}
+            </>
+          )}
         </div>
       </div>
       <aside className="side-pane">

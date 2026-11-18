@@ -21,7 +21,7 @@ export default function Sentinel2NdviCard({ params }: { params: ChartEntry["para
   const { path, body } = chartRequest({ type: "sentinel2-series", params }, { plot, start, end });
   const state = useApi<{ points: Point[] }>((s) => postApi(path, body, s), [plot, start, end, index, formula], { enabled: open });
   // The chart gets the points under the cloud limit; the CSV keeps them all.
-  const cloud = useCloudFilter(state.data?.points);
+  const cloud = useCloudFilter(state.data?.points, params.maxCloud as string);
   return (
     <ChartCard
       title={`Sentinel-2 ${label} (click a point to view that scene)`}
@@ -35,6 +35,7 @@ export default function Sentinel2NdviCard({ params }: { params: ChartEntry["para
         <SeriesChart
           points={cloud.points ?? d.points}
           name={label}
+          analyses={params}
           selected={scene?.sensor === "sentinel2" ? scene.timeStart : undefined}
           onCompareYears={canCompareAround("sentinel2") ? (y) => compareAround("sentinel2", y) : undefined}
           onClickPoint={(p) => setScene(toScene(p))}

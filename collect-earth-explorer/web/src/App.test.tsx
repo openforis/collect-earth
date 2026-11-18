@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import App from "./App";
 
-vi.mock("./components/MapView", () => ({ default: () => <div data-testid="map" /> }));
+vi.mock("./components/MapView", () => ({ default: (p: { tileUrl?: string }) => <div data-testid="map" data-tile={p.tileUrl} /> }));
 vi.mock("./components/CompareMap", () => ({
   default: (p: { leftTileUrl?: string; rightTileUrl?: string }) => (
     <div data-testid="compare-map" data-left={p.leftTileUrl} data-right={p.rightTileUrl} />
@@ -18,6 +18,8 @@ vi.mock("./components/charts/CcdcCard", () => card("ccdc"));
 vi.mock("./components/charts/LandsatNdviCard", () => card("landsat"));
 vi.mock("./components/charts/Sentinel2NdviCard", () => card("sentinel2"));
 vi.mock("./components/charts/ModisCard", () => card("modis"));
+vi.mock("./components/charts/Sentinel1Card", () => card("sentinel1"));
+vi.mock("./components/charts/PrecipitationCard", () => card("precipitation"));
 
 const GEOJSON = JSON.stringify({
   type: "MultiLineString",
@@ -80,6 +82,7 @@ describe("App", () => {
     expect(screen.getByTestId("card-landsat")).toBeTruthy();
     expect(screen.getByTestId("card-sentinel2")).toBeTruthy();
     expect(screen.getByTestId("card-modis")).toBeTruthy();
+    expect(screen.getByTestId("card-sentinel1")).toBeTruthy();
     expect(screen.queryByText("Loading charts…")).toBeNull();
     // jsdom has no matchMedia, which the panel treats as a wide screen: the panel is open.
     expect(screen.getByRole("button", { name: "Layers" }).getAttribute("aria-expanded")).toBe("true");
@@ -199,11 +202,13 @@ describe("App", () => {
     expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 
-  it("without a configuration shows the four standard cards in order and no notice", async () => {
+  it("without a configuration shows the six standard cards in order, Sentinel-1 and rainfall collapsed, and no notice", async () => {
     window.history.replaceState({}, "", PLOT_URL);
     render(<App />);
     await screen.findByTestId("card-ccdc");
-    expect(cardIds()).toEqual(["card-ccdc", "card-landsat", "card-sentinel2", "card-modis"]);
+    expect(cardIds()).toEqual(["card-ccdc", "card-landsat", "card-sentinel2", "card-modis", "card-sentinel1", "card-precipitation"]);
+    expect(JSON.parse(screen.getByTestId("card-sentinel1").getAttribute("data-params")!).collapsed).toBe(true);
+    expect(JSON.parse(screen.getByTestId("card-precipitation").getAttribute("data-params")!).collapsed).toBe(true);
     expect(JSON.parse(screen.getByTestId("card-ccdc").getAttribute("data-params")!).band).toBe("NDFI");
     expect(screen.queryByText(/settings were partly ignored/)).toBeNull();
   });
@@ -220,7 +225,7 @@ describe("App", () => {
   });
 
   it("reads the configuration from the fragment and lists what it skipped above the charts", async () => {
-    const config = { v: 1, layers: [{ type: "sentinel1" }, { type: "landsat" }], charts: [] };
+    const config = { v: 1, layers: [{ type: "planet" }, { type: "landsat" }], charts: [] };
     window.history.replaceState(
       {},
       "",
@@ -229,7 +234,7 @@ describe("App", () => {
     render(<App />);
     const notice = screen.getByText(/^This survey's Explorer settings were partly ignored:/);
     expect(notice.className).toBe("config-notice");
-    expect(notice.textContent).toContain("sentinel1");
+    expect(notice.textContent).toContain("planet");
     // An empty chart list is honoured: heading, dates and the notice only.
     expect(screen.getByRole("heading", { name: "Plot frag" })).toBeTruthy();
     expect(screen.queryByText("Loading charts…")).toBeNull();
@@ -317,5 +322,34 @@ describe("App", () => {
     expect(screen.queryByText(/^Right:/)).toBeNull();
     // Unticking does not request anything.
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("ticking Difference posts tiles/difference with both sides and shows one map; unticking returns to the swipe", async () => {
+    const CHANGE = { tileUrl: "https://tiles.example/change/{z}/{x}/{y}", label: "NDVI change: a → b" };
+    fetchMock.mockImplementation(async (url: string) =>
+      url === "/api/tiles/landsat" ? json(LANDSAT_TILE) : url === "/api/tiles/difference" ? json(CHANGE) : json(TILE),
+    );
+    window.history.replaceState({}, "", PLOT_URL);
+    render(<App />);
+    fireEvent.click(screen.getByRole("checkbox", { name: /Compare with/ }));
+    expect(await screen.findByText(`Right: ${LANDSAT_TILE.label}`)).toBeTruthy();
+    const landsatYear = bodyOf(callsTo(fetchMock, "/api/tiles/landsat")[0]).year;
+
+    fireEvent.click(screen.getByRole("checkbox", { name: /Difference/ }));
+    expect(await screen.findByText(CHANGE.label)).toBeTruthy();
+    expect(screen.queryByTestId("compare-map")).toBeNull();
+    expect(screen.getByTestId("map").getAttribute("data-tile")).toBe(CHANGE.tileUrl);
+    expect(screen.queryByText(/^(Left|Right):/)).toBeNull();
+    const calls = callsTo(fetchMock, "/api/tiles/difference");
+    expect(calls).toHaveLength(1);
+    const body = bodyOf(calls[0]);
+    expect(body.left).toEqual({ path: "tiles/sentinel2" });
+    expect(body.right).toEqual({ path: "tiles/landsat", year: landsatYear });
+    expect(body.plot.type).toBe("Polygon");
+
+    fireEvent.click(screen.getByRole("checkbox", { name: /Difference/ }));
+    expect(screen.getByTestId("compare-map")).toBeTruthy();
+    expect(await screen.findByText(`Right: ${LANDSAT_TILE.label}`)).toBeTruthy();
+    expect(callsTo(fetchMock, "/api/tiles/difference")).toHaveLength(1);
   });
 });

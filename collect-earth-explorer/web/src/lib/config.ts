@@ -115,7 +115,14 @@ export function nonDefault(entry: LayerEntry, names: string[]): Record<string, u
   return Object.fromEntries(names.filter((n) => entry.params[n] !== undefined && entry.params[n] !== specs[n].default).map((n) => [n, entry.params[n]]));
 }
 
-const CHART_PATHS: Record<string, string> = { ccdc: "ccdc", "landsat-series": "series/landsat", "sentinel2-series": "series/sentinel2", modis: "series/modis" };
+const CHART_PATHS: Record<string, string> = {
+  ccdc: "ccdc",
+  "landsat-series": "series/landsat",
+  "sentinel2-series": "series/sentinel2",
+  modis: "series/modis",
+  "sentinel1-series": "series/sentinel1",
+  precipitation: "series/precipitation",
+};
 
 /**
  * The API path and body of a chart entry's request for a plot. The cards and the next-plot warm-up
@@ -123,7 +130,7 @@ const CHART_PATHS: Record<string, string> = { ccdc: "ccdc", "landsat-series": "s
  */
 export function chartRequest(entry: ChartEntry, p: PlotBody): { path: string; body: PlotBody & Record<string, unknown> } {
   const { band, index, formula } = entry.params;
-  const extra = entry.type === "ccdc" ? { band } : formula !== undefined ? { formula: normaliseFormula(formula as string) } : index !== "NDVI" ? { index } : {};
+  const extra = entry.type === "ccdc" || entry.type === "sentinel1-series" ? { band } : formula !== undefined ? { formula: normaliseFormula(formula as string) } : index !== undefined && index !== "NDVI" ? { index } : {};
   return { path: CHART_PATHS[entry.type], body: { ...p, ...extra } };
 }
 

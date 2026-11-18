@@ -20,6 +20,22 @@ interface Props {
   yRange?: [number, number];
   /** Date (epoch ms) of the scene on the map; the point with exactly that date gets a ring. */
   selected?: number;
+  /** The survey's start value per analysis switch (the chart entry's parameters); the standard ones where absent. */
+  analyses?: Record<string, unknown>;
+  /** Monthly values drawn as bars on a right-hand axis under the line (rainfall under the MODIS index). */
+  bars?: { points: Point[]; name: string; color: string };
+  /** Draw `points` as bars instead of a line with markers. */
+  bar?: boolean;
+}
+
+const STANDARD = { median: false, trend: true, change: false, unusual: false, season: false };
+/**
+ * One analysis switch, starting at the survey's value. The user's choice is stored; under a start value that is not
+ * the standard one it is stored apart, so a choice made in a standard survey does not override what this survey asks for.
+ */
+function useSwitch(name: keyof typeof STANDARD, analyses: Record<string, unknown> | undefined) {
+  const start = typeof analyses?.[name] === "boolean" ? (analyses[name] as boolean) : STANDARD[name];
+  return usePref(`explorer.${name}${start === STANDARD[name] ? "" : ".survey"}`, start);
 }
 
 const DEFAULT_Y_RANGE: [number, number] = [-0.25, 1];
@@ -39,16 +55,16 @@ const yearOf = (ms: number) => new Date(ms).getUTCFullYear();
  * `data` and `layout` are memoised and `uirevision` is constant, so a re-render neither
  * re-plots nor resets the user's zoom.
  */
-export default function SeriesChart({ points, name, color = "#587F2E", markers, onClickPoint, onCompareYears, onCompareScenes, yRange = DEFAULT_Y_RANGE, selected }: Props) {
+export default function SeriesChart({ points, name, color = "#587F2E", markers, onClickPoint, onCompareYears, onCompareScenes, yRange = DEFAULT_Y_RANGE, selected, analyses, bars, bar }: Props) {
   const [yMin, yMax] = yRange;
   const markerX = markers?.x;
   const markerName = markers?.name;
   const markerColor = markers?.color;
-  const [showMedian, setShowMedian] = usePref("explorer.median", false);
-  const [showTrend, setShowTrend] = usePref("explorer.trend", true);
-  const [showChange, setShowChange] = usePref("explorer.change", false);
-  const [showUnusual, setShowUnusual] = usePref("explorer.unusual", false);
-  const [showSeason, setShowSeason] = usePref("explorer.season", false);
+  const [showMedian, setShowMedian] = useSwitch("median", analyses);
+  const [showTrend, setShowTrend] = useSwitch("trend", analyses);
+  const [showChange, setShowChange] = useSwitch("change", analyses);
+  const [showUnusual, setShowUnusual] = useSwitch("unusual", analyses);
+  const [showSeason, setShowSeason] = useSwitch("season", analyses);
   const median = useMemo(() => yearlyMedian(points), [points]);
   const fit = useMemo(() => trend(median), [median]);
   const change = useMemo(() => changePoint(median), [median]);
@@ -62,20 +78,41 @@ export default function SeriesChart({ points, name, color = "#587F2E", markers, 
   const showProfile = showSeason && profile.length >= 6;
 
   const data = useMemo<Data[]>(() => {
+    // Unusual values are coloured on trace 0 itself, so a click on one still maps to its point.
+    const pointColor = showUnusual && unusualCount ? flags.map((f) => (f ? RED : color)) : color;
     const traces: Data[] = [
-      {
-        x: points.map((p) => iso(p.date)),
-        y: points.map((p) => p.value),
-        type: "scatter",
-        mode: "lines+markers",
-        name,
-        // Unusual values are coloured on trace 0 itself, so a click on one still maps to its point.
-        marker: { size: 4, color: showUnusual && unusualCount ? flags.map((f) => (f ? RED : color)) : color, opacity: 0.6 },
-        // A faint hairline so the dots read first.
-        line: { width: 1, color: color + "59" },
-        hovertemplate: "%{x|%Y-%m-%d}<br>%{y:.3f}<extra></extra>",
-      },
+      bar
+        ? {
+            x: points.map((p) => iso(p.date)),
+            y: points.map((p) => p.value),
+            type: "bar",
+            name,
+            marker: { color: pointColor, opacity: 0.8 },
+            hovertemplate: "%{x|%b %Y}: %{y:.1f}<extra></extra>",
+          }
+        : {
+            x: points.map((p) => iso(p.date)),
+            y: points.map((p) => p.value),
+            type: "scatter",
+            mode: "lines+markers",
+            name,
+            marker: { size: 4, color: pointColor, opacity: 0.6 },
+            // A faint hairline so the dots read first.
+            line: { width: 1, color: color + "59" },
+            hovertemplate: "%{x|%Y-%m-%d}<br>%{y:.3f}<extra></extra>",
+          },
     ];
+    if (bars) {
+      traces.push({
+        x: bars.points.map((p) => iso(p.date)),
+        y: bars.points.map((p) => p.value),
+        type: "bar",
+        yaxis: "y2",
+        name: bars.name,
+        marker: { color: bars.color, opacity: 0.45 },
+        hovertemplate: "%{x|%b %Y}: %{y:.1f} mm<extra></extra>",
+      });
+    }
     if (showMedian && median.length) {
       traces.push({
         x: median.map((p) => iso(p.date)),
@@ -116,19 +153,25 @@ export default function SeriesChart({ points, name, color = "#587F2E", markers, 
     }
     traces.push(...selectedRing(points, selected));
     return traces;
-  }, [points, name, color, markerX, markerName, markerColor, yMax, selected, median, fit, showMedian, showTrend, flags, unusualCount, showUnusual]);
+  }, [points, name, color, markerX, markerName, markerColor, yMax, selected, median, fit, showMedian, showTrend, flags, unusualCount, showUnusual, bars, bar]);
 
   const changeYear = showChange ? change?.year : undefined;
   const changeColor = change && change.p < 0.05 ? RED : GREY;
   const lastDate = points.length ? Math.max(...points.map((p) => p.date)) : undefined;
+  const barsMax = bars ? Math.max(1, ...bars.points.map((p) => p.value)) : undefined;
   const layout = useMemo<Partial<Layout>>(() => {
     const l = baseLayout(STYLE.height, [yMin, yMax], true, lastDate);
+    if (barsMax !== undefined) {
+      // Three times the highest bar: the bars fill the lower third and leave the line readable.
+      l.yaxis2 = { overlaying: "y", side: "right", range: [0, 3 * barsMax], showgrid: false, zeroline: false, ticks: "", tickfont: { size: 9, color: GREY }, title: { text: "mm", font: { size: 9 } } };
+      l.margin = { ...l.margin, r: 44 };
+    }
     if (changeYear !== undefined) {
       const x = iso(Date.UTC(changeYear, 0, 1));
       l.shapes = [{ type: "line", x0: x, x1: x, y0: 0, y1: 1, yref: "paper", layer: "below", line: { width: 1.5, dash: "dash", color: changeColor } }];
     }
     return l;
-  }, [yMin, yMax, changeYear, changeColor, lastDate]);
+  }, [yMin, yMax, changeYear, changeColor, lastDate, barsMax]);
 
   const seasonData = useMemo<Data[]>(() => {
     const x = profile.map((m) => m.month);

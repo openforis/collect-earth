@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { LAST_12_MONTHS, usePlot, type LayerId, type Year } from "../state/PlotContext";
 import { layerChoices, yearRange, type LayerEntry } from "../lib/config";
+import { differenceBlocked } from "./LayerSources";
 
 const COMMIT_DELAY_MS = 400;
 /** Below this width (matches the CSS breakpoint) the panel starts collapsed behind a Layers button. */
@@ -41,7 +42,8 @@ function Radio({ id, label, active, disabled, onSelect }: RadioProps) {
 }
 
 /** An entry's name: its label, else its sensor. */
-const nameOf = (entry: LayerEntry) => (entry.params.label as string | undefined) ?? (entry.type === "landsat" ? "Landsat" : "Sentinel-2");
+const SENSOR_NAMES: Record<string, string> = { landsat: "Landsat", sentinel2: "Sentinel-2", sentinel1: "Sentinel-1" };
+const nameOf = (entry: LayerEntry) => (entry.params.label as string | undefined) ?? SENSOR_NAMES[entry.type];
 
 /** An entry's row label: its name and year; an unlabelled Sentinel-2 one with a fixed window carries the window. */
 function labelOf(entry: LayerEntry, year: Year | undefined) {
@@ -50,8 +52,8 @@ function labelOf(entry: LayerEntry, year: Year | undefined) {
   return label ?? (start ? `Sentinel-2 ${start} to ${end}` : "Sentinel-2, last 12 months");
 }
 
-/** "false-colour" -> "False colour". */
-const bandsText = (v: string) => v[0].toUpperCase() + v.slice(1).replace("-", " ");
+/** "false-colour" -> "False colour", "vv" -> "VV" (a radar polarisation). */
+const bandsText = (v: string) => (v.length === 2 ? v.toUpperCase() : v[0].toUpperCase() + v.slice(1).replace("-", " "));
 
 /**
  * An imagery entry's radio row with its band selector, and its year slider; each entry owns its pending year.
@@ -170,6 +172,19 @@ export default function LayersPanel() {
               {p.scene ? `Scene: ${(p.compareScene ?? p.scene).label}` : "Scene (click a chart point)"}
             </option>
           </select>
+        )}
+        {p.compare && (
+          <label className="layer-row" title={differenceBlocked(p)}>
+            <input type="checkbox" checked={p.difference && !differenceBlocked(p)} disabled={!!differenceBlocked(p)} onChange={(e) => p.setDifference(e.target.checked)} />
+            Difference (NDVI change)
+          </label>
+        )}
+        {p.compare && p.difference && !differenceBlocked(p) && (
+          <div className="difference-legend" aria-label="NDVI change legend">
+            <span>loss</span>
+            <span className="difference-bar" />
+            <span>gain</span>
+          </div>
         )}
       </div>
     </>

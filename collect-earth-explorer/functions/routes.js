@@ -2,12 +2,15 @@ const { asyncHandler } = require("./app");
 const { parsePlotRequest } = require("./lib/plotRequest");
 const { sensorsForYear } = require("./lib/sensors");
 const { eeAuth, ee } = require("./ee/auth");
-const { sentinel2CompositeTiles } = require("./ee/sentinel2Composite");
-const { landsatCompositeTiles } = require("./ee/landsatComposite");
+const { sentinel2CompositeTiles, sentinel2CompositeImage } = require("./ee/sentinel2Composite");
+const { landsatCompositeTiles, landsatCompositeImage } = require("./ee/landsatComposite");
 const { modisSeries } = require("./ee/modisSeries");
 const { landsatSeries } = require("./ee/landsatSeries");
 const { sentinel2Series } = require("./ee/sentinel2Series");
-const { sceneTiles, validateSceneRequest } = require("./ee/scene");
+const { sentinel1CompositeTiles, sentinel1Series } = require("./ee/sentinel1");
+const { precipitationSeries } = require("./ee/precipitation");
+const { sceneTiles, sceneImage, validateSceneRequest } = require("./ee/scene");
+const { differenceTiles } = require("./ee/difference");
 const { ccdcSeries, validateCcdcRequest } = require("./ee/ccdc");
 const { catalogue, paramOf } = require("./lib/catalogue");
 const { BadRequest } = require("./lib/errors");
@@ -86,6 +89,42 @@ function seriesExtras(type) {
   };
 }
 
+/**
+ * The optical tile endpoints by path: their extras/validate hooks (shared by their own route and each side of
+ * tiles/difference) and the unvisualised image their tiles show (with `label` and the bands NDVI needs).
+ */
+const TILE_SOURCES = {
+  "tiles/sentinel2": { extrasOf: sentinel2Extras, image: (p, g, x) => sentinel2CompositeImage(g, x.end ?? p.end, x) },
+  "tiles/landsat": {
+    extrasOf: (b) => ({ year: Number(b.year), ...nonDefault("layers", "landsat", b, ["bands", "maxCloud"]) }),
+    validate: (b) => sensorsForYear(Number(b.year)),
+    image: (p, g, { year, ...options }) => landsatCompositeImage(g, year, options),
+  },
+  "tiles/scene": { extrasOf: validateSceneRequest, image: (p, g, x) => sceneImage(g, x.sensor, x.timeStart) },
+};
+
+/**
+ * tiles/difference extras: each side `{ path, ...fields }` validated by its own endpoint's hooks and kept as
+ * `{ path, ...its extras }`. `bands` is dropped first: it does not change the index.
+ */
+function differenceExtras(b) {
+  const side = (name) => {
+    const s = b[name];
+    if (!s || typeof s !== "object") throw new BadRequest(`${name} is required`);
+    const { path, bands, ...fields } = s;
+    if (!Object.hasOwn(TILE_SOURCES, path)) throw new BadRequest(`${name}.path must be one of ${Object.keys(TILE_SOURCES).join(", ")}`);
+    const source = TILE_SOURCES[path];
+    try {
+      if (source.validate) source.validate(fields);
+      return { path, ...source.extrasOf(fields) };
+    } catch (err) {
+      if (err.status === 400) err.message = `${name}: ${err.message}`;
+      throw err;
+    }
+  };
+  return { left: side("left"), right: side("right") };
+}
+
 /** Registers the API routes; `cache` (an object with `withCache`) defaults to the Firestore-backed one. */
 function registerRoutes(app, { cache = defaultCache } = {}) {
   const route = (endpoint, ttl, extrasOf, compute, validate, opts) => plotRoute(endpoint, ttl, extrasOf, compute, validate, cache, opts);
@@ -94,15 +133,27 @@ function registerRoutes(app, { cache = defaultCache } = {}) {
 
   // Public and read-only: the cloud dashboard reads it from any origin (replaces the allowlist's echo for this route).
   app.get("/api/catalogue", (req, res) => res.set("Access-Control-Allow-Origin", "*").json(catalogue));
-  app.post("/api/tiles/sentinel2", route("tiles/sentinel2", TTL.tiles, sentinel2Extras, (p, g, x) => sentinel2CompositeTiles(g, x.end ?? p.end, x), null, noStart));
+  app.post("/api/tiles/sentinel2", route("tiles/sentinel2", TTL.tiles, TILE_SOURCES["tiles/sentinel2"].extrasOf, (p, g, x) => sentinel2CompositeTiles(g, x.end ?? p.end, x), null, noStart));
   app.post(
     "/api/tiles/landsat",
     route(
       "tiles/landsat",
       TTL.tiles,
-      (b) => ({ year: Number(b.year), ...nonDefault("layers", "landsat", b, ["bands", "maxCloud"]) }),
+      TILE_SOURCES["tiles/landsat"].extrasOf,
       (p, g, { year, ...options }) => landsatCompositeTiles(g, year, options),
-      (b) => sensorsForYear(Number(b.year)),
+      TILE_SOURCES["tiles/landsat"].validate,
+      noDates
+    )
+  );
+  app.post(
+    "/api/tiles/sentinel1",
+    route(
+      "tiles/sentinel1",
+      TTL.tiles,
+      (b) => ({ year: b.year, ...nonDefault("layers", "sentinel1", b, ["bands"]) }),
+      (p, g, { year, ...options }) => sentinel1CompositeTiles(g, year, options),
+      // paramOf returns the default (none) for an absent year: require it.
+      (b) => paramOf("layers", "sentinel1", "year", b.year ?? null),
       noDates
     )
   );
@@ -111,9 +162,19 @@ function registerRoutes(app, { cache = defaultCache } = {}) {
   // are not served; their URLs, bodies and every other endpoint's key are unchanged.
   app.post("/api/series/landsat", route("series/landsat@cloud", TTL.series, seriesExtras("landsat-series"), (p, g, x) => landsatSeries(g, p.start, p.end, x.index, x.formula)));
   app.post("/api/series/sentinel2", route("series/sentinel2@cloud", TTL.series, seriesExtras("sentinel2-series"), (p, g, x) => sentinel2Series(g, p.start, p.end, x.index, x.formula)));
+  app.post("/api/series/sentinel1", route("series/sentinel1", TTL.series, (b) => nonDefault("charts", "sentinel1-series", b, ["band"]), (p, g, x) => sentinel1Series(g, p.start, p.end, x.band)));
+  app.post("/api/series/precipitation", route("series/precipitation", TTL.series, null, (p, g) => precipitationSeries(g, p.start, p.end)));
   app.post(
     "/api/tiles/scene",
-    route("tiles/scene", TTL.tiles, validateSceneRequest, (p, g, x) => sceneTiles(g, p.start, p.end, x.sensor, x.timeStart), null, noDates)
+    route("tiles/scene", TTL.tiles, TILE_SOURCES["tiles/scene"].extrasOf, (p, g, x) => sceneTiles(g, p.start, p.end, x.sensor, x.timeStart), null, noDates)
+  );
+  // NDVI(right) - NDVI(left). The plot's dates stay in the key: a last-12-months Sentinel-2 side depends on `end`.
+  app.post(
+    "/api/tiles/difference",
+    route("tiles/difference", TTL.tiles, differenceExtras, async (p, g, x) => {
+      const images = await Promise.all([x.left, x.right].map(({ path, ...extras }) => TILE_SOURCES[path].image(p, g, extras)));
+      return differenceTiles(...images);
+    })
   );
   app.post("/api/ccdc", route("ccdc", TTL.series, validateCcdcRequest, (p, g, x) => ccdcSeries(g, p.start, p.end, x.band)));
 }

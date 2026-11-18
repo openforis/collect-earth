@@ -30,7 +30,7 @@ export const BASE_STYLE: StyleSpecification = {
 };
 
 export const IMAGERY_SOURCE = "imagery";
-export const IMAGERY_ATTRIBUTION = "Google Earth Engine, Copernicus Sentinel-2, USGS Landsat";
+export const IMAGERY_ATTRIBUTION = "Google Earth Engine, Copernicus Sentinel-1/2, USGS Landsat";
 const OUTLINE_LAYER = "plot-outline";
 
 /**

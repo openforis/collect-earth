@@ -21,7 +21,7 @@ export default function LandsatNdviCard({ params }: { params: ChartEntry["params
   const { path, body } = chartRequest({ type: "landsat-series", params }, { plot, start, end });
   const state = useApi<{ points: Point[] }>((s) => postApi(path, body, s), [plot, start, end, index, formula], { enabled: open });
   // The chart gets the points under the cloud limit; the CSV keeps them all.
-  const cloud = useCloudFilter(state.data?.points);
+  const cloud = useCloudFilter(state.data?.points, params.maxCloud as string);
   return (
     <ChartCard
       title={`Landsat ${label} (click a point to view that scene)`}
@@ -35,6 +35,7 @@ export default function LandsatNdviCard({ params }: { params: ChartEntry["params
         <SeriesChart
           points={cloud.points ?? d.points}
           name={label}
+          analyses={params}
           selected={scene?.sensor === "landsat" ? scene.timeStart : undefined}
           onCompareYears={canCompareAround("landsat") ? (y) => compareAround("landsat", y) : undefined}
           onClickPoint={(p) => setScene(toScene(p))}

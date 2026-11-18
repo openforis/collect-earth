@@ -39,7 +39,7 @@ function setup(configText?: string) {
 }
 
 const radio = (name: RegExp) => screen.getByRole("radio", { name }) as HTMLInputElement;
-// The standard configuration has two sliders: Sentinel-2's and Landsat's.
+// The standard configuration has three sliders: Sentinel-2's, Landsat's and Sentinel-1's.
 const slider = () => screen.getByRole("slider", { name: "Landsat year" }) as HTMLInputElement;
 const s2Slider = () => screen.getByRole("slider", { name: "Sentinel-2 year" }) as HTMLInputElement;
 const s2Year = () => screen.getByTestId("s2-year").textContent;
@@ -92,9 +92,9 @@ describe("LayersPanel", () => {
     vi.unstubAllGlobals();
   });
 
-  it("renders three radios with Sentinel-2 checked and the Scene radio disabled", () => {
+  it("renders four radios with Sentinel-2 checked and the Scene radio disabled", () => {
     setup();
-    expect(screen.getAllByRole("radio")).toHaveLength(3);
+    expect(screen.getAllByRole("radio")).toHaveLength(4);
     expect(radio(/Sentinel-2/).checked).toBe(true);
     expect(radio(/Landsat 2024/).checked).toBe(false);
     expect(radio(/Scene/).disabled).toBe(true);
@@ -179,10 +179,11 @@ describe("LayersPanel", () => {
     setup();
     fireEvent.click(compareCheckbox());
     const options = Array.from(compareSelect()!.options);
-    expect(options.map((o) => o.value)).toEqual(["0", "1", "scene"]);
+    expect(options.map((o) => o.value)).toEqual(["0", "1", "2", "scene"]);
     expect(options[1].textContent).toBe("Landsat 2024");
-    expect(options[2].disabled).toBe(true);
-    expect(options[2].textContent).toBe("Scene (click a chart point)");
+    expect(options[2].textContent).toBe("Sentinel-1 2024");
+    expect(options[3].disabled).toBe(true);
+    expect(options[3].textContent).toBe("Scene (click a chart point)");
 
     // A slider drag updates the radio label at once but the compare option only on commit.
     fireEvent.change(slider(), { target: { value: "2010" } });
@@ -192,7 +193,7 @@ describe("LayersPanel", () => {
     expect(Array.from(compareSelect()!.options)[1].textContent).toBe("Landsat 2010");
 
     fireEvent.click(screen.getByRole("button", { name: "set scene" }));
-    const scene = Array.from(compareSelect()!.options)[2];
+    const scene = Array.from(compareSelect()!.options)[3];
     expect(scene.disabled).toBe(false);
     expect(scene.textContent).toBe("Scene: Landsat 8 2023-11-14");
   });
@@ -206,6 +207,39 @@ describe("LayersPanel", () => {
     expect(compareSelect()!.value).toBe("0");
     // The primary layer is untouched by the compare selection.
     expect(radio(/Sentinel-2/).checked).toBe(true);
+  });
+
+  it("offers Difference under the compare select, disabled for radar and for the same image, with a loss-to-gain legend when ticked", () => {
+    setup();
+    const difference = () => screen.queryByRole("checkbox", { name: /Difference \(NDVI change\)/ }) as HTMLInputElement | null;
+    expect(difference()).toBeNull();
+    fireEvent.click(compareCheckbox());
+    expect(difference()!.disabled).toBe(false);
+    expect(screen.queryByText("loss")).toBeNull();
+
+    fireEvent.click(difference()!);
+    expect(difference()!.checked).toBe(true);
+    expect(screen.getByText("loss")).toBeTruthy();
+    expect(screen.getByText("gain")).toBeTruthy();
+
+    // Sentinel-1 on the right: radar has no NDVI.
+    fireEvent.change(compareSelect()!, { target: { value: "2" } });
+    expect(difference()!.disabled).toBe(true);
+    expect(difference()!.checked).toBe(false);
+    expect(difference()!.closest("label")!.title).toBe("Not available for radar");
+    expect(screen.queryByText("loss")).toBeNull();
+
+    // The same layer on both sides.
+    fireEvent.change(compareSelect()!, { target: { value: "0" } });
+    expect(difference()!.disabled).toBe(true);
+    expect(difference()!.closest("label")!.title).toBe("Both sides show the same image");
+
+    // Sentinel-1 on the left.
+    fireEvent.change(compareSelect()!, { target: { value: "1" } });
+    expect(difference()!.disabled).toBe(false);
+    fireEvent.click(radio(/Sentinel-1/));
+    expect(difference()!.disabled).toBe(true);
+    expect(difference()!.closest("label")!.title).toBe("Not available for radar");
   });
 
   describe("slider commit in compare mode", () => {
@@ -368,6 +402,19 @@ describe("LayersPanel", () => {
       expect(bands("Landsat").value).toBe("false-colour");
     });
 
+    it("a Sentinel-1 row is named Sentinel-1 <year>, offers its radar bands as VV and VH, and its slider starts in 2015", () => {
+      setup(JSON.stringify({ v: 1, layers: [{ type: "sentinel1", bands: "vh" }] }));
+      expect(radio(/^Sentinel-1 2024$/)).toBeTruthy();
+      expect(Array.from(bands("Sentinel-1").options).map((o) => [o.value, o.textContent])).toEqual([
+        ["false-colour", "False colour"],
+        ["vv", "VV"],
+        ["vh", "VH"],
+      ]);
+      expect(bands("Sentinel-1").value).toBe("vh");
+      const s1Slider = screen.getByRole("slider", { name: "Sentinel-1 year" }) as HTMLInputElement;
+      expect([s1Slider.min, s1Slider.max]).toEqual(["2015", "2025"]);
+    });
+
     it("changing it keeps the active layer and leaves the other rows' bands alone", () => {
       setup(JSON.stringify({ v: 1, layers: [{ type: "landsat", label: "A" }, { type: "landsat", label: "B" }] }));
       fireEvent.change(bands("B"), { target: { value: "true-colour" } });
@@ -393,7 +440,7 @@ describe("LayersPanel", () => {
 
       fireEvent.click(toggleButton());
       expect(toggleButton().getAttribute("aria-expanded")).toBe("true");
-      expect(screen.getAllByRole("radio")).toHaveLength(3);
+      expect(screen.getAllByRole("radio")).toHaveLength(4);
       expect(radio(/Sentinel-2/).checked).toBe(true);
 
       fireEvent.click(toggleButton());
@@ -420,12 +467,12 @@ describe("LayersPanel", () => {
       setup();
       expect(toggleButton().getAttribute("aria-expanded")).toBe("true");
       expect(toggleButton().className).toBe("layers-toggle");
-      expect(screen.getAllByRole("radio")).toHaveLength(3);
+      expect(screen.getAllByRole("radio")).toHaveLength(4);
     });
 
     it("collapses when the window narrows and reappears when it is widened again", () => {
       setup();
-      expect(screen.getAllByRole("radio")).toHaveLength(3);
+      expect(screen.getAllByRole("radio")).toHaveLength(4);
 
       resizeTo(true);
       expect(toggleButton().getAttribute("aria-expanded")).toBe("false");
@@ -433,16 +480,16 @@ describe("LayersPanel", () => {
 
       resizeTo(false);
       expect(toggleButton().getAttribute("aria-expanded")).toBe("true");
-      expect(screen.getAllByRole("radio")).toHaveLength(3);
+      expect(screen.getAllByRole("radio")).toHaveLength(4);
     });
 
     it("reopens a panel the user closed on a narrow screen once widened, and closes one they opened once narrowed", () => {
       stubMatchMedia(true);
       setup();
       fireEvent.click(toggleButton());
-      expect(screen.getAllByRole("radio")).toHaveLength(3);
+      expect(screen.getAllByRole("radio")).toHaveLength(4);
       resizeTo(false);
-      expect(screen.getAllByRole("radio")).toHaveLength(3);
+      expect(screen.getAllByRole("radio")).toHaveLength(4);
       resizeTo(true);
       expect(screen.queryByRole("radio")).toBeNull();
     });
@@ -462,7 +509,7 @@ describe("LayersPanel", () => {
       vi.stubGlobal("matchMedia", undefined);
       setup();
       expect(toggleButton().getAttribute("aria-expanded")).toBe("true");
-      expect(screen.getAllByRole("radio")).toHaveLength(3);
+      expect(screen.getAllByRole("radio")).toHaveLength(4);
     });
   });
 });

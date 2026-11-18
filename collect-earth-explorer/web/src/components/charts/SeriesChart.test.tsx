@@ -64,6 +64,40 @@ describe("SeriesChart", () => {
     expect(m.cliponaxis).toBe(false);
   });
 
+  it("draws bars on a right-hand axis after trace 0, with room for its labels, and none without bars", () => {
+    const rain = { points: [{ date: T0, value: 120 }], name: "Rainfall", color: "#2b7bb9" };
+    render(<SeriesChart points={POINTS} name="NDVI" bars={rain} />);
+    const [trace0, b] = traces() as (Trace & { type?: string; yaxis?: string })[];
+    expect(trace0.name).toBe("NDVI");
+    expect(b).toMatchObject({ type: "bar", yaxis: "y2", name: "Rainfall", y: [120] });
+    expect(b.hovertemplate).toContain("mm");
+    expect(last().layout.yaxis2).toMatchObject({ overlaying: "y", side: "right", range: [0, 360] });
+    expect(last().layout.margin!.r).toBeGreaterThan(10);
+    // A click on the bars is not a point of the series.
+    const onClickPoint = vi.fn();
+    render(<SeriesChart points={POINTS} name="NDVI" bars={rain} onClickPoint={onClickPoint} />);
+    click(1, 0);
+    expect(onClickPoint).not.toHaveBeenCalled();
+    render(<SeriesChart points={POINTS} name="NDVI" />);
+    expect(last().layout.yaxis2).toBeUndefined();
+    expect(last().layout.margin!.r).toBe(10);
+  });
+
+  it("keeps the layout when only the bars' identity changes", () => {
+    const rain = () => ({ points: [{ date: T0, value: 120 }], name: "Rainfall", color: "#2b7bb9" });
+    const { rerender } = render(<SeriesChart points={POINTS} name="NDVI" bars={rain()} />);
+    const first = last();
+    rerender(<SeriesChart points={POINTS} name="NDVI" bars={rain()} />);
+    expect(last().layout).toBe(first.layout);
+  });
+
+  it("draws trace 0 as bars in bar mode", () => {
+    render(<SeriesChart points={POINTS} name="Rainfall" bar />);
+    const [trace0, ...rest] = traces() as (Trace & { type?: string })[];
+    expect(trace0).toMatchObject({ type: "bar", name: "Rainfall", y: [0.4, 0.6] });
+    expect(rest).toHaveLength(0);
+  });
+
   it("omits the markers trace when the markers list is empty", () => {
     render(<SeriesChart points={POINTS} name="NDVI" markers={{ ...MARKERS, x: [] }} />);
     expect(traces()).toHaveLength(1);
@@ -236,6 +270,19 @@ describe("SeriesChart", () => {
     render(<SeriesChart points={RISING} name="NDVI" />);
     const end = Math.max(...RISING.map((p) => p.date)) + 14 * 86400000;
     expect((last().layout.xaxis as { autorangeoptions?: { clipmax: string } }).autorangeoptions).toEqual({ clipmax: new Date(end).toISOString() });
+  });
+
+  it("a survey's start values apply, and the user's choice under them is stored apart from the standard one", () => {
+    localStorage.clear();
+    localStorage.setItem("explorer.trend", "true");
+    render(<SeriesChart points={RISING} name="NDVI" analyses={{ median: true, trend: false, change: false }} />);
+    expect((screen.getByLabelText("Yearly median") as HTMLInputElement).checked).toBe(true);
+    // The stored standard choice (trend on) does not override the survey's trend off.
+    expect((screen.getByLabelText("Trend") as HTMLInputElement).checked).toBe(false);
+    expect((screen.getByLabelText("Change year") as HTMLInputElement).checked).toBe(false);
+    fireEvent.click(screen.getByLabelText("Yearly median"));
+    expect(localStorage.getItem("explorer.median.survey")).toBe("false");
+    expect(localStorage.getItem("explorer.median")).toBeNull();
   });
 
   it("unusual values colour trace 0 per point and add no trace", () => {

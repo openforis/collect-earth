@@ -85,9 +85,29 @@ used. Example:
   same two (from 2016); its slider ends with a stop for the last 12 months, where it starts
   without `year`. A Sentinel-2 entry with `start` and `end` is that fixed window, without a slider,
   and cannot also have `year` or `years`.
+- `sentinel1` is a yearly Sentinel-1 radar composite (median VV and VH backscatter, which sees
+  through cloud), with `label`, `years` and `year` (from 2015) like Landsat and `bands`:
+  `"false-colour"` (VV, VH and their difference as red, green and blue; the default), `"vv"` or
+  `"vh"` (one polarisation in grey).
+- `sentinel1-series` charts the plot's mean Sentinel-1 backscatter in dB for each acquisition:
+  `band` `"VH"` (the default) or `"VV"`, plus the analysis switches below and `collapsed`. It is
+  in the standard configuration, collapsed, so it costs nothing until opened.
+- `precipitation` charts monthly rainfall in mm at the plot (ERA5-Land, a global grid of about
+  11 km, so it is the rainfall of the area rather than of the plot), as bars. It takes the analysis
+  switches below, all off by default, and `collapsed`; it is in the standard configuration,
+  collapsed.
+- `modis` also takes `rainfall` (true or false, default false): whether the chart starts with the
+  monthly rainfall drawn as bars under it. The chart's Rain switch turns it on and off, remembered
+  like the analyses.
 - An entry that is not understood is skipped and a notice is shown; the rest still works.
 - Types, parameters, allowed values and defaults: `functions/catalogue.json`, served at
   `GET /api/catalogue`.
+- The Landsat, Sentinel-2, MODIS and Sentinel-1 charts take `median`, `trend`, `change`, `unusual` and
+  `season` (true or false): which analyses are switched on when the chart opens. Only `trend` is on
+  by default (none on the rainfall chart). The Landsat and Sentinel-2 ones also take `maxCloud` (`"any"`, `"80"`, `"60"`, `"40"`,
+  `"20"`, `"10"`; default `"40"`), the scene cloud limit the chart starts with. The user can still
+  change all of these; the browser remembers the choice, separately for a survey that sets its own
+  start value.
 - Index charts take a named `index` (NDVI, EVI, EVI2, SAVI, MSAVI, GNDVI, NDMI, NBR, NBR2, NDWI,
   MNDWI, NDSI, NDBI, BSI) or a `formula` with a `name`. A formula may use numbers, `+ - * /`,
   parentheses, `sqrt abs min max pow` and the bands `blue green red nir swir1 swir2` as 0 to 1
