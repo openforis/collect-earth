@@ -193,6 +193,10 @@ export function logSentence(t: Translate, item: LogItem, page: Pick<ActivityPage
         : t("activity.audit.ceoImportedPlain", { actor });
     case "survey.replaced":
       return t("activity.audit.survey", { actor });
+    case "survey.edited":
+      return d.restored === true
+        ? t("activity.audit.surveyRestored", { actor })
+        : t("activity.audit.surveyEdited", { actor, count: num(d.changes, language) });
     case "csv.uploaded":
       return t(byCount(d.plots, "activity.audit.csvOne", "activity.audit.csv"), { actor, file: fileOf(t, page, d.csvFileId), count: num(d.plots, language) });
     case "assignments.set":

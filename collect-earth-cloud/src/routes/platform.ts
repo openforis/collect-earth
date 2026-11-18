@@ -718,6 +718,8 @@ export async function acceptCep(store: Store, projectId: string, uploaded: Buffe
     return refuse(413, over);
   }
   await store.putCep(projectId, served, info, original);
+  // The survey designer's versions were of the file before: restoring one would bring its survey into this one
+  await store.deleteSurveyVersions(projectId);
   if (keyCountBefore !== keyCountAfter) {
     await store.recountPlots(projectId, keyCountAfter);
   }

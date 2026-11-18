@@ -158,6 +158,14 @@ export function withProperties(zip: Buffer, rewrite: (data: Buffer) => Buffer, d
   return zipCep(entries, date);
 }
 
+/** The CEP with its survey (placemark.idm.xml) replaced, every other entry as it was. */
+export function withSurvey(zip: Buffer, survey: Uint8Array, date: Date): Buffer {
+  const files = readCepWithin(zip, DEFAULT_CEP_LIMITS, DEFAULT_CEP_LIMITS.maxTotalBytes * 2);
+  const entries = new Map(files.entries);
+  entries.set(files.surveyPath, survey);
+  return zipCep(entries, date);
+}
+
 /** Opens a CEP and finds its survey, balloons and KML template. */
 export function readCep(zip: Uint8Array, limits: CepLimits = DEFAULT_CEP_LIMITS): CepFiles {
   return readCepWithin(asBuffer(zip), limits, allowedBytes(zip.length, limits));

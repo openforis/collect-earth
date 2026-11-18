@@ -120,7 +120,11 @@ export async function servePeriodStatus(store: Store, projectId: string): Promis
   const [served, info, original] = await Promise.all([store.getCep(projectId), store.getRoundInfo(projectId), store.getOriginalCep(projectId)]);
   if (!served || !info) return;
   const status = addPeriodStatus(served);
-  if (status.added) await store.putCep(projectId, status.cep, info, original ?? served);
+  if (status.added) {
+    await store.putCep(projectId, status.cep, info, original ?? served);
+    // The survey changed (a field of the period added): the designer's versions are of the survey before
+    await store.deleteSurveyVersions(projectId);
+  }
 }
 
 const questionList = (outline: ReadonlyMap<string, Question>) => headerCandidates(outline).map((q) => ({ key: q.key, label: q.label, kind: q.kind }));

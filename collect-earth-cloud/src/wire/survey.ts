@@ -190,10 +190,69 @@ export interface SurveyProblem {
   beyondCollect: boolean;
 }
 
+/** What a text of the survey belongs to */
+export type WordTarget =
+  | { kind: 'title' }
+  | { kind: 'page'; name: string }
+  /** A question or a table, by its id */
+  | { kind: 'node'; id: number }
+  | { kind: 'list'; name: string }
+  | { kind: 'item'; list: string; code: string }
+  /** A rule's message: the rule's place among the node's rules */
+  | { kind: 'rule'; node: number; index: number };
+
+/** A change of the survey designer (stage 2: its words) */
+export type SurveyOperation =
+  /** A text in a language; "" takes it away (the form shows another language's) */
+  | { op: 'setText'; target: WordTarget; part: 'label' | 'help' | 'message'; language: string; text: string }
+  | { op: 'addLanguage'; language: string };
+
+/** POST /v1/projects/:pid/survey/design */
+export interface SurveyChangeInput {
+  /** The revision the changes were made on (SurveyDesignAnswer.revision): another one is 409 */
+  revision: string;
+  operations: SurveyOperation[];
+}
+
+/** POST /v1/projects/:pid/survey/versions/:id/restore */
+export interface SurveyRestoreInput {
+  revision: string;
+}
+
+/** Why a change was refused (400): the operation, or what the survey check found */
+export interface SurveyChangeRefusal {
+  error: 'bad_request' | 'survey_problems' | 'stale';
+  reason: string;
+  /** The problems the changes would bring (survey_problems) */
+  problems?: SurveyProblem[];
+}
+
+/** A version of the survey kept before a change, newest first */
+export interface SurveyVersionView {
+  id: string;
+  /** When the survey stopped being this one */
+  createdAt: number;
+  /** Who changed it then (null: a deleted account) */
+  by: string | null;
+  changes: number;
+  /** The change was a restore */
+  restore: boolean;
+}
+
+export interface SurveyVersionsAnswer {
+  versions: SurveyVersionView[];
+}
+
 export interface SurveyDesignAnswer {
   /** null: no project file yet, or a survey the server cannot read (unreadable) */
   design: SurveyDesign | null;
   unreadable: boolean;
+  /** The served survey's revision, which a change names; null without a project file */
+  revision: string | null;
+  /** The coordinator can change the survey here (not in the dashboard inside Collect Earth) */
+  editable: boolean;
+  /** People who have the project file already: a change reaches them when they open the project again */
+  peopleWithFile: number;
   /** What Collect or Collect Earth would refuse in the survey: none for a survey that opens */
   problems: SurveyProblem[];
 }

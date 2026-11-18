@@ -13,6 +13,34 @@ export type { ProgressSettings } from './wire/progress.js';
 export type { ProjectStatus, ShareLink } from './wire/projectSettings.js';
 /** The project calls' types (src/wire/projects.ts); Role and Membership are in src/wire/account.ts. */
 export type { CepInfo, Member, RepeatSettings } from './wire/projects.js';
+
+/**
+ * A survey as it was before a change made in the survey designer (docs/plans/2026-11-18-survey-designer.md, stage 2):
+ * the served project file's survey, and the uploaded file's when it differs. Kept for the project file of the moment
+ * (an upload or another change of the survey by the server deletes them), the last SURVEY_VERSIONS_KEPT.
+ */
+export interface SurveyVersion {
+  id: string;
+  /** When the survey stopped being this one (ms) */
+  createdAt: number;
+  /** Who made the change that followed it (null: a deleted account) */
+  createdBy: string | null;
+  /** The number of changes then made */
+  changes: number;
+  /** The version a restore brought back, when the change was one */
+  restoredFrom: string | null;
+}
+
+export interface SurveyVersionInput {
+  /** The served survey (placemark.idm.xml), and the uploaded one when it differs */
+  survey: Buffer;
+  original: Buffer | null;
+  createdBy: string | null;
+  changes: number;
+  restoredFrom: string | null;
+}
+
+export const SURVEY_VERSIONS_KEPT = 20;
 export type { Assignment, AssignmentDetail, CsvFile, DivisionOrder, StoredDistribution } from './wire/plotFiles.js';
 export type { ReferenceChangeResult, SamplingCore, SamplingDraw, SamplingFileRule, SamplingRule } from './wire/checks.js';
 export type { DecisionKind, GuidanceNote, GuidanceNoteInput, QualitySettings } from './wire/quality.js';
@@ -696,6 +724,7 @@ export const AUDIT_ACTIONS = [
   'training.synced',
   'member.excluded',
   'project.imported',
+  'survey.edited',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 

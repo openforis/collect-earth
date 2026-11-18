@@ -14,6 +14,8 @@ import type {
   AuditQuery,
   AccountMail,
   CepInfo,
+  SurveyVersion,
+  SurveyVersionInput,
   CsvFile,
   DatabaseHealth,
   DecisionKind,
@@ -199,6 +201,15 @@ export interface Store {
   hasRecords(projectId: string): Promise<boolean>;
   /** Size and last upload time of the CEP, without loading it; null if none uploaded. */
   getCepInfo(projectId: string): Promise<CepInfo | null>;
+
+  /** Keeps a survey as it was before a change of the survey designer; only the last SURVEY_VERSIONS_KEPT stay. */
+  addSurveyVersion(projectId: string, input: SurveyVersionInput): Promise<SurveyVersion>;
+  /** The survey's kept versions, newest first. */
+  listSurveyVersions(projectId: string): Promise<SurveyVersion[]>;
+  /** A kept version's surveys; null when the project has none of that id. */
+  getSurveyVersionData(projectId: string, versionId: string): Promise<{ survey: Buffer; original: Buffer | null } | null>;
+  /** Forgets the kept versions: they were of another project file. */
+  deleteSurveyVersions(projectId: string): Promise<void>;
 
   // --- Users & sessions (Phase A) ---
 

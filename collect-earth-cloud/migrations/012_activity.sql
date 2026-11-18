@@ -71,7 +71,7 @@ CREATE TABLE IF NOT EXISTS audit_log (
                    'csv.uploaded', 'assignments.set', 'division.applied', 'plots.moved', 'plots.rebalanced', 'plots.taken', 'decision.set',
                    'decision.deleted', 'settings.changed', 'export.downloaded', 'survey.replaced', 'sampling.drawn',
                    'reference.changed', 'link.created', 'link.revoked', 'training.changed', 'training.synced',
-                   'member.excluded', 'project.imported')),
+                   'member.excluded', 'project.imported', 'survey.edited')),
   details        JSONB NOT NULL DEFAULT '{}'::jsonb
 );
 CREATE INDEX IF NOT EXISTS idx_audit_log_project_at ON audit_log(project_id, at);
