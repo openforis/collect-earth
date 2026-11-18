@@ -76,7 +76,7 @@ describe('a busy database', () => {
   it('reads each survey once when the coordinators of many mapathons follow their training in turn', async () => {
     // cloud.collectearth.org, 18 Nov 2026: 10 mapathons' training pages, polled in turn, missed an 8-project cache
     // of the survey outline at every visit, each miss reading the whole project file.
-    const projects = [];
+    const projects: Awaited<ReturnType<typeof createProject>>[] = [];
     for (let i = 0; i < 12; i++) {
       const p = await createProject(ctx.app, `Mapathon ${i}`);
       expect((await ctx.app.inject({ method: 'PUT', url: `/v1/projects/${p.projectId}/cep`, headers: { ...bearer(p.adminToken), 'content-type': 'application/zip' }, payload: idOnlyCep() })).statusCode).toBeLessThan(300);
