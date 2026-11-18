@@ -23,7 +23,12 @@ import type { CsvFile, Member, QualitySettings } from './types.js';
 /** Reports kept, one per project (least recently used out first). */
 export const MAX_CACHED_REPORTS = 4;
 /** Outlines kept, by the served project file's sha256. */
-export const MAX_CACHED_OUTLINES = 8;
+/**
+ * Surveys' outlines kept (a list of questions each, a few KB): one per project in use. It was 8, and 10 mapathons'
+ * coordinators following their training (GET /training) missed it at every turn, each miss reading the whole project
+ * file (8.6 MB for the IPCC demo survey) from the database (cloud.collectearth.org, 18 Nov 2026).
+ */
+export const MAX_CACHED_OUTLINES = 256;
 
 /** What gets logged: the request logger, or the app's. */
 export interface Log {
@@ -702,6 +707,22 @@ export class QualityService {
       remember(this.outlines, checksum, hit, MAX_CACHED_OUTLINES);
       return hit;
     }
+    // Asked again while it is being read: the same read
+    const pending = this.readingOutlines.get(checksum);
+    if (pending) return pending;
+    const reading = this.readOutline(projectId, checksum, log);
+    this.readingOutlines.set(checksum, reading);
+    try {
+      return await reading;
+    } finally {
+      this.readingOutlines.delete(checksum);
+    }
+  }
+
+  /** Outlines being read, by the same key as `outlines` */
+  private readonly readingOutlines = new Map<string, Promise<ReadonlyMap<string, Question> | null>>();
+
+  private async readOutline(projectId: string, checksum: string, log: Log): Promise<ReadonlyMap<string, Question> | null> {
     const cep = await this.store.getCep(projectId);
     if (!cep) {
       return null;
