@@ -86,7 +86,10 @@ const properties = (i: Instance) => {
 
 function start(i: Instance) {
   // Its own user folder: Collect Earth keeps there its settings, its database and its browser profiles
-  i.process = spawn('java', [`-Xmx${XMX}`, `-Duser.home=${i.home}`, '-jar', 'target/CollectEarth.jar'], {
+  // Its own temporary folder too: Collect keeps its record index there (collect_index), locked by the instance that
+  // has it, so instances sharing /tmp wait on each other's lock and one does not start
+  mkdirSync(join(i.home, 'tmp'), { recursive: true });
+  i.process = spawn('java', [`-Xmx${XMX}`, `-Duser.home=${i.home}`, `-Djava.io.tmpdir=${join(i.home, 'tmp')}`, '-jar', 'target/CollectEarth.jar'], {
     cwd: CE_APP, env: { ...process.env }, stdio: ['ignore', 'ignore', 'ignore'], detached: true,
   });
 }
