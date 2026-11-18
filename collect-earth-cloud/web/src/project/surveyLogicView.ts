@@ -117,7 +117,7 @@ export type RuleKind = "range" | "length" | "total";
 
 /** The rules the builder makes for a question: a number's range (and a table's total), a text's length */
 export function ruleKinds(q: DesignQuestion, table: DesignTable | null): RuleKind[] {
-  if (q.fixed || q.formulas || q.hidden) return [];
+  if (q.fixed || q.formulas || q.hidden || q.fromPlotFile) return [];
   if (q.type === "integer" || q.type === "decimal") return table && table.layout !== "group" ? ["range", "total"] : ["range"];
   if (q.type === "text" || q.type === "memo") return ["length"];
   return [];

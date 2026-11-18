@@ -638,6 +638,7 @@ export class SurveyEdit {
   putRule(id: number, rule: NewRule, index?: number): XmlElement {
     const node = this.askedNode(id);
     if (node.name === 'entity') throw new SurveyEditError('A rule is on a question: a table\'s are on its columns.');
+    if (node.attrs.some((a) => a.name.endsWith(':fromcsv') && attrValue(this.doc, node, a.name) === 'true')) throw new SurveyEditError(`${attrValue(this.doc, node, 'name')} comes from the plot file: nobody answers it.`);
     const old = index === undefined ? undefined : this.rulesOf(node)[index];
     if (index !== undefined && !old) throw new SurveyEditError(`The question has no rule ${index + 1}.`);
     const { tag, attrs } = ruleCheck(this.logicScope(), node, rule);

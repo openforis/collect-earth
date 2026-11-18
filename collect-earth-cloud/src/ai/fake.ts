@@ -11,6 +11,7 @@ import type { AiCall, AiClient, AiRequest, AiResponse } from './client.js';
 import { ANSWER_CHECK_SYSTEM, TOPIC_CHECK_SYSTEM } from './prompts.js';
 import { ANSWER_SCHEMA, REPORT_SCHEMA } from './run.js';
 import { VIEWS_SCHEMA, type AnalysisStructure } from './analysisViews.js';
+import { DESCRIBE_SCHEMA, EXPLAIN_SCHEMA, SUGGEST_SCHEMA, TRANSLATE_SCHEMA, type HelpStructure } from './surveyHelp.js';
 
 export interface FakeClientOptions {
   /** Waited before each answer, so the panel's progress can be seen (0 in tests). */
@@ -68,6 +69,10 @@ function respond(req: AiRequest): { text: string | null; calls: AiCall[] } {
   if (req.responseSchema === REPORT_SCHEMA) return json(report(req));
   if (req.responseSchema === ANSWER_SCHEMA) return json(answer(req));
   if (req.responseSchema === VIEWS_SCHEMA) return json(views(req));
+  if (req.responseSchema === DESCRIBE_SCHEMA) return json(describeRule(req));
+  if (req.responseSchema === SUGGEST_SCHEMA) return json(suggestRules(req));
+  if (req.responseSchema === TRANSLATE_SCHEMA) return json(translate(req));
+  if (req.responseSchema === EXPLAIN_SCHEMA) return json(explain(req));
   // The tool loop: call the tools once, then say it is done.
   if (req.turns.some((t) => t.role === 'tool')) return { text: 'I have read what I need.', calls: [] };
   const finding = findingOf(req);
@@ -99,6 +104,74 @@ function views(req: AiRequest): { views: unknown[] } {
     out.push({ title: `${PREFIX}${codes[0].label} by ${codes[1].label}`, why: 'The two questions side by side.', rows: [codes[0].id], columns: [codes[1].id], measures: ['plots'], chart: 'stacked', filters: [], order: 'name' });
   }
   return { views: out };
+}
+
+/** The survey designer's help: the structure and the JSON lines of the first turn */
+function helpTurn(req: AiRequest): { structure: HelpStructure; lines: string[] } {
+  const lines = firstText(req).split('\n');
+  const line = lines.find((l) => l.startsWith('{"survey_structure"')) ?? '{}';
+  const structure = (JSON.parse(line) as { survey_structure?: HelpStructure }).survey_structure ?? { languages: [], questions: [], lists: [] };
+  return { structure, lines };
+}
+
+/** A rule from the numbers of the description: a range for a number, a length for a text; else not possible */
+function describeRule(req: AiRequest): unknown {
+  const { structure, lines } = helpTurn(req);
+  const name = /^The question the rule is for: "([^"]+)"/.exec(lines.find((l) => l.startsWith('The question the rule is for')) ?? '')?.[1];
+  const description = (JSON.parse(lines.find((l) => l.startsWith('{"description"')) ?? '{"description":""}') as { description: string }).description;
+  const q = structure.questions.find((x) => x.name === name);
+  const numbers = (description.match(/-?\d+(\.\d+)?/g) ?? []).map(Number);
+  const message = `${PREFIX}check the answer`;
+  if (q && (q.type === 'integer' || q.type === 'decimal') && numbers.length > 0) {
+    const below = /most|under|below|less|max|menos|moins|máximo|en çok/i.test(description);
+    const rule =
+      numbers.length >= 2
+        ? { kind: 'range', flag: 'error', message, min: { number: numbers[0], inclusive: true }, max: { number: numbers[1], inclusive: true } }
+        : below
+          ? { kind: 'range', flag: 'error', message, max: { number: numbers[0], inclusive: true } }
+          : { kind: 'range', flag: 'error', message, min: { number: numbers[0], inclusive: true } };
+    return { possible: true, why: `${PREFIX}a range made from the numbers of the description.`, rule };
+  }
+  if (q && (q.type === 'text' || q.type === 'memo') && numbers.length > 0) {
+    return { possible: true, why: `${PREFIX}a length made from the description.`, rule: { kind: 'length', flag: 'error', message, minChars: numbers[0] } };
+  }
+  return { possible: false, why: `${PREFIX}this cannot be said with the designer's rules.` };
+}
+
+/** For questions without rules: a warning against negative numbers, a total of 100 for a table, a length for a text */
+function suggestRules(req: AiRequest): unknown {
+  const { structure } = helpTurn(req);
+  const out: unknown[] = [];
+  const tables = new Set<string>();
+  for (const q of structure.questions) {
+    if (out.length >= 3 || q.calculated || q.fromPlotFile || q.rules) continue;
+    if (q.type === 'text' || q.type === 'memo') {
+      out.push({ question: q.name, why: `${PREFIX}${q.label} should stay short.`, rule: { kind: 'length', flag: 'warning', message: 'At most 500 characters', maxChars: 500 } });
+      continue;
+    }
+    if (q.type !== 'integer' && q.type !== 'decimal') continue;
+    if (q.place !== 'plot' && !tables.has(q.place)) {
+      tables.add(q.place);
+      out.push({ question: q.name, why: `${PREFIX}the rows of ${q.place} should add up to 100.`, rule: { kind: 'total', flag: 'warning', message: 'The rows add up to more than 100', totalTest: 'atMost', total: 100 } });
+    } else {
+      out.push({ question: q.name, why: `${PREFIX}${q.label} cannot be negative.`, rule: { kind: 'range', flag: 'warning', message: 'The answer cannot be negative', min: { number: 0, inclusive: true } } });
+    }
+  }
+  return { suggestions: out };
+}
+
+function translate(req: AiRequest): unknown {
+  const lines = firstText(req).split('\n');
+  const to = [...(lines[0] ?? '').replace(/^.*into each of: /, '').matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+  const text = (JSON.parse(lines[1] ?? '{"text":""}') as { text: string }).text;
+  return { translations: to.map((language) => ({ language, text: `[${language}] ${text}` })) };
+}
+
+function explain(req: AiRequest): unknown {
+  const { structure, lines } = helpTurn(req);
+  const expression = (JSON.parse(lines.find((l) => l.startsWith('{"expression"')) ?? '{"expression":""}') as { expression: string }).expression;
+  const named = structure.questions.filter((q) => new RegExp(`\\b${q.name}\\b`).test(expression)).map((q) => `${q.label} (${q.name})`);
+  return { text: `${PREFIX}it depends on ${named.length > 0 ? named.join(', ') : 'no question of the survey'}.` };
 }
 
 function firstText(req: AiRequest): string {

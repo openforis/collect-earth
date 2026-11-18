@@ -34,7 +34,9 @@ import SubdirectoryArrowRight from "@mui/icons-material/SubdirectoryArrowRight";
 import { createContext, useContext, useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import {
   ApiError,
+  getProjectAi,
   getSurveyDesign,
+  getSurveyHelp,
   getSurveyImpact,
   listSurveyVersions,
   restoreSurveyVersion,
@@ -81,6 +83,8 @@ import { useT, type MessageKey } from "../i18n";
 import { useLoad } from "../useLoad";
 import { conditionWords, firstLanguage, requiredWords, ruleWords, tableWords, textIn, TYPE_KEYS, untranslated, words, type Words } from "./surveyDesignView";
 import { ConditionDialog, RequiredControl, RuleDialog } from "./SurveyLogic";
+import { ExplainButton, HelpContext, SuggestRulesDialog, TranslateDialog, type SurveyHelp } from "./SurveyHelp";
+import AutoAwesome from "@mui/icons-material/AutoAwesomeOutlined";
 import { builderRule, conditionQuestions, listOptions, ruleKinds } from "./surveyLogicView";
 
 /** The most answers a question shows inline; the list's card has them all */
@@ -139,6 +143,15 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
   const [confirm, setConfirm] = useState<PendingChange | null>(null);
   const [questionFor, setQuestionFor] = useState<{ page?: string; table?: number } | null>(null);
   const [tableFor, setTableFor] = useState<string | null>(null);
+  const [suggesting, setSuggesting] = useState(false);
+  // The AI assistant's help, when it is switched on for the project (never in the dashboard inside Collect Earth)
+  const ai = useLoad(["project", projectId, "SurveyDesign.ai", answer?.editable === true], () =>
+    answer?.editable ? getProjectAi(projectId).catch(() => null) : Promise.resolve(null),
+  );
+  const help = useMemo<SurveyHelp | null>(
+    () => (ai.data?.enabled && ai.data.available ? { ask: (input) => getSurveyHelp(projectId, input), language: uiLanguage } : null),
+    [ai.data, projectId, uiLanguage],
+  );
   // The languages added and not saved yet are shown as the survey's, for their texts to be written
   const design = useMemo<SurveyDesign | null>(() => {
     const d = answer?.design ?? null;
@@ -248,6 +261,7 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
     answer && answer.peopleWithFile > 0 ? t("survey.edit.reach", { count: answer.peopleWithFile }) : t("survey.edit.reachNone");
 
   return (
+    <HelpContext.Provider value={help}>
     <EditContext.Provider value={edit}>
       <Paper variant="outlined" component="section" aria-labelledby="survey-design-title" sx={{ p: { xs: 2, sm: 3 } }}>
         <Stack direction="row" spacing={2} sx={{ alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 1 }}>
@@ -276,6 +290,11 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
               <Alert severity="info" icon={<EditOutlined />}>
                 {t("survey.edit.explain")}
                 <Box sx={{ mt: 1 }}>{reach}</Box>
+                {help && (
+                  <Button size="small" variant="outlined" startIcon={<AutoAwesome />} sx={{ mt: 1 }} disabled={saving} onClick={() => setSuggesting(true)}>
+                    {t("survey.help.suggest")}
+                  </Button>
+                )}
               </Alert>
             )}
             {saved && !editing && (
@@ -346,6 +365,14 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
           }}
         />
       )}
+      {w && suggesting && (
+        <SuggestRulesDialog
+          w={w}
+          onClose={() => setSuggesting(false)}
+          // Each was tried on the plots collected already: saved without asking again
+          onAdd={(ops) => void save(ops)}
+        />
+      )}
       {w && tableFor !== null && (
         <AddTableDialog
           w={w}
@@ -384,6 +411,7 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
         />
       )}
     </EditContext.Provider>
+    </HelpContext.Provider>
   );
 }
 
@@ -684,6 +712,8 @@ function QuestionView({ w, q, inTable, table, siblings, page }: {
   const requiredBox = edit !== null && siblings !== undefined && canRequire(q);
   const kinds = edit && siblings ? ruleKinds(q, table ?? null) : [];
   const [ruleOpen, setRuleOpen] = useState<{ index: number | null } | null>(null);
+  const [translating, setTranslating] = useState<number | null>(null);
+  const assistant = useContext(HelpContext);
   const candidates = useMemo(() => (ruleOpen ? conditionQuestions(w.design, table ?? null, null) : []), [ruleOpen, w.design, table]);
   const label = textIn(q.label, w.language, w.design.languages) || q.name;
   return (
@@ -710,7 +740,9 @@ function QuestionView({ w, q, inTable, table, siblings, page }: {
         )}
       </Words>
       {q.shownWhen && q.shownWhen.kind !== "never" && <Detail>{t("survey.shownWhen", { condition: conditionWords(w, q.shownWhen) })}</Detail>}
+      {q.shownWhen?.kind === "advanced" && <ExplainButton w={w} question={q.id} which="shownWhen" />}
       {required && q.required !== "always" && <Detail>{required}</Detail>}
+      {typeof q.required === "object" && q.required.when.kind === "advanced" && <ExplainButton w={w} question={q.id} which="required" />}
       {q.parentQuestion && <Detail>{t("survey.subList", { question: textIn(w.questions.get(q.parentQuestion)?.label ?? {}, w.language, w.design.languages) || q.parentQuestion })}</Detail>}
       {list && !q.formulas && <Detail>{t("survey.answers", { items: answersText(w, list.items) })}</Detail>}
       {q.rules.map((r, i) => (
@@ -726,6 +758,13 @@ function QuestionView({ w, q, inTable, table, siblings, page }: {
                     </IconButton>
                   </Tooltip>
                 )}
+                {assistant && w.design.languages.length > 1 && Object.values(r.message).some((m) => m) && (
+                  <Tooltip title={t("survey.help.translate")}>
+                    <IconButton size="small" aria-label={`${t("survey.help.translate")}: ${ruleWords(w, r)}`} disabled={edit.busy} onClick={() => setTranslating(i)}>
+                      <Translate fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )}
                 <Tooltip title={t("survey.logic.deleteRule")}>
                   <IconButton size="small" color="error" aria-label={`${t("survey.logic.deleteRule")}: ${ruleWords(w, r)}`} disabled={edit.busy}
                     onClick={() => edit.change([{ op: "deleteRule", id: q.id, index: i }], t("survey.logic.ruleWhat", { rule: `“${ruleWords(w, r)}”` }))}>
@@ -738,6 +777,7 @@ function QuestionView({ w, q, inTable, table, siblings, page }: {
               {textIn(r.message, w.language, w.design.languages) && ` — ${t("survey.rule.message", { message: textIn(r.message, w.language, w.design.languages) })}`}
             </Words>
           </Detail>
+          {r.kind === "advanced" && <ExplainButton w={w} question={q.id} which="rule" index={i} />}
         </Box>
       ))}
       {edit && kinds.length > 0 && (
@@ -746,6 +786,19 @@ function QuestionView({ w, q, inTable, table, siblings, page }: {
             {t("survey.logic.addRule")}
           </Button>
         </Box>
+      )}
+      {edit && translating !== null && q.rules[translating] && (
+        <TranslateDialog
+          w={w}
+          message={q.rules[translating].message}
+          onClose={() => setTranslating(null)}
+          onApply={(texts) => {
+            const index = translating;
+            setTranslating(null);
+            const ops: SurveyOperation[] = Object.entries(texts).map(([language, text]) => ({ op: "setText", target: { kind: "rule", node: q.id, index }, part: "message", language, text }));
+            if (ops.length > 0) edit.change(ops);
+          }}
+        />
       )}
       {edit && ruleOpen && (
         <RuleDialog
@@ -769,6 +822,9 @@ function QuestionView({ w, q, inTable, table, siblings, page }: {
             return (
               <li key={i} style={{ overflowWrap: "anywhere" }}>
                 {f.when ? t("survey.formula.if", { formula, condition: f.when }) : formula}
+                <Box component="span" sx={{ fontFamily: "body1.fontFamily" }}>
+                  <ExplainButton w={w} question={q.id} which="formula" index={i} />
+                </Box>
               </li>
             );
           })}

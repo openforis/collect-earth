@@ -28,6 +28,7 @@ import { useId, useMemo, useState } from "react";
 import type { MessageKey } from "../i18n";
 import type { ConditionRows, DesignCondition, DesignQuestion, DesignRule, NewRule, TotalTest } from "../api";
 import { conditionWords, questionLabel, ruleWords, TEST_KEYS, textIn, type Words } from "./surveyDesignView";
+import { DescribeRule } from "./SurveyHelp";
 import {
   draftOf,
   listOptions,
@@ -274,6 +275,7 @@ export function RuleDialog({ w, q, rule, kinds, candidates, onClose, onApply }: 
       <DialogTitle id={titleId}>{t("survey.logic.ruleTitle", { question: label })}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
+          <DescribeRule w={w} question={q.id} onRule={(made) => setDraft(ruleDraftOf(made as DesignRule, kinds, made.message[w.language] ?? ""))} />
           {kinds.length > 1 && (
             <TextField select label={t("survey.logic.kind")} value={draft.kind} onChange={(e) => set({ kind: e.target.value as RuleKind })}>
               {kinds.map((k) => (

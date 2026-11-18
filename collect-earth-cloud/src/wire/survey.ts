@@ -378,3 +378,35 @@ export interface SurveyDesignAnswer {
   /** What Collect or Collect Earth would refuse in the survey: none for a survey that opens */
   problems: SurveyProblem[];
 }
+
+/**
+ * POST /v1/projects/:pid/survey/help: the AI assistant's help with the survey's rules (stage 4b). `language`: the
+ * dashboard's, for the explanations; `surveyLanguage`: the survey's language the messages are written in.
+ */
+export type SurveyHelpInput =
+  /** A rule of a question described in the coordinator's words */
+  | { task: 'describe'; question: number; text: string; language: string; surveyLanguage: string }
+  /** Rules the survey lacks */
+  | { task: 'suggest'; language: string; surveyLanguage: string }
+  /** A text of the survey (a rule's message) in other languages of the survey */
+  | { task: 'translate'; text: string; from: string; to: string[]; language: string }
+  /** A question's advanced condition (shown when, required when), rule or formula, in plain words */
+  | { task: 'explain'; question: number; which: 'shownWhen' | 'required' | 'rule' | 'formula'; index?: number; language: string };
+
+/** A rule the assistant proposes, checked as a coordinator's and tried on the plots collected */
+export interface SuggestedRule {
+  question: number;
+  questionName: string;
+  rule: NewRule;
+  why: string;
+  /** The plots collected it would flag, of those where it applies */
+  flagged: number;
+  checked: number;
+}
+
+export type SurveyHelpAnswer =
+  /** rule null: the request cannot be said with the designer's rules, or the assistant's rule did not pass the checks */
+  | { task: 'describe'; rule: NewRule | null; why: string; flagged: number; checked: number }
+  | { task: 'suggest'; suggestions: SuggestedRule[] }
+  | { task: 'translate'; translations: Record<string, string> }
+  | { task: 'explain'; text: string };

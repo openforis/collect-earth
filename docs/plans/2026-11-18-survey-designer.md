@@ -576,3 +576,18 @@ choice question can offer "the answers under the answer to" another choice of on
 (Collect's `parent`, the same list). `designer/tables.idm.xml` (the basic template with a two-level list, a sub-list
 question and a table with a total under a condition) passes `DesignedSurveyIdmlTest`.
 
+**Stage 4b, done (18 Nov), the assistant's help.** With the AI assistant switched on for the project, the rule dialog
+has "Or describe the rule in your words" ("at most 100", "after the base year"): Gemini answers a rule in the
+builder's structure (a JSON schema of range, length or total, limits, error or warning, message, condition rows), the
+server checks it as a coordinator's rule (`SurveyEdit.putRule`, the survey check) and tries it on the plots collected,
+and the dialog's fields are filled with it, "flags 1 of the 2 plots where it applies", for the coordinator to check and
+apply; what cannot be said as a rule comes back as why, not as a guess. "Suggest rules" proposes up to 8 the survey
+lacks, each checked, tried and added with one press (those that fail a check are never shown). A rule's message is
+translated into the survey's other languages (the translations shown in fields to change before saving). An advanced
+condition, rule or formula gets "Explain", in the dashboard's language. The model is sent the survey's structure
+only (`helpStructure`: names, labels, kinds, places, lists' codes, conditions and rules, plot-file values marked as
+never answered), never a plot, an answer or a person (tested); the expression explained is the survey's own, never
+text from the dashboard. Each request is a run of kind `survey` (migration 049), within the project's AI limits, kept
+out of the AI tab; `AI_FAKE=1` answers all four for development. A rule on a value of the plot file is now refused
+(nobody answers it).
+

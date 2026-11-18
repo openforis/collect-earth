@@ -3,7 +3,8 @@
 // Types only: see README.md in this folder.
 
 /** `views`: the analysis page's views proposed from the survey's structure (src/ai/analysisViews.ts). */
-export type AiRunKind = 'report' | 'follow_up' | 'question' | 'views';
+/** views: the analysis page's proposals; survey: the survey designer's help (neither is in the AI tab) */
+export type AiRunKind = 'report' | 'follow_up' | 'question' | 'views' | 'survey';
 export type AiRunStatus = 'running' | 'done' | 'failed' | 'refused';
 
 /** What a follow-up asks of a finding. */

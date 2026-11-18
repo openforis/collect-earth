@@ -3464,7 +3464,7 @@ export class PostgresStore implements Store {
         `SELECT a.id, a.kind, a.status, a.started_at, a.finished_at, a.model, a.input_tokens, a.output_tokens,
                 a.parent_run, a.finding_index, a.action, a.error_code, u.username
            FROM ai_runs a LEFT JOIN users u ON u.id = a.started_by
-          WHERE a.project_id = $1 AND (NOT $3::boolean OR a.kind <> 'views')
+          WHERE a.project_id = $1 AND (NOT $3::boolean OR a.kind NOT IN ('views', 'survey'))
           ORDER BY a.started_at DESC, a.id DESC
           LIMIT $2`,
         [projectId, limit, options.exceptViews === true],

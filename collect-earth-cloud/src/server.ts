@@ -68,6 +68,7 @@ import { registerTrainingRoutes } from './routes/training.js';
 import { referenceSyncer, registerReferenceRoutes } from './routes/reference.js';
 import { registerSamplingRoutes } from './routes/sampling.js';
 import { registerSurveyDesignRoutes } from './routes/surveyDesign.js';
+import { registerSurveyHelpRoutes } from './routes/surveyHelp.js';
 import { SamplingService } from './samplingService.js';
 import { disableLocalOffRoutes, registerLocalRoutes, type LocalSetup } from './local.js';
 import { InMemoryStore } from './store/memory.js';
@@ -424,6 +425,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   });
   app.decorate('aiRuns', runs);
   await registerAiRoutes(app, store, config, { runs });
+  await registerSurveyHelpRoutes(app, store, config, { runs });
 
   if (local) {
     await registerLocalRoutes(app, store as InMemoryStore, local);

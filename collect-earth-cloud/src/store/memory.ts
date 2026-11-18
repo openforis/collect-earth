@@ -2507,7 +2507,7 @@ export class InMemoryStore implements Store {
   async listAiRuns(projectId: string, limit: number, options: { exceptViews?: boolean } = {}): Promise<AiRunSummary[]> {
     const runs = this.projects.get(projectId)?.aiRuns ?? [];
     return runs
-      .filter((r) => !options.exceptViews || r.kind !== 'views')
+      .filter((r) => !options.exceptViews || (r.kind !== 'views' && r.kind !== 'survey'))
       .reverse()
       .slice(0, limit)
       .map((r) => {
