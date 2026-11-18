@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { loadConfig } from '../src/config.js';
 import { DatabaseBusyError } from '../src/store/busy.js';
@@ -41,6 +42,24 @@ describe('a busy database', () => {
     expect(reads.mock.calls.filter(([pid]) => pid === p.projectId)).toHaveLength(1);
     expect((await upload()).statusCode).toBeLessThan(300);
     await download();
+    expect(reads.mock.calls.filter(([pid]) => pid === p.projectId)).toHaveLength(2);
+  });
+
+  it('keeps a project file of megabytes built too (the IPCC demo survey, 8.6 MB): the database read once per project', async () => {
+    const p = await createProject(ctx.app, 'Big survey');
+    const big = readFileSync('../collect-earth/collect-earth-app/resources/demo_survey.cep');
+    expect(big.length).toBeGreaterThan(8 * 1024 * 1024);
+    expect((await ctx.app.inject({ method: 'PUT', url: `/v1/projects/${p.projectId}/cep`, headers: { ...bearer(p.adminToken), 'content-type': 'application/zip' }, payload: big })).statusCode).toBeLessThan(300);
+    const invite = await ctx.app.inject({ method: 'POST', url: `/v1/projects/${p.projectId}/invites`, headers: bearer(p.adminToken), payload: { role: 'operator', maxUses: 1 } });
+    const collector = (await ctx.app.inject({ method: 'POST', url: '/v1/auth/register', payload: { username: 'ana', password: 'password12', inviteToken: invite.json().inviteToken } })).json().token;
+    const reads = vi.spyOn(ctx.store, 'getCep');
+    const forCollector = await ctx.app.inject({ method: 'GET', url: `/v1/projects/${p.projectId}/cep`, headers: bearer(collector) });
+    const forCoordinator = await ctx.app.inject({ method: 'GET', url: `/v1/projects/${p.projectId}/cep`, headers: bearer(p.adminToken) });
+    for (let i = 0; i < 5; i++) {
+      expect((await ctx.app.inject({ method: 'GET', url: `/v1/projects/${p.projectId}/cep`, headers: bearer(collector) })).rawPayload.equals(forCollector.rawPayload)).toBe(true);
+      expect((await ctx.app.inject({ method: 'GET', url: `/v1/projects/${p.projectId}/cep`, headers: bearer(p.adminToken) })).rawPayload.equals(forCoordinator.rawPayload)).toBe(true);
+    }
+    // once for each copy: the collectors' and the coordinators'
     expect(reads.mock.calls.filter(([pid]) => pid === p.projectId)).toHaveLength(2);
   });
 

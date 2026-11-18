@@ -186,43 +186,54 @@ const MAX_EXCLUDED_REASON = 500;
 export const DEFAULT_INVITE_DAYS = 30;
 
 /**
- * The stored project file of the projects downloaded lately, by project, size and date (getCepInfo, which reads
- * neither): every Collect Earth reads it at its start, so a mapathon's 9:00 read the whole file (megabytes with a
- * survey guide) from the database once per person, holding a connection for each (cloud.collectearth.org, 17 Nov
- * 2026). A file changed meanwhile, on any instance, has another date and is read again.
+ * The project files people download (GET /cep: the collectors' copy, the coordinators' whole file), kept per project by
+ * the stored file's size and date (getCepInfo, which reads neither) and built once. A mapathon's people all join at 9:00,
+ * and a project file is megabytes with its survey guide (8.6 MB for the IPCC demo survey): read from the database and
+ * built once per person, it held the database's connections until requests were answered busy
+ * (cloud.collectearth.org, 18 Nov 2026). A file changed meanwhile, on any instance, has another date and is read again.
+ * Up to PROJECT_FILES_CACHE_MB in all (default 96: ten projects' collector copies of the demo survey), half of it for one.
  */
-const STORED_CEPS = 8;
-const STORED_CEP_BYTES = 32 * 1024 * 1024;
-const storedCeps = new Map<string, Buffer>();
-let storedCepBytes = 0;
+export const DEFAULT_PROJECT_FILES_CACHE_MB = 96;
+let projectFilesBudget = DEFAULT_PROJECT_FILES_CACHE_MB * 1024 * 1024;
+const projectFiles = new Map<string, Buffer>();
+let projectFilesBytes = 0;
 
-export async function storedCep(store: Store, projectId: string): Promise<Buffer | null> {
+/** Sets the memory the kept project files may take (the server's config, PROJECT_FILES_CACHE_MB). */
+export function setProjectFilesCacheMb(mb: number): void {
+  projectFilesBudget = mb * 1024 * 1024;
+}
+
+export async function servedProjectFile(store: Store, projectId: string, variant: 'whole' | 'collector', build: (stored: Buffer) => Buffer): Promise<Buffer | null> {
   const info = await store.getCepInfo(projectId);
   if (!info) return null;
-  const key = `${projectId}\u0000${info.bytes}\u0000${info.updatedAt}`;
-  const hit = storedCeps.get(key);
+  const version = `${projectId}\u0000${info.bytes}\u0000${info.updatedAt}\u0000`;
+  const key = version + variant;
+  const hit = projectFiles.get(key);
   if (hit) {
-    storedCeps.delete(key);
-    storedCeps.set(key, hit);
+    projectFiles.delete(key);
+    projectFiles.set(key, hit);
     return hit;
   }
-  const cep = await store.getCep(projectId);
-  // Changed between the two reads, or too big to keep: served as it is, not kept
-  if (!cep || cep.length !== info.bytes || cep.length > STORED_CEP_BYTES / 4) return cep;
-  for (const k of [...storedCeps.keys()]) {
-    if (k.startsWith(`${projectId}\u0000`)) {
-      storedCepBytes -= storedCeps.get(k)!.length;
-      storedCeps.delete(k);
+  const stored = await store.getCep(projectId);
+  if (!stored) return null;
+  const served = build(stored);
+  // Changed between the two reads, or too big to keep: served, not kept
+  if (stored.length !== info.bytes || served.length > projectFilesBudget / 2) return served;
+  // The copies of an earlier version of this project's file go
+  for (const k of [...projectFiles.keys()]) {
+    if (k.startsWith(`${projectId}\u0000`) && !k.startsWith(version)) {
+      projectFilesBytes -= projectFiles.get(k)!.length;
+      projectFiles.delete(k);
     }
   }
-  storedCeps.set(key, cep);
-  storedCepBytes += cep.length;
-  while (storedCeps.size > STORED_CEPS || storedCepBytes > STORED_CEP_BYTES) {
-    const [oldest, value] = storedCeps.entries().next().value as [string, Buffer];
-    storedCeps.delete(oldest);
-    storedCepBytes -= value.length;
+  projectFiles.set(key, served);
+  projectFilesBytes += served.length;
+  while (projectFilesBytes > projectFilesBudget) {
+    const [oldest, value] = projectFiles.entries().next().value as [string, Buffer];
+    projectFiles.delete(oldest);
+    projectFilesBytes -= value.length;
   }
-  return cep;
+  return served;
 }
 
 export async function registerPlatformRoutes(app: FastifyInstance, store: Store, config: Config): Promise<void> {
@@ -429,26 +440,26 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
     '/v1/projects/:pid/cep',
     { preHandler: requireProjectMembership(store) },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const cep = await storedCep(store, request.membership!.projectId);
-      if (!cep) {
-        return reply.code(404).send({ error: 'not_found' });
-      }
-      noteActivity(request, { cepDownload: true }, { desktop: true });
       // The whole file, with the plots it brings, for coordinators: a reviewer's has them emptied as a collector's (its
       // plot file lists every plot, the reference plots too; their own plots come as assigned plot files)
       const whole = config.localMode || request.membership!.role === 'admin';
       const unreadable = (err: CepError) => request.log.warn({ err, projectId: request.membership!.projectId }, 'cep: the stored project file cannot be read to clean its settings; served as it is');
+      const cep = await servedProjectFile(store, request.membership!.projectId, whole ? 'whole' : 'collector', (stored) =>
+        whole
+          ? storedWithoutSecrets(stored, unreadable)
+          : cepForCollector(stored, (err) =>
+              request.log.warn({ err, projectId: request.membership!.projectId }, 'cep: the project file cannot be read to empty its plot files; a collector gets it as it is'),
+            ),
+      );
+      if (!cep) {
+        return reply.code(404).send({ error: 'not_found' });
+      }
+      noteActivity(request, { cepDownload: true }, { desktop: true });
       return reply
         .header('content-type', 'application/zip')
         .header('cache-control', 'private, no-cache')
         .header('vary', 'Authorization')
-        .send(
-          whole
-            ? storedWithoutSecrets(cep, unreadable)
-            : cepForCollector(cep, (err) =>
-                request.log.warn({ err, projectId: request.membership!.projectId }, 'cep: the project file cannot be read to empty its plot files; a collector gets it as it is'),
-              ),
-        );
+        .send(cep);
     },
   );
 

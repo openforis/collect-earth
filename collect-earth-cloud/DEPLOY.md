@@ -38,6 +38,7 @@ managed Postgres (Option B).
 | `NODE_HEAP_MB` | no | `224` | The server's heap in MB (the image passes it to Node as `--max-old-space-size`). 224 for 512 MiB, 448 for 1 GiB (see "Memory") |
 | `PARSED_FILES_CACHE_MB`, `SERVED_FILES_CACHE_MB` | no | `96`, `32` | Memory (MB, at least 8) for parsed plot files and for the plot files built for people; 384 and 128 with 1 GiB (see "Memory") |
 | `PG_CONNECT_TIMEOUT_MS` | no | `10000` | How long a request waits for a free connection of the pool before it is answered 503 `busy` with `Retry-After: 15` (Collect Earth and the dashboard try again). `0` waits for ever, as before: then a pool held by slow queries queues every request that needs the database until the load stops, and Cloud Run answers "upstream request timeout" while `/health` still answers |
+| `PROJECT_FILES_CACHE_MB` | no | `96` | The project files people download (the collectors' copy, the coordinators' whole file), kept built per project: everyone joining a mapathon at 9:00 downloads it, and a project file is megabytes with its survey guide (8.6 MB for the IPCC demo survey). At most half of it for one file; a bigger one is read and built for each download |
 | `RECORDS_BATCH_CONCURRENCY` | no | `16` | Sync batches (`records:batch`) an instance takes at once; the others are answered 503 `busy` before their body is read, and Collect Earth sends them again later. A room of Collect Earths back online sends 50 records each at the same moment: taken all at once they waited in memory for a database connection until the heap ran out (load test, 17 Nov 2026). About the pool's size and a half; `0` takes every one |
 | `PG_STATEMENT_TIMEOUT_MS` | no | *(off)* | A statement of a project's transaction that runs longer is stopped, so a stuck query gives its connection back. At least 1000 |
 | `PG_POOL_MAX` | no | `10` | The most connections the server opens to PostgreSQL at once. Each sync (records:batch) holds one while it is written, so people syncing at the same moment wait for one beyond it: 20-30 suits a mapathon of 60 to 100 people, within the database's `max_connections` less its other clients' (Cloud SQL's smallest plans allow 25 to 50; keep a few for migrations and for you). With several server instances, each opens up to this many |
@@ -972,7 +973,7 @@ measurements of every case; the backup's figure was measured, Task 17):
 | The server's heap at most | 224 MB | 448 MB | `NODE_HEAP_MB` |
 | Parsed plot files (shared by the pages and the files served) | up to 96 MB | up to 384 MB | `PARSED_FILES_CACHE_MB` |
 | Plot files built for people (my-assignment and its download) | up to 32 MB | up to 128 MB | `SERVED_FILES_CACHE_MB` |
-| Project files: as stored (8 projects) and as collectors get them (16) | up to 32 + 32 MB | the same | |
+| Project files as people download them (each built once, per project) | up to 96 MB | up to 192 MB | `PROJECT_FILES_CACHE_MB` |
 | Projects' state for Progress and People (tens of MB each at 100,000 records) | 3 projects | 6 projects | `PROJECT_STATES_KEPT` |
 | Maps kept for their next pages (about 10 MB each at 100,000 plots) | 4 | 8 | `MAP_BUILDS_KEPT` |
 | A Collect Earth backup being written | ~70 MB | ~70 MB | one per instance |

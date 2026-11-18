@@ -72,6 +72,8 @@ export interface Config {
    */
   parsedCacheMb?: number;
   servedCacheMb?: number;
+  /** The project files people download, kept built (PROJECT_FILES_CACHE_MB, default 96) */
+  projectFilesCacheMb?: number;
   /**
    * The most connections the server opens to PostgreSQL at once (PG_POOL_MAX); undefined = the driver's 10. Each
    * records:batch holds one while it is written, so a mapathon whose people sync at the same moment queues behind
@@ -242,6 +244,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     qualityWorkerMaxMb: qualityWorkerMaxMbOf(env.QUALITY_WORKER_MAX_MB),
     parsedCacheMb: wholeAtLeast('PARSED_FILES_CACHE_MB', env.PARSED_FILES_CACHE_MB, 8),
     servedCacheMb: wholeAtLeast('SERVED_FILES_CACHE_MB', env.SERVED_FILES_CACHE_MB, 8),
+    projectFilesCacheMb: wholeAtLeast('PROJECT_FILES_CACHE_MB', env.PROJECT_FILES_CACHE_MB, 8),
     mapBuildsKept: wholeAtLeast('MAP_BUILDS_KEPT', env.MAP_BUILDS_KEPT, 1),
     projectStatesKept: wholeAtLeast('PROJECT_STATES_KEPT', env.PROJECT_STATES_KEPT, 1),
     dbPoolMax: wholeAtLeast('PG_POOL_MAX', env.PG_POOL_MAX, 1),
@@ -292,6 +295,7 @@ function loadLocalConfig(env: NodeJS.ProcessEnv): Config {
     qualityWorkerMaxMb: qualityWorkerMaxMbOf(env.QUALITY_WORKER_MAX_MB),
     parsedCacheMb: wholeAtLeast('PARSED_FILES_CACHE_MB', env.PARSED_FILES_CACHE_MB, 8),
     servedCacheMb: wholeAtLeast('SERVED_FILES_CACHE_MB', env.SERVED_FILES_CACHE_MB, 8),
+    projectFilesCacheMb: wholeAtLeast('PROJECT_FILES_CACHE_MB', env.PROJECT_FILES_CACHE_MB, 8),
     mapBuildsKept: wholeAtLeast('MAP_BUILDS_KEPT', env.MAP_BUILDS_KEPT, 1),
     projectStatesKept: wholeAtLeast('PROJECT_STATES_KEPT', env.PROJECT_STATES_KEPT, 1),
     aiConfigured: false,
