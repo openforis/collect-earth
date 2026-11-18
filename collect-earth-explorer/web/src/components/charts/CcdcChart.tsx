@@ -65,6 +65,9 @@ export default function CcdcChart({ data, onClickObserved, selected }: CcdcChart
     [band, observed, segments, selected],
   );
 
+  // A number, so the layout keeps its identity when the points change but their last date does not.
+  const dates = [...observed, ...segments.flat()].map((p) => p.date);
+  const lastDate = dates.length ? Math.max(...dates) : undefined;
   const layout = useMemo<Partial<Layout>>(() => {
     // Per break a soft wide band under a thin line.
     const line = (b: number, width: number, color: string): Partial<Shape> => ({
@@ -78,8 +81,8 @@ export default function CcdcChart({ data, onClickObserved, selected }: CcdcChart
       line: { color, width },
     });
     const shapes = breaks.flatMap((b) => [line(b, 8, "rgba(176,0,32,0.12)"), line(b, 1, "rgba(176,0,32,0.55)")]);
-    return { ...baseLayout(STYLE.height, Y_RANGE), shapes };
-  }, [breaks]);
+    return { ...baseLayout(STYLE.height, Y_RANGE, true, lastDate), shapes };
+  }, [breaks, lastDate]);
 
   // The handler is stable (so Plot is not re-bound on every render) and reads
   // the latest observed points and callback through a ref.

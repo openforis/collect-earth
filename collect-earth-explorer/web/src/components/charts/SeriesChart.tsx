@@ -120,14 +120,15 @@ export default function SeriesChart({ points, name, color = "#587F2E", markers, 
 
   const changeYear = showChange ? change?.year : undefined;
   const changeColor = change && change.p < 0.05 ? RED : GREY;
+  const lastDate = points.length ? Math.max(...points.map((p) => p.date)) : undefined;
   const layout = useMemo<Partial<Layout>>(() => {
-    const l = baseLayout(STYLE.height, [yMin, yMax]);
+    const l = baseLayout(STYLE.height, [yMin, yMax], true, lastDate);
     if (changeYear !== undefined) {
       const x = iso(Date.UTC(changeYear, 0, 1));
       l.shapes = [{ type: "line", x0: x, x1: x, y0: 0, y1: 1, yref: "paper", layer: "below", line: { width: 1.5, dash: "dash", color: changeColor } }];
     }
     return l;
-  }, [yMin, yMax, changeYear, changeColor]);
+  }, [yMin, yMax, changeYear, changeColor, lastDate]);
 
   const seasonData = useMemo<Data[]>(() => {
     const x = profile.map((m) => m.month);

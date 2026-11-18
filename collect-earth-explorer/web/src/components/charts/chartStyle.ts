@@ -20,7 +20,7 @@ export const iso = (ms: number) => new Date(ms).toISOString();
  * A fresh layout per call: Plotly writes the user's zoom into the layout it is given,
  * so two charts must never share the axis objects.
  */
-export function baseLayout(height: number, yRange: [number, number], rangeButtons = true): Partial<Layout> {
+export function baseLayout(height: number, yRange: [number, number], rangeButtons = true, xEnd?: number): Partial<Layout> {
   const layout: Partial<Layout> = {
     height,
     // The top margin leaves room for the range buttons and the toolbar above the plot.
@@ -74,6 +74,9 @@ export function baseLayout(height: number, yRange: [number, number], rangeButton
     uirevision: "keep",
   };
   if (!rangeButtons) delete layout.xaxis!.rangeselector;
+  // Plotly pads a marker axis by a share of its span: years of empty future on a 40-year series, which is what the
+  // range buttons (counted back from the axis end) then showed. End the axis two weeks after the last date instead.
+  if (xEnd !== undefined) (layout.xaxis as Record<string, unknown>).autorangeoptions = { clipmax: iso(xEnd + 14 * 86400000) };
   return layout;
 }
 

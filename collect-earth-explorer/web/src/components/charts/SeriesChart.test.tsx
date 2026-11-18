@@ -232,6 +232,12 @@ describe("SeriesChart", () => {
     expect(screen.queryByRole("button", { name: "Compare scenes" })).toBeNull();
   });
 
+  it("the x axis ends two weeks after the last observation, so the range buttons count back from the data", () => {
+    render(<SeriesChart points={RISING} name="NDVI" />);
+    const end = Math.max(...RISING.map((p) => p.date)) + 14 * 86400000;
+    expect((last().layout.xaxis as { autorangeoptions?: { clipmax: string } }).autorangeoptions).toEqual({ clipmax: new Date(end).toISOString() });
+  });
+
   it("unusual values colour trace 0 per point and add no trace", () => {
     // Jan to Apr over 6 years around 0.5, one January value at 0.10 (see seriesStats.test.ts).
     const usual = [0.5, 0.51, 0.49, 0.5, 0.52, 0.48];
