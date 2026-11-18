@@ -74,5 +74,6 @@ export class FakeMap {
 export const fakeMaplibreModule = () => ({
   Map: FakeMap,
   NavigationControl: class {},
+  setWorkerUrl: () => {},
   ScaleControl: class {},
 });

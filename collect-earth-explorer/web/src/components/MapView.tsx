@@ -5,9 +5,15 @@ import {
   ScaleControl,
   type StyleSpecification,
   type RasterTileSource,
+  setWorkerUrl,
 } from "maplibre-gl";
+import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { polygonBounds, type Polygon } from "../lib/urlParams";
+
+// MapLibre looks for its worker file next to its own module; bundled, that file does not exist and the plot
+// outline (the only non-raster layer) silently never draws. Ship the worker as an asset and point at it.
+setWorkerUrl(workerUrl);
 
 export const BASE_STYLE: StyleSpecification = {
   version: 8,
