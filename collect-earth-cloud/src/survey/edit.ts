@@ -30,6 +30,7 @@ import { checkExpression, checkSurvey, problemText, schemaOf, type ExpressionKin
 
 export const IDML_NS = 'http://www.openforis.org/idml/3.0';
 export const UI_NS = 'http://www.openforis.org/collect/3.0/ui';
+export const COLLECT_NS = 'http://www.openforis.org/collect/3.0/collect';
 
 /** The kinds of node of a survey's schema */
 export const NODE_TAGS = ['entity', 'text', 'number', 'range', 'code', 'boolean', 'date', 'time', 'coordinate', 'taxon', 'file'] as const;
@@ -252,8 +253,18 @@ export class SurveyEdit {
         return this.removeList(this.list(op.name));
       case 'addItem': {
         const list = this.list(op.list);
-        return void this.addItem(list, op.item.code, this.checkedLabels(op.item.label), op.before === undefined ? undefined : this.item(list, op.before));
+        return void this.addItem(
+          list,
+          op.item.code,
+          this.checkedLabels(op.item.label),
+          op.before === undefined ? undefined : this.item(list, op.before),
+          op.under === undefined ? undefined : this.item(list, op.under),
+        );
       }
+      case 'addTable':
+        return void this.addTable(op);
+      case 'deleteTable':
+        return this.deleteTable(op.id);
       case 'moveItem': {
         const list = this.list(op.list);
         const item = this.item(list, op.code);
@@ -444,9 +455,19 @@ export class SurveyEdit {
     if (!kind) throw new SurveyEditError(`The designer adds no question of type ${op.type}.`);
     attrs.push(...kind[1]);
     if (kind[0] === 'code') {
-      if (!op.list) throw new SurveyEditError('A choice needs its answer list.');
-      this.list(op.list);
-      attrs.push(['list', op.list]);
+      if (op.parent !== undefined) {
+        // A sub-list: the answers under the answer given to another question of the same place
+        const of = childElements(parent).find((c) => c.name === 'code' && attrValue(this.doc, c, 'name') === op.parent);
+        if (!of) throw new SurveyEditError(`A sub-list follows a choice of the same page or table: ${op.parent} is not one.`);
+        if (attrValue(this.doc, of, 'multiple') === 'true') throw new SurveyEditError(`${op.parent} takes several answers: a sub-list follows a question of one answer.`);
+        const list = attrValue(this.doc, of, 'list') ?? '';
+        if (op.list !== undefined && op.list !== list) throw new SurveyEditError(`A sub-list takes the list of ${op.parent}.`);
+        attrs.push(['list', list], ['parent', op.parent]);
+      } else {
+        if (!op.list) throw new SurveyEditError('A choice needs its answer list.');
+        this.list(op.list);
+        attrs.push(['list', op.list]);
+      }
     }
     const question = newElement(kind[0], attrs, this.labelsOf(labels, 'instance'));
     insertElement(this.doc, parent, question, this.placeOnPage(parent, op.page, null, op.before));
@@ -474,6 +495,68 @@ export class SurveyEdit {
     if (isFixed(name, attrValue(this.doc, node, 'key') === 'true')) throw new SurveyEditError(`${name} is one of the fields Collect Earth needs.`);
     if (node.name === 'entity') throw new SurveyEditError('A table is deleted in Collect\'s Survey Designer for now.');
     this.removeQuestion(node);
+  }
+
+  /** The prefix the survey gives Collect's own namespace (collect:enumerate), declared when it has none */
+  private collectPrefix(): string {
+    for (const a of this.survey.attrs) if (a.name.startsWith('xmlns:') && a.raw === COLLECT_NS) return a.name.slice(6);
+    setAttr(this.survey, 'xmlns:collect', COLLECT_NS);
+    return 'collect';
+  }
+
+  /**
+   * A table on a page of the plot: one row per answer of the list's first level, the answer as the row's key (as
+   * Collect Earth's templates make them: an enumerated multiple entity, laid out as a table). Its columns are added
+   * as questions with its id.
+   */
+  addTable(op: Extract<SurveyOperation, { op: 'addTable' }>): XmlElement {
+    const plot = this.rootEntity();
+    this.page(op.page);
+    const labels = this.checkedLabels(op.label);
+    const name = op.name ?? this.nameFrom(labels, 'table');
+    checkName(name);
+    if (this.schemaNames().has(name)) throw new SurveyEditError(`There is a question ${name} already.`);
+    const list = this.list(op.rows);
+    if (attrValue(this.doc, list, 'lookup') !== undefined) throw new SurveyEditError(`The answers of ${op.rows} come from a table of the server: rows need a list of the survey.`);
+    const items = firstChild(list, 'items');
+    if (!items || childrenNamed(items, 'item').length === 0) throw new SurveyEditError(`The list ${op.rows} has no answers to make rows of.`);
+    const ui = this.uiPrefix();
+    if (!ui) throw new SurveyEditError('The survey has no pages: add them in Collect\'s Survey Designer.');
+    const collect = this.collectPrefix();
+    const id = this.nextId();
+    const taken = this.schemaNames();
+    taken.add(name);
+    // The row's key: named after the table, labelled with the list's name
+    const listLabels: Record<string, string> = {};
+    for (const l of childrenNamed(list, 'label')) {
+      const language = attrValue(this.doc, l, 'xml:lang') ?? this.languages()[0];
+      if (!(language in listLabels)) listLabels[language] = textValue(this.doc, l).trim();
+    }
+    const keyName = uniqueName(`${name.slice(0, 36)}_row`, taken);
+    const key = newElement(
+      'code',
+      [['id', String(id + 1)], ['name', keyName], ['required', 'true'], ['key', 'true'], ['list', op.rows]],
+      this.labelsOf(Object.keys(listLabels).length > 0 ? listLabels : { [this.languages()[0]]: op.rows }, 'instance'),
+    );
+    const table = newElement(
+      'entity',
+      [['id', String(id)], ['name', name], ['multiple', 'true'], [`${ui}:tab`, op.page], [`${ui}:layout`, 'table'], [`${collect}:enumerate`, 'true']],
+      [...this.labelsOf(labels, 'instance'), key],
+    );
+    insertElement(this.doc, plot, table, this.placeOnPage(plot, op.page, null, op.before));
+    return table;
+  }
+
+  /** Deletes a table nothing outside it uses, with its columns */
+  deleteTable(id: number): void {
+    const table = this.nodeById(id);
+    if (table.name !== 'entity' || table === this.rootEntity()) throw new SurveyEditError('Not a table.');
+    const names = [table, ...childElements(table).filter(isNode)].map((e) => attrValue(this.doc, e, 'name') ?? '');
+    for (const name of names) {
+      const users = this.referencesTo(name).filter((e) => !isInside(e, table));
+      if (users.length > 0) throw new SurveyEditError(`${name} is used by ${users.map((u) => attrValue(this.doc, nodeOf(u), 'name')).join(', ')}.`);
+    }
+    removeElement(table);
   }
 
   setQuestionRequired(id: number, required: boolean | ConditionRows): void {
@@ -718,28 +801,59 @@ export class SurveyEdit {
     return list;
   }
 
-  /** An item at the end of a list (of its first level) */
-  addItem(list: XmlElement, code: string, labels: Record<string, string>, before?: XmlElement): XmlElement {
+  /**
+   * An item at the end of a list's first level, or of the answers under another (`under`: a sub-list's answers), or
+   * before one of the same level; its code is the list's only one of that code
+   */
+  addItem(list: XmlElement, code: string, labels: Record<string, string>, before?: XmlElement, under?: XmlElement): XmlElement {
     if (!/^[A-Za-z0-9_.-]+$/.test(code)) throw new SurveyEditError(`The code ${code} has characters a code cannot have.`);
     let items = firstChild(list, 'items');
     if (!items) {
       items = newElement('items');
       insertElement(this.doc, list, items);
     }
-    if (childrenNamed(items, 'item').some((i) => textValue(this.doc, firstChild(i, 'code') ?? items!).trim() === code)) {
-      throw new SurveyEditError(`The list has a code ${code} already.`);
+    for (const i of descendants(items)) {
+      if (i.name === 'item' && textValue(this.doc, firstChild(i, 'code') ?? i).trim() === code) throw new SurveyEditError(`The list has a code ${code} already.`);
     }
+    const parent = under ?? items;
+    if (before && before.parent !== parent) throw new SurveyEditError('An answer goes before another of the same level.');
     const item = newElement('item', [['id', String(this.nextId())]], [newElement('code', [], [code]), ...this.labelsOf(labels, undefined)]);
-    insertElement(this.doc, items, item, before);
+    insertElement(this.doc, parent, item, before);
+    if (under) this.ensureLevels(list, this.depthOf(item));
     return item;
   }
 
-  /** An item of a list by its code */
+  /** An item of a list by its code, at any level */
   item(list: XmlElement, code: string): XmlElement {
     const items = firstChild(list, 'items');
-    const found = items && childrenNamed(items, 'item').find((i) => textValue(this.doc, firstChild(i, 'code') ?? i).trim() === code);
+    const found = items && [...descendants(items)].find((i) => i.name === 'item' && textValue(this.doc, firstChild(i, 'code') ?? i).trim() === code);
     if (!found) throw new SurveyEditError(`The list has no code ${code}.`);
     return found;
+  }
+
+  /** How deep an item is in its list: 1 for an answer of the first level */
+  private depthOf(item: XmlElement): number {
+    let depth = 0;
+    for (let x: XmlElement | null = item; x && x.name === 'item'; x = x.parent) depth++;
+    return depth;
+  }
+
+  /** The list's levels, named as Collect names them, as deep as its answers go */
+  private ensureLevels(list: XmlElement, depth: number): void {
+    if (depth < 2) return;
+    let hierarchy = firstChild(list, 'hierarchy');
+    if (!hierarchy) {
+      hierarchy = newElement('hierarchy');
+      this.insertInOrder(list, hierarchy, LIST_ORDER);
+    }
+    const levels = childrenNamed(hierarchy, 'level');
+    const taken = new Set(levels.map((l) => attrValue(this.doc, l, 'name') ?? ''));
+    for (let n = levels.length + 1; n <= depth; n++) {
+      let level = `level${n}`;
+      for (let k = 0; taken.has(level); k++) level = `level${n}${String.fromCharCode(97 + k)}`;
+      taken.add(level);
+      insertElement(this.doc, hierarchy, newElement('level', [['name', level]]));
+    }
   }
 
   // -------------------------------------------------------------------------------------

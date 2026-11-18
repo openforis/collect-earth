@@ -136,7 +136,7 @@ function readOperation(raw: unknown): SurveyOperation | null {
     case 'addQuestion': {
       const label = readLocalized(o.label);
       if (!label || !NEW_TYPES.has(o.type as string) || !optionalString(o.name, 63) || !optionalString(o.page) || !optionalId(o.table) || !optionalId(o.before)) return null;
-      if (!optionalString(o.list) || (o.required !== undefined && typeof o.required !== 'boolean')) return null;
+      if (!optionalString(o.list) || !optionalString(o.parent, 63) || (o.required !== undefined && typeof o.required !== 'boolean')) return null;
       return {
         op: 'addQuestion',
         type: o.type as Extract<SurveyOperation, { op: 'addQuestion' }>['type'],
@@ -146,6 +146,7 @@ function readOperation(raw: unknown): SurveyOperation | null {
         ...(o.table !== undefined ? { table: o.table } : {}),
         ...(o.before !== undefined ? { before: o.before } : {}),
         ...(o.list !== undefined ? { list: o.list } : {}),
+        ...(o.parent !== undefined ? { parent: o.parent } : {}),
         ...(o.required !== undefined ? { required: o.required } : {}),
       };
     }
@@ -184,10 +185,18 @@ function readOperation(raw: unknown): SurveyOperation | null {
       return isString(o.name) ? { op: 'deleteList', name: o.name } : null;
     case 'addItem': {
       const item = readItem(o.item);
-      return isString(o.list) && item && optionalString(o.before, 100)
-        ? { op: 'addItem', list: o.list, item, ...(o.before !== undefined ? { before: o.before } : {}) }
+      return isString(o.list) && item && optionalString(o.before, 100) && optionalString(o.under, 100)
+        ? { op: 'addItem', list: o.list, item, ...(o.before !== undefined ? { before: o.before } : {}), ...(o.under !== undefined ? { under: o.under } : {}) }
         : null;
     }
+    case 'addTable': {
+      const label = readLocalized(o.label);
+      return label && isString(o.page) && isString(o.rows) && optionalString(o.name, 63) && optionalId(o.before)
+        ? { op: 'addTable', label, page: o.page, rows: o.rows, ...(o.name !== undefined ? { name: o.name } : {}), ...(o.before !== undefined ? { before: o.before } : {}) }
+        : null;
+    }
+    case 'deleteTable':
+      return Number.isInteger(o.id) ? { op: 'deleteTable', id: o.id as number } : null;
     case 'moveItem':
       return isString(o.list) && isString(o.code, 100) && optionalString(o.before, 100)
         ? { op: 'moveItem', list: o.list, code: o.code, ...(o.before !== undefined ? { before: o.before } : {}) }

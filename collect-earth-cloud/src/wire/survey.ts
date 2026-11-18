@@ -270,6 +270,8 @@ export type SurveyOperation =
       before?: number;
       /** For a choice: the answer list */
       list?: string;
+      /** A sub-list: the choice of the same page or table whose answer's sub-answers it offers (its list is that one's) */
+      parent?: string;
       required?: boolean;
     }
   /** A question moved before another of the same page or table, or last; to another page of the plot */
@@ -289,7 +291,15 @@ export type SurveyOperation =
   | { op: 'addList'; name?: string; label: Localized; items: NewItem[] }
   /** A list no question uses */
   | { op: 'deleteList'; name: string }
-  | { op: 'addItem'; list: string; item: NewItem; before?: string }
+  /** An answer, last of the list's first level or of the answers under another (`under`), or before one of its level */
+  | { op: 'addItem'; list: string; item: NewItem; before?: string; under?: string }
+  /**
+   * A table on a page: one row per answer of the list `rows`, which is the row's key; its columns are added after,
+   * as questions of the table
+   */
+  | { op: 'addTable'; label: Localized; page: string; rows: string; name?: string; before?: number }
+  /** A table nothing outside it uses, with its columns */
+  | { op: 'deleteTable'; id: number }
   | { op: 'moveItem'; list: string; code: string; before?: string }
   | { op: 'deleteItem'; list: string; code: string };
 
@@ -299,6 +309,8 @@ export type SurveyEffect =
   | { kind: 'newQuestions'; count: number }
   /** A question deleted: its answers stay in the records, but leave the form, the exports and the analysis */
   | { kind: 'questionDeleted'; question: string; answered: number }
+  /** A table deleted: the plots with an answer in one of its rows */
+  | { kind: 'tableDeleted'; table: string; answered: number }
   /** An answer deleted: the plots that chose it keep a code that matches nothing */
   | { kind: 'itemDeleted'; list: string; code: string; chosen: number }
   /** A question made required: the plots that have no answer to it are flagged when they are opened again */

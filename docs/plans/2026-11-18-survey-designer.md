@@ -563,3 +563,16 @@ with conditions in a row and on the plot, a column shown when, a question requir
 `test/surveyLogic.test.ts`. A number without a type now reads as a decimal, as Collect reads it. Left for 4c:
 sub-lists, adding tables and repeated blocks; for 4b, Gemini's help.
 
+**Stage 4c, done (18 Nov), tables and sub-lists.** "Add a table" on a page makes a table of one row per answer of a
+list (an existing one, or one written there): Collect's enumerated multiple entity, laid out as a table
+(`ui:layout="table" collect:enumerate="true"`), whose key is a code of that list named `<table>_row`, as the templates'
+`land_cover` and `land_use` are; "Add a column" then adds its questions, and the column's total of stage 4a applies.
+A table is deleted with its columns, after the count of plots with answers in it, unless something outside it uses
+them. A repeated block is not offered: Collect Earth 2.0's form shows every enumerated entity as a table
+(`SurveyFormModelBuilder`), whatever its layout, and multiple entities whose rows the interpreter adds stay out
+(dropped in "What is dropped"). Sub-lists: an answer gets answers under it (the arrow beside it; the list gets
+`<hierarchy>` levels as deep as its answers, codes unique in the whole list as the survey check wants), and a
+choice question can offer "the answers under the answer to" another choice of one answer of the same page or table
+(Collect's `parent`, the same list). `designer/tables.idm.xml` (the basic template with a two-level list, a sub-list
+question and a table with a total under a condition) passes `DesignedSurveyIdmlTest`.
+

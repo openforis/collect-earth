@@ -247,6 +247,17 @@ export function surveyImpact(
       if (!node || node.name === 'entity') continue;
       const answered = count(before.keyPattern(node), (v) => !isBlankAnswer(v));
       if (answered > 0) effects.push({ kind: 'questionDeleted', question: before.name(node), answered });
+    } else if (op.op === 'deleteTable') {
+      const table = before.byId.get(op.id);
+      if (!table || table.name !== 'entity') continue;
+      const rows = new RegExp(`^collect_entity_${escape(before.name(table))}(\\[[^\\]]*\\])?\\.`);
+      // The row's key comes with the row: an answer is another column's
+      const keys = new Set(childElements(table).filter((c) => attrValue(before.doc, c, 'key') === 'true').map((c) => `${prefixOf(before.doc, c)}${before.name(c)}`));
+      const found = new Set<string>();
+      for (const r of records) {
+        if (Object.entries(r.summary).some(([k, v]) => rows.test(k) && !keys.has(k.slice(k.lastIndexOf('.') + 1)) && !isBlankAnswer(v))) found.add(r.recordKey);
+      }
+      if (found.size > 0) effects.push({ kind: 'tableDeleted', table: before.name(table), answered: found.size });
     } else if (op.op === 'deleteItem') {
       const found = new Set<string>();
       for (const node of before.byId.values()) {
