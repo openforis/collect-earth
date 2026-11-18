@@ -1,10 +1,11 @@
 // The survey designer (docs/plans/2026-11-18-survey-designer.md): the project's survey as the designer shows it.
 
-import type { SurveyChangeInput, SurveyDesignAnswer, SurveyVersionsAnswer } from "../../../src/wire/survey";
+import type { SurveyChangeInput, SurveyDesignAnswer, SurveyImpactAnswer, SurveyOperation, SurveyVersionsAnswer } from "../../../src/wire/survey";
 import { p, request } from "./transport";
 
 export type {
   ConditionPart,
+  ConditionRows,
   ConditionTest,
   DesignCondition,
   DesignItem,
@@ -24,6 +25,13 @@ export type {
   SurveyProblem,
   SurveyOperation,
   SurveyChangeInput,
+  SurveyEffect,
+  SurveyImpactAnswer,
+  NewQuestionType,
+  NewItem,
+  NewRule,
+  NewRuleLimit,
+  TotalTest,
   SurveyChangeRefusal,
   SurveyVersionView,
   SurveyVersionsAnswer,
@@ -51,4 +59,9 @@ export function listSurveyVersions(projectId: string): Promise<SurveyVersionsAns
 /** Brings a kept version of the survey back (the survey of the moment is kept in its turn). */
 export function restoreSurveyVersion(projectId: string, versionId: string, revision: string): Promise<SurveyDesignAnswer> {
   return request("POST", `${p(projectId)}/survey/versions/${encodeURIComponent(versionId)}/restore`, { json: { revision } });
+}
+
+/** What changes would do to the plots already collected, before they are saved (nothing is written). */
+export function getSurveyImpact(projectId: string, operations: SurveyOperation[]): Promise<SurveyImpactAnswer> {
+  return request("POST", `${p(projectId)}/survey/design/impact`, { json: { operations } });
 }

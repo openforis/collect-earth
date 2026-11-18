@@ -99,6 +99,7 @@ export const LOCAL_OFF_ROUTES: readonly string[] = [
   'POST /v1/projects/:pid/repeat',
   // The survey designer's changes: the project file of the dashboard inside Collect Earth is Collect Earth's own
   'POST /v1/projects/:pid/survey/design',
+  'POST /v1/projects/:pid/survey/design/impact',
   'POST /v1/projects/:pid/survey/versions/:vid/restore',
   'GET /v1/projects/:pid/ceo-shapes',
   'POST /v1/projects/:pid/ceo-shapes/step',

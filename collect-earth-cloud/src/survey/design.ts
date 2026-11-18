@@ -19,8 +19,26 @@ import type {
   RuleBound,
   SurveyDesign,
 } from '../wire/survey.js';
+import { NOTE_NAME, PERIOD_STATUS_NAME } from '../cep.js';
 import { namesUsed, readCondition, type QuestionLookup } from './condition.js';
+import { questionType, readCheckRule } from './logic.js';
 import { attrValue, childElements, childrenNamed, firstChild, readXml, textValue, type XmlDocument, type XmlElement } from './xmlTree.js';
+
+/**
+ * The fields the survey cannot do without: the plot's keys and the ones Collect Earth needs
+ * (CollectEarthSurveyValidator.REQUIRED_FIELDS), and those the server adds (the round, the coordinator's note, the
+ * period status)
+ */
+const FIXED = new Set(['id', 'operator', 'location', 'plot_file', 'actively_saved', 'actively_saved_on', 'round', NOTE_NAME, PERIOD_STATUS_NAME]);
+export const isFixed = (name: string, key: boolean): boolean => key || FIXED.has(name);
+
+/** Every element under e, e left out */
+function* descendantsOf(e: XmlElement): Generator<XmlElement> {
+  for (const c of childElements(e)) {
+    yield c;
+    yield* descendantsOf(c);
+  }
+}
 
 /** The fields Collect Earth fills itself (SurveyFormModelBuilder.BUILT_IN_ATTRIBUTE_NAMES) */
 const BUILT_IN = new Set(['operator', 'location', 'plot_file', 'actively_saved', 'actively_saved_on']);
@@ -113,10 +131,19 @@ class DesignReader {
       else page.items.push(q);
     }
     const lists = this.lists();
+    // The pages nothing names (no question, shown or hidden, has its tab): empty, so they can be deleted
+    const named = new Set<string>();
+    for (const node of descendantsOf(plot)) {
+      const tab = attrLocal(this.doc, node, 'tab', this.ui);
+      if (tab !== undefined) named.add(tab);
+    }
+    if (rootTab !== undefined) named.add(rootTab);
     return {
       languages: this.languages,
       title: this.localized(this.doc.root, 'project'),
       pages: [...pages.values()].filter((p) => p.items.length > 0),
+      pageOrder: tabs.map((t) => t.name),
+      emptyPages: tabs.filter((t) => !named.has(t.name)).map((t) => ({ name: t.name, label: t.label })),
       fromPlotFile,
       calculated,
       hidden,
@@ -194,20 +221,7 @@ class DesignReader {
   }
 
   private typeOf(e: XmlElement): QuestionType {
-    switch (e.name) {
-      case 'code':
-        return attrValue(this.doc, e, 'multiple') === 'true' ? 'choices' : 'choice';
-      case 'boolean':
-        return 'yesNo';
-      case 'number':
-        return attrValue(this.doc, e, 'type') === 'real' ? 'decimal' : 'integer';
-      case 'text':
-        return attrValue(this.doc, e, 'type') === 'memo' ? 'memo' : 'text';
-      case 'taxon':
-        return 'species';
-      default:
-        return e.name as QuestionType;
-    }
+    return questionType(this.doc, e);
   }
 
   private question(e: XmlElement, plot: XmlElement): DesignQuestion {
@@ -254,12 +268,14 @@ class DesignReader {
       formulas: isCalculated ? formulas : null,
       uses: isCalculated ? [...used] : [],
       notExported: attrLocal(this.doc, e, 'includeInDataExport', this.collect) === 'false',
+      fixed: isFixed(attrValue(this.doc, e, 'name') ?? '', attrValue(this.doc, e, 'key') === 'true'),
     };
   }
 
   private rule(c: XmlElement, scope: XmlElement, plot: XmlElement): DesignRule {
     const base = {
-      flag: attrValue(this.doc, c, 'flag') === 'warning' ? ('warning' as const) : ('error' as const),
+      // Collect writes and reads a warning as "warn" (Check.Flag.WARN)
+      flag: attrValue(this.doc, c, 'flag')?.trim().toLowerCase() === 'warn' ? ('warning' as const) : ('error' as const),
       message: this.localized(c, 'message'),
       when: this.condition(attrValue(this.doc, c, 'if'), scope, plot),
     };
@@ -276,6 +292,12 @@ class DesignReader {
       };
       // gt / gte: the answer is above; lt / lte: below
       return { ...base, kind: 'range', min: bound('gt'), max: bound('lt') };
+    }
+    if (c.name === 'check') {
+      const own = c.parent!;
+      const table = own.parent && own.parent !== plot ? (attrValue(this.doc, own.parent, 'name') ?? null) : null;
+      const read = readCheckRule(attrValue(this.doc, c, 'expr') ?? '', { name: attrValue(this.doc, own, 'name') ?? '', table });
+      if (read) return { ...base, ...read };
     }
     const text =
       c.name === 'check'

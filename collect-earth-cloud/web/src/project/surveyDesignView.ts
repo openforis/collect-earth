@@ -70,7 +70,7 @@ function valueWords(w: Words, question: string, value: string | number | boolean
   return item ? `“${local(w, item.label) || value}”` : `“${value}”`;
 }
 
-const TEST_KEYS: Record<ConditionPart["test"], MessageKey> = {
+export const TEST_KEYS: Record<ConditionPart["test"], MessageKey> = {
   is: "survey.test.is",
   isNot: "survey.test.isNot",
   lt: "survey.test.lt",
@@ -104,6 +104,15 @@ export function ruleWords(w: Words, rule: DesignRule): string {
     if (rule.min) limits.push(w.t(rule.min.inclusive ? "survey.rule.gte" : "survey.rule.gt", { value: boundWords(w, rule.min.bound) }));
     if (rule.max) limits.push(w.t(rule.max.inclusive ? "survey.rule.lte" : "survey.rule.lt", { value: boundWords(w, rule.max.bound) }));
     text = w.t(rule.flag === "warning" ? "survey.rule.should" : "survey.rule.must", { limits: limits.join(w.t("survey.and")) });
+  } else if (rule.kind === "length") {
+    const limits: string[] = [];
+    if (rule.min !== null) limits.push(w.t("survey.rule.gte", { value: w.t("survey.rule.chars", { value: rule.min }) }));
+    if (rule.max !== null) limits.push(w.t("survey.rule.lte", { value: w.t("survey.rule.chars", { value: rule.max }) }));
+    text = w.t(rule.flag === "warning" ? "survey.rule.lengthShould" : "survey.rule.length", { limits: limits.join(w.t("survey.and")) });
+  } else if (rule.kind === "total") {
+    const value = String(rule.total);
+    const total = w.t(rule.test === "atLeast" ? "survey.rule.gte" : rule.test === "atMost" ? "survey.rule.lte" : "survey.rule.exactly", { value });
+    text = w.t(rule.flag === "warning" ? "survey.rule.totalShould" : "survey.rule.total", { total });
   } else {
     text = w.t("survey.rule.advanced", { text: rule.text });
   }

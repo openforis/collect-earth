@@ -21,7 +21,11 @@ import {
   type XmlDocument,
   type XmlElement,
 } from './xmlTree.js';
-import type { SurveyOperation } from '../wire/survey.js';
+import type { ConditionRows, NewRule, SurveyOperation } from '../wire/survey.js';
+import { isFixed } from './design.js';
+import { SurveyEditError } from './errors.js';
+import { conditionExpression, ruleCheck, type LogicScope } from './logic.js';
+import { namesUsed } from './condition.js';
 import { checkExpression, checkSurvey, problemText, schemaOf, type ExpressionKind, type SchemaNode, type SurveyProblem } from './check.js';
 
 export const IDML_NS = 'http://www.openforis.org/idml/3.0';
@@ -46,7 +50,7 @@ const LANGUAGE_CODE = /^[a-z]{2,3}(_[A-Z]{2})?$/;
 export const MAX_TEXT = 4000;
 const localName = (e: XmlElement) => e.name.slice(e.name.indexOf(':') + 1);
 
-export class SurveyEditError extends Error {}
+export { SurveyEditError };
 
 /** A survey being changed. */
 export class SurveyEdit {
@@ -215,10 +219,55 @@ export class SurveyEdit {
 
   /** Applies one of the designer's operations; throws SurveyEditError when it cannot be */
   apply(op: SurveyOperation): void {
-    if (op.op === 'addLanguage') {
-      this.addLanguage(op.language);
-      return;
+    switch (op.op) {
+      case 'addLanguage':
+        return this.addLanguage(op.language);
+      case 'setText':
+        return this.applyText(op);
+      case 'addPage':
+        return void this.addPage(op.label, op.before);
+      case 'movePage':
+        return this.movePage(op.name, op.before);
+      case 'deletePage':
+        return this.deletePage(op.name);
+      case 'addQuestion':
+        return void this.addNewQuestion(op);
+      case 'moveQuestion':
+        return this.moveQuestion(op.id, op.page, op.before);
+      case 'deleteQuestion':
+        return this.deleteQuestion(op.id);
+      case 'setRequired':
+        return this.setQuestionRequired(op.id, op.required);
+      case 'setShownWhen':
+        return this.setNodeShownWhen(op.id, op.when);
+      case 'addRule':
+        return void this.putRule(op.id, op.rule);
+      case 'setRule':
+        return void this.putRule(op.id, op.rule, op.index);
+      case 'deleteRule':
+        return this.deleteRule(op.id, op.index);
+      case 'addList':
+        return void this.addNewList(op.label, op.items, op.name);
+      case 'deleteList':
+        return this.removeList(this.list(op.name));
+      case 'addItem': {
+        const list = this.list(op.list);
+        return void this.addItem(list, op.item.code, this.checkedLabels(op.item.label), op.before === undefined ? undefined : this.item(list, op.before));
+      }
+      case 'moveItem': {
+        const list = this.list(op.list);
+        const item = this.item(list, op.code);
+        const before = op.before === undefined ? undefined : this.item(list, op.before);
+        if (before === item) return;
+        if (before && before.parent !== item.parent) throw new SurveyEditError('An answer moves among the answers of its level.');
+        return moveElement(this.doc, item, before);
+      }
+      case 'deleteItem':
+        return this.deleteItem(op.list, op.code);
     }
+  }
+
+  private applyText(op: Extract<SurveyOperation, { op: 'setText' }>): void {
     const languages = this.languages();
     if (!languages.includes(op.language)) throw new SurveyEditError(`The survey has no language ${op.language}: add it first.`);
     const text = op.text.trim() === '' ? undefined : op.text;
@@ -266,6 +315,320 @@ export class SurveyEdit {
       }
     }
     throw new SurveyEditError(`A ${t.kind} has no ${op.part}.`);
+  }
+
+  // -------------------------------------------------------------------------------------
+  // The designer's operations on pages, questions and lists (stage 3)
+
+  /** Labels by language: in the survey's languages, not empty, not too long */
+  private checkedLabels(labels: Record<string, string>): Record<string, string> {
+    const languages = this.languages();
+    const out: Record<string, string> = {};
+    for (const [language, text] of Object.entries(labels ?? {})) {
+      if (!languages.includes(language)) throw new SurveyEditError(`The survey has no language ${language}: add it first.`);
+      if (typeof text !== 'string' || text.trim() === '') continue;
+      if (text.length > MAX_TEXT) throw new SurveyEditError(`A text has at most ${MAX_TEXT} characters.`);
+      out[language] = text.trim();
+    }
+    if (Object.keys(out).length === 0) throw new SurveyEditError('A text is needed in at least one language.');
+    return out;
+  }
+
+  /** Every name of the schema: a new one is none of them, so conditions and exports name one question */
+  private schemaNames(): Set<string> {
+    const names = new Set<string>();
+    for (const e of descendants(this.schema())) if (isNode(e)) names.add(attrValue(this.doc, e, 'name') ?? '');
+    return names;
+  }
+
+  /** The tab set of the plot's pages */
+  private tabSet(): XmlElement {
+    const options = firstChild(this.survey, 'applicationOptions');
+    if (options) for (const e of descendants(options)) if (localName(e) === 'tabSet') return e;
+    throw new SurveyEditError('The survey has no pages: add them in Collect\'s Survey Designer.');
+  }
+
+  /** The prefixed name of a child of the tab set (n0:tab, n0:label) */
+  private tabTag(local: string): string {
+    const set = this.tabSet();
+    return set.name.includes(':') ? `${set.name.slice(0, set.name.indexOf(':'))}:${local}` : local;
+  }
+
+  /** A new page, before another or last; its name is made from a new id, as Collect names tabs */
+  addPage(labels: Record<string, string>, before?: string): XmlElement {
+    const set = this.tabSet();
+    const checked = this.checkedLabels(labels);
+    const tab = newElement(
+      this.tabTag('tab'),
+      [['name', `tab_${this.nextId()}`]],
+      Object.entries(checked).map(([language, text]) => newElement(this.tabTag('label'), [['xml:lang', language]], [text])),
+    );
+    const at = before === undefined ? undefined : this.page(before);
+    if (at && at.parent !== set) throw new SurveyEditError('A page goes among the pages.');
+    insertElement(this.doc, set, tab, at);
+    return tab;
+  }
+
+  movePage(name: string, before?: string): void {
+    const tab = this.page(name);
+    const at = before === undefined ? undefined : this.page(before);
+    if (at === tab) return;
+    if (at && at.parent !== tab.parent) throw new SurveyEditError('A page moves among the pages.');
+    moveElement(this.doc, tab, at);
+  }
+
+  /** The page of a question of the plot: its own, else the plot's */
+  private pageOf(e: XmlElement): string | undefined {
+    const prefix = this.uiPrefix();
+    if (!prefix) return undefined;
+    return attrValue(this.doc, e, `${prefix}:tab`) ?? attrValue(this.doc, this.rootEntity(), `${prefix}:tab`);
+  }
+
+  deletePage(name: string): void {
+    const tab = this.page(name);
+    const prefix = this.uiPrefix();
+    for (const e of descendants(this.rootEntity())) {
+      if (prefix && attrValue(this.doc, e, `${prefix}:tab`) === name) throw new SurveyEditError('Only a page nothing is on can be deleted: move its questions first.');
+    }
+    if (childElements(tab).some((c) => localName(c) === 'tab')) throw new SurveyEditError('The page has pages inside it.');
+    removeElement(tab);
+  }
+
+  /**
+   * Where a question goes on a page of the plot: before `before` (of the same parent), else after the last question of
+   * that page, else last. The element to insert it before; undefined: at the end.
+   */
+  private placeOnPage(parent: XmlElement, page: string | undefined, moving: XmlElement | null, before?: number): XmlElement | undefined {
+    if (before !== undefined) {
+      const at = this.nodeById(before);
+      if (at.parent !== parent) throw new SurveyEditError('A question goes before another of the same page or table.');
+      return at;
+    }
+    const nodes = childElements(parent).filter((c) => isNode(c) && c !== moving);
+    if (parent === this.rootEntity() && page !== undefined) {
+      const onPage = nodes.filter((n) => this.pageOf(n) === page);
+      const last = onPage[onPage.length - 1];
+      if (last) return nodes[nodes.indexOf(last) + 1];
+    }
+    return undefined;
+  }
+
+  /** A question added to a page of the plot, or a column to a table */
+  addNewQuestion(op: Extract<SurveyOperation, { op: 'addQuestion' }>): XmlElement {
+    const parent = op.table === undefined ? this.rootEntity() : this.nodeById(op.table);
+    if (parent.name !== 'entity') throw new SurveyEditError('A column goes into a table.');
+    if (parent === this.rootEntity() && op.page === undefined) throw new SurveyEditError('A question goes on a page.');
+    if (op.page !== undefined) this.page(op.page);
+    const labels = this.checkedLabels(op.label);
+    const name = op.name ?? this.nameFrom(labels, 'question');
+    checkName(name);
+    if (this.schemaNames().has(name)) throw new SurveyEditError(`There is a question ${name} already.`);
+    const attrs: Array<[string, string]> = [['id', String(this.nextId())], ['name', name]];
+    if (op.required) attrs.push(['required', 'true']);
+    const prefix = this.uiPrefix();
+    if (parent === this.rootEntity()) {
+      if (!prefix) throw new SurveyEditError('The survey has no pages: add them in Collect\'s Survey Designer.');
+      attrs.push([`${prefix}:tab`, op.page!]);
+    }
+    const tags: Record<string, [string, Array<[string, string]>]> = {
+      choice: ['code', []],
+      choices: ['code', [['multiple', 'true']]],
+      yesNo: ['boolean', []],
+      integer: ['number', [['type', 'integer']]],
+      decimal: ['number', [['type', 'real']]],
+      text: ['text', [['type', 'short']]],
+      memo: ['text', [['type', 'memo']]],
+      date: ['date', []],
+    };
+    const kind = tags[op.type];
+    if (!kind) throw new SurveyEditError(`The designer adds no question of type ${op.type}.`);
+    attrs.push(...kind[1]);
+    if (kind[0] === 'code') {
+      if (!op.list) throw new SurveyEditError('A choice needs its answer list.');
+      this.list(op.list);
+      attrs.push(['list', op.list]);
+    }
+    const question = newElement(kind[0], attrs, this.labelsOf(labels, 'instance'));
+    insertElement(this.doc, parent, question, this.placeOnPage(parent, op.page, null, op.before));
+    return question;
+  }
+
+  moveQuestion(id: number, page?: string, before?: number): void {
+    const node = this.nodeById(id);
+    const parent = node.parent!;
+    if (page !== undefined) {
+      if (parent !== this.rootEntity()) throw new SurveyEditError('A table\'s column stays in its table.');
+      this.page(page);
+      const prefix = this.uiPrefix();
+      if (!prefix) throw new SurveyEditError('The survey has no pages.');
+      setAttr(node, `${prefix}:tab`, page);
+    }
+    const at = this.placeOnPage(parent, page ?? (parent === this.rootEntity() ? this.pageOf(node) : undefined), node, before);
+    if (at === node) return;
+    moveElement(this.doc, node, at);
+  }
+
+  deleteQuestion(id: number): void {
+    const node = this.nodeById(id);
+    const name = attrValue(this.doc, node, 'name') ?? '';
+    if (isFixed(name, attrValue(this.doc, node, 'key') === 'true')) throw new SurveyEditError(`${name} is one of the fields Collect Earth needs.`);
+    if (node.name === 'entity') throw new SurveyEditError('A table is deleted in Collect\'s Survey Designer for now.');
+    this.removeQuestion(node);
+  }
+
+  setQuestionRequired(id: number, required: boolean | ConditionRows): void {
+    const node = this.askedNode(id);
+    if (node.name === 'entity') throw new SurveyEditError('A table is not answered itself: its questions are.');
+    if (typeof required !== 'boolean' && (required === null || typeof required !== 'object')) throw new SurveyEditError('Required is yes, no or a condition.');
+    this.setRequired(node, typeof required === 'boolean' ? required : conditionExpression(this.logicScope(), node, required, false));
+  }
+
+  /** A question or table the designer can give logic to: not a field Collect Earth fills, nor a calculated or hidden one */
+  private askedNode(id: number): XmlElement {
+    const node = this.nodeById(id);
+    const name = attrValue(this.doc, node, 'name') ?? '';
+    if (node === this.rootEntity()) throw new SurveyEditError('The plot is always there.');
+    if (isFixed(name, attrValue(this.doc, node, 'key') === 'true')) throw new SurveyEditError(`${name} is one of the fields Collect Earth needs.`);
+    if (attrValue(this.doc, node, 'calculated') === 'true') throw new SurveyEditError('A calculated value is never asked.');
+    if (attrValue(this.doc, node, 'relevant')?.trim() === 'false()') throw new SurveyEditError(`${name} is never shown in the form.`);
+    return node;
+  }
+
+  /** What the logic builder reads: the document, the plot and the lists */
+  private logicScope(): LogicScope {
+    return {
+      doc: this.doc,
+      plot: this.rootEntity(),
+      list: (name) => {
+        const lists = firstChild(this.survey, 'codeLists');
+        return lists ? childrenNamed(lists, 'list').find((l) => attrValue(this.doc, l, 'name') === name) : undefined;
+      },
+    };
+  }
+
+  /** When a question or table is shown, from rows; null: always. Refused when shows would depend on each other in a circle. */
+  setNodeShownWhen(id: number, when: ConditionRows | null): void {
+    const node = this.askedNode(id);
+    if (when === null) {
+      setAttr(node, 'relevant', undefined);
+      return;
+    }
+    this.setShownWhen(node, conditionExpression(this.logicScope(), node, when, false));
+    const cycle = this.shownCycle(attrValue(this.doc, node, 'name') ?? '');
+    if (cycle) throw new SurveyEditError(`Shown when would go round in a circle: ${cycle.join(' → ')}.`);
+  }
+
+  /** A circle of questions each shown depending on the next, through `start`; null when there is none */
+  private shownCycle(start: string): string[] | null {
+    const names = this.schemaNames();
+    const uses = new Map<string, string[]>();
+    for (const e of descendants(this.schema())) {
+      const relevant = isNode(e) ? attrValue(this.doc, e, 'relevant') : undefined;
+      if (relevant) uses.set(attrValue(this.doc, e, 'name') ?? '', namesUsed(relevant, names));
+    }
+    const path: string[] = [];
+    const seen = new Set<string>();
+    const walk = (name: string): boolean => {
+      path.push(name);
+      for (const next of uses.get(name) ?? []) {
+        if (next === start) return true;
+        if (!seen.has(next)) {
+          seen.add(next);
+          if (walk(next)) return true;
+        }
+      }
+      path.pop();
+      return false;
+    };
+    return walk(start) ? [...path, start] : null;
+  }
+
+  /** The rules (checks) of a question, in order */
+  private rulesOf(node: XmlElement): XmlElement[] {
+    return childElements(node).filter((c) => CHECK_TAGS.includes(c.name));
+  }
+
+  /**
+   * A rule from the builder, after the question's others, or in place of its rule `index`: the messages of the
+   * languages not given stay
+   */
+  putRule(id: number, rule: NewRule, index?: number): XmlElement {
+    const node = this.askedNode(id);
+    if (node.name === 'entity') throw new SurveyEditError('A rule is on a question: a table\'s are on its columns.');
+    const old = index === undefined ? undefined : this.rulesOf(node)[index];
+    if (index !== undefined && !old) throw new SurveyEditError(`The question has no rule ${index + 1}.`);
+    const { tag, attrs } = ruleCheck(this.logicScope(), node, rule);
+    const languages = this.languages();
+    const messages = new Map<string, string>();
+    if (old) for (const m of childrenNamed(old, 'message')) messages.set(attrValue(this.doc, m, 'xml:lang') ?? languages[0], textValue(this.doc, m));
+    for (const [language, text] of Object.entries(rule.message ?? {})) {
+      if (!languages.includes(language)) throw new SurveyEditError(`The survey has no language ${language}: add it first.`);
+      if (typeof text !== 'string') continue;
+      if (text.length > MAX_TEXT) throw new SurveyEditError(`A text has at most ${MAX_TEXT} characters.`);
+      if (text.trim() === '') messages.delete(language);
+      else messages.set(language, text.trim());
+    }
+    const check = newElement(
+      tag,
+      attrs,
+      [...messages].map(([language, text]) => newElement('message', [['xml:lang', language]], [text])),
+    );
+    if (old) {
+      insertElement(this.doc, node, check, old);
+      removeElement(old);
+    } else {
+      this.insertInOrder(node, check, NODE_ORDER, this.rulesOf(node).pop());
+    }
+    return check;
+  }
+
+  deleteRule(id: number, index: number): void {
+    const node = this.nodeById(id);
+    const rule = this.rulesOf(node)[index];
+    if (!rule) throw new SurveyEditError(`The question has no rule ${index + 1}.`);
+    removeElement(rule);
+  }
+
+  /** A new answer list with its answers, its name made from its label when not given */
+  addNewList(labels: Record<string, string>, items: Array<{ code: string; label: Record<string, string> }>, name?: string): XmlElement {
+    const checked = this.checkedLabels(labels);
+    const lists = firstChild(this.survey, 'codeLists');
+    const taken = new Set(lists ? childrenNamed(lists, 'list').map((l) => attrValue(this.doc, l, 'name') ?? '') : []);
+    const listName = name ?? uniqueName(slugName(Object.values(checked)[0], 'list'), taken);
+    const list = this.addList(listName, []);
+    for (const [language, text] of Object.entries(checked)) this.setLocalized(list, 'label', language, text, 'item', LIST_ORDER);
+    for (const item of items ?? []) this.addItem(list, item.code, this.checkedLabels(item.label));
+    return list;
+  }
+
+  /** Deletes an answer; refused while a condition, rule or formula compares a question of its list with its code */
+  deleteItem(listName: string, code: string): void {
+    const list = this.list(listName);
+    const item = this.item(list, code);
+    if (childrenNamed(item, 'item').length > 0) throw new SurveyEditError(`The answer ${code} has answers under it: delete them first.`);
+    const users = new Set<string>();
+    for (const e of descendants(this.schema())) {
+      if (e.name === 'code' && attrValue(this.doc, e, 'list') === listName) users.add(attrValue(this.doc, e, 'name') ?? '');
+    }
+    const quoted = new RegExp(`['"]${code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"]`);
+    for (const e of descendants(this.schema())) {
+      for (const a of e.attrs) {
+        if (!['relevant', 'requiredIf', 'expr', 'if', 'value', 'lt', 'lte', 'gt', 'gte'].includes(a.name)) continue;
+        const text = attrValue(this.doc, e, a.name)!;
+        if (!quoted.test(text)) continue;
+        if ([...users].some((u) => new RegExp(`(^|[^\\w])${u}($|[^\\w(])`).test(text))) {
+          const at = isNode(e) ? e : e.parent && isNode(e.parent) ? e.parent : e;
+          throw new SurveyEditError(`The answer ${code} is used by ${attrValue(this.doc, at, 'name')}: change that first.`);
+        }
+      }
+    }
+    removeElement(item);
+  }
+
+  /** A name made from a label, unused in the schema */
+  private nameFrom(labels: Record<string, string>, fallback: string): string {
+    const text = labels[this.languages()[0]] ?? Object.values(labels)[0] ?? '';
+    return uniqueName(slugName(text, fallback), this.schemaNames());
   }
 
   /** Adds a language to the survey, after its others; its texts are then written in it */
@@ -493,3 +856,33 @@ function nodeOf(e: XmlElement): XmlElement {
   for (let x: XmlElement | null = e; x; x = x.parent) if (isNode(x)) return x;
   return e;
 }
+
+/**
+ * A name made from a text as Collect and Collect Earth take names (checkName): lower case ASCII letters, digits and _,
+ * starting with a letter, not ending in _ and digits, at most 40 characters
+ */
+export function slugName(text: string, fallback: string): string {
+  let name = text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+  if (name === '') name = fallback;
+  if (/^[0-9]/.test(name)) name = `${fallback}_${name}`;
+  name = name.slice(0, 40).replace(/_+$/, '');
+  // "tree_cover_2020" would read as a repeated value's index: "tree_cover2020"
+  return name.replace(/_(\d+)$/, '$1');
+}
+
+/** A name not taken: the name, else with _b, _c... after it (letters, as digits at the end are refused) */
+export function uniqueName(name: string, taken: ReadonlySet<string>): string {
+  if (!taken.has(name)) return name;
+  for (let i = 1; i < 26 * 26; i++) {
+    const suffix = i < 26 ? String.fromCharCode(97 + i) : String.fromCharCode(97 + Math.floor(i / 26)) + String.fromCharCode(97 + (i % 26));
+    const candidate = `${name.slice(0, 37)}_${suffix}`;
+    if (!taken.has(candidate)) return candidate;
+  }
+  throw new SurveyEditError(`No name is left for ${name}.`);
+}
+

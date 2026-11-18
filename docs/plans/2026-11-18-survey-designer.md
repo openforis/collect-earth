@@ -523,3 +523,43 @@ versions" brings any of them back, keeping the survey of the moment so the resto
 dashboard inside Collect Earth (its project file is Collect Earth's own). Words change no answer, so stage 2 needs no
 warning about the data; that comes with stage 3. `npm run smoke:pg:survey-designer` covers the PostgreSQL side.
 
+**Stage 3, done (18 Nov), the structure.** "Edit the survey" (was "Edit the words") adds, moves and deletes pages,
+questions and answer lists, and sets Required. A page is added at the end and deleted while nothing is on it; pages
+move up and down. A question is added on a page or in a table (as a column), with a label, a kind (one or several
+answers from a list, yes or no, whole number, decimal, short text, long text, date), its answers (an existing list,
+or a new one written one per line, codes made from the words) and Required; its name in the data, made from the
+label, is shown before it is added. Questions move up and down and to another page; one is deleted unless Collect
+Earth fills it in (id, operator, location, plot_file and the like) or a condition or formula uses it (the server
+says which). Lists are added, deleted when unused, and their answers added, moved and deleted (not a code a
+condition names). Before saving, `POST /survey/design/impact` counts from the records' summaries what the change
+does to the plots collected: new questions they have no answer to, answers lost with a deleted question or answer,
+plots without an answer to a question now required; the dashboard shows it and asks to confirm, and asks before
+every deletion. Every change goes through the same save, check and versions as stage 2; the Java
+`DesignedSurveyIdmlTest` passes on `designer/structure.idm.xml`, written by `test/surveyStructure.test.ts` with each
+operation. Left for later: the plot file's columns (read by position, a change there needs the plot files changed
+too), changing an answer's code or a question's kind, deleting a table, and the conditions and rules (stage 4).
+The server's reasons for a refusal show in English.
+
+**Stage 4a, done (18 Nov), conditions and rules from rows.** On each question and table, the eye opens "When is it
+shown?": always, or only when rows of question, test and answer hold, all or any of them (a choice is or is not one
+of its list's answers, a yes/no is yes or no, a number is compared with a number, a text with a text, any question
+is answered or not). The Required choice is no, yes, or "Required when…" with the same rows. "Add a rule" makes a
+number's lowest and highest value (a number or another question's answer, the limit itself allowed or not), a text's
+fewest and most characters, or a table column's total over its rows (at least, at most, exactly), as an error or a
+warning, only when rows hold if asked, with its message (the rule in words when left empty). A rule written in
+Collect's designer that the builder can say (a range with numbers or questions, `string-length($this)`, the column's
+`sum(parent()/table/column)`) can be changed; any other is shown as written and only deleted. The server checks each
+row (`src/survey/logic.ts`: the question exists and can be reached from where the expression is evaluated, its own
+row and the plot's for a table's column; the test suits its kind; a code is of its list; a range is not empty;
+no question shown depending on itself, nor a circle of shows) and writes Collect's expressions:
+`not(idm:blank(q))` and `idm:blank(q)` as the templates do, `q = true()`, `not(q = 'X')` for "is not" on several
+answers, `parent()/q` from a row, `flag="warn"` for a warning (Collect's own word: the reader took "warning" before,
+so a warning written in Collect showed as an error). They read back as the same rows (`condition.ts`, `design.ts`).
+Before saving, the impact evaluates the new rule on the records' summaries (only where the question is answered and
+shown and the rule's condition holds): "the rule would flag 1 of the 2 plots where it applies. Plots: 7"; a new
+show-when counts the answers it would hide, a conditional required the plots it would flag. The desktop's
+`DesignedSurveyIdmlTest` passes on `designer/logic.idm.xml` (the multipurpose template with a column's total, rules
+with conditions in a row and on the plot, a column shown when, a question required when), written by
+`test/surveyLogic.test.ts`. A number without a type now reads as a decimal, as Collect reads it. Left for 4c:
+sub-lists, adding tables and repeated blocks; for 4b, Gemini's help.
+
