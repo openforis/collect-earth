@@ -39,6 +39,8 @@ describe("SeriesChart", () => {
   beforeEach(() => {
     captured.length = 0;
     localStorage.clear();
+    // Only the trend is on by default; these tests exercise every analysis.
+    for (const k of ["median", "change", "unusual", "season"]) localStorage.setItem(`explorer.${k}`, "true");
   });
 
   it("passes the points as trace 0 with ISO-string x values, and no markers trace by default", () => {
@@ -130,19 +132,26 @@ describe("SeriesChart", () => {
   // One point per year, 2010 to 2019, rising by 0.1 a year: a significant trend.
   const RISING: Point[] = Array.from({ length: 10 }, (_, i) => ({ date: Date.UTC(2010 + i, 3, 1), value: i / 10 }));
   const names = () => traces().map((t) => t.name);
-  const trendLabel = () => screen.queryByText(/per year, p|^Trend needs 8 years/);
-  const changeLabel = () => screen.queryByText(/^Most likely change in|^Change year needs/);
-  const help = () => screen.queryByText("How to read this analysis");
+  const trendLabel = () => screen.queryByText(/^Trend: |^Trend needs 8 years/);
+  const changeLabel = () => screen.queryByText(/^Change in|^Change year needs/);
+  const help = () => screen.queryByRole("button", { name: /^Explain$|^Hide explanation$/ });
   const untick = (label: string) => fireEvent.click(screen.getByLabelText(label));
   const ALL = ["Yearly median", "Trend", "Change year", "Unusual values", "Seasonal profile"];
 
-  it("one help block, closed, shown whenever a result line is", () => {
+  it("one Explain link, closed, shown whenever a result line is; it opens the numbers and the explanation", () => {
+    const stepped = Array.from({ length: 20 }, (_, i) => ({ date: Date.UTC(2010 + i, 3, 1), value: i < 10 ? 0.2 : 0.7 }));
+    const { container, unmount } = render(<SeriesChart points={stepped} name="NDVI" />);
+    expect(container.querySelector(".chart-help")).toBeNull();
+    fireEvent.click(help()!);
+    const text = container.querySelector(".chart-help")!.textContent!;
+    expect(text).toContain("per year, p");
+    expect(text).toContain("Most likely change in 2020: median 0.200 before, 0.700 after, p = 0.002.");
+    expect(text).toContain("the chance of seeing a trend at least this consistent");
+    expect(text).toContain("Cloud filter: removes observations");
+    fireEvent.click(help()!);
+    expect(container.querySelector(".chart-help")).toBeNull();
+    unmount();
     render(<SeriesChart points={RISING.slice(0, 7)} name="NDVI" />);
-    const details = help()!.closest("details")!;
-    expect(details.className).toBe("chart-help");
-    expect(details.open).toBe(false);
-    expect(details.textContent).toContain("the chance of seeing a trend at least this consistent");
-    expect(details.textContent).toContain("Cloud filter: removes observations");
     ALL.forEach(untick);
     expect(help()).toBeNull();
     expect(trendLabel()).toBeNull();
@@ -156,7 +165,7 @@ describe("SeriesChart", () => {
 
   it("a significant change year: red dashed line at 1 January below the data, and its result line", () => {
     render(<SeriesChart points={step(10, 20)} name="NDVI" />);
-    expect(changeLabel()!.textContent).toBe("Most likely change in 2020: median 0.200 before, 0.700 after, p = 0.002, significant");
+    expect(changeLabel()!.textContent).toBe("Change in 2020: significant");
     const [shape] = last().layout.shapes!;
     expect(shape.x0).toBe("2020-01-01T00:00:00.000Z");
     expect(shape.x1).toBe("2020-01-01T00:00:00.000Z");
@@ -170,7 +179,7 @@ describe("SeriesChart", () => {
 
   it("a change year that is not significant is grey; under 8 years it says so", () => {
     const { unmount } = render(<SeriesChart points={step(4, 8)} name="NDVI" />);
-    expect(changeLabel()!.textContent).toBe("Most likely change in 2014: median 0.200 before, 0.700 after, p = 0.139, not significant");
+    expect(changeLabel()!.textContent).toBe("Change in 2014: not significant");
     expect(last().layout.shapes![0].line!.color).toBe("#8a857b");
     unmount();
     render(<SeriesChart points={step(4, 7)} name="NDVI" />);
@@ -211,7 +220,7 @@ describe("SeriesChart", () => {
     expect(colors.filter((c) => c === "#b00020")).toHaveLength(1);
     expect(colors[0]).toBe("#b00020");
     expect(screen.getByText(/unusually low/).textContent).toBe(
-      "1 unusually low observation (red), compared with the usual value for their month",
+      "1 unusually low observation (red)",
     );
     untick("Unusual values");
     expect(traces()).toHaveLength(count);
@@ -253,9 +262,7 @@ describe("SeriesChart", () => {
     expect(t.line.dash).toBe("dash");
     expect(t.line.color).toBe("#b00020");
     expect(t.hoverinfo).toBe("skip");
-    expect(trendLabel()!.textContent).toBe(
-      "+0.1000 per year, p < 0.001, significant",
-    );
+    expect(trendLabel()!.textContent).toBe("Trend: significant increase");
   });
 
   it("the boxes switch the median and the trend off and on, and the trend stays without the median", () => {
@@ -268,6 +275,13 @@ describe("SeriesChart", () => {
     fireEvent.click(screen.getByLabelText("Yearly median"));
     fireEvent.click(screen.getByLabelText("Trend"));
     expect(names()).toEqual(["NDVI", "Yearly median", "Trend"]);
+  });
+
+  it("with nothing stored, only the trend is on", () => {
+    localStorage.clear();
+    render(<SeriesChart points={RISING} name="A" />);
+    const on = (screen.getAllByRole("checkbox") as HTMLInputElement[]).filter((c) => c.checked).map((c) => c.getAttribute("aria-label"));
+    expect(on).toEqual(["Trend"]);
   });
 
   it("the choice is shared by every mounted chart and kept in localStorage", () => {
@@ -309,7 +323,7 @@ describe("SeriesChart", () => {
     // Up and down, drifting up a little.
     const flat = [0.5, 0.3, 0.6, 0.4, 0.55, 0.35, 0.65, 0.45].map((value, i) => ({ date: Date.UTC(2010 + i, 3, 1), value }));
     render(<SeriesChart points={flat} name="NDVI" />);
-    expect(trendLabel()!.textContent).toMatch(/^[+-]\d\.\d{4} per year, p = 0\.\d{3}, not significant$/);
+    expect(trendLabel()!.textContent).toBe("Trend: not significant");
     expect((traces()[2] as Trace & { line: { color: string } }).line.color).toBe("#8a857b");
   });
 

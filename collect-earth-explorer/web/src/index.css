@@ -76,10 +76,17 @@ input[type="radio"], input[type="checkbox"], input[type="range"] { accent-color:
 .chart-error { color: var(--error); flex-direction: column; }
 .chart-options { display: flex; flex-wrap: wrap; gap: 12px; padding: 0 12px 10px; font-size: 11px; }
 .chart-options label { display: inline-flex; gap: 4px; align-items: center; }
-.chart-results { display: flex; flex-direction: column; gap: 4px; padding: 0 12px 10px; font-size: 11px; }
+/* The analysis switches as one row of chips; the checkbox itself is hidden but still focusable. */
+.chart-chips { gap: 5px; }
+.chart-chips label { padding: 1px 8px; border: 1px solid var(--line); border-radius: 999px; cursor: pointer; font-size: 10.5px; white-space: nowrap; }
+.chart-chips label:has(input:checked) { background: #dfe9d3; border-color: var(--of-green); color: var(--heading); }
+.chart-chips label:has(input:focus-visible) { outline: 2px solid var(--of-blue); outline-offset: 2px; }
+.chart-chips input { position: absolute; opacity: 0; width: 0; height: 0; margin: 0; }
+/* The verdicts side by side, wrapping, with the Explain link after the last. */
+.chart-results { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 14px; padding: 0 12px 8px; font-size: 11px; }
+.chart-results .chart-explain, .chart-results .chart-explain:hover { padding: 0; background: none; color: var(--of-link); font-weight: 400; text-decoration: underline; }
 .chart-results button { font-size: 11px; padding: 1px 6px; }
 .chart-help { padding: 0 12px 10px; font-size: 11px; }
-.chart-help summary { cursor: pointer; color: var(--of-link); }
 .chart-help p { margin: 4px 0 0; }
 .spinner { width: 14px; height: 14px; border: 2px solid var(--line); border-top-color: var(--of-blue); border-radius: 50%; animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }

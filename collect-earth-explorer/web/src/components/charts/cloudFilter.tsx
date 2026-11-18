@@ -2,7 +2,14 @@ import { useMemo } from "react";
 import type { Point } from "../../lib/csv";
 import { usePref } from "../../lib/prefs";
 
-const LIMITS = ["80", "60", "40", "20", "10"];
+/** Each limit with its icon: from full cloud (no limit) through sun behind cloud to sun (nearly clear scenes only). */
+const LIMITS = [
+  ["80", "🌥️"],
+  ["60", "🌥️"],
+  ["40", "⛅"],
+  ["20", "🌤️"],
+  ["10", "☀️"],
+];
 
 /**
  * The scene cloud-cover limit shared by the Landsat and Sentinel-2 cards: the points under it (a point
@@ -22,10 +29,10 @@ export function useCloudFilter(points: Point[] | undefined) {
       disabled={!points?.some((p) => typeof p.cloud === "number")}
       onChange={(e) => setMaxCloud(e.target.value)}
     >
-      <option value="any">Any cloud</option>
-      {LIMITS.map((l) => (
+      <option value="any">☁️ Any cloud</option>
+      {LIMITS.map(([l, icon]) => (
         <option key={l} value={l}>
-          ≤ {l} %
+          {icon} max {l} %
         </option>
       ))}
     </select>

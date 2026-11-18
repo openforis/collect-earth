@@ -94,6 +94,8 @@ describe("series cards", () => {
     fetchMock.mockReset();
     vi.stubGlobal("fetch", fetchMock);
     localStorage.clear();
+    // Only the trend is on by default; these tests exercise every analysis.
+    for (const k of ["median", "change", "unusual", "season"]) localStorage.setItem(`explorer.${k}`, "true");
   });
   afterEach(() => vi.unstubAllGlobals());
 
@@ -186,7 +188,7 @@ describe("series cards", () => {
     );
     await vi.waitFor(() => expect(screen.getAllByTestId("series-chart")).toHaveLength(2));
     const selects = screen.getAllByLabelText("Maximum scene cloud cover") as HTMLSelectElement[];
-    expect([...selects[0].options].map((o) => o.textContent)).toEqual(["Any cloud", "≤ 80 %", "≤ 60 %", "≤ 40 %", "≤ 20 %", "≤ 10 %"]);
+    expect([...selects[0].options].map((o) => o.textContent)).toEqual(["☁️ Any cloud", "🌥️ max 80 %", "🌥️ max 60 %", "⛅ max 40 %", "🌤️ max 20 %", "☀️ max 10 %"]);
     expect(selects[0].disabled).toBe(false);
     const counts = () => screen.getAllByTestId("series-chart").map((c) => c.getAttribute("data-points"));
     expect(counts()).toEqual(["3", "3"]);

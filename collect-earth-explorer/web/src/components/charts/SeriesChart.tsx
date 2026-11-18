@@ -40,11 +40,11 @@ export default function SeriesChart({ points, name, color = "#587F2E", markers, 
   const markerX = markers?.x;
   const markerName = markers?.name;
   const markerColor = markers?.color;
-  const [showMedian, setShowMedian] = usePref("explorer.median", true);
+  const [showMedian, setShowMedian] = usePref("explorer.median", false);
   const [showTrend, setShowTrend] = usePref("explorer.trend", true);
-  const [showChange, setShowChange] = usePref("explorer.change", true);
-  const [showUnusual, setShowUnusual] = usePref("explorer.unusual", true);
-  const [showSeason, setShowSeason] = usePref("explorer.season", true);
+  const [showChange, setShowChange] = usePref("explorer.change", false);
+  const [showUnusual, setShowUnusual] = usePref("explorer.unusual", false);
+  const [showSeason, setShowSeason] = usePref("explorer.season", false);
   const median = useMemo(() => yearlyMedian(points), [points]);
   const fit = useMemo(() => trend(median), [median]);
   const change = useMemo(() => changePoint(median), [median]);
@@ -191,11 +191,16 @@ export default function SeriesChart({ points, name, color = "#587F2E", markers, 
     const m = medianOf(inYear.map((p) => p.value));
     return inYear.reduce((a, b) => (Math.abs(b.value - m) < Math.abs(a.value - m) ? b : a));
   };
+  const [helpOpen, setHelpOpen] = useState(false);
   const lines = [
-    showTrend && <div key="trend">{trendText(fit)}</div>,
+    showTrend && (
+      <div key="trend">
+        <span>{trendText(fit)}</span>
+      </div>
+    ),
     showChange && (
       <div key="change">
-        {changeText(change)}
+        <span>{changeText(change)}</span>
         {change && onClickPoint && (
           <>
             {" "}
@@ -207,30 +212,46 @@ export default function SeriesChart({ points, name, color = "#587F2E", markers, 
     ),
     showUnusual && unusualCount > 0 && (
       <div key="unusual">
-        {unusualCount} unusually low {unusualCount === 1 ? "observation" : "observations"} (red), compared with the usual value for their month
+        <span>
+          {unusualCount} unusually low {unusualCount === 1 ? "observation" : "observations"} (red)
+        </span>
       </div>
     ),
-    showProfile && <div key="season">{seasonText(profile)}</div>,
+    showProfile && (
+      <div key="season">
+        <span>{seasonText(profile)}</span>
+      </div>
+    ),
   ].filter(Boolean);
+  // The numbers behind the verdicts, shown with the explanation.
+  const numbers = [showTrend && fit && trendNumbers(fit), showChange && change && changeNumbers(change)].filter(Boolean).join(" ");
 
-  const box = (label: string, checked: boolean, set: (v: boolean) => void) => (
-    <label>
-      <input type="checkbox" checked={checked} onChange={(e) => set(e.target.checked)} />
-      {label}
+  // A compact chip per analysis: the short text is shown, the full name is the checkbox's.
+  const box = (label: string, short: string, checked: boolean, set: (v: boolean) => void) => (
+    <label title={label}>
+      <input type="checkbox" aria-label={label} checked={checked} onChange={(e) => set(e.target.checked)} />
+      {short}
     </label>
   );
 
   return (
     <>
       <Plot data={data} layout={layout} config={CONFIG} style={STYLE} onClick={onClick} />
-      <div className="chart-options">
-        {box("Yearly median", showMedian, setShowMedian)}
-        {box("Trend", showTrend, setShowTrend)}
-        {box("Change year", showChange, setShowChange)}
-        {box("Unusual values", showUnusual, setShowUnusual)}
-        {box("Seasonal profile", showSeason, setShowSeason)}
+      <div className="chart-options chart-chips">
+        {box("Yearly median", "Median", showMedian, setShowMedian)}
+        {box("Trend", "Trend", showTrend, setShowTrend)}
+        {box("Change year", "Change year", showChange, setShowChange)}
+        {box("Unusual values", "Unusual", showUnusual, setShowUnusual)}
+        {box("Seasonal profile", "Season", showSeason, setShowSeason)}
       </div>
-      {lines.length > 0 && <div className="chart-results">{lines}</div>}
+      {lines.length > 0 && (
+        <div className="chart-results">
+          {lines}
+          <button className="chart-explain" aria-expanded={helpOpen} onClick={() => setHelpOpen((o) => !o)}>
+            {helpOpen ? "Hide explanation" : "Explain"}
+          </button>
+        </div>
+      )}
       {showProfile && (
         <>
           <div className="chart-options">
@@ -247,9 +268,9 @@ export default function SeriesChart({ points, name, color = "#587F2E", markers, 
           <Plot data={seasonData} layout={seasonLayout} config={CONFIG} style={SEASON_STYLE} />
         </>
       )}
-      {lines.length > 0 && (
-        <details className="chart-help">
-          <summary>How to read this analysis</summary>
+      {lines.length > 0 && helpOpen && (
+        <div className="chart-help">
+          {numbers && <p>{numbers}</p>}
           <p>
             The trend is tested on the yearly medians (Mann-Kendall test, Theil-Sen slope). The p-value is the chance of seeing a
             trend at least this consistent if the plot had no real trend. Below 0.05 the trend is called significant: it is unlikely
@@ -272,7 +293,7 @@ export default function SeriesChart({ points, name, color = "#587F2E", markers, 
             Cloud filter: removes observations from scenes with more cloud than the chosen limit. The limit is for the whole
             satellite scene, not for the plot; cloudy pixels over the plot are already masked.
           </p>
-        </details>
+        </div>
       )}
     </>
   );
@@ -282,9 +303,11 @@ const pText = (p: number) => (p < 0.001 ? "p < 0.001" : `p = ${p.toFixed(3)}`);
 const verdict = (p: number) => (p < 0.05 ? "significant" : "not significant");
 
 function changeText(c: ReturnType<typeof changePoint>): string {
-  if (!c) return "Change year needs 8 years of data";
-  return `Most likely change in ${c.year}: median ${c.before.toFixed(3)} before, ${c.after.toFixed(3)} after, ${pText(c.p)}, ${verdict(c.p)}`;
+  return c ? `Change in ${c.year}: ${verdict(c.p)}` : "Change year needs 8 years of data";
 }
+
+const changeNumbers = (c: NonNullable<ReturnType<typeof changePoint>>) =>
+  `Most likely change in ${c.year}: median ${c.before.toFixed(3)} before, ${c.after.toFixed(3)} after, ${pText(c.p)}.`;
 
 function seasonText(profile: ReturnType<typeof monthlyProfile>): string {
   const byMedian = [...profile].sort((a, b) => b.median - a.median);
@@ -295,6 +318,9 @@ function seasonText(profile: ReturnType<typeof monthlyProfile>): string {
 
 function trendText(fit: ReturnType<typeof trend>): string {
   if (!fit) return "Trend needs 8 years of data";
-  const slope = (fit.slope >= 0 ? "+" : "") + fit.slope.toFixed(4);
-  return `${slope} per year, ${pText(fit.p)}, ${verdict(fit.p)}`;
+  if (fit.p >= 0.05) return "Trend: not significant";
+  return `Trend: significant ${fit.slope >= 0 ? "increase" : "decrease"}`;
 }
+
+const trendNumbers = (fit: NonNullable<ReturnType<typeof trend>>) =>
+  `Trend: ${(fit.slope >= 0 ? "+" : "") + fit.slope.toFixed(4)} per year, ${pText(fit.p)}.`;
