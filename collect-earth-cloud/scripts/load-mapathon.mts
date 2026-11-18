@@ -292,8 +292,9 @@ async function send(m: Mapathon, person: Person, saves: { plot: string; actively
 }
 
 /** The next plot to save: the next of the person's own, or once all are done an edit of one of them. */
-function nextPlot(p: Person): { plot: string; edit: boolean } {
+function nextPlot(p: Person): { plot: string; edit: boolean } | null {
   if (p.next < p.plots.length) return { plot: p.plots[p.next++], edit: false };
+  if (p.plots.length === 0) return null;
   return { plot: p.plots[Math.floor(Math.random() * p.plots.length)], edit: true };
 }
 
@@ -414,9 +415,22 @@ async function readMyPlots(m: Mapathon, p: Person, version: { v?: string }) {
     else if (res.status === 200) {
       const answer = res.json() as { version: string; plots: number; downloadPath: string };
       if (answer.version !== version.v) {
+        if (answer.plots === 0) {
+          // The server says the person has no plots: wrong for a person who had some (they are never taken back here)
+          if (p.plots.length > 0) lostPlots.push(`${phase} ${p.username}: had ${p.plots.length} plots, the server says 0 (version ${answer.version})`);
+          p.plots = [];
+          version.v = answer.version;
+          return;
+        }
+        const file = await call('my-plots.csv', 'GET', `${answer.downloadPath}&plotFile=1`, p.token);
+        const ids = file.status === 200 ? idsOf(file.text) : [];
+        // A failed read keeps the plots in hand and the version, so the next check reads the file again (as Collect Earth)
+        if (ids.length === 0) {
+          if (file.status === 200) lostPlots.push(`${phase} ${p.username}: the server says ${answer.plots} plots, its file has none`);
+          return;
+        }
+        p.plots = ids;
         version.v = answer.version;
-        if (answer.plots === 0) p.plots = [];
-        else p.plots = idsOf((await call('my-plots.csv', 'GET', `${answer.downloadPath}&plotFile=1`, p.token)).text);
       }
       return;
     }
@@ -425,6 +439,9 @@ async function readMyPlots(m: Mapathon, p: Person, version: { v?: string }) {
   const a = ((mine.json().assignments ?? []) as { downloadPath: string; training?: unknown }[]).find((x) => !x.training);
   if (a) p.plots = idsOf((await call('assigned plot file', 'GET', a.downloadPath, p.token)).text);
 }
+
+/** People whose plots the server said were none, or sent a file without them, after they had some */
+const lostPlots: string[] = [];
 
 /** Each person's version of their plots, as Collect Earth keeps it */
 const versions = new Map<Person, { v?: string }>();
@@ -510,7 +527,16 @@ async function collect(m: Mapathon, p: Person, ms: number, pace: [number, number
   const pending: Promise<void>[] = [];
   while (performance.now() < end) {
     await sleep(between(pace[0], pace[1]));
-    const { plot, edit } = nextPlot(p);
+    const next = nextPlot(p);
+    // No plots in hand (none given, or a read failed): Collect Earth shows none and the person waits for its next check
+    if (!next) {
+      if (performance.now() > plotsAt) {
+        plotsAt = performance.now() + 300_000 * SCALE;
+        await readMyPlots(m, p, versions.get(p) ?? {});
+      }
+      continue;
+    }
+    const { plot, edit } = next;
     // A quarter of the plots saved first as a draft (not actively saved), then finished
     if (!edit && Math.random() < 0.25) {
       pending.push(sleep(3000 * SCALE).then(() => send(m, p, [{ plot, activelySaved: false }])));
@@ -671,7 +697,7 @@ if (PHASES.has('3')) await runPhase('3 ten times the pace (a plot every 5-10 s)'
 // 4. The internet comes back: everyone sends a backlog of 50 saves (a batch, as CloudSyncService takes 50) at once, 3 times
 if (PHASES.has('4')) await runPhase(`4 reconnection burst (${everyone.length} people x 50 saves at once, 3 times)`, async () => {
   for (let round = 0; round < 3; round++) {
-    await Promise.all(everyone.map(({ m, p }) => send(m, p, Array.from({ length: 50 }, () => ({ plot: nextPlot(p).plot, activelySaved: true })))));
+    await Promise.all(everyone.filter(({ p }) => p.plots.length > 0).map(({ m, p }) => send(m, p, Array.from({ length: 50 }, () => ({ plot: nextPlot(p)!.plot, activelySaved: true })))));
     await sleep(10_000 * SCALE);
   }
 });
@@ -679,9 +705,9 @@ if (PHASES.has('4')) await runPhase(`4 reconnection burst (${everyone.length} pe
 // 5. The ceiling: no pause, each person sending batches of 10 saves back to back for 60 s, the coordinators clicking fast
 const CEILING = 60_000 * SCALE;
 if (PHASES.has('5')) await runPhase('5 ceiling (no pause, batches of 10)', () => Promise.all([
-  ...everyone.map(async ({ m, p }) => {
+  ...everyone.filter(({ p }) => p.plots.length > 0).map(async ({ m, p }) => {
     const end = performance.now() + CEILING;
-    while (performance.now() < end) await send(m, p, Array.from({ length: 10 }, () => ({ plot: nextPlot(p).plot, activelySaved: true })));
+    while (performance.now() < end) await send(m, p, Array.from({ length: 10 }, () => ({ plot: nextPlot(p)!.plot, activelySaved: true })));
   }),
   ...mapathons.map((m) => coordinate(m, CEILING, [500, 1500])),
 ]));
@@ -742,7 +768,8 @@ lines0.push(`Collect Earth starts tried again after a server failure: ${startRet
 if (crashed) lines0.push(`THE RUN STOPPED EARLY: ${crashed}`);
 checks.unshift({ what: 'Every person\'s Collect Earth started', ok: neverStarted === 0, detail: `${neverStarted} of ${allPeople.length} could not` });
 if (crashed) checks.unshift({ what: 'The run went to its end', ok: false, detail: crashed });
-const report: Record<string, unknown> = { startRetries, batchRetries, neverStarted, crashed, serverFailures, base: BASE, mapathons: MAPATHONS, peoplePerMapathon: PEOPLE, plotsPerMapathon: PLOTS, training: TRAINING, survey: survey.uri, scale: SCALE, setupSeconds: +(setupMs / 1000).toFixed(1), phases: [] as unknown[], checks, errors: errors.slice(0, 50) };
+checks.push({ what: 'No person lost their plots on the way', ok: lostPlots.length === 0, detail: lostPlots.length ? `${lostPlots.length}: ${lostPlots.slice(0, 5).join('; ')}` : 'none' });
+const report: Record<string, unknown> = { lostPlots, startRetries, batchRetries, neverStarted, crashed, serverFailures, base: BASE, mapathons: MAPATHONS, peoplePerMapathon: PEOPLE, plotsPerMapathon: PLOTS, training: TRAINING, survey: survey.uri, scale: SCALE, setupSeconds: +(setupMs / 1000).toFixed(1), phases: [] as unknown[], checks, errors: errors.slice(0, 50) };
 const lines: string[] = [...lines0];
 lines.push(`Setup: ${MAPATHONS} mapathons x ${PEOPLE} people, ${PLOTS} plots each${TRAINING ? `, a training day of ${TRAINING} plots` : ''}, survey ${survey.uri}, in ${(setupMs / 1000).toFixed(1)} s`);
 for (const [name, st] of phaseOf) {
