@@ -64,12 +64,10 @@ export function setImagery(map: MlMap, tileUrl: string | undefined) {
 
 export function addPlotOutline(map: MlMap, plot: Polygon) {
   map.addSource("plot", { type: "geojson", data: { type: "Feature", geometry: plot, properties: {} } });
-  map.addLayer({
-    id: OUTLINE_LAYER,
-    type: "line",
-    source: "plot",
-    paint: { "line-color": "#ffeb3b", "line-width": 2 },
-  });
+  // A dark line one pixel wider on each side, under the yellow one, so the outline shows on bright imagery.
+  // It is the lower of the two, so it is the layer the imagery is inserted under.
+  map.addLayer({ id: OUTLINE_LAYER, type: "line", source: "plot", paint: { "line-color": "#161922", "line-width": 4 } });
+  map.addLayer({ id: OUTLINE_LAYER + "-line", type: "line", source: "plot", paint: { "line-color": "#ffeb3b", "line-width": 2 } });
 }
 
 interface Props {
