@@ -2,7 +2,8 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { surveyDesign } from "../../../src/survey/design";
 import { translator } from "../i18n";
-import { conditionWords, firstLanguage, questionLabel, requiredWords, ruleWords, textIn, untranslated, words } from "./surveyDesignView";
+import type { DesignTable } from "../api";
+import { conditionWords, firstLanguage, questionLabel, requiredWords, ruleWords, tableWords, textIn, untranslated, words } from "./surveyDesignView";
 
 const template = (name: string) =>
   surveyDesign(readFileSync(new URL(`../../../test/fixtures/templates/collect_earth${name}.idm.xml`, import.meta.url)));
@@ -12,6 +13,13 @@ const en = words(basic, "en", translator("en"));
 const question = (name: string) => en.questions.get(name)!;
 
 describe("the survey in words", () => {
+  it("names a table's own column before another question of the same name", () => {
+    const mp = words(template("_multipurpose"), "en", translator("en"));
+    const change = mp.design.pages.flatMap((p) => p.items).find((i) => i.name === "change") as DesignTable;
+    expect(questionLabel(mp, "canopy_cover")).toBe("Canopy cover");
+    expect(questionLabel(tableWords(mp, change), "canopy_cover")).toBe("Canopy cover before");
+  });
+
   it("takes a text in the language chosen, else the survey's first", () => {
     expect(textIn({ en: "Plot", es: "Parcela" }, "es", ["en", "es"])).toBe("Parcela");
     expect(textIn({ en: "Plot" }, "fr", ["en", "fr"])).toBe("Plot");

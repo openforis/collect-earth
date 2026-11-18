@@ -124,7 +124,22 @@ describe('the designer model of the templates', () => {
       max: { bound: { question: 'land_use_subcategory_year_of_change' }, inclusive: false },
       when: { kind: 'all', parts: [{ question: 'land_use_category_has_changed', test: 'is', value: true }] },
     });
-    expect(d.counts).toMatchObject({ questions: 148, lists: 16, formulas: 561 });
+    expect(d.counts).toEqual({ formulas: 561 });
+  });
+
+  it('keeps a hidden table off its page, as the desktop form does; required if true() is required', () => {
+    const text = (name: string) => readFileSync(`${TEMPLATES}collect_earth${name}.idm.xml`, 'latin1');
+    const changed = (name: string, from: string, to: string) => {
+      expect(text(name)).toContain(from);
+      return surveyDesign(Buffer.from(text(name).replace(from, to), 'latin1'));
+    };
+    for (const hide of ['ui:hide="true" ', 'relevant="false()" ']) {
+      const d = changed('_ipcc', '<entity id="15" name="land_cover" ', `<entity id="15" name="land_cover" ${hide}`);
+      expect(d.pages.flatMap((p) => p.items).some((i) => i.name === 'land_cover')).toBe(false);
+      expect(d.hidden.map((q) => q.name)).toEqual(expect.arrayContaining(['element', 'coverage', 'percentage']));
+    }
+    const d = changed('', 'name="code_demo" required="true"', 'name="code_demo" requiredIf=" true() "');
+    expect(pageQuestions(d.pages[0].items).find((q) => q.name === 'code_demo')?.required).toBe('always');
   });
 
   it('every condition of the three templates reads as rows but the two starts-with and one nested group', () => {

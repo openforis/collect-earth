@@ -55,8 +55,6 @@ class DesignReader {
   private readonly languages: string[];
   /** Every node of the schema by its name: what conditions and formulas name */
   private readonly byName = new Map<string, XmlElement>();
-  private conditions = 0;
-  private rules = 0;
   private formulas = 0;
 
   constructor(private readonly doc: XmlDocument) {
@@ -97,19 +95,18 @@ class DesignReader {
     const fromPlotFile: DesignQuestion[] = [];
     const calculated: DesignQuestion[] = [];
     const hidden: DesignQuestion[] = [];
-    let questions = 0;
     for (const node of childElements(plot)) {
       if (node.name !== 'entity' && !ATTRIBUTE_TAGS.has(node.name)) continue;
       const tab = attrLocal(this.doc, node, 'tab', this.ui);
       const page = (tab !== undefined ? pages.get(tab) : undefined) ?? fallbackPage();
       if (node.name === 'entity') {
         const table = this.table(node, plot);
-        questions += table.columns.length;
-        page.items.push(table);
+        // A hidden table is left off the form, as the desktop does (SurveyFormModelBuilder.addEntityItem)
+        if (attrLocal(this.doc, node, 'hide', this.ui) === 'true' || table.shownWhen?.kind === 'never') hidden.push(...table.columns);
+        else page.items.push(table);
         continue;
       }
       const q = this.question(node, plot);
-      questions++;
       if (q.formulas) calculated.push(q);
       else if (q.fromPlotFile) fromPlotFile.push(q);
       else if (q.hidden || q.key || BUILT_IN.has(q.name)) hidden.push(q);
@@ -124,7 +121,7 @@ class DesignReader {
       calculated,
       hidden,
       lists,
-      counts: { questions, lists: lists.length, conditions: this.conditions, rules: this.rules, formulas: this.formulas },
+      counts: { formulas: this.formulas },
     };
   }
 
@@ -193,7 +190,6 @@ class DesignReader {
 
   private condition(text: string | undefined, scope: XmlElement, plot: XmlElement): DesignCondition | null {
     if (text === undefined || text.trim() === '' || text.trim() === 'true()') return null;
-    this.conditions++;
     return readCondition(text, this.lookup(scope, plot));
   }
 
@@ -216,7 +212,7 @@ class DesignReader {
 
   private question(e: XmlElement, plot: XmlElement): DesignQuestion {
     const scope = e.parent ?? plot;
-    const required = attrValue(this.doc, e, 'required') === 'true';
+    const required = attrValue(this.doc, e, 'required') === 'true' || attrValue(this.doc, e, 'requiredIf')?.trim() === 'true()';
     const requiredIf = attrValue(this.doc, e, 'requiredIf');
     const relevant = attrValue(this.doc, e, 'relevant');
     const layoutType = attrLocal(this.doc, e, 'layoutType', this.ui);
@@ -262,7 +258,6 @@ class DesignReader {
   }
 
   private rule(c: XmlElement, scope: XmlElement, plot: XmlElement): DesignRule {
-    this.rules++;
     const base = {
       flag: attrValue(this.doc, c, 'flag') === 'warning' ? ('warning' as const) : ('error' as const),
       message: this.localized(c, 'message'),

@@ -145,10 +145,10 @@ export interface SurveyDesign {
   fromPlotFile: DesignQuestion[];
   /** Hidden values the form fills itself */
   calculated: DesignQuestion[];
-  /** The other hidden fields: the plot's keys, the ones Collect Earth fills, hidden questions */
+  /** The other hidden fields: the plot's keys, the ones Collect Earth fills, hidden questions and hidden tables' columns */
   hidden: DesignQuestion[];
   lists: DesignList[];
-  counts: { questions: number; lists: number; conditions: number; rules: number; formulas: number };
+  counts: { formulas: number };
 }
 
 export interface SurveyDesignAnswer {

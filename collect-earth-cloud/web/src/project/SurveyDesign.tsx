@@ -18,7 +18,7 @@ import { FoldingCard } from "../components/FoldingCard";
 import { Loading } from "../components/Loading";
 import { useT } from "../i18n";
 import { useLoad } from "../useLoad";
-import { conditionWords, firstLanguage, requiredWords, ruleWords, textIn, TYPE_KEYS, untranslated, words, type Words } from "./surveyDesignView";
+import { conditionWords, firstLanguage, requiredWords, ruleWords, tableWords, textIn, TYPE_KEYS, untranslated, words, type Words } from "./surveyDesignView";
 
 /** The most answers a question shows inline; the list's card has them all */
 const INLINE_ANSWERS = 12;
@@ -243,7 +243,9 @@ function QuestionView({ w, q }: { w: Words; q: DesignQuestion }) {
   );
 }
 
-function TableView({ w, table }: { w: Words; table: DesignTable }) {
+function TableView({ w: survey, table }: { w: Words; table: DesignTable }) {
+  // A name the table's conditions use is its own column first, as the server reads them (another table may have one alike)
+  const w = useMemo(() => tableWords(survey, table), [survey, table]);
   const { t } = w;
   const list = table.rowsList ? w.lists.get(table.rowsList) : undefined;
   const listName = list ? textIn(list.label, w.language, w.design.languages) || list.name : (table.rowsList ?? "");

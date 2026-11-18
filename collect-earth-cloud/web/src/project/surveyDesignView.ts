@@ -2,7 +2,7 @@
 // written with the questions' labels and the answers' labels in the language chosen ("shown when Land use is
 // Forest"), rules as limits, the texts not translated yet.
 
-import type { ConditionPart, DesignCondition, DesignItem, DesignList, DesignListItem, DesignQuestion, DesignRule, Localized, QuestionType, RuleBound, SurveyDesign } from "../api";
+import type { ConditionPart, DesignCondition, DesignItem, DesignList, DesignListItem, DesignQuestion, DesignRule, DesignTable, Localized, QuestionType, RuleBound, SurveyDesign } from "../api";
 import type { MessageKey, Translate } from "../i18n";
 
 /** A text in the language chosen, else in the survey's default language, else in any it has */
@@ -26,13 +26,21 @@ export interface Words {
 }
 
 export function words(design: SurveyDesign, language: string, t: Translate): Words {
+  const columns = new Set(design.pages.flatMap((p) => p.items.flatMap((i) => (i.kind === "table" ? i.columns : []))));
+  const plots = allQuestions(design).filter((q) => !columns.has(q));
   return {
     design,
     language,
     t,
-    questions: new Map(allQuestions(design).map((q) => [q.name, q])),
+    // A plot's question after (so over) a table's column of the same name, as the server reads a condition outside tables
+    questions: new Map([...columns, ...plots].map((q) => [q.name, q])),
     lists: new Map(design.lists.map((l) => [l.name, l])),
   };
+}
+
+/** The words inside a table: a name is the table's own column before any other question of that name */
+export function tableWords(w: Words, table: DesignTable): Words {
+  return { ...w, questions: new Map([...w.questions, ...table.columns.map((c) => [c.name, c] as const)]) };
 }
 
 const local = (w: Words, text: Localized) => textIn(text, w.language, w.design.languages);

@@ -230,16 +230,6 @@ export function* descendants(e: XmlElement): Generator<XmlElement> {
   for (const c of e.children) if (c.kind === 'element') yield* descendants(c);
 }
 
-/** The prefix the survey's root gives a namespace (null: the default namespace; undefined: not declared). */
-export function prefixOf(doc: XmlDocument, uri: string): string | null | undefined {
-  for (const a of doc.root.attrs) {
-    if (decodeRaw(doc, a.raw) !== uri) continue;
-    if (a.name === 'xmlns') return null;
-    if (a.name.startsWith('xmlns:')) return a.name.slice(6);
-  }
-  return undefined;
-}
-
 // ---------------------------------------------------------------------------------------
 // Changing the tree
 
