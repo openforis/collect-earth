@@ -203,6 +203,13 @@ export function setProjectFilesCacheMb(mb: number): void {
   projectFilesBudget = mb * 1024 * 1024;
 }
 
+/**
+ * The copies being read and built, by the same key: the people joining at the same moment wait for the one read of the
+ * first instead of each reading the file (20 downloads at once read it 20 times; on cloud.collectearth.org, 18 Nov 2026,
+ * 200 joins read the 8.6 MB file 154 times while the first read was still on its way).
+ */
+const building = new Map<string, Promise<Buffer | null>>();
+
 export async function servedProjectFile(store: Store, projectId: string, variant: 'whole' | 'collector', build: (stored: Buffer) => Buffer): Promise<Buffer | null> {
   const info = await store.getCepInfo(projectId);
   if (!info) return null;
@@ -214,6 +221,20 @@ export async function servedProjectFile(store: Store, projectId: string, variant
     projectFiles.set(key, hit);
     return hit;
   }
+  const pending = building.get(key);
+  if (pending) return pending;
+  const work = readAndKeep(store, projectId, info, version, key, build);
+  building.set(key, work);
+  try {
+    return await work;
+  } finally {
+    building.delete(key);
+  }
+}
+
+async function readAndKeep(
+  store: Store, projectId: string, info: { bytes: number }, version: string, key: string, build: (stored: Buffer) => Buffer,
+): Promise<Buffer | null> {
   const stored = await store.getCep(projectId);
   if (!stored) return null;
   const served = build(stored);
