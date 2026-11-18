@@ -8,6 +8,8 @@ RUN cd web && npm ci
 COPY web ./web
 # The types of what the server and the dashboard send each other: the dashboard's typecheck reads them (src/wire/README.md).
 COPY src/wire ./src/wire
+# The survey designer's view test reads the server's survey reader (web/src/project/surveyDesignView.test.ts).
+COPY src/survey ./src/survey
 RUN cd web && npm run build
 
 # Stage 2: the API server, serving the built dashboard from web/dist.
