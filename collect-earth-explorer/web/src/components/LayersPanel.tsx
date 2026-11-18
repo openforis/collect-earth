@@ -95,17 +95,22 @@ function LayerRow({ i, entry }: { i: number; entry: LayerEntry }) {
         </select>
       </div>
       {draftYear !== undefined && min < lastStop && (
-        <input
-          type="range"
-          aria-label={`${nameOf(entry)} year`}
-          min={min}
-          max={lastStop}
-          value={draftYear === LAST_12_MONTHS ? lastStop : draftYear}
-          // The last stop's number is a year that does not exist for this slider: say what it is.
-          aria-valuetext={draftYear === LAST_12_MONTHS ? "Last 12 months" : undefined}
-          onChange={(e) => setPendingYear(Number(e.target.value) > max ? LAST_12_MONTHS : Number(e.target.value))}
-          style={{ width: "100%" }}
-        />
+        // A timeline, not a level: the first and last year at its ends and a tick per year (index.css).
+        <div className="year-slider">
+          <span>{min}</span>
+          <input
+            type="range"
+            aria-label={`${nameOf(entry)} year`}
+            min={min}
+            max={lastStop}
+            value={draftYear === LAST_12_MONTHS ? lastStop : draftYear}
+            // The last stop's number is a year that does not exist for this slider: say what it is.
+            aria-valuetext={draftYear === LAST_12_MONTHS ? "Last 12 months" : undefined}
+            onChange={(e) => setPendingYear(Number(e.target.value) > max ? LAST_12_MONTHS : Number(e.target.value))}
+            style={{ "--stops": lastStop - min } as React.CSSProperties}
+          />
+          <span>{lastStop > max ? "Last 12 mo" : max}</span>
+        </div>
       )}
     </>
   );

@@ -44,6 +44,13 @@ input[type="radio"], input[type="checkbox"], input[type="range"] { accent-color:
 /* A row's radio label with its band selector, small and right-aligned. */
 .layer-line { display: flex; gap: 6px; align-items: center; justify-content: space-between; }
 .layers-panel .layer-line select { width: auto; flex: none; padding: 1px 4px; font-size: 11px; }
+/* A row's year slider drawn as a timeline: end years, a tick per year, no filled part (which reads as a level such as opacity). */
+.year-slider { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--text); white-space: nowrap; }
+.year-slider input { flex: 1; min-width: 0; height: 18px; margin: 0; cursor: pointer; -webkit-appearance: none; appearance: none; background: repeating-linear-gradient(to right, #b9b3a6 0 1px, transparent 1px calc((100% - 1px) / var(--stops))) 6px 50% / calc(100% - 11px) 7px no-repeat, linear-gradient(#b9b3a6, #b9b3a6) 6px 50% / calc(100% - 12px) 1px no-repeat; }
+.year-slider input::-webkit-slider-runnable-track { height: 18px; background: none; }
+.year-slider input::-moz-range-track { height: 18px; background: none; }
+.year-slider input::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 18px; border-radius: 4px; border: 2px solid #fff; background: var(--of-blue); box-shadow: 0 0 0 1px var(--of-blue); }
+.year-slider input::-moz-range-thumb { width: 8px; height: 14px; border-radius: 4px; border: 2px solid #fff; background: var(--of-blue); box-shadow: 0 0 0 1px var(--of-blue); }
 /* Above the map's attribution line. */
 .map-status { bottom: 32px; padding: 4px 10px; border-radius: 8px; font-size: 12px; }
 .map-status button { margin-left: 8px; }
