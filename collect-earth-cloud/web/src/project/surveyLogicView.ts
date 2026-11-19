@@ -7,6 +7,7 @@ import type {
   ConditionPart,
   ConditionRows,
   DesignCondition,
+  DesignList,
   DesignListItem,
   DesignQuestion,
   DesignRule,
@@ -18,7 +19,7 @@ import type {
   TotalTest,
 } from "../api";
 import { isLanguage, translator, type Translate } from "../i18n";
-import { allQuestions } from "./surveyDesignView";
+import { allQuestions, textIn } from "./surveyDesignView";
 
 export type ConditionTest = ConditionPart["test"];
 
@@ -112,6 +113,24 @@ export function rowsOf(draft: ConditionDraft, questions: ReadonlyMap<string, Des
 /** Every answer of a list, at every level, in order */
 export function listOptions(items: readonly DesignListItem[]): DesignListItem[] {
   return items.flatMap((i) => [i, ...listOptions(i.items)]);
+}
+
+/**
+ * An example of a rule written as an expression in the question's own terms: an answer of its list named by its code
+ * (in quotes, as Collect compares codes), or a text's length; null where the general example does
+ */
+export function expressionExample(
+  q: DesignQuestion,
+  lists: ReadonlyMap<string, DesignList>,
+  language: string,
+  languages: readonly string[],
+): { kind: "list"; code: string; label: string } | { kind: "text" } | null {
+  if (q.type === "choice" && q.list) {
+    const first = listOptions(lists.get(q.list)?.items ?? [])[0];
+    return first ? { kind: "list", code: first.code, label: textIn(first.label, language, languages) || first.code } : null;
+  }
+  if (q.type === "text" || q.type === "memo") return { kind: "text" };
+  return null;
 }
 
 export type RuleKind = "range" | "length" | "total" | "expression";

@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { surveyDesign } from "../../../src/survey/design";
 import { translator } from "../i18n";
-import { importTexts, parseCsv, textRows, textsCsv } from "./surveyTextsView";
+import { decodeTexts, importTexts, parseCsv, textRows, textsCsv } from "./surveyTextsView";
 
 const basic = surveyDesign(readFileSync(new URL("../../../templates/collect_earth.idm.xml", import.meta.url)));
 
@@ -54,5 +54,24 @@ describe("the texts' spreadsheet in the dashboard's language", () => {
     expect(importTexts(basic, csv).changes).toEqual([]);
     const changed = csv.replace(/^("?title:label"?,[^,]*,)[^,\r\n]*/m, "$1New title");
     expect(importTexts(basic, changed).changes).toMatchObject([{ target: { kind: "title" }, language: "en", text: "New title" }]);
+  });
+});
+
+describe("a spreadsheet saved by Excel (review 3)", () => {
+  it("reads UTF-8, else Windows-1252, and refuses a file whose letters were lost", () => {
+    const utf8 = new TextEncoder().encode("key,what,es\r\ntitle:label,x,Año forestal\r\n");
+    expect(decodeTexts(utf8)).toEqual({ text: "key,what,es\r\ntitle:label,x,Año forestal\r\n", encoding: "utf-8" });
+    // Excel's plain CSV: ñ is one byte, 0xF1, which is no UTF-8
+    const cp1252 = Uint8Array.from([..."title:label;x;A"].map((c) => c.charCodeAt(0)).concat([0xf1, 0x6f, 0x20, 0x80]));
+    expect(decodeTexts(cp1252)).toEqual({ text: "title:label;x;Año €", encoding: "windows-1252" });
+    expect(decodeTexts(new TextEncoder().encode("key,what,es\r\ntitle:label,x,A\uFFFDo\r\n"))).toBeNull();
+  });
+
+  it("finds a rule's message by the rule it was for", () => {
+    const q = basic.pages[0].items.find((i) => i.kind === "question" && i.rules.length > 0)!;
+    const row = textRows(basic).find((r) => r.target.kind === "rule" && r.target.node === q.id)!;
+    expect(row.anchor).toBeDefined();
+    const csv = `key,what,en\r\n${row.key},x,New message\r\n`;
+    expect(importTexts(basic, csv).changes[0].anchor).toBe(row.anchor);
   });
 });

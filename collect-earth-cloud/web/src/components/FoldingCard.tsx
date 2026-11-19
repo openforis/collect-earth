@@ -21,7 +21,7 @@ export function OpenCards({ children }: { children: ReactNode }) {
  * A card whose content folds away under its title: for what is needed now and then (designing plots, the strata's
  * areas), so the page shows first what is used every day. Folded, its title says where things stand (`summary`).
  */
-export function FoldingCard({ title, summary, defaultOpen = false, danger = false, keepFolded = false, children }: {
+export function FoldingCard({ title, summary, defaultOpen = false, danger = false, keepFolded = false, lazy = false, children }: {
   title: string;
   summary?: ReactNode;
   defaultOpen?: boolean;
@@ -29,16 +29,22 @@ export function FoldingCard({ title, summary, defaultOpen = false, danger = fals
   danger?: boolean;
   /** Folds even inside `OpenCards`: what is rare or dangerous */
   keepFolded?: boolean;
+  /** Its content made only once it is first opened (a long one: the page shows sooner) */
+  lazy?: boolean;
   children: ReactNode;
 }) {
   const unfolded = useContext(Unfolded) && !keepFolded;
   const [open, setOpen] = useState(defaultOpen);
+  const [opened, setOpened] = useState(defaultOpen);
   const id = useId();
   if (unfolded) return <OpenFrame title={title} danger={danger}>{children}</OpenFrame>;
   return (
     <Paper variant="outlined" component="section" aria-labelledby={`${id}-title`} sx={danger ? { borderColor: "error.main" } : undefined}>
       <ButtonBase
-        onClick={() => setOpen(!open)}
+        onClick={() => {
+          setOpen(!open);
+          setOpened(true);
+        }}
         aria-expanded={open}
         aria-controls={`${id}-content`}
         sx={{ width: "100%", justifyContent: "flex-start", textAlign: "left", px: { xs: 2, sm: 3 }, py: 2, gap: 2, borderRadius: 1 }}
@@ -52,7 +58,7 @@ export function FoldingCard({ title, summary, defaultOpen = false, danger = fals
         <ExpandMore aria-hidden sx={{ transition: "transform 150ms", transform: open ? "rotate(180deg)" : "none", color: "action.active" }} />
       </ButtonBase>
       <Collapse in={open} id={`${id}-content`} unmountOnExit={false}>
-        <Box sx={{ px: { xs: 2, sm: 3 }, pb: { xs: 2, sm: 3 } }}>{children}</Box>
+        <Box sx={{ px: { xs: 2, sm: 3 }, pb: { xs: 2, sm: 3 } }}>{!lazy || opened ? children : null}</Box>
       </Collapse>
     </Paper>
   );

@@ -25,6 +25,7 @@ import Add from "@mui/icons-material/Add";
 import Close from "@mui/icons-material/Close";
 import EditOutlined from "@mui/icons-material/EditOutlined";
 import { createContext, useContext, useEffect, useId, useMemo, useState } from "react";
+import { useDraft, useSubmit, type AddResult } from "./surveyDialogs";
 import type { MessageKey } from "../i18n";
 import { useApp } from "../appContext";
 import { ToolButton } from "./ToolButton";
@@ -33,6 +34,7 @@ import { conditionWords, languageNames, questionLabel, ruleWords, TEST_KEYS, tex
 import { DescribeRule } from "./SurveyHelp";
 import {
   draftOf,
+  expressionExample,
   listOptions,
   needsValue,
   newRow,
@@ -158,8 +160,9 @@ export function ConditionDialog({ w, title, initial, candidates, allowAlways, no
   /** The question or table it belongs to: an expression is checked from its place */
   node?: number;
   onClose: () => void;
-  onApply: (rows: ConditionRows | null) => void;
-  onApplyText?: (text: string) => void;
+  /** Saved: the dialog closes once it is, and keeps what was chosen when it is not */
+  onApply: (rows: ConditionRows | null) => Promise<AddResult>;
+  onApplyText?: (text: string) => Promise<AddResult>;
 }) {
   const { t } = w;
   const titleId = useId();
@@ -168,12 +171,15 @@ export function ConditionDialog({ w, title, initial, candidates, allowAlways, no
   const [mode, setMode] = useState<"always" | "rows" | "text">(advanced !== null && onApplyText ? "text" : allowAlways && initial === null ? "always" : "rows");
   const [draft, setDraft] = useState<ConditionDraft>(start ?? { kind: "all", rows: [newRow(candidates[0])] });
   const [text, setText] = useState(advanced ?? "");
+  const [bad, setBad] = useState(false);
+  const submit = useSubmit(onClose);
   const questions = useMemo(() => byName(candidates), [candidates]);
   const rows = rowsOf(draft, questions);
-  const ready = mode === "always" || (mode === "rows" && rows !== null) || (mode === "text" && text.trim() !== "");
+  const ready = mode === "always" || (mode === "rows" && rows !== null) || (mode === "text" && text.trim() !== "" && !bad);
+  useDraft(text.trim() !== (advanced ?? "").trim());
   const choices = [...(allowAlways ? (["always"] as const) : []), "rows" as const, ...(onApplyText ? (["text"] as const) : [])];
   return (
-    <Dialog open onClose={onClose} aria-labelledby={titleId} maxWidth="md" fullWidth>
+    <Dialog open onClose={submit.busy ? undefined : onClose} aria-labelledby={titleId} maxWidth="md" fullWidth>
       <DialogTitle id={titleId}>{title}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
@@ -191,12 +197,14 @@ export function ConditionDialog({ w, title, initial, candidates, allowAlways, no
           ) : (
             <Typography variant="body2" color="text.secondary">{t("survey.logic.incomplete")}</Typography>
           ))}
-          {mode === "text" && node !== undefined && <ExpressionField w={w} node={node} kind="boolean" label={t("survey.logic.condition")} value={text} onChange={setText} />}
+          {mode === "text" && node !== undefined && <ExpressionField w={w} node={node} kind="boolean" label={t("survey.logic.condition")} value={text} onChange={setText} onBad={setBad} />}
+          {submit.problem}
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>{t("common.cancel")}</Button>
-        <Button variant="contained" disabled={!ready} onClick={() => (mode === "text" && onApplyText ? onApplyText(text.trim()) : onApply(mode === "rows" ? rows : null))}>
+        <Button onClick={onClose} disabled={submit.busy}>{t("common.cancel")}</Button>
+        <Button variant="contained" disabled={!ready || submit.busy}
+          onClick={() => void submit.run(mode === "text" && onApplyText ? onApplyText(text.trim()) : onApply(mode === "rows" ? rows : null))}>
           {t("survey.logic.apply")}
         </Button>
       </DialogActions>
@@ -211,7 +219,7 @@ export const ExpressionCheckContext = createContext<((input: ExpressionCheckInpu
  * An expression of Collect's language typed (a condition, a rule, a formula), checked as Collect checks it from the
  * place of its question, half a second after the typing stops
  */
-export function ExpressionField({ w, node, kind, label, value, onChange, helperText }: {
+export function ExpressionField({ w, node, kind, label, value, onChange, helperText, onBad }: {
   w: Words;
   node: number;
   kind: "boolean" | "value";
@@ -219,6 +227,8 @@ export function ExpressionField({ w, node, kind, label, value, onChange, helperT
   value: string;
   onChange: (text: string) => void;
   helperText?: string;
+  /** Told whether the check found the text as it is now wrong (Apply then waits for it to be put right) */
+  onBad?: (bad: boolean) => void;
 }) {
   const { t } = w;
   const check = useContext(ExpressionCheckContext);
@@ -244,6 +254,8 @@ export function ExpressionField({ w, node, kind, label, value, onChange, helperT
   }, [check, node, kind, value]);
   const checked = verdict && verdict.text === value.trim() ? verdict : null;
   const current = checked?.answer ?? null;
+  const bad = value.trim() !== "" && current !== null && !current.ok;
+  useEffect(() => onBad?.(bad), [bad, onBad]);
   const words =
     value.trim() === ""
       ? helperText
@@ -260,7 +272,7 @@ export function ExpressionField({ w, node, kind, label, value, onChange, helperT
       value={value}
       onChange={(e) => onChange(e.target.value)}
       multiline
-      error={current !== null && !current.ok}
+      error={bad}
       helperText={words}
       slotProps={{ htmlInput: { spellCheck: false, style: { fontFamily: "monospace" } }, formHelperText: { role: "status" } as object }}
     />
@@ -268,14 +280,17 @@ export function ExpressionField({ w, node, kind, label, value, onChange, helperT
 }
 
 /** Required: not, always, or when the rows hold */
-export function RequiredControl({ w, q, candidates, busy, onChange, onText }: {
+export function RequiredControl({ w, q, candidates, busy, onChange, onWhen, onText }: {
   w: Words;
   q: DesignQuestion;
   candidates: readonly DesignQuestion[];
   busy: boolean;
-  onChange: (required: boolean | ConditionRows) => void;
+  /** Required always, or never */
+  onChange: (required: boolean) => void;
+  /** Required when the rows hold: the dialog closes once it is saved */
+  onWhen: (rows: ConditionRows) => Promise<AddResult>;
   /** Required when an expression holds (stage 7) */
-  onText?: (text: string) => void;
+  onText?: (text: string) => Promise<AddResult>;
 }) {
   const { t } = w;
   const [asking, setAsking] = useState(false);
@@ -308,17 +323,8 @@ export function RequiredControl({ w, q, candidates, busy, onChange, onText }: {
           allowAlways={false}
           node={q.id}
           onClose={() => setAsking(false)}
-          onApply={(rows) => {
-            setAsking(false);
-            if (rows) onChange(rows);
-          }}
-          onApplyText={
-            onText &&
-            ((text) => {
-              setAsking(false);
-              onText(text);
-            })
-          }
+          onApply={(rows) => (rows ? onWhen(rows) : Promise.resolve({ saved: false }))}
+          onApplyText={onText}
         />
       )}
     </>
@@ -343,11 +349,17 @@ export function RuleDialog({ w, q, rule, kinds, candidates, onClose, onApply }: 
   /** The questions its condition can name */
   candidates: readonly DesignQuestion[];
   onClose: () => void;
-  onApply: (rule: NewRule) => void;
+  /** Saved: the dialog closes once it is, and keeps what was chosen when it is not */
+  onApply: (rule: NewRule) => Promise<AddResult>;
 }) {
   const { t } = w;
   const titleId = useId();
-  const [draft, setDraft] = useState<RuleDraft>(() => ruleDraftOf(rule, kinds, rule ? (rule.message[w.language] ?? "") : ""));
+  const [initial] = useState<RuleDraft>(() => ruleDraftOf(rule, kinds, rule ? (rule.message[w.language] ?? "") : ""));
+  const [draft, setDraft] = useState<RuleDraft>(initial);
+  const [badExpression, setBadExpression] = useState(false);
+  const [badWhen, setBadWhen] = useState(false);
+  const submit = useSubmit(onClose);
+  useDraft(JSON.stringify(draft) !== JSON.stringify(initial));
   const set = (patch: Partial<RuleDraft>) => setDraft((d) => ({ ...d, ...patch }));
   const questions = useMemo(() => byName(candidates), [candidates]);
   const made = ruleOf(draft.kind === "expression" ? { ...draft, onlyWhen: false } : draft, questions);
@@ -364,10 +376,13 @@ export function RuleDialog({ w, q, rule, kinds, candidates, onClose, onApply }: 
     // The message a person collecting reads: the rule in words, without saying it is a warning (the form shows that),
     // in the survey's language when the dashboard has it; else no message
     const message = draft.message.trim() || (generated ?? "");
-    onApply({ ...made, message: { [w.language]: message } });
+    void submit.run(onApply({ ...made, message: { [w.language]: message } }));
   };
+  // An expression the check found wrong is put right before it is applied
+  const bad = draft.kind === "expression" && (badExpression || badWhen);
+  const example = expressionExample(q, w.lists, w.language, w.design.languages);
   return (
-    <Dialog open onClose={onClose} aria-labelledby={titleId} maxWidth="md" fullWidth>
+    <Dialog open onClose={submit.busy ? undefined : onClose} aria-labelledby={titleId} maxWidth="md" fullWidth>
       <DialogTitle id={titleId}>{t("survey.logic.ruleTitle", { question: label })}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
@@ -407,8 +422,9 @@ export function RuleDialog({ w, q, rule, kinds, candidates, onClose, onApply }: 
           )}
           {draft.kind === "expression" && (
             <>
-              <ExpressionField w={w} node={q.id} kind="boolean" label={t("survey.logic.expression")} value={draft.expressionText} onChange={(expressionText) => set({ expressionText })} helperText={t("survey.logic.expressionHelp")} />
-              <ExpressionField w={w} node={q.id} kind="boolean" label={t("survey.logic.expressionWhen")} value={draft.whenText} onChange={(whenText) => set({ whenText })} />
+              <ExpressionField w={w} node={q.id} kind="boolean" label={t("survey.logic.expression")} value={draft.expressionText} onChange={(expressionText) => set({ expressionText })}
+                helperText={example?.kind === "list" ? t("survey.logic.expressionHelpList", { code: example.code, label: example.label }) : example?.kind === "text" ? t("survey.logic.expressionHelpText") : t("survey.logic.expressionHelp")} onBad={setBadExpression} />
+              <ExpressionField w={w} node={q.id} kind="boolean" label={t("survey.logic.expressionWhen")} value={draft.whenText} onChange={(whenText) => set({ whenText })} onBad={setBadWhen} />
             </>
           )}
           <RadioGroup value={draft.flag} onChange={(e) => set({ flag: e.target.value as RuleDraft["flag"] })}>
@@ -427,14 +443,23 @@ export function RuleDialog({ w, q, rule, kinds, candidates, onClose, onApply }: 
           {words ? (
             <Typography variant="body2" color="text.secondary">{t("survey.logic.inWords", { text: words })}</Typography>
           ) : (
-            <Typography variant="body2" color="text.secondary">{draft.onlyWhen ? t("survey.logic.incomplete") : t("survey.logic.ruleIncomplete")}</Typography>
+            <Typography variant="body2" color="text.secondary">
+              {draft.kind === "expression"
+                ? t("survey.logic.expressionIncomplete")
+                : draft.onlyWhen
+                  ? t("survey.logic.incomplete")
+                  : draft.kind === "total"
+                    ? t("survey.logic.totalIncomplete")
+                    : t("survey.logic.ruleIncomplete")}
+            </Typography>
           )}
           <Typography variant="body2" color="text.secondary">{t("survey.logic.tried")}</Typography>
+          {submit.problem}
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>{t("common.cancel")}</Button>
-        <Button variant="contained" disabled={!made} onClick={apply}>
+        <Button onClick={onClose} disabled={submit.busy}>{t("common.cancel")}</Button>
+        <Button variant="contained" disabled={!made || bad || submit.busy} onClick={apply}>
           {t("survey.logic.apply")}
         </Button>
       </DialogActions>
@@ -488,17 +513,24 @@ interface FormulaDraft {
  * A calculated value's formulas as text (stage 7): each a value or an expression, with its condition; the form gives
  * the value of the first whose condition holds. Every expression checked as it is typed, all of them again when saved.
  */
-export function FormulasDialog({ w, q, onClose, onApply }: { w: Words; q: DesignQuestion; onClose: () => void; onApply: (formulas: NewFormula[]) => void }) {
+export function FormulasDialog({ w, q, onClose, onApply }: { w: Words; q: DesignQuestion; onClose: () => void; onApply: (formulas: NewFormula[]) => Promise<AddResult> }) {
   const { t } = w;
   const titleId = useId();
-  const [rows, setRows] = useState<FormulaDraft[]>(() =>
+  const [initial] = useState<FormulaDraft[]>(() =>
     (q.formulas ?? []).map((f) => (f.expression !== null ? { mode: "expression", text: f.expression, when: f.when ?? "" } : { mode: "value", text: f.value ?? "", when: f.when ?? "" })),
   );
+  const [rows, setRows] = useState<FormulaDraft[]>(initial);
+  /** The fields the check found wrong, by "row:part" */
+  const [bad, setBad] = useState<ReadonlySet<string>>(new Set());
+  const badField = (key: string) => (b: boolean) => setBad((all) => (all.has(key) === b ? all : b ? new Set([...all, key]) : new Set([...all].filter((k) => k !== key))));
+  const submit = useSubmit(onClose);
+  useDraft(JSON.stringify(rows) !== JSON.stringify(initial));
   const setRow = (i: number, patch: Partial<FormulaDraft>) => setRows((all) => all.map((r, j) => (j === i ? { ...r, ...patch } : r)));
   const label = textIn(q.label, w.language, w.design.languages) || q.name;
-  const ready = rows.length > 0 && rows.every((r) => r.text.trim() !== "");
+  const wrong = rows.some((r, i) => (r.mode === "expression" && bad.has(`${i}:text`)) || bad.has(`${i}:when`));
+  const ready = rows.length > 0 && rows.every((r) => r.text.trim() !== "") && !wrong;
   return (
-    <Dialog open onClose={onClose} aria-labelledby={titleId} maxWidth="md" fullWidth>
+    <Dialog open onClose={submit.busy ? undefined : onClose} aria-labelledby={titleId} maxWidth="md" fullWidth>
       <DialogTitle id={titleId}>{t("survey.formulas.title", { question: label })}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
@@ -512,17 +544,17 @@ export function FormulasDialog({ w, q, onClose, onApply }: { w: Words; q: Design
                   <ToggleButton value="expression">{t("survey.formulas.expression")}</ToggleButton>
                 </ToggleButtonGroup>
                 <Tooltip title={t("survey.formulas.remove")}>
-                  <IconButton aria-label={`${t("survey.formulas.remove")} ${i + 1}`} onClick={() => setRows(rows.filter((_, j) => j !== i))}>
+                  <IconButton aria-label={`${t("survey.formulas.remove")} ${i + 1}`} onClick={() => { setRows(rows.filter((_, j) => j !== i)); setBad(new Set()); }}>
                     <Close fontSize="small" />
                   </IconButton>
                 </Tooltip>
               </Stack>
               {r.mode === "expression" ? (
-                <ExpressionField w={w} node={q.id} kind="value" label={t("survey.formulas.expression")} value={r.text} onChange={(text) => setRow(i, { text })} />
+                <ExpressionField w={w} node={q.id} kind="value" label={t("survey.formulas.expression")} value={r.text} onChange={(text) => setRow(i, { text })} onBad={badField(`${i}:text`)} />
               ) : (
                 <TextField label={t("survey.formulas.value")} value={r.text} onChange={(e) => setRow(i, { text: e.target.value })} helperText={q.list ? t("survey.formulas.valueCode") : undefined} />
               )}
-              <ExpressionField w={w} node={q.id} kind="boolean" label={t("survey.formulas.when")} value={r.when} onChange={(when) => setRow(i, { when })} />
+              <ExpressionField w={w} node={q.id} kind="boolean" label={t("survey.formulas.when")} value={r.when} onChange={(when) => setRow(i, { when })} onBad={badField(`${i}:when`)} />
             </Stack>
           ))}
           <Box>
@@ -530,15 +562,16 @@ export function FormulasDialog({ w, q, onClose, onApply }: { w: Words; q: Design
               {t("survey.formulas.add")}
             </Button>
           </Box>
+          {submit.problem}
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>{t("common.cancel")}</Button>
+        <Button onClick={onClose} disabled={submit.busy}>{t("common.cancel")}</Button>
         <Button
           variant="contained"
-          disabled={!ready}
+          disabled={!ready || submit.busy}
           onClick={() =>
-            onApply(rows.map((r) => ({ ...(r.mode === "expression" ? { expression: r.text.trim() } : { value: r.text.trim() }), ...(r.when.trim() !== "" ? { when: r.when.trim() } : {}) })))
+            void submit.run(onApply(rows.map((r) => ({ ...(r.mode === "expression" ? { expression: r.text.trim() } : { value: r.text.trim() }), ...(r.when.trim() !== "" ? { when: r.when.trim() } : {}) }))))
           }>
           {t("survey.logic.apply")}
         </Button>

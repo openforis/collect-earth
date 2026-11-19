@@ -693,3 +693,14 @@ spoiled, updates that did not reach people, and slow typing; all of it is fixed 
   (`CloudSyncService.sendNow` answers `Unsent`: to send, refused); the records saved while the update downloads are
   sent before the restart. The sync keeps the cloud project it started for: when another project is opened, the
   last saves at the shutdown are queued and sent for the project they were made in (`CloudSyncService.projectChanged`).
+- *Server, second review.* A second review ran each save through Collect's own validator (the desktop's
+  `DesignedSurveyIdmlTest`) and timed the routes on large projects. Fixed: a table's row key now takes an id of its
+  own (it shared the next one, so a column added in the same save repeated it); a list keeps at least one answer and
+  a page a name (Collect refuses `<items/>` and a tab with no label); a sub-list needs a list with answers under its
+  answers; a new page is named once for both the served and the uploaded file (`namedPages`: named from ids, it
+  differed, and later changes naming it missed the uploaded file); an expression nested over 100 deep is refused,
+  not a stack overflow; a save's version is written in the same transaction as the file. Speed: the impact check
+  reads names, conditions, keys and rows once (one change on 2,000 plots: 88 ms, was 8.6 s), at most 500,000 tries
+  of a change on a plot per request; a save keeps the schema index and who uses each answer between operations
+  (999 answers deleted: 0.4 s, was 14 s). New surveys from the templates read as written for the project: texts
+  without the file's layout, the multipurpose's `<END YEAR>` and 2023 set to the last year chosen.
