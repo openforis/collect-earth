@@ -8,7 +8,8 @@
 import { createHash } from 'node:crypto';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { audit } from '../activity.js';
-import { CepError, readCep, roundInfoOf, withSurvey, type CepFiles } from '../cep.js';
+import { cepProperties, CepError, readCep, roundInfoOf, withProperties, withSurvey, type CepFiles } from '../cep.js';
+import { rewriteProperties } from '../plotLayout.js';
 import type { Config } from '../config.js';
 import { checkUploadFits } from '../limits.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
@@ -50,6 +51,15 @@ const MAX_NEW_ANSWERS = 20000;
 export const revisionOf = (survey: Uint8Array): string => createHash('sha256').update(survey).digest('hex').slice(0, 24);
 
 const surveyOf = (files: CepFiles): Buffer => Buffer.from(files.entries.get(files.surveyPath)!);
+
+/**
+ * A project file whose survey the designer changed shows Collect Earth 2.0's form, made from the survey: never the
+ * balloon of the upload (web_form=balloon), written for the survey before. Written out, as Collect Earth 2.0 keeps the
+ * value of the project opened before when the key is missing; versions before 2.0 ignore it.
+ */
+function generatedForm(cep: Buffer, date: Date): Buffer {
+  return cepProperties(readCep(cep)).get('web_form') === 'generated' ? cep : withProperties(cep, (data) => rewriteProperties(data, { web_form: 'generated' }), date);
+}
 
 async function designAnswer(store: Store, config: Config, projectId: string, log: FastifyRequest['log']): Promise<SurveyDesignAnswer> {
   const empty = { design: null, revision: null, editable: false, peopleWithFile: 0, olderSurveyPlots: 0, problems: [] };
@@ -341,9 +351,9 @@ export async function registerSurveyDesignRoutes(app: FastifyInstance, store: St
     const date = new Date();
     const storedOriginal = await store.getOriginalCep(projectId);
     const originalCep = storedOriginal && !storedOriginal.equals(served) ? storedOriginal : null;
-    const nextServed = withSurvey(served, next, date);
+    const nextServed = generatedForm(withSurvey(served, next, date), date);
     // The uploaded file's survey that could not be changed stays as it is: never the served one, with the server's fields
-    const nextOriginalCep = originalCep ? (nextOriginal ? withSurvey(originalCep, nextOriginal, date) : originalCep) : null;
+    const nextOriginalCep = originalCep ? (nextOriginal ? generatedForm(withSurvey(originalCep, nextOriginal, date), date) : originalCep) : null;
     const over = await checkUploadFits(store, projectId, { kind: 'cep' }, nextServed.length + (nextOriginalCep?.length ?? 0));
     if (over) return { status: 413, body: over };
     // Written only while the project file is still the one the change was made on: of two changes at once, the

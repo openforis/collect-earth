@@ -7,6 +7,7 @@ import java.util.Date;
 import java.util.Map;
 
 import org.openforis.collect.earth.app.EarthConstants;
+import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.core.handlers.BalloonInputFieldsUtils;
 import org.openforis.collect.model.CollectRecord;
 import org.openforis.collect.persistence.xml.DataMarshaller;
@@ -34,6 +35,10 @@ public class CloudRecordSerializer {
 	@Autowired(required = false)
 	private PlotTimeService plotTimes;
 
+	/** The survey loaded, whose revision is sent with its records; absent in tests and tools. */
+	@Autowired(required = false)
+	private EarthSurveyService surveys;
+
 	/** One record (or deletion tombstone) as uploaded to the cloud service. */
 	public static class RecordEnvelope {
 		private final String recordKey;
@@ -47,6 +52,11 @@ public class CloudRecordSerializer {
 		private final boolean deleted;
 		/** Seconds of active work on the plot counted on this machine (PlotTimeService), or null when unknown. */
 		private final Integer activeSeconds;
+		/**
+		 * The revision of the survey the record was made with (SurveyRevision: the cloud's own name for it), or null when
+		 * not known (a tombstone, a survey not read from a file). Optional on the wire: servers before it ignore it.
+		 */
+		private final String surveyRevision;
 
 		RecordEnvelope(String recordKey, String surveyUri, String operator, Date modifiedOn, boolean activelySaved,
 				int step, String xml, Map<String, String> summary, boolean deleted) {
@@ -55,7 +65,13 @@ public class CloudRecordSerializer {
 
 		RecordEnvelope(String recordKey, String surveyUri, String operator, Date modifiedOn, boolean activelySaved,
 				int step, String xml, Map<String, String> summary, boolean deleted, Integer activeSeconds) {
+			this(recordKey, surveyUri, operator, modifiedOn, activelySaved, step, xml, summary, deleted, activeSeconds, null);
+		}
+
+		RecordEnvelope(String recordKey, String surveyUri, String operator, Date modifiedOn, boolean activelySaved,
+				int step, String xml, Map<String, String> summary, boolean deleted, Integer activeSeconds, String surveyRevision) {
 			this.activeSeconds = activeSeconds;
+			this.surveyRevision = surveyRevision;
 			this.recordKey = recordKey;
 			this.surveyUri = surveyUri;
 			this.operator = operator;
@@ -113,11 +129,15 @@ public class CloudRecordSerializer {
 		 */
 		public RecordEnvelope withOperator(String newOperator) {
 			return new RecordEnvelope(recordKey, surveyUri, newOperator, modifiedOn, activelySaved, step, xml, summary,
-					deleted, activeSeconds);
+					deleted, activeSeconds, surveyRevision);
 		}
 
 		public Integer getActiveSeconds() {
 			return activeSeconds;
+		}
+
+		public String getSurveyRevision() {
+			return surveyRevision;
 		}
 	}
 
@@ -134,7 +154,16 @@ public class CloudRecordSerializer {
 		boolean activelySaved = Boolean.parseBoolean(summary.get(EarthConstants.ACTIVELY_SAVED_PARAMETER));
 		Integer activeSeconds = plotTimes == null ? null : plotTimes.activeSeconds(surveyUri, recordKey);
 		return new RecordEnvelope(recordKey, surveyUri, operator, record.getModifiedDate(), activelySaved,
-				record.getStep().getStepNumber(), writer.toString(), summary, false, activeSeconds);
+				record.getStep().getStepNumber(), writer.toString(), summary, false, activeSeconds, surveyRevisionOf(surveyUri));
+	}
+
+	/** The revision of the survey loaded, when it is the record's */
+	private String surveyRevisionOf(String surveyUri) {
+		if (surveys == null || surveys.getCollectSurvey() == null || surveyUri == null
+				|| !surveyUri.equals(surveys.getCollectSurvey().getUri())) {
+			return null;
+		}
+		return surveys.getLoadedSurveyRevision();
 	}
 
 	/** A deletion marker: no XML/summary payload, the server soft-deletes the record. */

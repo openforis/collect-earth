@@ -166,38 +166,89 @@ public class CloudSyncService implements ApplicationListener<ContextRefreshedEve
 				training.checkIfDue(System.currentTimeMillis()); // a training started or finished on the dashboard
 			}
 
-			Date now = new Date();
-			List<QueueItem> due = queueDao.takeDue(BATCH_SIZE, now, surveyUri(), localPropertiesService.getCloudProjectId());
-			if (due.isEmpty()) {
-				return;
-			}
-			List<RecordEnvelope> envelopes = new ArrayList<>();
-			List<QueueItem> batched = new ArrayList<>();
-			for (QueueItem item : due) {
-				RecordEnvelope envelope;
-				try {
-					envelope = buildEnvelope(item);
-				} catch (Exception e) {
-					// a record that cannot be loaded/serialized must not stall the rest
-					// of the queue: back it off individually and carry on
-					logger.warn("Could not prepare record {} for cloud sync: {}", item.getRecordKey(), e.getMessage());
-					queueDao.markFailed(item, e.getMessage(), nextAttempt(now, item.getAttempts()));
-					continue;
-				}
-				if (envelope == null) {
-					continue; // record disappeared locally; already marked synced
-				}
-				envelopes.add(envelope);
-				batched.add(item);
-			}
-			if (envelopes.isEmpty()) {
-				return;
-			}
-			uploadAndApply(envelopes, batched);
+			sendDue(new Date());
 		} catch (Exception e) {
 			logger.warn("Unexpected error during cloud sync cycle: {}", e.getMessage());
 		} finally {
 			syncLock.unlock();
+		}
+	}
+
+	/** Sends a batch of the items due by then (PENDING, or FAILED with a next attempt before it). The caller holds the lock. */
+	private void sendDue(Date dueBy) {
+		Date now = new Date();
+		List<QueueItem> due = queueDao.takeDue(BATCH_SIZE, dueBy, surveyUri(), localPropertiesService.getCloudProjectId());
+		if (due.isEmpty()) {
+			return;
+		}
+		List<RecordEnvelope> envelopes = new ArrayList<>();
+		List<QueueItem> batched = new ArrayList<>();
+		for (QueueItem item : due) {
+			RecordEnvelope envelope;
+			try {
+				envelope = buildEnvelope(item);
+			} catch (Exception e) {
+				// a record that cannot be loaded/serialized must not stall the rest
+				// of the queue: back it off individually and carry on
+				logger.warn("Could not prepare record {} for cloud sync: {}", item.getRecordKey(), e.getMessage());
+				queueDao.markFailed(item, e.getMessage(), nextAttempt(now, item.getAttempts()));
+				continue;
+			}
+			if (envelope == null) {
+				continue; // record disappeared locally; already marked synced
+			}
+			envelopes.add(envelope);
+			batched.add(item);
+		}
+		if (envelopes.isEmpty()) {
+			return;
+		}
+		uploadAndApply(envelopes, batched);
+	}
+
+	/**
+	 * Sends now, on the caller's thread, every record of the project open not sent yet, whatever their backoff, for at
+	 * most {@code timeoutMs} (a batch already under way is let finish): before a changed survey is taken
+	 * (SurveyUpdateService), as the records must reach the server in the shape of the survey they were made with. Stops
+	 * at a batch that sends nothing more (offline, refused).
+	 *
+	 * @return how many are still to be sent (none when no survey is loaded: nothing could be sent anyway)
+	 */
+	public int sendNow(long timeoutMs) {
+		if (earthSurveyService.getCollectSurvey() == null) {
+			return 0;
+		}
+		String surveyUri = surveyUri();
+		String cloudProjectId = localPropertiesService.getCloudProjectId();
+		long deadline = System.currentTimeMillis() + timeoutMs;
+		boolean locked = false;
+		try {
+			locked = syncLock.tryLock(timeoutMs, TimeUnit.MILLISECONDS);
+			int left = queueDao.countToSend(surveyUri, cloudProjectId);
+			if (!locked || left == 0 || StringUtils.isBlank(localPropertiesService.getCloudSyncToken())) {
+				return left;
+			}
+			ensureSurveyUploaded();
+			while (left > 0 && System.currentTimeMillis() < deadline) {
+				// Due by after the longest backoff: everything not sent goes now
+				sendDue(new Date(System.currentTimeMillis() + MAX_BACKOFF_MS + 60_000L));
+				int after = queueDao.countToSend(surveyUri, cloudProjectId);
+				if (after >= left) {
+					return after;
+				}
+				left = after;
+			}
+			return left;
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			return queueDao.countToSend(surveyUri, cloudProjectId);
+		} catch (RuntimeException e) {
+			logger.warn("The records could not be sent now: {}", e.getMessage());
+			return queueDao.countToSend(surveyUri, cloudProjectId);
+		} finally {
+			if (locked) {
+				syncLock.unlock();
+			}
 		}
 	}
 
@@ -317,14 +368,20 @@ public class CloudSyncService implements ApplicationListener<ContextRefreshedEve
 	 * project of before), the account's role in it and whether it is the server's administrator, which a coordinator
 	 * may have changed since.
 	 */
-	private void refreshProject() {
+	void refreshProject() {
 		CloudBinding binding = localPropertiesService.getCloudBinding();
 		if (projectRefreshed || binding == null) {
 			return;
 		}
 		if (CloudService.describe(apiClient, binding, localPropertiesService.getCloudSyncToken())) {
 			projectRefreshed = true;
-			localPropertiesService.saveCloudBinding(binding);
+			// Only what was asked, on the binding as it is now: the copy read before the server answered is not saved
+			// whole, as it would undo what was saved meanwhile (the survey's revision, SurveyUpdateService)
+			localPropertiesService.updateCloudBinding(new File(binding.folder), stored -> {
+				stored.projectName = binding.projectName;
+				stored.role = binding.role;
+				stored.serverAdmin = binding.serverAdmin;
+			});
 		}
 	}
 

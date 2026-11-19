@@ -125,6 +125,14 @@ public class EarthProjectsService {
 	 * @throws IOException If the project folder or one of its files cannot be found
 	 */
 	public boolean loadProjectInFolder(File projectFolder) throws IOException{
+		return loadProjectInFolder(projectFolder, false);
+	}
+
+	/**
+	 * {@link #loadProjectInFolder(File)}, saying whether the folder is a cloud project's ({@code cloudProject}: one being
+	 * downloaded from its server, not bound to it yet; a folder bound to one is a cloud project's anyway).
+	 */
+	public boolean loadProjectInFolder(File projectFolder, boolean cloudProject) throws IOException{
 
 		File projectPropertiesFile = getProjectPropertiesFile( projectFolder );
 
@@ -142,18 +150,18 @@ public class EarthProjectsService {
 
 			Properties projectProperties = getProjectProperties( projectPropertiesFile );
 
-			applyPropertiesToCollectEarth( projectProperties, projectFolder );
+			CloudBinding binding = localPropertiesService.getCloudBinding(projectFolder);
+			applyPropertiesToCollectEarth( projectProperties, projectFolder, binding != null || cloudProject );
 
 			CollectDBDriver driver = localPropertiesService.getCollectDBDriver();
-			CloudBinding cloudProject = localPropertiesService.getCloudBinding(projectFolder);
-			CollectDBDriver after = driverAfterLoading(driver, cloudProject != null,
+			CollectDBDriver after = driverAfterLoading(driver, binding != null,
 					CollectDBDriver.POSTGRESQL.name().equals(localPropertiesService.getValue(EarthProperty.DB_DRIVER_BEFORE_CLOUD)));
 			if (after != driver) {
 				localPropertiesService.saveCollectDBDriver(after);
 			}
 			// In a cloud project the operator is the account it is collected with
-			if (cloudProject != null && StringUtils.isNotBlank(cloudProject.username)) {
-				localPropertiesService.saveOperator(cloudProject.username);
+			if (binding != null && StringUtils.isNotBlank(binding.username)) {
+				localPropertiesService.saveOperator(binding.username);
 			}
 
 			addToProjectList(projectFolder);
@@ -213,7 +221,11 @@ public class EarthProjectsService {
 		return new File( projectFolder.getAbsolutePath() + File.separator + PROJECT_PROPERTIES_FILE_NAME );
 	}
 
-	private void applyPropertiesToCollectEarth(Properties projectProperties, File projectFolder) {
+	/**
+	 * @param cloudProject a cloud project's: the settings its server's project file leaves out are not those of the
+	 *        project loaded before it either (see {@link #keysClearedWhenLeftOut})
+	 */
+	private void applyPropertiesToCollectEarth(Properties projectProperties, File projectFolder, boolean cloudProject) {
 
 		// Only the keys of the project are overwritten, so a project without a web form kept the one of the project
 		// loaded before it, and the plots map showed the form of another survey
@@ -228,6 +240,11 @@ public class EarthProjectsService {
 		if (!projectProperties.containsKey(EarthProperty.EXPLORER_CONFIG.toString())) {
 			localPropertiesService.setValue(EarthProperty.EXPLORER_CONFIG, ""); //$NON-NLS-1$
 		}
+		for (EarthProperty key : keysClearedWhenLeftOut(cloudProject)) {
+			if (!projectProperties.containsKey(key.toString())) {
+				localPropertiesService.setValue(key, ""); //$NON-NLS-1$
+			}
+		}
 
 		for (Object key : projectProperties.keySet()) {
 			String value = projectProperties.getProperty((String) key);
@@ -240,6 +257,19 @@ public class EarthProjectsService {
 			}
 		}
 
+	}
+
+	/**
+	 * The settings of a project loaded that are cleared when its project file does not have them, beyond the web
+	 * balloon, the sample point numbers and the Explorer window (cleared for every project). In a cloud project: its plot
+	 * file ({@code csv}), which the project files its server makes leave out (the person's plots are downloaded after,
+	 * MyPlotsService), so the plot file of the project open before is not shown when none could be downloaded; and the
+	 * form ({@code web_form}), so a project file that no longer asks for its balloon (its survey changed in the
+	 * dashboard's designer) shows the form made from its survey. A local project keeps them as before: its plot file
+	 * is one the person may have chosen.
+	 */
+	static EarthProperty[] keysClearedWhenLeftOut(boolean cloudProject) {
+		return cloudProject ? new EarthProperty[] { EarthProperty.SAMPLE_FILE, EarthProperty.WEB_FORM } : new EarthProperty[0];
 	}
 
 	private EarthProperty getEarthPropertyEnum(Object key) {
@@ -299,12 +329,17 @@ public class EarthProjectsService {
 
 
 	public boolean loadCompressedProjectFile( File projectZipFile ) throws IOException{
+		return loadCompressedProjectFile(projectZipFile, false);
+	}
+
+	/** {@link #loadCompressedProjectFile(File)} of a cloud project's file, downloaded from its server ({@code cloudProject}) */
+	public boolean loadCompressedProjectFile( File projectZipFile, boolean cloudProject ) throws IOException{
 		String refusal = refusalOf(projectZipFile);
 		if (refusal != null) {
 			throw new IOException(refusal);
 		}
 		File unzippedFolder = unzipContentsOnProjectFolder(projectZipFile);
-		return( loadProjectInFolder(unzippedFolder) );
+		return( loadProjectInFolder(unzippedFolder, cloudProject) );
 	}
 
 

@@ -197,4 +197,28 @@ class LocalPropertiesCloudProjectsTest {
 		assertFalse(file.containsKey("cloud_project_id"));
 		assertEquals(CollectDBDriver.SQLITE, service.getCollectDBDriver());
 	}
+
+	/** A field of a binding changed as it is stored, the others left; earlier settings, without the new fields, still read */
+	@Test
+	public void aBindingIsChangedFieldByFieldAsItIsStored() {
+		Properties file = new Properties();
+		// As an earlier version wrote it: no surveyRevision, no surveyRevisionRefused
+		file.setProperty("cloud_projects", "{\"projects\":[{\"folder\":\"" + KENYA.getPath().replace("\\", "\\\\")
+				+ "\",\"server\":\"https://a.org\",\"projectId\":\"p1\",\"username\":\"ana\"}],\"accounts\":{}}");
+		LocalPropertiesService properties = new LocalPropertiesService(file);
+		CloudBinding read = properties.getCloudBinding(KENYA);
+		assertNull(read.surveyRevision);
+		assertNull(read.surveyRevisionRefused);
+
+		CloudBinding copy = properties.getCloudBinding(KENYA);
+		assertTrue(properties.updateCloudBinding(KENYA, b -> b.surveyRevision = "r1"));
+		copy.role = "reviewer";
+		assertTrue(properties.updateCloudBinding(KENYA, b -> b.role = copy.role));
+		CloudBinding stored = properties.getCloudBinding(KENYA);
+		assertEquals("r1", stored.surveyRevision);
+		assertEquals("reviewer", stored.role);
+		assertEquals("ana", stored.username);
+		assertFalse(properties.updateCloudBinding(PERU, b -> b.surveyRevision = "r2"));
+		assertNull(properties.getCloudBinding(PERU));
+	}
 }

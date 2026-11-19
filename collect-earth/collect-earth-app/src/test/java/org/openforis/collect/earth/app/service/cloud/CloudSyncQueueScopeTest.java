@@ -219,8 +219,21 @@ public class CloudSyncQueueScopeTest {
 		when(api.isServerAdmin("https://c.org", "token")).thenReturn(null);
 		sync.syncCycle();
 		sync.syncCycle();
-		verify(properties, org.mockito.Mockito.times(1)).saveCloudBinding(org.mockito.ArgumentMatchers.argThat(
-				b -> "reviewer".equals(b.role) && "Kenya 2025".equals(b.projectName) && b.serverAdmin == null));
+		// Only what was asked, on the binding as it is stored: what was saved meanwhile stays
+		@SuppressWarnings("unchecked")
+		org.mockito.ArgumentCaptor<java.util.function.Consumer<org.openforis.collect.earth.app.service.LocalPropertiesService.CloudBinding>> change = org.mockito.ArgumentCaptor
+				.forClass(java.util.function.Consumer.class);
+		verify(properties, org.mockito.Mockito.times(1)).updateCloudBinding(eq(new File("C:/projects/kenya")), change.capture());
+		verify(properties, never()).saveCloudBinding(any());
+		org.openforis.collect.earth.app.service.LocalPropertiesService.CloudBinding stored = new org.openforis.collect.earth.app.service.LocalPropertiesService.CloudBinding(
+				"C:/projects/kenya", "https://c.org", "p-kenya", null, "ana");
+		stored.surveyRevision = "r1";
+		stored.serverAdmin = Boolean.TRUE;
+		change.getValue().accept(stored);
+		assertEquals("reviewer", stored.role);
+		assertEquals("Kenya 2025", stored.projectName);
+		assertNull(stored.serverAdmin);
+		assertEquals("r1", stored.surveyRevision);
 		verify(api, org.mockito.Mockito.times(2)).getProject(any());
 	}
 

@@ -129,7 +129,7 @@ public class AssignedPlotFileSetupTest {
 		request.username = "maria";
 		request.password = "pw";
 		cloud.join(request);
-		verify(projects).loadCompressedProjectFile(cep);
+		verify(projects).loadCompressedProjectFile(cep, true);
 		// The join asks nothing about the plots: the start after it does
 		verify(api, never()).getMyAssignments();
 

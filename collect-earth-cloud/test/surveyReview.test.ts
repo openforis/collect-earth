@@ -3,7 +3,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { readCep } from '../src/cep.js';
+import { cepProperties, readCep } from '../src/cep.js';
 import { checkSurvey } from '../src/survey/check.js';
 import { readCondition } from '../src/survey/condition.js';
 import { surveyDesign } from '../src/survey/design.js';
@@ -157,6 +157,8 @@ describe('the routes', () => {
     expect((await save([{ op: 'deleteQuestion', id: one }])).statusCode).toBe(200);
     original = await originalDesign(p.projectId);
     expect(questions(original).filter((q) => q.name.startsWith('question_')).map((q) => q.name)).toEqual(['question_two', 'question_three']);
+    // Both show Collect Earth 2.0's form made from the survey, not a balloon written for the survey before
+    for (const cep of [await ctx.store.getCep(p.projectId), await ctx.store.getOriginalCep(p.projectId)]) expect(cepProperties(readCep(cep!)).get('web_form')).toBe('generated');
     // The uploaded file never gets the server's fields
     expect(questions(original).some((q) => q.name === 'round')).toBe(questions(surveyDesign(readSurveyOf(demoCep()))).some((q) => q.name === 'round'));
   });

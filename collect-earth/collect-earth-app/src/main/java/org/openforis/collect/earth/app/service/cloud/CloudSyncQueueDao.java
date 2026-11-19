@@ -354,6 +354,17 @@ public class CloudSyncQueueDao {
 		return count == null ? 0 : count;
 	}
 
+	/**
+	 * How many records of the survey and cloud project this computer still has to send: pending, or failed and retried.
+	 * Not those in conflict, which the server keeps a newer save of and which are not sent again unless saved again.
+	 */
+	public synchronized int countToSend(String surveyUri, String cloudProjectId) {
+		Integer count = jdbc().queryForObject("SELECT COUNT(*) FROM " + TABLE + " WHERE record_key <> ?" + SCOPE //$NON-NLS-1$ //$NON-NLS-2$
+				+ " AND sync_status IN ('" + STATUS_PENDING + "','" + STATUS_FAILED + "')", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+				Integer.class, WATERMARK_KEY, surveyUri, StringUtils.trimToEmpty(cloudProjectId));
+		return count == null ? 0 : count;
+	}
+
 	private static Timestamp toTimestamp(Date date) {
 		return date == null ? null : new Timestamp(date.getTime());
 	}
