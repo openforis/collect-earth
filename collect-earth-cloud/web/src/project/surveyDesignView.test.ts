@@ -134,6 +134,7 @@ describe("the server's refusals and the check's syntax, in the dashboard's langu
     expect(refusalWords(fr, "nameTaken", { what: "list", name: "colours" })).toContain("liste de réponses nommée colours");
     expect(refusalWords(es, "inUse", { name: "A", users: "q1, q2" })).toBe("A se usa en q1, q2: cambie eso primero.");
     expect(refusalWords(es, "tooMany")).toContain("Demasiados cambios");
+    expect(refusalWords(fr, "fixedField", { name: "plot_id" })).toBe("plot_id est rempli par Collect Earth : il ne peut pas être copié.");
     expect(refusalWords(es, "gone", { what: "elephant", name: "x" })).toBeNull();
     expect(refusalWords(es, undefined)).toBeNull();
     expect(refusalWords(es, "somethingNew")).toBeNull();

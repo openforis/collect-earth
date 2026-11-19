@@ -24,6 +24,7 @@ import ExpandMore from "@mui/icons-material/ExpandMore";
 import EditOutlined from "@mui/icons-material/EditOutlined";
 import Translate from "@mui/icons-material/Translate";
 import Add from "@mui/icons-material/Add";
+import ContentCopy from "@mui/icons-material/ContentCopyOutlined";
 import ArrowDownward from "@mui/icons-material/ArrowDownward";
 import ArrowUpward from "@mui/icons-material/ArrowUpward";
 import DeleteOutline from "@mui/icons-material/DeleteOutlined";
@@ -91,6 +92,7 @@ import {
   editKey,
   isItemCode,
   isLanguageCode,
+  itemAfter,
   itemMoveTarget,
   itemsFromLines,
   languagesUsed,
@@ -289,6 +291,17 @@ function keepFocus(): () => void {
     }
   };
   return () => window.setTimeout(() => restore(40), 30);
+}
+
+/** The keyboard on a question's label, its text selected, once the survey is drawn again with it (two seconds at most) */
+function focusLabel(name: string, tries = 40): void {
+  const field = document.querySelector<HTMLTextAreaElement>(`[data-question="${CSS.escape(name)}"] textarea:not([aria-hidden])`);
+  if (field) {
+    // In the middle of the screen: at its bottom the bar of changes would hide it
+    field.focus({ preventScroll: true });
+    field.scrollIntoView({ block: "center" });
+    field.select();
+  } else if (tries > 0) window.setTimeout(() => focusLabel(name, tries - 1), 50);
 }
 
 /** Why a change was not made, when the server says why: in the dashboard's words, the server's own reason after it */
@@ -649,8 +662,13 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
   const changeHere = async (ops: SurveyOperation[], what?: string) => {
     const restore = keepFocus();
     const made = answerRef.current?.design ?? null;
-    report(await change(ops, what), { ops, what, design: made });
+    const outcome = await change(ops, what);
+    report(outcome, { ops, what, design: made });
     restore();
+    // A copy is there to be changed: the keyboard goes to its label, selected, for its own to be typed at once
+    const copied = ops[0];
+    const copy = outcome.kind === "saved" && copied?.op === "copyQuestion" && knownDesign.current ? itemAfter(knownDesign.current, copied.id) : undefined;
+    if (copy) focusLabel(copy.name);
   };
 
   /** What a dialog shows when its change was not saved (it stays open with what was typed) */
@@ -1999,6 +2017,13 @@ function ItemTools({ w, item, siblings, page, table }: { w: Words; item: DesignI
         onClick={() => edit.addQuestion({ ...(table ? { table: table.id } : { page }), before: siblings[siblings.findIndex((s) => s.id === item.id) + 1]?.id })}>
         <Add fontSize="small" />
       </ToolButton>
+      {/* A copy right below, with its answers, conditions and rules: a table's questions are copied one by one */}
+      {question && !question.fixed && (
+        <ToolButton title={t("survey.edit.duplicate")} label={`${t("survey.edit.duplicate")}: ${label}`} disabled={edit.busy}
+          onClick={() => edit.change([{ op: "copyQuestion", id: question.id }])}>
+          <ContentCopy fontSize="small" />
+        </ToolButton>
+      )}
       {(item.kind === "table" || !item.fixed) && (
         // What other questions name stays until they no longer do (the server refuses it)
         <ToolButton

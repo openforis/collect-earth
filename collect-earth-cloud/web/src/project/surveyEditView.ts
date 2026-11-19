@@ -361,6 +361,13 @@ export function itemMoveTarget(codes: readonly string[], code: string, step: -1 
   return pageMoveTarget(codes, code, step);
 }
 
+/** The question or table right after another among those of its page or table (a copy made below it) */
+export function itemAfter(design: SurveyDesign, id: number): DesignItem | undefined {
+  const places = design.pages.flatMap((p): readonly DesignItem[][] => [p.items, ...p.items.flatMap((i) => (i.kind === "table" ? [i.columns] : []))]);
+  const place = places.find((items) => items.some((i) => i.id === id));
+  return place?.[place.findIndex((i) => i.id === id) + 1];
+}
+
 /** Every question and table of the survey by its id, with its name */
 function nodeNames(design: SurveyDesign): Map<number, string> {
   const out = new Map<number, string>();
@@ -417,7 +424,8 @@ export function rebaseChange(ops: readonly SurveyOperation[], before: SurveyDesi
       case "moveItem":
         return null;
       case "moveQuestion":
-        if (op.before !== undefined || !nodes.has(op.id) || (op.page !== undefined && !pages.has(op.page))) return null;
+      case "copyQuestion":
+        if (op.before !== undefined || !nodes.has(op.id) || (op.op === "moveQuestion" && op.page !== undefined && !pages.has(op.page))) return null;
         out.push(op);
         break;
       case "addPage":

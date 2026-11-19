@@ -7,6 +7,7 @@ import {
   Drafts,
   editKey,
   isItemCode,
+  itemAfter,
   isLanguageCode,
   itemsFromLines,
   languagesUsed,
@@ -107,6 +108,14 @@ describe("the questions changed (stage 3)", () => {
     expect(moveTarget(items, 4, 1)).toBeNull();
     expect(pageMoveTarget(["a", "b", "c"], "a", 1)).toEqual({ before: "c" });
     expect(pageMoveTarget(["a", "b", "c"], "c", -1)).toEqual({ before: "b" });
+  });
+
+  it("finds the question right below another, on its card or in its table", () => {
+    const [first, second] = basic.pages[0].items;
+    expect(itemAfter(basic, first.id)).toBe(second);
+    const table = basic.pages.flatMap((p) => p.items).find((i) => i.kind === "table" && i.columns.length > 1);
+    if (table?.kind === "table") expect(itemAfter(basic, table.columns[0].id)).toBe(table.columns[1]);
+    expect(itemAfter(basic, 99999)).toBeUndefined();
   });
 });
 
@@ -255,6 +264,10 @@ describe("a change made again after the survey was read again (review 3)", () =>
     expect(rebaseChange([{ op: "deleteItem", list: "demo_codelist", code: "nope" }], basic, basic)).toBeNull();
     expect(rebaseChange([{ op: "moveQuestion", id: integer.id, page: "tab_1312" }], basic, basic)).toEqual([{ op: "moveQuestion", id: integer.id, page: "tab_1312" }]);
     expect(rebaseChange([{ op: "setRequired", id: integer.id, required: true }], basic, basic)).toEqual([{ op: "setRequired", id: integer.id, required: true }]);
+    // A copy below itself is made again; one put before another question, or of a question gone, is not
+    expect(rebaseChange([{ op: "copyQuestion", id: integer.id }], basic, basic)).toEqual([{ op: "copyQuestion", id: integer.id }]);
+    expect(rebaseChange([{ op: "copyQuestion", id: integer.id, before: 1303 }], basic, basic)).toBeNull();
+    expect(rebaseChange([{ op: "copyQuestion", id: 99999 }], basic, basic)).toBeNull();
   });
 
   it("tells the same survey changed from another survey put in its place", () => {

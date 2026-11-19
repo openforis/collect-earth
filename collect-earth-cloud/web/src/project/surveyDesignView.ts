@@ -271,7 +271,7 @@ export function checkWords(t: Translate, code: SurveyCheckCode, values: Readonly
 }
 
 const REFUSALS: readonly SurveyRefusalCode[] = [
-  "gone", "inUse", "nameTaken", "noLanguage", "cycle", "formulaCode", "formulaNumber", "formulaYesNo", "expression", "lastAnswer", "emptyList", "pageName", "subListLevel", "tooMany",
+  "gone", "inUse", "nameTaken", "noLanguage", "cycle", "formulaCode", "formulaNumber", "formulaYesNo", "expression", "lastAnswer", "emptyList", "pageName", "subListLevel", "tooMany", "fixedField",
 ];
 const GONE = ["question", "page", "list", "answer", "rule"];
 const TAKEN = ["question", "page", "list", "answer"];
