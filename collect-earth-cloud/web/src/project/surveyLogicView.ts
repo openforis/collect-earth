@@ -17,6 +17,7 @@ import type {
   SurveyDesign,
   TotalTest,
 } from "../api";
+import { isLanguage, translator, type Translate } from "../i18n";
 import { allQuestions } from "./surveyDesignView";
 
 export type ConditionTest = ConditionPart["test"];
@@ -253,4 +254,10 @@ export function ruleOf(draft: RuleDraft, questions: ReadonlyMap<string, DesignQu
 /** The questions a range can compare with: the numbers a condition of the question could name */
 export function numberQuestions(candidates: readonly DesignQuestion[]): DesignQuestion[] {
   return candidates.filter((q) => q.type === "integer" || q.type === "decimal");
+}
+
+/** The dashboard's words in a survey language it has ("pt_BR" reads Portuguese); null when it has not */
+export function surveyTranslator(language: string): Translate | null {
+  const base = language.split("_")[0];
+  return isLanguage(base) ? translator(base) : null;
 }

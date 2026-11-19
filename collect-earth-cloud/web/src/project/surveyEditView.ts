@@ -2,7 +2,7 @@
 // they are saved. Each text is kept by what it belongs to, its part and its language, with the text it had, so that
 // only what differs is sent, and a text typed back to what it was is no change.
 
-import type { DesignItem, NewItem, SurveyOperation, WordTarget } from "../api";
+import type { DesignItem, DesignListItem, DesignQuestion, Localized, NewItem, SurveyDesign, SurveyOperation, WordTarget } from "../api";
 
 export type WordPart = "label" | "help" | "message";
 
@@ -40,6 +40,152 @@ export function withText(pending: ReadonlyMap<string, PendingText>, change: Pend
   if (change.text === change.current) next.delete(key);
   else next.set(key, change);
   return next;
+}
+
+/**
+ * The texts typed and not saved yet, kept outside React's state: a field reads its own text (useSyncExternalStore with
+ * `get`), so a keystroke re-renders that field and what counts the changes, not the whole survey. Each change replaces
+ * the map, so `all()` is a snapshot.
+ */
+export class PendingTexts {
+  private texts: ReadonlyMap<string, PendingText> = new Map();
+  private readonly listeners = new Set<() => void>();
+
+  subscribe = (listener: () => void): (() => void) => {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  };
+
+  all = (): ReadonlyMap<string, PendingText> => this.texts;
+
+  get = (key: string): PendingText | undefined => this.texts.get(key);
+
+  /** Some text changed, or more than one (a spreadsheet read) */
+  set(...changes: PendingText[]): void {
+    if (changes.length === 0) return;
+    this.replace(changes.reduce<ReadonlyMap<string, PendingText>>((acc, change) => withText(acc, change), this.texts));
+  }
+
+  clear(): void {
+    if (this.texts.size > 0) this.replace(new Map());
+  }
+
+  /**
+   * After a save, or the survey read again: the texts sent leave when they still read as they were sent (one typed
+   * further meanwhile stays), and the others are compared with the survey as it is now (a text now equal to it is no
+   * change any more)
+   */
+  settle(design: SurveyDesign, sent: readonly PendingText[] = []): void {
+    const next = new Map(this.texts);
+    for (const p of sent) {
+      const key = editKey(p.target, p.part, p.language);
+      if (next.get(key)?.text.trim() === p.text.trim()) next.delete(key);
+    }
+    const texts = surveyTexts(design);
+    for (const [key, p] of next) {
+      const now = textOf(texts, p.target, p.part, p.language);
+      if (now === undefined) continue;
+      if (p.text.trim() === now.trim()) next.delete(key);
+      else if (now !== p.current) next.set(key, { ...p, current: now });
+    }
+    this.replace(next);
+  }
+
+  private replace(texts: ReadonlyMap<string, PendingText>): void {
+    this.texts = texts;
+    for (const l of [...this.listeners]) l();
+  }
+}
+
+/** A target's key, whatever the order of its fields */
+export function targetKey(target: WordTarget, part: WordPart): string {
+  switch (target.kind) {
+    case "title":
+      return `title|${part}`;
+    case "page":
+      return `page|${target.name}|${part}`;
+    case "node":
+      return `node|${target.id}|${part}`;
+    case "list":
+      return `list|${target.name}|${part}`;
+    case "item":
+      return `item|${target.list}|${target.code}|${part}`;
+    case "rule":
+      return `rule|${target.node}|${target.index}|${part}`;
+  }
+}
+
+/**
+ * The survey with its texts changed by `change(key, text)`, key as targetKey gives it: each text of the survey is
+ * offered once, and kept as it is when `change` answers it unchanged
+ */
+function mapTexts(design: SurveyDesign, change: (key: string, text: Localized) => Localized): SurveyDesign {
+  const question = (q: DesignQuestion): DesignQuestion => ({
+    ...q,
+    label: change(targetKey({ kind: "node", id: q.id }, "label"), q.label),
+    help: change(targetKey({ kind: "node", id: q.id }, "help"), q.help),
+    rules: q.rules.map((r, index) => ({ ...r, message: change(targetKey({ kind: "rule", node: q.id, index }, "message"), r.message) })),
+  });
+  const items = (list: string, all: readonly DesignListItem[]): DesignListItem[] =>
+    all.map((i) => ({
+      ...i,
+      label: change(targetKey({ kind: "item", list, code: i.code }, "label"), i.label),
+      help: change(targetKey({ kind: "item", list, code: i.code }, "help"), i.help),
+      items: items(list, i.items),
+    }));
+  return {
+    ...design,
+    title: change(targetKey({ kind: "title" }, "label"), design.title),
+    pages: design.pages.map((p) => ({
+      ...p,
+      label: change(targetKey({ kind: "page", name: p.name }, "label"), p.label),
+      items: p.items.map((i) =>
+        i.kind === "table"
+          ? {
+              ...i,
+              label: change(targetKey({ kind: "node", id: i.id }, "label"), i.label),
+              help: change(targetKey({ kind: "node", id: i.id }, "help"), i.help),
+              columns: i.columns.map(question),
+            }
+          : question(i),
+      ),
+    })),
+    emptyPages: design.emptyPages.map((p) => ({ ...p, label: change(targetKey({ kind: "page", name: p.name }, "label"), p.label) })),
+    fromPlotFile: design.fromPlotFile.map(question),
+    calculated: design.calculated.map(question),
+    hidden: design.hidden.map(question),
+    lists: design.lists.map((l) => ({ ...l, label: change(targetKey({ kind: "list", name: l.name }, "label"), l.label), items: items(l.name, l.items) })),
+  };
+}
+
+/** Every text of the survey by targetKey */
+export function surveyTexts(design: SurveyDesign): Map<string, Localized> {
+  const out = new Map<string, Localized>();
+  mapTexts(design, (key, text) => {
+    out.set(key, text);
+    return text;
+  });
+  return out;
+}
+
+/** A text of the survey as it is now in a language ("" when it has none there); undefined when the survey has no such text */
+export function textOf(texts: ReadonlyMap<string, Localized>, target: WordTarget, part: WordPart, language: string): string | undefined {
+  const text = texts.get(targetKey(target, part));
+  return text === undefined ? undefined : (text[language] ?? "");
+}
+
+/** The survey as it reads with the texts typed and not saved yet (the preview shows them) */
+export function withPendingTexts(design: SurveyDesign, pending: Iterable<PendingText>): SurveyDesign {
+  const byKey = new Map<string, PendingText[]>();
+  for (const p of pending) {
+    const key = targetKey(p.target, p.part);
+    byKey.set(key, [...(byKey.get(key) ?? []), p]);
+  }
+  if (byKey.size === 0) return design;
+  return mapTexts(design, (key, text) => {
+    const changes = byKey.get(key);
+    return changes ? { ...text, ...Object.fromEntries(changes.map((p) => [p.language, p.text.trim()])) } : text;
+  });
 }
 
 /** The languages a survey is commonly translated into, offered first when a language is added (ISO 639-1) */

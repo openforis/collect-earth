@@ -5,38 +5,42 @@
 
 import type { DesignListItem, DesignQuestion, Localized, SurveyDesign, WordTarget } from "../api";
 import { csvCell } from "../csv";
+import { translator, type Translate } from "../i18n";
 import type { PendingText, WordPart } from "./surveyEditView";
 
 export interface TextRow {
   /** "node:1303:label", "item:land_uses:F:help"... */
   key: string;
-  /** What it is, for the translator: "Question short_text_demo", "Answer F of land_uses" */
+  /** What it is, for the translator, in the dashboard's language: "Question short_text_demo", "Answer F of land_uses" */
   what: string;
   target: WordTarget;
   part: WordPart;
   texts: Localized;
 }
 
-/** Every text people read in the form: the title, pages, questions, tables, rules' messages, answers of lists in use */
-export function textRows(design: SurveyDesign): TextRow[] {
+/**
+ * Every text people read in the form: the title, pages, questions, tables, rules' messages, answers of lists in use.
+ * `t` writes the "what" column (read back by nothing: a row is found by its key).
+ */
+export function textRows(design: SurveyDesign, t: Translate = translator("en")): TextRow[] {
   const rows: TextRow[] = [];
   const add = (key: string, what: string, target: WordTarget, part: WordPart, texts: Localized) => rows.push({ key, what, target, part, texts });
-  add("title:label", "Survey title", { kind: "title" }, "label", design.title);
+  add("title:label", t("survey.texts.what.title"), { kind: "title" }, "label", design.title);
   const question = (q: DesignQuestion) => {
     if (q.hidden || q.formulas || q.fixed) return;
-    add(`node:${q.id}:label`, `Question ${q.name}`, { kind: "node", id: q.id }, "label", q.label);
-    add(`node:${q.id}:help`, `Help of ${q.name}`, { kind: "node", id: q.id }, "help", q.help);
-    q.rules.forEach((r, i) => add(`rule:${q.id}:${i}:message`, `Rule ${i + 1} of ${q.name}`, { kind: "rule", node: q.id, index: i }, "message", r.message));
+    add(`node:${q.id}:label`, t("survey.texts.what.question", { name: q.name }), { kind: "node", id: q.id }, "label", q.label);
+    add(`node:${q.id}:help`, t("survey.texts.what.help", { name: q.name }), { kind: "node", id: q.id }, "help", q.help);
+    q.rules.forEach((r, i) => add(`rule:${q.id}:${i}:message`, t("survey.texts.what.rule", { index: i + 1, name: q.name }), { kind: "rule", node: q.id, index: i }, "message", r.message));
   };
   const pages = [...design.pages, ...design.emptyPages.map((p) => ({ ...p, items: [] }))];
   const order = new Map(design.pageOrder.map((name, i) => [name, i]));
   pages.sort((a, b) => (order.get(a.name) ?? 0) - (order.get(b.name) ?? 0));
   for (const page of pages) {
-    add(`page:${page.name}:label`, `Page ${page.name}`, { kind: "page", name: page.name }, "label", page.label);
+    add(`page:${page.name}:label`, t("survey.texts.what.page", { name: page.name }), { kind: "page", name: page.name }, "label", page.label);
     for (const item of page.items) {
       if (item.kind === "table") {
-        add(`node:${item.id}:label`, `Table ${item.name}`, { kind: "node", id: item.id }, "label", item.label);
-        add(`node:${item.id}:help`, `Help of ${item.name}`, { kind: "node", id: item.id }, "help", item.help);
+        add(`node:${item.id}:label`, t("survey.texts.what.table", { name: item.name }), { kind: "node", id: item.id }, "label", item.label);
+        add(`node:${item.id}:help`, t("survey.texts.what.help", { name: item.name }), { kind: "node", id: item.id }, "help", item.help);
         item.columns.forEach(question);
       } else {
         question(item);
@@ -46,11 +50,11 @@ export function textRows(design: SurveyDesign): TextRow[] {
   const used = new Set([...design.pages.flatMap((p) => p.items.flatMap((i) => (i.kind === "table" ? [i.rowsList, ...i.columns.map((c) => c.list)] : [i.list])))].filter(Boolean));
   for (const list of design.lists) {
     if (!used.has(list.name) || list.external) continue;
-    add(`list:${list.name}:label`, `List ${list.name}`, { kind: "list", name: list.name }, "label", list.label);
+    add(`list:${list.name}:label`, t("survey.texts.what.list", { name: list.name }), { kind: "list", name: list.name }, "label", list.label);
     const items = (all: readonly DesignListItem[]) => {
       for (const i of all) {
-        add(`item:${list.name}:${i.code}:label`, `Answer ${i.code} of ${list.name}`, { kind: "item", list: list.name, code: i.code }, "label", i.label);
-        add(`item:${list.name}:${i.code}:help`, `Help of answer ${i.code} of ${list.name}`, { kind: "item", list: list.name, code: i.code }, "help", i.help);
+        add(`item:${list.name}:${i.code}:label`, t("survey.texts.what.answer", { code: i.code, list: list.name }), { kind: "item", list: list.name, code: i.code }, "label", i.label);
+        add(`item:${list.name}:${i.code}:help`, t("survey.texts.what.answerHelp", { code: i.code, list: list.name }), { kind: "item", list: list.name, code: i.code }, "help", i.help);
         items(i.items);
       }
     };
@@ -65,10 +69,11 @@ export function textRows(design: SurveyDesign): TextRow[] {
  * separated, every cell quoted when it needs to be; a text a spreadsheet would run as a formula gets a ' before it
  * (taken away again on the way back).
  */
-export function textsCsv(design: SurveyDesign, languages: readonly string[] = design.languages): string {
+export function textsCsv(design: SurveyDesign, t: Translate = translator("en"), languages: readonly string[] = design.languages): string {
   const line = (cells: readonly string[]) => cells.map((c) => csvCell(c)).join(",");
-  const out = [line(["key", "what", ...languages])];
-  for (const r of textRows(design)) out.push(line([r.key, r.what, ...languages.map((l) => r.texts[l] ?? "")]));
+  // "key" stays as it is in every language: the file is read back by it
+  const out = [line(["key", t("survey.texts.what"), ...languages])];
+  for (const r of textRows(design, t)) out.push(line([r.key, r.what, ...languages.map((l) => r.texts[l] ?? "")]));
   return `${out.join("\r\n")}\r\n`;
 }
 
