@@ -209,11 +209,19 @@ describe("LayersPanel", () => {
     expect(radio(/Sentinel-2/).checked).toBe(true);
   });
 
-  it("offers Difference under the compare select, disabled for radar and for the same image, with a loss-to-gain legend when ticked", () => {
+  it("offers Difference under the compare select, disabled for radar, the same image and two sensors, with a loss-to-gain legend when ticked", () => {
     setup();
     const difference = () => screen.queryByRole("checkbox", { name: /Difference \(NDVI change\)/ }) as HTMLInputElement | null;
     expect(difference()).toBeNull();
     fireEvent.click(compareCheckbox());
+    // Sentinel-2 on the left, Landsat on the right: their NDVI differ systematically.
+    expect(difference()!.disabled).toBe(true);
+    expect(difference()!.closest("label")!.title).toBe("Only between two images of the same sensor");
+
+    // A Landsat scene on the left, the Landsat layer on the right.
+    fireEvent.click(screen.getByRole("button", { name: "set scene" }));
+    expect(activeLayer()).toBe("scene");
+    expect(compareLayer()).toBe("1");
     expect(difference()!.disabled).toBe(false);
     expect(screen.queryByText("loss")).toBeNull();
 
@@ -229,10 +237,15 @@ describe("LayersPanel", () => {
     expect(difference()!.closest("label")!.title).toBe("Not available for radar");
     expect(screen.queryByText("loss")).toBeNull();
 
-    // The same layer on both sides.
-    fireEvent.change(compareSelect()!, { target: { value: "0" } });
+    // The same scene on both sides.
+    fireEvent.change(compareSelect()!, { target: { value: "scene" } });
     expect(difference()!.disabled).toBe(true);
     expect(difference()!.closest("label")!.title).toBe("Both sides show the same image");
+
+    // A Landsat scene against Sentinel-2.
+    fireEvent.change(compareSelect()!, { target: { value: "0" } });
+    expect(difference()!.disabled).toBe(true);
+    expect(difference()!.closest("label")!.title).toBe("Only between two images of the same sensor");
 
     // Sentinel-1 on the left.
     fireEvent.change(compareSelect()!, { target: { value: "1" } });

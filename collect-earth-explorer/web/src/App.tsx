@@ -8,12 +8,14 @@ import type { ApiState } from "./hooks/useApi";
 import { isRetryable, whenIdle, type TileResponse } from "./lib/api";
 import { warm } from "./lib/prewarm";
 import { parsePlotUrl, type PlotParams } from "./lib/urlParams";
-import { resolveConfig, type ChartEntry } from "./lib/config";
+import { resolveConfig } from "./lib/config";
+import type { CardProps } from "./lib/folds";
+import Summary from "./components/Summary";
 
 // The chart cards pull in Plotly (several MB): loaded in a separate chunk after the
 // map is up, so the first paint does not wait for it.
 // One component per catalogue chart type.
-const CARDS: Record<string, ComponentType<{ params: ChartEntry["params"] }>> = {
+const CARDS: Record<string, ComponentType<CardProps>> = {
   ccdc: lazy(() => import("./components/charts/CcdcCard")),
   "landsat-series": lazy(() => import("./components/charts/LandsatNdviCard")),
   "sentinel2-series": lazy(() => import("./components/charts/Sentinel2NdviCard")),
@@ -89,10 +91,17 @@ function Viewer() {
         {notices.length > 0 && (
           <p className="config-notice">This survey's Explorer settings were partly ignored: {notices.join(" ")}</p>
         )}
+        <Summary />
         <Suspense fallback={<div className="chart-placeholder">Loading charts…</div>}>
           {charts.map((c, i) => {
             const Card = CARDS[c.type];
-            return Card && <Card key={i} params={c.params} />;
+            return (
+              Card && (
+                <div key={i} id={`chart-${i}`}>
+                  <Card params={c.params} index={i} />
+                </div>
+              )
+            );
           })}
         </Suspense>
       </aside>

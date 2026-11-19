@@ -134,6 +134,10 @@ export function chartRequest(entry: ChartEntry, p: PlotBody): { path: string; bo
   return { path: CHART_PATHS[entry.type], body: { ...p, ...extra } };
 }
 
+/** What a Landsat or Sentinel-2 series chart is called after its sensor: the index, or the custom formula's name. */
+export const indexLabel = (params: ChartEntry["params"]) =>
+  params.formula === undefined ? (params.index as string) : (params.name as string | undefined) || "Custom index";
+
 /** The allowed values of a layer type's choice parameter `name`, from the catalogue. */
 export const layerChoices = (type: string, name: string) => catalogue.layers[type].params[name].values as string[];
 

@@ -1,6 +1,9 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import type { Point } from "../../lib/csv";
 import { usePref } from "../../lib/prefs";
+import { summarize } from "../../lib/seriesStats";
+import { usePlot } from "../../state/PlotContext";
+import type { Status } from "../../hooks/useApi";
 
 /** Each limit with its icon: from full cloud (no limit) through sun behind cloud to sun (nearly clear scenes only). */
 const LIMITS = [
@@ -40,4 +43,14 @@ export function useCloudFilter(points: Point[] | undefined, start = "40") {
     </select>
   );
   return { points: filtered, control };
+}
+
+/** Publishes a series card's summary line (see `summaries`) of `points` while the card is open; nothing when folded or gone. */
+export function usePublishSummary(index: number, open: boolean, status: Status, points: Point[] | undefined) {
+  const { setSummary } = usePlot();
+  const result = useMemo(() => (points ? summarize(points) : undefined), [points]);
+  useEffect(() => {
+    setSummary(index, open ? { status, result } : undefined);
+    return () => setSummary(index, undefined);
+  }, [setSummary, index, open, status, result]);
 }

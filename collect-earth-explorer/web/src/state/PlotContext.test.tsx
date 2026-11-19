@@ -1,9 +1,10 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { LAST_12_MONTHS, PlotProvider, usePlot } from "./PlotContext";
 import type { PlotParams } from "../lib/urlParams";
 import { resolveConfig } from "../lib/config";
+import { viewKey } from "./view";
 
 const params: PlotParams = {
   plot: { type: "Polygon", coordinates: [[[30, -2], [31, -2], [31, -3], [30, -3], [30, -2]]] },
@@ -152,5 +153,96 @@ describe("PlotProvider / usePlot", () => {
 
   it("throws when used outside the provider", () => {
     expect(() => renderHook(() => usePlot())).toThrow(/outside PlotProvider/);
+  });
+});
+
+describe("the view remembered between plots", () => {
+  const nextPlot = (end: string, config = standard) => ({ children }: { children: ReactNode }) => (
+    <PlotProvider params={{ ...params, plotId: "next", end }} config={config}>{children}</PlotProvider>
+  );
+  const scene = { sensor: "landsat" as const, timeStart: 1700000000000, label: "Landsat 8 2023-11-14" };
+
+  it("restores the active layer, each entry's year and bands, Compare, the compare layer and Difference on the next plot", () => {
+    const first = renderHook(() => usePlot(), { wrapper });
+    act(() => first.result.current.selectYear(1, 2015));
+    act(() => first.result.current.setBands(1, "true-colour"));
+    act(() => first.result.current.setYear(0, 2020));
+    act(() => first.result.current.setCompare(true));
+    act(() => first.result.current.setCompareLayer(0));
+    act(() => first.result.current.setDifference(true));
+    first.unmount();
+    const { result } = renderHook(() => usePlot(), { wrapper: nextPlot("2025-06-15") });
+    expect(result.current.activeLayer).toBe(1);
+    expect(result.current.yearOf(1)).toBe(2015);
+    expect(result.current.bandsOf(1)).toBe("true-colour");
+    expect(result.current.yearOf(0)).toBe(2020);
+    expect(result.current.compare).toBe(true);
+    expect(result.current.compareLayer).toBe(0);
+    expect(result.current.difference).toBe(true);
+  });
+
+  it("clamps a remembered year into the next plot's range and keeps the last 12 months", () => {
+    const first = renderHook(() => usePlot(), { wrapper });
+    act(() => first.result.current.selectYear(1, 2024));
+    first.unmount();
+    const { result } = renderHook(() => usePlot(), { wrapper: nextPlot("2010-06-15") });
+    expect(result.current.yearOf(1)).toBe(2010);
+    expect(result.current.yearOf(0)).toBe(LAST_12_MONTHS);
+  });
+
+  it("never restores a scene: the last entry layer on each side instead, without the compare overrides", () => {
+    const first = renderHook(() => usePlot(), { wrapper });
+    act(() => first.result.current.setActiveLayer(1));
+    act(() => first.result.current.compareScenes(scene, { ...scene, timeStart: scene.timeStart + 86400000 }));
+    expect(first.result.current.activeLayer).toBe("scene");
+    expect(first.result.current.compareLayer).toBe("scene");
+    first.unmount();
+    const { result } = renderHook(() => usePlot(), { wrapper: nextPlot("2025-06-15") });
+    expect(result.current.activeLayer).toBe(1);
+    expect(result.current.compareLayer).toBe(1);
+    expect(result.current.compare).toBe(true);
+    expect(result.current.scene).toBeUndefined();
+    expect(result.current.compareScene).toBeUndefined();
+    expect(result.current.compareYear).toBeUndefined();
+  });
+
+  it("is ignored by a configuration with other layers", () => {
+    const first = renderHook(() => usePlot(), { wrapper });
+    act(() => first.result.current.selectYear(1, 2015));
+    act(() => first.result.current.setCompare(true));
+    first.unmount();
+    const other = resolveConfig(JSON.stringify({ v: 1, layers: [{ type: "sentinel2" }, { type: "landsat", maxCloud: 20 }] }), 2026);
+    const { result } = renderHook(() => usePlot(), { wrapper: nextPlot("2025-06-15", other) });
+    expect(result.current.activeLayer).toBe(0);
+    expect(result.current.yearOf(1)).toBe(2024);
+    expect(result.current.compare).toBe(false);
+  });
+
+  it("falls back to the defaults, part by part, for a broken or outdated stored view", () => {
+    for (const stored of ["{not json", "null", "42", JSON.stringify({ active: 7, years: { 1: "x", 0: 1999 }, bands: { 1: "infrared" }, compare: "yes", compareLayer: -1, difference: true })]) {
+      localStorage.setItem(viewKey(standard.layers), stored);
+      const { result, unmount } = renderHook(() => usePlot(), { wrapper });
+      expect(result.current.activeLayer).toBe(0);
+      expect(result.current.yearOf(1)).toBe(2024);
+      expect(result.current.bandsOf(1)).toBe("false-colour");
+      expect(result.current.compare).toBe(false);
+      expect(result.current.compareLayer).toBe(1);
+      expect(result.current.difference).toBe(false);
+      unmount();
+    }
+  });
+
+  it("works when storage throws", () => {
+    const get = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    const set = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    const { result } = renderHook(() => usePlot(), { wrapper });
+    act(() => result.current.setActiveLayer(1));
+    expect(result.current.activeLayer).toBe(1);
+    get.mockRestore();
+    set.mockRestore();
   });
 });

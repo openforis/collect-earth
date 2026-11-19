@@ -34,6 +34,12 @@ input[type="radio"], input[type="checkbox"], input[type="range"] { accent-color:
 .side-pane h2 { margin: 0 0 2px; font-size: 18px; line-height: 1.3; overflow-wrap: anywhere; }
 .dates { margin: 0 0 12px; font-size: 12px; }
 .config-notice { margin: 0 0 12px; padding: 8px 10px; font-size: 12px; background: #fff; border-left: 4px solid var(--of-blue); border-radius: 6px; overflow-wrap: anywhere; }
+/* Each series chart's verdict under the dates, wrapping when long; a line is a button that scrolls to its card. */
+.summary { list-style: none; margin: -6px 0 10px; padding: 0; }
+.summary-line, .summary-line:hover { display: block; width: 100%; padding: 1px 2px; background: none; color: var(--heading); font: 400 12px/1.4 var(--font); text-align: left; overflow-wrap: anywhere; }
+.summary-line:hover .summary-name { text-decoration: underline; }
+.summary-name { font-weight: 500; }
+.summary-significant { color: var(--error); }
 
 /* Translucent rounded boxes over the imagery, like the site's hero box. */
 .layers-panel, .map-status { position: absolute; z-index: 2; left: 8px; background: rgba(255, 255, 255, 0.9); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); color: var(--heading); }
@@ -73,8 +79,14 @@ input[type="radio"], input[type="checkbox"], input[type="range"] { accent-color:
 .chart-card .js-plotly-plot { max-width: 100%; }
 .chart-card-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line); }
 .chart-card-collapsed { border-bottom: none; }
-.chart-card-header h3 { margin: 0; font-size: 13px; line-height: 1.35; }
+/* One line: a long title ends in an ellipsis (its tooltip explains it) rather than wrapping beside the controls. */
+.chart-card-header h3 { margin: 0; min-width: 0; font-size: 13px; line-height: 1.35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .chart-card-actions { display: flex; gap: 6px; align-items: center; flex: none; }
+/* The CSV and fold buttons: a 24 px icon on white. */
+.icon-button { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; background: none; color: var(--heading); }
+.icon-button:hover { background: var(--sand); }
+.chart-fold svg { transition: transform 0.15s; }
+.chart-fold[aria-expanded="false"] svg { transform: rotate(-90deg); }
 .chart-placeholder { height: 220px; display: flex; gap: 8px; align-items: center; justify-content: center; padding: 0 12px; text-align: center; }
 .chart-error { color: var(--error); flex-direction: column; }
 .chart-options { display: flex; flex-wrap: wrap; gap: 12px; padding: 0 12px 10px; font-size: 11px; }

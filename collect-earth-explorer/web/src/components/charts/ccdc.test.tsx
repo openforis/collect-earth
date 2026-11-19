@@ -111,15 +111,15 @@ describe("CcdcCard", () => {
     await vi.waitFor(() => expect(screen.getByTestId("ccdc-chart").getAttribute("data-band")).toBe("NDVI"));
   });
 
-  it("a collapsed entry shows only its header and requests nothing until Show is pressed", async () => {
+  it("a collapsed entry shows only its header and requests nothing until Show chart is pressed", async () => {
     setup("NDFI", true);
     expect(screen.getByRole("heading", { name: /CCDC/ })).toBeTruthy();
     expect(screen.queryByRole("combobox")).toBeNull();
     expect(fetchMock).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Show" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show chart" }));
     await screen.findByTestId("ccdc-chart");
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(screen.queryByRole("button", { name: "Show" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Show chart" })).toBeNull();
   });
 
   it("starts with the band its entry names", async () => {
@@ -148,8 +148,8 @@ describe("CcdcCard", () => {
 
   it("offers a CSV download once the data is loaded", async () => {
     setup();
-    expect(screen.queryByRole("button", { name: "CSV" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Download CSV" })).toBeNull();
     await screen.findByTestId("ccdc-chart");
-    expect(screen.getByRole("button", { name: "CSV" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Download CSV" })).toBeTruthy();
   });
 });

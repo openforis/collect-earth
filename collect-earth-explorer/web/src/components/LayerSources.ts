@@ -68,10 +68,15 @@ export function useLayerTiles(layer: LayerId, options?: ApiOptions, override: Ov
 }
 
 /** Why the NDVI difference cannot be shown for the current comparison, or undefined when it can. */
-export function differenceBlocked(p: Pick<PlotState, "layers" | "activeLayer" | "compareLayer" | "compareYear" | "compareScene">): string | undefined {
+export function differenceBlocked(p: Pick<PlotState, "layers" | "activeLayer" | "compareLayer" | "compareYear" | "compareScene" | "scene">): string | undefined {
   const radar = (l: LayerId) => l !== "scene" && p.layers[l].type === "sentinel1";
   if (radar(p.activeLayer) || radar(p.compareLayer)) return "Not available for radar";
   if (p.activeLayer === p.compareLayer && p.compareYear === undefined && !p.compareScene) return "Both sides show the same image";
+  // Sentinel-2 and Landsat NDVI differ systematically, so a cross-sensor difference shows a false change everywhere.
+  const sensor = (l: LayerId, scene = p.scene) => (l === "scene" ? scene?.sensor : p.layers[l].type);
+  const left = sensor(p.activeLayer);
+  const right = sensor(p.compareLayer, p.compareScene ?? p.scene);
+  if (left && right && left !== right) return "Only between two images of the same sensor";
 }
 
 /** Fetches the NDVI change from the left side (`activeLayer`) to the right (`compareLayer` and its override). */

@@ -1,21 +1,23 @@
 import { useState } from "react";
+import { useFold, type CardProps } from "../../lib/folds";
 import ChartCard from "../ChartCard";
 import CcdcChart, { type CcdcBand, type CcdcData } from "./CcdcChart";
 import { useApi } from "../../hooks/useApi";
 import { postApi } from "../../lib/api";
 import { usePlot } from "../../state/PlotContext";
 import { pointsToCsv, downloadText } from "../../lib/csv";
-import { chartRequest, type ChartEntry } from "../../lib/config";
+import { chartRequest } from "../../lib/config";
 
 const isoDay = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 
-export default function CcdcCard({ params }: { params: ChartEntry["params"] }) {
+export default function CcdcCard(props: CardProps) {
+  const { params } = props;
   const { plot, start, end, plotId, scene, setScene } = usePlot();
   // The entry's band is only the initial choice; the select changes it.
   const [band, setBand] = useState<CcdcBand>(params.band as CcdcBand);
-  const [open, setOpen] = useState(!params.collapsed);
+  const fold = useFold("ccdc", props);
   const { path, body } = chartRequest({ type: "ccdc", params: { ...params, band } }, { plot, start, end });
-  const state = useApi<CcdcData>((s) => postApi(path, body, s), [plot, start, end, band], { enabled: open });
+  const state = useApi<CcdcData>((s) => postApi(path, body, s), [plot, start, end, band], { enabled: fold.live });
   const controls = (
     <select aria-label="CCDC band" value={band} onChange={(e) => setBand(e.target.value as CcdcBand)}>
       <option value="NDFI">NDFI</option>
@@ -24,10 +26,11 @@ export default function CcdcCard({ params }: { params: ChartEntry["params"] }) {
   );
   return (
     <ChartCard
-      title="CCDC temporal segmentation (Landsat 7/8/9)"
+      title="CCDC (Landsat)"
+      tooltip="CCDC temporal segmentation on Landsat 7/8/9"
       state={state}
-      collapsed={!open}
-      onExpand={() => setOpen(true)}
+      open={fold.open}
+      onToggle={fold.toggle}
       controls={controls}
       onDownload={() => downloadText(`${plotId || "plot"}-ccdc-${band}.csv`, pointsToCsv(state.data!.observed))}
     >

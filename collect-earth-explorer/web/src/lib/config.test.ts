@@ -6,7 +6,7 @@ const MAX_YEAR = 2026;
 const resolve = (doc: unknown) => resolveConfig(typeof doc === "string" ? doc : JSON.stringify(doc), MAX_YEAR);
 const types = (entries: { type: string }[]) => entries.map((e) => e.type);
 const STANDARD_LAYERS = ["sentinel2", "landsat", "sentinel1"];
-const STANDARD_CHARTS = ["ccdc", "landsat-series", "sentinel2-series", "modis", "sentinel1-series", "precipitation"];
+const STANDARD_CHARTS = ["landsat-series", "sentinel2-series", "ccdc", "modis", "sentinel1-series", "precipitation"];
 
 describe("resolveConfig", () => {
   it("gives the standard configuration without a document", () => {

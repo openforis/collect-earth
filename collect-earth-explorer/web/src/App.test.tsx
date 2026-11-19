@@ -206,7 +206,7 @@ describe("App", () => {
     window.history.replaceState({}, "", PLOT_URL);
     render(<App />);
     await screen.findByTestId("card-ccdc");
-    expect(cardIds()).toEqual(["card-ccdc", "card-landsat", "card-sentinel2", "card-modis", "card-sentinel1", "card-precipitation"]);
+    expect(cardIds()).toEqual(["card-landsat", "card-sentinel2", "card-ccdc", "card-modis", "card-sentinel1", "card-precipitation"]);
     expect(JSON.parse(screen.getByTestId("card-sentinel1").getAttribute("data-params")!).collapsed).toBe(true);
     expect(JSON.parse(screen.getByTestId("card-precipitation").getAttribute("data-params")!).collapsed).toBe(true);
     expect(JSON.parse(screen.getByTestId("card-ccdc").getAttribute("data-params")!).band).toBe("NDFI");
@@ -222,6 +222,14 @@ describe("App", () => {
     // The layers half is standard: the map still opens on Sentinel-2.
     expect(await screen.findByText(TILE.label)).toBeTruthy();
     expect(callsTo(fetchMock, "/api/tiles/sentinel2")).toHaveLength(1);
+  });
+
+  it("puts a summary line per open Landsat/Sentinel-2 chart above the charts, each card in a box its line scrolls to", async () => {
+    window.history.replaceState({}, "", withConfig({ v: 1, charts: [{ type: "modis" }, { type: "landsat-series", index: "NDMI" }, { type: "sentinel2-series", collapsed: true }] }));
+    render(<App />);
+    const summary = screen.getByRole("list", { name: "Summary" });
+    expect(summary.textContent).toBe("Landsat NDMI: loading…");
+    expect((await screen.findByTestId("card-landsat")).parentElement!.id).toBe("chart-1");
   });
 
   it("reads the configuration from the fragment and lists what it skipped above the charts", async () => {
@@ -315,6 +323,8 @@ describe("App", () => {
     expect(compareMap.getAttribute("data-left")).toBe(TILE.tileUrl);
     expect(compareMap.getAttribute("data-right")).toBe(LANDSAT_TILE.tileUrl);
     expect(fetchMock).toHaveBeenCalledTimes(2);
+    // Sentinel-2 against Landsat: no difference between two sensors.
+    expect((screen.getByRole("checkbox", { name: /Difference/ }) as HTMLInputElement).disabled).toBe(true);
 
     fireEvent.click(screen.getByRole("checkbox", { name: /Compare with/ }));
     expect(screen.getByTestId("map")).toBeTruthy();
@@ -329,11 +339,12 @@ describe("App", () => {
     fetchMock.mockImplementation(async (url: string) =>
       url === "/api/tiles/landsat" ? json(LANDSAT_TILE) : url === "/api/tiles/difference" ? json(CHANGE) : json(TILE),
     );
-    window.history.replaceState({}, "", PLOT_URL);
+    // Two Landsat years: a difference needs the same sensor on both sides.
+    window.history.replaceState({}, "", withConfig({ v: 1, layers: [{ type: "landsat", year: 2010 }, { type: "landsat" }] }));
     render(<App />);
     fireEvent.click(screen.getByRole("checkbox", { name: /Compare with/ }));
     expect(await screen.findByText(`Right: ${LANDSAT_TILE.label}`)).toBeTruthy();
-    const landsatYear = bodyOf(callsTo(fetchMock, "/api/tiles/landsat")[0]).year;
+    const landsatYear = bodyOf(callsTo(fetchMock, "/api/tiles/landsat")[1]).year;
 
     fireEvent.click(screen.getByRole("checkbox", { name: /Difference/ }));
     expect(await screen.findByText(CHANGE.label)).toBeTruthy();
@@ -343,7 +354,7 @@ describe("App", () => {
     const calls = callsTo(fetchMock, "/api/tiles/difference");
     expect(calls).toHaveLength(1);
     const body = bodyOf(calls[0]);
-    expect(body.left).toEqual({ path: "tiles/sentinel2" });
+    expect(body.left).toEqual({ path: "tiles/landsat", year: 2010 });
     expect(body.right).toEqual({ path: "tiles/landsat", year: landsatYear });
     expect(body.plot.type).toBe("Polygon");
 

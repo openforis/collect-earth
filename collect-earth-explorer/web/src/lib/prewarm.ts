@@ -1,22 +1,42 @@
 // Warms the server's store for the next plot Collect Earth will open, so its charts and imagery come from the store.
-import { postApi, type TileResponse } from "./api";
-import { chartRequest, type resolveConfig } from "./config";
+import { postApi, type PlotBody, type TileResponse } from "./api";
+import { chartRequest, type LayerEntry, type resolveConfig } from "./config";
+import { chartOpen } from "./folds";
 import { polygonBounds, type PlotParams, type Polygon } from "./urlParams";
-import { layerRequest } from "../components/LayerSources";
-import { initialYear } from "../state/PlotContext";
+import { differenceBlocked, layerRequest, tileSide } from "../components/LayerSources";
+import { storedView, type View } from "../state/view";
 
 type Config = ReturnType<typeof resolveConfig>;
 
+/** The tile requests the map sends on opening with `view`: its layer, and when comparing the other side's or the difference. */
+function viewRequests(layers: LayerEntry[], view: View, p: PlotBody) {
+  const state = {
+    layers,
+    yearOf: (i: number) => view.years[i],
+    bandsOf: (i: number) => view.bands[i],
+    activeLayer: view.active,
+    compareLayer: view.compareLayer,
+    scene: undefined,
+    compareYear: undefined,
+    compareScene: undefined,
+  };
+  if (view.compare && view.difference && !differenceBlocked(state))
+    return [{ path: "tiles/difference", body: { ...p, left: tileSide(state, view.active), right: tileSide(state, view.compareLayer) } }];
+  const side = (i: number) => layerRequest({ ...layers[i], params: { ...layers[i].params, bands: view.bands[i] } }, view.years[i], p);
+  return view.compare && view.compareLayer !== view.active ? [side(view.active), side(view.compareLayer)] : [side(view.active)];
+}
+
 /**
- * What the page sends on first load of plot `next` (same dates and configuration as this one): the open charts and the
- * first layer's tiles. CCDC goes last: it takes most of a minute, and the interpreter may move on before it ends.
+ * What the page sends on first load of plot `next` (same dates and configuration as this one): the charts the stored
+ * folds leave open and the remembered view's tiles. CCDC goes last: it takes most of a minute, and the interpreter may
+ * move on before it ends.
  */
 export function warmRequests(next: Polygon, params: PlotParams, config: Config) {
   const p = { plot: next, start: params.start, end: params.end };
-  const charts = config.charts.filter((c) => !c.params.collapsed);
+  const charts = config.charts.filter((_, i) => chartOpen(config.charts, i));
   return [
     ...charts.filter((c) => c.type !== "ccdc").map((c) => chartRequest(c, p)),
-    layerRequest(config.layers[0], initialYear(config.layers[0], params.end), p),
+    ...viewRequests(config.layers, storedView(config.layers, params.end), p),
     ...charts.filter((c) => c.type === "ccdc").map((c) => chartRequest(c, p)),
   ];
 }

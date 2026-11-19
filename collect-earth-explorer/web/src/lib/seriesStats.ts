@@ -120,3 +120,21 @@ export function unusuallyLow(points: Point[]): boolean[] {
   if (spread === 0) return none;
   return anomaly.map((a) => a !== undefined && a < -2.5 * spread);
 }
+
+/** The verdict a series summary line shows: the trend, the change year when significant, the last observation's date. */
+export interface Summary {
+  trend: "increase" | "decrease" | "none" | "too-few";
+  change?: number;
+  last?: number;
+}
+
+export function summarize(points: Point[]): Summary {
+  const yearly = yearlyMedian(points);
+  const fit = trend(yearly);
+  const change = changePoint(yearly);
+  return {
+    trend: !fit ? "too-few" : fit.p >= 0.05 ? "none" : fit.slope >= 0 ? "increase" : "decrease",
+    change: change && change.p < 0.05 ? change.year : undefined,
+    last: points.length ? Math.max(...points.map((p) => p.date)) : undefined,
+  };
+}

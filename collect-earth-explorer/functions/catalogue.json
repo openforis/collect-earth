@@ -131,6 +131,6 @@
   "standard": {
     "v": 1,
     "layers": [{ "type": "sentinel2" }, { "type": "landsat" }, { "type": "sentinel1" }],
-    "charts": [{ "type": "ccdc" }, { "type": "landsat-series" }, { "type": "sentinel2-series" }, { "type": "modis" }, { "type": "sentinel1-series", "collapsed": true }, { "type": "precipitation", "collapsed": true }]
+    "charts": [{ "type": "landsat-series" }, { "type": "sentinel2-series" }, { "type": "ccdc" }, { "type": "modis" }, { "type": "sentinel1-series", "collapsed": true }, { "type": "precipitation", "collapsed": true }]
   }
 }

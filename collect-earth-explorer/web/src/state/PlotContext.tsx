@@ -1,6 +1,10 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { PlotParams } from "../lib/urlParams";
 import { yearRange, type ChartEntry, type LayerEntry, type resolveConfig } from "../lib/config";
+import { writePref } from "../lib/prefs";
+import type { Status } from "../hooks/useApi";
+import type { Summary } from "../lib/seriesStats";
+import { storedView, viewKey, type View } from "./view";
 
 /** The position of an entry in `layers`, or the implicit scene layer. */
 export type LayerId = number | "scene";
@@ -47,6 +51,15 @@ export interface PlotState extends PlotParams {
   /** While comparing: one map of the NDVI change from the left side to the right instead of the swipe. */
   difference: boolean;
   setDifference: (d: boolean) => void;
+  /** What each open Landsat/Sentinel-2 series card publishes for the summary above the charts, by chart position. */
+  summaries: Record<number, SeriesSummary | undefined>;
+  setSummary: (i: number, s: SeriesSummary | undefined) => void;
+}
+
+export interface SeriesSummary {
+  status: Status;
+  /** Set once the series is loaded. */
+  result?: Summary;
 }
 
 const Ctx = createContext<PlotState | null>(null);
@@ -72,19 +85,26 @@ export function PlotProvider({
   config: ReturnType<typeof resolveConfig>;
   children: ReactNode;
 }) {
-  const [activeLayer, setActiveLayer] = useState<LayerId>(0);
-  const [years, setYears] = useState<Record<number, Year | undefined>>(() =>
-    Object.fromEntries(config.layers.map((e, i) => [i, initialYear(e, params.end)])),
-  );
-  const [bands, setBandsState] = useState<Record<number, string>>(() =>
-    Object.fromEntries(config.layers.map((e, i) => [i, e.params.bands as string])),
-  );
+  const [view] = useState(() => storedView(config.layers, params.end));
+  const [activeLayer, setActiveLayer] = useState<LayerId>(view.active);
+  const [years, setYears] = useState(view.years);
+  const [bands, setBandsState] = useState(view.bands);
   const [scene, setSceneState] = useState<Scene>();
-  const [compare, setCompareState] = useState(false);
-  const [compareLayer, setCompareLayerState] = useState<LayerId>(config.layers.length > 1 ? 1 : 0);
+  const [compare, setCompareState] = useState(view.compare);
+  const [compareLayer, setCompareLayerState] = useState<LayerId>(view.compareLayer);
   const [compareYear, setCompareYear] = useState<number>();
   const [compareScene, setCompareScene] = useState<Scene>();
-  const [difference, setDifference] = useState(false);
+  const [difference, setDifference] = useState(view.difference);
+  const [summaries, setSummaries] = useState<Record<number, SeriesSummary | undefined>>({});
+  const setSummary = useCallback((i: number, s: SeriesSummary | undefined) => setSummaries((all) => ({ ...all, [i]: s })), []);
+  // Remembers the view for the next plot; a scene is this plot's own, so the last entry layer is stored instead.
+  const lastEntry = useRef({ active: view.active, compareLayer: view.compareLayer });
+  useEffect(() => {
+    if (activeLayer !== "scene") lastEntry.current.active = activeLayer;
+    if (compareLayer !== "scene") lastEntry.current.compareLayer = compareLayer;
+    const stored: View = { ...lastEntry.current, years, bands, compare, difference };
+    writePref(viewKey(config.layers), JSON.stringify(stored));
+  }, [config.layers, activeLayer, years, bands, compare, compareLayer, difference]);
   // Choosing what to compare by hand drops the right-hand override.
   const setCompare = useCallback((c: boolean) => {
     setCompareState(c);
@@ -166,8 +186,10 @@ export function PlotProvider({
       compareScenes,
       difference,
       setDifference,
+      summaries,
+      setSummary,
     }),
-    [params, config, activeLayer, yearOf, setYear, selectYear, bandsOf, setBands, scene, setScene, compare, setCompare, compareLayer, setCompareLayer, compareYear, canCompareAround, compareAround, compareScene, compareScenes, difference],
+    [params, config, activeLayer, yearOf, setYear, selectYear, bandsOf, setBands, scene, setScene, compare, setCompare, compareLayer, setCompareLayer, compareYear, canCompareAround, compareAround, compareScene, compareScenes, difference, summaries, setSummary],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

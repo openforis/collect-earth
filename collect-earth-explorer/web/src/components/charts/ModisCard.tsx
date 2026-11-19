@@ -1,11 +1,12 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
+import { useFold, type CardProps } from "../../lib/folds";
 import ChartCard from "../ChartCard";
 import SeriesChart from "./SeriesChart";
 import { useApi } from "../../hooks/useApi";
 import { postApi } from "../../lib/api";
 import { usePlot } from "../../state/PlotContext";
 import { pointsToCsv, downloadText, type Point } from "../../lib/csv";
-import { chartRequest, type ChartEntry } from "../../lib/config";
+import { chartRequest } from "../../lib/config";
 import { usePref } from "../../lib/prefs";
 import { RAIN_COLOR } from "./PrecipitationCard";
 
@@ -14,18 +15,19 @@ interface Modis {
   fires: { month: number; date: number }[];
 }
 
-export default function ModisCard({ params }: { params: ChartEntry["params"] }) {
+export default function ModisCard(props: CardProps) {
+  const { params } = props;
   const { plot, start, end, plotId } = usePlot();
   const index = params.index as string;
-  const [open, setOpen] = useState(!params.collapsed);
+  const fold = useFold("modis", props);
   const { path, body } = chartRequest({ type: "modis", params }, { plot, start, end });
-  const state = useApi<Modis>((s) => postApi(path, body, s), [plot, start, end, index], { enabled: open });
+  const state = useApi<Modis>((s) => postApi(path, body, s), [plot, start, end, index], { enabled: fold.live });
   // As the analysis switches (SeriesChart useSwitch): a survey that starts with rain on keeps the user's choice apart.
   const rainStart = params.rainfall === true;
   const [rain, setRain] = usePref(`explorer.rain${rainStart ? ".survey" : ""}`, rainStart);
   // The standalone rainfall card's request, so both share the server's answer.
   const rainRequest = chartRequest({ type: "precipitation", params: {} }, { plot, start, end });
-  const rainState = useApi<{ points: Point[] }>((s) => postApi(rainRequest.path, rainRequest.body, s), [plot, start, end], { enabled: open && rain });
+  const rainState = useApi<{ points: Point[] }>((s) => postApi(rainRequest.path, rainRequest.body, s), [plot, start, end], { enabled: fold.live && rain });
   const rainPoints = rain ? rainState.data?.points : undefined;
   // Only the months MODIS covers (from 2000): rainfall goes back further and would stretch the time axis.
   const first = state.data?.ndvi[0]?.date;
@@ -35,10 +37,11 @@ export default function ModisCard({ params }: { params: ChartEntry["params"] }) 
   );
   return (
     <ChartCard
-      title={`MODIS 16-day ${index} (250 m) and burned area`}
+      title={`MODIS ${index}`}
+      tooltip={`MODIS 16-day ${index}, 250 m, with burned area (MCD64A1)`}
       state={state}
-      collapsed={!open}
-      onExpand={() => setOpen(true)}
+      open={fold.open}
+      onToggle={fold.toggle}
       onDownload={() => downloadText(`${plotId || "plot"}-modis-${index.toLowerCase()}.csv`, pointsToCsv(state.data!.ndvi))}
       controls={
         <>

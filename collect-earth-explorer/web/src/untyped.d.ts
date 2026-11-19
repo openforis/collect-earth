@@ -1,4 +1,4 @@
-declare module "plotly.js-dist-min";
+declare module "plotly.js-basic-dist-min";
 
 // Ships no types; this mirrors the API in its index.js / API.md.
 declare module "@maplibre/maplibre-gl-compare" {

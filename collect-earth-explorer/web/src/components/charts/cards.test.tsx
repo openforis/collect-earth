@@ -11,6 +11,8 @@ import Sentinel2NdviCard from "./Sentinel2NdviCard";
 import ModisCard from "./ModisCard";
 import Sentinel1Card from "./Sentinel1Card";
 import PrecipitationCard from "./PrecipitationCard";
+import Summary from "../Summary";
+import { foldsKey } from "../../lib/folds";
 
 interface MockChartProps {
   points: Point[];
@@ -238,7 +240,7 @@ describe("series cards", () => {
     expect(selects[1].value).toBe("any");
     expect(counts()).toEqual(["3", "3"]);
     expect(localStorage.getItem("explorer.maxCloud")).toBe("any");
-    fireEvent.click(screen.getAllByRole("button", { name: "CSV" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "Download CSV" })[0]);
     expect(download.mock.calls.at(-1)![1]).toBe(
       "date,value,sensor,cloud\n2021-01-01,0.5,LANDSAT_8,5\n2021-01-02,0.5,LANDSAT_8,50\n2021-01-03,0.5,LANDSAT_8,\n",
     );
@@ -271,8 +273,8 @@ describe("series cards", () => {
     fetchMock.mockImplementation(async () => json({ points: [POINT] }));
     const download = vi.spyOn(csv, "downloadText").mockImplementation(() => {});
     for (const [Card, type, url, title, file] of [
-      [LandsatNdviCard, "landsat-series", "/api/series/landsat", "Landsat NDMI (click a point to view that scene)", "demo-landsat-ndmi.csv"],
-      [Sentinel2NdviCard, "sentinel2-series", "/api/series/sentinel2", "Sentinel-2 NDMI (click a point to view that scene)", "demo-sentinel2-ndmi.csv"],
+      [LandsatNdviCard, "landsat-series", "/api/series/landsat", "Landsat NDMI", "demo-landsat-ndmi.csv"],
+      [Sentinel2NdviCard, "sentinel2-series", "/api/series/sentinel2", "Sentinel-2 NDMI", "demo-sentinel2-ndmi.csv"],
     ] as const) {
       fetchMock.mockClear();
       const { unmount } = render(
@@ -285,7 +287,7 @@ describe("series cards", () => {
       expect(chart.getAttribute("data-name")).toBe("NDMI");
       expectPlotPost(url);
       expect(lastRequest().body.index).toBe("NDMI");
-      fireEvent.click(screen.getByRole("button", { name: "CSV" }));
+      fireEvent.click(screen.getByRole("button", { name: "Download CSV" }));
       expect(download.mock.calls.at(-1)![0]).toBe(file);
       unmount();
     }
@@ -306,13 +308,13 @@ describe("series cards", () => {
             <Card params={paramsOf(type, { formula: " nir / red ", ...(name && { name }) })} />
           </PlotProvider>,
         );
-        expect(screen.getByRole("heading", { name: `${sensor} ${label} (click a point to view that scene)` })).toBeTruthy();
+        expect(screen.getByRole("heading", { name: `${sensor} ${label}` })).toBeTruthy();
         const chart = await screen.findByTestId("series-chart");
         expect(chart.getAttribute("data-name")).toBe(label);
         expectPlotPost(url);
         expect(Object.keys(lastRequest().body).sort()).toEqual(["end", "formula", "plot", "start"]);
         expect(lastRequest().body.formula).toBe("nir/red");
-        fireEvent.click(screen.getByRole("button", { name: "CSV" }));
+        fireEvent.click(screen.getByRole("button", { name: "Download CSV" }));
         expect(download.mock.calls.at(-1)![0]).toBe(`demo-${file}-${csvName}.csv`);
         unmount();
       }
@@ -324,11 +326,11 @@ describe("series cards", () => {
     fetchMock.mockResolvedValue(json({ ndvi: [{ date: T0, value: 0.4 }], fires: [] }));
     const download = vi.spyOn(csv, "downloadText").mockImplementation(() => {});
     setup(<ModisCard params={paramsOf("modis", { index: "EVI" })} />);
-    expect(screen.getByRole("heading", { name: "MODIS 16-day EVI (250 m) and burned area" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "MODIS EVI" })).toBeTruthy();
     const chart = await screen.findByTestId("series-chart");
     expect(chart.getAttribute("data-name")).toBe("MODIS EVI");
     expect(lastRequest().body.index).toBe("EVI");
-    fireEvent.click(screen.getByRole("button", { name: "CSV" }));
+    fireEvent.click(screen.getByRole("button", { name: "Download CSV" }));
     expect(download.mock.calls.at(-1)![0]).toBe("demo-modis-evi.csv");
     download.mockRestore();
   });
@@ -342,7 +344,7 @@ describe("series cards", () => {
         <Probe />
       </PlotProvider>,
     );
-    expect(screen.getByRole("heading", { name: "Sentinel-1 VH backscatter (dB)" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Sentinel-1 VH (dB)" })).toBeTruthy();
     const chart = await screen.findByTestId("series-chart");
     expect(chart.getAttribute("data-points")).toBe("2");
     expect(chart.getAttribute("data-name")).toBe("Sentinel-1 VH");
@@ -350,12 +352,12 @@ describe("series cards", () => {
     expect(Object.keys(lastRequest().body).sort()).toEqual(["band", "end", "plot", "start"]);
     fireEvent.click(chart);
     expect(screen.getByTestId("scene").textContent).toBe("");
-    fireEvent.click(screen.getByRole("button", { name: "CSV" }));
+    fireEvent.click(screen.getByRole("button", { name: "Download CSV" }));
     expect(download.mock.calls.at(-1)![0]).toBe("demo-sentinel1-vh.csv");
     unmount();
 
     setup(<Sentinel1Card params={paramsOf("sentinel1-series", { collapsed: false, band: "VV" })} />);
-    expect(screen.getByRole("heading", { name: "Sentinel-1 VV backscatter (dB)" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Sentinel-1 VV (dB)" })).toBeTruthy();
     await screen.findByTestId("series-chart");
     expect(lastRequest().body.band).toBe("VV");
     download.mockRestore();
@@ -365,7 +367,7 @@ describe("series cards", () => {
     fetchMock.mockImplementation(async () => json({ points: [{ date: T0, value: 97 }, { date: Date.UTC(2021, 1, 1), value: 46.6 }] }));
     const download = vi.spyOn(csv, "downloadText").mockImplementation(() => {});
     setup(<PrecipitationCard params={paramsOf("precipitation", { collapsed: false })} />);
-    expect(screen.getByRole("heading", { name: "Monthly rainfall (mm, ERA5-Land)" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Rainfall (mm)" })).toBeTruthy();
     const chart = await screen.findByTestId("series-chart");
     expect(chart.getAttribute("data-points")).toBe("2");
     expect(chart.getAttribute("data-bar")).toBe("true");
@@ -373,7 +375,7 @@ describe("series cards", () => {
     expect(Object.keys(lastRequest().body).sort()).toEqual(["end", "plot", "start"]);
     fireEvent.click(chart);
     expect(screen.getByTestId("scene").textContent).toBe("");
-    fireEvent.click(screen.getByRole("button", { name: "CSV" }));
+    fireEvent.click(screen.getByRole("button", { name: "Download CSV" }));
     expect(download.mock.calls.at(-1)![0]).toBe("demo-rainfall.csv");
     download.mockRestore();
   });
@@ -409,7 +411,7 @@ describe("series cards", () => {
     expect(localStorage.getItem("explorer.rain")).toBeNull();
   });
 
-  it("a collapsed card requests nothing until Show is pressed, then loads as usual", async () => {
+  it("a collapsed card requests nothing until Show chart is pressed, then loads as usual", async () => {
     fetchMock.mockImplementation(async (url: string) => json(url.endsWith("modis") ? { ndvi: [POINT], fires: [] } : { points: [POINT] }));
     for (const [Card, type] of [[LandsatNdviCard, "landsat-series"], [Sentinel2NdviCard, "sentinel2-series"], [ModisCard, "modis"], [Sentinel1Card, "sentinel1-series"], [PrecipitationCard, "precipitation"]] as const) {
       fetchMock.mockClear();
@@ -420,7 +422,7 @@ describe("series cards", () => {
       );
       expect(screen.getByRole("heading")).toBeTruthy();
       expect(fetchMock).not.toHaveBeenCalled();
-      fireEvent.click(screen.getByRole("button", { name: "Show" }));
+      fireEvent.click(screen.getByRole("button", { name: "Show chart" }));
       await screen.findByTestId("series-chart");
       expect(fetchMock).toHaveBeenCalledTimes(1);
       unmount();
@@ -441,5 +443,164 @@ describe("series cards", () => {
     expect(chart.getAttribute("data-points")).toBe("1");
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+  });
+});
+
+describe("folding a card", () => {
+  const cfg = resolveConfig(undefined, 2026);
+  beforeEach(() => {
+    fetchMock.mockReset();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("keeps its data and unfolds without a new request; the choice is stored and holds, without a request, on the next plot", async () => {
+    fetchMock.mockImplementation(async (url: string) => json(url.endsWith("modis") ? { ndvi: [POINT], fires: [] } : { points: [POINT] }));
+    const cards = [[LandsatNdviCard, 0, "landsat-series"], [Sentinel2NdviCard, 1, "sentinel2-series"], [ModisCard, 3, "modis"]] as const;
+    for (const [Card, index, type] of cards) {
+      fetchMock.mockClear();
+      const { unmount } = render(
+        <PlotProvider params={params} config={cfg}>
+          <Card params={cfg.charts[index].params} index={index} />
+        </PlotProvider>,
+      );
+      await screen.findByTestId("series-chart");
+      const fold = screen.getByRole("button", { name: "Fold chart" });
+      expect(fold.getAttribute("aria-expanded")).toBe("true");
+      fireEvent.click(fold);
+      expect(screen.queryByTestId("series-chart")).toBeNull();
+      expect(screen.getByRole("heading")).toBeTruthy();
+      expect(JSON.parse(localStorage.getItem(foldsKey(cfg.charts))!)[`${index}:${type}`]).toBe(false);
+      fireEvent.click(screen.getByRole("button", { name: "Show chart" }));
+      // At once, from the data it kept.
+      expect(screen.getByTestId("series-chart")).toBeTruthy();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      fireEvent.click(screen.getByRole("button", { name: "Fold chart" }));
+      unmount();
+
+      fetchMock.mockClear();
+      const next = render(
+        <PlotProvider params={params} config={cfg}>
+          <Card params={cfg.charts[index].params} index={index} />
+        </PlotProvider>,
+      );
+      expect(screen.getByRole("heading")).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Show chart" }).getAttribute("aria-expanded")).toBe("false");
+      expect(fetchMock).not.toHaveBeenCalled();
+      next.unmount();
+    }
+  });
+
+  it("a stored choice unfolds a chart the configuration collapses, and does not reach another configuration", async () => {
+    fetchMock.mockImplementation(async () => json({ points: [POINT] }));
+    localStorage.setItem(foldsKey(cfg.charts), JSON.stringify({ "5:precipitation": true }));
+    const first = render(
+      <PlotProvider params={params} config={cfg}>
+        <PrecipitationCard params={cfg.charts[5].params} index={5} />
+      </PlotProvider>,
+    );
+    await screen.findByTestId("series-chart");
+    first.unmount();
+    fetchMock.mockClear();
+    const other = resolveConfig(
+      JSON.stringify({ v: 1, charts: [{ type: "landsat-series" }, { type: "sentinel2-series" }, { type: "ccdc" }, { type: "modis" }, { type: "sentinel1-series", collapsed: true }, { type: "precipitation", collapsed: true }, { type: "ccdc", band: "NDVI" }] }),
+      2026,
+    );
+    render(
+      <PlotProvider params={params} config={other}>
+        <PrecipitationCard params={other.charts[5].params} index={5} />
+      </PlotProvider>,
+    );
+    expect(screen.getByRole("button", { name: "Show chart" })).toBeTruthy();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("the summary above the charts", () => {
+  const cfg = resolveConfig(undefined, 2026);
+  /** One observation on 1 July of each year from `from`. */
+  const yearly = (values: number[], from: number): Point[] => values.map((value, i) => ({ date: Date.UTC(from + i, 6, 1), value }));
+  const STEP = yearly([...Array(8).fill(0.8), ...Array(8).fill(0.2)], 2005);
+  const RISE = yearly([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1], 2016);
+  const FLAT = yearly([0.5, 0.6, 0.5, 0.6, 0.5, 0.6, 0.5, 0.6, 0.5, 0.6], 2010);
+  const FEW = yearly([0.5, 0.6, 0.5, 0.6, 0.5], 2020);
+  const NEVER = () => new Promise<Response>(() => {});
+  const lines = () => screen.queryAllByRole("listitem").map((li) => li.textContent);
+
+  /** The summary with the configuration's Landsat and Sentinel-2 cards, each answered by its function. */
+  function show(landsat: () => Promise<Response>, sentinel2: () => Promise<Response>, config = cfg) {
+    fetchMock.mockImplementation((url: string) => (url.endsWith("landsat") ? landsat() : sentinel2()));
+    return render(
+      <PlotProvider params={params} config={config}>
+        <Summary />
+        {config.charts.map((c, i) => {
+          const Card = c.type === "landsat-series" ? LandsatNdviCard : c.type === "sentinel2-series" ? Sentinel2NdviCard : undefined;
+          return (
+            Card && (
+              <div key={i} id={`chart-${i}`}>
+                <Card params={c.params} index={i} />
+              </div>
+            )
+          );
+        })}
+      </PlotProvider>,
+    );
+  }
+
+  beforeEach(() => {
+    fetchMock.mockReset();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("has a line per open Landsat/Sentinel-2 chart from the first render, loading until the series arrive", () => {
+    render(
+      <PlotProvider params={params} config={cfg}>
+        <Summary />
+      </PlotProvider>,
+    );
+    expect(lines()).toEqual(["Landsat NDVI: loading…", "Sentinel-2 NDVI: loading…"]);
+  });
+
+  it("reads the trend, the change year only when significant, and the last image's date", async () => {
+    const first = show(async () => json({ points: STEP }), async () => json({ points: RISE }));
+    await vi.waitFor(() =>
+      expect(lines()).toEqual(["Landsat NDVI: significant decrease · change in 2013 · last image 2020-07-01", "Sentinel-2 NDVI: significant increase · last image 2025-07-01"]),
+    );
+    expect(screen.getByText("significant decrease").className).toBe("summary-significant");
+    first.unmount();
+    show(async () => json({ points: FLAT }), async () => json({ points: FEW }));
+    await vi.waitFor(() =>
+      expect(lines()).toEqual(["Landsat NDVI: no significant trend · last image 2019-07-01", "Sentinel-2 NDVI: too few years for a trend · last image 2024-07-01"]),
+    );
+    expect(screen.getByText("no significant trend").className).toBe("");
+  });
+
+  it("follows the card's cloud filter", async () => {
+    const cloudy = { date: Date.UTC(2026, 0, 1), value: 0.1, cloud: 90 };
+    show(async () => json({ points: [...RISE, cloudy] }), async () => json({ points: RISE }));
+    await vi.waitFor(() => expect(lines()[0]).toBe("Landsat NDVI: significant increase · last image 2025-07-01"));
+    fireEvent.change(screen.getAllByRole("combobox", { name: "Maximum scene cloud cover" })[0], { target: { value: "any" } });
+    await vi.waitFor(() => expect(lines()[0]).toBe("Landsat NDVI: significant increase · last image 2026-01-01"));
+  });
+
+  it("shows nothing for a failed or folded card, and scrolls to a card from its line", async () => {
+    const scroll = vi.fn();
+    Element.prototype.scrollIntoView = scroll;
+    show(async () => json({ error: { code: "bad_plot", message: "no", retryable: false } }, 400), async () => json({ points: RISE }));
+    await vi.waitFor(() => expect(lines()).toEqual(["Sentinel-2 NDVI: significant increase · last image 2025-07-01"]));
+    fireEvent.click(screen.getByRole("button", { name: /^Sentinel-2 NDVI:/ }));
+    expect(scroll).toHaveBeenCalledTimes(1);
+    expect(scroll.mock.contexts[0]).toBe(document.getElementById("chart-1"));
+    fireEvent.click(screen.getAllByRole("button", { name: "Fold chart" })[1]);
+    expect(lines()).toEqual([]);
+    delete (Element.prototype as Partial<Element>).scrollIntoView;
+  });
+
+  it("has no line, and no request, for a chart the configuration collapses", () => {
+    const collapsed = resolveConfig(JSON.stringify({ v: 1, charts: [{ type: "landsat-series", collapsed: true }, { type: "sentinel2-series" }] }), 2026);
+    show(NEVER, NEVER, collapsed);
+    expect(lines()).toEqual(["Sentinel-2 NDVI: loading…"]);
+    expect(fetchMock.mock.calls.map(([u]) => u)).toEqual(["/api/series/sentinel2"]);
   });
 });

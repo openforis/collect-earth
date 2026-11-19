@@ -1,15 +1,17 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render } from "@testing-library/react";
 import type { ComponentType } from "react";
-import { PlotProvider } from "../state/PlotContext";
-import { useLayerTiles } from "../components/LayerSources";
+import { PlotProvider, usePlot } from "../state/PlotContext";
+import { viewKey } from "../state/view";
+import { differenceBlocked, useDifferenceTiles, useLayerTiles } from "../components/LayerSources";
+import { foldsKey, type CardProps } from "./folds";
 import CcdcCard from "../components/charts/CcdcCard";
 import LandsatNdviCard from "../components/charts/LandsatNdviCard";
 import Sentinel2NdviCard from "../components/charts/Sentinel2NdviCard";
 import ModisCard from "../components/charts/ModisCard";
 import Sentinel1Card from "../components/charts/Sentinel1Card";
 import PrecipitationCard from "../components/charts/PrecipitationCard";
-import { resolveConfig, type ChartEntry } from "./config";
+import { resolveConfig } from "./config";
 import { toPolygon, type PlotParams } from "./urlParams";
 import { plotTiles, warm, warmRequests } from "./prewarm";
 
@@ -18,7 +20,7 @@ vi.mock("../components/Plot", () => ({ default: () => null }));
 
 const next = toPolygon({ type: "Point", coordinates: [-88.75, 17.25] });
 const params: PlotParams = { plot: next, start: "2000-01-01", end: "2026-11-01", plotId: "2" };
-const CARDS: Record<string, ComponentType<{ params: ChartEntry["params"] }>> = {
+const CARDS: Record<string, ComponentType<CardProps>> = {
   ccdc: CcdcCard,
   "landsat-series": LandsatNdviCard,
   "sentinel2-series": Sentinel2NdviCard,
@@ -39,15 +41,20 @@ afterEach(() => vi.unstubAllGlobals());
 function bodiesOnOpen(cfg: ReturnType<typeof resolveConfig>) {
   fetchMock.mockReset();
   fetchMock.mockReturnValue(new Promise(() => {}));
+  // The map's requests as the Viewer (App.tsx) makes them: its layer, and when comparing the other side or the difference.
   function Map() {
-    useLayerTiles(0);
+    const p = usePlot();
+    const showDifference = p.compare && p.difference && !differenceBlocked(p);
+    useLayerTiles(p.activeLayer, { enabled: !showDifference });
+    useDifferenceTiles({ enabled: showDifference });
+    useLayerTiles(p.compareLayer, { enabled: p.compare && p.activeLayer !== p.compareLayer && !showDifference });
     return null;
   }
   const { unmount } = render(
     <PlotProvider params={params} config={cfg}>
       {cfg.charts.map((c, i) => {
         const Card = CARDS[c.type];
-        return <Card key={i} params={c.params} />;
+        return <Card key={i} params={c.params} index={i} />;
       })}
       <Map />
     </PlotProvider>,
@@ -57,20 +64,42 @@ function bodiesOnOpen(cfg: ReturnType<typeof resolveConfig>) {
 }
 
 describe("warmRequests", () => {
+  // Through JSON, as the server sees it (undefined fields drop out), in any order.
+  const sorted = (list: unknown[]) => list.map((r) => JSON.stringify(r)).sort();
+  const same = (cfg: ReturnType<typeof resolveConfig>) => expect(sorted(JSON.parse(JSON.stringify(warmRequests(next, params, cfg))))).toEqual(sorted(bodiesOnOpen(cfg)));
+
   it("sends for the next plot exactly what the cards and the map send when that plot is opened, charts first", () => {
     for (const cfg of [
       config(),
       config({ v: 1, layers: [{ type: "landsat", bands: "true-colour" }], charts: [{ type: "ccdc", band: "NDVI" }, { type: "landsat-series", index: "NDMI" }, { type: "sentinel2-series", formula: " nir / red ", name: "x" }, { type: "modis", index: "EVI" }] }),
       config({ v: 1, layers: [{ type: "sentinel2", year: 2020, maxCloud: 30 }] }),
       config({ v: 1, layers: [{ type: "sentinel1", bands: "vh" }], charts: [{ type: "sentinel1-series" }, { type: "sentinel1-series", band: "VV" }, { type: "precipitation" }] }),
-    ]) {
-      const opened = bodiesOnOpen(cfg);
-      // Through JSON, as the server sees it (undefined fields drop out).
-      const warmed = JSON.parse(JSON.stringify(warmRequests(next, params, cfg)));
-      // The same requests, in the warm-up's own order (CCDC last).
-      const sorted = (list: unknown[]) => list.map((r) => JSON.stringify(r)).sort();
-      expect(sorted(warmed)).toEqual(sorted(opened));
-    }
+    ])
+      same(cfg);
+  });
+
+  it("warms the remembered layer at its year and bands, and the compare layer", () => {
+    const cfg = config();
+    localStorage.setItem(viewKey(cfg.layers), JSON.stringify({ active: 1, years: { 1: 2015 }, bands: { 1: "true-colour" }, compare: true, compareLayer: 0 }));
+    const tiles = warmRequests(next, params, cfg).filter((r) => r.path.startsWith("tiles/"));
+    expect(tiles.map((r) => [r.path, r.body.year, r.body.bands])).toEqual([["tiles/landsat", 2015, "true-colour"], ["tiles/sentinel2", undefined, undefined]]);
+    same(cfg);
+  });
+
+  it("warms the difference instead of the two sides when the remembered view shows it", () => {
+    const cfg = config({ v: 1, layers: [{ type: "landsat" }, { type: "landsat", year: 2010 }] });
+    localStorage.setItem(viewKey(cfg.layers), JSON.stringify({ active: 1, compare: true, compareLayer: 0, difference: true }));
+    const tiles = warmRequests(next, params, cfg).filter((r) => r.path.startsWith("tiles/"));
+    expect(tiles.map((r) => r.path)).toEqual(["tiles/difference"]);
+    expect(tiles[0].body).toMatchObject({ left: { path: "tiles/landsat", year: 2010 }, right: { path: "tiles/landsat", year: 2025 } });
+    same(cfg);
+  });
+
+  it("skips the charts the user folded and warms those the user unfolded", () => {
+    const cfg = config();
+    localStorage.setItem(foldsKey(cfg.charts), JSON.stringify({ "0:landsat-series": false, "5:precipitation": true }));
+    expect(warmRequests(next, params, cfg).map((r) => r.path)).toEqual(["series/sentinel2", "series/modis", "series/precipitation", "tiles/sentinel2", "ccdc"]);
+    same(cfg);
   });
 
   it("skips collapsed charts", () => {
