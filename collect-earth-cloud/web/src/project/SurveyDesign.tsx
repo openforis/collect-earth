@@ -1163,7 +1163,22 @@ const DesignView = memo(function DesignView({ w, onLanguage, addLanguage }: { w:
   const names = useMemo(() => languageNames(uiLanguage), [uiLanguage]);
   const edit = useContext(EditContext);
   const [addingPage, setAddingPage] = useState(false);
-  const questions = design.pages.reduce((n, p) => n + p.items.reduce((m, i) => m + (i.kind === "table" ? i.columns.length : 1), 0), 0);
+  const questions = design.pages.reduce((n, p) => n + questionCount(p), 0);
+  const shown = shownPages(design, edit !== null);
+  // The cards open, by name: each starts as it was first shown (the first, and while editing the empty ones, open)
+  const [open, setOpen] = useState<Record<string, boolean>>({});
+  const unseen = shown.filter((p) => !(p.name in open));
+  if (unseen.length > 0) setOpen({ ...Object.fromEntries(unseen.map((p) => [p.name, p === shown[0] || p.empty === true])), ...open });
+  const cardsRef = useRef<HTMLDivElement>(null);
+  const outlineId = useId();
+  const openAll = (value: boolean) => setOpen((o) => ({ ...o, ...Object.fromEntries(shown.map((p) => [p.name, value])) }));
+  /** A card of the outline clicked: opened, scrolled to, and the keyboard on its name */
+  const goTo = (name: string) => {
+    setOpen((o) => ({ ...o, [name]: true }));
+    const card = cardsRef.current?.querySelector<HTMLElement>(`[data-card="${CSS.escape(name)}"]`);
+    card?.scrollIntoView({ behavior: "smooth", block: "start" });
+    card?.querySelector<HTMLElement>("button[aria-expanded]")?.focus({ preventScroll: true });
+  };
 
   return (
     <Stack spacing={2}>
@@ -1202,9 +1217,28 @@ const DesignView = memo(function DesignView({ w, onLanguage, addLanguage }: { w:
           </Typography>
         </Box>
       )}
-      <Stack spacing={1.5} lang={language}>
-        {shownPages(design, edit !== null).map((page, i, all) => (
-          <PageView key={page.name} w={w} page={page} defaultOpen={i === 0 || page.empty === true} order={all.map((p) => p.name)} />
+      {shown.length > 1 && (
+        <Stack component="nav" aria-labelledby={outlineId} direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: "wrap", alignItems: "center" }}>
+          <Typography variant="body2" color="text.secondary" id={outlineId} sx={{ mr: 0.5 }}>
+            {t("survey.outline.label")}
+          </Typography>
+          {shown.map((p) => {
+            const name = textIn(p.label, language, design.languages) || t("survey.noLabel");
+            const count = questionCount(p);
+            return (
+              <Chip key={p.name} size="small" variant={open[p.name] ? "filled" : "outlined"} onClick={() => goTo(p.name)} sx={{ maxWidth: "100%" }}
+                aria-label={t("survey.outline.go", { card: name, count })}
+                label={<><span lang={language}>{name}</span> <Box component="span" sx={{ color: "text.secondary" }}>{count}</Box></>} />
+            );
+          })}
+          <Button size="small" onClick={() => openAll(true)}>{t("survey.outline.openAll")}</Button>
+          <Button size="small" onClick={() => openAll(false)}>{t("survey.outline.closeAll")}</Button>
+        </Stack>
+      )}
+      <Stack spacing={1.5} lang={language} ref={cardsRef}>
+        {shown.map((page) => (
+          <PageView key={page.name} w={w} page={page} open={open[page.name] ?? false}
+            onToggle={() => setOpen((o) => ({ ...o, [page.name]: !o[page.name] }))} order={shown.map((p) => p.name)} />
         ))}
       </Stack>
       {edit && (
@@ -1225,6 +1259,9 @@ const DesignView = memo(function DesignView({ w, onLanguage, addLanguage }: { w:
     </Stack>
   );
 });
+
+/** How many questions a page has, a table's columns each counted */
+const questionCount = (page: DesignPage): number => page.items.reduce((m, i) => m + (i.kind === "table" ? i.columns.length : 1), 0);
 
 /** The pages shown: those with questions, and while the survey is edited the empty ones too, in the form's order */
 function shownPages(design: SurveyDesign, editing: boolean): Array<DesignPage & { empty?: boolean; deletable?: boolean }> {
@@ -1322,23 +1359,26 @@ function Problems({ w, problems, title }: { w: Words; problems: SurveyProblem[];
   );
 }
 
-/** A page of the form, folding under its name */
-function PageView({ w, page, defaultOpen, order }: { w: Words; page: DesignPage & { empty?: boolean; deletable?: boolean }; defaultOpen: boolean; order: string[] }) {
+/** A page of the form, folding under its name (open or not as the survey's outline says) */
+function PageView({ w, page, open, onToggle, order }: {
+  w: Words;
+  page: DesignPage & { empty?: boolean; deletable?: boolean };
+  open: boolean;
+  onToggle: () => void;
+  order: string[];
+}) {
   const edit = useContext(EditContext);
-  const [open, setOpen] = useState(defaultOpen);
   // Its questions are made once it is first opened: a long survey shows, and changes language, sooner
-  const [opened, setOpened] = useState(defaultOpen);
+  const [opened, setOpened] = useState(open);
+  if (open && !opened) setOpened(true);
   const id = useId();
   const label = textIn(page.label, w.language, w.design.languages) || w.t("survey.noLabel");
   return (
-    <Box sx={{ border: 1, borderColor: "divider", borderRadius: 1 }} data-focus-home>
+    <Box sx={{ border: 1, borderColor: "divider", borderRadius: 1, scrollMarginTop: 72 }} data-focus-home data-card={page.name}>
       {/* The heading holds the button (not the other way round): a heading inside a button is no heading to a screen reader */}
       <Typography variant="h3" sx={{ m: 0 }}>
         <ButtonBase
-          onClick={() => {
-            setOpen(!open);
-            setOpened(true);
-          }}
+          onClick={onToggle}
           aria-expanded={open}
           aria-controls={`${id}-page`}
           sx={{ width: "100%", justifyContent: "flex-start", textAlign: "left", px: 2, py: 1.5, gap: 2, borderRadius: 1, font: "inherit" }}
