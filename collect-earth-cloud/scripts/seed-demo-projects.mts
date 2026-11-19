@@ -17,12 +17,17 @@
 //   YEARS         first and last year of the multipurpose and IPCC templates (2015-2024)
 //   OUT           where the accounts and their passwords are written (seed-demo-accounts.csv)
 //   KEEP_ADMIN=1  the administrator running the script stays a coordinator of the projects (it leaves them otherwise)
+//   ACCOUNTS      a file written by an earlier run (username,password,role): its accounts are used, none is made
+//   TEMPLATES     the templates to make projects of (basic,multipurpose,ipcc)
+//   CONTINUE      template=projectId,…: a project an earlier run made (its survey and plots there) gets the rest
 //   DRY_RUN=1     only checks the server, the administrator and the country, changing nothing
 //
-// The accounts' passwords are generated and written to OUT only: keep that file private.
+// The accounts' passwords are generated and written to OUT, before anything is made: keep that file private.
+// No request is made with the accounts' sessions: an account takes an invitation by signing in with it (a network
+// secret that adds the administrator's token to every request to the server would stand in for any other token).
 
 import { randomBytes } from 'node:crypto';
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 
 const env = process.env;
 const BASE_URL = (env.BASE_URL ?? '').replace(/\/+$/, '');
@@ -44,11 +49,14 @@ if (!BASE_URL || !COORDINATOR || !/^[A-Z]{3}$/.test(COUNTRY)) {
   process.exit(2);
 }
 
-const TEMPLATES = [
-  { template: 'basic', label: 'demonstration survey' },
-  { template: 'multipurpose', label: 'multipurpose survey' },
-  { template: 'ipcc', label: 'IPCC land use survey' },
+const ALL_TEMPLATES = [
+  { template: 'basic', label: 'demonstration survey', number: 1 },
+  { template: 'multipurpose', label: 'multipurpose survey', number: 2 },
+  { template: 'ipcc', label: 'IPCC land use survey', number: 3 },
 ] as const;
+const WANTED = (env.TEMPLATES ?? 'basic,multipurpose,ipcc').split(',').map((t) => t.trim());
+const TEMPLATES = ALL_TEMPLATES.filter((t) => WANTED.includes(t.template));
+const CONTINUE = new Map((env.CONTINUE ?? '').split(',').filter(Boolean).map((pair) => pair.split('=') as [string, string]));
 
 interface Answer {
   status: number;
@@ -103,17 +111,48 @@ async function main(): Promise<void> {
   }
 
   const runId = Date.now().toString(36).slice(-5);
-  const accounts: { username: string; password: string; role: string }[] = [
-    ...Array.from({ length: PARTICIPANTS }, (_, i) => ({ username: `${PREFIX.toLowerCase()}-${runId}-p${String(i + 1).padStart(2, '0')}`, password: password(), role: 'operator' })),
-    ...Array.from({ length: REVIEWERS }, (_, i) => ({ username: `${PREFIX.toLowerCase()}-${runId}-r${String(i + 1).padStart(2, '0')}`, password: password(), role: 'reviewer' })),
-  ];
-  const sessions = new Map<string, { token: string; userId: string }>();
+  const reused = env.ACCOUNTS !== undefined;
+  const accounts: { username: string; password: string; role: string }[] = reused
+    ? readFileSync(env.ACCOUNTS!, 'utf8')
+        .split(/\r?\n/)
+        .slice(1)
+        .filter((l) => l.trim() !== '')
+        .map((l) => {
+          const [username, pw, role] = l.split(',');
+          return { username, password: pw, role: role === 'reviewer' ? 'reviewer' : 'operator' };
+        })
+    : [
+        ...Array.from({ length: PARTICIPANTS }, (_, i) => ({ username: `${PREFIX.toLowerCase()}-${runId}-p${String(i + 1).padStart(2, '0')}`, password: password(), role: 'operator' })),
+        ...Array.from({ length: REVIEWERS }, (_, i) => ({ username: `${PREFIX.toLowerCase()}-${runId}-r${String(i + 1).padStart(2, '0')}`, password: password(), role: 'reviewer' })),
+      ];
+  // Written before anything is made: a run stopped halfway leaves the accounts it made usable
+  if (!reused) {
+    writeFileSync(OUT, ['username,password,role', ...accounts.map((a) => `${a.username},${a.password},${a.role === 'operator' ? 'participant' : 'reviewer'}`)].join('\n') + '\n', { mode: 0o600 });
+    console.log(`Accounts and passwords: ${OUT}`);
+  }
+  // The accounts made (or known) so far, by username: their ids
+  const ids = new Map<string, string>();
+  let made1 = reused;
   const made: { name: string; projectId: string; plots: number }[] = [];
 
-  for (const [index, t] of TEMPLATES.entries()) {
-    const name = `${PREFIX} ${index + 1}: ${t.label} (${country})`;
+  for (const t of TEMPLATES) {
+    const name = `${PREFIX} ${t.number}: ${t.label} (${country})`;
     console.log(`\n${name}`);
-    const projectId = expect('create the project', await call('POST', '/v1/projects', ADMIN_TOKEN, { name })).json().projectId as string;
+    const continued = CONTINUE.get(t.template);
+    let projectId: string;
+    let fileId: string;
+    let plots: number;
+    if (continued) {
+      // Made by an earlier run with its survey and plots: the people and the rest are added
+      projectId = continued;
+      const files = expect('the project\'s plot files', await call('GET', `/v1/projects/${projectId}/csv-files`, ADMIN_TOKEN)).json();
+      const list = files.csvFiles as { id: string; plotCount: number }[];
+      if (!list?.length) throw new Error(`the project ${projectId} has no plot file`);
+      fileId = list[0].id;
+      plots = list[0].plotCount;
+      console.log(`  continued: its plot file ${fileId}`);
+    } else {
+    projectId = expect('create the project', await call('POST', '/v1/projects', ADMIN_TOKEN, { name })).json().projectId as string;
     // Its survey, from the template, and its project file around it
     expect(
       'start the survey from the template',
@@ -129,31 +168,37 @@ async function main(): Promise<void> {
       'make the plots',
       await call('POST', `/v1/projects/${projectId}/plot-design`, ADMIN_TOKEN, { geojson, design: { method: 'random', count: PLOTS }, generate: true }),
     ).text;
-    const file = expect('upload the plots', await call('PUT', `/v1/projects/${projectId}/csv-files/plots-${COUNTRY.toLowerCase()}.csv`, ADMIN_TOKEN, undefined, { data: Buffer.from(csv), type: 'text/csv' })).json();
-    const plots = csv.split(/\r?\n/).filter((l) => l.trim() !== '').length - 1;
+    fileId = expect('upload the plots', await call('PUT', `/v1/projects/${projectId}/csv-files/plots-${COUNTRY.toLowerCase()}.csv`, ADMIN_TOKEN, undefined, { data: Buffer.from(csv), type: 'text/csv' })).json().id as string;
+    plots = csv.split(/\r?\n/).filter((l) => l.trim() !== '').length - 1;
     console.log(`  survey: ${t.template}; plots: ${plots}`);
+    }
 
-    // The people: an invitation per role, taken by a new account (the first project) or by the account signed in
+    // The people: an invitation per role, taken by a new account (the first project) or by an account signing in
+    // with it (its password, no session of its own: see the head)
     for (const role of ['operator', 'reviewer']) {
       const people = accounts.filter((a) => a.role === role);
       if (people.length === 0) continue;
       const invite = expect('invite', await call('POST', `/v1/projects/${projectId}/invites`, ADMIN_TOKEN, { role, maxUses: people.length })).json().inviteToken as string;
       for (const a of people) {
-        const known = sessions.get(a.username);
-        if (known) {
-          expect(`${a.username} joins`, await call('POST', '/v1/auth/join', known.token, { inviteToken: invite }));
-        } else {
-          const r = expect(`register ${a.username}`, await call('POST', '/v1/auth/register', null, { username: a.username, password: a.password, inviteToken: invite })).json();
-          sessions.set(a.username, { token: r.token, userId: r.userId });
-        }
+        const r = made1
+          ? expect(`${a.username} joins`, await call('POST', '/v1/auth/login', null, { username: a.username, password: a.password, inviteToken: invite })).json()
+          : expect(`register ${a.username}`, await call('POST', '/v1/auth/register', null, { username: a.username, password: a.password, inviteToken: invite })).json();
+        if (r.projectId !== projectId) throw new Error(`${a.username} did not join ${projectId} (${JSON.stringify(r).slice(0, 200)})`);
+        ids.set(a.username, r.userId);
       }
+    }
+    made1 = true;
+    // Checked on the project itself: every account is in it, with its role
+    const members = expect('the project\'s people', await call('GET', `/v1/projects/${projectId}/members`, ADMIN_TOKEN)).json().members as { username: string; role: string }[];
+    for (const a of accounts) {
+      if (!members.some((m) => m.username === a.username && m.role === a.role)) throw new Error(`${a.username} is not in ${name} as ${a.role}`);
     }
     console.log(`  people: ${PARTICIPANTS} participants, ${REVIEWERS} reviewers`);
 
     // The plots divided evenly between the participants
-    const participants = accounts.filter((a) => a.role === 'operator').map((a) => sessions.get(a.username)!.userId);
+    const participants = accounts.filter((a) => a.role === 'operator').map((a) => ids.get(a.username)!);
     if (participants.length > 0) {
-      expect('divide the plots', await call('PUT', `/v1/projects/${projectId}/csv-files/${file.id}/distribution`, ADMIN_TOKEN, { mode: 'even', people: participants, order: 'file' }));
+      expect('divide the plots', await call('PUT', `/v1/projects/${projectId}/csv-files/${fileId}/distribution`, ADMIN_TOKEN, { mode: 'even', people: participants, order: 'file' }));
       console.log(`  plots divided: about ${Math.round(plots / participants.length)} each`);
     }
 
@@ -172,12 +217,9 @@ async function main(): Promise<void> {
     made.push({ name, projectId, plots });
   }
 
-  // The accounts' sessions made here end: the people sign in with their passwords
-  for (const s of sessions.values()) await call('POST', '/v1/auth/logout', s.token);
-  writeFileSync(OUT, ['username,password,role', ...accounts.map((a) => `${a.username},${a.password},${a.role === 'operator' ? 'participant' : 'reviewer'}`)].join('\n') + '\n', { mode: 0o600 });
   console.log(`\nDone: ${made.length} projects`);
   for (const m of made) console.log(`  ${m.name}: ${m.plots} plots, ${BASE_URL}/projects/${m.projectId}`);
-  console.log(`Accounts and passwords: ${OUT}`);
+  console.log(`Accounts and passwords: ${reused ? env.ACCOUNTS : OUT}`);
 }
 
 main().catch((err) => {
