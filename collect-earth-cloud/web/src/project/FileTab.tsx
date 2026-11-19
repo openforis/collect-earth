@@ -12,6 +12,8 @@ import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Select from "@mui/material/Select";
 import Stack from "@mui/material/Stack";
+import Tab from "@mui/material/Tab";
+import Tabs from "@mui/material/Tabs";
 import Typography from "@mui/material/Typography";
 import Download from "@mui/icons-material/Download";
 import InsertDriveFile from "@mui/icons-material/InsertDriveFile";
@@ -192,6 +194,8 @@ export function FileTab({ projectId }: { projectId: string }) {
   // Several new grid files wait for the coordinator's choice: one merged plot file, or each on its own.
   const [pendingGrid, setPendingGrid] = useState<{ files: File[]; mergedName: string } | null>(null);
   const [gridProgress, setGridProgress] = useState<{ done: number; total: number } | null>(null);
+  // A project without a survey starts it one way or the other; New project's "Import a survey" opens on the import
+  const [start, setStart] = useState<"new" | "import">(() => (new URLSearchParams(window.location.search).get("survey") === "import" ? "import" : "new"));
 
   const addPlotFiles = async (files: File[]) => {
     const result = { added: 0, failed: [] as { name: string; reason: string }[] };
@@ -261,59 +265,68 @@ export function FileTab({ projectId }: { projectId: string }) {
   };
 
   const cep = overview.data?.cep ?? null;
+  const noSurvey = overview.data !== null && cep === null;
 
   return (
     <Stack spacing={3}>
+      {noSurvey && (
+        <Tabs value={start} onChange={(_, value: "new" | "import") => setStart(value)} aria-label={t("projects.startTitle")} sx={{ borderBottom: 1, borderColor: "divider" }}>
+          <Tab value="new" label={t("projects.fromDesigner")} />
+          <Tab value="import" label={t("projects.fromCep")} />
+        </Tabs>
+      )}
       {/* What the survey asks, read from the project file; the file itself, and a new one, below */}
-      <SurveyDesignCards projectId={projectId} />
-      <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
-        <Typography variant="h2" gutterBottom>
-          {t("file.title")}
-        </Typography>
-        <Explain sx={{ mb: 2 }} text={t("file.explain.short")} more={t("file.explain")} />
-        {overview.loading && !overview.data ? (
-          <Loading />
-        ) : overview.error ? (
-          <ErrorAlert error={overview.error} onRetry={overview.reload} />
-        ) : cep ? (
-          <Alert severity="success" icon={<InsertDriveFile />}>
-            {cep.updatedAt !== null
-              ? t("file.current", { size: formatBytes(cep.bytes, language), date: formatDate(cep.updatedAt, language) })
-              : t("file.currentNoDate", { size: formatBytes(cep.bytes, language) })}
-          </Alert>
-        ) : (
-          <Alert severity="info">{t("file.none")}</Alert>
-        )}
-        <Stack spacing={1.5} sx={{ mt: 2 }}>
-          <FileDrop
-            label={t("file.drop")}
-            buttonLabel={cep ? t("file.chooseNew") : t("file.choose")}
-            accept=".cep"
-            disabled={progress !== null}
-            onFiles={upload}
-          />
-          {progress !== null && (
-            <div>
-              <Typography sx={{ mb: 1 }} role="status">
-                {t("file.uploading", { pct: Math.round(progress * 100) })}
-              </Typography>
-              <LinearProgress variant="determinate" value={progress * 100} aria-label={t("file.uploading", { pct: Math.round(progress * 100) })} />
-            </div>
-          )}
-          {wrongType && <Alert severity="warning" role="alert">{t("file.wrongType")}</Alert>}
-          {/* Keys and passwords the file's settings carried: left out by the server, as every person downloads the file */}
-          {cleaned && cleaned.removed.length > 0 && (
-            <Alert severity="warning" role="status">{t("file.secretsRemoved", { settings: cleaned.removed.join(", ") })}</Alert>
-          )}
-          {cleaned?.keyInExtraMap && <Alert severity="warning" role="status">{t("file.keyInExtraMap")}</Alert>}
-          {uploaded && (
-            <Alert severity="success" role="status">
-              {t("file.uploaded.short")}
-              <MoreInfo text={t("file.uploaded")} />
+      {(!noSurvey || start === "new") && <SurveyDesignCards projectId={projectId} />}
+      {(!noSurvey || start === "import") && (
+        <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 } }}>
+          <Typography variant="h2" gutterBottom>
+            {t("file.title")}
+          </Typography>
+          <Explain sx={{ mb: 2 }} text={t("file.explain.short")} more={t("file.explain")} />
+          {overview.loading && !overview.data ? (
+            <Loading />
+          ) : overview.error ? (
+            <ErrorAlert error={overview.error} onRetry={overview.reload} />
+          ) : cep ? (
+            <Alert severity="success" icon={<InsertDriveFile />}>
+              {cep.updatedAt !== null
+                ? t("file.current", { size: formatBytes(cep.bytes, language), date: formatDate(cep.updatedAt, language) })
+                : t("file.currentNoDate", { size: formatBytes(cep.bytes, language) })}
             </Alert>
+          ) : (
+            <Alert severity="info">{t("file.none")}</Alert>
           )}
-        </Stack>
-      </Paper>
+          <Stack spacing={1.5} sx={{ mt: 2 }}>
+            <FileDrop
+              label={t("file.drop")}
+              buttonLabel={cep ? t("file.chooseNew") : t("file.choose")}
+              accept=".cep"
+              disabled={progress !== null}
+              onFiles={upload}
+            />
+            {progress !== null && (
+              <div>
+                <Typography sx={{ mb: 1 }} role="status">
+                  {t("file.uploading", { pct: Math.round(progress * 100) })}
+                </Typography>
+                <LinearProgress variant="determinate" value={progress * 100} aria-label={t("file.uploading", { pct: Math.round(progress * 100) })} />
+              </div>
+            )}
+            {wrongType && <Alert severity="warning" role="alert">{t("file.wrongType")}</Alert>}
+            {/* Keys and passwords the file's settings carried: left out by the server, as every person downloads the file */}
+            {cleaned && cleaned.removed.length > 0 && (
+              <Alert severity="warning" role="status">{t("file.secretsRemoved", { settings: cleaned.removed.join(", ") })}</Alert>
+            )}
+            {cleaned?.keyInExtraMap && <Alert severity="warning" role="status">{t("file.keyInExtraMap")}</Alert>}
+            {uploaded && (
+              <Alert severity="success" role="status">
+                {t("file.uploaded.short")}
+                <MoreInfo text={t("file.uploaded")} />
+              </Alert>
+            )}
+          </Stack>
+        </Paper>
+      )}
 
       {round.error ? (
         <ErrorAlert error={round.error} onRetry={round.reload} />

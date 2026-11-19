@@ -42,7 +42,7 @@ import { useT } from "../i18n";
 import { linkProps, navigate, pathFor } from "../router";
 import { useLoad } from "../useLoad";
 
-function NewProjectDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+function NewProjectDialog({ open, start, onClose }: { open: boolean; start: "designer" | "cep"; onClose: () => void }) {
   const t = useT();
   const { refreshMe } = useApp();
   const [name, setName] = useState("");
@@ -61,8 +61,8 @@ function NewProjectDialog({ open, onClose }: { open: boolean; onClose: () => voi
     try {
       const created = await createProject(name.trim());
       await refreshMe();
-      // Started "from a project file": it opens where the .cep is dropped (which also adds its grid files and round).
-      navigate(pathFor({ name: "project", projectId: created.projectId, tab: "setup", view: "survey" }));
+      // Setup › Survey form, on the tab of the start chosen: a new survey, or a project file to import (FileTab)
+      navigate(pathFor({ name: "project", projectId: created.projectId, tab: "setup", view: "survey" }) + (start === "cep" ? "?survey=import" : ""));
     } catch (err) {
       setError(err);
     } finally {
@@ -73,7 +73,7 @@ function NewProjectDialog({ open, onClose }: { open: boolean; onClose: () => voi
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
       <form onSubmit={submit} noValidate>
-        <DialogTitle>{t("projects.fromCep")}</DialogTitle>
+        <DialogTitle>{t(start === "cep" ? "projects.fromCep" : "projects.fromDesigner")}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
             <TextField
@@ -103,12 +103,13 @@ function NewProjectDialog({ open, onClose }: { open: boolean; onClose: () => voi
   );
 }
 
-type Start = "cep" | "backup" | "ceo" | "copy";
+type Start = "cep" | "designer" | "backup" | "ceo" | "copy";
 
 /** The New project button's question: how the new project starts. */
 function StartDialog({ canCopy, onChoose, onClose }: { canCopy: boolean; onChoose: (start: Start) => void; onClose: () => void }) {
   const t = useT();
   const starts: { start: Start; icon: ReactNode; title: string; help: string }[] = [
+    { start: "designer", icon: <DesignServices />, title: t("projects.fromDesigner"), help: t("projects.fromDesigner.help") },
     { start: "cep", icon: <Description />, title: t("projects.fromCep"), help: t("projects.fromCep.help") },
     { start: "backup", icon: <Unarchive />, title: t("projects.fromBackup"), help: t("projects.fromBackup.help") },
     { start: "ceo", icon: <Public />, title: t("projects.fromCeo"), help: t("projects.fromCeo.help") },
@@ -125,19 +126,6 @@ function StartDialog({ canCopy, onChoose, onClose }: { canCopy: boolean; onChoos
               <ListItemText primary={s.title} secondary={s.help} />
             </ListItemButton>
           ))}
-          {/* The survey designer in the dashboard: announced, not there yet */}
-          <ListItemButton disabled sx={{ borderRadius: 1, "&.Mui-disabled": { opacity: 0.75 } }} data-testid="start-designer">
-            <ListItemIcon sx={{ color: "text.secondary" }}><DesignServices /></ListItemIcon>
-            <ListItemText
-              primary={
-                <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
-                  <span>{t("projects.fromDesigner")}</span>
-                  <Chip size="small" color="info" variant="outlined" label={t("projects.comingSoon")} />
-                </Stack>
-              }
-              secondary={t("projects.fromDesigner.help")}
-            />
-          </ListItemButton>
         </List>
       </DialogContent>
       <DialogActions>
@@ -302,7 +290,9 @@ export function ProjectsPage() {
           }}
         />
       )}
-      {start === "cep" && <NewProjectDialog open onClose={() => setStart(null)} />}
+      {(start === "cep" || start === "designer") && (
+        <NewProjectDialog open start={start} onClose={() => setStart(null)} />
+      )}
       {/* A project collected in Collect Earth, from a backup of its data (docs/plans/2026-11-11-backup-import.md) */}
       {start === "backup" && <BackupImportDialog onClose={() => setStart(null)} />}
       {/* For organizations moving from Collect Earth Online: its survey and rules (docs/plans/2026-11-09-ceo-bridge.md) */}
