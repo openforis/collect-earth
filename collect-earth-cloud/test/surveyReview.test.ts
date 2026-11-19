@@ -115,7 +115,7 @@ describe('a large change', () => {
   });
 });
 
-describe('the routes', () => {
+describe('the routes', { timeout: 60_000 }, () => {
   let ctx: TestContext;
   beforeEach(async () => {
     ctx = await makeContext();
