@@ -221,11 +221,18 @@ function keepFocus(): () => void {
   const label = el.getAttribute("aria-label");
   const homes: HTMLElement[] = [];
   for (let h = el.parentElement?.closest<HTMLElement>("[data-focus-home]") ?? null; h; h = h.parentElement?.closest<HTMLElement>("[data-focus-home]") ?? null) homes.push(h);
-  return () =>
-    window.setTimeout(() => {
-      const now = document.activeElement;
-      if (now && now !== document.body && now.isConnected && !now.closest("[role=dialog]")) return;
-      if (now?.closest("[role=dialog]")) return;
+  // Once the dialogs the change opened have gone (the keyboard is then on nothing), and for two seconds at most
+  const restore = (tries: number) => {
+    const now = document.activeElement;
+    if (now && now !== document.body && now.isConnected) {
+      if (now.closest("[role=dialog]") && tries > 0) window.setTimeout(() => restore(tries - 1), 50);
+      return;
+    }
+    if (document.querySelector("#root[aria-hidden=true]") && tries > 0) {
+      window.setTimeout(() => restore(tries - 1), 50);
+      return;
+    }
+    {
       const byLabel = (pick: (l: string) => boolean) =>
         [...document.querySelectorAll<HTMLElement>("[aria-label]")].find((e) => pick(e.getAttribute("aria-label") ?? "") && !e.closest("[aria-hidden=true]"));
       const name = label && label.includes(": ") ? label.slice(label.indexOf(": ") + 2) : null;
@@ -236,7 +243,9 @@ function keepFocus(): () => void {
           .find((h) => h.isConnected)
           ?.querySelector<HTMLElement>("button:not([disabled]), input:not([type=file]):not([disabled]), textarea:not([aria-hidden])");
       target?.focus();
-    }, 30);
+    }
+  };
+  return () => window.setTimeout(() => restore(40), 30);
 }
 
 /** Why a change was not made, when the server says why: in the dashboard's words, the server's own reason after it */
@@ -1384,7 +1393,8 @@ function QuestionView({ w, q, inTable, table, siblings, page }: {
   const candidates = useMemo(() => (ruleOpen ? conditionQuestions(w.design, table ?? null, null) : []), [ruleOpen, w.design, table]);
   const label = textIn(q.label, w.language, w.design.languages) || q.name;
   return (
-    <Box data-question={q.name} data-focus-home sx={{ pl: 1.5, borderLeft: 3, borderColor: q.hidden || q.formulas ? "divider" : "primary.light" }}>
+    <Box data-question={q.name} data-focus-home
+      sx={{ pl: 1.5, borderLeft: 3, borderColor: q.hidden || q.formulas ? "divider" : "primary.light", contentVisibility: "auto", containIntrinsicSize: "auto 160px" }}>
       <Words target={{ kind: "node", id: q.id }} part="label" value={q.label} label={t("survey.edit.label")} multiline>
         <Typography sx={{ fontWeight: 600, overflowWrap: "anywhere" }}>{label}</Typography>
       </Words>
@@ -1564,7 +1574,8 @@ const ListView = memo(function ListView({ w, list }: { w: Words; list: DesignLis
   const { t } = w;
   const edit = useContext(EditContext);
   return (
-    <Box sx={{ pl: 1.5, borderLeft: 3, borderColor: "divider" }} data-focus-home>
+    // Off screen, its layout is skipped (a long list's fields are many: typing elsewhere stays quick)
+    <Box sx={{ pl: 1.5, borderLeft: 3, borderColor: "divider", contentVisibility: "auto", containIntrinsicSize: "auto 240px" }} data-focus-home>
       <Words target={{ kind: "list", name: list.name }} part="label" value={list.label} label={t("survey.edit.list")}>
         <Typography sx={{ fontWeight: 600, overflowWrap: "anywhere" }}>{textIn(list.label, w.language, w.design.languages) || list.name}</Typography>
       </Words>
