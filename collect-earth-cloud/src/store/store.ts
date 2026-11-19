@@ -194,7 +194,7 @@ export interface Store {
    * putCep, only while the served CEP is still `expected` (what the change was made on): false, and nothing written,
    * when another change came first
    */
-  replaceCep(projectId: string, expected: Buffer, served: Buffer, info: RoundInfo, original: Buffer | null): Promise<boolean>;
+  replaceCep(projectId: string, expected: Buffer, served: Buffer, info: RoundInfo, original: Buffer | null, then?: CepReplaced): Promise<boolean>;
   /** The CEP the project serves. */
   getCep(projectId: string): Promise<Buffer | null>;
   /** The CEP as uploaded: the original when the server changed it, else the served one. */
@@ -218,8 +218,8 @@ export interface Store {
   deleteSurveyVersions(projectId: string): Promise<void>;
   /** Keeps the survey revision each record was last stored with (RecordEnvelope.surveyRevision) */
   setRecordSurveyRevisions(projectId: string, entries: readonly { recordKey: string; operator: string; revision: string }[]): Promise<void>;
-  /** How many of the project's records (not deleted) were last stored with each survey revision, where it is known */
-  countRecordSurveyRevisions(projectId: string): Promise<Map<string, number>>;
+  /** The survey revision each record was last stored with, where it is known, by `${recordKey} ${operator}` */
+  listRecordSurveyRevisions(projectId: string): Promise<Map<string, string>>;
 
   // --- Users & sessions (Phase A) ---
 
@@ -860,4 +860,10 @@ export function checkCursor(cursor: EventCursor | undefined, window: { from?: nu
   for (const t of [window.from, window.to]) {
     if (t !== undefined && !isStoredTime(t)) throw new InvalidCursorError();
   }
+}
+
+/** What goes with a project file replaced (replaceCep), in the same transaction: the survey before kept, or the versions dropped */
+export interface CepReplaced {
+  version?: SurveyVersionInput;
+  dropVersions?: boolean;
 }

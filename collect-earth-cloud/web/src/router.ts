@@ -262,10 +262,8 @@ function notify() {
 
 function subscribe(listener: () => void): () => void {
   listeners.add(listener);
-  window.addEventListener("popstate", listener);
   return () => {
     listeners.delete(listener);
-    window.removeEventListener("popstate", listener);
   };
 }
 
@@ -278,11 +276,79 @@ export function setLeaveGuard(guard: ((path: string) => boolean) | null): void {
   leaveGuard = guard;
 }
 
+/** The path the app shows: where the browser's Back or Forward is taken back to when the guard stops it */
+let shownPath = typeof window === "undefined" ? "/" : window.location.pathname;
+
+/**
+ * Where the app's history entry is among the others (history.state.idx, set on each entry the app makes): a Back or
+ * Forward the guard stops is undone by going the same number of steps the other way, so the browser's history stays as
+ * it was (no entry added, Forward kept).
+ */
+let index = 0;
+/** The popstate that undoing a stopped move causes: not a move of the person's */
+let undoing = false;
+/** A Back or Forward stopped by the guard: the person choosing to leave goes there the same way */
+let stopped: { path: string; steps: number } | null = null;
+
+const indexOf = (state: unknown): number | null => {
+  const idx = (state as { idx?: unknown } | null)?.idx;
+  return typeof idx === "number" ? idx : null;
+};
+
+if (typeof window !== "undefined") {
+  const idx = indexOf(window.history.state);
+  if (idx === null) window.history.replaceState({ ...(window.history.state ?? {}), idx: 0 }, "");
+  else index = idx;
+}
+
+/**
+ * The browser's Back and Forward: the address has changed already, so a move the guard stops is undone (the guard then
+ * asks, and the app goes where the person was going once they choose to leave).
+ */
+export function onHistoryMove(): void {
+  const path = window.location.pathname;
+  let idx = indexOf(window.history.state);
+  if (idx === null) {
+    // An entry made outside the router (a link to a #part of the page): a new one after this
+    idx = index + 1;
+    window.history.replaceState({ ...(window.history.state ?? {}), idx }, "");
+  }
+  if (undoing) {
+    undoing = false;
+    index = idx;
+    return;
+  }
+  if (path !== shownPath && leaveGuard && !leaveGuard(path)) {
+    if (idx !== index) {
+      stopped = { path, steps: idx - index };
+      undoing = true;
+      window.history.go(index - idx);
+    } else {
+      window.history.pushState({ idx: ++index }, "", shownPath);
+    }
+    return;
+  }
+  stopped = null;
+  index = idx;
+  shownPath = path;
+  notify();
+}
+if (typeof window !== "undefined") window.addEventListener("popstate", onHistoryMove);
+
 export function navigate(path: string, options: { replace?: boolean } = {}): void {
   if (path === window.location.pathname) return;
   if (leaveGuard && !leaveGuard(path)) return;
-  if (options.replace) window.history.replaceState(null, "", path);
-  else window.history.pushState(null, "", path);
+  // Leaving after a Back or Forward the guard stopped: the same move, the browser's history as it was
+  if (stopped && stopped.path === path) {
+    const { steps } = stopped;
+    stopped = null;
+    window.history.go(steps);
+    return;
+  }
+  stopped = null;
+  if (options.replace) window.history.replaceState({ idx: index }, "", path);
+  else window.history.pushState({ idx: ++index }, "", path);
+  shownPath = path;
   window.scrollTo?.(0, 0);
   notify();
 }

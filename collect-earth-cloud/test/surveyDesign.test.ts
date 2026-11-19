@@ -187,7 +187,7 @@ describe('GET /v1/projects/:pid/survey/design', () => {
     const get = (token: string) => ctx.app.inject({ method: 'GET', url: `/v1/projects/${p.projectId}/survey/design`, headers: bearer(token) });
     const before = await get(p.adminToken);
     expect(before.statusCode).toBe(200);
-    expect(before.json()).toEqual({ design: null, unreadable: false, revision: null, editable: true, peopleWithFile: 0, olderSurveyPlots: 0, problems: [] } satisfies SurveyDesignAnswer);
+    expect(before.json()).toEqual({ design: null, unreadable: false, revision: null, editable: true, peopleWithFile: 0, writtenBy: null, problems: [] } satisfies SurveyDesignAnswer);
     const up = await ctx.app.inject({ method: 'PUT', url: `/v1/projects/${p.projectId}/cep`, headers: { ...bearer(p.adminToken), 'content-type': 'application/zip' }, payload: demoCep() });
     expect(up.statusCode, up.body).toBeLessThan(300);
     const after = (await get(p.adminToken)).json() as SurveyDesignAnswer;

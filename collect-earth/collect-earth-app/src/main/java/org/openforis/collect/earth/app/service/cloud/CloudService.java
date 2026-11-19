@@ -264,6 +264,11 @@ public class CloudService {
 			// The survey just downloaded, as the server names it: from the file itself, not asked after, when the
 			// coordinator may have changed it again (a later one is offered by SurveyUpdateService)
 			revision = SurveyRevision.ofProjectFile(cep);
+			CloudBinding bound = folder == null ? null : properties.getCloudBinding(folder);
+			boolean sameProject = bound != null && StringUtils.equals(bound.projectId, projectId);
+			if (sameProject) {
+				sendBeforeTheSurveyChanges(cep, folder, bound, server, projectId, revision);
+			}
 			// The files replaced, kept until the new survey is loaded at the start (EarthSurveyService)
 			SurveyUpdateBackup.keep(cep, folder);
 			try {
@@ -271,6 +276,11 @@ public class CloudService {
 			} catch (IOException | RuntimeException e) {
 				restoreAfterFailure(folder);
 				throw e;
+			}
+			if (!sameProject) {
+				// The folder was another project's (or a local one), and is bound to this one now: its files are not put
+				// back at the start, which would leave them bound to this project
+				SurveyUpdateBackup.discard(folder);
 			}
 		} finally {
 			if (cep != null && !cep.delete()) {
@@ -389,6 +399,48 @@ public class CloudService {
 		if (unsent > 0) {
 			String name = StringUtils.defaultIfBlank(bound.projectName, folder.getName());
 			throw new InvalidCloudRequestException("cloud.unsentRecords", MessageFormat.format(Messages.getString("CloudJoin.unsentRecords"), unsent, name));
+		}
+	}
+
+	/**
+	 * The same cloud project opened again (from the list of projects, an invitation, "Update now") with a survey that is
+	 * not the one its folder has: its records not sent yet were made with the survey of before, and must reach the server
+	 * in its shape before the changed one is unzipped over it (read with the changed survey after the restart, the answers
+	 * of the questions taken away would be lost). The project open: sent now, refused when some cannot be. Another one:
+	 * refused, as it must be opened as it is for them to be sent (the queue sends only the project open's).
+	 */
+	private void sendBeforeTheSurveyChanges(File cep, File folder, CloudBinding bound, String server, String projectId, String revision)
+			throws InvalidCloudRequestException {
+		if (revision == null || folder == null || !folder.isDirectory()) {
+			return;
+		}
+		boolean open = isOpen(server, projectId);
+		String here = open && surveyService != null ? StringUtils.trimToNull(surveyService.getLoadedSurveyRevision()) : null;
+		if (here == null) {
+			here = SurveyRevision.ofFolderFor(cep, folder);
+		}
+		if (here == null) {
+			here = StringUtils.trimToNull(bound.surveyRevision);
+		}
+		if (revision.equals(here)) {
+			return; // the same survey: nothing is read differently
+		}
+		String name = StringUtils.defaultIfBlank(bound.projectName, folder.getName());
+		if (open) {
+			if (surveyService != null) {
+				surveyService.flushAll();
+			}
+			CloudSyncService.Unsent unsent = sync.sendNow(SurveyUpdateService.SEND_TIMEOUT_MS);
+			if (unsent != null && unsent.getToSend() > 0) {
+				throw new InvalidCloudRequestException("cloud.unsentRecords", //$NON-NLS-1$
+						MessageFormat.format(Messages.getString("CloudJoin.unsentSurveyChanged"), unsent.getToSend(), name)); //$NON-NLS-1$
+			}
+			return;
+		}
+		int unsent = sync.toSendCount(projectId);
+		if (unsent > 0) {
+			throw new InvalidCloudRequestException("cloud.unsentRecords", //$NON-NLS-1$
+					MessageFormat.format(Messages.getString("CloudJoin.unsentOpenFirst"), unsent, name)); //$NON-NLS-1$
 		}
 	}
 

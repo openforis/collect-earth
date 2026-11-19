@@ -2,6 +2,7 @@ import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import ButtonBase from "@mui/material/ButtonBase";
+import CircularProgress from "@mui/material/CircularProgress";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
@@ -38,6 +39,7 @@ import {
   checkSurveyExpression,
   getProjectAi,
   getSurveyDesign,
+  getSurveyOlder,
   getSurveyHelp,
   getSurveyImpact,
   listSurveyVersions,
@@ -64,16 +66,25 @@ import { queryClient } from "../queryClient";
 import {
   changedTexts,
   COMMON_LANGUAGES,
+  Drafts,
   editKey,
   isItemCode,
   isLanguageCode,
   itemMoveTarget,
   itemsFromLines,
+  languagesUsed,
+  MAX_TEXT,
   moveTarget,
+  namesEmptied,
   operationsOf,
   pageMoveTarget,
   PendingTexts,
+  rebaseChange,
+  ruleAnchor,
+  ruleIndexOf,
+  sameSurvey,
   slugName,
+  subListParents,
   uniqueName,
   withPendingTexts,
   type PendingText,
@@ -91,9 +102,11 @@ import { useT, type MessageKey } from "../i18n";
 import { useLoad } from "../useLoad";
 import {
   conditionWords,
+  checkWords,
   firstLanguage,
   languageNames,
   questionUsers,
+  refusalWords,
   requiredWords,
   ruleWords,
   tableWords,
@@ -106,9 +119,10 @@ import {
   type Words,
 } from "./surveyDesignView";
 import { ConditionDialog, ExpressionCheckContext, FormulasDialog, RequiredControl, RuleDialog } from "./SurveyLogic";
-import { importTexts, textsCsv } from "./surveyTextsView";
+import { decodeTexts, importTexts, textsCsv } from "./surveyTextsView";
 import { csvBlob } from "../csv";
 import { ExplainButton, HelpContext, SuggestRulesDialog, TranslateDialog, type SurveyHelp } from "./SurveyHelp";
+import { DraftContext, useDraft, useSubmit, type AddResult } from "./surveyDialogs";
 import { NewSurvey } from "./SurveyNew";
 import { SurveyPreview } from "./SurveyPreview";
 import AutoAwesome from "@mui/icons-material/AutoAwesomeOutlined";
@@ -120,15 +134,22 @@ const INLINE_ANSWERS = 12;
 /** The words being changed (stage 2): what the fields show and where what is typed goes */
 interface Editing {
   language: string;
+  /** The language's name, said in the dialogs that add something: their texts are written in it */
+  languageName: string;
+  /** The survey has more than one language: the dialogs say the others are written afterwards */
+  manyLanguages: boolean;
   /** The survey's first language, whose text a field in another language shows under it */
   firstLanguage: string;
   firstLanguageName: string;
-  set: (target: WordTarget, part: WordPart, text: string, current: string) => void;
+  set: (target: WordTarget, part: WordPart, text: string, current: string, anchor?: string) => void;
   /**
-   * A change of the questions, pages or lists (stage 3): saved at once with the texts changed so far, after what it
-   * does to the plots collected is shown (and always asked about when `what` names something deleted)
+   * A change of the questions, pages or lists (stage 3) from a button: saved at once on its own (the texts typed stay
+   * to be saved or discarded), after what it does to the plots collected is shown (and always asked about when `what`
+   * names something deleted); how it went is said in the bar
    */
   change: (ops: SurveyOperation[], what?: string) => void;
+  /** The same from a dialog: it hears back whether it was saved, and what to show in it when it was not */
+  submit: (ops: SurveyOperation[], what?: string) => Promise<AddResult>;
   /** A change is being saved */
   busy: boolean;
   /** The pages a question can move to */
@@ -163,12 +184,14 @@ type Outcome =
 interface Retry {
   ops: SurveyOperation[];
   what?: string;
+  /** The survey it was made on: what it names is found again in the survey read */
+  design: SurveyDesign | null;
 }
 
-/** What a dialog adding to the survey hears back: saved, or what to show in it */
-export interface AddResult {
-  saved: boolean;
-  problem?: ReactNode;
+/** After the survey was read again: the change refused, as it can be made now; or null ops when it cannot safely be */
+interface Offer {
+  ops: SurveyOperation[] | null;
+  what?: string;
 }
 
 const EditContext = createContext<Editing | null>(null);
@@ -180,12 +203,79 @@ const noSubscribe = () => () => {};
 /** The text typed into a field and not saved yet: only this field re-renders when it changes */
 function usePendingText(key: string | null): PendingText | undefined {
   const store = useContext(PendingContext);
-  return useSyncExternalStore(store && key ? store.subscribe : noSubscribe, () => (store && key ? store.get(key) : undefined));
+  const subscribe = useCallback((listener: () => void) => (store && key ? store.subscribeKey(key, listener) : () => {}), [store, key]);
+  return useSyncExternalStore(subscribe, () => (store && key ? store.get(key) : undefined));
 }
 
 /** Whether texts are typed and not saved */
 function useHasPendingTexts(store: PendingTexts): boolean {
   return useSyncExternalStore(store.subscribe, () => changedTexts(store.all()).length > 0);
+}
+
+/**
+ * Where the keyboard was before a change from a button (moved, deleted, cancelled): put back once the change ends if
+ * it was lost meanwhile (the item re-placed, deleted, a dialog closed). The same button when it is still there, else
+ * another tool of the same item, else the first control of the page, list or question around it.
+ */
+function keepFocus(): () => void {
+  const el = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  if (!el || el === document.body || el.closest("[role=dialog]")) return () => {};
+  const label = el.getAttribute("aria-label");
+  const homes: HTMLElement[] = [];
+  for (let h = el.parentElement?.closest<HTMLElement>("[data-focus-home]") ?? null; h; h = h.parentElement?.closest<HTMLElement>("[data-focus-home]") ?? null) homes.push(h);
+  // Once the dialogs the change opened have gone (the keyboard is then on nothing), and for two seconds at most
+  const restore = (tries: number) => {
+    const now = document.activeElement;
+    if (now && now !== document.body && now.isConnected) {
+      if (now.closest("[role=dialog]") && tries > 0) window.setTimeout(() => restore(tries - 1), 50);
+      return;
+    }
+    if (document.querySelector("#root[aria-hidden=true]") && tries > 0) {
+      window.setTimeout(() => restore(tries - 1), 50);
+      return;
+    }
+    {
+      const byLabel = (pick: (l: string) => boolean) =>
+        [...document.querySelectorAll<HTMLElement>("[aria-label]")].find((e) => pick(e.getAttribute("aria-label") ?? "") && !e.closest("[aria-hidden=true]"));
+      const name = label && label.includes(": ") ? label.slice(label.indexOf(": ") + 2) : null;
+      const target =
+        (label ? byLabel((l) => l === label) : undefined) ??
+        (name ? byLabel((l) => l.endsWith(`: ${name}`)) : undefined) ??
+        homes
+          .find((h) => h.isConnected)
+          ?.querySelector<HTMLElement>("button:not([disabled]), input:not([type=file]):not([disabled]), textarea:not([aria-hidden])");
+      target?.focus();
+    }
+  };
+  return () => window.setTimeout(() => restore(40), 30);
+}
+
+/** Why a change was not made, when the server says why: in the dashboard's words, the server's own reason after it */
+function ChangeError({ error }: { error: unknown }) {
+  const t = useT();
+  // A refusal the server gives a code: in the dashboard's words only
+  const words = error instanceof ApiError && error.status === 400 ? refusalWords(t, error.details.code, (error.details.values ?? {}) as Record<string, string>) : null;
+  if (words) {
+    return (
+      <Alert severity="error" role="alert">
+        {t("survey.edit.notMade")}
+        <Box component="span" sx={{ display: "block", mt: 0.5 }}>
+          {words}
+        </Box>
+      </Alert>
+    );
+  }
+  if (error instanceof ApiError && error.status === 400 && error.reason) {
+    return (
+      <Alert severity="error" role="alert">
+        {t("survey.edit.notMade")}
+        <Box component="span" sx={{ display: "block", mt: 0.5 }}>
+          {t("survey.edit.serverReason", { reason: error.reason })}
+        </Box>
+      </Alert>
+    );
+  }
+  return <ErrorAlert error={error} />;
 }
 
 /**
@@ -195,20 +285,26 @@ function useHasPendingTexts(store: PendingTexts): boolean {
 export function SurveyDesignCards({ projectId }: { projectId: string }) {
   const t = useT();
   const { language: uiLanguage } = useApp();
-  const loaded = useLoad(["project", projectId, "getSurveyDesign"], () => getSurveyDesign(projectId));
-  const answer = loaded.data;
   const [editing, setEditing] = useState(false);
+  // While the survey is edited it is read again only when the coordinator says (a connection back is no reason)
+  const loaded = useLoad(["project", projectId, "getSurveyDesign"], () => getSurveyDesign(projectId), { refetchOnReconnect: !editing });
+  const answer = loaded.data;
   const [store] = useState(() => new PendingTexts());
+  const [drafts] = useState(() => new Drafts());
   const [added, setAdded] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [refused, setRefused] = useState<SurveyProblem[] | null>(null);
   /** The survey changed meanwhile: the change refused with it, to offer again */
   const [stale, setStale] = useState<Retry | null>(null);
-  const [retry, setRetry] = useState<Retry | null>(null);
+  const [retry, setRetry] = useState<Offer | null>(null);
   const [saved, setSaved] = useState(false);
   /** The survey was replaced under the editor (a new project file): the changes not saved were dropped */
   const [replaced, setReplaced] = useState(false);
+  /** Someone else saved the survey meanwhile, read without asking (the texts typed kept): how many texts were dropped */
+  const [othersSaved, setOthersSaved] = useState<number | null>(null);
+  /** Texts typed for what is no longer there, dropped (it was deleted here or by someone else) */
+  const [droppedTexts, setDroppedTexts] = useState(0);
   const [adding, setAdding] = useState(false);
   const [confirm, setConfirm] = useState<PendingChange | null>(null);
   const [questionFor, setQuestionFor] = useState<{ page?: string; table?: number } | null>(null);
@@ -216,7 +312,15 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
   const [suggesting, setSuggesting] = useState(false);
   const [preview, setPreview] = useState<Words | null>(null);
   const [leaving, setLeaving] = useState<string | null>(null);
-  const [textsRead, setTextsRead] = useState<{ count: number; languages: string[]; unknown: number } | null>(null);
+  const [textsRead, setTextsRead] = useState<
+    | { count: number; languages: string[]; unknown: number; samples: Array<{ before: string; after: string }>; windows: boolean }
+    | { unreadable: true }
+    | null
+  >(null);
+  // The plots of an earlier survey: read apart (every record's answers), again for each revision of the survey
+  const older = useLoad(["project", projectId, "getSurveyOlder", answer?.revision ?? null], () =>
+    answer?.design ? getSurveyOlder(projectId).catch(() => null) : Promise.resolve(null),
+  );
   const check = useMemo(() => (answer?.design ? (input: ExpressionCheckInput) => checkSurveyExpression(projectId, input) : null), [answer?.design, projectId]);
   // The AI assistant's help, when it is switched on for the project (never in the dashboard inside Collect Earth)
   const ai = useLoad(["project", projectId, "SurveyDesign.ai", answer?.editable === true], () =>
@@ -231,36 +335,46 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
     const d = answer?.design ?? null;
     return d && added.length > 0 ? { ...d, languages: [...d.languages, ...added.filter((l) => !d.languages.includes(l))] } : d;
   }, [answer, added]);
-  // The survey's language shown, the same in every card: the dashboard's while none is chosen
+  // The survey's language shown, the same in every card: the dashboard's when the survey has it, else its first
   const [chosen, setChosen] = useState<string | null>(null);
   const language = design ? (chosen && design.languages.includes(chosen) ? chosen : firstLanguage(design, uiLanguage)) : "";
   const w = useMemo(() => (design ? words(design, language, t) : null), [design, language, t]);
   const names = useMemo(() => languageNames(uiLanguage), [uiLanguage]);
   const users = useMemo(() => (design ? questionUsers(design) : new Map<string, string[]>()), [design]);
   const textsTyped = useHasPendingTexts(store);
-  const unsaved = editing && (textsTyped || added.length > 0);
+  const draftsOpen = useSyncExternalStore(drafts.subscribe, drafts.size);
+  const unsaved = editing && (textsTyped || added.length > 0 || draftsOpen > 0);
 
   // What the callbacks below read when they run, not when they were made (the fields keep the same ones)
   const answerRef = useRef(answer);
   answerRef.current = answer;
   const addedRef = useRef(added);
   addedRef.current = added;
+  const editingRef = useRef(editing);
+  editingRef.current = editing;
   const busyRef = useRef(false);
+  const sectionRef = useRef<HTMLElement>(null);
+  /** "Edit the survey" pressed: the keyboard goes to the first field once it shows */
+  const focusFirst = useRef(false);
 
-  // The survey the changes are made on: a revision this page did not save itself (a new project file) drops them
+  // The survey the changes are made on: a revision this page did not save itself is someone else's save, or a new file
   const knownRevision = useRef<string | null | undefined>(undefined);
+  const knownDesign = useRef<SurveyDesign | null>(null);
   /** After "Read it again": the survey read next is taken, the changes kept, from this revision */
   const acceptFrom = useRef<string | null | undefined>(undefined);
-  useEffect(() => {
-    if (!answer) return;
-    const known = knownRevision.current;
-    knownRevision.current = answer.revision;
-    if (known === undefined || known === answer.revision) return;
-    if (acceptFrom.current !== undefined && acceptFrom.current === known) {
-      acceptFrom.current = undefined;
-      if (answer.design) store.settle(answer.design);
-      return;
-    }
+  /** The change refused as stale, offered again once the survey is read again */
+  const retryAfterRead = useRef<Retry | null>(null);
+
+  /** The texts and languages typed, settled on the survey as it is now: what is no longer there dropped, and said */
+  const settleOn = (d: SurveyDesign, dropped = 0) => {
+    const gone = dropped + store.settle(d);
+    setAdded((before) => before.filter((l) => !d.languages.includes(l)));
+    if (gone > 0) setDroppedTexts((n) => n + gone);
+    return gone;
+  };
+
+  /** Everything not saved dropped: the survey it was typed on is no longer the project's */
+  const dropAll = () => {
     const dropped = changedTexts(store.all()).length > 0 || addedRef.current.length > 0;
     store.clear();
     setAdded([]);
@@ -270,8 +384,38 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
     setRefused(null);
     setError(null);
     setSaved(false);
+    setOthersSaved(null);
+    setDroppedTexts(0);
     if (dropped) setReplaced(true);
-  }, [answer, store]);
+  };
+
+  useEffect(() => {
+    if (!answer) return;
+    const known = knownRevision.current;
+    const before = knownDesign.current;
+    knownRevision.current = answer.revision;
+    knownDesign.current = answer.design;
+    if (known === undefined || known === answer.revision) return;
+    if (acceptFrom.current !== undefined && acceptFrom.current === known) {
+      // Read again on purpose: the texts typed stay; the change refused is offered again as it can be made now
+      acceptFrom.current = undefined;
+      if (answer.design) settleOn(answer.design);
+      const r = retryAfterRead.current;
+      retryAfterRead.current = null;
+      if (r) setRetry({ ops: r.design && answer.design ? rebaseChange(r.ops, r.design, answer.design) : null, what: r.what });
+      return;
+    }
+    // Read without asking (the page opened again, a connection back): someone else's save, or another survey
+    const typed = changedTexts(store.all()).length > 0 || addedRef.current.length > 0;
+    if (!editingRef.current || !typed) return;
+    const next = answer.design;
+    // The server says who wrote the survey: another coordinator's save keeps the texts typed (those whose question is
+    // gone are dropped); a new project file (or the server's change) replaces the survey under them
+    const other = !next || !before || answer.writtenBy !== "designer" || !sameSurvey(before, next);
+    if (other || !next) dropAll();
+    else setOthersSaved(settleOn(next));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [answer, store, projectId]);
 
   // Changes not saved: the browser asks before closing or reloading the page, the dashboard before moving elsewhere
   useUnsaved("survey-design", t("survey.title"), unsaved);
@@ -299,6 +443,13 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
     return () => clearTimeout(timer);
   }, [saved, editing]);
 
+  // "Edit the survey" goes away when pressed: the keyboard goes on to the survey's first field
+  useEffect(() => {
+    if (!editing || !focusFirst.current) return;
+    focusFirst.current = false;
+    sectionRef.current?.querySelector<HTMLElement>("input[type=text]:not([disabled]), textarea:not([aria-hidden])")?.focus();
+  }, [editing]);
+
   /** The texts as a spreadsheet, in the survey's languages */
   const downloadTexts = (d: SurveyDesign) => {
     const url = URL.createObjectURL(csvBlob(textsCsv(d, t)));
@@ -310,12 +461,23 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
   };
 
   /** A spreadsheet of texts read back: its changes pending as if typed, its new languages added */
-  const readTexts = (d: SurveyDesign, csv: string) => {
-    const result = importTexts(d, csv);
+  const readTexts = (d: SurveyDesign, bytes: Uint8Array) => {
+    const decoded = decodeTexts(bytes);
+    if (!decoded) {
+      setTextsRead({ unreadable: true });
+      return;
+    }
+    const result = importTexts(d, decoded.text);
     if (result.newLanguages.length > 0) setAdded((before) => [...before, ...result.newLanguages.filter((l) => !before.includes(l))]);
     store.set(...result.changes);
     setSaved(false);
-    setTextsRead({ count: result.changes.length, languages: result.newLanguages, unknown: result.unknown });
+    setTextsRead({
+      count: result.changes.length,
+      languages: result.newLanguages,
+      unknown: result.unknown,
+      samples: result.changes.slice(0, 3).map((c) => ({ before: c.current, after: c.text })),
+      windows: decoded.encoding === "windows-1252",
+    });
   };
 
   const discard = () => {
@@ -325,18 +487,22 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
     setStale(null);
     setRetry(null);
     setError(null);
+    setOthersSaved(null);
+    setDroppedTexts(0);
+    setTextsRead(null);
     setEditing(false);
   };
 
   const afterChange = (next: SurveyDesignAnswer) => {
     knownRevision.current = next.revision;
+    knownDesign.current = next.design;
     loaded.setData(next);
     void queryClient.invalidateQueries({ queryKey: ["project", projectId, "listSurveyVersions"] });
   };
 
-  /** Shows in the bar how a save ended; `ops`, a change of the questions refused as stale, to offer again */
+  /** Shows in the bar how a change ended; `retryWith`, a change of the questions refused as stale, to offer again */
   const report = (outcome: Outcome, retryWith?: Retry) => {
-    if (outcome.kind === "stale") setStale(retryWith ?? { ops: [] });
+    if (outcome.kind === "stale") setStale(retryWith ?? { ops: [], design: null });
     else if (outcome.kind === "refused") setRefused(outcome.problems);
     else if (outcome.kind === "error") setError(outcome.error);
   };
@@ -348,16 +514,8 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
         ? { kind: "refused", problems: (err.details.problems as SurveyProblem[] | undefined) ?? [] }
         : { kind: "error", error: err };
 
-  /**
-   * Saves the texts changed so far, and the changes of questions given. Only the texts sent leave the pending ones,
-   * when they still read as sent: one typed while the save was on its way stays.
-   */
-  const save = async (extra: SurveyOperation[] = []): Promise<Outcome> => {
-    const current = answerRef.current;
-    const languages = addedRef.current;
-    const texts = changedTexts(store.all());
-    const all = [...operationsOf(store.all(), languages), ...extra];
-    if (!current?.revision || all.length === 0 || busyRef.current) return { kind: "cancelled" };
+  /** Before a save: the bar says it is on its way, and what it said of the last one goes */
+  const starting = () => {
     busyRef.current = true;
     setSaving(true);
     setError(null);
@@ -365,10 +523,55 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
     setStale(null);
     setRetry(null);
     setSaved(false);
+  };
+
+  /**
+   * Saves the texts typed so far (Save). Only the texts sent leave the pending ones, when they still read as sent: one
+   * typed while the save was on its way stays.
+   */
+  const saveTexts = async (): Promise<Outcome> => {
+    const current = answerRef.current;
+    const languages = addedRef.current;
+    const texts = changedTexts(store.all());
+    const all = operationsOf(store.all(), languages);
+    if (!current?.revision || all.length === 0 || busyRef.current) return { kind: "cancelled" };
+    starting();
     try {
       const next = await saveSurveyChanges(projectId, { revision: current.revision, operations: all });
       afterChange(next);
-      if (next.design) store.settle(next.design, texts);
+      if (next.design) {
+        const gone = store.settle(next.design, texts);
+        if (gone > 0) setDroppedTexts((n) => n + gone);
+      }
+      setAdded((before) => before.filter((l) => !languages.includes(l)));
+      setSaved(true);
+      setTextsRead(null);
+      setOthersSaved(null);
+      return { kind: "saved" };
+    } catch (err) {
+      return outcomeOf(err);
+    } finally {
+      busyRef.current = false;
+      setSaving(false);
+    }
+  };
+
+  /**
+   * Saves a change of the questions on its own: the texts typed stay pending (Discard still undoes them). A language
+   * added and not saved goes with it only when the change writes a text in it.
+   */
+  const saveChange = async (ops: SurveyOperation[]): Promise<Outcome> => {
+    const current = answerRef.current;
+    if (!current?.revision || ops.length === 0 || busyRef.current) return { kind: "cancelled" };
+    const used = languagesUsed(ops);
+    const languages = addedRef.current.filter((l) => used.has(l));
+    starting();
+    try {
+      const next = await saveSurveyChanges(projectId, { revision: current.revision, operations: [...operationsOf(new Map(), languages), ...ops] });
+      afterChange(next);
+      // A rule deleted takes its texts typed; those of the rules after it follow them
+      const moved = store.afterOps(ops);
+      if (next.design) settleOn(next.design, moved);
       setAdded((before) => before.filter((l) => !languages.includes(l)));
       setSaved(true);
       return { kind: "saved" };
@@ -383,10 +586,7 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
   /** A change of the questions: what it does to the plots collected first, asked about when it touches them */
   const change = async (ops: SurveyOperation[], what?: string): Promise<Outcome> => {
     if (busyRef.current) return { kind: "cancelled" };
-    busyRef.current = true;
-    setSaving(true);
-    setError(null);
-    setRefused(null);
+    starting();
     let impact: SurveyImpactAnswer;
     try {
       // The languages added and not saved yet come first: the new texts may be in them
@@ -401,20 +601,25 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
       const yes = await new Promise<boolean>((resolve) => setConfirm({ ops, impact, what, answer: resolve }));
       if (!yes) return { kind: "cancelled" };
     }
-    return save(ops);
+    return saveChange(ops);
   };
 
   /** A change made from the survey's tools: how it ended shown in the bar, a stale one offered again */
-  const changeHere = async (ops: SurveyOperation[], what?: string) => report(await change(ops, what), { ops, what });
+  const changeHere = async (ops: SurveyOperation[], what?: string) => {
+    const restore = keepFocus();
+    const made = answerRef.current?.design ?? null;
+    report(await change(ops, what), { ops, what, design: made });
+    restore();
+  };
 
   /** What a dialog shows when its change was not saved (it stays open with what was typed) */
   const problemOf = (outcome: Outcome): ReactNode =>
     outcome.kind === "stale" ? (
-      <StaleAlert onReadAgain={readAgain} />
+      <StaleAlert onReadAgain={readAgain} dialog />
     ) : outcome.kind === "refused" && w ? (
       <Problems w={w} problems={outcome.problems} title={t("survey.edit.refused")} />
     ) : outcome.kind === "error" ? (
-      <ErrorAlert error={outcome.error} />
+      <ChangeError error={outcome.error} />
     ) : null;
   const addResult = async (outcome: Promise<Outcome>): Promise<AddResult> => {
     const o = await outcome;
@@ -424,23 +629,27 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
   /** The survey read again after someone else's change: the texts typed stay, to be saved on top of it */
   const readAgain = () => {
     acceptFrom.current = answerRef.current?.revision ?? null;
-    setRetry(stale && stale.ops.length > 0 ? stale : null);
+    retryAfterRead.current = stale && stale.ops.length > 0 ? stale : null;
     setStale(null);
+    setOthersSaved(null);
     loaded.reload();
   };
 
   // The actions the fields call, the same ones from render to render (they read the refs above)
-  const actions = useRef({ changeHere, setQuestionFor, setTableFor });
-  actions.current = { changeHere, setQuestionFor, setTableFor };
+  const actions = useRef({ changeHere, change, setQuestionFor, setTableFor, addResult });
+  actions.current = { changeHere, change, setQuestionFor, setTableFor, addResult };
   const edit = useMemo<Editing | null>(
     () =>
       editing && design
         ? {
             language,
+            languageName: names(language),
+            manyLanguages: design.languages.length > 1,
             firstLanguage: design.languages[0],
             firstLanguageName: names(design.languages[0]),
-            set: (target, part, text, current) => store.set({ target, part, language, text, current }),
+            set: (target, part, text, current, anchor) => store.set({ target, part, language, text, current, ...(anchor !== undefined ? { anchor } : {}) }),
             change: (ops, what) => void actions.current.changeHere(ops, what),
+            submit: (ops, what) => actions.current.addResult(actions.current.change(ops, what)),
             busy: saving,
             pages: design.pageOrder
               .map((name) => design.pages.find((p) => p.name === name) ?? design.emptyPages.find((p) => p.name === name))
@@ -462,8 +671,9 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
     <ExpressionCheckContext.Provider value={check}>
     <HelpContext.Provider value={help}>
     <PendingContext.Provider value={store}>
+    <DraftContext.Provider value={drafts}>
     <EditContext.Provider value={edit}>
-      <Paper variant="outlined" component="section" aria-labelledby="survey-design-title" sx={{ p: { xs: 2, sm: 3 } }}>
+      <Paper ref={sectionRef} variant="outlined" component="section" aria-labelledby="survey-design-title" sx={{ p: { xs: 2, sm: 3 } }}>
         <Stack direction="row" spacing={2} sx={{ alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 1 }}>
           <Typography variant="h2" id="survey-design-title" gutterBottom>
             {t("survey.title")}
@@ -480,7 +690,15 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
               </Button>
             )}
             {answer?.editable && design && !editing && (
-              <Button variant="outlined" startIcon={<EditOutlined />} onClick={() => { setReplaced(false); setEditing(true); }}>
+              <Button
+                variant="outlined"
+                startIcon={<EditOutlined />}
+                onClick={() => {
+                  setReplaced(false);
+                  focusFirst.current = true;
+                  setEditing(true);
+                }}
+              >
                 {t("survey.edit.start")}
               </Button>
             )}
@@ -500,6 +718,7 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
             names={names}
             onMade={(made) => {
               knownRevision.current = made.revision;
+              knownDesign.current = made.design;
               loaded.setData(made);
               // The project's other screens (setup, plots, round) read the new project file
               void queryClient.invalidateQueries({ queryKey: ["project", projectId] });
@@ -516,8 +735,8 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
                 {t("survey.edit.replaced")}
               </Alert>
             )}
-            {answer.olderSurveyPlots > 0 && (
-              <Alert severity="info">{t("survey.olderSurveyPlots", { count: answer.olderSurveyPlots })}</Alert>
+            {(older.data?.plots ?? 0) > 0 && (
+              <Alert severity="info">{t("survey.olderSurveyPlots", { count: older.data!.plots })}</Alert>
             )}
             {editing && (
               <Alert severity="info" icon={<EditOutlined />}>
@@ -541,18 +760,32 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         e.target.value = "";
-                        if (file && design) void file.text().then((text) => readTexts(design, text));
+                        if (file && design) void file.arrayBuffer().then((bytes) => readTexts(design, new Uint8Array(bytes)));
                       }}
                     />
                   </Button>
                 </Stack>
-                {textsRead && (
+                {textsRead && "unreadable" in textsRead ? (
+                  <Alert severity="error" sx={{ mt: 1 }} onClose={() => setTextsRead(null)}>
+                    {t("survey.texts.unreadable")}
+                  </Alert>
+                ) : textsRead ? (
                   <Alert severity={textsRead.count > 0 ? "success" : "info"} sx={{ mt: 1 }} onClose={() => setTextsRead(null)}>
                     {textsRead.count > 0 ? t("survey.texts.read", { count: textsRead.count }) : t("survey.texts.none")}
+                    {textsRead.samples.length > 0 && (
+                      <Box component="ul" sx={{ m: 0, mt: 0.5, pl: 2.5 }}>
+                        {textsRead.samples.map((s, i) => (
+                          <Typography component="li" variant="body2" key={i} sx={{ overflowWrap: "anywhere" }}>
+                            {t("survey.texts.sample", { before: s.before || "—", after: s.after })}
+                          </Typography>
+                        ))}
+                      </Box>
+                    )}
+                    {textsRead.windows && textsRead.count > 0 && <Box>{t("survey.texts.windows")}</Box>}
                     {textsRead.languages.length > 0 && <Box>{t("survey.texts.added", { languages: textsRead.languages.map(names).join(", ") })}</Box>}
                     {textsRead.unknown > 0 && <Box>{t("survey.texts.unknown", { count: textsRead.unknown })}</Box>}
                   </Alert>
-                )}
+                ) : null}
               </Alert>
             )}
             {saved && !editing && (
@@ -563,10 +796,17 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
             <DesignView w={w} onLanguage={setChosen} addLanguage={editing ? addLanguage : undefined} />
             {editing && (
               <ChangeBar
+                design={w.design}
                 added={added}
                 saving={saving}
                 saved={saved}
-                onSave={() => void save().then((o) => report(o))}
+                onSave={() =>
+                  void (async () => {
+                    const restore = keepFocus();
+                    report(await saveTexts());
+                    restore();
+                  })()
+                }
                 onDiscard={discard}
               >
                 {stale && (
@@ -574,13 +814,22 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
                     <StaleAlert onReadAgain={readAgain} change={stale.ops.length > 0} />
                   </Box>
                 )}
-                {retry && (
+                {retry && retry.ops !== null && (
                   <Alert
                     severity="info"
                     sx={{ flexBasis: "100%" }}
                     action={
                       <Stack direction="row" spacing={1}>
-                        <Button color="inherit" size="small" disabled={saving} onClick={() => { const again = retry; setRetry(null); void changeHere(again.ops, again.what); }}>
+                        <Button
+                          color="inherit"
+                          size="small"
+                          disabled={saving}
+                          onClick={() => {
+                            const again = retry;
+                            setRetry(null);
+                            if (again.ops) void changeHere(again.ops, again.what);
+                          }}
+                        >
                           {t("survey.edit.retryDo")}
                         </Button>
                         <Button color="inherit" size="small" onClick={() => setRetry(null)}>
@@ -592,6 +841,21 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
                     {t("survey.edit.retry")}
                   </Alert>
                 )}
+                {retry && retry.ops === null && (
+                  <Alert severity="info" sx={{ flexBasis: "100%" }} onClose={() => setRetry(null)}>
+                    {t("survey.edit.retryCannot")}
+                  </Alert>
+                )}
+                {othersSaved !== null && (
+                  <Alert severity="info" sx={{ flexBasis: "100%" }} onClose={() => setOthersSaved(null)}>
+                    {t("survey.edit.othersSaved")}
+                  </Alert>
+                )}
+                {droppedTexts > 0 && (
+                  <Alert severity="warning" sx={{ flexBasis: "100%" }} onClose={() => setDroppedTexts(0)}>
+                    {t("survey.edit.droppedTexts", { count: droppedTexts })}
+                  </Alert>
+                )}
                 {refused && (
                   <Box sx={{ flexBasis: "100%" }}>
                     <Problems w={w} problems={refused} title={t("survey.edit.refused")} />
@@ -599,7 +863,7 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
                 )}
                 {error !== null && (
                   <Box sx={{ flexBasis: "100%" }}>
-                    <ErrorAlert error={error} />
+                    <ChangeError error={error} />
                   </Box>
                 )}
               </ChangeBar>
@@ -609,7 +873,17 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
       </Paper>
       {w && <DesignCards w={w} />}
       {answer?.editable && answer.design && (
-        <VersionsCard projectId={projectId} revision={answer.revision} disabled={unsaved} onRestored={afterChange} />
+        <VersionsCard
+          projectId={projectId}
+          revision={answer.revision}
+          disabled={unsaved}
+          onRestored={afterChange}
+          onStale={() => {
+            // Nothing typed (bringing back waits for that): the survey read again as someone else left it
+            acceptFrom.current = answerRef.current?.revision ?? null;
+            loaded.reload();
+          }}
+        />
       )}
       {w && questionFor !== null && (
         // A new dialog each time: nothing of the last question stays in it
@@ -627,7 +901,7 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
           w={w}
           onClose={() => setSuggesting(false)}
           // Each was tried on the plots collected already: saved without asking again
-          onAdd={(ops) => addResult(save(ops))}
+          onAdd={(ops) => addResult(saveChange(ops))}
         />
       )}
       {w && tableFor !== null && (
@@ -684,6 +958,7 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
         </DialogActions>
       </Dialog>
     </EditContext.Provider>
+    </DraftContext.Provider>
     </PendingContext.Provider>
     </HelpContext.Provider>
     </ExpressionCheckContext.Provider>
@@ -691,7 +966,7 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
 }
 
 /** "Someone else changed the survey": read it again, the texts typed staying */
-function StaleAlert({ onReadAgain, change = false }: { onReadAgain: () => void; change?: boolean }) {
+function StaleAlert({ onReadAgain, change = false, dialog = false }: { onReadAgain: () => void; change?: boolean; dialog?: boolean }) {
   const t = useT();
   return (
     <Alert
@@ -704,6 +979,7 @@ function StaleAlert({ onReadAgain, change = false }: { onReadAgain: () => void; 
     >
       {t("survey.edit.stale")}
       {change && <Box>{t("survey.edit.staleChange")}</Box>}
+      {dialog && <Box>{t("survey.edit.staleDialog")}</Box>}
     </Alert>
   );
 }
@@ -712,7 +988,8 @@ function StaleAlert({ onReadAgain, change = false }: { onReadAgain: () => void; 
  * The bar under the survey while it is edited: the changes not saved, Discard (asked first) or Done, Save, and how
  * the last save went. It follows the texts typed itself, so typing re-renders it and the field only.
  */
-function ChangeBar({ added, saving, saved, onSave, onDiscard, children }: {
+function ChangeBar({ design, added, saving, saved, onSave, onDiscard, children }: {
+  design: SurveyDesign;
   added: readonly string[];
   saving: boolean;
   saved: boolean;
@@ -724,12 +1001,22 @@ function ChangeBar({ added, saving, saved, onSave, onDiscard, children }: {
   const store = useContext(PendingContext);
   const texts = useSyncExternalStore(store ? store.subscribe : noSubscribe, () => store?.all() ?? EMPTY);
   const count = useMemo(() => operationsOf(texts, added).length, [texts, added]);
+  const tooLong = useMemo(() => changedTexts(texts).filter((p) => p.text.trim().length > MAX_TEXT).length, [texts]);
+  const nameless = useMemo(() => namesEmptied(texts, design), [texts, design]);
   const [asking, setAsking] = useState(false);
   return (
-    <Paper elevation={3} sx={{ position: "sticky", bottom: 16, zIndex: 2, p: 2, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 1.5 }}>
-      {/* On a phone the count above, the two buttons side by side under it */}
-      <Typography sx={{ flex: { xs: "1 1 100%", sm: 1 }, display: "flex", alignItems: "center", gap: 1 }} role="status">
-        {count > 0 ? (
+    <Paper
+      elevation={3}
+      sx={{ position: "sticky", bottom: { xs: 8, sm: 16 }, zIndex: 2, p: { xs: 1, sm: 2 }, display: "flex", flexWrap: "wrap", alignItems: "center", gap: { xs: 1, sm: 1.5 } }}
+    >
+      {/* On a phone one short line: what is not saved, then the two buttons */}
+      <Typography sx={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 1, typography: { xs: "body2", sm: "body1" } }} role="status">
+        {saving ? (
+          <>
+            <CircularProgress size={16} aria-hidden />
+            {t("survey.edit.saving")}
+          </>
+        ) : count > 0 ? (
           t("survey.edit.pending", { count })
         ) : saved ? (
           <>
@@ -740,12 +1027,22 @@ function ChangeBar({ added, saving, saved, onSave, onDiscard, children }: {
           t("survey.edit.none")
         )}
       </Typography>
-      <Button onClick={() => (count > 0 ? setAsking(true) : onDiscard())} disabled={saving} sx={{ ml: { xs: "auto", sm: 0 } }}>
+      <Button size="small" onClick={() => (count > 0 ? setAsking(true) : onDiscard())} disabled={saving} sx={{ minWidth: 0 }}>
         {count > 0 ? t("survey.edit.discard") : t("survey.edit.done")}
       </Button>
-      <Button variant="contained" onClick={onSave} disabled={saving || count === 0}>
+      <Button size="small" variant="contained" onClick={onSave} disabled={saving || count === 0 || tooLong > 0 || nameless > 0}>
         {t("survey.edit.save")}
       </Button>
+      {nameless > 0 && (
+        <Typography variant="body2" color="error" sx={{ flexBasis: "100%" }}>
+          {t("survey.edit.pageNameNeeded")}
+        </Typography>
+      )}
+      {tooLong > 0 && (
+        <Typography variant="body2" color="error" sx={{ flexBasis: "100%" }}>
+          {t("survey.edit.tooLong", { count: tooLong, max: MAX_TEXT.toLocaleString() })}
+        </Typography>
+      )}
       {children}
       <Dialog open={asking} onClose={() => setAsking(false)} aria-labelledby="survey-discard-title" maxWidth="xs" fullWidth>
         <DialogTitle id="survey-discard-title">{t("survey.edit.discardTitle")}</DialogTitle>
@@ -769,13 +1066,17 @@ const EMPTY: ReadonlyMap<string, PendingText> = new Map();
  * A text of the survey: as it reads, or, while the words are changed, a field with it in the language chosen (the
  * survey's first language's under it when this is another)
  */
-function Words({ target, part, value, label, multiline = false, children }: {
+function Words({ target, part, value, label, multiline = false, anchor, keepOne = false, children }: {
   target: WordTarget;
   part: WordPart;
   /** The text in each language */
   value: Record<string, string>;
   label: string;
   multiline?: boolean;
+  /** A rule's message: the rule (ruleAnchor), for the text to follow it */
+  anchor?: string;
+  /** A page's name: it keeps one in at least one language */
+  keepOne?: boolean;
   children: ReactNode;
 }) {
   const edit = useContext(EditContext);
@@ -784,6 +1085,10 @@ function Words({ target, part, value, label, multiline = false, children }: {
   if (!edit) return <>{children}</>;
   const current = value[edit.language] ?? "";
   const first = edit.language !== edit.firstLanguage ? (value[edit.firstLanguage] ?? "") : "";
+  const text = kept ? kept.text : current;
+  // Longer than the survey takes: said (not cut, a paste would lose its end without a word), and Save waits
+  const tooLong = text.trim().length > MAX_TEXT;
+  const nameless = keepOne && text.trim() === "" && Object.entries(value).every(([l, v]) => l === edit.language || v.trim() === "");
   return (
     <TextField
       size="small"
@@ -791,10 +1096,19 @@ function Words({ target, part, value, label, multiline = false, children }: {
       multiline={multiline}
       minRows={multiline ? 2 : undefined}
       label={label}
-      value={kept ? kept.text : current}
-      onChange={(e) => edit.set(target, part, e.target.value, current)}
-      helperText={first ? t("survey.edit.inFirst", { language: edit.firstLanguageName, text: first }) : undefined}
-      slotProps={{ htmlInput: { lang: edit.language, maxLength: 4000 }, formHelperText: { sx: { whiteSpace: "pre-line" } } }}
+      value={text}
+      onChange={(e) => edit.set(target, part, e.target.value, current, anchor)}
+      error={tooLong || nameless}
+      helperText={
+        nameless
+          ? t("survey.edit.pageNameNeeded")
+          : tooLong
+          ? t("survey.edit.textTooLong", { count: text.trim().length.toLocaleString(), max: MAX_TEXT.toLocaleString() })
+          : first
+            ? t("survey.edit.inFirst", { language: edit.firstLanguageName, text: first })
+            : undefined
+      }
+      slotProps={{ htmlInput: { lang: edit.language }, formHelperText: { sx: { whiteSpace: "pre-line" } } }}
       sx={{ my: 0.5 }}
     />
   );
@@ -857,16 +1171,14 @@ const DesignView = memo(function DesignView({ w, onLanguage, addLanguage }: { w:
           <Button startIcon={<Add />} onClick={() => setAddingPage(true)} disabled={edit.busy}>
             {t("survey.edit.addPage")}
           </Button>
-          <NameDialog
-            open={addingPage}
-            title={t("survey.edit.addPage")}
-            label={t("survey.edit.page")}
-            onClose={() => setAddingPage(false)}
-            onDone={(text) => {
-              setAddingPage(false);
-              edit.change([{ op: "addPage", label: { [language]: text } }]);
-            }}
-          />
+          {addingPage && (
+            <NameDialog
+              title={t("survey.edit.addPage")}
+              label={t("survey.edit.page")}
+              onClose={() => setAddingPage(false)}
+              onDone={(text) => edit.submit([{ op: "addPage", label: { [language]: text } }])}
+            />
+          )}
         </Box>
       )}
     </Stack>
@@ -892,7 +1204,7 @@ const DesignCards = memo(function DesignCards({ w }: { w: Words }) {
   return (
     <>
       {design.fromPlotFile.length > 0 && (
-        <FoldingCard keepFolded title={t("survey.fromPlotFile.title")} summary={t("survey.fromPlotFile.summary", { count: design.fromPlotFile.length })}>
+        <FoldingCard keepFolded lazy title={t("survey.fromPlotFile.title")} summary={t("survey.fromPlotFile.summary", { count: design.fromPlotFile.length })}>
           <Explain variant="body2" sx={{ mb: 2 }} text={t("survey.fromPlotFile.explain")} />
           <QuestionList w={w} questions={design.fromPlotFile} />
         </FoldingCard>
@@ -900,6 +1212,7 @@ const DesignCards = memo(function DesignCards({ w }: { w: Words }) {
       {design.calculated.length > 0 && (
         <FoldingCard
           keepFolded
+          lazy
           title={t("survey.calculated.title")}
           summary={t("survey.calculated.summary", { count: design.calculated.length, formulas: design.counts.formulas })}
         >
@@ -907,21 +1220,21 @@ const DesignCards = memo(function DesignCards({ w }: { w: Words }) {
           <QuestionList w={w} questions={design.calculated} />
         </FoldingCard>
       )}
-      <FoldingCard keepFolded title={t("survey.hidden.title")} summary={t("survey.hidden.summary", { count: design.hidden.length })}>
+      <FoldingCard keepFolded lazy title={t("survey.hidden.title")} summary={t("survey.hidden.summary", { count: design.hidden.length })}>
         <Explain variant="body2" sx={{ mb: 2 }} text={t("survey.hidden.explain")} />
         <QuestionList w={w} questions={design.hidden} />
       </FoldingCard>
-      <FoldingCard keepFolded title={t("survey.lists.title")} summary={t("survey.lists.summary", { count: design.lists.length })}>
+      <FoldingCard keepFolded lazy title={t("survey.lists.title")} summary={t("survey.lists.summary", { count: design.lists.length })}>
         <Explain variant="body2" sx={{ mb: 2 }} text={t("survey.lists.explain")} />
         {edit && (
           <Box sx={{ mb: 2 }}>
             <Button startIcon={<Add />} variant="outlined" disabled={edit.busy} onClick={() => setAddingList(true)}>
               {t("survey.list.add")}
             </Button>
-            <AddListDialog w={w} open={addingList} onClose={() => setAddingList(false)} onAdd={(op) => { setAddingList(false); edit.change([op]); }} />
+            {addingList && <AddListDialog w={w} onClose={() => setAddingList(false)} onAdd={(op) => edit.submit([op])} />}
           </Box>
         )}
-        <Stack spacing={2} lang={language}>
+        <Stack spacing={2} lang={language} data-focus-home>
           {design.lists.map((l) => (
             <ListView key={l.name} w={w} list={l} />
           ))}
@@ -949,7 +1262,7 @@ function Problems({ w, problems, title }: { w: Words; problems: SurveyProblem[];
           return (
             <Typography component="li" variant="body2" key={i} sx={{ overflowWrap: "anywhere" }}>
               {p.node && p.node !== "plot" && <>{t("survey.problems.where", { question: label, name })} </>}
-              {t(`surveyCheck.${p.code}` as MessageKey, p.values)}
+              {checkWords(t, p.code, p.values)}
               {p.expression && (
                 <Box component="code" sx={{ display: "block", fontSize: "0.8125rem", color: "text.secondary" }}>
                   {p.expression}
@@ -972,14 +1285,19 @@ function Problems({ w, problems, title }: { w: Words; problems: SurveyProblem[];
 function PageView({ w, page, defaultOpen, order }: { w: Words; page: DesignPage & { empty?: boolean; deletable?: boolean }; defaultOpen: boolean; order: string[] }) {
   const edit = useContext(EditContext);
   const [open, setOpen] = useState(defaultOpen);
+  // Its questions are made once it is first opened: a long survey shows, and changes language, sooner
+  const [opened, setOpened] = useState(defaultOpen);
   const id = useId();
   const label = textIn(page.label, w.language, w.design.languages) || w.t("survey.noLabel");
   return (
-    <Box sx={{ border: 1, borderColor: "divider", borderRadius: 1 }}>
+    <Box sx={{ border: 1, borderColor: "divider", borderRadius: 1 }} data-focus-home>
       {/* The heading holds the button (not the other way round): a heading inside a button is no heading to a screen reader */}
       <Typography variant="h3" sx={{ m: 0 }}>
         <ButtonBase
-          onClick={() => setOpen(!open)}
+          onClick={() => {
+            setOpen(!open);
+            setOpened(true);
+          }}
           aria-expanded={open}
           aria-controls={`${id}-page`}
           sx={{ width: "100%", justifyContent: "flex-start", textAlign: "left", px: 2, py: 1.5, gap: 2, borderRadius: 1, font: "inherit" }}
@@ -991,8 +1309,9 @@ function PageView({ w, page, defaultOpen, order }: { w: Words; page: DesignPage 
         </ButtonBase>
       </Typography>
       <Collapse in={open} id={`${id}-page`}>
+        {(open || opened) && (
         <Stack spacing={2} sx={{ px: 2, pb: 2 }}>
-          <Words target={{ kind: "page", name: page.name }} part="label" value={page.label} label={w.t("survey.edit.page")}>
+          <Words target={{ kind: "page", name: page.name }} part="label" value={page.label} label={w.t("survey.edit.page")} keepOne>
             {null}
           </Words>
           {edit && (
@@ -1004,7 +1323,7 @@ function PageView({ w, page, defaultOpen, order }: { w: Words; page: DesignPage 
                 {w.t("survey.table.add")}
               </Button>
               <MoveButtons
-                label={w.t("survey.edit.page")}
+                label={label}
                 up={pageMoveTarget(order, page.name, -1)}
                 down={pageMoveTarget(order, page.name, 1)}
                 onMove={(to) => edit.change([{ op: "movePage", name: page.name, ...(to.before !== undefined ? { before: to.before as string } : {}) }])}
@@ -1025,6 +1344,7 @@ function PageView({ w, page, defaultOpen, order }: { w: Words; page: DesignPage 
             ),
           )}
         </Stack>
+        )}
       </Collapse>
     </Box>
   );
@@ -1067,14 +1387,16 @@ function QuestionView({ w, q, inTable, table, siblings, page }: {
   // While editing, the Required choice of the tools says it already
   const requiredBox = edit !== null && siblings !== undefined && canRequire(q);
   const kinds = edit && siblings ? ruleKinds(q, table ?? null) : [];
-  const [ruleOpen, setRuleOpen] = useState<{ index: number | null } | null>(null);
-  const [translating, setTranslating] = useState<number | null>(null);
+  /** The rule dialog: a new rule, or the rule changed (found again by what it is when it is applied) */
+  const [ruleOpen, setRuleOpen] = useState<{ index: number | null; anchor?: string } | null>(null);
+  const [translating, setTranslating] = useState<{ index: number; anchor: string } | null>(null);
   const [editingFormulas, setEditingFormulas] = useState(false);
   const assistant = useContext(HelpContext);
   const candidates = useMemo(() => (ruleOpen ? conditionQuestions(w.design, table ?? null, null) : []), [ruleOpen, w.design, table]);
   const label = textIn(q.label, w.language, w.design.languages) || q.name;
   return (
-    <Box data-question={q.name} sx={{ pl: 1.5, borderLeft: 3, borderColor: q.hidden || q.formulas ? "divider" : "primary.light" }}>
+    <Box data-question={q.name} data-focus-home
+      sx={{ pl: 1.5, borderLeft: 3, borderColor: q.hidden || q.formulas ? "divider" : "primary.light", contentVisibility: "auto", containIntrinsicSize: "auto 160px" }}>
       <Words target={{ kind: "node", id: q.id }} part="label" value={q.label} label={t("survey.edit.label")} multiline>
         <Typography sx={{ fontWeight: 600, overflowWrap: "anywhere" }}>{label}</Typography>
       </Words>
@@ -1109,12 +1431,12 @@ function QuestionView({ w, q, inTable, table, siblings, page }: {
             {edit && siblings && kinds.length + q.rules.length > 0 && (
               <>
                 {builderRule(r) && kinds.length > 0 && (
-                  <ToolButton title={t("survey.logic.editRule")} label={`${t("survey.logic.editRule")}: ${ruleWords(w, r)}`} disabled={edit.busy} onClick={() => setRuleOpen({ index: i })}>
+                  <ToolButton title={t("survey.logic.editRule")} label={`${t("survey.logic.editRule")}: ${ruleWords(w, r)}`} disabled={edit.busy} onClick={() => setRuleOpen({ index: i, anchor: ruleAnchor(r) })}>
                     <EditOutlined fontSize="small" />
                   </ToolButton>
                 )}
                 {assistant && w.design.languages.length > 1 && Object.values(r.message).some((m) => m) && (
-                  <ToolButton title={t("survey.help.translate")} label={`${t("survey.help.translate")}: ${ruleWords(w, r)}`} disabled={edit.busy} onClick={() => setTranslating(i)}>
+                  <ToolButton title={t("survey.help.translate")} label={`${t("survey.help.translate")}: ${ruleWords(w, r)}`} disabled={edit.busy} onClick={() => setTranslating({ index: i, anchor: ruleAnchor(r) })}>
                     <Translate fontSize="small" />
                   </ToolButton>
                 )}
@@ -1124,7 +1446,7 @@ function QuestionView({ w, q, inTable, table, siblings, page }: {
                 </ToolButton>
               </>
             )}
-            <Words target={{ kind: "rule", node: q.id, index: i }} part="message" value={r.message} label={t("survey.edit.message")} multiline>
+            <Words target={{ kind: "rule", node: q.id, index: i }} part="message" value={r.message} label={t("survey.edit.message")} multiline anchor={ruleAnchor(r)}>
               {textIn(r.message, w.language, w.design.languages) && ` — ${t("survey.rule.message", { message: textIn(r.message, w.language, w.design.languages) })}`}
             </Words>
           </Detail>
@@ -1138,16 +1460,17 @@ function QuestionView({ w, q, inTable, table, siblings, page }: {
           </Button>
         </Box>
       )}
-      {edit && translating !== null && q.rules[translating] && (
+      {edit && translating !== null && q.rules[translating.index] && (
         <TranslateDialog
           w={w}
-          message={q.rules[translating].message}
+          message={q.rules[translating.index].message}
           onClose={() => setTranslating(null)}
           onApply={(texts) => {
-            const index = translating;
-            setTranslating(null);
+            // The rule where it is now (someone else may have changed the rules meanwhile)
+            const index = ruleIndexOf(q.rules, translating.anchor);
+            if (index === null) return Promise.resolve({ saved: false, problem: <Alert severity="warning">{t("survey.logic.ruleGone")}</Alert> });
             const ops: SurveyOperation[] = Object.entries(texts).map(([language, text]) => ({ op: "setText", target: { kind: "rule", node: q.id, index }, part: "message", language, text }));
-            if (ops.length > 0) edit.change(ops);
+            return edit.submit(ops);
           }}
         />
       )}
@@ -1155,14 +1478,16 @@ function QuestionView({ w, q, inTable, table, siblings, page }: {
         <RuleDialog
           w={w}
           q={q}
-          rule={ruleOpen.index === null ? null : q.rules[ruleOpen.index]}
+          rule={ruleOpen.index === null ? null : (q.rules[ruleOpen.index] ?? null)}
           kinds={kinds}
           candidates={candidates}
           onClose={() => setRuleOpen(null)}
           onApply={(rule) => {
-            const index = ruleOpen.index;
-            setRuleOpen(null);
-            edit.change([index === null ? { op: "addRule", id: q.id, rule } : { op: "setRule", id: q.id, index, rule }]);
+            if (ruleOpen.anchor === undefined) return edit.submit([{ op: "addRule", id: q.id, rule }]);
+            // The rule where it is now (someone else may have changed the rules meanwhile)
+            const index = ruleIndexOf(q.rules, ruleOpen.anchor);
+            if (index === null) return Promise.resolve({ saved: false, problem: <Alert severity="warning">{t("survey.logic.ruleGone")}</Alert> });
+            return edit.submit([{ op: "setRule", id: q.id, index, rule }]);
           }}
         />
       )}
@@ -1194,10 +1519,7 @@ function QuestionView({ w, q, inTable, table, siblings, page }: {
           w={w}
           q={q}
           onClose={() => setEditingFormulas(false)}
-          onApply={(formulas) => {
-            setEditingFormulas(false);
-            edit.change([{ op: "setFormulas", id: q.id, formulas }]);
-          }}
+          onApply={(formulas) => edit.submit([{ op: "setFormulas", id: q.id, formulas }])}
         />
       )}
       <Typography variant="caption" color="text.secondary" sx={{ overflowWrap: "anywhere" }}>
@@ -1249,11 +1571,13 @@ function TableView({ w: survey, table, siblings, page }: { w: Words; table: Desi
   );
 }
 
-function ListView({ w, list }: { w: Words; list: DesignList }) {
+/** A list and its answers (memo: a list's fields are many, and typing elsewhere leaves them as they are) */
+const ListView = memo(function ListView({ w, list }: { w: Words; list: DesignList }) {
   const { t } = w;
   const edit = useContext(EditContext);
   return (
-    <Box sx={{ pl: 1.5, borderLeft: 3, borderColor: "divider" }}>
+    // Off screen, its layout is skipped (a long list's fields are many: typing elsewhere stays quick)
+    <Box sx={{ pl: 1.5, borderLeft: 3, borderColor: "divider", contentVisibility: "auto", containIntrinsicSize: "auto 240px" }} data-focus-home>
       <Words target={{ kind: "list", name: list.name }} part="label" value={list.label} label={t("survey.edit.list")}>
         <Typography sx={{ fontWeight: 600, overflowWrap: "anywhere" }}>{textIn(list.label, w.language, w.design.languages) || list.name}</Typography>
       </Words>
@@ -1277,7 +1601,7 @@ function ListView({ w, list }: { w: Words; list: DesignList }) {
       </Typography>
     </Box>
   );
-}
+});
 
 function ItemTree({ w, list, items, codes }: { w: Words; list: string; items: DesignListItem[]; codes?: ReadonlySet<string> }) {
   const edit = useContext(EditContext);
@@ -1290,18 +1614,23 @@ function ItemTree({ w, list, items, codes }: { w: Words; list: string; items: De
     <Box component="ul" sx={{ m: 0, pl: 3 }}>
       {under && edit && (
         <NameDialog
-          open
           title={w.t("survey.list.underTitle", { answer: textIn(under.label, w.language, w.design.languages) || under.code })}
           label={w.t("survey.list.itemLabel")}
           onClose={() => setUnder(null)}
-          onDone={(text) => {
-            const parent = under.code;
-            setUnder(null);
-            edit.change([{ op: "addItem", list, under: parent, item: { code: uniqueName(slugName(text, "answer"), taken), label: { [w.language]: text } } }]);
-          }}
+          onDone={(text) => edit.submit([{ op: "addItem", list, under: under.code, item: { code: uniqueName(slugName(text, "answer"), taken), label: { [w.language]: text } } }])}
         />
       )}
-      {items.map((i) => (
+      {items.map((i) => {
+        const name = `${textIn(i.label, w.language, w.design.languages) || i.code} (${i.code})`;
+        const why =
+          i.usedBy.length > 0
+            ? w.t("survey.edit.usedBy", { names: i.usedBy.join(", ") })
+            : i.items.length > 0
+              ? w.t("survey.list.hasUnder")
+              : codes === undefined && items.length === 1
+                ? w.t("survey.list.lastAnswer")
+                : undefined;
+        return (
         <Typography component="li" variant="body2" key={i.code} sx={{ overflowWrap: "anywhere" }}>
           <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
             <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -1312,20 +1641,21 @@ function ItemTree({ w, list, items, codes }: { w: Words; list: string; items: De
             {edit && (
               <>
                 <MoveButtons
-                  label={textIn(i.label, w.language, w.design.languages) || i.code}
+                  label={name}
                   up={itemMoveTarget(items.map((x) => x.code), i.code, -1)}
                   down={itemMoveTarget(items.map((x) => x.code), i.code, 1)}
                   onMove={(to) => edit.change([{ op: "moveItem", list, code: i.code, ...(to.before !== undefined ? { before: to.before as string } : {}) }])}
                 />
-                <ToolButton title={w.t("survey.list.addUnder")} label={`${w.t("survey.list.addUnder")}: ${i.code}`} disabled={edit.busy} onClick={() => setUnder(i)}>
+                <ToolButton title={w.t("survey.list.addUnder")} label={`${w.t("survey.list.addUnder")}: ${name}`} disabled={edit.busy} onClick={() => setUnder(i)}>
                   <SubdirectoryArrowRight fontSize="small" />
                 </ToolButton>
                 {/* An answer that conditions, rules or formulas name, or with answers under it, stays */}
                 <ToolButton
-                  title={i.usedBy.length > 0 ? w.t("survey.edit.usedBy", { names: i.usedBy.join(", ") }) : i.items.length > 0 ? w.t("survey.list.hasUnder") : w.t("survey.edit.delete")}
-                  label={`${w.t("survey.edit.delete")}: ${i.code}`}
-                  disabled={edit.busy || i.items.length > 0 || i.usedBy.length > 0}
-                  onClick={() => edit.change([{ op: "deleteItem", list, code: i.code }], `${textIn(i.label, w.language, w.design.languages) || i.code} (${i.code})`)}
+                  title={why ?? w.t("survey.edit.delete")}
+                  label={`${w.t("survey.edit.delete")}: ${name}`}
+                  disabled={edit.busy || why !== undefined}
+                  reason={why}
+                  onClick={() => edit.change([{ op: "deleteItem", list, code: i.code }], name)}
                 >
                   <DeleteOutline fontSize="small" />
                 </ToolButton>
@@ -1339,18 +1669,21 @@ function ItemTree({ w, list, items, codes }: { w: Words; list: string; items: De
           )}
           <ItemTree w={w} list={list} items={i.items} codes={taken} />
         </Typography>
-      ))}
+        );
+      })}
     </Box>
   );
 }
 
 /** The versions kept before each change, any of them brought back */
-function VersionsCard({ projectId, revision, disabled, onRestored }: {
+function VersionsCard({ projectId, revision, disabled, onRestored, onStale }: {
   projectId: string;
   revision: string | null;
   /** Changes not saved: saved or discarded first */
   disabled: boolean;
   onRestored: (answer: SurveyDesignAnswer) => void;
+  /** Someone else changed the survey since it was read: it is read again */
+  onStale: () => void;
 }) {
   const t = useT();
   const { language } = useApp();
@@ -1359,6 +1692,7 @@ function VersionsCard({ projectId, revision, disabled, onRestored }: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [done, setDone] = useState(false);
+  const [stale, setStale] = useState(false);
   const list = versions.data?.versions ?? [];
 
   const restore = async (id: string) => {
@@ -1366,11 +1700,17 @@ function VersionsCard({ projectId, revision, disabled, onRestored }: {
     setBusy(true);
     setError(null);
     setDone(false);
+    setStale(false);
     try {
       onRestored(await restoreSurveyVersion(projectId, id, revision));
       setDone(true);
     } catch (err) {
-      setError(err);
+      if (err instanceof ApiError && err.code === "stale") {
+        // The survey and its versions as they are now: the version is chosen again on them
+        setStale(true);
+        onStale();
+        versions.reload();
+      } else setError(err);
     } finally {
       setBusy(false);
       setAsking(null);
@@ -1378,7 +1718,7 @@ function VersionsCard({ projectId, revision, disabled, onRestored }: {
   };
 
   return (
-    <FoldingCard keepFolded title={t("survey.versions.title")} summary={t("survey.versions.summary", { count: list.length })}>
+    <FoldingCard keepFolded lazy title={t("survey.versions.title")} summary={t("survey.versions.summary", { count: list.length })}>
       <Explain variant="body2" sx={{ mb: 2 }} text={t("survey.versions.explain")} />
       {versions.error ? (
         <ErrorAlert error={versions.error} onRetry={versions.reload} />
@@ -1406,7 +1746,8 @@ function VersionsCard({ projectId, revision, disabled, onRestored }: {
       )}
       {disabled && list.length > 0 && <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>{t("survey.versions.saveFirst")}</Typography>}
       {done && <Alert severity="success" role="status" sx={{ mt: 2 }}>{t("survey.versions.restored")}</Alert>}
-      <ErrorAlert error={error} />
+      {stale && <Alert severity="warning" role="alert" sx={{ mt: 2 }} onClose={() => setStale(false)}>{t("survey.versions.stale")}</Alert>}
+      {error !== null && <Box sx={{ mt: 2 }}><ChangeError error={error} /></Box>}
       <Dialog open={asking !== null} onClose={() => setAsking(null)} aria-labelledby="restore-title" maxWidth="sm" fullWidth>
         <DialogTitle id="restore-title">{t("survey.versions.restore")}</DialogTitle>
         <DialogContent>
@@ -1552,7 +1893,8 @@ function ItemTools({ w, item, siblings, page, table }: { w: Words; item: DesignI
       {question && canRequire(question) && (
         <RequiredControl w={w} q={question} candidates={candidates} busy={edit.busy}
           onChange={(required) => edit.change([{ op: "setRequired", id: question.id, required }])}
-          onText={(text) => edit.change([{ op: "setExpression", id: question.id, part: "required", text }])} />
+          onWhen={(required) => edit.submit([{ op: "setRequired", id: question.id, required }])}
+          onText={(text) => edit.submit([{ op: "setExpression", id: question.id, part: "required", text }])} />
       )}
       {showing && (
         <ConditionDialog
@@ -1563,14 +1905,8 @@ function ItemTools({ w, item, siblings, page, table }: { w: Words; item: DesignI
           allowAlways
           node={item.id}
           onClose={() => setShowing(false)}
-          onApply={(when) => {
-            setShowing(false);
-            edit.change([{ op: "setShownWhen", id: item.id, when }]);
-          }}
-          onApplyText={(text) => {
-            setShowing(false);
-            edit.change([{ op: "setExpression", id: item.id, part: "shownWhen", text }]);
-          }}
+          onApply={(when) => edit.submit([{ op: "setShownWhen", id: item.id, when }])}
+          onApplyText={(text) => edit.submit([{ op: "setExpression", id: item.id, part: "shownWhen", text }])}
         />
       )}
       {(item.kind === "table" || !item.fixed) && (
@@ -1580,6 +1916,7 @@ function ItemTools({ w, item, siblings, page, table }: { w: Words; item: DesignI
           label={`${t("survey.edit.delete")}: ${label}`}
           color="error"
           disabled={edit.busy || usedBy.length > 0}
+          reason={usedBy.length > 0 ? t("survey.edit.usedBy", { names: usedBy.join(", ") }) : undefined}
           onClick={() => edit.change([item.kind === "table" ? { op: "deleteTable", id: item.id } : { op: "deleteQuestion", id: item.id }], label)}
         >
           <DeleteOutline fontSize="small" />
@@ -1594,46 +1931,74 @@ function AddItemForm({ w, list }: { w: Words; list: DesignList }) {
   const edit = useContext(EditContext);
   const [label, setLabel] = useState("");
   const [code, setCode] = useState("");
+  // Emptied once the answer is saved; kept, with why, when it is not
+  const submit = useSubmit(() => {
+    setLabel("");
+    setCode("");
+  });
+  useDraft(label.trim() !== "" || code.trim() !== "");
   if (!edit) return null;
   const { t } = w;
   // Every code of the list, at every level (as the answers under an answer are added)
   const taken = new Set(listOptions(list.items).map((i) => i.code));
   const proposed = code.trim() || uniqueName(slugName(label, "answer"), taken);
   const bad = code.trim() !== "" && (!isItemCode(code.trim()) || taken.has(code.trim()));
+  const ready = !edit.busy && !submit.busy && label.trim() !== "" && !bad;
+  const add = () => {
+    if (ready) void submit.run(edit.submit([{ op: "addItem", list: list.name, item: { code: proposed, label: { [w.language]: label.trim() } } }]));
+  };
   return (
-    <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ mt: 1, alignItems: { sm: "flex-start" } }}>
-      <TextField size="small" label={t("survey.list.itemLabel")} value={label} onChange={(e) => setLabel(e.target.value)} sx={{ flex: 2 }} />
-      <TextField size="small" label={t("survey.list.itemCode")} value={code} placeholder={label ? proposed : ""} onChange={(e) => setCode(e.target.value)}
-        error={bad} helperText={bad ? t("survey.list.codeBad") : t("survey.list.codeHelp")} sx={{ flex: 1 }} />
-      <Button variant="outlined" startIcon={<Add />} disabled={edit.busy || label.trim() === "" || bad}
-        onClick={() => {
-          edit.change([{ op: "addItem", list: list.name, item: { code: proposed, label: { [w.language]: label.trim() } } }]);
-          setLabel("");
-          setCode("");
-        }}>
-        {t("survey.list.addItem")}
-      </Button>
-    </Stack>
+    <Box sx={{ mt: 1 }}>
+      <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ alignItems: { sm: "flex-start" } }}>
+        <TextField size="small" label={t("survey.list.itemLabel")} value={label} onChange={(e) => setLabel(e.target.value)} sx={{ flex: 2 }}
+          helperText={writtenIn(edit, t)} slotProps={{ htmlInput: { lang: w.language } }}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }} />
+        <TextField size="small" label={t("survey.list.itemCode")} value={code} placeholder={label ? proposed : ""} onChange={(e) => setCode(e.target.value)}
+          error={bad} helperText={bad ? t("survey.list.codeBad") : t("survey.list.codeHelp")} sx={{ flex: 1 }}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }} />
+        <Button variant="outlined" startIcon={submit.busy ? <CircularProgress size={16} /> : <Add />} disabled={!ready} onClick={add}>
+          {t("survey.list.addItem")}
+        </Button>
+      </Stack>
+      {submit.problem}
+    </Box>
   );
 }
 
-/** A text asked for in a dialog: a new page's name */
-function NameDialog({ open, title, label, onClose, onDone }: { open: boolean; title: string; label: string; onClose: () => void; onDone: (text: string) => void }) {
+/** What a dialog adding to the survey says of the language its texts are written in */
+function writtenIn(edit: Editing, t: (key: MessageKey, params?: Record<string, string | number>) => string): string {
+  return edit.manyLanguages ? t("survey.add.languageMany", { language: edit.languageName }) : t("survey.add.language", { language: edit.languageName });
+}
+
+/**
+ * A text asked for in a dialog: a new page's name, an answer under another. Made anew each time it opens; it closes
+ * once what it adds is saved, and keeps what was typed, with why, when it is not. Enter adds.
+ */
+function NameDialog({ title, label, onClose, onDone }: { title: string; label: string; onClose: () => void; onDone: (text: string) => Promise<AddResult> }) {
   const t = useT();
+  const edit = useContext(EditContext);
+  const titleId = useId();
   const [text, setText] = useState("");
-  const close = () => {
-    setText("");
-    onClose();
+  const submit = useSubmit(onClose);
+  useDraft(text.trim() !== "");
+  const ready = text.trim() !== "" && !submit.busy;
+  const done = () => {
+    if (ready) void submit.run(onDone(text.trim()));
   };
   return (
-    <Dialog open={open} onClose={close} aria-labelledby="name-dialog-title" maxWidth="xs" fullWidth>
-      <DialogTitle id="name-dialog-title">{title}</DialogTitle>
+    <Dialog open onClose={submit.busy ? undefined : onClose} aria-labelledby={titleId} maxWidth="xs" fullWidth>
+      <DialogTitle id={titleId}>{title}</DialogTitle>
       <DialogContent>
-        <TextField autoFocus fullWidth label={label} value={text} onChange={(e) => setText(e.target.value)} sx={{ mt: 1 }} />
+        <Stack spacing={2} sx={{ mt: 1 }}>
+          <TextField autoFocus fullWidth label={label} value={text} onChange={(e) => setText(e.target.value)}
+            helperText={edit ? writtenIn(edit, t) : undefined} slotProps={{ htmlInput: { lang: edit?.language } }}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); done(); } }} />
+          {submit.problem}
+        </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={close}>{t("common.cancel")}</Button>
-        <Button variant="contained" disabled={text.trim() === ""} onClick={() => { onDone(text.trim()); setText(""); }}>
+        <Button onClick={onClose} disabled={submit.busy}>{t("common.cancel")}</Button>
+        <Button variant="contained" disabled={!ready} onClick={done}>
           {t("survey.add.add")}
         </Button>
       </DialogActions>
@@ -1642,7 +2007,8 @@ function NameDialog({ open, title, label, onClose, onDone }: { open: boolean; ti
 }
 
 const NEW_TYPES: NewQuestionType[] = ["choice", "choices", "yesNo", "integer", "decimal", "text", "memo", "date"];
-const NEW_LIST = "";
+/** "A new list" in the list choice: no list name has a colon */
+const NEW_LIST = "new:";
 /** The value of "the answers under the answer to…" in the list choice: no list name has a colon */
 const SUB_LIST = "sub:";
 
@@ -1658,6 +2024,7 @@ function AddQuestionDialog({ w, where, onClose, onAdd }: {
   onAdd: (ops: SurveyOperation[]) => Promise<AddResult>;
 }) {
   const { t, design, language } = w;
+  const edit = useContext(EditContext);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<ReactNode>(null);
   const [label, setLabel] = useState("");
@@ -1665,6 +2032,7 @@ function AddQuestionDialog({ w, where, onClose, onAdd }: {
   const [listName, setListName] = useState(NEW_LIST);
   const [lines, setLines] = useState("");
   const [required, setRequired] = useState(false);
+  useDraft(label.trim() !== "" || lines.trim() !== "");
   const choice = type === "choice" || type === "choices";
   const taken = new Set(w.questions.keys());
   const name = uniqueName(slugName(label, "question"), taken);
@@ -1682,7 +2050,8 @@ function AddQuestionDialog({ w, where, onClose, onAdd }: {
   const place = where.table !== undefined
     ? (design.pages.flatMap((p) => p.items).find((i): i is DesignTable => i.kind === "table" && i.id === where.table)?.columns ?? [])
     : design.pages.flatMap((p) => p.items).filter((i): i is DesignQuestion => i.kind === "question");
-  const parents = place.filter((q) => q.type === "choice" && q.list && !q.fixed);
+  // Only a question whose list has answers under its answers, at the level below its own (the server refuses others)
+  const parents = subListParents(place, w.lists, w.questions);
   const subOf = listName.startsWith(SUB_LIST) ? listName.slice(SUB_LIST.length) : null;
   const add = () => {
     const ops: SurveyOperation[] = [];
@@ -1722,9 +2091,18 @@ function AddQuestionDialog({ w, where, onClose, onAdd }: {
       <DialogTitle id="add-question-title">{where.table !== undefined ? t("survey.add.columnTitle") : t("survey.add.title")}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
-          <TextField autoFocus label={t("survey.add.label")} value={label} onChange={(e) => setLabel(e.target.value)} multiline
-            helperText={label.trim() ? t("survey.add.name", { name }) : " "} slotProps={{ htmlInput: { lang: language } }} />
-          <TextField select label={t("survey.add.type")} value={type} onChange={(e) => setType(e.target.value as NewQuestionType)}>
+          {/* One line: Enter adds the question (when it can be) */}
+          <TextField autoFocus label={t("survey.add.label")} value={label} onChange={(e) => setLabel(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); if (ready && !busy) add(); } }}
+            helperText={[edit ? writtenIn(edit, t) : "", label.trim() ? t("survey.add.name", { name }) : ""].filter(Boolean).join(" ") || " "}
+            slotProps={{ htmlInput: { lang: language } }} />
+          <TextField select label={t("survey.add.type")} value={type}
+            onChange={(e) => {
+              const next = e.target.value as NewQuestionType;
+              setType(next);
+              // The answers under another's follow a question of one answer: another kind takes a list of its own
+              if (next !== "choice" && listName.startsWith(SUB_LIST)) setListName(NEW_LIST);
+            }}>
             {NEW_TYPES.map((k) => (
               <MenuItem key={k} value={k}>
                 {t(TYPE_KEYS[k])}
@@ -1732,7 +2110,8 @@ function AddQuestionDialog({ w, where, onClose, onAdd }: {
             ))}
           </TextField>
           {choice && (
-            <TextField select label={t("survey.add.list")} value={listName} onChange={(e) => setListName(e.target.value)}>
+            <TextField select label={t("survey.add.list")} value={listName} onChange={(e) => setListName(e.target.value)}
+              helperText={type === "choices" && parents.length > 0 ? t("survey.add.subListOne") : undefined}>
               <MenuItem value={NEW_LIST}>{t("survey.add.newList")}</MenuItem>
               {design.lists.filter((l) => !l.external).map((l) => (
                 <MenuItem key={l.name} value={l.name}>
@@ -1768,12 +2147,14 @@ function AddQuestionDialog({ w, where, onClose, onAdd }: {
 /** A table on a page: its title and its rows, one per answer of a list (an existing one, or one written here) */
 function AddTableDialog({ w, page, onClose, onAdd }: { w: Words; page: string; onClose: () => void; onAdd: (ops: SurveyOperation[]) => Promise<AddResult> }) {
   const { t, design, language } = w;
+  const edit = useContext(EditContext);
   const titleId = useId();
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<ReactNode>(null);
   const [label, setLabel] = useState("");
   const [listName, setListName] = useState(NEW_LIST);
   const [lines, setLines] = useState("");
+  useDraft(label.trim() !== "" || lines.trim() !== "");
   const name = uniqueName(slugName(label, "table"), new Set(w.questions.keys()));
   const items = itemsFromLines(lines, language);
   const ready = label.trim() !== "" && (listName !== NEW_LIST || items.length > 0);
@@ -1799,7 +2180,9 @@ function AddTableDialog({ w, page, onClose, onAdd }: { w: Words; page: string; o
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           <TextField autoFocus label={t("survey.table.label")} value={label} onChange={(e) => setLabel(e.target.value)}
-            helperText={label.trim() ? t("survey.add.name", { name }) : " "} slotProps={{ htmlInput: { lang: language } }} />
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); if (ready && !busy) void add(); } }}
+            helperText={[edit ? writtenIn(edit, t) : "", label.trim() ? t("survey.add.name", { name }) : ""].filter(Boolean).join(" ") || " "}
+            slotProps={{ htmlInput: { lang: language } }} />
           <TextField select label={t("survey.table.rows")} value={listName} onChange={(e) => setListName(e.target.value)} helperText={t("survey.table.rowsHelp")}>
             <MenuItem value={NEW_LIST}>{t("survey.add.newList")}</MenuItem>
             {design.lists.filter((l) => !l.external && l.items.length > 0).map((l) => (
@@ -1825,33 +2208,35 @@ function AddTableDialog({ w, page, onClose, onAdd }: { w: Words; page: string; o
   );
 }
 
-/** A new answer list: its name and its answers, one per line */
-function AddListDialog({ w, open, onClose, onAdd }: { w: Words; open: boolean; onClose: () => void; onAdd: (op: SurveyOperation) => void }) {
+/** A new answer list: its name and its answers, one per line. Made anew each time; closes once the list is saved */
+function AddListDialog({ w, onClose, onAdd }: { w: Words; onClose: () => void; onAdd: (op: SurveyOperation) => Promise<AddResult> }) {
   const { t, language } = w;
+  const edit = useContext(EditContext);
   const [label, setLabel] = useState("");
   const [lines, setLines] = useState("");
-  const close = () => {
-    setLabel("");
-    setLines("");
-    onClose();
+  const submit = useSubmit(onClose);
+  useDraft(label.trim() !== "" || lines.trim() !== "");
+  // A list keeps at least one answer (the server refuses an empty one)
+  const ready = label.trim() !== "" && itemsFromLines(lines, language).length > 0 && !submit.busy;
+  const add = () => {
+    if (ready) void submit.run(onAdd({ op: "addList", label: { [language]: label.trim() }, items: itemsFromLines(lines, language) }));
   };
   return (
-    <Dialog open={open} onClose={close} aria-labelledby="add-list-title" maxWidth="sm" fullWidth>
+    <Dialog open onClose={submit.busy ? undefined : onClose} aria-labelledby="add-list-title" maxWidth="sm" fullWidth>
       <DialogTitle id="add-list-title">{t("survey.list.addTitle")}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
-          <TextField autoFocus label={t("survey.edit.list")} value={label} onChange={(e) => setLabel(e.target.value)} />
-          <TextField label={t("survey.add.answers")} value={lines} onChange={(e) => setLines(e.target.value)} multiline minRows={4} helperText={t("survey.add.answersHelp")} />
+          <TextField autoFocus label={t("survey.edit.list")} value={label} onChange={(e) => setLabel(e.target.value)}
+            helperText={edit ? writtenIn(edit, t) : undefined} slotProps={{ htmlInput: { lang: language } }}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }} />
+          <TextField label={t("survey.add.answers")} value={lines} onChange={(e) => setLines(e.target.value)} multiline minRows={4} helperText={t("survey.add.answersHelp")}
+            slotProps={{ htmlInput: { lang: language } }} />
+          {submit.problem}
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={close}>{t("common.cancel")}</Button>
-        <Button variant="contained" disabled={label.trim() === ""}
-          onClick={() => {
-            onAdd({ op: "addList", label: { [language]: label.trim() }, items: itemsFromLines(lines, language) });
-            setLabel("");
-            setLines("");
-          }}>
+        <Button onClick={onClose} disabled={submit.busy}>{t("common.cancel")}</Button>
+        <Button variant="contained" disabled={!ready} onClick={add}>
           {t("survey.add.add")}
         </Button>
       </DialogActions>
@@ -1872,6 +2257,18 @@ function ConfirmChangeDialog({ w, pending, busy, onCancel, onConfirm }: {
     const q = w.questions.get(name);
     return `${(q && textIn(q.label, w.language, w.design.languages)) || name} (${name})`;
   };
+  const tableLabel = (name: string) => {
+    const table = w.design.pages.flatMap((p) => p.items).find((i): i is DesignTable => i.kind === "table" && i.name === name);
+    return `${(table && textIn(table.label, w.language, w.design.languages)) || name} (${name})`;
+  };
+  const listLabel = (name: string) => {
+    const list = w.lists.get(name);
+    return (list && textIn(list.label, w.language, w.design.languages)) || name;
+  };
+  const itemLabel = (list: string, code: string) => {
+    const item = listOptions(w.lists.get(list)?.items ?? []).find((i) => i.code === code);
+    return `${(item && textIn(item.label, w.language, w.design.languages)) || code} (${code})`;
+  };
   const effects = pending?.impact.effects ?? [];
   const effectWords = (e: SurveyEffect): string | undefined => {
     switch (e.kind) {
@@ -1880,9 +2277,9 @@ function ConfirmChangeDialog({ w, pending, busy, onCancel, onConfirm }: {
       case "questionDeleted":
         return t("survey.confirm.questionDeleted", { question: questionLabel(e.question), count: e.answered });
       case "tableDeleted":
-        return t("survey.confirm.tableDeleted", { table: e.table, count: e.answered });
+        return t("survey.confirm.tableDeleted", { table: tableLabel(e.table), count: e.answered });
       case "itemDeleted":
-        return t("survey.confirm.itemDeleted", { code: e.code, list: e.list, count: e.chosen });
+        return t("survey.confirm.itemDeleted", { code: itemLabel(e.list, e.code), list: listLabel(e.list), count: e.chosen });
       case "nowRequired":
         return t("survey.confirm.nowRequired", { question: questionLabel(e.question), count: e.unanswered });
       case "hiddenAnswers":
@@ -1894,7 +2291,8 @@ function ConfirmChangeDialog({ w, pending, busy, onCancel, onConfirm }: {
     }
   };
   return (
-    <Dialog open={pending !== null} onClose={onCancel} aria-labelledby="confirm-change-title" maxWidth="sm" fullWidth>
+    // The keyboard goes back where it was by the change itself (keepFocus): the button may have moved or gone
+    <Dialog open={pending !== null} onClose={onCancel} aria-labelledby="confirm-change-title" maxWidth="sm" fullWidth disableRestoreFocus>
       <DialogTitle id="confirm-change-title">{pending?.what !== undefined ? t("survey.confirm.deleteTitle") : t("survey.confirm.title")}</DialogTitle>
       <DialogContent>
         <Stack spacing={1.5}>

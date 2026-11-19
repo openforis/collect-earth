@@ -197,6 +197,22 @@ export interface SurveyDesign {
 }
 
 /** What the survey check finds (src/survey/check.ts): Collect's checks of expressions, Collect Earth's survey rules */
+/**
+ * Why an expression cannot be read (a SurveyProblem of code `syntax`, its values `reason`, `at` — 1 from the start,
+ * "" at the end — and `token`): the dashboard words it; `detail` holds it in English
+ */
+export type ExpressionSyntaxReason =
+  | 'unclosedQuote'
+  | 'dollarWithoutName'
+  | 'unexpected'
+  | 'tooDeep'
+  | 'missing'
+  | 'empty'
+  | 'trailing'
+  | 'expected'
+  | 'notAxis'
+  | 'nameExpected';
+
 export type SurveyCheckCode =
   | 'syntax'
   | 'unknownFunction'
@@ -261,7 +277,8 @@ export type SurveyOperation =
   | { op: 'setText'; target: WordTarget; part: 'label' | 'help' | 'message'; language: string; text: string }
   | { op: 'addLanguage'; language: string }
   /** A page, before another or last */
-  | { op: 'addPage'; label: Localized; before?: string }
+  /** `name`: the page's name in the survey (made by the server when not given) */
+  | { op: 'addPage'; label: Localized; before?: string; name?: string }
   | { op: 'movePage'; name: string; before?: string }
   /** A page nothing is on */
   | { op: 'deletePage'; name: string }
@@ -354,10 +371,42 @@ export interface SurveyRestoreInput {
   revision: string;
 }
 
+/**
+ * Why the designer refused a change, for the dashboard to word in each language (`reason` says it in English); its
+ * `values` name what it is about:
+ * - `gone`: what the change names is not in the survey (any more): `what` (question, page, list, answer, rule), `name`
+ * - `inUse`: a condition, rule or formula uses it: `name`, `users` (names, comma-separated)
+ * - `nameTaken`: `what` (question, page, list, answer), `name`
+ * - `noLanguage`: `language`
+ * - `cycle`: show-whens that would go round in a circle: `cycle` (names, " → ")
+ * - `formulaCode` (`index`, `code`), `formulaNumber` (`index`, `value`), `formulaYesNo` (`index`): a formula's value
+ * - `expression`: an expression Collect would refuse: `problem` (a SurveyCheckCode) and that problem's values
+ * - `lastAnswer` (`code`), `emptyList`, `pageName`, `subListLevel` (`question`): what Collect refuses in a survey
+ * - `tooMany`: too many changes to try on the plots at once
+ */
+export type SurveyRefusalCode =
+  | 'gone'
+  | 'inUse'
+  | 'nameTaken'
+  | 'noLanguage'
+  | 'cycle'
+  | 'formulaCode'
+  | 'formulaNumber'
+  | 'formulaYesNo'
+  | 'expression'
+  | 'lastAnswer'
+  | 'emptyList'
+  | 'pageName'
+  | 'subListLevel'
+  | 'tooMany';
+
 /** Why a change was refused (400): the operation, or what the survey check found */
 export interface SurveyChangeRefusal {
   error: 'bad_request' | 'survey_problems' | 'stale';
   reason: string;
+  /** The refusal, worded by the dashboard (reason as it is otherwise) */
+  code?: SurveyRefusalCode;
+  values?: Record<string, string>;
   /** The problems the changes would bring (survey_problems) */
   problems?: SurveyProblem[];
 }
@@ -378,6 +427,17 @@ export interface SurveyVersionsAnswer {
   versions: SurveyVersionView[];
 }
 
+/**
+ * GET /v1/projects/:pid/survey/older: the plots last saved with an earlier version of the survey, whose answers follow
+ * the survey of then. Collect Earth 2.0 says which survey a record was made with; a record that does not say (an
+ * older Collect Earth, an import) counts when it answers a question the survey no longer has.
+ */
+export interface SurveyOlderAnswer {
+  plots: number;
+  /** Of them, the ones Collect Earth said so of (the rest found by their answers) */
+  byRevision: number;
+}
+
 export interface SurveyDesignAnswer {
   /** null: no project file yet, or a survey the server cannot read (unreadable) */
   design: SurveyDesign | null;
@@ -392,10 +452,11 @@ export interface SurveyDesignAnswer {
   /** People who have the project file already: Collect Earth 2.0 offers them a change within ten minutes */
   peopleWithFile: number;
   /**
-   * Plots last saved with an earlier version of the survey (as Collect Earth 2.0 says; older ones do not): their
-   * answers follow the survey of then
+   * Who wrote the survey served: `designer`, a save (or a version brought back) in the designer; `file`, a project file
+   * uploaded (or the server, adding a field it needs); null without a project file. A page editing the survey that
+   * sees a new revision tells another coordinator's save from a survey replaced under it
    */
-  olderSurveyPlots: number;
+  writtenBy: 'designer' | 'file' | null;
   /** What Collect or Collect Earth would refuse in the survey: none for a survey that opens */
   problems: SurveyProblem[];
 }

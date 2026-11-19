@@ -123,11 +123,8 @@ export async function servePeriodStatus(store: Store, projectId: string): Promis
     if (!served || !info) return;
     const status = addPeriodStatus(served);
     if (!status.added) return;
-    if (await store.replaceCep(projectId, served, status.cep, info, original ?? served)) {
-      // The survey changed (a field of the period added): the designer's versions are of the survey before
-      await store.deleteSurveyVersions(projectId);
-      return;
-    }
+    // The survey changed (a field of the period added): the designer's versions are of the survey before
+    if (await store.replaceCep(projectId, served, status.cep, info, original ?? served, { dropVersions: true })) return;
   }
 }
 

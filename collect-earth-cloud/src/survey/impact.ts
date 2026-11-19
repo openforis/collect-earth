@@ -7,7 +7,7 @@
 
 import { isBlankAnswer } from '../quality.js';
 import { QUALIFIER_SEPARATOR, SUMMARY_VALUES_SEPARATOR } from '../surveyOutline.js';
-import type { ConditionPart, ConditionRows, NewRule, SurveyEffect, SurveyImpactAnswer, SurveyOperation } from '../wire/survey.js';
+import type { ConditionPart, ConditionRows, DesignCondition, NewRule, SurveyEffect, SurveyImpactAnswer, SurveyOperation } from '../wire/survey.js';
 import { readCondition } from './condition.js';
 import { ATTRIBUTE_TAGS, questionType } from './logic.js';
 import { attrValue, childElements, descendants, readXml, type XmlDocument, type XmlElement } from './xmlTree.js';
@@ -81,31 +81,76 @@ class Survey {
     return new RegExp(`^collect_${own}$`);
   }
 
+  // Read once: the impact of a change reads them for every record, row and condition
+  private readonly keys = new Map<XmlElement, { own: string; base: string | null }>();
+  private readonly byName = new Map<XmlElement, Map<string, XmlElement>>();
+  private readonly conditions = new Map<XmlElement, DesignCondition | null>();
+  private readonly rowsOf = new WeakMap<ImpactRecord, Map<XmlElement, Array<string | null>>>();
+
+  private keyOf(e: XmlElement): { own: string; base: string | null } {
+    let k = this.keys.get(e);
+    if (!k) {
+      const table = this.tableOf(e);
+      k = { own: `${prefixOf(this.doc, e)}${this.name(e)}`, base: table ? `collect_entity_${this.name(table)}` : null };
+      this.keys.set(e, k);
+    }
+    return k;
+  }
+
   /** A question's answer in a record, on the plot or in a row ("" when none) */
   answer(r: ImpactRecord, e: XmlElement, row: string | null): string {
-    const table = this.tableOf(e);
-    const own = `${prefixOf(this.doc, e)}${this.name(e)}`;
-    if (!table) return r.summary[`collect_${own}`] ?? '';
-    const base = `collect_entity_${this.name(table)}`;
+    const { own, base } = this.keyOf(e);
+    if (base === null) return r.summary[`collect_${own}`] ?? '';
     return r.summary[row === null ? `${base}.${own}` : `${base}[${row}].${own}`] ?? '';
   }
 
   /** The rows of a table a record has answers in: null for a group (one row, no index) */
   rows(r: ImpactRecord, table: XmlElement): Array<string | null> {
     if (attrValue(this.doc, table, 'multiple') !== 'true') return [null];
+    let byTable = this.rowsOf.get(r);
+    if (!byTable) {
+      byTable = new Map();
+      this.rowsOf.set(r, byTable);
+    }
+    const known = byTable.get(table);
+    if (known) return known;
     const prefix = `collect_entity_${this.name(table)}[`;
     const found = new Set<string>();
     for (const k of Object.keys(r.summary)) {
       if (k.startsWith(prefix)) found.add(k.slice(prefix.length, k.indexOf(']', prefix.length)));
     }
-    return [...found];
+    const rows = [...found];
+    byTable.set(table, rows);
+    return rows;
   }
 
   /** A question named from a node's place, as Collect resolves it: its own entity's first, then the plot's */
   named(from: XmlElement, name: string): XmlElement | undefined {
     const context = from.parent ?? this.plot;
-    const find = (entity: XmlElement) => childElements(entity).find((c) => ATTRIBUTE_TAGS.has(c.name) && this.name(c) === name);
+    const find = (entity: XmlElement) => {
+      let names = this.byName.get(entity);
+      if (!names) {
+        names = new Map();
+        for (const c of childElements(entity)) if (ATTRIBUTE_TAGS.has(c.name) && !names.has(this.name(c))) names.set(this.name(c), c);
+        this.byName.set(entity, names);
+      }
+      return names.get(name);
+    };
     return find(context) ?? (context !== this.plot ? find(this.plot) : undefined);
+  }
+
+  /** A node's show-when as rows, read once; null when it has none */
+  private conditionOf(x: XmlElement): DesignCondition | null {
+    if (this.conditions.has(x)) return this.conditions.get(x)!;
+    const relevant = attrValue(this.doc, x, 'relevant')?.trim();
+    const read = relevant
+      ? readCondition(relevant, (n) => {
+          const q = this.named(x, n);
+          return q ? { yesNo: q.name === 'boolean', multiple: attrValue(this.doc, q, 'multiple') === 'true' } : undefined;
+        })
+      : null;
+    this.conditions.set(x, read);
+    return read;
   }
 
   /** Whether a row of a condition holds for a record (and row) */
@@ -153,12 +198,8 @@ class Survey {
       let rows: ConditionRows | null;
       if (replace && x === replace.node) rows = replace.when;
       else {
-        const relevant = attrValue(this.doc, x, 'relevant')?.trim();
-        if (!relevant) continue;
-        const read = readCondition(relevant, (n) => {
-          const q = this.named(x!, n);
-          return q ? { yesNo: q.name === 'boolean', multiple: attrValue(this.doc, q, 'multiple') === 'true' } : undefined;
-        });
+        const read = this.conditionOf(x);
+        if (!read) continue;
         if (read.kind === 'never') return false;
         // An advanced condition is not evaluated here: the question counts as shown
         if (read.kind === 'advanced') continue;
@@ -301,12 +342,15 @@ export function surveyImpact(
       if (!node) continue;
       const questions = node.name === 'entity' ? childElements(node).filter((c) => ATTRIBUTE_TAGS.has(c.name)) : [node];
       const hidden = new Set<string>();
+      const replace = { node, when: op.when };
       for (const r of records) {
-        for (const q of questions) {
-          if (places(next, r, q).some((row) => !isBlankAnswer(next.answer(r, q, row)) && !next.shown(r, node, node.name === 'entity' ? null : row, { node, when: op.when }))) {
-            hidden.add(r.recordKey);
-          }
+        // A table is shown or not as a whole: its condition read once per record
+        if (node.name === 'entity') {
+          if (next.shown(r, node, null, replace)) continue;
+          if (questions.some((q) => places(next, r, q).some((row) => !isBlankAnswer(next.answer(r, q, row))))) hidden.add(r.recordKey);
+          continue;
         }
+        if (places(next, r, node).some((row) => !isBlankAnswer(next.answer(r, node, row)) && !next.shown(r, node, row, replace))) hidden.add(r.recordKey);
       }
       if (hidden.size > 0) effects.push({ kind: 'hiddenAnswers', question: next.name(node), answered: hidden.size });
     } else if ((op.op === 'addRule' || op.op === 'setRule') && plots > 0) {

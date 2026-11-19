@@ -641,3 +641,72 @@ replaced, a show-when as text) passes `DesignedSurveyIdmlTest`. Not done: the de
 dashboard as the preview (the browser preview of stage 6 does it for what the builder says; formulas and advanced
 conditions are tried in Collect Earth with a training plot).
 
+
+**After the review (19 Nov).** A review of the server, the dashboard and the desktop found data that could be lost or
+spoiled, updates that did not reach people, and slow typing; all of it is fixed and tested again
+(`test/surveyReview.test.ts`, the desktop's `SurveyRevisionTest`, `SurveyUpdateBackupTest`, `CloudSyncSendNowTest`,
+`EarthSurveyServiceUpdateTest`, and the browser).
+
+- *Server.* A change is made on the uploaded file's survey by each question's path of names, not by the served
+  file's ids (which the server's fields shift). Texts lose the characters XML does not allow (a pasted vertical tab
+  becomes a line break). An attribute is found by reading the start tag's attributes in order, never inside another's
+  value. Keys, Collect Earth's fields and plot-file values are neither moved nor deleted (Collect Earth reads them by
+  their place). An answer a formula gives is not deleted, and the design says which questions use each answer
+  (`usedBy`). A save replaces the project file only while it is the one it was made on (`Store.replaceCep`, compared by
+  digest under the row's lock): of two saves at once one is refused as stale; the plot layout and the period status
+  do the same. Ids and codes are indexed (8,000 answers in 0.2 s, was 57 s; at most 20,000 new ones per save). "Now
+  required" counts a plot whatever the order of its records; "is not" on several answers stays as written (Collect
+  reads `q != 'X'` as "some answer is not X"); the AI help refuses only rules that bring new problems; the impact check
+  answers 409 on a survey it cannot read. The first version (the survey before any change) is kept besides the last
+  20. A survey changed here is served with `web_form=generated`: Collect Earth 2.0's form, never a balloon written for
+  the survey before.
+- *What Collect Earth does with a deleted question.* Collect reads a record by its questions' ids and skips those the
+  survey no longer has: the answers are gone from a plot the next time it is saved there. The confirmation says so,
+  and to download the data first.
+- *Desktop.* The survey's revision is computed from the project's own survey file (the first 24 hex characters of its
+  sha256, as the server's), so a person who installs Collect Earth after a change is offered it. Records not yet sent
+  are sent before an update, which waits while some are left. Records carry the revision of the survey they were made
+  with (`surveyRevision`, migration 050), and the designer says how many plots were last saved with an earlier one
+  (`GET /survey/older`; a record of an older Collect Earth, which does not say, counts when it answers a question
+  the survey no longer has).
+  The files of before are kept while an update is applied: a survey Collect cannot import or validate puts them back,
+  loads the old survey and is not offered again. One offer, one update and one opening at a time; a person in training
+  goes back to the training set; a cloud project that leaves out `web_form` or `csv` clears them.
+- *Dashboard.* Typed texts live outside React (a keystroke on the IPCC survey, 1,006 fields: 17 ms, was 640 ms). A
+  save removes only the texts it sent and that still read so; leaving the page asks first, the browser's Back
+  button too (`router.ts` `onHistoryMove` puts the address back while the person chooses); a new project file uploaded
+  while editing ends edit mode. A refused change is offered again after reading the survey again; Discard asks; the
+  new question's dialog keeps what was typed until the save works; Delete is disabled, with who uses it, on what is in
+  use; the preview shows the typed texts; a rule's message is written in the survey's language; "Saved" shows in the
+  bar. Accessibility: the Required choice is named after its question, headings hold their buttons, tooltips on
+  disabled buttons, larger buttons on phones. Wording and translations corrected (language names, the texts
+  spreadsheet's column, the versions and problems texts).
+- *Desktop, second review.* Opening the same cloud project again from the list or an invitation with a changed survey
+  sends the records not sent first when it is the project open, and is refused otherwise ("open it as it is, so that
+  they are sent"): `CloudService.sendBeforeTheSurveyChanges`. Only a survey error at the first start (Collect's
+  `SurveyValidationException`, or `IdmlParseException` / `CodeListImportException`, wrapped or not in a
+  `SurveyImportException`) refuses the changed survey for good; any other failure (the database busy, an antivirus
+  lock) is tried once more, then the files of before come back and the change is offered again
+  (`EarthSurveyService.isSurveyError`, `CloudSurvey.notLoaded`). The files of before are kept for the start only when
+  the folder is the same project's. The survey compared with the served one is the one loaded, not the binding's.
+  A record the server refuses with an error, or that cannot be prepared, no longer holds "Update now" back
+  (`CloudSyncService.sendNow` answers `Unsent`: to send, refused); the records saved while the update downloads are
+  sent before the restart. The sync keeps the cloud project it started for: when another project is opened, the
+  last saves at the shutdown are queued and sent for the project they were made in (`CloudSyncService.projectChanged`).
+- *Server, second review.* A second review ran each save through Collect's own validator (the desktop's
+  `DesignedSurveyIdmlTest`) and timed the routes on large projects. Fixed: a table's row key now takes an id of its
+  own (it shared the next one, so a column added in the same save repeated it); a list keeps at least one answer and
+  a page a name (Collect refuses `<items/>` and a tab with no label); a sub-list needs a list with answers under its
+  answers; a new page is named once for both the served and the uploaded file (`namedPages`: named from ids, it
+  differed, and later changes naming it missed the uploaded file); an expression nested over 100 deep is refused,
+  not a stack overflow; a save's version is written in the same transaction as the file. Speed: the impact check
+  reads names, conditions, keys and rows once (one change on 2,000 plots: 88 ms, was 8.6 s), at most 500,000 tries
+  of a change on a plot per request; a save keeps the schema index and who uses each answer between operations
+  (999 answers deleted: 0.4 s, was 14 s). New surveys from the templates read as written for the project: texts
+  without the file's layout, the multipurpose's `<END YEAR>` and 2023 set to the last year chosen.
+- *The last open points.* The refusals a coordinator can meet (what a change names is gone, a name taken, in use, a
+  language not added, a circle of show-whens, a formula's value, Collect's limits, too many changes at once) carry a
+  code and values (`SurveyRefusalCode`), and an expression that cannot be read its reason, place and token
+  (`ExpressionSyntaxReason`): the dashboard words them in each language, never the server's English. The design says
+  who wrote the survey served (`writtenBy`, from the revision each version records, migration 051): the dashboard
+  keeps typed texts over another coordinator's save and drops them only when a project file replaced the survey.

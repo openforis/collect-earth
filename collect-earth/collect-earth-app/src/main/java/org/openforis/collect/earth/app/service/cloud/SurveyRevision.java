@@ -85,6 +85,23 @@ public final class SurveyRevision {
 		}
 	}
 
+	/**
+	 * The revision of the survey a project folder has where a project file would put its own (the same entry, unzipped
+	 * there), or null when the folder has none or a file cannot be read: the survey a project file replaces.
+	 */
+	public static String ofFolderFor(File projectFile, File projectFolder) {
+		if (projectFile == null || projectFolder == null || !projectFile.isFile()) {
+			return null;
+		}
+		try (ZipFile zip = new ZipFile(projectFile)) {
+			String entry = surveyEntry(zip);
+			return entry == null ? null : ofFile(new File(projectFolder, entry));
+		} catch (IOException | RuntimeException e) {
+			LoggerFactory.getLogger(SurveyRevision.class).warn("The survey of {} could not be read: {}", projectFile, e.getMessage()); //$NON-NLS-1$
+			return null;
+		}
+	}
+
 	/** The name of the survey's entry in a project file, as {@link #ofProjectFile} finds it, or null when it has none */
 	static String surveyEntry(ZipFile zip) throws IOException {
 		FileHeader survey = null;

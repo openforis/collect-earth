@@ -106,6 +106,7 @@ import {
   type TrainingSetInput,
   type UserPlots,
   type RecordUpload,
+  type CepReplaced,
 } from './store.js';
 import type { UncertaintySettings } from '../uncertainty.js';
 import type { AreaSettings } from '../areas.js';
@@ -657,7 +658,10 @@ export class InMemoryStore implements Store {
   }
 
   async putCep(projectId: string, served: Buffer, info: RoundInfo, original: Buffer | null): Promise<void> {
-    const entry = this.requireProject(projectId);
+    this.putCepNow(this.requireProject(projectId), served, info, original);
+  }
+
+  private putCepNow(entry: ProjectEntry, served: Buffer, info: RoundInfo, original: Buffer | null): void {
     entry.cep = Buffer.from(served);
     entry.cepOriginal = original === null ? null : Buffer.from(original);
     entry.roundInfo = structuredClone(info);
@@ -665,15 +669,21 @@ export class InMemoryStore implements Store {
     entry.cepUpdatedAt = Math.max(Date.now(), (entry.cepUpdatedAt ?? 0) + 1);
   }
 
-  async replaceCep(projectId: string, expected: Buffer, served: Buffer, info: RoundInfo, original: Buffer | null): Promise<boolean> {
+  async replaceCep(projectId: string, expected: Buffer, served: Buffer, info: RoundInfo, original: Buffer | null, then: CepReplaced = {}): Promise<boolean> {
     const entry = this.requireProject(projectId);
     if (!entry.cep || !entry.cep.equals(expected)) return false;
-    await this.putCep(projectId, served, info, original);
+    // Nothing awaited between the check and the writes: no other change comes between them
+    this.putCepNow(entry, served, info, original);
+    if (then.dropVersions) entry.surveyVersions = [];
+    if (then.version) this.addVersionNow(entry, then.version);
     return true;
   }
 
   async addSurveyVersion(projectId: string, input: SurveyVersionInput): Promise<SurveyVersion> {
-    const entry = this.requireProject(projectId);
+    return this.addVersionNow(this.requireProject(projectId), input);
+  }
+
+  private addVersionNow(entry: ProjectEntry, input: SurveyVersionInput): SurveyVersion {
     const before = entry.surveyVersions[0]?.createdAt ?? 0;
     const version: SurveyVersion = {
       id: randomUUID(),
@@ -682,6 +692,7 @@ export class InMemoryStore implements Store {
       createdBy: input.createdBy,
       changes: input.changes,
       restoredFrom: input.restoredFrom,
+      revisionAfter: input.revisionAfter,
     };
     entry.surveyVersions.unshift({ ...version, survey: Buffer.from(input.survey), original: input.original === null ? null : Buffer.from(input.original) });
     // The last ones stay, and the first: the survey before any change
@@ -690,9 +701,9 @@ export class InMemoryStore implements Store {
   }
 
   async listSurveyVersions(projectId: string): Promise<SurveyVersion[]> {
-    return (this.projects.get(projectId)?.surveyVersions ?? []).map(({ id, createdAt, createdBy, changes, restoredFrom }) => {
+    return (this.projects.get(projectId)?.surveyVersions ?? []).map(({ id, createdAt, createdBy, changes, restoredFrom, revisionAfter }) => {
       const user = createdBy === null ? undefined : this.users.get(createdBy);
-      return { id, createdAt, createdBy: user ? createdBy : null, changes, restoredFrom };
+      return { id, createdAt, createdBy: user ? createdBy : null, changes, restoredFrom, revisionAfter };
     });
   }
 
@@ -706,16 +717,8 @@ export class InMemoryStore implements Store {
     for (const e of entries) entry.recordSurveyRevisions.set(`${e.recordKey} ${e.operator}`, e.revision);
   }
 
-  async countRecordSurveyRevisions(projectId: string): Promise<Map<string, number>> {
-    const entry = this.projects.get(projectId);
-    const counts = new Map<string, number>();
-    if (!entry) return counts;
-    for (const [key, revision] of entry.recordSurveyRevisions) {
-      const record = entry.records.get(key);
-      if (!record || record.deleted) continue;
-      counts.set(revision, (counts.get(revision) ?? 0) + 1);
-    }
-    return counts;
+  async listRecordSurveyRevisions(projectId: string): Promise<Map<string, string>> {
+    return new Map(this.projects.get(projectId)?.recordSurveyRevisions ?? []);
   }
 
   async deleteSurveyVersions(projectId: string): Promise<void> {

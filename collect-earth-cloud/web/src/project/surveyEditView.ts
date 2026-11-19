@@ -2,7 +2,7 @@
 // they are saved. Each text is kept by what it belongs to, its part and its language, with the text it had, so that
 // only what differs is sent, and a text typed back to what it was is no change.
 
-import type { DesignItem, DesignListItem, DesignQuestion, Localized, NewItem, SurveyDesign, SurveyOperation, WordTarget } from "../api";
+import type { DesignItem, DesignListItem, DesignQuestion, DesignRule, Localized, NewItem, SurveyDesign, SurveyOperation, WordTarget } from "../api";
 
 export type WordPart = "label" | "help" | "message";
 
@@ -13,6 +13,31 @@ export interface PendingText {
   text: string;
   /** The text it had when the survey was read */
   current: string;
+  /**
+   * A rule's message: the rule it was typed for (ruleAnchor), found by its place among the question's rules; a text
+   * whose place now holds another rule is dropped rather than written on that one
+   */
+  anchor?: string;
+}
+
+/** What a rule is, its message left out: a text typed for its message is aimed at it */
+export function ruleAnchor(rule: DesignRule): string {
+  return JSON.stringify({ ...rule, message: undefined });
+}
+
+/** The rules of each question of the survey, by its id */
+export function rulesById(design: SurveyDesign): Map<number, readonly DesignRule[]> {
+  const out = new Map<number, readonly DesignRule[]>();
+  const add = (q: DesignQuestion) => out.set(q.id, q.rules);
+  for (const p of design.pages) for (const i of p.items) (i.kind === "table" ? i.columns : [i]).forEach(add);
+  [...design.fromPlotFile, ...design.calculated, ...design.hidden].forEach(add);
+  return out;
+}
+
+/** Where a rule is now among a question's rules, found by what it is; null when it is not there, or not once */
+export function ruleIndexOf(rules: readonly DesignRule[], anchor: string): number | null {
+  const found = rules.flatMap((r, i) => (ruleAnchor(r) === anchor ? [i] : []));
+  return found.length === 1 ? found[0] : null;
 }
 
 /** The key of a text: what it belongs to, its part and its language */
@@ -50,11 +75,24 @@ export function withText(pending: ReadonlyMap<string, PendingText>, change: Pend
 export class PendingTexts {
   private texts: ReadonlyMap<string, PendingText> = new Map();
   private readonly listeners = new Set<() => void>();
+  /** A field's own listeners: told only when its text changes (a keystroke re-renders one field, not every one) */
+  private readonly keyListeners = new Map<string, Set<() => void>>();
 
   subscribe = (listener: () => void): (() => void) => {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
   };
+
+  /** Listens to one text only */
+  subscribeKey(key: string, listener: () => void): () => void {
+    let set = this.keyListeners.get(key);
+    if (!set) this.keyListeners.set(key, (set = new Set()));
+    set.add(listener);
+    return () => {
+      set.delete(listener);
+      if (set.size === 0) this.keyListeners.delete(key);
+    };
+  }
 
   all = (): ReadonlyMap<string, PendingText> => this.texts;
 
@@ -73,26 +111,66 @@ export class PendingTexts {
   /**
    * After a save, or the survey read again: the texts sent leave when they still read as they were sent (one typed
    * further meanwhile stays), and the others are compared with the survey as it is now (a text now equal to it is no
-   * change any more)
+   * change any more). A text whose question, page, list, answer or rule is no longer there is dropped (it could never
+   * be saved): answers how many were.
    */
-  settle(design: SurveyDesign, sent: readonly PendingText[] = []): void {
+  settle(design: SurveyDesign, sent: readonly PendingText[] = []): number {
     const next = new Map(this.texts);
     for (const p of sent) {
       const key = editKey(p.target, p.part, p.language);
       if (next.get(key)?.text.trim() === p.text.trim()) next.delete(key);
     }
     const texts = surveyTexts(design);
+    const rules = rulesById(design);
+    let dropped = 0;
     for (const [key, p] of next) {
       const now = textOf(texts, p.target, p.part, p.language);
-      if (now === undefined) continue;
-      if (p.text.trim() === now.trim()) next.delete(key);
+      const t = p.target;
+      const moved = t.kind === "rule" && p.anchor !== undefined && (() => {
+        const rule = rules.get(t.node)?.[t.index];
+        return !rule || ruleAnchor(rule) !== p.anchor;
+      })();
+      if (now === undefined || moved) {
+        next.delete(key);
+        dropped++;
+      } else if (p.text.trim() === now.trim()) next.delete(key);
       else if (now !== p.current) next.set(key, { ...p, current: now });
     }
     this.replace(next);
+    return dropped;
+  }
+
+  /**
+   * Before settling after changes saved from here: a rule deleted takes its texts with it, and the texts of the rules
+   * after it follow them to their new place (one up). Answers how many texts were dropped.
+   */
+  afterOps(ops: readonly SurveyOperation[]): number {
+    let next = this.texts;
+    let dropped = 0;
+    for (const op of ops) {
+      if (op.op !== "deleteRule") continue;
+      const out = new Map<string, PendingText>();
+      for (const [key, p] of next) {
+        const t = p.target;
+        if (t.kind !== "rule" || t.node !== op.id || t.index < op.index) out.set(key, p);
+        else if (t.index === op.index) dropped++;
+        else {
+          const target: WordTarget = { kind: "rule", node: t.node, index: t.index - 1 };
+          out.set(editKey(target, p.part, p.language), { ...p, target });
+        }
+      }
+      next = out;
+    }
+    if (next !== this.texts) this.replace(next);
+    return dropped;
   }
 
   private replace(texts: ReadonlyMap<string, PendingText>): void {
+    const before = this.texts;
     this.texts = texts;
+    for (const [key, set] of this.keyListeners) {
+      if (before.get(key) !== texts.get(key)) for (const l of [...set]) l();
+    }
     for (const l of [...this.listeners]) l();
   }
 }
@@ -266,4 +344,232 @@ export function pageMoveTarget(order: readonly string[], name: string, step: -1 
 /** Where an answer goes when moved one step among the answers of its list */
 export function itemMoveTarget(codes: readonly string[], code: string, step: -1 | 1): { before: string | undefined } | null {
   return pageMoveTarget(codes, code, step);
+}
+
+/** Every question and table of the survey by its id, with its name */
+function nodeNames(design: SurveyDesign): Map<number, string> {
+  const out = new Map<number, string>();
+  for (const p of design.pages) {
+    for (const i of p.items) {
+      out.set(i.id, i.name);
+      if (i.kind === "table") for (const c of i.columns) out.set(c.id, c.name);
+    }
+  }
+  for (const q of [...design.fromPlotFile, ...design.calculated, ...design.hidden]) out.set(q.id, q.name);
+  return out;
+}
+
+/**
+ * Whether two surveys are the same survey (one changed in the designer meanwhile), not another one put in its place: at
+ * least one question or table keeps its id and its name. A new project file of another survey shares none.
+ */
+export function sameSurvey(a: SurveyDesign, b: SurveyDesign): boolean {
+  const before = nodeNames(a);
+  for (const [id, name] of nodeNames(b)) if (before.get(id) === name) return true;
+  return false;
+}
+
+/** Every answer code of a list, at every level */
+function listCodes(items: readonly DesignListItem[], into = new Set<string>()): Set<string> {
+  for (const i of items) {
+    into.add(i.code);
+    listCodes(i.items, into);
+  }
+  return into;
+}
+
+/**
+ * A change refused because the survey changed meanwhile (made on `before`), as it can be made again on the survey as it
+ * is now (`after`): what it names by its id or name must still be there, and a rule named by its place is found again
+ * by what it is. Null when it cannot be made again safely: a move (it names a neighbour, or a step from where the item
+ * was), something put before another, or what it is about is gone.
+ */
+export function rebaseChange(ops: readonly SurveyOperation[], before: SurveyDesign, after: SurveyDesign): SurveyOperation[] | null {
+  const nodes = nodeNames(after);
+  const pages = new Set(after.pageOrder);
+  const lists = new Map(after.lists.map((l) => [l.name, listCodes(l.items)]));
+  const texts = surveyTexts(after);
+  const rulesBefore = rulesById(before);
+  const rulesAfter = rulesById(after);
+  const ruleNow = (node: number, index: number): number | null => {
+    const rule = rulesBefore.get(node)?.[index];
+    return rule ? ruleIndexOf(rulesAfter.get(node) ?? [], ruleAnchor(rule)) : null;
+  };
+  const out: SurveyOperation[] = [];
+  for (const op of ops) {
+    switch (op.op) {
+      case "movePage":
+      case "moveItem":
+        return null;
+      case "moveQuestion":
+        if (op.before !== undefined || !nodes.has(op.id) || (op.page !== undefined && !pages.has(op.page))) return null;
+        out.push(op);
+        break;
+      case "addPage":
+        if (op.before !== undefined) return null;
+        out.push(op);
+        break;
+      case "addQuestion":
+        if (op.before !== undefined || (op.page !== undefined && !pages.has(op.page)) || (op.table !== undefined && !nodes.has(op.table))) return null;
+        if (op.list !== undefined && !lists.has(op.list) && !ops.some((o) => o.op === "addList" && o.name === op.list)) return null;
+        if (op.parent !== undefined && ![...nodes.values()].includes(op.parent)) return null;
+        out.push(op);
+        break;
+      case "addTable":
+        if (op.before !== undefined || !pages.has(op.page)) return null;
+        if (!lists.has(op.rows) && !ops.some((o) => o.op === "addList" && o.name === op.rows)) return null;
+        out.push(op);
+        break;
+      case "addItem": {
+        const codes = lists.get(op.list);
+        if (op.before !== undefined || !codes || codes.has(op.item.code) || (op.under !== undefined && !codes.has(op.under))) return null;
+        out.push(op);
+        break;
+      }
+      case "deleteItem":
+        if (!lists.get(op.list)?.has(op.code)) return null;
+        out.push(op);
+        break;
+      case "deleteList":
+        if (!lists.has(op.name)) return null;
+        out.push(op);
+        break;
+      case "deletePage":
+        if (!after.emptyPages.some((p) => p.name === op.name && p.deletable)) return null;
+        out.push(op);
+        break;
+      case "setRule":
+      case "deleteRule": {
+        const index = ruleNow(op.id, op.index);
+        if (index === null) return null;
+        out.push({ ...op, index });
+        break;
+      }
+      case "setText": {
+        if (op.target.kind === "rule") {
+          const index = ruleNow(op.target.node, op.target.index);
+          if (index === null) return null;
+          out.push({ ...op, target: { ...op.target, index } });
+        } else {
+          if (textOf(texts, op.target, op.part, op.language) === undefined) return null;
+          out.push(op);
+        }
+        break;
+      }
+      case "deleteQuestion":
+      case "deleteTable":
+      case "setRequired":
+      case "setShownWhen":
+      case "addRule":
+      case "setExpression":
+      case "setFormulas":
+        if (!nodes.has(op.id)) return null;
+        out.push(op);
+        break;
+      default:
+        out.push(op);
+    }
+  }
+  return out;
+}
+
+/** The languages the texts of changes are written in (a new question's label, an answer's, a rule's message) */
+export function languagesUsed(ops: readonly SurveyOperation[]): Set<string> {
+  const out = new Set<string>();
+  const add = (text: Localized | undefined) => Object.keys(text ?? {}).forEach((l) => out.add(l));
+  for (const op of ops) {
+    switch (op.op) {
+      case "setText":
+        out.add(op.language);
+        break;
+      case "addPage":
+      case "addQuestion":
+      case "addTable":
+        add(op.label);
+        break;
+      case "addList":
+        add(op.label);
+        op.items.forEach((i) => add(i.label));
+        break;
+      case "addItem":
+        add(op.item.label);
+        break;
+      case "addRule":
+      case "setRule":
+        add(op.rule.message);
+        break;
+    }
+  }
+  return out;
+}
+
+/** The texts typed in the dialogs open and not added yet: they count as changes not saved */
+export class Drafts {
+  private readonly dirty = new Set<string>();
+  private readonly listeners = new Set<() => void>();
+  private count = 0;
+
+  subscribe = (listener: () => void): (() => void) => {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  };
+
+  /** How many dialogs hold something typed */
+  size = (): number => this.count;
+
+  set(id: string, dirty: boolean): void {
+    if (dirty === this.dirty.has(id)) return;
+    if (dirty) this.dirty.add(id);
+    else this.dirty.delete(id);
+    this.count = this.dirty.size;
+    for (const l of [...this.listeners]) l();
+  }
+}
+
+/** The most characters a text of the survey has (the server's MAX_TEXT) */
+export const MAX_TEXT = 4000;
+
+/** How many levels a list's answers have (answers under answers make the next) */
+export function listLevels(items: readonly DesignListItem[]): number {
+  return items.length === 0 ? 0 : 1 + Math.max(...items.map((i) => listLevels(i.items)));
+}
+
+/**
+ * The choices a new sub-list can follow, among those of a page or table: a sub-list offers the answers one level below
+ * the answer chosen for the question it follows, so that question's list must have that level (the server refuses it
+ * otherwise). A question that is itself a sub-list sits a level lower than the one it follows.
+ */
+export function subListParents(
+  place: readonly DesignQuestion[],
+  lists: ReadonlyMap<string, { items: readonly DesignListItem[] }>,
+  questions: ReadonlyMap<string, DesignQuestion>,
+): DesignQuestion[] {
+  const depth = (q: DesignQuestion, seen = new Set<string>()): number => {
+    const parent = q.parentQuestion ? questions.get(q.parentQuestion) : undefined;
+    if (!parent || seen.has(q.name)) return 0;
+    seen.add(q.name);
+    return 1 + depth(parent, seen);
+  };
+  return place.filter((q) => q.type === "choice" && q.list && !q.fixed && listLevels(lists.get(q.list)?.items ?? []) > depth(q) + 1);
+}
+
+/**
+ * Page names typed empty where the page would then have no name in any language (the server refuses a page without
+ * one): how many
+ */
+export function namesEmptied(pending: ReadonlyMap<string, PendingText>, design: SurveyDesign): number {
+  const typed = new Map<string, Map<string, string>>();
+  for (const p of pending.values()) {
+    if (p.target.kind !== "page" || p.part !== "label") continue;
+    const page = p.target.name;
+    typed.set(page, (typed.get(page) ?? new Map()).set(p.language, p.text.trim()));
+  }
+  let count = 0;
+  for (const [name, texts] of typed) {
+    const page = design.pages.find((p) => p.name === name) ?? design.emptyPages.find((p) => p.name === name);
+    if (!page) continue;
+    const all = { ...page.label, ...Object.fromEntries(texts) };
+    if (Object.values(all).every((v) => v.trim() === "") && [...texts.values()].some((v) => v === "")) count++;
+  }
+  return count;
 }

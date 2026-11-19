@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { surveyDesign } from "../../../src/survey/design";
 import type { DesignTable, SurveyCheckCode } from "../api";
 import { CATALOGUES, LANGUAGES, translator, type MessageKey } from "../i18n";
-import { conditionWords, firstLanguage, languageNames, questionLabel, questionUsers, usersOfQuestion, usersOfTable, requiredWords, ruleWords, tableWords, textIn, untranslated, words } from "./surveyDesignView";
+import { checkWords, conditionWords, firstLanguage, refusalWords, languageNames, questionLabel, questionUsers, usersOfQuestion, usersOfTable, requiredWords, ruleWords, tableWords, textIn, untranslated, words } from "./surveyDesignView";
 
 const template = (name: string) =>
   surveyDesign(readFileSync(new URL(`../../../templates/collect_earth${name}.idm.xml`, import.meta.url)));
@@ -123,5 +123,38 @@ describe("a language's name", () => {
     expect(languageNames("en")("es")).toBe("Spanish");
     expect(languageNames("fr")("pt_BR")).toMatch(/portugais/i);
     expect(languageNames("en")("not a code")).toBe("not a code");
+  });
+});
+
+describe("the server's refusals and the check's syntax, in the dashboard's language", () => {
+  const es = translator("es");
+  const fr = translator("fr");
+  it("words a refusal from its code and values; none for one without a code", () => {
+    expect(refusalWords(es, "gone", { what: "question", name: "trees" })).toContain("La pregunta trees ya no está");
+    expect(refusalWords(fr, "nameTaken", { what: "list", name: "colours" })).toContain("liste de réponses nommée colours");
+    expect(refusalWords(es, "inUse", { name: "A", users: "q1, q2" })).toBe("A se usa en q1, q2: cambie eso primero.");
+    expect(refusalWords(es, "tooMany")).toContain("Demasiados cambios");
+    expect(refusalWords(es, "gone", { what: "elephant", name: "x" })).toBeNull();
+    expect(refusalWords(es, undefined)).toBeNull();
+    expect(refusalWords(es, "somethingNew")).toBeNull();
+  });
+
+  it("words why an expression cannot be read, and where", () => {
+    expect(checkWords(es, "syntax", { detail: "A text in quotes is not closed (at 5).", reason: "unclosedQuote", at: "5", token: "" })).toBe(
+      "La expresión no se puede leer: Un texto entre comillas no está cerrado (en el carácter 5)",
+    );
+    expect(checkWords(fr, "syntax", { detail: "x", reason: "missing", at: "", token: ")" })).toBe("L'expression ne peut pas être lue : « ) » manque (à la fin)");
+    // From an older server: its English detail as it is
+    expect(checkWords(es, "syntax", { detail: "Something odd" })).toBe("La expresión no se puede leer: Something odd");
+    expect(refusalWords(es, "expression", { problem: "syntax", reason: "empty", at: "", token: "", detail: "x" })).toBe("La expresión no se puede leer: La expresión está vacía (al final)");
+  });
+
+  it("has every reason and refusal in every language", () => {
+    for (const language of LANGUAGES) {
+      const catalogue = CATALOGUES[language] as Record<string, string>;
+      for (const key of Object.keys(CATALOGUES.en).filter((k) => k.startsWith("survey.refusal.") || k.startsWith("surveyCheck.why.") || k.startsWith("surveyCheck.where."))) {
+        expect(catalogue[key], `${language} ${key}`).toBeTruthy();
+      }
+    }
   });
 });

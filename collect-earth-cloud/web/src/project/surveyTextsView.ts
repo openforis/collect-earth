@@ -6,7 +6,7 @@
 import type { DesignListItem, DesignQuestion, Localized, SurveyDesign, WordTarget } from "../api";
 import { csvCell } from "../csv";
 import { translator, type Translate } from "../i18n";
-import type { PendingText, WordPart } from "./surveyEditView";
+import { ruleAnchor, type PendingText, type WordPart } from "./surveyEditView";
 
 export interface TextRow {
   /** "node:1303:label", "item:land_uses:F:help"... */
@@ -16,6 +16,8 @@ export interface TextRow {
   target: WordTarget;
   part: WordPart;
   texts: Localized;
+  /** A rule's message: the rule (ruleAnchor) */
+  anchor?: string;
 }
 
 /**
@@ -24,13 +26,14 @@ export interface TextRow {
  */
 export function textRows(design: SurveyDesign, t: Translate = translator("en")): TextRow[] {
   const rows: TextRow[] = [];
-  const add = (key: string, what: string, target: WordTarget, part: WordPart, texts: Localized) => rows.push({ key, what, target, part, texts });
+  const add = (key: string, what: string, target: WordTarget, part: WordPart, texts: Localized, anchor?: string) =>
+    rows.push({ key, what, target, part, texts, ...(anchor !== undefined ? { anchor } : {}) });
   add("title:label", t("survey.texts.what.title"), { kind: "title" }, "label", design.title);
   const question = (q: DesignQuestion) => {
     if (q.hidden || q.formulas || q.fixed) return;
     add(`node:${q.id}:label`, t("survey.texts.what.question", { name: q.name }), { kind: "node", id: q.id }, "label", q.label);
     add(`node:${q.id}:help`, t("survey.texts.what.help", { name: q.name }), { kind: "node", id: q.id }, "help", q.help);
-    q.rules.forEach((r, i) => add(`rule:${q.id}:${i}:message`, t("survey.texts.what.rule", { index: i + 1, name: q.name }), { kind: "rule", node: q.id, index: i }, "message", r.message));
+    q.rules.forEach((r, i) => add(`rule:${q.id}:${i}:message`, t("survey.texts.what.rule", { index: i + 1, name: q.name }), { kind: "rule", node: q.id, index: i }, "message", r.message, ruleAnchor(r)));
   };
   const pages = [...design.pages, ...design.emptyPages.map((p) => ({ ...p, items: [] }))];
   const order = new Map(design.pageOrder.map((name, i) => [name, i]));
@@ -152,8 +155,24 @@ export function importTexts(design: SurveyDesign, csv: string): TextsImport {
       const current = row.texts[language] ?? "";
       if (text === "" || text === current.trim()) return;
       if (!design.languages.includes(language)) newLanguages.add(language);
-      changes.push({ target: row.target, part: row.part, language, text, current });
+      changes.push({ target: row.target, part: row.part, language, text, current, ...(row.anchor !== undefined ? { anchor: row.anchor } : {}) });
     });
   }
   return { changes, newLanguages: [...newLanguages], unknown };
+}
+
+/**
+ * A spreadsheet file's text: UTF-8 (what the download is, and Excel's "CSV UTF-8"), else Windows-1252 (Excel's plain
+ * "CSV", in western languages); null when its letters cannot be read (a file already holding replacement marks, ...)
+ */
+export function decodeTexts(bytes: Uint8Array): { text: string; encoding: "utf-8" | "windows-1252" } | null {
+  let text: string;
+  let encoding: "utf-8" | "windows-1252" = "utf-8";
+  try {
+    text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    text = new TextDecoder("windows-1252").decode(bytes);
+    encoding = "windows-1252";
+  }
+  return text.includes("\uFFFD") ? null : { text, encoding };
 }

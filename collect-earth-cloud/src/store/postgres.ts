@@ -112,6 +112,7 @@ import {
   type TrainingSetInput,
   type UserPlots,
   type RecordUpload,
+  type CepReplaced,
 } from './store.js';
 import type { UncertaintySettings } from '../uncertainty.js';
 import type { AreaSettings } from '../areas.js';
@@ -757,7 +758,7 @@ export class PostgresStore implements Store {
     });
   }
 
-  async replaceCep(projectId: string, expected: Buffer, served: Buffer, info: RoundInfo, original: Buffer | null): Promise<boolean> {
+  async replaceCep(projectId: string, expected: Buffer, served: Buffer, info: RoundInfo, original: Buffer | null, then: CepReplaced = {}): Promise<boolean> {
     return this.withProject(projectId, async (client) => {
       // Compared by digest: the row is locked by the update, so two changes made on the same CEP cannot both pass
       const res = await client.query(
@@ -765,17 +766,25 @@ export class PostgresStore implements Store {
           WHERE project_id = $1 AND sha256(data) = $5`,
         [projectId, served, original, JSON.stringify(info), createHash('sha256').update(expected).digest()],
       );
-      return (res.rowCount ?? 0) > 0;
+      if ((res.rowCount ?? 0) === 0) return false;
+      // In the same transaction: an upload cannot come between the file and its versions
+      if (then.dropVersions) await client.query('DELETE FROM survey_versions WHERE project_id = $1', [projectId]);
+      if (then.version) await this.insertVersion(client, projectId, then.version);
+      return true;
     });
   }
 
   async addSurveyVersion(projectId: string, input: SurveyVersionInput): Promise<SurveyVersion> {
-    return this.withProject(projectId, async (client) => {
+    return this.withProject(projectId, (client) => this.insertVersion(client, projectId, input));
+  }
+
+  private async insertVersion(client: pg.PoolClient, projectId: string, input: SurveyVersionInput): Promise<SurveyVersion> {
+    {
       const id = randomUUID();
       const res = await client.query(
-        `INSERT INTO survey_versions (id, project_id, created_by, changes, restored_from, survey_gz, original_gz)
-         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING created_at`,
-        [id, projectId, input.createdBy, input.changes, input.restoredFrom, gzipSync(input.survey), input.original === null ? null : gzipSync(input.original)],
+        `INSERT INTO survey_versions (id, project_id, created_by, changes, restored_from, survey_gz, original_gz, revision_after)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING created_at`,
+        [id, projectId, input.createdBy, input.changes, input.restoredFrom, gzipSync(input.survey), input.original === null ? null : gzipSync(input.original), input.revisionAfter],
       );
       // Only the last ones stay, and the first: the survey before any change
       await client.query(
@@ -784,14 +793,14 @@ export class PostgresStore implements Store {
            AND id NOT IN (SELECT id FROM survey_versions WHERE project_id = $1 ORDER BY created_at ASC, id LIMIT 1)`,
         [projectId, SURVEY_VERSIONS_KEPT],
       );
-      return { id, createdAt: (res.rows[0].created_at as Date).getTime(), createdBy: input.createdBy, changes: input.changes, restoredFrom: input.restoredFrom };
-    });
+      return { id, createdAt: (res.rows[0].created_at as Date).getTime(), createdBy: input.createdBy, changes: input.changes, restoredFrom: input.restoredFrom, revisionAfter: input.revisionAfter };
+    }
   }
 
   async listSurveyVersions(projectId: string): Promise<SurveyVersion[]> {
     return this.withProject(projectId, async (client) => {
       const res = await client.query(
-        `SELECT id, created_at, created_by, changes, restored_from FROM survey_versions
+        `SELECT id, created_at, created_by, changes, restored_from, revision_after FROM survey_versions
          WHERE project_id = $1 ORDER BY created_at DESC, id`,
         [projectId],
       );
@@ -801,6 +810,7 @@ export class PostgresStore implements Store {
         createdBy: (r.created_by as string | null) ?? null,
         changes: Number(r.changes),
         restoredFrom: (r.restored_from as string | null) ?? null,
+        revisionAfter: (r.revision_after as string | null) ?? null,
       }));
     });
   }
@@ -827,17 +837,10 @@ export class PostgresStore implements Store {
     });
   }
 
-  async countRecordSurveyRevisions(projectId: string): Promise<Map<string, number>> {
+  async listRecordSurveyRevisions(projectId: string): Promise<Map<string, string>> {
     return this.withProject(projectId, async (client) => {
-      const res = await client.query(
-        `SELECT v.revision, count(*)::int AS n
-           FROM record_survey_revisions v
-           JOIN records r ON r.project_id = v.project_id AND r.record_key = v.record_key AND r.operator = v.operator
-          WHERE v.project_id = $1 AND NOT r.deleted
-          GROUP BY v.revision`,
-        [projectId],
-      );
-      return new Map(res.rows.map((r) => [r.revision as string, r.n as number]));
+      const res = await client.query('SELECT record_key, operator, revision FROM record_survey_revisions WHERE project_id = $1', [projectId]);
+      return new Map(res.rows.map((r) => [`${r.record_key as string} ${r.operator as string}`, r.revision as string]));
     });
   }
 

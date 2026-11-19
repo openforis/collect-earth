@@ -147,6 +147,9 @@ class SurveyUpdateServiceTest {
 		order.verify(surveys).flushAll();
 		order.verify(sync).sendNow(SurveyUpdateService.SEND_TIMEOUT_MS);
 		order.verify(cloud).open("p1", binding.server);
+		// The plots saved while it downloaded (the form kept saving) sent too, before the restart
+		order.verify(surveys).flushAll();
+		order.verify(sync).sendNow(SurveyUpdateService.SEND_TIMEOUT_MS);
 		order.verify(restart).run();
 		// Restarting: nothing is asked any more
 		served.set("{\"revision\":\"r3\"}");
@@ -215,7 +218,7 @@ class SurveyUpdateServiceTest {
 	/** Records that cannot be sent (offline) are not read with the new survey: nothing is taken, and it is asked later */
 	@Test
 	void recordsNotSentKeepTheSurveyAndItIsOfferedAgain() throws Exception {
-		when(sync.sendNow(anyLong())).thenReturn(3);
+		when(sync.sendNow(anyLong())).thenReturn(new CloudSyncService.Unsent(3, 0));
 		service.check();
 		notices.answer((String) notices.pending().get(0).get("id"), SurveyUpdateService.UPDATE);
 		verify(cloud, never()).open(any(), any());
@@ -228,11 +231,58 @@ class SurveyUpdateServiceTest {
 		service.check();
 		assertTrue(notices.hasPending(SurveyUpdateService.NOTICE));
 		// Sent now: taken
-		when(sync.sendNow(anyLong())).thenReturn(0);
+		when(sync.sendNow(anyLong())).thenReturn(new CloudSyncService.Unsent(0, 0));
 		String offer = (String) notices.pending().stream().filter(n -> SurveyUpdateService.NOTICE.equals(n.get("kind"))).findFirst().get().get("id");
 		notices.answer(offer, SurveyUpdateService.UPDATE);
 		verify(cloud).open("p1", binding.server);
 		verify(restart).run();
+	}
+
+	/**
+	 * Review: records the server refused with an error (or that cannot be prepared) never get sent by trying again: they
+	 * do not hold the update back for good, and when others do, the message says how many are which.
+	 */
+	@Test
+	void recordsTheServerRefusedDoNotHoldTheUpdateBack() throws Exception {
+		when(sync.sendNow(anyLong())).thenReturn(new CloudSyncService.Unsent(2, 5));
+		service.update(binding);
+		verify(cloud, never()).open(any(), any());
+		String message = String.valueOf(notices.pending().get(0).get("message"));
+		assertTrue(message.contains(java.text.MessageFormat.format(org.openforis.collect.earth.app.view.Messages.getString("CloudSurvey.unsent"), 2)), message);
+		assertTrue(message.contains(java.text.MessageFormat.format(org.openforis.collect.earth.app.view.Messages.getString("CloudSurvey.refused"), 5)), message);
+
+		when(sync.sendNow(anyLong())).thenReturn(new CloudSyncService.Unsent(0, 5));
+		service.update(binding);
+		verify(cloud).open("p1", binding.server);
+		verify(restart).run();
+	}
+
+	/**
+	 * Review: the survey this computer has is the one loaded, not the revision the binding kept: a project file opened
+	 * into the folder since (older or newer) changes the survey without changing the binding.
+	 */
+	@Test
+	void theSurveyComparedIsTheOneLoaded() throws Exception {
+		// An older project file opened since: the served change is offered, though the binding names the served one
+		binding.surveyRevision = "r2";
+		when(surveys.getLoadedSurveyRevision()).thenReturn("r1");
+		service.check();
+		assertEquals(1, notices.pending().size());
+		assertEquals("r1", binding.surveyRevision, "the binding follows the survey loaded");
+		notices.answer((String) notices.pending().get(0).get("id"), SurveyUpdateService.LATER);
+
+		// A newer one (the served survey) opened since: nothing is offered again
+		SurveyUpdateService fresh = new SurveyUpdateService();
+		for (String name : new String[] { "properties", "api", "notices", "cloud", "restart", "sync", "surveys" }) {
+			Field field = SurveyUpdateService.class.getDeclaredField(name);
+			field.setAccessible(true);
+			field.set(fresh, field.get(service));
+		}
+		binding.surveyRevision = "r1";
+		when(surveys.getLoadedSurveyRevision()).thenReturn("r2");
+		fresh.check();
+		assertTrue(notices.pending().isEmpty());
+		assertEquals("r2", binding.surveyRevision);
 	}
 
 	/** Two "Update now" at once: one download and one restart */

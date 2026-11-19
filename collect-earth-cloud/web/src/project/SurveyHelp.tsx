@@ -20,6 +20,7 @@ import type { DesignRule, NewRule, SuggestedRule, SurveyHelpAnswer, SurveyHelpIn
 import { ErrorAlert } from "../components/ErrorAlert";
 import { useApp } from "../appContext";
 import { languageNames, ruleWords, textIn, type Words } from "./surveyDesignView";
+import { useDraft, useSubmit, type AddResult } from "./surveyDialogs";
 
 /** The assistant's help, when it is switched on for the project; null otherwise */
 export interface SurveyHelp {
@@ -169,7 +170,8 @@ export function TranslateDialog({ w, message, onClose, onApply }: {
   /** The message by language */
   message: Record<string, string>;
   onClose: () => void;
-  onApply: (texts: Record<string, string>) => void;
+  /** Saved: the dialog closes once it is, and keeps the texts when it is not */
+  onApply: (texts: Record<string, string>) => Promise<AddResult>;
 }) {
   const help = useContext(HelpContext);
   const titleId = useId();
@@ -177,6 +179,9 @@ export function TranslateDialog({ w, message, onClose, onApply }: {
   const to = w.design.languages.filter((l) => l !== from);
   const [texts, setTexts] = useState<Record<string, string>>(() => Object.fromEntries(to.map((l) => [l, message[l] ?? ""])));
   const call = useCall<SurveyHelpAnswer>();
+  const submit = useSubmit(onClose);
+  const changed = Object.fromEntries(Object.entries(texts).filter(([l, v]) => v.trim() !== "" && v !== (message[l] ?? "")));
+  useDraft(Object.keys(changed).length > 0);
   const { t } = w;
   const { language: uiLanguage } = useApp();
   const names = useMemo(() => languageNames(uiLanguage), [uiLanguage]);
@@ -188,7 +193,7 @@ export function TranslateDialog({ w, message, onClose, onApply }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return (
-    <Dialog open onClose={onClose} aria-labelledby={titleId} maxWidth="sm" fullWidth>
+    <Dialog open onClose={submit.busy ? undefined : onClose} aria-labelledby={titleId} maxWidth="sm" fullWidth>
       <DialogTitle id={titleId}>{t("survey.help.translateTitle")}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
@@ -203,11 +208,12 @@ export function TranslateDialog({ w, message, onClose, onApply }: {
           {to.map((l) => (
             <TextField key={l} label={names(l)} value={texts[l] ?? ""} multiline onChange={(e) => setTexts({ ...texts, [l]: e.target.value })} slotProps={{ htmlInput: { lang: l } }} />
           ))}
+          {submit.problem}
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>{t("common.cancel")}</Button>
-        <Button variant="contained" disabled={call.busy} onClick={() => onApply(Object.fromEntries(Object.entries(texts).filter(([l, v]) => v.trim() !== "" && v !== (message[l] ?? ""))))}>
+        <Button onClick={onClose} disabled={submit.busy}>{t("common.cancel")}</Button>
+        <Button variant="contained" disabled={call.busy || submit.busy} onClick={() => void submit.run(Object.keys(changed).length > 0 ? onApply(changed) : Promise.resolve({ saved: true }))}>
           {t("survey.logic.apply")}
         </Button>
       </DialogActions>

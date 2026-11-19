@@ -72,7 +72,8 @@ describe('tables', () => {
 
   it('refuses rows from an unknown or empty list, a name taken; a table\'s own condition goes with it', () => {
     expect(refused(basic, { op: 'addTable', label: { en: 'x' }, page: 'plot_tab', rows: 'nothing' })).toBe('No list nothing.');
-    expect(refused(basic, { op: 'addList', name: 'empty', label: { en: 'Empty' }, items: [] }, { op: 'addTable', label: { en: 'x' }, page: 'plot_tab', rows: 'empty' })).toMatch(/no answers/);
+    // A list of no answers is refused itself (Collect refuses <items/>)
+    expect(refused(basic, { op: 'addList', name: 'empty', label: { en: 'Empty' }, items: [] }, { op: 'addTable', label: { en: 'x' }, page: 'plot_tab', rows: 'empty' })).toMatch(/at least one answer/);
     expect(refused(basic, landUses, { op: 'addTable', label: { en: 'x' }, page: 'plot_tab', rows: 'land_uses', name: 'code_demo' })).toBe('There is a question code_demo already.');
     const withTable = apply(basic, landUses, { op: 'addTable', label: { en: 'Cover' }, page: 'plot_tab', rows: 'land_uses' });
     const t = table(withTable, 'cover');

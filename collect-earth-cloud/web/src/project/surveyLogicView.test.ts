@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DesignQuestion, DesignTable, SurveyDesign } from "../api";
 import { translator } from "../i18n";
-import { builderRule, conditionQuestions, draftOf, listOptions, newRow, parseNumber, partOf, ruleDraftOf, ruleKinds, ruleOf, rowsOf, testsFor, surveyTranslator } from "./surveyLogicView";
+import { builderRule, conditionQuestions, draftOf, expressionExample, listOptions, newRow, parseNumber, partOf, ruleDraftOf, ruleKinds, ruleOf, rowsOf, testsFor, surveyTranslator } from "./surveyLogicView";
 
 const question = (name: string, type: DesignQuestion["type"], more: Partial<DesignQuestion> = {}): DesignQuestion => ({
   kind: "question",
@@ -142,5 +142,15 @@ describe("a rule's message written for the survey", () => {
     expect(surveyTranslator("fr")?.("survey.and")).toBe(translator("fr")("survey.and"));
     expect(surveyTranslator("pt_BR")?.("survey.and")).toBe(translator("pt")("survey.and"));
     expect(surveyTranslator("sw")).toBeNull();
+  });
+});
+
+describe("an expression's example in the question's terms (review 3)", () => {
+  it("names a real code of a choice's list, in quotes", () => {
+    const q = { name: "lu", type: "choice", list: "land" } as DesignQuestion;
+    const lists = new Map([["land", { name: "land", items: [{ code: "F", label: { en: "Forest" }, items: [] }] }]]) as never;
+    expect(expressionExample(q, lists, "en", ["en"])).toEqual({ kind: "list", code: "F", label: "Forest" });
+    expect(expressionExample({ ...q, type: "text", list: null } as DesignQuestion, lists, "en", ["en"])).toEqual({ kind: "text" });
+    expect(expressionExample({ ...q, type: "integer", list: null } as DesignQuestion, lists, "en", ["en"])).toBeNull();
   });
 });

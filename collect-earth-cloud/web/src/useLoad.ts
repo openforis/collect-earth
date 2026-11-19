@@ -20,12 +20,15 @@ export interface Loaded<T> {
 /**
  * Loads `key`'s answer with `load` when the page opens and whenever the key changes; screens with the same key share
  * one load and one copy (queryClient.ts). The key holds everything the answer depends on, as useEffect's deps would.
+ * `refetchOnReconnect: false`: not loaded again behind the screen's back when the connection comes back.
  */
-export function useLoad<T>(key: QueryKey, load: () => Promise<T>): Loaded<T> {
+export function useLoad<T>(key: QueryKey, load: () => Promise<T>, options: { refetchOnReconnect?: boolean } = {}): Loaded<T> {
   const client = useQueryClient();
   const query = useQuery({
     queryKey: key,
     queryFn: load,
+    // false: not asked again when the connection comes back (a form holding a person's edits reads it when they say)
+    ...(options.refetchOnReconnect === false ? { refetchOnReconnect: false } : {}),
     // While the next answer loads, keep showing the last one of the same place (see samePlace).
     placeholderData: (previous, previousQuery) => (previousQuery && samePlace(previousQuery.queryKey, key) ? previous : undefined),
   });

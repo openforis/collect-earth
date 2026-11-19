@@ -30,11 +30,13 @@ import org.openforis.collect.earth.app.service.cloud.SurveyRevision;
 import org.openforis.collect.earth.app.service.cloud.SurveyUpdateBackup;
 import org.openforis.collect.earth.app.service.cloud.SurveyUpdateService;
 import org.openforis.collect.earth.app.service.notices.NoticeService;
+import org.openforis.collect.io.exception.CodeListImportException;
 import org.openforis.collect.manager.SurveyManager;
 import org.openforis.collect.manager.exception.SurveyValidationException;
 import org.openforis.collect.model.CollectSurvey;
 import org.openforis.collect.model.CollectSurveyContext;
 import org.openforis.collect.persistence.SurveyImportException;
+import org.openforis.idm.metamodel.xml.IdmlParseException;
 
 import net.lingala.zip4j.ZipFile;
 
@@ -92,11 +94,19 @@ class EarthSurveyServiceUpdateTest {
 		when(surveyManager.getByUri("http://forest")).thenReturn(survey);
 	}
 
-	/** Collect takes the survey before, not the changed one */
+	/** What Collect 4.0's SurveyManager throws for an IDML it cannot parse (its constructors are package-private) */
+	private static IdmlParseException idmlParseException(String message) throws Exception {
+		java.lang.reflect.Constructor<IdmlParseException> constructor = IdmlParseException.class.getDeclaredConstructor(String.class, Throwable.class);
+		constructor.setAccessible(true);
+		return constructor.newInstance(message, null);
+	}
+
+	/** Collect takes the survey before, not the changed one: as SurveyManager.updateModel says it, the parse error wrapped */
 	private void collectRefusesTheChangedSurvey() throws Exception {
+		SurveyImportException refused = new SurveyImportException(idmlParseException("Error importing survey: the node 'land_use' changed its type"));
 		when(surveyManager.updateModel(any(File.class), anyBoolean(), anyBoolean())).thenAnswer(i -> {
 			if (read(i.getArgument(0)).equals(AFTER)) {
-				throw new SurveyImportException("Error importing survey: the node 'land_use' changed its type");
+				throw refused;
 			}
 			return survey;
 		});
@@ -166,6 +176,80 @@ class EarthSurveyServiceUpdateTest {
 		assertFalse(SurveyUpdateBackup.isPending(project));
 		assertFalse(SurveyUpdateBackup.folderOf(project).exists());
 		assertTrue(notices.pending().isEmpty());
+	}
+
+	/**
+	 * Review: a failure that has nothing to do with the survey (the database busy at that start, a file held by an
+	 * antivirus) is tried again after a moment, and the changed survey loaded then.
+	 */
+	@Test
+	void aPassingFailureIsTriedAgain() throws Exception {
+		service.retryWaitMs = 0;
+		int[] calls = { 0 };
+		when(surveyManager.updateModel(any(File.class), anyBoolean(), anyBoolean())).thenAnswer(i -> {
+			if (calls[0]++ == 0) {
+				throw new org.springframework.dao.CannotAcquireLockException("[SQLITE_BUSY] The database file is locked");
+			}
+			return survey;
+		});
+		openedAgainWithTheChangedSurvey();
+		service.afterPropertiesSet();
+		assertEquals(AFTER, read(new File(project, "placemark.idm.xml")));
+		assertEquals(revision(AFTER), service.getLoadedSurveyRevision());
+		assertFalse(SurveyUpdateBackup.isPending(project));
+		assertNull(properties.getCloudBinding().surveyRevisionRefused);
+		assertTrue(notices.pending().isEmpty());
+	}
+
+	/**
+	 * Review: a failure that is not the survey's, and lasts: the files of before are put back as for a survey Collect
+	 * cannot use, but the change is not refused for good: it is offered again.
+	 */
+	@Test
+	void aFailureThatIsNotTheSurveysPutsTheFilesBackAndTheChangeIsOfferedAgain() throws Exception {
+		service.retryWaitMs = 0;
+		when(surveyManager.updateModel(any(File.class), anyBoolean(), anyBoolean())).thenAnswer(i -> {
+			if (read(i.getArgument(0)).equals(AFTER)) {
+				// the survey file held by an antivirus, say
+				throw new IOException("The process cannot access the file because it is being used by another process");
+			}
+			return survey;
+		});
+		openedAgainWithTheChangedSurvey();
+		service.afterPropertiesSet();
+		assertEquals(BEFORE, read(new File(project, "placemark.idm.xml")));
+		assertSame(survey, service.getCollectSurvey());
+		CloudBinding binding = properties.getCloudBinding();
+		assertEquals(revision(BEFORE), binding.surveyRevision);
+		assertNull(binding.surveyRevisionRefused, "not refused: offered again");
+		java.lang.reflect.Method decide = SurveyUpdateService.class.getDeclaredMethod("decide", String.class, String.class, String.class, String.class);
+		decide.setAccessible(true);
+		assertEquals("ASK", String.valueOf(decide.invoke(null, binding.surveyRevision, revision(AFTER), null, binding.surveyRevisionRefused)));
+		List<Map<String, Object>> said = notices.pending();
+		assertEquals(1, said.size());
+		assertTrue(String.valueOf(said.get(0).get("message")).startsWith(
+				org.openforis.collect.earth.app.view.Messages.getString("CloudSurvey.notLoaded").substring(0, 20)), String.valueOf(said.get(0).get("message")));
+	}
+
+	/** What Collect 4.0.111 throws for a survey of its own making, told apart from the rest */
+	@Test
+	void theSurveysOwnErrorsAreToldApart() throws Exception {
+		assertTrue(EarthSurveyService.isSurveyError(new SurveyValidationException("not valid")));
+		assertTrue(EarthSurveyService.isSurveyError(idmlParseException("bad XML")));
+		assertTrue(EarthSurveyService.isSurveyError(new SurveyImportException(idmlParseException("bad XML"))));
+		assertTrue(EarthSurveyService.isSurveyError(new SurveyImportException(new CodeListImportException("bad code list"))));
+		assertFalse(EarthSurveyService.isSurveyError(new SurveyImportException("Could not find survey to update")));
+		assertFalse(EarthSurveyService.isSurveyError(new org.springframework.dao.CannotAcquireLockException("busy")));
+		assertFalse(EarthSurveyService.isSurveyError(new java.io.FileNotFoundException("held")));
+		assertFalse(EarthSurveyService.isSurveyError(new IllegalStateException("x", new java.sql.SQLException("busy"))));
+	}
+
+	/** The reason said is the cause's words, not the name of the cause Collect wraps */
+	@Test
+	void theReasonIsTheCausesWords() throws Exception {
+		assertEquals("bad XML at line 3", EarthSurveyService.reasonOf(new SurveyImportException(idmlParseException("bad XML at line 3"))));
+		assertEquals("not valid", EarthSurveyService.reasonOf(new SurveyValidationException("not valid")));
+		assertEquals("IllegalStateException", EarthSurveyService.reasonOf(new IllegalStateException()));
 	}
 
 	/** No project opened again: a survey Collect cannot import fails the start as before, one that does not validate is logged */

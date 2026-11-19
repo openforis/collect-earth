@@ -3,10 +3,13 @@ package org.openforis.collect.earth.app.service.cloud;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
@@ -99,6 +102,51 @@ public class CloudSyncService implements ApplicationListener<ContextRefreshedEve
 	private ScheduledExecutorService executor;
 	/** A cloud project is joined or switched to with a restart, so this is when its first reconcile starts from */
 	private final Date startedOn = new Date();
+	/**
+	 * The server and the cloud project of the project open when the sync started. Opening another project applies its
+	 * settings at once, and the cloud project of the settings with them (LocalPropertiesService.getCloudProjectId reads it
+	 * from the project folder's binding), while the survey loaded stays the one of before until the restart: the last
+	 * saves, written at the shutdown, are queued and sent for the project they were made in, not for the one opened.
+	 * Null before the start (and in tests), when the settings' are used.
+	 */
+	private volatile String startedServer;
+	private volatile String startedProjectId;
+
+	/**
+	 * What {@link #sendNow} left: the records still to be sent (not tried yet, or that did not reach the server: offline,
+	 * signed out) and those the server refused with an error or that could not be prepared, which sending again does not
+	 * change and which are not waited for.
+	 */
+	public static final class Unsent {
+		static final Unsent NONE = new Unsent(0, 0);
+		private final int toSend;
+		private final int refused;
+
+		public Unsent(int toSend, int refused) {
+			this.toSend = toSend;
+			this.refused = refused;
+		}
+
+		/** Not sent, and could be once the server is reached */
+		public int getToSend() {
+			return toSend;
+		}
+
+		/** Refused by the server, or not readable here: sending again changes nothing */
+		public int getRefused() {
+			return refused;
+		}
+	}
+
+	/** What one batch did, for {@link #sendNow} */
+	private static final class Round {
+		/** The keys taken (whatever became of them) */
+		final Set<String> taken = new HashSet<>();
+		/** Refused by the server with an error, or not prepared */
+		final Set<String> refused = new HashSet<>();
+		/** The batch did not reach the server, or was refused whole */
+		boolean unreachable;
+	}
 
 	@Override
 	public void onApplicationEvent(ContextRefreshedEvent event) {
@@ -108,9 +156,11 @@ public class CloudSyncService implements ApplicationListener<ContextRefreshedEve
 		if (!started.compareAndSet(false, true)) {
 			return; // context can be refreshed more than once; only start once
 		}
+		startedServer = LocalPropertiesService.normalizeServer(localPropertiesService.getCloudSyncUrl());
+		startedProjectId = StringUtils.trimToEmpty(localPropertiesService.getCloudProjectId());
 		earthSurveyService.addRecordSavedListener((recordKeyCsv, record) -> {
 			try {
-				queueDao.enqueue(recordKeyCsv, surveyUri(), localPropertiesService.getCloudProjectId(), localPropertiesService.getOperator(),
+				queueDao.enqueue(recordKeyCsv, surveyUri(), cloudProjectId(), localPropertiesService.getOperator(),
 						record.getModifiedDate(), false);
 				pushSoon();
 			} catch (Exception e) {
@@ -131,7 +181,28 @@ public class CloudSyncService implements ApplicationListener<ContextRefreshedEve
 				TimeUnit.SECONDS);
 		executor.scheduleWithFixedDelay(this::reconcile, RECONCILE_INTERVAL_MINUTES, RECONCILE_INTERVAL_MINUTES,
 				TimeUnit.MINUTES);
-		logger.info("Cloud sync started for project {}", localPropertiesService.getCloudProjectId());
+		logger.info("Cloud sync started for project {}", startedProjectId);
+	}
+
+	/** The cloud project whose records are queued and sent: the one open at the start ({@link #startedProjectId}) */
+	private String cloudProjectId() {
+		String started = startedProjectId;
+		return started != null ? started : localPropertiesService.getCloudProjectId();
+	}
+
+	/**
+	 * Whether another project was opened since the start (its settings applied, the restart to come): the project of
+	 * the settings is no longer the one the survey loaded and the records queued are of.
+	 */
+	boolean projectChanged() {
+		String started = startedProjectId;
+		return started != null && (!started.equals(StringUtils.trimToEmpty(localPropertiesService.getCloudProjectId()))
+				|| !StringUtils.equals(startedServer, LocalPropertiesService.normalizeServer(localPropertiesService.getCloudSyncUrl())));
+	}
+
+	/** The token of the server of the project the sync started for */
+	private String token() {
+		return projectChanged() ? localPropertiesService.getCloudToken(startedServer) : localPropertiesService.getCloudSyncToken();
 	}
 
 	/** A sync in a few seconds, once for the records saved meanwhile: the form shows them sent soon after the save. */
@@ -151,8 +222,14 @@ public class CloudSyncService implements ApplicationListener<ContextRefreshedEve
 			return; // another run (scheduled or manual) is already in progress
 		}
 		try {
-			if (earthSurveyService.getCollectSurvey() == null || StringUtils.isBlank(localPropertiesService.getCloudSyncToken())) {
+			if (earthSurveyService.getCollectSurvey() == null || StringUtils.isBlank(token())) {
 				return; // no survey loaded yet, or signed out of the server: the records wait in the queue
+			}
+			if (projectChanged()) {
+				// Another project opened, the restart to come: only the records of this one are sent, to its project (the
+				// survey, the coordinator's settings and the trainings of the settings are the other project's)
+				sendDue(new Date(), Collections.emptySet());
+				return;
 			}
 			// The server needs the survey definition (idml) to decode records and build
 			// exports. Upload it once per survey, retried every cycle until it succeeds.
@@ -166,7 +243,7 @@ public class CloudSyncService implements ApplicationListener<ContextRefreshedEve
 				training.checkIfDue(System.currentTimeMillis()); // a training started or finished on the dashboard
 			}
 
-			sendDue(new Date());
+			sendDue(new Date(), Collections.emptySet());
 		} catch (Exception e) {
 			logger.warn("Unexpected error during cloud sync cycle: {}", e.getMessage());
 		} finally {
@@ -174,16 +251,26 @@ public class CloudSyncService implements ApplicationListener<ContextRefreshedEve
 		}
 	}
 
-	/** Sends a batch of the items due by then (PENDING, or FAILED with a next attempt before it). The caller holds the lock. */
-	private void sendDue(Date dueBy) {
+	/**
+	 * Sends a batch of the items due by then (PENDING, or FAILED with a next attempt before it), but those of
+	 * {@code skip} (tried already by {@link #sendNow}). The caller holds the lock.
+	 */
+	private Round sendDue(Date dueBy, Set<String> skip) {
 		Date now = new Date();
-		List<QueueItem> due = queueDao.takeDue(BATCH_SIZE, dueBy, surveyUri(), localPropertiesService.getCloudProjectId());
+		Round round = new Round();
+		List<QueueItem> due = new ArrayList<>();
+		for (QueueItem item : queueDao.takeDue(BATCH_SIZE + skip.size(), dueBy, surveyUri(), cloudProjectId())) {
+			if (due.size() < BATCH_SIZE && !skip.contains(item.getRecordKey())) {
+				due.add(item);
+			}
+		}
 		if (due.isEmpty()) {
-			return;
+			return round;
 		}
 		List<RecordEnvelope> envelopes = new ArrayList<>();
 		List<QueueItem> batched = new ArrayList<>();
 		for (QueueItem item : due) {
+			round.taken.add(item.getRecordKey());
 			RecordEnvelope envelope;
 			try {
 				envelope = buildEnvelope(item);
@@ -192,6 +279,7 @@ public class CloudSyncService implements ApplicationListener<ContextRefreshedEve
 				// of the queue: back it off individually and carry on
 				logger.warn("Could not prepare record {} for cloud sync: {}", item.getRecordKey(), e.getMessage());
 				queueDao.markFailed(item, e.getMessage(), nextAttempt(now, item.getAttempts()));
+				round.refused.add(item.getRecordKey());
 				continue;
 			}
 			if (envelope == null) {
@@ -200,56 +288,77 @@ public class CloudSyncService implements ApplicationListener<ContextRefreshedEve
 			envelopes.add(envelope);
 			batched.add(item);
 		}
-		if (envelopes.isEmpty()) {
-			return;
+		if (!envelopes.isEmpty()) {
+			uploadAndApply(envelopes, batched, round);
 		}
-		uploadAndApply(envelopes, batched);
+		return round;
 	}
 
 	/**
 	 * Sends now, on the caller's thread, every record of the project open not sent yet, whatever their backoff, for at
 	 * most {@code timeoutMs} (a batch already under way is let finish): before a changed survey is taken
-	 * (SurveyUpdateService), as the records must reach the server in the shape of the survey they were made with. Stops
-	 * at a batch that sends nothing more (offline, refused).
+	 * (SurveyUpdateService, CloudService), as the records must reach the server in the shape of the survey they were
+	 * made with. Each record is tried once; it stops at a batch that does not reach the server (offline, signed out).
 	 *
-	 * @return how many are still to be sent (none when no survey is loaded: nothing could be sent anyway)
+	 * @return how many are still to be sent, and how many the server refused with an error (or could not be prepared),
+	 *         which sending again does not change (none when no survey is loaded: nothing could be sent anyway)
 	 */
-	public int sendNow(long timeoutMs) {
+	public Unsent sendNow(long timeoutMs) {
 		if (earthSurveyService.getCollectSurvey() == null) {
-			return 0;
+			return Unsent.NONE;
 		}
 		String surveyUri = surveyUri();
-		String cloudProjectId = localPropertiesService.getCloudProjectId();
+		String cloudProjectId = cloudProjectId();
 		long deadline = System.currentTimeMillis() + timeoutMs;
+		Set<String> tried = new HashSet<>();
+		Set<String> refused = new HashSet<>();
 		boolean locked = false;
 		try {
 			locked = syncLock.tryLock(timeoutMs, TimeUnit.MILLISECONDS);
 			int left = queueDao.countToSend(surveyUri, cloudProjectId);
-			if (!locked || left == 0 || StringUtils.isBlank(localPropertiesService.getCloudSyncToken())) {
-				return left;
+			if (!locked || left == 0 || StringUtils.isBlank(token())) {
+				return new Unsent(left, 0);
 			}
-			ensureSurveyUploaded();
-			while (left > 0 && System.currentTimeMillis() < deadline) {
-				// Due by after the longest backoff: everything not sent goes now
-				sendDue(new Date(System.currentTimeMillis() + MAX_BACKOFF_MS + 60_000L));
-				int after = queueDao.countToSend(surveyUri, cloudProjectId);
-				if (after >= left) {
-					return after;
+			if (!projectChanged()) {
+				ensureSurveyUploaded();
+			}
+			// Due by after the longest backoff: everything not sent goes now
+			Date dueBy = new Date(System.currentTimeMillis() + MAX_BACKOFF_MS + 60_000L);
+			while (System.currentTimeMillis() < deadline) {
+				Round round = sendDue(dueBy, tried);
+				if (round.taken.isEmpty()) {
+					break;
 				}
-				left = after;
+				tried.addAll(round.taken);
+				refused.addAll(round.refused);
+				if (round.unreachable) {
+					break;
+				}
 			}
-			return left;
+			return unsent(surveyUri, cloudProjectId, refused);
 		} catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
-			return queueDao.countToSend(surveyUri, cloudProjectId);
+			return unsent(surveyUri, cloudProjectId, refused);
 		} catch (RuntimeException e) {
 			logger.warn("The records could not be sent now: {}", e.getMessage());
-			return queueDao.countToSend(surveyUri, cloudProjectId);
+			return unsent(surveyUri, cloudProjectId, refused);
 		} finally {
 			if (locked) {
 				syncLock.unlock();
 			}
 		}
+	}
+
+	/** The records left, those refused (still failed: not saved again meanwhile) told apart */
+	private Unsent unsent(String surveyUri, String cloudProjectId, Set<String> refused) {
+		int toSend = queueDao.countToSend(surveyUri, cloudProjectId);
+		int stuck = 0;
+		for (String recordKey : refused) {
+			if (CloudSyncQueueDao.STATUS_FAILED.equals(queueDao.getRecordStatus(recordKey, surveyUri, cloudProjectId))) {
+				stuck++;
+			}
+		}
+		return new Unsent(Math.max(0, toSend - stuck), Math.min(stuck, toSend));
 	}
 
 	private RecordEnvelope buildEnvelope(QueueItem item) throws IOException {
@@ -267,10 +376,13 @@ public class CloudSyncService implements ApplicationListener<ContextRefreshedEve
 		return serializer.serialize(record, item.getRecordKey(), item.getSurveyUri());
 	}
 
-	private void uploadAndApply(List<RecordEnvelope> envelopes, List<QueueItem> batched) {
+	private void uploadAndApply(List<RecordEnvelope> envelopes, List<QueueItem> batched, Round round) {
 		Date now = new Date();
 		try {
-			List<BatchResult> results = apiClient.uploadRecordsBatch(envelopes);
+			// Another project opened since the start: these go to the project they were made in, not the settings' one
+			List<BatchResult> results = projectChanged()
+					? apiClient.uploadRecordsBatch(new CloudApiClient.Destination(startedServer, startedProjectId, token()), envelopes)
+					: apiClient.uploadRecordsBatch(envelopes);
 			offlineLogged = false;
 			online = true;
 			Map<String, BatchResult> byKey = new HashMap<>();
@@ -284,12 +396,15 @@ public class CloudSyncService implements ApplicationListener<ContextRefreshedEve
 					queueDao.markFailed(item, "No result returned by server", nextAttempt(now, item.getAttempts()));
 					continue;
 				}
-				applyResult(item, result, now);
+				if (!applyResult(item, result, now)) {
+					round.refused.add(item.getRecordKey());
+				}
 			}
 		} catch (IOException e) {
+			round.unreachable = true;
 			// An HTTP answer is the server reached; anything else (no network, no such host, a timeout) is not
 			online = e instanceof CloudApiException;
-			if (isSignInRefused(e)) {
+			if (isSignInRefused(e) && !projectChanged()) {
 				signedOut();
 			}
 			// whole-batch failure, almost always the network being offline
@@ -305,7 +420,8 @@ public class CloudSyncService implements ApplicationListener<ContextRefreshedEve
 		}
 	}
 
-	private void applyResult(QueueItem item, BatchResult result, Date now) {
+	/** @return false when the server refused the record with an error (sending it again would not change that) */
+	private boolean applyResult(QueueItem item, BatchResult result, Date now) {
 		String status = result.getStatus() == null ? "" : result.getStatus();
 		if (STATUS_STORED.equalsIgnoreCase(status)) {
 			queueDao.markSynced(item, now);
@@ -317,7 +433,9 @@ public class CloudSyncService implements ApplicationListener<ContextRefreshedEve
 			queueDao.markConflict(item, result.getReason());
 		} else {
 			queueDao.markFailed(item, result.getReason(), nextAttempt(now, item.getAttempts()));
+			return false;
 		}
+		return true;
 	}
 
 	/**
@@ -392,7 +510,7 @@ public class CloudSyncService implements ApplicationListener<ContextRefreshedEve
 				return; // survey not loaded yet
 			}
 			String surveyUri = surveyUri();
-			String cloudProjectId = localPropertiesService.getCloudProjectId();
+			String cloudProjectId = cloudProjectId();
 			Date watermark = queueDao.getReconciliationWatermark(surveyUri, cloudProjectId);
 			if (watermark == null) {
 				// Not the records from before: sending those is CloudRecordsSender's offer, which the person may have declined
@@ -423,7 +541,7 @@ public class CloudSyncService implements ApplicationListener<ContextRefreshedEve
 		if (!started.get() || earthSurveyService.getCollectSurvey() == null) {
 			return new QueueStatus(0, 0, 0, null, null);
 		}
-		return queueDao.getStatus(surveyUri(), localPropertiesService.getCloudProjectId());
+		return queueDao.getStatus(surveyUri(), cloudProjectId());
 	}
 
 	/** Whether the last attempt reached the server: null when there was none since the start. */
@@ -437,6 +555,14 @@ public class CloudSyncService implements ApplicationListener<ContextRefreshedEve
 	}
 
 	/**
+	 * The records of a cloud project, of any survey, still to be sent (pending, or failed and retried): not those in
+	 * conflict, which the server keeps a newer save of.
+	 */
+	public int toSendCount(String cloudProjectId) {
+		return queueDao.countToSend(cloudProjectId);
+	}
+
+	/**
 	 * Where a record of the project open is: "sent" (the server has it), "pending", "failed" (it is retried), or
 	 * "local" when it is not in the queue.
 	 */
@@ -447,7 +573,7 @@ public class CloudSyncService implements ApplicationListener<ContextRefreshedEve
 		if (earthSurveyService.hasUnsavedChanges(recordKey)) {
 			return "pending"; // saved by the form, written (and queued) a moment later by the deferred save
 		}
-		String status = queueDao.getRecordStatus(recordKey, surveyUri(), localPropertiesService.getCloudProjectId());
+		String status = queueDao.getRecordStatus(recordKey, surveyUri(), cloudProjectId());
 		if (CloudSyncQueueDao.STATUS_SYNCED.equals(status)) {
 			return "sent";
 		} else if (CloudSyncQueueDao.STATUS_PENDING.equals(status)) {

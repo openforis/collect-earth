@@ -13,12 +13,15 @@ import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthPrope
 import org.openforis.collect.earth.app.service.cloud.SurveyRevision;
 import org.openforis.collect.earth.app.service.cloud.SurveyUpdateBackup;
 import org.openforis.collect.earth.app.service.cloud.SurveyUpdateService;
+import org.openforis.collect.io.exception.CodeListImportException;
 import org.openforis.collect.manager.exception.SurveyValidationException;
 import org.openforis.collect.earth.app.service.notices.Notice;
 import org.openforis.collect.earth.app.service.notices.NoticeService;
 import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.model.CollectSurvey;
 import org.openforis.idm.metamodel.ModelVersion;
+import org.openforis.idm.metamodel.xml.IdmlParseException;
+import org.openforis.idm.metamodel.xml.XmlParseException;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -35,6 +38,9 @@ public class EarthSurveyService extends AbstractEarthSurveyService implements In
 
 	private volatile String loadedSurveyRevision;
 
+	/** How long a changed survey that failed for another reason than itself is waited for before it is tried again */
+	long retryWaitMs = 2000;
+
 	/** A survey with several versions and none chosen: the most recent is used, and the settings let the user change it. */
 	@Override
 	protected void versionChosenByDefault(CollectSurvey survey, ModelVersion chosen) {
@@ -45,7 +51,10 @@ public class EarthSurveyService extends AbstractEarthSurveyService implements In
 	/**
 	 * Loads the survey of the project open, as before, unless the project was just opened again from its cloud project
 	 * (a changed survey taken: SurveyUpdateBackup): a survey Collect cannot import or validate then puts the files of
-	 * before back, loads the survey of before, and tells the person, rather than leaving Collect Earth unable to start.
+	 * before back, loads the survey of before, and tells the person, rather than leaving Collect Earth unable to start,
+	 * and the changed survey is not offered again. Any other failure (the database busy at that start, the survey file
+	 * held by an antivirus on Windows) is tried once more after a moment; failing again, the files of before are put back
+	 * too, but the change is offered again.
 	 */
 	@Override
 	public void afterPropertiesSet() throws Exception {
@@ -63,12 +72,49 @@ public class EarthSurveyService extends AbstractEarthSurveyService implements In
 			if (!idmSurveyModel.exists()) {
 				throw new FileNotFoundException("The survey definition file could not be found in " + idmSurveyModel.getAbsolutePath()); //$NON-NLS-1$
 			}
-			readSurvey(idmSurveyModel);
+			readChangedSurvey(idmSurveyModel);
 			SurveyUpdateBackup.discard(projectFolder);
 		} catch (Exception e) {
-			logger.error("The survey of the project opened again could not be used: the one before is put back", e); //$NON-NLS-1$
-			restoreSurveyBefore(projectFolder, e);
+			boolean surveyError = isSurveyError(e);
+			logger.error(surveyError ? "The survey of the project opened again cannot be used: the one before is put back" //$NON-NLS-1$
+					: "The survey of the project opened again could not be loaded at this start: the one before is put back, and it is offered again", e); //$NON-NLS-1$
+			restoreSurveyBefore(projectFolder, e, surveyError);
 		}
+	}
+
+	/** {@link #readSurvey} of the changed survey, tried once more after a moment when it fails for another reason than itself */
+	private void readChangedSurvey(File idmSurveyModel) throws Exception {
+		try {
+			readSurvey(idmSurveyModel);
+		} catch (Exception e) {
+			if (isSurveyError(e)) {
+				throw e;
+			}
+			logger.warn("The changed survey could not be loaded ({}): tried again", e.getMessage()); //$NON-NLS-1$
+			try {
+				Thread.sleep(retryWaitMs);
+			} catch (InterruptedException interrupted) {
+				Thread.currentThread().interrupt();
+				throw e;
+			}
+			readSurvey(idmSurveyModel);
+		}
+	}
+
+	/**
+	 * Whether a failure to load a survey is the survey's own (Collect 4.0's SurveyManager: a survey that does not validate,
+	 * an IDML it cannot parse, its code lists that cannot be imported, wrapped in a SurveyImportException), as opposed to
+	 * one of this computer at that moment (the database, the file system), after which the same survey may load.
+	 */
+	static boolean isSurveyError(Throwable failure) {
+		int depth = 0;
+		for (Throwable t = failure; t != null && depth < 20; t = t.getCause() == t ? null : t.getCause(), depth++) {
+			if (t instanceof SurveyValidationException || t instanceof IdmlParseException || t instanceof XmlParseException
+					|| t instanceof CodeListImportException) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/** The survey loaded as before: one that does not validate is logged, and none is loaded */
@@ -102,11 +148,29 @@ public class EarthSurveyService extends AbstractEarthSurveyService implements In
 	}
 
 	/**
-	 * The files of before put back, their settings applied again (the plots file and the training set open kept), the
-	 * survey of before loaded, the changed one not offered again until the coordinator changes it again, and the person
-	 * told.
+	 * The words of a failure for the person: the first message of its causes that says more than the name of the next
+	 * (Collect wraps its errors as SurveyImportException(cause), whose message is the cause's name only), else the name
+	 * of the last.
 	 */
-	private void restoreSurveyBefore(File projectFolder, Exception cause) throws Exception {
+	static String reasonOf(Throwable failure) {
+		Throwable last = failure;
+		int depth = 0;
+		for (Throwable t = failure; t != null && depth < 20; t = t.getCause() == t ? null : t.getCause(), depth++) {
+			String message = StringUtils.trimToNull(t.getMessage());
+			if (message != null && (t.getCause() == null || !message.equals(t.getCause().toString()))) {
+				return message;
+			}
+			last = t;
+		}
+		return last.getClass().getSimpleName();
+	}
+
+	/**
+	 * The files of before put back, their settings applied again (the plots file and the training set open kept), the
+	 * survey of before loaded, and the person told. A survey Collect cannot use ({@code refuse}) is not offered again
+	 * until the coordinator changes it again; another failure leaves it offered again.
+	 */
+	private void restoreSurveyBefore(File projectFolder, Exception cause, boolean refuse) throws Exception {
 		SurveyUpdateBackup.Restored restored = SurveyUpdateBackup.restore(projectFolder);
 		if (projects != null) {
 			String plotFile = localPropertiesService.getValue(EarthProperty.SAMPLE_FILE);
@@ -125,12 +189,14 @@ public class EarthSurveyService extends AbstractEarthSurveyService implements In
 		String refused = restored == null ? null : restored.revisionAfter;
 		localPropertiesService.updateCloudBinding(projectFolder, binding -> {
 			binding.surveyRevision = before;
-			binding.surveyRevisionRefused = refused;
+			if (refuse) {
+				binding.surveyRevisionRefused = refused;
+			}
 		});
 		if (notices != null) {
-			String reason = StringUtils.defaultIfBlank(cause.getMessage(), cause.getClass().getSimpleName());
+			String reason = reasonOf(cause);
 			notices.post(new Notice(SurveyUpdateService.RESULT_NOTICE, Notice.WARNING, Messages.getString("CloudSurvey.changed.title"), //$NON-NLS-1$
-					MessageFormat.format(Messages.getString("CloudSurvey.notUsable"), StringUtils.abbreviate(reason, 300)))); //$NON-NLS-1$
+					MessageFormat.format(Messages.getString(refuse ? "CloudSurvey.notUsable" : "CloudSurvey.notLoaded"), StringUtils.abbreviate(reason, 300)))); //$NON-NLS-1$ //$NON-NLS-2$
 		}
 	}
 

@@ -1,6 +1,6 @@
 // The survey designer (docs/plans/2026-11-18-survey-designer.md): the project's survey as the designer shows it.
 
-import type { ExpressionCheckAnswer, ExpressionCheckInput, SurveyChangeInput, SurveyDesignAnswer, SurveyHelpAnswer, SurveyHelpInput, SurveyImpactAnswer, SurveyNewInput, SurveyOperation, SurveyVersionsAnswer } from "../../../src/wire/survey";
+import type { ExpressionCheckAnswer, ExpressionCheckInput, SurveyChangeInput, SurveyDesignAnswer, SurveyHelpAnswer, SurveyHelpInput, SurveyImpactAnswer, SurveyNewInput, SurveyOlderAnswer, SurveyOperation, SurveyVersionsAnswer } from "../../../src/wire/survey";
 import { p, request } from "./transport";
 
 export type {
@@ -49,6 +49,11 @@ export type {
 /** The project's survey, read-only: its pages, questions, lists, conditions and rules (coordinators). */
 export function getSurveyDesign(projectId: string): Promise<SurveyDesignAnswer> {
   return request("GET", `${p(projectId)}/survey/design`);
+}
+
+/** The plots last saved with an earlier version of the survey */
+export function getSurveyOlder(projectId: string): Promise<SurveyOlderAnswer> {
+  return request("GET", `${p(projectId)}/survey/older`);
 }
 
 /**
