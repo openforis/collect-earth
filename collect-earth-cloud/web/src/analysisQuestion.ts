@@ -183,6 +183,14 @@ export function applyQuestion(config: ViewConfig, q: Question, measures: readonl
 /** The rows and columns swapped (Saiku's "swap axes"). */
 export const swapAxes = (q: Question): Question => ({ ...q, rows: q.columns, columns: q.rows });
 
+/** A field of the rows or the columns moved to another place among them (its chip dragged, or Shift + arrow); out of range: as it was. */
+export function moveField(q: Question, axis: "rows" | "columns", from: number, to: number): Question {
+  const fields = [...q[axis]];
+  if (from === to || from < 0 || to < 0 || from >= fields.length || to >= fields.length) return q;
+  fields.splice(to, 0, ...fields.splice(from, 1));
+  return { ...q, [axis]: fields };
+}
+
 /** The filter on a field by a list of its values; none when the list is empty (everything). */
 export function withValuesFilter(filters: readonly Filter[], column: string, values: readonly unknown[]): Filter[] {
   const others = filters.filter(([c, op]) => !(c === column && (op === "in" || op === "==")));

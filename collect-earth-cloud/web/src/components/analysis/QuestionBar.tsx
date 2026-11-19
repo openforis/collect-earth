@@ -17,7 +17,7 @@ import SwapHoriz from "@mui/icons-material/SwapHoriz";
 import TableChart from "@mui/icons-material/TableChart";
 import ViewQuilt from "@mui/icons-material/ViewQuilt";
 import type { ReactNode } from "react";
-import { CHARTS, overTime, swapAxes, type Measure, type Question } from "../../analysisQuestion";
+import { CHARTS, moveField, overTime, swapAxes, type Measure, type Question } from "../../analysisQuestion";
 import type { ColumnGroup, Cube, CubeColumn } from "../../analysisView";
 import { useT, type MessageKey } from "../../i18n";
 
@@ -41,6 +41,8 @@ const GROUP_KEYS: Record<ColumnGroup, MessageKey> = {
 };
 /** The order of the groups in the lists: the answers first, as they are what is analysed. */
 const GROUP_ORDER: ColumnGroup[] = ["entity", "survey", "plotFile", "collection", "area"];
+/** What a dragged chip of the rows or columns carries: its bar and its place */
+const FIELD_DRAG = "application/x-analysis-field";
 const MEASURE_KEYS: Record<Measure["group"], MessageKey> = { plots: "analysis.mgroup.plots", area: "analysis.mgroup.area", answers: "analysis.mgroup.answers" };
 
 /** The fields to put in the rows or the columns, in groups (the survey's questions, the plot file's, the collection's). */
@@ -67,6 +69,42 @@ export function QuestionBar({ cube, measures, question, onChange, disabled }: { 
       const { key, ...props } = getTagProps({ index }) as { key: string } & Record<string, unknown>;
       return <Chip key={key} size="small" label={label(v)} {...props} />;
     });
+  /** The rows' or columns' chips, in the order of the table: dragged onto another, or moved with Shift + ← →, a field changes place */
+  const fieldChips = (which: "rows" | "columns", values: readonly string[], getItemProps: (o: { index: number }) => Record<string, unknown>) =>
+    values.map((v, index) => {
+      const { key, ...props } = getItemProps({ index }) as { key: string } & Record<string, unknown>;
+      const movable = !disabled && values.length > 1;
+      return (
+        <Chip key={key} size="small" label={v} {...props}
+          title={movable ? t("analysis.q.reorder") : undefined}
+          draggable={movable}
+          sx={movable ? { cursor: "grab" } : undefined}
+          // The bar takes a press anywhere for its input, which stops a drag in some browsers; its ✕ keeps that
+          onMouseDown={(e) => { if (movable && !(e.target as Element).closest(".MuiChip-deleteIcon")) e.stopPropagation(); }}
+          onDragStart={(e) => { e.dataTransfer.setData(FIELD_DRAG, `${which} ${index}`); e.dataTransfer.effectAllowed = "move"; }}
+          onDragOver={(e) => { if (e.dataTransfer.types.includes(FIELD_DRAG)) e.preventDefault(); }}
+          onDrop={(e) => {
+            const [axis, from] = e.dataTransfer.getData(FIELD_DRAG).split(" ");
+            if (axis !== which) return;
+            e.preventDefault();
+            onChange(moveField(question, which, Number(from), index));
+          }}
+          onKeyDown={(e) => {
+            // The bar sends the focus back to its input on any key but ← →, Shift too, which would end the move before it starts
+            if (movable && e.key === "Shift") e.stopPropagation();
+            if (!movable || !e.shiftKey || (e.key !== "ArrowLeft" && e.key !== "ArrowRight")) return;
+            const to = index + (e.key === "ArrowLeft" ? -1 : 1);
+            // The bar's own ← → then moves the focus with the chip; at either end nothing moves, and the focus stays
+            if (to < 0 || to >= values.length) {
+              e.preventDefault();
+              e.stopPropagation();
+              return;
+            }
+            onChange(moveField(question, which, index, to));
+          }}
+        />
+      );
+    });
   const fieldPicker = (which: "rows" | "columns", label: string, placeholder: string) => (
     <Autocomplete
       multiple
@@ -77,7 +115,7 @@ export function QuestionBar({ cube, measures, question, onChange, disabled }: { 
       value={question[which]}
       onChange={(_, v) => set({ [which]: v } as Partial<Question>)}
       filterSelectedOptions
-      renderValue={(values, getItemProps) => chips(values, getItemProps, (v) => v)}
+      renderValue={(values, getItemProps) => fieldChips(which, values, getItemProps)}
       renderInput={(params) => <TextField {...params} label={label} placeholder={question[which].length ? "" : placeholder} />}
       sx={{ flex: "1 1 260px", minWidth: 220 }}
     />

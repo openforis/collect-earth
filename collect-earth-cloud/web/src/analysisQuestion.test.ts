@@ -11,6 +11,7 @@ import {
   questionOf,
   overTime,
   swapAxes,
+  moveField,
   valuesSql,
   whereSql,
   withRangeFilter,
@@ -140,6 +141,16 @@ describe("the question bar and Perspective's configuration", () => {
 
   it("swap the rows and the columns", () => {
     expect(swapAxes(q)).toMatchObject({ rows: ["Province"], columns: ["Land use 2025"] });
+  });
+
+  it("move a field of the rows or the columns to another place among them", () => {
+    const three: Question = { ...q, rows: ["Province", "District", "Land use 2025"] };
+    expect(moveField(three, "rows", 2, 0).rows).toEqual(["Land use 2025", "Province", "District"]);
+    expect(moveField(three, "rows", 0, 1).rows).toEqual(["District", "Province", "Land use 2025"]);
+    expect(moveField(three, "rows", 0, 2).columns).toEqual(three.columns);
+    // Beyond either end, nothing moves
+    expect(moveField(three, "rows", 0, -1)).toBe(three);
+    expect(moveField(three, "rows", 2, 3)).toBe(three);
   });
 
   it("colour bars of one field of categories by it: the field goes in the columns too, and the bar does not show it", () => {
