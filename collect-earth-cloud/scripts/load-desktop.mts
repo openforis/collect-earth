@@ -286,7 +286,8 @@ async function loadFieldTypes(i: Instance) {
  */
 const NUMBERS = ['10', '15', '12', '50', '100', '3', '1', '0', '2015', '2020', '7', '25'];
 const TEXTS = ['checked', 'Forest edge', 'A', 'Seen on the imagery of the plot', 'ok'];
-const DATES = ['2026-11-14', '2020-06-15', '2015-01-10', '2024-03-01'];
+// As the form sends them (DateAttributeHandler.DATE_ATTRIBUTE_FORMAT, MM/dd/yyyy)
+const DATES = ['11/14/2026', '06/15/2020', '01/10/2015', '03/01/2024'];
 function answer(name: string, info: FieldInfo, tries = 0): string {
   const codes = (info.possibleCodedItems ?? []).map((c) => c.code).filter((c) => c !== '-1');
   if (codes.length) return codes[Math.floor(Math.random() * codes.length)];
