@@ -283,7 +283,7 @@ export function surveyImpact(
     return table ? s.rows(r, table) : [null];
   };
   const effects: SurveyEffect[] = [];
-  const added = operations.filter((o) => o.op === 'addQuestion').length;
+  const added = operations.filter((o) => o.op === 'addQuestion' || o.op === 'copyQuestion').length;
   if (added > 0 && plots > 0) effects.push({ kind: 'newQuestions', count: added });
   for (const op of operations) {
     if (op.op === 'deleteQuestion') {

@@ -339,6 +339,18 @@ export function newElement(name: string, attrs: Array<[string, string]> = [], ch
   return e;
 }
 
+/** A copy of an element and everything in it, not yet in the tree: written as the element is until it changes. */
+export function copyElement(e: XmlElement): XmlElement {
+  const copy: XmlElement = { ...e, attrs: e.attrs.map((a) => ({ ...a })), children: [], parent: null };
+  copy.children = e.children.map((c) => {
+    if (c.kind !== 'element') return { ...c };
+    const child = copyElement(c);
+    child.parent = copy;
+    return child;
+  });
+  return copy;
+}
+
 /** An element written as <x/> that now gets content is written <x>…</x>. */
 function openUp(e: XmlElement): void {
   if (!e.selfClosing) return;

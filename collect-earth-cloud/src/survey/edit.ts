@@ -7,6 +7,7 @@ import {
   attrValue,
   childElements,
   childrenNamed,
+  copyElement,
   descendants,
   firstChild,
   insertElement,
@@ -46,6 +47,8 @@ const NODE_ORDER = ['label', 'description', 'prompt', 'fieldLabel', 'default', '
 const LIST_ORDER = ['label', 'description', 'codingScheme', 'hierarchy', 'items'];
 const ITEM_ORDER = ['code', 'label', 'description', 'item'];
 const CHECK_TAGS = ['check', 'compare', 'distance', 'pattern', 'unique'];
+/** The attributes that hold an expression (a default's value and a sub-list's parent name a code and a question) */
+const EXPRESSION_ATTRS = ['relevant', 'requiredIf', 'expr', 'if', 'lt', 'lte', 'gt', 'gte', 'min', 'max', 'from', 'to', 'minCount', 'maxCount'];
 /** A language as Collect writes it: ISO 639 (en), with a country when needed (pt_BR) */
 const LANGUAGE_CODE = /^[a-z]{2,3}(_[A-Z]{2})?$/;
 /** The operations that leave the schema's nodes as they are (their place, names and kinds) */
@@ -319,6 +322,8 @@ export class SurveyEdit {
         return void this.addNewQuestion(op);
       case 'moveQuestion':
         return this.moveQuestion(op.id, op.page, op.before);
+      case 'copyQuestion':
+        return void this.copyQuestion(op.id, op.before);
       case 'deleteQuestion':
         return this.deleteQuestion(op.id);
       case 'setRequired':
@@ -616,6 +621,43 @@ export class SurveyEdit {
     const at = this.placeOnPage(parent, page ?? (parent === this.rootEntity() ? this.pageOf(node) : undefined), node, before);
     if (at === node) return;
     moveElement(this.doc, node, at);
+  }
+
+  /**
+   * A question copied right below itself, or before `before` (of its page or table): everything it has (its list, the
+   * same one, its texts, conditions, rules and formulas) but its id and name. Not a table, a key, or a field Collect
+   * Earth fills.
+   */
+  copyQuestion(id: number, before?: number): XmlElement {
+    const node = this.nodeById(id);
+    const name = attrValue(this.doc, node, 'name') ?? '';
+    if (node.name === 'entity') throw new SurveyEditError('A table is not copied: its questions are, one by one.');
+    if (isFixed(name, attrValue(this.doc, node, 'key') === 'true') || this.fromPlotFile(node)) {
+      throw new SurveyEditError(`${name} is filled by Collect Earth: it is not copied.`, 'fixedField', { name });
+    }
+    const parent = node.parent!;
+    const kids = childElements(parent);
+    const at = before === undefined ? kids[kids.indexOf(node) + 1] : this.placeOnPage(parent, undefined, null, before);
+    if (before !== undefined && parent === this.rootEntity() && this.pageOf(at!) !== this.pageOf(node)) {
+      throw new SurveyEditError('A copy goes before another question of the same page or table.');
+    }
+    const copy = copyElement(node);
+    const copyName = uniqueName(name, this.schemaNames());
+    setAttr(copy, 'id', String(this.nextId()));
+    setAttr(copy, 'name', copyName);
+    // Its own expressions naming the question itself (by its name, or a column's total by parent()/table/name, rather
+    // than $this) name the copy: its rules check its own answers
+    const table = parent === this.rootEntity() ? '' : `parent\\(\\)/${attrValue(this.doc, parent, 'name')}/`;
+    const own = new RegExp(`'[^']*'|"[^"]*"|(?<![\\w$:/-])(${table})?${name}(?![\\w(-])`, 'g');
+    for (const e of descendants(copy)) {
+      for (const a of e.attrs.filter((x) => EXPRESSION_ATTRS.includes(x.name))) {
+        const text = attrValue(this.doc, e, a.name)!;
+        const renamed = text.replace(own, (m: string, path?: string) => (/^['"]/.test(m) ? m : `${path ?? ''}${copyName}`));
+        if (renamed !== text) setAttr(e, a.name, renamed);
+      }
+    }
+    insertElement(this.doc, parent, copy, at);
+    return copy;
   }
 
   deleteQuestion(id: number): void {
@@ -1172,7 +1214,7 @@ export class SurveyEdit {
     const word = new RegExp(`(^|[^\\w$])${name}($|[^\\w(])`);
     const found: XmlElement[] = [];
     for (const e of descendants(this.schema())) {
-      if (e.attrs.some((a) => ['relevant', 'requiredIf', 'expr', 'if', 'value', 'lt', 'lte', 'gt', 'gte', 'min', 'max', 'from', 'to', 'parent', 'minCount', 'maxCount'].includes(a.name) && word.test(attrValue(this.doc, e, a.name)!))) {
+      if (e.attrs.some((a) => (EXPRESSION_ATTRS.includes(a.name) || a.name === 'value' || a.name === 'parent') && word.test(attrValue(this.doc, e, a.name)!))) {
         found.push(e);
       }
     }
@@ -1279,7 +1321,8 @@ export function operationFor(op: SurveyOperation, from: SurveyEdit, to: SurveyEd
       if (table === null) return null;
       return { ...op, table, before: before ?? undefined };
     }
-    case 'moveQuestion': {
+    case 'moveQuestion':
+    case 'copyQuestion': {
       const id = map(op.id);
       const before = mapOptional(op.before);
       if (id === null) return null;

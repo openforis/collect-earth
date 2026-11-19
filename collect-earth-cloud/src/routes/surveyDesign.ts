@@ -79,7 +79,7 @@ function refusalOf(err: SurveyEditError): SurveyChangeRefusal {
 const UNREADABLE = { error: 'unreadable', reason: 'the survey of the project file cannot be read' };
 
 /** The changes whose impact reads no plot */
-const CHEAP_IMPACT = new Set<SurveyOperation['op']>(['setText', 'addLanguage', 'addPage', 'movePage', 'deletePage', 'addQuestion', 'moveQuestion', 'addList', 'addItem', 'moveItem', 'addTable']);
+const CHEAP_IMPACT = new Set<SurveyOperation['op']>(['setText', 'addLanguage', 'addPage', 'movePage', 'deletePage', 'addQuestion', 'moveQuestion', 'copyQuestion', 'addList', 'addItem', 'moveItem', 'addTable']);
 /** The most tries of a change on a plot one impact request makes */
 const MAX_IMPACT_TRIES = 500_000;
 
@@ -219,6 +219,8 @@ function readOperation(raw: unknown): SurveyOperation | null {
       return Number.isInteger(o.id) && optionalString(o.page) && optionalId(o.before)
         ? { op: 'moveQuestion', id: o.id as number, ...(o.page !== undefined ? { page: o.page } : {}), ...(o.before !== undefined ? { before: o.before } : {}) }
         : null;
+    case 'copyQuestion':
+      return Number.isInteger(o.id) && optionalId(o.before) ? { op: 'copyQuestion', id: o.id as number, ...(o.before !== undefined ? { before: o.before } : {}) } : null;
     case 'deleteQuestion':
       return Number.isInteger(o.id) ? { op: 'deleteQuestion', id: o.id as number } : null;
     case 'setRequired': {

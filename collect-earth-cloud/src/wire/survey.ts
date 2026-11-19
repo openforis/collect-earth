@@ -302,6 +302,11 @@ export type SurveyOperation =
     }
   /** A question moved before another of the same page or table, or last; to another page of the plot */
   | { op: 'moveQuestion'; id: number; page?: string; before?: number }
+  /**
+   * A question copied below itself, or before another question of its page or table: its kind, list, texts, required,
+   * show-when, rules and formulas, under a name made from its own; never a key, nor a table
+   */
+  | { op: 'copyQuestion'; id: number; before?: number }
   /** A question nothing else uses (no condition, rule or formula names it) */
   | { op: 'deleteQuestion'; id: number }
   /** Required always (true), never (false), or when the rows hold */
@@ -383,6 +388,7 @@ export interface SurveyRestoreInput {
  * - `expression`: an expression Collect would refuse: `problem` (a SurveyCheckCode) and that problem's values
  * - `lastAnswer` (`code`), `emptyList`, `pageName`, `subListLevel` (`question`): what Collect refuses in a survey
  * - `tooMany`: too many changes to try on the plots at once
+ * - `fixedField`: a field Collect Earth fills itself, or a value of the plot file, which is not copied: `name`
  */
 export type SurveyRefusalCode =
   | 'gone'
@@ -398,7 +404,8 @@ export type SurveyRefusalCode =
   | 'emptyList'
   | 'pageName'
   | 'subListLevel'
-  | 'tooMany';
+  | 'tooMany'
+  | 'fixedField';
 
 /** Why a change was refused (400): the operation, or what the survey check found */
 export interface SurveyChangeRefusal {
