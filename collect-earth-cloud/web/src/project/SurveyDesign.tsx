@@ -192,13 +192,16 @@ interface Editing {
   busy: boolean;
   /** The pages a question can move to */
   pages: Array<{ name: string; label: string }>;
-  /** Opens the dialog adding a question to a page, or a column to a table */
-  addQuestion: (where: { page?: string; table?: number }) => void;
+  /** Opens the dialog adding a question to a page, or a column to a table: last, or before the question `before` */
+  addQuestion: (where: QuestionPlace) => void;
   /** Opens the dialog adding a table to a page */
   addTable: (page: string) => void;
   /** For each name, the questions and tables naming it: those cannot be deleted */
   users: ReadonlyMap<string, readonly string[]>;
 }
+
+/** Where a new question goes: on a page or in a table, before another question of it or last */
+type QuestionPlace = { page?: string; table?: number; before?: number };
 
 /** A change waiting for the coordinator's yes: what it does to the plots collected, what it deletes */
 interface PendingChange {
@@ -345,7 +348,7 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
   const [droppedTexts, setDroppedTexts] = useState(0);
   const [adding, setAdding] = useState(false);
   const [confirm, setConfirm] = useState<PendingChange | null>(null);
-  const [questionFor, setQuestionFor] = useState<{ page?: string; table?: number } | null>(null);
+  const [questionFor, setQuestionFor] = useState<QuestionPlace | null>(null);
   const [tableFor, setTableFor] = useState<string | null>(null);
   const [suggesting, setSuggesting] = useState(false);
   const [preview, setPreview] = useState<Words | null>(null);
@@ -1951,6 +1954,11 @@ function ItemTools({ w, item, siblings, page, table }: { w: Words; item: DesignI
           onApplyText={(text) => edit.submit([{ op: "setExpression", id: item.id, part: "shownWhen", text }])}
         />
       )}
+      {/* Right under this one: before the next question of its page or table */}
+      <ToolButton title={t(table ? "survey.edit.addColumnBelow" : "survey.edit.addBelow")} label={`${t(table ? "survey.edit.addColumnBelow" : "survey.edit.addBelow")}: ${label}`} disabled={edit.busy}
+        onClick={() => edit.addQuestion({ ...(table ? { table: table.id } : { page }), before: siblings[siblings.findIndex((s) => s.id === item.id) + 1]?.id })}>
+        <Add fontSize="small" />
+      </ToolButton>
       {(item.kind === "table" || !item.fixed) && (
         // What other questions name stays until they no longer do (the server refuses it)
         <ToolButton
@@ -2075,7 +2083,7 @@ const SUB_LIST = "sub:";
  */
 function AddQuestionDialog({ w, where, onClose, onAdd }: {
   w: Words;
-  where: { page?: string; table?: number };
+  where: QuestionPlace;
   onClose: () => void;
   onAdd: (ops: SurveyOperation[]) => Promise<AddResult>;
 }) {
@@ -2088,19 +2096,29 @@ function AddQuestionDialog({ w, where, onClose, onAdd }: {
   const [listName, setListName] = useState(NEW_LIST);
   const [lines, setLines] = useState("");
   const [required, setRequired] = useState(false);
+  /** "Add and write another": the last question added, said while the next is written */
+  const [added, setAdded] = useState("");
+  const labelRef = useRef<HTMLInputElement>(null);
   useDraft(label.trim() !== "" || lines.trim() !== "");
   const choice = type === "choice" || type === "choices";
   const taken = new Set(w.questions.keys());
   const name = uniqueName(slugName(label, "question"), taken);
   const { items, bad } = itemsFromLines(lines, language);
   const ready = label.trim() !== "" && (!choice || listName !== NEW_LIST || (items.length > 0 && bad.length === 0)) && !(listName.startsWith(SUB_LIST) && type !== "choice");
-  const submit = async (ops: SurveyOperation[]) => {
+  const submit = async (ops: SurveyOperation[], another: boolean) => {
     setBusy(true);
     setProblem(null);
     const result = await onAdd(ops);
     setBusy(false);
-    if (result.saved) onClose();
-    else setProblem(result.problem ?? null);
+    if (!result.saved) setProblem(result.problem ?? null);
+    else if (!another) onClose();
+    else {
+      // The next one goes where this one went (before the same question, so after this one), of the same kind
+      setAdded(label.trim());
+      setLabel("");
+      setLines("");
+      labelRef.current?.focus();
+    }
   };
   // A sub-list follows a choice of one answer of the same place: the plot's pages, or the same table
   const place = where.table !== undefined
@@ -2109,7 +2127,7 @@ function AddQuestionDialog({ w, where, onClose, onAdd }: {
   // Only a question whose list has answers under its answers, at the level below its own (the server refuses others)
   const parents = subListParents(place, w.lists, w.questions);
   const subOf = listName.startsWith(SUB_LIST) ? listName.slice(SUB_LIST.length) : null;
-  const add = () => {
+  const add = (another = false) => {
     const ops: SurveyOperation[] = [];
     let list = listName;
     if (choice && subOf !== null) {
@@ -2120,10 +2138,11 @@ function AddQuestionDialog({ w, where, onClose, onAdd }: {
         name,
         ...(where.page !== undefined ? { page: where.page } : {}),
         ...(where.table !== undefined ? { table: where.table } : {}),
+        ...(where.before !== undefined ? { before: where.before } : {}),
         parent: subOf,
         ...(required ? { required: true } : {}),
       });
-      void submit(ops);
+      void submit(ops, another);
       return;
     }
     if (choice && listName === NEW_LIST) {
@@ -2137,10 +2156,11 @@ function AddQuestionDialog({ w, where, onClose, onAdd }: {
       name,
       ...(where.page !== undefined ? { page: where.page } : {}),
       ...(where.table !== undefined ? { table: where.table } : {}),
+      ...(where.before !== undefined ? { before: where.before } : {}),
       ...(choice ? { list } : {}),
       ...(required ? { required: true } : {}),
     });
-    void submit(ops);
+    void submit(ops, another);
   };
   return (
     <Dialog open onClose={busy ? undefined : onClose} aria-labelledby="add-question-title" maxWidth="sm" fullWidth>
@@ -2148,7 +2168,8 @@ function AddQuestionDialog({ w, where, onClose, onAdd }: {
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           {/* One line: Enter adds the question (when it can be) */}
-          <TextField autoFocus label={t("survey.add.label")} value={label} onChange={(e) => setLabel(e.target.value)}
+          {added && <Typography variant="body2" color="success.main" role="status">{t("survey.add.added", { label: added })}</Typography>}
+          <TextField autoFocus inputRef={labelRef} label={t("survey.add.label")} value={label} onChange={(e) => setLabel(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); if (ready && !busy) add(); } }}
             helperText={[edit ? writtenIn(edit, t) : "", label.trim() ? t("survey.add.name", { name }) : ""].filter(Boolean).join(" ") || " "}
             slotProps={{ htmlInput: { lang: language } }} />
@@ -2195,8 +2216,12 @@ function AddQuestionDialog({ w, where, onClose, onAdd }: {
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} disabled={busy}>{t("common.cancel")}</Button>
-        <Button variant="contained" disabled={!ready || busy} onClick={add}>
+        {/* Once one is added, leaving keeps it: no "Cancel" */}
+        <Button onClick={onClose} disabled={busy}>{t(added ? "common.close" : "common.cancel")}</Button>
+        <Button variant="outlined" disabled={!ready || busy} onClick={() => add(true)}>
+          {t("survey.add.another")}
+        </Button>
+        <Button variant="contained" disabled={!ready || busy} onClick={() => add()}>
           {t("survey.add.add")}
         </Button>
       </DialogActions>
