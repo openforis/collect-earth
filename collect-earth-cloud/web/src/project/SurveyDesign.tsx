@@ -53,7 +53,7 @@ import SmartButtonOutlined from "@mui/icons-material/SmartButtonOutlined";
 import ArrowDropDownCircleOutlined from "@mui/icons-material/ArrowDropDownCircleOutlined";
 import FileDownloadOffOutlined from "@mui/icons-material/FileDownloadOffOutlined";
 import ListItemIcon from "@mui/material/ListItemIcon";
-import { createContext, memo, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { createContext, memo, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type ClipboardEvent, type ReactNode } from "react";
 import {
   ApiError,
   checkSurveyExpression,
@@ -1989,11 +1989,20 @@ function AddItemForm({ w, list }: { w: Words; list: DesignList }) {
   const add = () => {
     if (ready) void submit.run(edit.submit([{ op: "addItem", list: list.name, item: { code: proposed, label: { [w.language]: label.trim() } } }]));
   };
+  // Several lines pasted (a column or rows of a spreadsheet): all added in one save, or none when a code given cannot be
+  const paste = (e: ClipboardEvent) => {
+    const text = e.clipboardData.getData("text");
+    const pasted = itemsFromLines(text, w.language, taken);
+    if (pasted.items.length < 2 && !text.includes("	")) return;
+    e.preventDefault();
+    if (pasted.bad.length > 0) submit.setProblem(<Alert severity="error" sx={{ mt: 1 }}>{t("survey.list.codesBad", { codes: pasted.bad.join(", ") })}</Alert>);
+    else if (!edit.busy && !submit.busy) void submit.run(edit.submit(pasted.items.map((item) => ({ op: "addItem", list: list.name, item }))));
+  };
   return (
     <Box sx={{ mt: 1 }}>
       <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ alignItems: { sm: "flex-start" } }}>
         <TextField size="small" label={t("survey.list.itemLabel")} value={label} onChange={(e) => setLabel(e.target.value)} sx={{ flex: 2 }}
-          helperText={writtenIn(edit, t)} slotProps={{ htmlInput: { lang: w.language } }}
+          helperText={`${writtenIn(edit, t)} ${t("survey.list.pasteHelp")}`} slotProps={{ htmlInput: { lang: w.language } }} onPaste={paste}
           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }} />
         <TextField size="small" label={t("survey.list.itemCode")} value={code} placeholder={label ? proposed : ""} onChange={(e) => setCode(e.target.value)}
           error={bad} helperText={bad ? t("survey.list.codeBad") : t("survey.list.codeHelp")} sx={{ flex: 1 }}
@@ -2010,6 +2019,11 @@ function AddItemForm({ w, list }: { w: Words; list: DesignList }) {
 /** What a dialog adding to the survey says of the language its texts are written in */
 function writtenIn(edit: Editing, t: (key: MessageKey, params?: Record<string, string | number>) => string): string {
   return edit.manyLanguages ? t("survey.add.languageMany", { language: edit.languageName }) : t("survey.add.language", { language: edit.languageName });
+}
+
+/** The help under the answers of a new list, or the codes given there that cannot be taken */
+function answersHelp(t: (key: MessageKey, params?: Record<string, string | number>) => string, bad: readonly string[]): string {
+  return bad.length > 0 ? t("survey.list.codesBad", { codes: bad.join(", ") }) : t("survey.add.answersHelp");
 }
 
 /**
@@ -2078,8 +2092,8 @@ function AddQuestionDialog({ w, where, onClose, onAdd }: {
   const choice = type === "choice" || type === "choices";
   const taken = new Set(w.questions.keys());
   const name = uniqueName(slugName(label, "question"), taken);
-  const items = itemsFromLines(lines, language);
-  const ready = label.trim() !== "" && (!choice || listName !== NEW_LIST || items.length > 0) && !(listName.startsWith(SUB_LIST) && type !== "choice");
+  const { items, bad } = itemsFromLines(lines, language);
+  const ready = label.trim() !== "" && (!choice || listName !== NEW_LIST || (items.length > 0 && bad.length === 0)) && !(listName.startsWith(SUB_LIST) && type !== "choice");
   const submit = async (ops: SurveyOperation[]) => {
     setBusy(true);
     setProblem(null);
@@ -2174,7 +2188,7 @@ function AddQuestionDialog({ w, where, onClose, onAdd }: {
           {choice && subOf !== null && <Typography variant="body2" color="text.secondary">{t("survey.add.subListHelp")}</Typography>}
           {choice && listName === NEW_LIST && (
             <TextField label={t("survey.add.answers")} value={lines} onChange={(e) => setLines(e.target.value)} multiline minRows={4}
-              helperText={t("survey.add.answersHelp")} slotProps={{ htmlInput: { lang: language } }} />
+              error={bad.length > 0} helperText={answersHelp(t, bad)} slotProps={{ htmlInput: { lang: language } }} />
           )}
           <FormControlLabel control={<Checkbox checked={required} onChange={(e) => setRequired(e.target.checked)} />} label={t("survey.add.required")} />
           {problem}
@@ -2202,8 +2216,8 @@ function AddTableDialog({ w, page, onClose, onAdd }: { w: Words; page: string; o
   const [lines, setLines] = useState("");
   useDraft(label.trim() !== "" || lines.trim() !== "");
   const name = uniqueName(slugName(label, "table"), new Set(w.questions.keys()));
-  const items = itemsFromLines(lines, language);
-  const ready = label.trim() !== "" && (listName !== NEW_LIST || items.length > 0);
+  const { items, bad } = itemsFromLines(lines, language);
+  const ready = label.trim() !== "" && (listName !== NEW_LIST || (items.length > 0 && bad.length === 0));
   const add = async () => {
     const ops: SurveyOperation[] = [];
     let rows = listName;
@@ -2239,7 +2253,7 @@ function AddTableDialog({ w, page, onClose, onAdd }: { w: Words; page: string; o
           </TextField>
           {listName === NEW_LIST && (
             <TextField label={t("survey.add.answers")} value={lines} onChange={(e) => setLines(e.target.value)} multiline minRows={4}
-              helperText={t("survey.add.answersHelp")} slotProps={{ htmlInput: { lang: language } }} />
+              error={bad.length > 0} helperText={answersHelp(t, bad)} slotProps={{ htmlInput: { lang: language } }} />
           )}
           {problem}
         </Stack>
@@ -2263,9 +2277,10 @@ function AddListDialog({ w, onClose, onAdd }: { w: Words; onClose: () => void; o
   const submit = useSubmit(onClose);
   useDraft(label.trim() !== "" || lines.trim() !== "");
   // A list keeps at least one answer (the server refuses an empty one)
-  const ready = label.trim() !== "" && itemsFromLines(lines, language).length > 0 && !submit.busy;
+  const { items, bad } = itemsFromLines(lines, language);
+  const ready = label.trim() !== "" && items.length > 0 && bad.length === 0 && !submit.busy;
   const add = () => {
-    if (ready) void submit.run(onAdd({ op: "addList", label: { [language]: label.trim() }, items: itemsFromLines(lines, language) }));
+    if (ready) void submit.run(onAdd({ op: "addList", label: { [language]: label.trim() }, items }));
   };
   return (
     <Dialog open onClose={submit.busy ? undefined : onClose} aria-labelledby="add-list-title" maxWidth="sm" fullWidth>
@@ -2275,8 +2290,8 @@ function AddListDialog({ w, onClose, onAdd }: { w: Words; onClose: () => void; o
           <TextField autoFocus label={t("survey.edit.list")} value={label} onChange={(e) => setLabel(e.target.value)}
             helperText={edit ? writtenIn(edit, t) : undefined} slotProps={{ htmlInput: { lang: language } }}
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }} />
-          <TextField label={t("survey.add.answers")} value={lines} onChange={(e) => setLines(e.target.value)} multiline minRows={4} helperText={t("survey.add.answersHelp")}
-            slotProps={{ htmlInput: { lang: language } }} />
+          <TextField label={t("survey.add.answers")} value={lines} onChange={(e) => setLines(e.target.value)} multiline minRows={4}
+            error={bad.length > 0} helperText={answersHelp(t, bad)} slotProps={{ htmlInput: { lang: language } }} />
           {submit.problem}
         </Stack>
       </DialogContent>

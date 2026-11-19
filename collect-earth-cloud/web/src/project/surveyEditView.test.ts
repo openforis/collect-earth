@@ -69,13 +69,33 @@ describe("the questions changed (stage 3)", () => {
     expect(slugName("Tree cover (%)", "question")).toBe("tree_cover");
     expect(slugName("Land use 2020", "question")).toBe("land_use2020");
     expect(uniqueName("water", new Set(["water", "water_b"]))).toBe("water_c");
-    expect(itemsFromLines("Forest\n\n  Crop land \nForest", "en")).toEqual([
-      { code: "forest", label: { en: "Forest" } },
-      { code: "crop_land", label: { en: "Crop land" } },
-      { code: "forest_b", label: { en: "Forest" } },
-    ]);
+    expect(itemsFromLines("Forest\n\n  Crop land \nForest", "en")).toEqual({
+      items: [
+        { code: "forest", label: { en: "Forest" } },
+        { code: "crop_land", label: { en: "Crop land" } },
+        { code: "forest_b", label: { en: "Forest" } },
+      ],
+      bad: [],
+    });
     expect(isItemCode("F.1-a_b")).toBe(true);
     expect(isItemCode("F 1")).toBe(false);
+  });
+
+  it("takes answers pasted: lines, spreadsheet rows with their codes, against the list's codes", () => {
+    const taken = new Set(["forest", "1"]);
+    // Windows line ends, blank lines, a row with one cell filled, codes made around those given
+    expect(itemsFromLines("Forest\r\n\r\n2\tGrassland\r\n  \t \r\nWetland\t\r\nforest_b\tOld forest\r\n", "es", taken)).toEqual({
+      items: [
+        { code: "forest_c", label: { es: "Forest" } },
+        { code: "2", label: { es: "Grassland" } },
+        { code: "wetland", label: { es: "Wetland" } },
+        { code: "forest_b", label: { es: "Old forest" } },
+      ],
+      bad: [],
+    });
+    // A code the list has, one given twice, one that is no code: said once each
+    expect(itemsFromLines("1\tCropland\n3\tSettlement\n3\tOther\nF 4\tBare\n3\tAgain", "en", taken).bad).toEqual(["1", "3", "F 4"]);
+    expect(itemsFromLines("", "en").items).toEqual([]);
   });
 
   it("works out where a question, a page goes one step up or down", () => {

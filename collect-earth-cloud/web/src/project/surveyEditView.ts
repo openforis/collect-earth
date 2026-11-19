@@ -303,18 +303,33 @@ export function uniqueName(name: string, taken: ReadonlySet<string>): string {
   return name;
 }
 
-/** Answers typed one per line, each with a code made from it, in a language; blank lines left out */
-export function itemsFromLines(text: string, language: string): NewItem[] {
-  const taken = new Set<string>();
-  const items: NewItem[] = [];
-  for (const line of text.split(/\r?\n/)) {
-    const label = line.trim();
-    if (label === "") continue;
-    const code = uniqueName(slugName(label, "answer"), taken);
-    taken.add(code);
-    items.push({ code, label: { [language]: label } });
+/**
+ * Answers typed or pasted one per line, in a language; blank lines left out. A row copied from a spreadsheet, code then
+ * answer (a tab between), keeps its code; the others get one made from their text, none of `taken` nor of each other's.
+ * `bad`: the codes given that cannot be taken (not a code, one of `taken`, or given twice).
+ */
+export function itemsFromLines(text: string, language: string, taken: ReadonlySet<string> = new Set()): { items: NewItem[]; bad: string[] } {
+  const rows = text.split(/\r?\n/).flatMap((line): Array<{ code: string | null; label: string }> => {
+    // shortcut: the cells after the second are left out; a spreadsheet's third column would need its own place
+    const [first = "", second = ""] = line.split("\t").map((c) => c.trim());
+    // A row with one text only is an answer whose code is made from it
+    if (first === "" || second === "") return first || second ? [{ code: null, label: first || second }] : [];
+    return [{ code: first, label: second }];
+  });
+  // The codes given first, so that none made from a text takes one of them
+  const used = new Set(taken);
+  const bad: string[] = [];
+  for (const { code } of rows) {
+    if (code === null) continue;
+    if (isItemCode(code) && !used.has(code)) used.add(code);
+    else if (!bad.includes(code)) bad.push(code);
   }
-  return items;
+  const items = rows.map(({ code, label }): NewItem => {
+    const made = code ?? uniqueName(slugName(label, "answer"), used);
+    used.add(made);
+    return { code: made, label: { [language]: label } };
+  });
+  return { items, bad };
 }
 
 /** An answer's code as the survey takes it */
