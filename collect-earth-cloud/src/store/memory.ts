@@ -107,6 +107,7 @@ import {
   type UserPlots,
   type RecordUpload,
   type CepReplaced,
+  type SyncIntake,
 } from './store.js';
 import type { UncertaintySettings } from '../uncertainty.js';
 import type { AreaSettings } from '../areas.js';
@@ -395,6 +396,14 @@ export class InMemoryStore implements Store {
 
   async getTrainingResults(projectId: string, setId: string): Promise<unknown | null> {
     return this.training.get(projectId)?.sets.get(setId)?.results ?? null;
+  }
+
+  async syncIntake(projectId: string): Promise<SyncIntake> {
+    const open: string[] = [];
+    const closed = await this.listRetiredTrainingPlots(projectId);
+    for (const set of await this.listTrainingSets(projectId)) (set.finishedAt === null ? open : closed).push(...set.plotKeys);
+    const status = await this.getProjectStatus(projectId);
+    return { status, open, closed, roundInfo: open.length + closed.length > 0 ? await this.getRoundInfo(projectId) : null };
   }
 
   async listRetiredTrainingPlots(projectId: string): Promise<string[]> {
@@ -991,11 +1000,13 @@ export class InMemoryStore implements Store {
     return token;
   }
 
-  async resolveSession(token: string, now = Date.now()): Promise<{ userId: string } | null> {
+  async resolveSession(token: string, now = Date.now()): Promise<{ userId: string; username: string } | null> {
     const hash = hashToken(token);
     const userId = this.sessions.get(hash);
-    // A disabled account's sessions are deleted; this also covers one made meanwhile.
-    if (!userId || this.users.get(userId)?.disabledAt) return null;
+    // A disabled account's sessions are deleted; this also covers one made meanwhile. (No account: none, as the
+    // PostgreSQL store's join with users.)
+    const user = userId ? this.users.get(userId) : undefined;
+    if (!userId || !user || user.disabledAt) return null;
     const lastUsed = this.sessionLastUsedAt.get(hash) ?? this.sessionCreatedAt.get(hash) ?? now;
     if (now - lastUsed > SESSION_IDLE_MS) {
       // Unused for too long: gone
@@ -1008,7 +1019,7 @@ export class InMemoryStore implements Store {
       this.sessionLastUsedAt.set(hash, now);
       this.userLastActiveAt.set(userId, now);
     }
-    return { userId };
+    return { userId, username: user.username };
   }
 
   async deleteSession(token: string): Promise<void> {

@@ -2,11 +2,13 @@ import type { FastifyReply, FastifyRequest, preHandlerHookHandler } from 'fastif
 import { isUuid } from '../accountRules.js';
 import { bearerToken } from '../auth.js';
 import type { Store, TokenMembership } from '../store/store.js';
-import type { Role } from '../types.js';
+import type { ProjectStatus, Role } from '../types.js';
 
 /** What a resolved request principal is: a project membership, optionally tied to a user. */
 export interface RequestMembership extends TokenMembership {
   userId?: string;
+  /** The account's username, with userId (read with the session) */
+  username?: string;
 }
 
 declare module 'fastify' {
@@ -28,7 +30,12 @@ declare module 'fastify' {
  *                                                 learn the project id exists).
  *  - Has access, but role insufficient         -> 403.
  */
-export function requireProjectMembership(store: Store, requiredRole?: Role, options: { dashboard?: boolean } = {}): preHandlerHookHandler {
+export function requireProjectMembership(
+  store: Store,
+  requiredRole?: Role,
+  // routeReadsStatus: the route refuses a closed project itself (closedRefusal), with the status it reads anyway
+  options: { dashboard?: boolean; routeReadsStatus?: boolean } = {},
+): preHandlerHookHandler {
   return async (request: FastifyRequest, reply: FastifyReply) => {
     const token = bearerToken(request.headers.authorization);
     if (!token) {
@@ -51,7 +58,7 @@ export function requireProjectMembership(store: Store, requiredRole?: Role, opti
     if (membership.role === 'admin' && (requiredRole !== undefined || options.dashboard) && membership.userId && (await secondStepMissing(store, membership.userId))) {
       return reply.code(403).send(TWO_FACTOR_REQUIRED);
     }
-    const refusal = await statusRefusal(store, request, membership.projectId);
+    const refusal = options.routeReadsStatus ? null : await statusRefusal(store, request, membership.projectId);
     if (refusal) {
       return reply.code(409).send(refusal);
     }
@@ -146,12 +153,16 @@ async function statusRefusal(store: Store, request: FastifyRequest, projectId: s
   if (request.method === 'GET' || request.method === 'HEAD') return null;
   const route = `${request.method} ${request.routeOptions?.url ?? ''}`;
   if (OPEN_WHEN_CLOSED.has(route)) return null;
-  const status = await store.getProjectStatus(projectId);
+  // A draft's records are refused by the intake itself: it takes those of a training running (training before the
+  // project is published), and answers PROJECT_DRAFT for the others
+  return closedRefusal(await store.getProjectStatus(projectId));
+}
+
+/** The refusal of a change to a closed (or archived) project, or null. */
+export function closedRefusal(status: ProjectStatus | null): { error: string; reason: string } | null {
   if (status === 'closed' || status === 'archived') {
     return { error: 'project_closed', reason: 'This project is closed: it takes no new records or changes. Ask its coordinator to reopen it.' };
   }
-  // A draft's records are refused by the intake itself: it takes those of a training running (training before the
-  // project is published), and answers PROJECT_DRAFT for the others
   return null;
 }
 
@@ -178,7 +189,7 @@ async function resolveMembership(store: Store, token: string, pid: string): Prom
   if (!membership) {
     return 'no_access';
   }
-  return { ...membership, userId: session.userId };
+  return { ...membership, userId: session.userId, username: session.username };
 }
 
 /** admin satisfies any requirement; otherwise the role must match exactly. */

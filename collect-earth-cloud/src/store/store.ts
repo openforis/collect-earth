@@ -85,6 +85,14 @@ import type { UncertaintySettings } from '../uncertainty.js';
 import type { AreaSettings } from '../areas.js';
 import type { CeoShapesJob } from '../ceo/shapes.js';
 
+/** What a sync needs to know of the project (syncIntake) */
+export interface SyncIntake {
+  status: ProjectStatus | null;
+  open: string[];
+  closed: string[];
+  roundInfo: RoundInfo | null;
+}
+
 export interface TrainingSetInput {
   kind: TrainingKind;
   name: string;
@@ -237,7 +245,7 @@ export interface Store {
    * The account of a session token, or null: unknown, deleted, its account disabled, or unused for longer than
    * SESSION_IDLE_MS (src/auth.ts), when it is deleted. A use is written down at most once per SESSION_TOUCH_MS.
    */
-  resolveSession(token: string, now?: number): Promise<{ userId: string } | null>;
+  resolveSession(token: string, now?: number): Promise<{ userId: string; username: string } | null>;
   deleteSession(token: string): Promise<void>;
   /** Revokes every session of a user (password reset). */
   deleteUserSessions(userId: string): Promise<void>;
@@ -567,6 +575,12 @@ export interface Store {
   getTrainingResults(projectId: string, setId: string): Promise<unknown | null>;
   /** Plot ids of training sets deleted: never a plot of the project (a new set may take them again). */
   listRetiredTrainingPlots(projectId: string): Promise<string[]>;
+  /**
+   * What a sync needs to know of the project, read together (one transaction, every sync): its status (null: no such
+   * project), the plot ids of the training sets running (`open`), those of the sets finished and the retired ones
+   * (`closed`), and the round info when there is any of them (null otherwise, as for a project without trainings).
+   */
+  syncIntake(projectId: string): Promise<SyncIntake>;
   /** Replaces the participants; a new participant's attempt 1 starts at `at`. */
   setTrainingMembers(projectId: string, setId: string, userIds: readonly string[], at: number): Promise<void>;
   listTrainingGolden(projectId: string, setId: string): Promise<TrainingGolden[]>;

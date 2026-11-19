@@ -99,6 +99,34 @@ describe('a busy database', () => {
   });
 });
 
+describe('a sync of one record', () => {
+  // cloud.collectearth.org, 19 Nov 2026: 10 mapathons at ten times the pace held the shared-core database. A sync read
+  // the project's status twice, the training sets, the retired training plots, the round info and the person, each in
+  // a transaction of its own: about 40 statements a save. The project's facts are now one store call, the person comes
+  // with the session.
+  let ctx: TestContext;
+  beforeEach(async () => {
+    ctx = await makeContext();
+  });
+  afterEach(async () => ctx.app.close());
+
+  it('reads what it needs of the project once, and the person with the session', async () => {
+    const p = await createProject(ctx.app, 'One read');
+    const user = await ctx.store.createUser({ username: 'ana', passwordHash: 'x', email: null });
+    await ctx.store.addMembership(p.projectId, user.id, 'operator');
+    const token = await ctx.store.createSession(user.id);
+    const intake = vi.spyOn(ctx.store, 'syncIntake');
+    const userById = vi.spyOn(ctx.store, 'getUserById');
+    const res = await batchRequest(ctx.app, p.projectId, token, [envelope({ recordKey: 'k1', operator: 'ana' })]);
+    expect(res.statusCode).toBe(200);
+    expect(res.json().results).toEqual([{ recordKey: 'k1', status: 'stored' }]);
+    expect(intake).toHaveBeenCalledTimes(1);
+    expect(userById).not.toHaveBeenCalled();
+    // and the record is the session's person's
+    expect((await ctx.store.getRecord(p.projectId, 'k1', 'ana'))?.operator).toBe('ana');
+  });
+});
+
 describe('sync batches taken at once', () => {
   it('answers 503 busy to a batch beyond the limit before reading it, and takes batches again once one is done', async () => {
     const ctx = await makeContext({ recordsBatchConcurrency: 1 });

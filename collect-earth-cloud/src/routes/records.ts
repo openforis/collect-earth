@@ -1,14 +1,14 @@
 import { telemetry } from '../telemetry.js';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { RecordUpload, Store } from '../store/store.js';
-import { PROJECT_DRAFT, requireProjectMembership } from '../plugins/projectAuth.js';
+import { closedRefusal, PROJECT_DRAFT, requireProjectMembership } from '../plugins/projectAuth.js';
 import { audit, noteActivity } from '../activity.js';
 import { isServerMadeName } from '../anonymize.js';
 import { applyLww, recordEventOf } from '../lww.js';
 import { plotOwnershipOf } from '../plotOwnership.js';
 import type { SamplingService } from '../samplingService.js';
 import type { BatchItemResult, RecordEnvelope, RoundInfo } from '../types.js';
-import { isTrainingRecord, trainingPlots } from './training.js';
+import { isTrainingRecord } from './training.js';
 import { keyShape, splitKey } from '../rounds.js';
 
 interface BatchBody {
@@ -63,17 +63,18 @@ export async function registerRecordRoutes(app: FastifyInstance, store: Store, s
       },
       onResponse: release,
       onRequestAbort: release,
-      preHandler: requireProjectMembership(store),
+      // The project's status is read with the rest of the sync's intake (syncIntake), not by itself
+      preHandler: requireProjectMembership(store, undefined, { routeReadsStatus: true }),
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const projectId = request.membership!.projectId;
       let sessionUsername: string | null = null;
       if (request.membership!.userId) {
-        const user = await store.getUserById(request.membership!.userId);
-        if (!user) {
+        // Read with the session (requireProjectMembership): a sync is a few statements fewer
+        sessionUsername = request.membership!.username ?? (await store.getUserById(request.membership!.userId))?.username ?? null;
+        if (sessionUsername === null) {
           return reply.code(401).send({ error: 'unauthorized' });
         }
-        sessionUsername = user.username;
       }
       let warned = false;
       // Whose each plot is, read once per batch and only when a record under another name is there to move
@@ -95,12 +96,20 @@ export async function registerRecordRoutes(app: FastifyInstance, store: Store, s
         name !== username && name.toLowerCase() === username.toLowerCase() && (await store.getUserByUsername(name)) === null;
       const body = (request.body ?? {}) as BatchBody;
       const envelopes = Array.isArray(body.records) ? body.records : [];
-      // The plots of a training: those running take their records apart, those over discard them (trainingPlots)
-      const plotsOfTraining = await trainingPlots(store, projectId);
-      const trainingInfo = plotsOfTraining.open.size + plotsOfTraining.closed.size > 0 ? await store.getRoundInfo(projectId) : null;
+      // The project's status, and the plots of a training (those running take their records apart, those over discard
+      // them) with the round info their keys need: read in one statement (every sync reads them; they were five
+      // transactions, which held the shared-core database of cloud.collectearth.org at ten times the pace)
+      const intake = await store.syncIntake(projectId);
+      // A closed project takes nothing (Collect Earth shows the reason and keeps the records to send later)
+      const closed = closedRefusal(intake.status);
+      if (closed) {
+        return reply.code(409).send(closed);
+      }
+      const plotsOfTraining = { open: new Set(intake.open), closed: new Set(intake.closed) };
+      const trainingInfo = intake.roundInfo;
       // A project still being set up takes only the records of a training running (the team trained before it is
       // published); a batch with none of them is refused whole, as it always was, and Collect Earth keeps it to send later
-      const draft = (await store.getProjectStatus(projectId)) === 'draft';
+      const draft = intake.status === 'draft';
       if (draft && !envelopes.some((raw) => isTrainingRecord(keyOf(raw), plotsOfTraining.open, trainingInfo))) {
         return reply.code(409).send(PROJECT_DRAFT);
       }
