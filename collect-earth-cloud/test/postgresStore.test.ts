@@ -10,6 +10,8 @@ const failing: { match: string; code: string; times: number } = { match: '', cod
 // What each checked-out client was released with, and a hook run on every query (to make a client fail).
 const releases: unknown[] = [];
 const hooks: { onQuery: ((client: import('node:events').EventEmitter, sql: string) => void) | null } = { onQuery: null };
+// The row of a sync's intake (syncIntake: an aggregate with no FROM, so always one row)
+const intake: { row: Record<string, unknown> } = { row: { status: 'active', open: [], closed: [], round_info: null } };
 
 vi.mock('pg', async () => {
   const { EventEmitter } = await import('node:events');
@@ -32,6 +34,7 @@ vi.mock('pg', async () => {
             throw Object.assign(new Error('deadlock detected'), { code: failing.code });
           }
           if (sql.includes('records_version')) return { rows: [{ records_version: '7' }], rowCount: 1 };
+          if (sql.includes('AS open') && sql.includes('AS round_info')) return { rows: [intake.row], rowCount: 1 };
           if (sql.includes('FROM project_tokens')) return { rows: [{ project_id: PROJECT }, { project_id: PROJECT_B }], rowCount: 2 };
           if (sql.includes('FROM records WHERE')) return { rows: [{ bytes: '10' }], rowCount: 1 };
           // Training sets and records (025): none in these projects.
@@ -54,12 +57,19 @@ vi.mock('pg', async () => {
     }
     async end() {}
   }
-  return { default: { Pool } };
+  // pg's own quoting of a literal (standard_conforming_strings), for the start of a project transaction
+  const escapeLiteral = (value: string) => `'${value.replace(/'/g, "''")}'`;
+  return { default: { Pool, escapeLiteral } };
 });
 
 const { PostgresStore } = await import('../src/store/postgres.js');
 const { InvalidCursorError } = await import('../src/store/store.js');
 const PROJECT = '00000000-0000-0000-0000-000000000001';
+/** The project a query sets for RLS (app.current_project), or null: as a parameter, or as the literal of a transaction's start */
+const projectSetBy = (q: { sql: string; params?: unknown[] }): string | null => {
+  if (q.params?.[0] === 'app.current_project') return q.params[1] as string;
+  return /set_config\('app\.current_project', '([^']*)', true\)/.exec(q.sql)?.[1] ?? null;
+};
 const PROJECT_B = '00000000-0000-0000-0000-000000000002';
 
 describe('PostgresStore pool', () => {
@@ -90,8 +100,8 @@ describe('PostgresStore pool', () => {
   it('sets a statement timeout in each transaction when asked to', async () => {
     const store = new PostgresStore('postgres://x', { statementTimeoutMs: 90_000 });
     expect(await store.qualityVersion(PROJECT)).toBe('7');
-    expect(queries[0].sql).toBe('BEGIN');
-    expect(queries.some((q) => q.sql.includes("set_config('statement_timeout'") && q.params?.includes('90000'))).toBe(true);
+    // In the transaction's start, one message with BEGIN and the project
+    expect(queries[0].sql).toMatch(/^BEGIN; SELECT set_config\('app\.current_project', '[^']+', true\), set_config\('statement_timeout', '90000', true\)$/);
 
     queries.length = 0;
     await new PostgresStore('postgres://x').qualityVersion(PROJECT);
@@ -229,6 +239,33 @@ describe('PostgresStore pool', () => {
     expect(list.params).toEqual([PROJECT, new Date(0), new Date(10), 5, 'maria', new Date(5), '7']);
   });
 
+  it('syncIntake reads the status, the training plots and the round info in one statement under the project setting', async () => {
+    const store = new PostgresStore('postgres://x');
+    intake.row = { status: 'draft', open: [], closed: [], round_info: null };
+    expect(await store.syncIntake(PROJECT)).toEqual({ status: 'draft', open: [], closed: [], roundInfo: null });
+    // the transaction's start (BEGIN and the project in one message), the statement, COMMIT: nothing else
+    expect(queries.map((q) => q.sql.trim().slice(0, 30))).toEqual([
+      "BEGIN; SELECT set_config('app.",
+      'SELECT (SELECT status FROM pro',
+      'COMMIT',
+    ]);
+    expect(projectSetBy(queries[0])).toBe(PROJECT);
+    expect(queries[1].params).toEqual([PROJECT]);
+    // With trainings: the round info as stored
+    queries.length = 0;
+    const info = { keyColumns: ['id'], roundIndex: null };
+    intake.row = { status: 'active', open: ['a'], closed: ['b', 'c'], round_info: info };
+    expect(await store.syncIntake(PROJECT)).toEqual({ status: 'active', open: ['a'], closed: ['b', 'c'], roundInfo: info });
+    expect(queries).toHaveLength(3);
+    // ...or read as getRoundInfo reads it when it was never stored (a project file kept before it was), in the same transaction
+    queries.length = 0;
+    intake.row = { status: 'active', open: ['a'], closed: [], round_info: null };
+    expect((await store.syncIntake(PROJECT)).roundInfo).toBeNull();
+    expect(queries.some((q) => q.sql.includes('CASE WHEN round_info IS NULL THEN data END'))).toBe(true);
+    expect(queries.filter((q) => q.sql.startsWith('BEGIN'))).toHaveLength(1);
+    intake.row = { status: 'active', open: [], closed: [], round_info: null };
+  });
+
   it('putRecordWithEvent stores the record and its event in one transaction, after the record lock and the locked read', async () => {
     const store = new PostgresStore('postgres://x');
     const seen: unknown[] = [];
@@ -240,7 +277,7 @@ describe('PostgresStore pool', () => {
     expect(stored).toBe(true);
     expect(seen).toEqual([[null, true]]);
     const sqls = queries.map((q) => q.sql.trim().split(/\s+/).slice(0, 3).join(' '));
-    expect(sqls.filter((q) => q === 'BEGIN')).toHaveLength(1);
+    expect(sqls.filter((q) => q.startsWith('BEGIN'))).toHaveLength(1);
     const at = (prefix: string) => queries.findIndex((q) => q.sql.trim().startsWith(prefix));
     expect(queries[at('SELECT pg_advisory_xact_lock')].params).toEqual([PROJECT, 'k', 'maria']);
     expect(queries.find((q) => q.sql.includes('FROM records'))!.sql).toContain('FOR UPDATE');
@@ -275,7 +312,7 @@ describe('PostgresStore pool', () => {
       { recordKey: '1,1', operator: 'ana' },
       { recordKey: '1,2', operator: 'ben' },
     ]);
-    const setting = queries.findIndex((q) => q.params?.[0] === 'app.current_project' && q.params[1] === PROJECT);
+    const setting = queries.findIndex((q) => projectSetBy(q) === PROJECT);
     const read = queries.findIndex((q) => q.sql.includes('r.xml'));
     expect(setting).toBeGreaterThanOrEqual(0);
     expect(read).toBeGreaterThan(setting);
@@ -285,7 +322,7 @@ describe('PostgresStore pool', () => {
 
   it('listRecordKeysWithoutXml reads the keys of live records without XML under the project setting', async () => {
     await new PostgresStore('postgres://x').listRecordKeysWithoutXml(PROJECT);
-    const setting = queries.findIndex((q) => q.params?.[0] === 'app.current_project' && q.params[1] === PROJECT);
+    const setting = queries.findIndex((q) => projectSetBy(q) === PROJECT);
     const read = queries.findIndex((q) => q.sql.includes('xml IS NULL'));
     expect(read).toBeGreaterThan(setting);
     expect(setting).toBeGreaterThanOrEqual(0);
@@ -310,7 +347,7 @@ describe('PostgresStore pool', () => {
     // Every project-scoped read comes after its own project's setting.
     let current: unknown = null;
     for (const q of queries) {
-      if (q.params?.[0] === 'app.current_project') current = q.params[1];
+      current = projectSetBy(q) ?? current;
       for (const table of ['member_activity', 'record_events', 'records', 'csv_files', 'project_ceps', 'training_sets', 'training_records']) {
         if (q.sql.includes(`FROM ${table} WHERE`)) {
           expect(q.params![0]).toBe(current);
@@ -363,7 +400,7 @@ describe('PostgresStore pool', () => {
     let current: unknown = null;
     let reads = 0;
     for (const q of queries) {
-      if (q.params?.[0] === 'app.current_project') current = q.params[1];
+      current = projectSetBy(q) ?? current;
       if (q.sql.includes('share_links')) {
         reads += 1;
         expect(current).toBe(PROJECT);

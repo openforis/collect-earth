@@ -16,9 +16,9 @@ describe('a sign-in unused for months', () => {
     const start = Date.now();
     expect(SESSION_IDLE_MS).toBe(90 * DAY);
     // used after 80 days: kept, and that use counts
-    expect(await ctx.store.resolveSession(token, start + 80 * DAY)).toEqual({ userId });
+    expect(await ctx.store.resolveSession(token, start + 80 * DAY)).toEqual({ userId, username: 'owner' });
     // 160 days after it was made, 80 after its last use: still there
-    expect(await ctx.store.resolveSession(token, start + 160 * DAY)).toEqual({ userId });
+    expect(await ctx.store.resolveSession(token, start + 160 * DAY)).toEqual({ userId, username: 'owner' });
     // then 91 days with no use: gone, also for a later use within the period
     expect(await ctx.store.resolveSession(token, start + 251 * DAY)).toBeNull();
     expect(await ctx.store.resolveSession(token, start + 252 * DAY)).toBeNull();
@@ -29,7 +29,7 @@ describe('a sign-in unused for months', () => {
     const { token, userId } = await setupPlatformAdmin(ctx.app);
     const start = Date.now();
     // a use less than an hour after the last one does not count as one: the period runs from creation
-    expect(await ctx.store.resolveSession(token, start + SESSION_TOUCH_MS - 1000)).toEqual({ userId });
+    expect(await ctx.store.resolveSession(token, start + SESSION_TOUCH_MS - 1000)).toEqual({ userId, username: 'owner' });
     expect(await ctx.store.resolveSession(token, start + 90 * DAY + 1000)).toBeNull();
     const me = await ctx.app.inject({ method: 'GET', url: '/v1/me', headers: bearer(token) });
     expect(me.statusCode).toBe(401);
