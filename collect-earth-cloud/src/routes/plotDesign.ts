@@ -1,6 +1,7 @@
 import { randomInt } from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { NOTE_NAME, noteColumn, plotFileExtraColumns, readCep, type RoundInfo } from '../cep.js';
+import { NOTE_NAME } from '../survey/fieldNames.js';
+import { noteColumn, plotFileExtraColumns, readCep, type RoundInfo } from '../cep.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import {
   areaFromGeoJson,

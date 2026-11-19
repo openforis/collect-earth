@@ -3,6 +3,7 @@
 import * as zlib from 'node:zlib';
 import { XMLParser, XMLValidator } from 'fast-xml-parser';
 import { crc32, toDosDateTime } from './zipStream.js';
+import { NOTE_NAME, PERIOD_STATUS_NAME } from './survey/fieldNames.js';
 import type { CepErrorCode, CodeItem, NoteInfo, NoteRefusal, RefusalCode, RoundInfo } from './wire/projects.js';
 
 export type { CepErrorCode, CodeItem, NoteInfo, NoteRefusal, RefusalCode, RoundInfo, RoundState } from './wire/projects.js';
@@ -1127,7 +1128,6 @@ function addRoundToSurvey(text: string, info: SurveyInfo): { survey: string; lis
 // ---------------------------------------------------------------------------------------
 // A repeat survey's period status (docs/plans/2026-11-11-repeat-survey.md, stage 2)
 
-export const PERIOD_STATUS_NAME = 'period_status';
 export const PERIOD_STATUS_KEY = `collect_code_${PERIOD_STATUS_NAME}`;
 /** What the collector says of a plot against its earlier period: still the same, changed since, interpreted wrongly then */
 export const PERIOD_STATUS_CODES = ['same', 'changed', 'corrected'] as const;
@@ -1234,7 +1234,6 @@ export function addPeriodStatus(zip: Buffer, date: Date = new Date(), limits: Ce
 // The coordinator's note (Task 16)
 
 /** The note's attribute; Collect Earth sends it in a record's summary as NOTE_SUMMARY_KEY. */
-export const NOTE_NAME = 'coordinator_note';
 export const NOTE_SUMMARY_KEY = `collect_text_${NOTE_NAME}`;
 
 /** Whether the served survey has the note, and at which extra column (null: no note). */

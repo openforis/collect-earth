@@ -19,7 +19,7 @@ import type {
   RuleBound,
   SurveyDesign,
 } from '../wire/survey.js';
-import { NOTE_NAME, PERIOD_STATUS_NAME } from '../cep.js';
+import { NOTE_NAME, PERIOD_STATUS_NAME } from './fieldNames.js';
 import { namesUsed, readCondition, type QuestionLookup } from './condition.js';
 import { codeUsers } from './codeUses.js';
 import { questionType, readCheckRule } from './logic.js';
