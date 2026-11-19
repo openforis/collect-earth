@@ -112,6 +112,7 @@ import {
   type TrainingSetInput,
   type UserPlots,
   type RecordUpload,
+  type CepReplaced,
 } from './store.js';
 import type { UncertaintySettings } from '../uncertainty.js';
 import type { AreaSettings } from '../areas.js';
@@ -757,7 +758,7 @@ export class PostgresStore implements Store {
     });
   }
 
-  async replaceCep(projectId: string, expected: Buffer, served: Buffer, info: RoundInfo, original: Buffer | null): Promise<boolean> {
+  async replaceCep(projectId: string, expected: Buffer, served: Buffer, info: RoundInfo, original: Buffer | null, then: CepReplaced = {}): Promise<boolean> {
     return this.withProject(projectId, async (client) => {
       // Compared by digest: the row is locked by the update, so two changes made on the same CEP cannot both pass
       const res = await client.query(
@@ -765,12 +766,20 @@ export class PostgresStore implements Store {
           WHERE project_id = $1 AND sha256(data) = $5`,
         [projectId, served, original, JSON.stringify(info), createHash('sha256').update(expected).digest()],
       );
-      return (res.rowCount ?? 0) > 0;
+      if ((res.rowCount ?? 0) === 0) return false;
+      // In the same transaction: an upload cannot come between the file and its versions
+      if (then.dropVersions) await client.query('DELETE FROM survey_versions WHERE project_id = $1', [projectId]);
+      if (then.version) await this.insertVersion(client, projectId, then.version);
+      return true;
     });
   }
 
   async addSurveyVersion(projectId: string, input: SurveyVersionInput): Promise<SurveyVersion> {
-    return this.withProject(projectId, async (client) => {
+    return this.withProject(projectId, (client) => this.insertVersion(client, projectId, input));
+  }
+
+  private async insertVersion(client: pg.PoolClient, projectId: string, input: SurveyVersionInput): Promise<SurveyVersion> {
+    {
       const id = randomUUID();
       const res = await client.query(
         `INSERT INTO survey_versions (id, project_id, created_by, changes, restored_from, survey_gz, original_gz)
@@ -785,7 +794,7 @@ export class PostgresStore implements Store {
         [projectId, SURVEY_VERSIONS_KEPT],
       );
       return { id, createdAt: (res.rows[0].created_at as Date).getTime(), createdBy: input.createdBy, changes: input.changes, restoredFrom: input.restoredFrom };
-    });
+    }
   }
 
   async listSurveyVersions(projectId: string): Promise<SurveyVersion[]> {

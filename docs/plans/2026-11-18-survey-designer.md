@@ -681,3 +681,15 @@ spoiled, updates that did not reach people, and slow typing; all of it is fixed 
   bar. Accessibility: the Required choice is named after its question, headings hold their buttons, tooltips on
   disabled buttons, larger buttons on phones. Wording and translations corrected (language names, the texts
   spreadsheet's column, the versions and problems texts).
+- *Desktop, second review.* Opening the same cloud project again from the list or an invitation with a changed survey
+  sends the records not sent first when it is the project open, and is refused otherwise ("open it as it is, so that
+  they are sent"): `CloudService.sendBeforeTheSurveyChanges`. Only a survey error at the first start (Collect's
+  `SurveyValidationException`, or `IdmlParseException` / `CodeListImportException`, wrapped or not in a
+  `SurveyImportException`) refuses the changed survey for good; any other failure (the database busy, an antivirus
+  lock) is tried once more, then the files of before come back and the change is offered again
+  (`EarthSurveyService.isSurveyError`, `CloudSurvey.notLoaded`). The files of before are kept for the start only when
+  the folder is the same project's. The survey compared with the served one is the one loaded, not the binding's.
+  A record the server refuses with an error, or that cannot be prepared, no longer holds "Update now" back
+  (`CloudSyncService.sendNow` answers `Unsent`: to send, refused); the records saved while the update downloads are
+  sent before the restart. The sync keeps the cloud project it started for: when another project is opened, the
+  last saves at the shutdown are queued and sent for the project they were made in (`CloudSyncService.projectChanged`).

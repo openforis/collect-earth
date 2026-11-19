@@ -7,9 +7,18 @@ import { isBlankAnswer } from '../quality.js';
 import { attrValue, descendants, firstChild, readXml } from './xmlTree.js';
 
 const NODE_TAGS = new Set(['entity', 'text', 'number', 'range', 'code', 'boolean', 'date', 'time', 'coordinate', 'taxon', 'file']);
-/** collect_<type>_<name> (a question of the plot), collect_entity_<table>[<row>].<type>_<name> (a column of a table) */
-const PLOT_KEY = /^collect_([a-z]+)_(.+)$/;
-const TABLE_KEY = /^collect_entity_([^[]+)\[[^\]]*\]\.([a-z]+)_(.+)$/;
+/**
+ * collect_<prefix><name> (a question of the plot), collect_entity_<table>[<row>].<prefix><name> (a column of a table),
+ * the prefix as Collect Earth writes it (impact.ts prefixOf), the longest first
+ */
+const PREFIXES = ['integer_range_', 'real_range_', 'integer_', 'real_', 'coord_', 'text_', 'code_', 'boolean_', 'date_', 'time_', 'taxon_', 'file_', 'range_'];
+const TABLE_KEY = /^collect_entity_([^[.]+)(?:\[[^\]]*\])?\.(.+)$/;
+
+/** A question's name in a summary key, its prefix taken away; undefined for a key of no known kind */
+function nameIn(key: string): string | undefined {
+  const prefix = PREFIXES.find((p) => key.startsWith(p));
+  return prefix ? key.slice(prefix.length) : undefined;
+}
 
 /** The names of the survey's questions and tables, at every level */
 function namesOf(survey: Uint8Array): Set<string> {
@@ -30,12 +39,13 @@ export function answersGone(names: ReadonlySet<string>, summary: Readonly<Record
     if (value === null || isBlankAnswer(value)) continue;
     const table = TABLE_KEY.exec(key);
     if (table) {
-      if (!names.has(table[1]) || !names.has(table[3])) return true;
+      const column = nameIn(table[2]);
+      if (!names.has(table[1]) || (column !== undefined && !names.has(column))) return true;
       continue;
     }
-    if (key.startsWith('collect_entity_')) continue;
-    const plot = PLOT_KEY.exec(key);
-    if (plot && !names.has(plot[2])) return true;
+    if (key.startsWith('collect_entity_') || !key.startsWith('collect_')) continue;
+    const name = nameIn(key.slice('collect_'.length));
+    if (name !== undefined && !names.has(name)) return true;
   }
   return false;
 }

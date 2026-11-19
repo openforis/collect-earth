@@ -261,7 +261,8 @@ export type SurveyOperation =
   | { op: 'setText'; target: WordTarget; part: 'label' | 'help' | 'message'; language: string; text: string }
   | { op: 'addLanguage'; language: string }
   /** A page, before another or last */
-  | { op: 'addPage'; label: Localized; before?: string }
+  /** `name`: the page's name in the survey (made by the server when not given) */
+  | { op: 'addPage'; label: Localized; before?: string; name?: string }
   | { op: 'movePage'; name: string; before?: string }
   /** A page nothing is on */
   | { op: 'deletePage'; name: string }

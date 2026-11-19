@@ -140,24 +140,26 @@ public class SurveyUpdateService implements ApplicationListener<ContextRefreshed
 	}
 
 	/**
-	 * The revision of the survey this computer has: the one kept when the project was opened, else (opened by an earlier
-	 * version) the one of its survey file, kept from then on. Not the server's: the person may have opened the project
-	 * before the coordinator changed its survey, and would never be offered the change.
+	 * The revision of the survey this computer has: the one of the survey loaded (EarthSurveyService), else of the
+	 * project's survey file, else the one kept when the project was opened. Not the binding's first: a project file
+	 * opened into the folder since (an older or a newer one) changes the survey without changing it. Not the server's
+	 * either: the person may have opened the project before the coordinator changed its survey, and would never be
+	 * offered the change. The binding is kept up to date with it.
 	 */
 	String knownRevision(CloudBinding binding) {
-		if (StringUtils.isNotBlank(binding.surveyRevision)) {
-			return binding.surveyRevision;
+		String known = surveys == null ? null : StringUtils.trimToNull(surveys.getLoadedSurveyRevision());
+		if (known == null) {
+			String imd = properties.getImdFile();
+			known = StringUtils.isBlank(imd) ? null : SurveyRevision.ofFile(new File(imd));
 		}
-		String imd = properties.getImdFile();
-		String local = StringUtils.isBlank(imd) ? null : SurveyRevision.ofFile(new File(imd));
-		if (local != null && StringUtils.isNotBlank(binding.folder)) {
-			properties.updateCloudBinding(new File(binding.folder), stored -> {
-				if (StringUtils.isBlank(stored.surveyRevision)) {
-					stored.surveyRevision = local;
-				}
-			});
+		if (known == null) {
+			return StringUtils.trimToNull(binding.surveyRevision);
 		}
-		return local;
+		if (!known.equals(binding.surveyRevision) && StringUtils.isNotBlank(binding.folder)) {
+			String local = known;
+			properties.updateCloudBinding(new File(binding.folder), stored -> stored.surveyRevision = local);
+		}
+		return known;
 	}
 
 	private void ask(CloudBinding binding, String served) {
@@ -188,14 +190,22 @@ public class SurveyUpdateService implements ApplicationListener<ContextRefreshed
 			return;
 		}
 		try {
-			int unsent = sendRecords();
-			if (unsent > 0) {
+			CloudSyncService.Unsent unsent = sendRecords();
+			if (unsent.getToSend() > 0) {
 				// Taken now, they would be read with the new survey after the restart and sent in its shape: the answers
 				// of the questions taken away lost, the new ones sent empty
-				logger.info("The changed survey is not taken now: {} records are not sent yet", unsent);
+				logger.info("The changed survey is not taken now: {} records are not sent yet ({} refused)", unsent.getToSend(), unsent.getRefused());
 				noticed = null; // offered again at the next check
-				post(Notice.WARNING, MessageFormat.format(Messages.getString("CloudSurvey.unsent"), unsent));
+				String message = MessageFormat.format(Messages.getString("CloudSurvey.unsent"), unsent.getToSend());
+				if (unsent.getRefused() > 0) {
+					message += " " + MessageFormat.format(Messages.getString("CloudSurvey.refused"), unsent.getRefused());
+				}
+				post(Notice.WARNING, message);
 				return;
+			}
+			if (unsent.getRefused() > 0) {
+				// Sending them again changes nothing: they do not hold the survey back for good
+				logger.warn("The changed survey is taken with {} records the server refused, not sent", unsent.getRefused());
 			}
 			cloud.getObject().open(binding.projectId, binding.server);
 			updated = true;
@@ -208,17 +218,28 @@ public class SurveyUpdateService implements ApplicationListener<ContextRefreshed
 				updating.set(false);
 			}
 		}
+		// The plots saved while the project downloaded (the form kept saving): sent too, before the restart reads them
+		// with the changed survey
+		try {
+			CloudSyncService.Unsent left = sendRecords();
+			if (left.getToSend() > 0) {
+				logger.warn("{} records saved while the changed survey was taken could not be sent before the restart", left.getToSend());
+			}
+		} catch (RuntimeException e) {
+			logger.warn("The records saved meanwhile could not be sent before the restart", e);
+		}
 		if (restart != null) {
 			restart.run();
 		}
 	}
 
 	/** The form's last changes written, then the records not sent yet sent now: how many could not be */
-	private int sendRecords() {
+	private CloudSyncService.Unsent sendRecords() {
 		if (surveys != null) {
 			surveys.flushAll();
 		}
-		return sync == null ? 0 : sync.sendNow(SEND_TIMEOUT_MS);
+		CloudSyncService.Unsent unsent = sync == null ? null : sync.sendNow(SEND_TIMEOUT_MS);
+		return unsent == null ? CloudSyncService.Unsent.NONE : unsent;
 	}
 
 	private void post(String severity, String message) {

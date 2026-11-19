@@ -710,6 +710,8 @@ public class CloudServiceTest {
 		signedInTo("https://c.org", peru.getPath());
 		when(api.downloadCep("https://c.org", "p2", "session-token")).thenReturn(cep);
 		when(projects.projectFolderFor(cep)).thenReturn(peru);
+		// The folder is this project's: opened again
+		when(properties.getCloudBinding(peru)).thenReturn(new CloudBinding(peru.getPath(), "https://c.org", "p2", "Peru", "maria"));
 		when(projects.loadCompressedProjectFile(cep, true)).thenAnswer(i -> {
 			assertTrue(SurveyUpdateBackup.isPending(peru), "kept before it is unzipped");
 			try (net.lingala.zip4j.ZipFile zip = new net.lingala.zip4j.ZipFile(cep)) {
@@ -727,6 +729,99 @@ public class CloudServiceTest {
 		java.nio.file.Files.copy(projectFile("again.cep", "<survey>after</survey>").toPath(), cep.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
 		service.open("p2", "https://c.org");
 		assertTrue(SurveyUpdateBackup.isPending(peru));
+	}
+
+	/** A folder of the project open, bound to it, with its survey of before */
+	private File peruBoundTo(String projectId, String survey) throws IOException {
+		File peru = new File(folder, "peru");
+		java.nio.file.Files.createDirectories(peru.toPath());
+		java.nio.file.Files.write(new File(peru, "placemark.idm.xml").toPath(), survey.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+		CloudBinding bound = new CloudBinding(peru.getPath(), "https://c.org", projectId, "Peru", "maria");
+		bound.surveyRevision = SurveyRevision.of(survey.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+		when(properties.getCloudBinding(peru)).thenReturn(bound);
+		return peru;
+	}
+
+	/**
+	 * Review: the project opened again from the list (or joined again by invitation) with a changed survey, while the
+	 * records of its folder are not sent and it is not the project open: refused, as unzipped now they would be read with
+	 * the changed survey after the restart. It is to be opened as it is, to send them.
+	 */
+	@Test
+	public void openingAgainAChangedSurveyOverRecordsNotSentIsRefused() throws Exception {
+		File peru = peruBoundTo("p2", "<survey>before</survey>");
+		File cep = projectFile("peru.cep", "<survey>after</survey>");
+		signedInTo("https://c.org", peru.getPath());
+		when(api.downloadCep("https://c.org", "p2", "session-token")).thenReturn(cep);
+		when(projects.projectFolderFor(cep)).thenReturn(peru);
+		when(sync.toSendCount("p2")).thenReturn(12);
+		InvalidCloudRequestException e = assertThrows(InvalidCloudRequestException.class, () -> service.open("p2", "https://c.org"));
+		assertEquals("cloud.unsentRecords", e.getCode());
+		assertEquals(java.text.MessageFormat.format(Messages.getString("CloudJoin.unsentOpenFirst"), 12, "Peru"), e.getMessage());
+		verify(projects, never()).loadCompressedProjectFile(any(), org.mockito.ArgumentMatchers.anyBoolean());
+		verify(sync, never()).sendNow(org.mockito.ArgumentMatchers.anyLong());
+		verify(properties, never()).saveCloudBinding(any());
+		assertFalse(SurveyUpdateBackup.isPending(peru));
+		assertEquals("<survey>before</survey>", new String(java.nio.file.Files.readAllBytes(new File(peru, "placemark.idm.xml").toPath()), java.nio.charset.StandardCharsets.UTF_8));
+
+		// The same survey (joined again with a new link): its records are read as they were made, nothing is refused
+		java.nio.file.Files.copy(projectFile("same.cep", "<survey>before</survey>").toPath(), cep.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+		service.open("p2", "https://c.org");
+		verify(projects).loadCompressedProjectFile(cep, true);
+	}
+
+	/** Review: the project open opened again with a changed survey: its records are sent first, and it waits for them */
+	@Test
+	public void openingAgainTheProjectOpenWithAChangedSurveySendsItsRecordsFirst() throws Exception {
+		File peru = peruBoundTo("p2", "<survey>before</survey>");
+		File cep = projectFile("peru.cep", "<survey>after</survey>");
+		signedInTo("https://c.org", peru.getPath());
+		when(properties.isCloudSyncEnabled()).thenReturn(true);
+		when(properties.getCloudProjectId()).thenReturn("p2");
+		when(properties.getCloudSyncUrl()).thenReturn("https://c.org/");
+		org.openforis.collect.earth.app.service.EarthSurveyService surveys = mock(org.openforis.collect.earth.app.service.EarthSurveyService.class);
+		service.setSurveyService(surveys);
+		when(api.downloadCep("https://c.org", "p2", "session-token")).thenReturn(cep);
+		when(projects.projectFolderFor(cep)).thenReturn(peru);
+		// Some cannot be sent now (offline): refused, nothing replaced
+		when(sync.sendNow(org.mockito.ArgumentMatchers.anyLong())).thenReturn(new CloudSyncService.Unsent(4, 1));
+		InvalidCloudRequestException e = assertThrows(InvalidCloudRequestException.class, () -> service.open("p2", "https://c.org"));
+		assertEquals("cloud.unsentRecords", e.getCode());
+		assertEquals(java.text.MessageFormat.format(Messages.getString("CloudJoin.unsentSurveyChanged"), 4, "Peru"), e.getMessage());
+		verify(projects, never()).loadCompressedProjectFile(any(), org.mockito.ArgumentMatchers.anyBoolean());
+
+		// Sent (one the server refuses does not hold it back): the form's last changes written, sent, then replaced
+		when(sync.sendNow(org.mockito.ArgumentMatchers.anyLong())).thenReturn(new CloudSyncService.Unsent(0, 1));
+		java.nio.file.Files.copy(projectFile("again.cep", "<survey>after</survey>").toPath(), cep.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+		service.open("p2", "https://c.org");
+		org.mockito.InOrder order = org.mockito.Mockito.inOrder(surveys, sync, projects);
+		order.verify(surveys).flushAll();
+		order.verify(sync).sendNow(SurveyUpdateService.SEND_TIMEOUT_MS);
+		order.verify(projects).loadCompressedProjectFile(cep, true);
+		verify(sync, never()).toSendCount(any());
+	}
+
+	/**
+	 * Review: another cloud project opened over a folder (the same survey_name: a project copied for a new year) is bound
+	 * to it now: its survey failing at the start must not put the first project's files back under the second's binding,
+	 * so nothing is kept for the start. The same project opened again keeps them.
+	 */
+	@Test
+	public void anotherProjectOpenedOverAFolderKeepsNothingForTheStart() throws Exception {
+		File peru = peruBoundTo("p1", "<survey>before</survey>");
+		File cep = projectFile("peru.cep", "<survey>after</survey>");
+		signedInTo("https://c.org", peru.getPath());
+		when(api.downloadCep("https://c.org", "p2", "session-token")).thenReturn(cep);
+		when(projects.projectFolderFor(cep)).thenReturn(peru);
+		service.open("p2", "https://c.org");
+		verify(projects).loadCompressedProjectFile(cep, true);
+		assertFalse(SurveyUpdateBackup.isPending(peru));
+		assertFalse(SurveyUpdateBackup.folderOf(peru).exists());
+		// Not bound at all (a local project of the same survey) neither
+		when(properties.getCloudBinding(peru)).thenReturn(null);
+		java.nio.file.Files.copy(projectFile("again.cep", "<survey>after</survey>").toPath(), cep.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+		service.open("p2", "https://c.org");
+		assertFalse(SurveyUpdateBackup.isPending(peru));
 	}
 
 	/** Taking a changed survey during a training goes back to the training's plots, not to the person's own */

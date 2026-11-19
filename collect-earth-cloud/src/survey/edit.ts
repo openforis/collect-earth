@@ -48,6 +48,11 @@ const ITEM_ORDER = ['code', 'label', 'description', 'item'];
 const CHECK_TAGS = ['check', 'compare', 'distance', 'pattern', 'unique'];
 /** A language as Collect writes it: ISO 639 (en), with a country when needed (pt_BR) */
 const LANGUAGE_CODE = /^[a-z]{2,3}(_[A-Z]{2})?$/;
+/** The operations that leave the schema's nodes as they are (their place, names and kinds) */
+const SCHEMA_KEPT = new Set<SurveyOperation['op']>(['setText', 'addLanguage', 'addPage', 'movePage', 'deletePage', 'setRequired', 'setShownWhen', 'addRule', 'setRule', 'deleteRule', 'setExpression', 'setFormulas', 'addList', 'deleteList', 'addItem', 'moveItem', 'deleteItem']);
+/** The operations that leave who uses each code as it is (no condition, rule, formula or question changed) */
+const USERS_KEPT = new Set<SurveyOperation['op']>(['setText', 'addLanguage', 'addPage', 'movePage', 'deletePage', 'addList', 'addItem', 'moveItem', 'deleteItem']);
+
 /** The longest text the designer writes */
 export const MAX_TEXT = 4000;
 /** The longest expression the designer writes */
@@ -244,6 +249,37 @@ export class SurveyEdit {
   }
 
   /** A page (a tab of the root's tab set) by its name */
+  /**
+   * Rewrites the texts people read (labels, help, prompts) through `change`: the element's kind (label or help) and
+   * its text as read; a text changed is written again, the others left as they are
+   */
+  rewriteTexts(change: (text: string, kind: 'label' | 'help') => string): void {
+    for (const e of [...descendants(this.doc.root)]) {
+      const name = localName(e);
+      if (name !== 'label' && name !== 'description' && name !== 'prompt' && name !== 'message') continue;
+      if (childElements(e).length > 0) continue;
+      const text = textValue(this.doc, e);
+      const next = change(text, name === 'description' ? 'help' : 'label');
+      if (next !== text && next.trim() !== '') setText(e, next);
+    }
+  }
+
+  /** The names of every page */
+  pageNames(): Set<string> {
+    const names = new Set<string>();
+    const options = firstChild(this.survey, 'applicationOptions');
+    for (const e of options ? descendants(options) : []) {
+      const name = localName(e) === 'tab' ? attrValue(this.doc, e, 'name') : undefined;
+      if (name) names.add(name);
+    }
+    return names;
+  }
+
+  /** The highest id the survey gives (what nextId counts from) */
+  lastIdValue(): number {
+    return this.highestId();
+  }
+
   page(name: string): XmlElement {
     const options = firstChild(this.survey, 'applicationOptions');
     if (options) {
@@ -254,15 +290,27 @@ export class SurveyEdit {
     throw new SurveyEditError(`No page ${name}.`);
   }
 
+  /** The schema's nodes, read once until a node is added, deleted or moved */
+  private schemaIndex: Map<XmlElement, SchemaNode> | undefined;
+  /** Who uses each code (codeUsers), read once until a condition, rule, formula or question changes */
+  private usersOfCodes: Map<string, Map<string, Set<string>>> | undefined;
+
   /** Applies one of the designer's operations; throws SurveyEditError when it cannot be */
   apply(op: SurveyOperation): void {
+    // What an operation changes of what is read once (a save of thousands of operations stays a matter of seconds)
+    if (!SCHEMA_KEPT.has(op.op)) this.schemaIndex = undefined;
+    if (!USERS_KEPT.has(op.op)) this.usersOfCodes = undefined;
+    this.applyOne(op);
+  }
+
+  private applyOne(op: SurveyOperation): void {
     switch (op.op) {
       case 'addLanguage':
         return this.addLanguage(op.language);
       case 'setText':
         return this.applyText(op);
       case 'addPage':
-        return void this.addPage(op.label, op.before);
+        return void this.addPage(op.label, op.before, op.name);
       case 'movePage':
         return this.movePage(op.name, op.before);
       case 'deletePage':
@@ -288,6 +336,8 @@ export class SurveyEdit {
       case 'setFormulas':
         return this.setFormulas(op.id, op.formulas);
       case 'addList':
+        // Collect refuses a list of no answers (<items/>)
+        if (op.items.length === 0) throw new SurveyEditError('A list needs at least one answer.');
         return void this.addNewList(op.label, op.items, op.name);
       case 'deleteList':
         return this.removeList(this.list(op.name));
@@ -334,6 +384,13 @@ export class SurveyEdit {
         const tab = this.page(t.name);
         // The tab's labels carry its prefix (n0:label)
         const prefix = tab.name.includes(':') ? tab.name.slice(0, tab.name.indexOf(':') + 1) : '';
+        // Collect refuses a page with no name in any language
+        if (text === undefined) {
+          const labels = childrenNamed(tab, `${prefix}label`);
+          if (labels.length === 0 || labels.every((l) => (attrValue(this.doc, l, 'xml:lang') ?? languages[0]) === op.language)) {
+            throw new SurveyEditError('A page keeps a name in at least one language.');
+          }
+        }
         this.setLocalized(tab, `${prefix}label`, op.language, text, undefined, [`${prefix}label`, `${prefix}tab`]);
         return;
       }
@@ -406,12 +463,17 @@ export class SurveyEdit {
   }
 
   /** A new page, before another or last; its name is made from a new id, as Collect names tabs */
-  addPage(labels: Record<string, string>, before?: string): XmlElement {
+  addPage(labels: Record<string, string>, before?: string, name?: string): XmlElement {
     const set = this.tabSet();
     const checked = this.checkedLabels(labels);
+    if (name !== undefined) {
+      // A page's name is Collect's tab name (tab_1312 in the templates), not a question's
+      if (!/^[A-Za-z][A-Za-z0-9_]{0,62}$/.test(name)) throw new SurveyEditError(`${name} is not a page name.`);
+      if (this.pageNames().has(name)) throw new SurveyEditError(`There is a page ${name} already.`);
+    }
     const tab = newElement(
       this.tabTag('tab'),
-      [['name', `tab_${this.nextId()}`]],
+      [['name', name ?? `tab_${this.nextId()}`]],
       Object.entries(checked).map(([language, text]) => newElement(this.tabTag('label'), [['xml:lang', language]], [text])),
     );
     const at = before === undefined ? undefined : this.page(before);
@@ -502,6 +564,17 @@ export class SurveyEdit {
         if (attrValue(this.doc, of, 'multiple') === 'true') throw new SurveyEditError(`${op.parent} takes several answers: a sub-list follows a question of one answer.`);
         const list = attrValue(this.doc, of, 'list') ?? '';
         if (op.list !== undefined && op.list !== list) throw new SurveyEditError(`A sub-list takes the list of ${op.parent}.`);
+        // Collect wants the list's level under the one of the question followed (invalid_parent_attribute_relation)
+        let level = 1;
+        for (let at = of, seen = 0; attrValue(this.doc, at, 'parent') && seen < 10; seen++) {
+          const up = childElements(parent).find((c) => c.name === 'code' && attrValue(this.doc, c, 'name') === attrValue(this.doc, at, 'parent'));
+          if (!up) break;
+          level++;
+          at = up;
+        }
+        const items = firstChild(this.list(list), 'items');
+        const deepest = items ? Math.max(0, ...[...descendants(items)].filter((i) => i.name === 'item').map((i) => this.depthOf(i))) : 0;
+        if (deepest <= level) throw new SurveyEditError(`The list of ${op.parent} has no answers under its answers yet: add some first (the arrow beside an answer).`);
         attrs.push(['list', list], ['parent', op.parent]);
       } else {
         if (!op.list) throw new SurveyEditError('A choice needs its answer list.');
@@ -590,7 +663,7 @@ export class SurveyEdit {
     const keyName = uniqueName(`${name.slice(0, 36)}_row`, taken);
     const key = newElement(
       'code',
-      [['id', String(id + 1)], ['name', keyName], ['required', 'true'], ['key', 'true'], ['list', op.rows]],
+      [['id', String(this.nextId())], ['name', keyName], ['required', 'true'], ['key', 'true'], ['list', op.rows]],
       this.labelsOf(Object.keys(listLabels).length > 0 ? listLabels : { [this.languages()[0]]: op.rows }, 'instance'),
     );
     const table = newElement(
@@ -844,7 +917,12 @@ export class SurveyEdit {
     const list = this.list(listName);
     const item = this.item(list, code);
     if (childrenNamed(item, 'item').length > 0) throw new SurveyEditError(`The answer ${code} has answers under it: delete them first.`);
-    const users = codeUsers(this.doc, this.schema()).get(listName)?.get(code);
+    // Collect refuses a list of no answers (<items/>)
+    if (item.parent?.name === 'items' && childrenNamed(item.parent, 'item').length === 1) {
+      throw new SurveyEditError(`${code} is the list's last answer: a list keeps at least one (delete the list instead).`);
+    }
+    this.usersOfCodes ??= codeUsers(this.doc, this.schema());
+    const users = this.usersOfCodes.get(listName)?.get(code);
     if (users && users.size > 0) throw new SurveyEditError(`The answer ${code} is used by ${[...users].join(', ')}: change that first.`);
     removeElement(item);
     this.codeIndex(list).delete(code);
@@ -1025,8 +1103,16 @@ export class SurveyEdit {
 
   /** The schema node of an element of the tree */
   private schemaNode(e: XmlElement): SchemaNode {
-    const find = (n: SchemaNode): SchemaNode | undefined => (n.element === e ? n : n.children.map(find).find((x) => x));
-    const node = find(schemaOf(this.doc));
+    if (!this.schemaIndex) {
+      const index = new Map<XmlElement, SchemaNode>();
+      const add = (n: SchemaNode) => {
+        index.set(n.element, n);
+        n.children.forEach(add);
+      };
+      add(schemaOf(this.doc));
+      this.schemaIndex = index;
+    }
+    const node = this.schemaIndex.get(e);
     if (!node) throw new SurveyEditError('Not a question of the survey.');
     return node;
   }

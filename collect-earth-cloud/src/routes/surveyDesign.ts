@@ -44,6 +44,40 @@ import type {
   WordTarget,
 } from '../wire/survey.js';
 
+/**
+ * The operations with a name given to each new page that has none: one neither survey has (the served one, and the
+ * uploaded one when it differs), as the designer makes them (tab_<number>)
+ */
+function namedPages(operations: SurveyOperation[], served: SurveyEdit, original: Buffer | null): SurveyOperation[] {
+  if (!operations.some((o) => o.op === 'addPage' && o.name === undefined)) return operations;
+  const taken = served.pageNames();
+  let next = served.lastIdValue() + 1;
+  if (original) {
+    try {
+      const other = new SurveyEdit(surveyOf(readCep(original)));
+      for (const n of other.pageNames()) taken.add(n);
+      next = Math.max(next, other.lastIdValue() + 1);
+    } catch (err) {
+      if (!(err instanceof XmlTreeError || err instanceof SurveyEditError || err instanceof CepError)) throw err;
+    }
+  }
+  for (const o of operations) if (o.op === 'addPage' && o.name !== undefined) taken.add(o.name);
+  return operations.map((o) => {
+    if (o.op !== 'addPage' || o.name !== undefined) return o;
+    while (taken.has(`tab_${next}`)) next++;
+    const name = `tab_${next++}`;
+    taken.add(name);
+    return { ...o, name };
+  });
+}
+
+const UNREADABLE = { error: 'unreadable', reason: 'the survey of the project file cannot be read' };
+
+/** The changes whose impact reads no plot */
+const CHEAP_IMPACT = new Set<SurveyOperation['op']>(['setText', 'addLanguage', 'addPage', 'movePage', 'deletePage', 'addQuestion', 'moveQuestion', 'addList', 'addItem', 'moveItem', 'addTable']);
+/** The most tries of a change on a plot one impact request makes */
+const MAX_IMPACT_TRIES = 500_000;
+
 /** The most operations one save takes */
 const MAX_OPERATIONS = 2000;
 /** The most answers one save adds, in new lists and one by one (a save stays a matter of a second or two) */
@@ -150,7 +184,9 @@ function readOperation(raw: unknown): SurveyOperation | null {
     }
     case 'addPage': {
       const label = readLocalized(o.label);
-      return label && optionalString(o.before) ? { op: 'addPage', label, ...(o.before !== undefined ? { before: o.before } : {}) } : null;
+      return label && optionalString(o.before) && optionalString(o.name, 63)
+        ? { op: 'addPage', label, ...(o.before !== undefined ? { before: o.before } : {}), ...(o.name !== undefined ? { name: o.name } : {}) }
+        : null;
     }
     case 'movePage':
       return isString(o.name) && optionalString(o.before) ? { op: 'movePage', name: o.name, ...(o.before !== undefined ? { before: o.before } : {}) } : null;
@@ -359,9 +395,10 @@ export async function registerSurveyDesignRoutes(app: FastifyInstance, store: St
     if (over) return { status: 413, body: over };
     // Written only while the project file is still the one the change was made on: of two changes at once, the
     // second is refused as one made on a survey read before
-    const written = await store.replaceCep(projectId, served, nextServed, (await store.getRoundInfo(projectId)) ?? roundInfoOf(nextServed), nextOriginalCep);
+    const written = await store.replaceCep(projectId, served, nextServed, (await store.getRoundInfo(projectId)) ?? roundInfoOf(nextServed), nextOriginalCep, {
+      version: { ...kept, createdBy: request.userId ?? null },
+    });
     if (!written) return { status: 409, body: { error: 'stale', reason: 'the survey changed since it was read: read it again' } satisfies SurveyChangeRefusal };
-    await store.addSurveyVersion(projectId, { ...kept, createdBy: request.userId ?? null });
     return null;
   }
 
@@ -386,8 +423,12 @@ export async function registerSurveyDesignRoutes(app: FastifyInstance, store: St
     if (revisionOf(survey) !== asked.revision) {
       return reply.code(409).send({ error: 'stale', reason: 'the survey changed since it was read: read it again' } satisfies SurveyChangeRefusal);
     }
+    const storedOriginal = await store.getOriginalCep(projectId);
+    // A new page gets the same name in the served file and the uploaded one (made from ids, it would differ: the
+    // server's fields take ids in one of them), so that the operations naming it reach it in both
+    const operations = namedPages(asked.operations, edit, storedOriginal && !storedOriginal.equals(served) ? storedOriginal : null);
     try {
-      for (const op of asked.operations) edit.apply(op);
+      for (const op of operations) edit.apply(op);
     } catch (err) {
       if (err instanceof SurveyEditError) return reply.code(400).send({ error: 'bad_request', reason: err.message } satisfies SurveyChangeRefusal);
       throw err;
@@ -401,9 +442,10 @@ export async function registerSurveyDesignRoutes(app: FastifyInstance, store: St
 
     // The same changes on the uploaded file's survey, where it differs: what it lacks (a field the server added) is
     // left as it is there
-    const storedOriginal = await store.getOriginalCep(projectId);
     let originalSurvey: Buffer | null = null;
     let nextOriginal: Buffer | null = null;
+    /** The changes the uploaded file's survey did not take (what they name is not there) */
+    let notInUploaded = 0;
     if (storedOriginal && !storedOriginal.equals(served)) {
       try {
         originalSurvey = surveyOf(readCep(storedOriginal));
@@ -411,21 +453,27 @@ export async function registerSurveyDesignRoutes(app: FastifyInstance, store: St
         // The ids differ between the two (the server's fields take some): each operation names its questions by
         // their names there, on both surveys as they are at that point
         const servedEdit = new SurveyEdit(survey);
-        for (const op of asked.operations) {
+        for (const op of operations) {
           const there = operationFor(op, servedEdit, originalEdit);
           servedEdit.apply(op);
-          if (!there) continue;
+          if (!there) {
+            notInUploaded++;
+            continue;
+          }
           try {
             originalEdit.apply(there);
           } catch (err) {
             if (!(err instanceof SurveyEditError)) throw err;
+            notInUploaded++;
           }
         }
         nextOriginal = originalEdit.bytes();
+        if (notInUploaded > 0) request.log.warn({ projectId, notInUploaded }, 'changes the uploaded project file\'s survey did not take');
       } catch (err) {
         if (!(err instanceof XmlTreeError || err instanceof SurveyEditError)) throw err;
         request.log.warn({ err }, 'the uploaded project file\'s survey could not be changed as the served one');
         nextOriginal = null;
+        notInUploaded = operations.length;
       }
     }
     const refused = await writeSurvey(request, projectId, served, next, nextOriginal, {
@@ -441,6 +489,8 @@ export async function registerSurveyDesignRoutes(app: FastifyInstance, store: St
       changes: asked.operations.length,
       ...(languages.length > 0 ? { languages: languages.join(',') } : {}),
       ...(structure > 0 ? { structure } : {}),
+      // Kept in the Activity log: the uploaded file (GET /cep/original) lacks them
+      ...(notInUploaded > 0 ? { notInUploaded } : {}),
     });
     return designAnswer(store, config, projectId, request.log);
   });
@@ -472,6 +522,11 @@ export async function registerSurveyDesignRoutes(app: FastifyInstance, store: St
       throw err;
     }
     const records = await store.listRecordSummaries(projectId);
+    // Each change tried on every plot: at most so many tries in one request (one change on 500,000 plots, 250 on 2,000)
+    const tried = operations.filter((o) => !CHEAP_IMPACT.has(o.op)).length * records.length;
+    if (tried > MAX_IMPACT_TRIES) {
+      return reply.code(400).send({ error: 'bad_request', reason: 'too many changes to try on the plots at once: save fewer at a time' } satisfies SurveyChangeRefusal);
+    }
     return surveyImpact(survey, operations, records, after) satisfies SurveyImpactAnswer;
   });
 
@@ -534,6 +589,7 @@ export async function registerSurveyDesignRoutes(app: FastifyInstance, store: St
       return (verdict.ok ? { ok: true } : { ok: false, code: verdict.code, values: verdict.values, beyondCollect: verdict.beyondCollect }) satisfies ExpressionCheckAnswer;
     } catch (err) {
       if (err instanceof SurveyEditError) return reply.code(400).send({ error: 'bad_request', reason: err.message } satisfies SurveyChangeRefusal);
+      if (err instanceof CepError || err instanceof XmlTreeError) return reply.code(409).send(UNREADABLE);
       throw err;
     }
   });
@@ -600,12 +656,23 @@ export async function registerSurveyDesignRoutes(app: FastifyInstance, store: St
     if (!isString(b.revision, 100)) return reply.code(400).send({ error: 'bad_request', reason: 'revision is missing' } satisfies SurveyChangeRefusal);
     const [served, version] = await Promise.all([store.getCep(projectId), store.getSurveyVersionData(projectId, vid)]);
     if (!served || !version) return reply.code(404).send({ error: 'not_found' });
-    const survey = surveyOf(readCep(served));
+    let survey: Buffer;
+    try {
+      survey = surveyOf(readCep(served));
+    } catch (err) {
+      if (err instanceof CepError) return reply.code(409).send(UNREADABLE);
+      throw err;
+    }
     if (revisionOf(survey) !== b.revision) {
       return reply.code(409).send({ error: 'stale', reason: 'the survey changed since it was read: read it again' } satisfies SurveyChangeRefusal);
     }
     const storedOriginal = await store.getOriginalCep(projectId);
-    const originalSurvey = storedOriginal && !storedOriginal.equals(served) ? surveyOf(readCep(storedOriginal)) : null;
+    let originalSurvey: Buffer | null = null;
+    try {
+      originalSurvey = storedOriginal && !storedOriginal.equals(served) ? surveyOf(readCep(storedOriginal)) : null;
+    } catch (err) {
+      if (!(err instanceof CepError)) throw err;
+    }
     const refused = await writeSurvey(request, projectId, served, version.survey, version.original, {
       survey,
       original: originalSurvey,

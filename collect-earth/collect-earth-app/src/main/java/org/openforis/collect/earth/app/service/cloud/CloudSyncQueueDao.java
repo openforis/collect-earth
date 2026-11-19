@@ -365,6 +365,14 @@ public class CloudSyncQueueDao {
 		return count == null ? 0 : count;
 	}
 
+	/** {@link #countToSend(String, String)} of every survey of a cloud project */
+	public synchronized int countToSend(String cloudProjectId) {
+		Integer count = jdbc().queryForObject("SELECT COUNT(*) FROM " + TABLE + " WHERE record_key <> ? AND cloud_project_id = ?" //$NON-NLS-1$ //$NON-NLS-2$
+				+ " AND sync_status IN ('" + STATUS_PENDING + "','" + STATUS_FAILED + "')", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+				Integer.class, WATERMARK_KEY, StringUtils.trimToEmpty(cloudProjectId));
+		return count == null ? 0 : count;
+	}
+
 	private static Timestamp toTimestamp(Date date) {
 		return date == null ? null : new Timestamp(date.getTime());
 	}

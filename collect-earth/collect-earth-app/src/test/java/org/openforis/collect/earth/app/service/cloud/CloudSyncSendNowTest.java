@@ -107,7 +107,7 @@ class CloudSyncSendNowTest {
 		assertTrue(queue.takeDue(200, new Date(), "uri:forest", "p1").size() < 120);
 		serverStoresAll();
 
-		assertEquals(0, sync.sendNow(10_000));
+		assertEquals(0, sync.sendNow(10_000).getToSend());
 		assertEquals(0, queue.countToSend("uri:forest", "p1"));
 		verify(api, times(3)).uploadRecordsBatch(anyList()); // batches of 50
 	}
@@ -118,7 +118,9 @@ class CloudSyncSendNowTest {
 		queue.enqueue("1", "uri:forest", "p1", "ana", saved, false);
 		queue.enqueue("2", "uri:forest", "p1", "ana", saved, false);
 		when(api.uploadRecordsBatch(anyList())).thenThrow(new IOException("No route to host"));
-		assertEquals(2, sync.sendNow(10_000));
+		CloudSyncService.Unsent unsent = sync.sendNow(10_000);
+		assertEquals(2, unsent.getToSend());
+		assertEquals(0, unsent.getRefused());
 		verify(api, times(1)).uploadRecordsBatch(anyList());
 	}
 
@@ -127,7 +129,7 @@ class CloudSyncSendNowTest {
 		Date saved = new Date();
 		queue.enqueue("1", "uri:forest", "p1", "ana", saved, false);
 		queue.markConflict(queue.takeDue(1, new Date(), "uri:forest", "p1").get(0), "The server has a newer save");
-		assertEquals(0, sync.sendNow(10_000));
+		assertEquals(0, sync.sendNow(10_000).getToSend());
 		assertEquals(1, queue.countUnsent("p1"));
 	}
 
@@ -135,8 +137,103 @@ class CloudSyncSendNowTest {
 	void signedOutNothingIsSent() throws Exception {
 		queue.enqueue("1", "uri:forest", "p1", "ana", new Date(), false);
 		when(properties.getCloudSyncToken()).thenReturn("");
-		assertEquals(1, sync.sendNow(10_000));
+		assertEquals(1, sync.sendNow(10_000).getToSend());
 		verify(api, times(0)).uploadRecordsBatch(anyList());
+	}
+
+	/**
+	 * Review: a record the server refuses with an error (or that cannot be prepared here) is sent again in vain: it does not
+	 * hold back the others, nor a changed survey, and is said apart. Those not reached the server still count.
+	 */
+	@Test
+	void recordsTheServerRefusesDoNotHoldTheOthersBack() throws Exception {
+		Date saved = new Date(System.currentTimeMillis() - 60_000);
+		// 60 refused, older than the rest: more than a batch, taken first each time
+		for (int i = 0; i < 60; i++) {
+			queue.enqueue("bad" + i, "uri:forest", "p1", "ana", saved, false);
+		}
+		Date later = new Date();
+		for (int i = 0; i < 30; i++) {
+			queue.enqueue("good" + i, "uri:forest", "p1", "ana", later, false);
+		}
+		// one that cannot be read here
+		queue.enqueue("unreadable", "uri:forest", "p1", "ana", later, false);
+		when(surveys.loadRecord(new String[] { "unreadable" })).thenThrow(new IllegalStateException("cannot be read"));
+		when(api.uploadRecordsBatch(anyList())).thenAnswer(i -> {
+			List<BatchResult> results = new ArrayList<>();
+			for (Object envelope : i.<List<?>> getArgument(0)) {
+				String key = ((CloudRecordSerializer.RecordEnvelope) envelope).getRecordKey();
+				results.add(new BatchResult(key, key.startsWith("bad") ? "error" : "stored", key.startsWith("bad") ? "invalid record" : null));
+			}
+			return results;
+		});
+
+		CloudSyncService.Unsent unsent = sync.sendNow(10_000);
+
+		assertEquals(0, unsent.getToSend(), "the refused ones do not hold anything back");
+		assertEquals(61, unsent.getRefused());
+		for (int i = 0; i < 30; i++) {
+			assertEquals(CloudSyncQueueDao.STATUS_SYNCED, queue.getRecordStatus("good" + i, "uri:forest", "p1"));
+		}
+		assertEquals(61, queue.countToSend("uri:forest", "p1"), "still retried later by the sync");
+	}
+
+	/** A record the server said nothing about, or offline: they could be sent later, so they are waited for */
+	@Test
+	void recordsTheServerSaidNothingAboutAreWaitedFor() throws Exception {
+		Date saved = new Date();
+		queue.enqueue("1", "uri:forest", "p1", "ana", saved, false);
+		queue.enqueue("2", "uri:forest", "p1", "ana", saved, false);
+		when(api.uploadRecordsBatch(anyList())).thenReturn(java.util.Collections.singletonList(new BatchResult("1", "error", "invalid")));
+		CloudSyncService.Unsent unsent = sync.sendNow(10_000);
+		assertEquals(1, unsent.getToSend());
+		assertEquals(1, unsent.getRefused());
+	}
+
+	/**
+	 * Review: another project opened applies its settings at once (its cloud project read from its folder's binding),
+	 * the survey of before still loaded until the restart. The saves written at the shutdown are queued for the project
+	 * they were made in, and the final flush sends them there, not to the project opened.
+	 */
+	@Test
+	@SuppressWarnings("unchecked")
+	void theLastSavesGoToTheProjectTheyWereMadeInWhenAnotherIsOpened() throws Exception {
+		when(properties.isCloudSyncEnabled()).thenReturn(true);
+		when(properties.getCloudSyncUrl()).thenReturn("https://a.org/");
+		when(properties.getCloudToken("https://a.org")).thenReturn("token-a");
+		org.mockito.ArgumentCaptor<org.openforis.collect.earth.app.service.AbstractEarthSurveyService.RecordSavedListener> listener = org.mockito.ArgumentCaptor
+				.forClass(org.openforis.collect.earth.app.service.AbstractEarthSurveyService.RecordSavedListener.class);
+		sync.onApplicationEvent(null);
+		try {
+			verify(surveys).addRecordSavedListener(listener.capture());
+			// Another project opened: its settings applied
+			when(properties.getCloudProjectId()).thenReturn("p2");
+			when(properties.getCloudSyncUrl()).thenReturn("https://b.org");
+			when(properties.getCloudSyncToken()).thenReturn("token-b");
+			assertTrue(sync.projectChanged());
+			// The form's last change, written at the shutdown
+			CollectRecord record = mock(CollectRecord.class);
+			when(record.getModifiedDate()).thenReturn(new Date());
+			listener.getValue().recordSaved("7", record);
+			assertEquals(1, queue.countToSend("uri:forest", "p1"));
+			assertEquals(0, queue.countToSend("uri:forest", "p2"));
+			when(api.uploadRecordsBatch(any(CloudApiClient.Destination.class), anyList()))
+					.thenReturn(java.util.Collections.singletonList(new BatchResult("7", "stored", null)));
+
+			sync.syncCycle();
+
+			org.mockito.ArgumentCaptor<CloudApiClient.Destination> to = org.mockito.ArgumentCaptor.forClass(CloudApiClient.Destination.class);
+			verify(api).uploadRecordsBatch(to.capture(), anyList());
+			assertEquals("https://a.org", to.getValue().getBaseUrl());
+			assertEquals("p1", to.getValue().getProjectId());
+			assertEquals("token-a", to.getValue().getToken());
+			verify(api, times(0)).uploadRecordsBatch(anyList());
+			// nothing of the other project's is done with this one's survey
+			verify(api, times(0)).uploadSurveyDefinition(any(), any());
+			assertEquals(CloudSyncQueueDao.STATUS_SYNCED, queue.getRecordStatus("7", "uri:forest", "p1"));
+		} finally {
+			sync.shutdownAndFlush(1000);
+		}
 	}
 
 	/** The project's name and role asked of the server do not undo a revision saved while it answered */

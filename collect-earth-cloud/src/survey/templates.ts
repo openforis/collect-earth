@@ -107,6 +107,23 @@ export interface NewSurveyOptions {
 /** The plot layout of a new project: Collect Earth's usual 5 x 5 points in a square, to change in Setup › Plot layout */
 const LAYOUT: PlotLayout = { shape: 'SQUARE', points: 25, distance: 20, boundary: 10, pointSide: 2 };
 
+/** The year the multipurpose template's texts are written for (its years list ends there) */
+const MULTIPURPOSE_LAST_YEAR = '2023';
+
+/**
+ * A template's text as people should read it: the layout of its file taken out (a label on one line; help with its
+ * line breaks, not the file's indentation), its placeholders filled where the answer is known (the last year of the
+ * multipurpose template's years, written <END YEAR>, <ANO FINAL> or 2023) and taken out where it is not (<DISTANCE>)
+ */
+export function tidyTemplateText(text: string, kind: 'label' | 'help', lastYear: number | null): string {
+  let t = kind === 'label' ? text.replace(/\s*\r?\n\s*/g, ' ').trim() : text.replace(/[ \t]*\r?\n[ \t]*/g, '\n').trim();
+  t = t.replace(/ ?<DISTANCE> ?/g, ' ').replace(/within buffer/g, 'within the buffer').replace(/ {2,}/g, ' ').trim();
+  if (lastYear !== null) {
+    t = t.replace(/<END YEAR>|<ANO FINAL>/g, String(lastYear)).replace(new RegExp(`\\b${MULTIPURPOSE_LAST_YEAR}\\b`, 'g'), String(lastYear));
+  }
+  return t;
+}
+
 /** A new project's survey (placemark.idm.xml) */
 export function newSurvey(o: NewSurveyOptions): { survey: Buffer; surveyName: string } {
   const edit = o.template === 'blank' ? blank() : new SurveyEdit(templateBytes(o.template));
@@ -121,6 +138,7 @@ export function newSurvey(o: NewSurveyOptions): { survey: Buffer; surveyName: st
     if (!TEMPLATES_WITH_YEARS.includes(o.template)) throw new SurveyEditError('This template has no list of years.');
     edit.setYears('years', o.years.first, o.years.last);
   }
+  edit.rewriteTexts((text, kind) => tidyTemplateText(text, kind, o.template === 'multipurpose' ? (o.years?.last ?? Number(MULTIPURPOSE_LAST_YEAR)) : null));
   const problems = edit.problems();
   if (problems.length > 0) throw new SurveyEditError(`The survey made has problems: ${problems.map((p) => p.code).join(', ')}.`);
   return { survey: edit.bytes(), surveyName };

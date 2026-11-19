@@ -10,6 +10,9 @@ import { surveyDesign } from '../src/survey/design.js';
 import { SurveyEdit } from '../src/survey/edit.js';
 import { surveyImpact } from '../src/survey/impact.js';
 import { readXml } from '../src/survey/xmlTree.js';
+import { parseExpression } from '../src/survey/expression.js';
+import { answersGone } from '../src/survey/olderPlots.js';
+import { newSurvey, tidyTemplateText } from '../src/survey/templates.js';
 import type { DesignQuestion, SurveyDesign, SurveyDesignAnswer, SurveyOlderAnswer } from '../src/wire/survey.js';
 import { demoCep } from './fixtures/cep.js';
 import { batchRequest, bearer, createProject, makeContext, type TestContext } from './helpers.js';
@@ -244,5 +247,100 @@ function readSurveyOf(cep: Buffer): Buffer {
 describe('the templates', () => {
   it('still have no problems', () => {
     for (const f of ['collect_earth.idm.xml', 'collect_earth_multipurpose.idm.xml', 'collect_earth_ipcc.idm.xml']) expect(checkSurvey(readFileSync(`${TEMPLATES}${f}`))).toEqual([]);
+  });
+});
+
+describe('the second review', () => {
+  const d = surveyDesign(basic);
+  const page = d.pages[0].name;
+
+  it('gives a table\'s row key an id of its own, so a column added with it in one save gets another', () => {
+    const e = new SurveyEdit(basic);
+    e.apply({ op: 'addTable', label: { en: 'Cover' }, page, rows: 'demo_codelist', name: 'cover' });
+    const table = surveyDesign(e.bytes()).pages.flatMap((p) => p.items).find((i) => i.name === 'cover')!;
+    e.apply({ op: 'addQuestion', type: 'integer', label: { en: 'Percent' }, name: 'percent', table: table.id });
+    const ids = [...e.bytes().toString('latin1').matchAll(/<(?:entity|code|number|text|boolean|date|list|item)\b[^>]*\bid="(\d+)"/g)].map((m) => m[1]);
+    expect(new Set(ids).size).toBe(ids.length);
+    const lastId = Number(/lastId="(\d+)"/.exec(e.bytes().toString('latin1'))?.[1]);
+    expect(lastId).toBeGreaterThanOrEqual(Math.max(...ids.map(Number)));
+  });
+
+  it('never leaves a list with no answers, nor a page with no name', () => {
+    expect(() => new SurveyEdit(basic).apply({ op: 'addList', name: 'empty', label: { en: 'Empty' }, items: [] })).toThrow(/at least one answer/);
+    const e = new SurveyEdit(basic);
+    e.apply({ op: 'addList', name: 'spare', label: { en: 'Spare' }, items: [{ code: 'x', label: { en: 'X' } }] });
+    expect(() => e.apply({ op: 'deleteItem', list: 'spare', code: 'x' })).toThrow(/last answer/);
+    const one = new SurveyEdit(basic);
+    one.apply({ op: 'addPage', label: { en: 'Trees' }, name: 'trees_tab' });
+    expect(() => one.apply({ op: 'setText', target: { kind: 'page', name: 'trees_tab' }, part: 'label', language: 'en', text: '' })).toThrow(/keeps a name/);
+  });
+
+  it('offers a sub-list only on a list with answers under its answers', () => {
+    expect(() => new SurveyEdit(basic).apply({ op: 'addQuestion', type: 'choice', label: { en: 'Sub' }, page, parent: 'code_demo' })).toThrow(/no answers under/);
+  });
+
+  it('refuses an expression nested too deep, rather than failing', () => {
+    expect(() => parseExpression('('.repeat(1999) + '1' + ')'.repeat(1999))).toThrow(/nested more than 100/);
+    expect(() => parseExpression('-'.repeat(3990) + '1')).toThrow(/nested more than 100/);
+    expect(() => parseExpression('((1 + 2) * 3) > 4')).not.toThrow();
+  });
+
+  it('reads a range\'s answer as its question\'s, not as one gone', () => {
+    const names = new Set(['x', 'cover', 'percent']);
+    expect(answersGone(names, { collect_integer_range_x: '1-2', collect_real_x: '3' })).toBe(false);
+    expect(answersGone(names, { 'collect_entity_cover[A].integer_percent': '3' })).toBe(false);
+    expect(answersGone(names, { 'collect_entity_cover[A].integer_gone': '3' })).toBe(true);
+    expect(answersGone(names, { collect_text_gone: 'a' })).toBe(true);
+  });
+
+  it('makes the multipurpose template\'s texts read as written for the years chosen', () => {
+    expect(tidyTemplateText('LU <END YEAR>', 'label', 2020)).toBe('LU 2020');
+    expect(tidyTemplateText('Uso de la tierra 2023\r\n\t\t\t', 'label', 2020)).toBe('Uso de la tierra 2020');
+    expect(tidyTemplateText('Disturbance within <DISTANCE> buffer', 'label', null)).toBe('Disturbance within the buffer');
+    expect(tidyTemplateText('One line\r\n\t\tand another', 'help', null)).toBe('One line\nand another');
+    const { survey } = newSurvey({ template: 'multipurpose', title: 'T', language: 'es', projectId: 'abcdef12', years: { first: 2010, last: 2020 } });
+    const text = JSON.stringify(surveyDesign(survey));
+    expect(text).not.toMatch(/<END YEAR>|<ANO FINAL>|<DISTANCE>|\\t/);
+    expect(text).not.toContain('2023');
+  });
+});
+
+describe('the second review: the routes', { timeout: 60_000 }, () => {
+  let ctx: TestContext;
+  beforeEach(async () => {
+    ctx = await makeContext();
+  });
+  afterEach(async () => {
+    await ctx.app.close();
+  });
+
+  it('gives a new page the same name in the uploaded file, so a question put on it reaches both', async () => {
+    const p = await createProject(ctx.app);
+    await ctx.app.inject({ method: 'PUT', url: `/v1/projects/${p.projectId}/cep`, headers: { ...bearer(p.adminToken), 'content-type': 'application/zip' }, payload: demoCep() });
+    const get = async () => (await ctx.app.inject({ method: 'GET', url: `/v1/projects/${p.projectId}/survey/design`, headers: bearer(p.adminToken) })).json() as SurveyDesignAnswer;
+    const save = async (operations: unknown[]) => ctx.app.inject({ method: 'POST', url: `/v1/projects/${p.projectId}/survey/design`, headers: bearer(p.adminToken), payload: { revision: (await get()).revision, operations } });
+    const lang = (await get()).design!.languages[0];
+    expect((await save([{ op: 'addPage', label: { [lang]: 'Trees' } }])).statusCode).toBe(200);
+    const page = (await get()).design!.pageOrder.at(-1)!;
+    expect((await save([{ op: 'addQuestion', type: 'integer', name: 'tree_count', label: { [lang]: 'How many trees' }, page }])).statusCode).toBe(200);
+    const files = readCep((await ctx.store.getOriginalCep(p.projectId))!);
+    const original = surveyDesign(Buffer.from(files.entries.get(files.surveyPath)!));
+    expect(original.pageOrder).toContain(page);
+    expect(questions(original).some((q) => q.name === 'tree_count')).toBe(true);
+  });
+
+  it('refuses to try too many changes on too many plots at once', async () => {
+    const p = await createProject(ctx.app);
+    await ctx.app.inject({ method: 'PUT', url: `/v1/projects/${p.projectId}/cep`, headers: { ...bearer(p.adminToken), 'content-type': 'application/zip' }, payload: demoCep() });
+    const records = (ctx.store as unknown as { projects: Map<string, { records: Map<string, unknown> }> }).projects.get(p.projectId)!.records;
+    for (let i = 0; i < 2000; i++) {
+      records.set(`${i} ana`, { projectId: p.projectId, recordKey: `${i}`, operator: 'ana', modifiedOn: 1, receivedAt: 1, activelySaved: true, step: 1, xml: null, summary: {}, deleted: false, deletedOn: null });
+    }
+    const d = (await ctx.app.inject({ method: 'GET', url: `/v1/projects/${p.projectId}/survey/design`, headers: bearer(p.adminToken) })).json() as SurveyDesignAnswer;
+    const id = questions(d.design!).find((q) => !q.fixed && !q.hidden && !q.fromPlotFile && !q.formulas)!.id;
+    const impact = (n: number) =>
+      ctx.app.inject({ method: 'POST', url: `/v1/projects/${p.projectId}/survey/design/impact`, headers: bearer(p.adminToken), payload: { operations: Array.from({ length: n }, () => ({ op: 'setRequired', id, required: true })) } });
+    expect((await impact(1)).statusCode).toBe(200);
+    expect((await impact(300)).statusCode).toBe(400);
   });
 });

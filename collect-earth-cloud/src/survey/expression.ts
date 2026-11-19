@@ -190,8 +190,22 @@ const AXES = new Set([
   'namespace', 'parent', 'preceding', 'preceding-sibling', 'self',
 ]);
 
+/** The deepest nesting read (brackets, calls, minus signs): deeper is refused, not a stack overflow */
+const MAX_DEPTH = 100;
+
 class Parser {
   private i = 0;
+  private depth = 0;
+
+  /** Reads one nested part, refusing one nested too deep */
+  private nested<T>(read: () => T): T {
+    if (++this.depth > MAX_DEPTH) throw this.error(`The expression is nested more than ${MAX_DEPTH} deep`);
+    try {
+      return read();
+    } finally {
+      this.depth--;
+    }
+  }
   constructor(private readonly tokens: Token[]) {}
 
   private peek(offset = 0): Token {
@@ -230,7 +244,7 @@ class Parser {
       left = { type: 'binary', op: t.value as BinaryOp, left, right: next() };
     }
   }
-  private orExpr = (): Expr => this.binary(this.andExpr, ['or']);
+  private orExpr = (): Expr => this.nested(() => this.binary(this.andExpr, ['or']));
   private andExpr = (): Expr => this.binary(this.equalityExpr, ['and']);
   private equalityExpr = (): Expr => this.binary(this.relationalExpr, ['=', '!=']);
   private relationalExpr = (): Expr => this.binary(this.additiveExpr, ['<', '<=', '>', '>=']);
@@ -239,7 +253,7 @@ class Parser {
   private unaryExpr = (): Expr => {
     if (this.isOp('-')) {
       this.i++;
-      return { type: 'negate', arg: this.unaryExpr() };
+      return { type: 'negate', arg: this.nested(() => this.unaryExpr()) };
     }
     return this.unionExpr();
   };
