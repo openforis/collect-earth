@@ -33,6 +33,26 @@ import Upload from "@mui/icons-material/Upload";
 import VisibilityOutlined from "@mui/icons-material/VisibilityOutlined";
 import SubdirectoryArrowRight from "@mui/icons-material/SubdirectoryArrowRight";
 import CheckCircleOutline from "@mui/icons-material/CheckCircleOutlined";
+import FormatListBulleted from "@mui/icons-material/FormatListBulleted";
+import Checklist from "@mui/icons-material/Checklist";
+import ToggleOnOutlined from "@mui/icons-material/ToggleOnOutlined";
+import Numbers from "@mui/icons-material/Numbers";
+import ShortText from "@mui/icons-material/ShortText";
+import Notes from "@mui/icons-material/Notes";
+import EventOutlined from "@mui/icons-material/EventOutlined";
+import ScheduleOutlined from "@mui/icons-material/ScheduleOutlined";
+import StraightenOutlined from "@mui/icons-material/StraightenOutlined";
+import PlaceOutlined from "@mui/icons-material/PlaceOutlined";
+import ParkOutlined from "@mui/icons-material/ParkOutlined";
+import AttachFileOutlined from "@mui/icons-material/AttachFileOutlined";
+import KeyOutlined from "@mui/icons-material/KeyOutlined";
+import EmergencyOutlined from "@mui/icons-material/EmergencyOutlined";
+import VisibilityOffOutlined from "@mui/icons-material/VisibilityOffOutlined";
+import CalculateOutlined from "@mui/icons-material/CalculateOutlined";
+import SmartButtonOutlined from "@mui/icons-material/SmartButtonOutlined";
+import ArrowDropDownCircleOutlined from "@mui/icons-material/ArrowDropDownCircleOutlined";
+import FileDownloadOffOutlined from "@mui/icons-material/FileDownloadOffOutlined";
+import ListItemIcon from "@mui/material/ListItemIcon";
 import { createContext, memo, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import {
   ApiError,
@@ -58,6 +78,7 @@ import {
   type SurveyImpactAnswer,
   type SurveyOperation,
   type NewQuestionType,
+  type QuestionType,
   type SurveyProblem,
   type WordTarget,
 } from "../api";
@@ -130,6 +151,23 @@ import { builderRule, conditionQuestions, listOptions, ruleKinds } from "./surve
 
 /** The most answers a question shows inline; the list's card has them all */
 const INLINE_ANSWERS = 12;
+
+/** Each kind of question at a glance, beside its name (the two numbers share one: the words tell them apart) */
+const TYPE_ICONS: Record<QuestionType, typeof Numbers> = {
+  choice: FormatListBulleted,
+  choices: Checklist,
+  yesNo: ToggleOnOutlined,
+  integer: Numbers,
+  decimal: Numbers,
+  text: ShortText,
+  memo: Notes,
+  date: EventOutlined,
+  time: ScheduleOutlined,
+  range: StraightenOutlined,
+  coordinate: PlaceOutlined,
+  species: ParkOutlined,
+  file: AttachFileOutlined,
+};
 
 /** The words being changed (stage 2): what the fields show and where what is typed goes */
 interface Editing {
@@ -1394,6 +1432,7 @@ function QuestionView({ w, q, inTable, table, siblings, page }: {
   const assistant = useContext(HelpContext);
   const candidates = useMemo(() => (ruleOpen ? conditionQuestions(w.design, table ?? null, null) : []), [ruleOpen, w.design, table]);
   const label = textIn(q.label, w.language, w.design.languages) || q.name;
+  const TypeIcon = TYPE_ICONS[q.type];
   return (
     <Box data-question={q.name} data-focus-home
       sx={{ pl: 1.5, borderLeft: 3, borderColor: q.hidden || q.formulas ? "divider" : "primary.light", contentVisibility: "auto", containIntrinsicSize: "auto 160px" }}>
@@ -1402,14 +1441,17 @@ function QuestionView({ w, q, inTable, table, siblings, page }: {
       </Words>
       {siblings && <ItemTools w={w} item={q} siblings={siblings} page={page} table={table} />}
       <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap", my: 0.5 }}>
-        <Chip size="small" label={t(TYPE_KEYS[q.type])} />
-        {required && q.required === "always" && !requiredBox && <Chip size="small" color="primary" variant="outlined" label={required} />}
+        <Chip size="small" icon={<TypeIcon />} label={t(TYPE_KEYS[q.type])} />
+        {required && q.required === "always" && !requiredBox && <Chip size="small" color="primary" variant="outlined" icon={<EmergencyOutlined />} label={required} />}
         {/* A table's key column gives its rows, said on the table already */}
-        {q.key && !inTable && <Chip size="small" variant="outlined" label={t("survey.key")} />}
-        {q.hidden && <Chip size="small" variant="outlined" label={t("survey.notShown")} />}
-        {q.formulas && <Chip size="small" variant="outlined" label={t("survey.isCalculated")} />}
-        {q.layout && <Chip size="small" variant="outlined" label={t(q.layout === "buttons" ? "survey.layout.buttons" : "survey.layout.dropdown")} />}
-        {q.notExported && <Chip size="small" variant="outlined" label={t("survey.notExported")} />}
+        {q.key && !inTable && <Chip size="small" variant="outlined" icon={<KeyOutlined />} label={t("survey.key")} />}
+        {q.hidden && <Chip size="small" variant="outlined" icon={<VisibilityOffOutlined />} label={t("survey.notShown")} />}
+        {q.formulas && <Chip size="small" variant="outlined" icon={<CalculateOutlined />} label={t("survey.isCalculated")} />}
+        {q.layout && (
+          <Chip size="small" variant="outlined" icon={q.layout === "buttons" ? <SmartButtonOutlined /> : <ArrowDropDownCircleOutlined />}
+            label={t(q.layout === "buttons" ? "survey.layout.buttons" : "survey.layout.dropdown")} />
+        )}
+        {q.notExported && <Chip size="small" variant="outlined" icon={<FileDownloadOffOutlined />} label={t("survey.notExported")} />}
       </Stack>
       <Words target={{ kind: "node", id: q.id }} part="help" value={q.help} label={t("survey.edit.help")} multiline>
         {help && (
@@ -2103,11 +2145,15 @@ function AddQuestionDialog({ w, where, onClose, onAdd }: {
               // The answers under another's follow a question of one answer: another kind takes a list of its own
               if (next !== "choice" && listName.startsWith(SUB_LIST)) setListName(NEW_LIST);
             }}>
-            {NEW_TYPES.map((k) => (
-              <MenuItem key={k} value={k}>
-                {t(TYPE_KEYS[k])}
-              </MenuItem>
-            ))}
+            {NEW_TYPES.map((k) => {
+              const Icon = TYPE_ICONS[k];
+              return (
+                <MenuItem key={k} value={k}>
+                  <ListItemIcon sx={{ verticalAlign: "middle" }}><Icon fontSize="small" /></ListItemIcon>
+                  {t(TYPE_KEYS[k])}
+                </MenuItem>
+              );
+            })}
           </TextField>
           {choice && (
             <TextField select label={t("survey.add.list")} value={listName} onChange={(e) => setListName(e.target.value)}
