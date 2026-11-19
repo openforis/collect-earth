@@ -279,21 +279,30 @@ async function loadFieldTypes(i: Instance) {
   fieldTypes = types;
 }
 
-function answer(name: string, info: FieldInfo): string {
+/**
+ * An answer for a field the form says is wrong or missing; `tries`, how often it said so of this field in this plot:
+ * each try another value, as a person reads the rule and answers again (a number within a rule's limits, a year after
+ * another, a text of some length)
+ */
+const NUMBERS = ['10', '15', '12', '50', '100', '3', '1', '0', '2015', '2020', '7', '25'];
+const TEXTS = ['checked', 'Forest edge', 'A', 'Seen on the imagery of the plot', 'ok'];
+const DATES = ['2026-11-14', '2020-06-15', '2015-01-10', '2024-03-01'];
+function answer(name: string, info: FieldInfo, tries = 0): string {
   const codes = (info.possibleCodedItems ?? []).map((c) => c.code).filter((c) => c !== '-1');
   if (codes.length) return codes[Math.floor(Math.random() * codes.length)];
   const type = fieldTypes?.get(name);
-  if (type === 'boolean') return 'true';
-  if (type === 'integer' || type === 'real' || type === 'number' || type === 'range') return String(1 + Math.floor(Math.random() * 9));
-  if (type === 'date') return '2026-11-14';
-  return 'checked';
+  if (type === 'boolean') return tries % 2 === 0 ? 'true' : 'false';
+  if (type === 'integer' || type === 'real' || type === 'number' || type === 'range') return NUMBERS[tries % NUMBERS.length];
+  if (type === 'date') return DATES[tries % DATES.length];
+  return TEXTS[tries % TEXTS.length];
 }
 
 /** Fills a plot as a person does: answers, saves, answers what the form says is missing, saves again, until it is complete. */
 async function fillPlot(i: Instance, plot: string) {
   // No second land use change: the rarer branch with its own rules on the years
   const values: Record<string, string> = { collect_boolean_actively_saved: 'true', collect_boolean_second_lu_change: 'false', collect_boolean_land_use_subdivision_change: 'false' };
-  for (let attempt = 0; attempt < 10; attempt++) {
+  const tries = new Map<string, number>();
+  for (let attempt = 0; attempt < 16; attempt++) {
     const body = new URLSearchParams({ placemarkId: plot, currentStep: '0', partialUpdate: 'false' });
     for (const [k, v] of Object.entries(values)) body.append(`values[${k}]`, v);
     const started = performance.now();
@@ -315,7 +324,11 @@ async function fillPlot(i: Instance, plot: string) {
       return;
     }
     for (const [name, info] of Object.entries(result.inputFieldInfoByParameterName ?? {})) {
-      if (info.inError && info.visible !== false) values[name] = answer(name, info);
+      if (info.inError && info.visible !== false) {
+        const n = tries.get(name) ?? 0;
+        tries.set(name, n + 1);
+        values[name] = answer(name, info, n);
+      }
     }
     // The person reads what the form says, then answers
     await sleep(between(1500, 4000));
