@@ -113,6 +113,7 @@ import {
   type UserPlots,
   type RecordUpload,
   type CepReplaced,
+  type SyncIntake,
 } from './store.js';
 import type { UncertaintySettings } from '../uncertainty.js';
 import type { AreaSettings } from '../areas.js';
@@ -229,15 +230,22 @@ export class PostgresStore implements Store {
     }
   }
 
+  /**
+   * A project transaction's start as one message (the simple protocol takes several statements): BEGIN, the project
+   * for RLS and the store's statement timeout. It was three round trips before the transaction's own queries, in every
+   * transaction: a sync of 10 mapathons at ten times the pace held the shared-core database of cloud.collectearth.org
+   * (load test, 19 Nov 2026). Both values are literals escaped by the driver (the project id is a UUID anyway).
+   */
+  private transactionStart(projectId: string): string {
+    const timeout = this.statementTimeout !== null ? `, set_config('statement_timeout', ${pg.escapeLiteral(this.statementTimeout)}, true)` : '';
+    return `BEGIN; SELECT set_config('app.current_project', ${pg.escapeLiteral(projectId)}, true)${timeout}`;
+  }
+
   /** Runs fn inside a transaction scoped to a project for RLS enforcement. */
   private async withProject<T>(projectId: string, fn: (client: pg.PoolClient) => Promise<T>): Promise<T> {
     const client = await this.connect();
     try {
-      await client.query('BEGIN');
-      await client.query('SELECT set_config($1, $2, true)', ['app.current_project', projectId]);
-      if (this.statementTimeout !== null) {
-        await client.query("SELECT set_config('statement_timeout', $1, true)", [this.statementTimeout]);
-      }
+      await client.query(this.transactionStart(projectId));
       const result = await fn(client);
       await client.query('COMMIT');
       return result;
@@ -861,40 +869,43 @@ export class PostgresStore implements Store {
   }
 
   async getRoundInfo(projectId: string): Promise<RoundInfo | null> {
-    return this.withProject(projectId, async (client) => {
-      // The file's bytes only when there is no round info yet (a project file stored before it was kept).
-      const res = await client.query(
-        'SELECT round_info, CASE WHEN round_info IS NULL THEN data END AS data FROM project_ceps WHERE project_id = $1',
-        [projectId],
-      );
-      if (res.rowCount === 0) {
-        return null;
-      }
-      const stored = res.rows[0].round_info as RoundInfo | null;
-      if (stored) {
-        return stored;
-      }
-      // Read it once and keep it. Under the row lock of the UPDATE, only the first of two
-      // concurrent readers (or an upload that came first) writes it; the others read what
-      // was written. Plot counts follow, in the same transaction, when the file reads plots
-      // with other than one key column.
-      const info = res.rows[0].data ? legacyRoundInfo(res.rows[0].data as Buffer) : null;
-      if (!info) {
-        return null;
-      }
-      const updated = await client.query(
-        'UPDATE project_ceps SET round_info = $2 WHERE project_id = $1 AND round_info IS NULL',
-        [projectId, JSON.stringify(info)],
-      );
-      if (updated.rowCount === 0) {
-        const now = await client.query('SELECT round_info FROM project_ceps WHERE project_id = $1', [projectId]);
-        return (now.rows[0]?.round_info as RoundInfo | null) ?? null;
-      }
-      if (fileKeyCount(info) !== 1) {
-        await this.recountPlotsWith(client, projectId, fileKeyCount(info));
-      }
-      return info;
-    });
+    return this.withProject(projectId, (client) => this.roundInfoWith(client, projectId));
+  }
+
+  /** getRoundInfo on a project transaction. */
+  private async roundInfoWith(client: pg.PoolClient, projectId: string): Promise<RoundInfo | null> {
+    // The file's bytes only when there is no round info yet (a project file stored before it was kept).
+    const res = await client.query(
+      'SELECT round_info, CASE WHEN round_info IS NULL THEN data END AS data FROM project_ceps WHERE project_id = $1',
+      [projectId],
+    );
+    if (res.rowCount === 0) {
+      return null;
+    }
+    const stored = res.rows[0].round_info as RoundInfo | null;
+    if (stored) {
+      return stored;
+    }
+    // Read it once and keep it. Under the row lock of the UPDATE, only the first of two
+    // concurrent readers (or an upload that came first) writes it; the others read what
+    // was written. Plot counts follow, in the same transaction, when the file reads plots
+    // with other than one key column.
+    const info = res.rows[0].data ? legacyRoundInfo(res.rows[0].data as Buffer) : null;
+    if (!info) {
+      return null;
+    }
+    const updated = await client.query(
+      'UPDATE project_ceps SET round_info = $2 WHERE project_id = $1 AND round_info IS NULL',
+      [projectId, JSON.stringify(info)],
+    );
+    if (updated.rowCount === 0) {
+      const now = await client.query('SELECT round_info FROM project_ceps WHERE project_id = $1', [projectId]);
+      return (now.rows[0]?.round_info as RoundInfo | null) ?? null;
+    }
+    if (fileKeyCount(info) !== 1) {
+      await this.recountPlotsWith(client, projectId, fileKeyCount(info));
+    }
+    return info;
   }
 
   async setReassessmentCode(projectId: string, code: string | null): Promise<void> {
@@ -1067,14 +1078,14 @@ export class PostgresStore implements Store {
     return token;
   }
 
-  async resolveSession(token: string, now = Date.now()): Promise<{ userId: string } | null> {
+  async resolveSession(token: string, now = Date.now()): Promise<{ userId: string; username: string } | null> {
     const hash = hashToken(token);
     const at = new Date(now);
     // A disabled account's sessions are deleted; the join also refuses one made meanwhile. Unused for longer than
     // SESSION_IDLE_MS: refused, and deleted below. A use is written down at most once per SESSION_TOUCH_MS.
     const res = await this.pool.query(
       `WITH hit AS (
-         SELECT s.token_hash, s.user_id, COALESCE(s.last_used_at, s.created_at) AS used
+         SELECT s.token_hash, s.user_id, u.username, COALESCE(s.last_used_at, s.created_at) AS used
            FROM sessions s JOIN users u ON u.id = s.user_id
           WHERE s.token_hash = $1 AND (s.expires_at IS NULL OR s.expires_at > $2) AND u.disabled_at IS NULL
             AND COALESCE(s.last_used_at, s.created_at) >= $2::timestamptz - make_interval(secs => $3)
@@ -1086,7 +1097,7 @@ export class PostgresStore implements Store {
          UPDATE users SET last_active_at = $2
           WHERE id IN (SELECT user_id FROM hit WHERE used < $2::timestamptz - make_interval(secs => $4))
        )
-       SELECT user_id FROM hit`,
+       SELECT user_id, username FROM hit`,
       [hash, at, SESSION_IDLE_MS / 1000, SESSION_TOUCH_MS / 1000],
     );
     if (res.rowCount === 0) {
@@ -1096,7 +1107,7 @@ export class PostgresStore implements Store {
       );
       return null;
     }
-    return { userId: res.rows[0].user_id };
+    return { userId: res.rows[0].user_id, username: res.rows[0].username };
   }
 
   async deleteSession(token: string): Promise<void> {
@@ -2813,6 +2824,32 @@ export class PostgresStore implements Store {
     return this.withProject(projectId, async (client) => {
       const res = await client.query('SELECT results FROM training_sets WHERE project_id = $1 AND id = $2', [projectId, setId]);
       return res.rowCount === 0 ? null : ((res.rows[0].results as unknown) ?? null);
+    });
+  }
+
+  async syncIntake(projectId: string): Promise<SyncIntake> {
+    return this.withProject(projectId, async (client) => {
+      // One statement: the status, the training sets' plot ids only (listTrainingSets gathers each set's people too) and
+      // the round info as stored
+      const res = await client.query(
+        `SELECT (SELECT status FROM projects WHERE id = $1) AS status,
+                COALESCE((SELECT array_agg(k) FROM training_sets s, unnest(s.plot_keys) AS k
+                           WHERE s.project_id = $1 AND s.finished_at IS NULL), '{}') AS open,
+                COALESCE((SELECT array_agg(k) FROM (
+                            SELECT unnest(s.plot_keys) AS k FROM training_sets s WHERE s.project_id = $1 AND s.finished_at IS NOT NULL
+                            UNION ALL SELECT plot_key FROM training_retired_plots WHERE project_id = $1) AS c), '{}') AS closed,
+                (SELECT round_info FROM project_ceps WHERE project_id = $1) AS round_info`,
+        [projectId],
+      );
+      const row = res.rows[0];
+      const open = row.open as string[];
+      const closed = row.closed as string[];
+      let roundInfo: RoundInfo | null = null;
+      if (open.length + closed.length > 0) {
+        // Not stored yet (a project file kept before it was): getRoundInfo's reading and keeping of it
+        roundInfo = (row.round_info as RoundInfo | null) ?? (await this.roundInfoWith(client, projectId));
+      }
+      return { status: (row.status as ProjectStatus | null) ?? null, open, closed, roundInfo };
     });
   }
 
