@@ -1138,7 +1138,10 @@ public class CloudApiClient {
 			synchronized (this) {
 				local = httpClient;
 				if (local == null) {
-					local = HttpClients.createDefault();
+					// The JVM's proxy settings (https.proxyHost, http.nonProxyHosts...) are followed, as the other
+					// connections of Collect Earth follow them: an office that reaches the internet through a proxy
+					// sets them, and createDefault() ignored them, so Collect Earth could not reach the cloud there
+					local = HttpClients.custom().useSystemProperties().build();
 					httpClient = local;
 				}
 			}
