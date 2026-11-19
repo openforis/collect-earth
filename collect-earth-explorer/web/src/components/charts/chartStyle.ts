@@ -1,5 +1,6 @@
 import type { Config, Data, Layout } from "plotly.js";
 import type { Point } from "../../lib/csv";
+import { lang, t } from "../../lib/i18n";
 
 /** What SeriesChart and CcdcChart share: the Plotly config, the base layout and the site colours. */
 
@@ -10,7 +11,9 @@ export const CONFIG: Partial<Config> = {
   displaylogo: false,
   responsive: true,
   displayModeBar: "hover",
-  modeBarButtonsToRemove: ["toImage", "lasso2d","select2d", "zoomIn2d", "zoomOut2d", "autoScale2d"],
+  modeBarButtonsToRemove: ["toImage", "sendChartToCloud", "lasso2d","select2d", "zoomIn2d", "zoomOut2d", "autoScale2d"],
+  // Registered in Plot.tsx: month and day names on the axes and in hovers, the toolbar's tooltips.
+  locale: lang,
 };
 
 /** Plotly treats a JS Date as local time; an ISO string is unambiguous UTC. */
@@ -42,9 +45,9 @@ export function baseLayout(height: number, yRange: [number, number], rangeButton
       spikedash: "solid",
       rangeselector: {
         buttons: [
-          { count: 1, step: "year", stepmode: "backward", label: "1y" },
-          { count: 5, step: "year", stepmode: "backward", label: "5y" },
-          { step: "all", label: "All" },
+          { count: 1, step: "year", stepmode: "backward", label: t("range.1y") },
+          { count: 5, step: "year", stepmode: "backward", label: t("range.5y") },
+          { step: "all", label: t("range.all") },
         ],
         x: 0,
         xanchor: "left",

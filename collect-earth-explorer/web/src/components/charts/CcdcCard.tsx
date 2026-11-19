@@ -7,6 +7,7 @@ import { postApi } from "../../lib/api";
 import { usePlot } from "../../state/PlotContext";
 import { pointsToCsv, downloadText } from "../../lib/csv";
 import { chartRequest } from "../../lib/config";
+import { t } from "../../lib/i18n";
 
 const isoDay = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 
@@ -19,7 +20,7 @@ export default function CcdcCard(props: CardProps) {
   const { path, body } = chartRequest({ type: "ccdc", params: { ...params, band } }, { plot, start, end });
   const state = useApi<CcdcData>((s) => postApi(path, body, s), [plot, start, end, band], { enabled: fold.live });
   const controls = (
-    <select aria-label="CCDC band" value={band} onChange={(e) => setBand(e.target.value as CcdcBand)}>
+    <select aria-label={t("ccdc.bandAria")} value={band} onChange={(e) => setBand(e.target.value as CcdcBand)}>
       <option value="NDFI">NDFI</option>
       <option value="NDVI">NDVI</option>
     </select>
@@ -27,7 +28,7 @@ export default function CcdcCard(props: CardProps) {
   return (
     <ChartCard
       title="CCDC (Landsat)"
-      tooltip="CCDC temporal segmentation on Landsat 7/8/9"
+      tooltip={t("ccdc.tooltip")}
       state={state}
       open={fold.open}
       onToggle={fold.toggle}

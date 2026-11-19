@@ -5,12 +5,13 @@ import CompareMap from "./components/CompareMap";
 import LayersPanel from "./components/LayersPanel";
 import { differenceBlocked, useDifferenceTiles, useLayerTiles } from "./components/LayerSources";
 import type { ApiState } from "./hooks/useApi";
-import { isRetryable, whenIdle, type TileResponse } from "./lib/api";
+import { errorText, isRetryable, tileLabel, whenIdle, type TileResponse } from "./lib/api";
 import { warm } from "./lib/prewarm";
-import { parsePlotUrl, type PlotParams } from "./lib/urlParams";
+import { NO_PLOT, parsePlotUrl, type PlotParams } from "./lib/urlParams";
 import { resolveConfig } from "./lib/config";
 import type { CardProps } from "./lib/folds";
 import Summary from "./components/Summary";
+import { t, type Key } from "./lib/i18n";
 
 // The chart cards pull in Plotly (several MB): loaded in a separate chunk after the
 // map is up, so the first paint does not wait for it.
@@ -28,15 +29,15 @@ const CARDS: Record<string, ComponentType<CardProps>> = {
 function TileStatus({ side, tiles }: { side?: string; tiles: ApiState<TileResponse> }) {
   const text =
     tiles.status === "loading"
-      ? "Loading imagery…"
+      ? t("tile.loading")
       : tiles.status === "error"
-        ? `Imagery failed: ${tiles.error?.message}`
-        : tiles.data?.label;
+        ? t("tile.failed", { error: errorText(tiles.error) })
+        : tiles.data && tileLabel(tiles.data.label);
   return (
     <div>
-      {side && `${side}: `}
+      {side && `${side} `}
       {text}
-      {tiles.status === "error" && isRetryable(tiles.error) && <button onClick={tiles.retry}>Retry</button>}
+      {tiles.status === "error" && isRetryable(tiles.error) && <button onClick={tiles.retry}>{t("retry")}</button>}
     </div>
   );
 }
@@ -71,8 +72,8 @@ function Viewer() {
             <TileStatus tiles={change} />
           ) : (
             <>
-              <TileStatus side={compare ? "Left" : undefined} tiles={tiles} />
-              {compare && <TileStatus side="Right" tiles={right} />}
+              <TileStatus side={compare ? t("map.left") : undefined} tiles={tiles} />
+              {compare && <TileStatus side={t("map.right")} tiles={right} />}
             </>
           )}
         </div>
@@ -84,15 +85,13 @@ function Viewer() {
           </a>
           <span>Explorer</span>
         </header>
-        <h2>Plot {plotId || "(no id)"}</h2>
-        <p className="dates">
-          {start} to {end}
-        </p>
+        <h2>{t("plot.title", { id: plotId || t("plot.noId") })}</h2>
+        <p className="dates">{t("plot.dates", { start, end })}</p>
         {notices.length > 0 && (
-          <p className="config-notice">This survey's Explorer settings were partly ignored: {notices.join(" ")}</p>
+          <p className="config-notice">{t("config.ignored", { notices: notices.join(" ") })}</p>
         )}
         <Summary />
-        <Suspense fallback={<div className="chart-placeholder">Loading charts…</div>}>
+        <Suspense fallback={<div className="chart-placeholder">{t("charts.loading")}</div>}>
           {charts.map((c, i) => {
             const Card = CARDS[c.type];
             return (
@@ -110,10 +109,10 @@ function Viewer() {
 }
 
 // Shown when the page is opened without a plot, so the app can be tried without Collect Earth.
-const SAMPLE_PLOTS: [name: string, lon: number, lat: number][] = [
-  ["Forest, Belize", -88.75, 17.25],
-  ["Deforestation frontier, Rondônia, Brazil", -63.0, -10.0],
-  ["Farmland, central Kenya", 37.0, -0.4],
+const SAMPLE_PLOTS: [name: Key, lon: number, lat: number][] = [
+  ["sample.belize", -88.75, 17.25],
+  ["sample.rondonia", -63.0, -10.0],
+  ["sample.kenya", 37.0, -0.4],
 ];
 const sampleHref = (name: string, lon: number, lat: number) =>
   `?geoJson=${encodeURIComponent(JSON.stringify({ type: "Point", coordinates: [lon, lat] }))}&plot_id=${encodeURIComponent(name)}`;
@@ -153,11 +152,13 @@ export default function App() {
         <div className="welcome-box">
           <img src="/logo.png" alt="Collect Earth · Open Foris" width="184" height="80" />
           <h1>Explorer</h1>
-          <p>{parsed.error}. Open this page from Collect Earth, or try a sample plot:</p>
+          <p>
+            {t(parsed.error === NO_PLOT ? "welcome.noPlot" : "welcome.badPlot")} {t("welcome.try")}
+          </p>
           <ul>
-            {SAMPLE_PLOTS.map(([name, lon, lat]) => (
-              <li key={name}>
-                <a href={sampleHref(name, lon, lat)}>{name}</a>
+            {SAMPLE_PLOTS.map(([key, lon, lat]) => (
+              <li key={key}>
+                <a href={sampleHref(t(key), lon, lat)}>{t(key)}</a>
               </li>
             ))}
           </ul>

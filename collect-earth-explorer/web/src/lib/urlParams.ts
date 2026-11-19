@@ -31,6 +31,9 @@ export function toPolygon(g: AnyGeometry): Polygon {
   throw new Error(`unsupported geometry ${g.type}`);
 }
 
+/** The error `parsePlotUrl` throws for an address without a plot (the welcome page tells it apart). */
+export const NO_PLOT = "geoJson URL parameter is required";
+
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
 /** Reads the query (`?geoJson=…&plot_id=…`) and the fragment Collect Earth builds (`#geoJson=…;plotId=…;`); the fragment wins. */
@@ -46,7 +49,7 @@ export function parsePlotUrl(search: string, now: Date = new Date(), hash: strin
     }
   }
   const geoJson = q.get("geoJson");
-  if (!geoJson) throw new Error("geoJson URL parameter is required");
+  if (!geoJson) throw new Error(NO_PLOT);
   const end = q.get("endTime") || iso(now);
   return {
     plot: toPolygon(JSON.parse(geoJson)),

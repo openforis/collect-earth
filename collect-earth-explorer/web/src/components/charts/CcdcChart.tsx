@@ -3,6 +3,7 @@ import type { Data, Layout, PlotMouseEvent, Shape } from "plotly.js";
 import Plot from "../Plot";
 import type { Point } from "../../lib/csv";
 import { CONFIG, baseLayout, iso, selectedRing } from "./chartStyle";
+import { t } from "../../lib/i18n";
 
 export type CcdcBand = "NDFI" | "NDVI";
 
@@ -45,7 +46,7 @@ export default function CcdcChart({ data, onClickObserved, selected }: CcdcChart
         y: observed.map((p) => p.value),
         type: "scatter",
         mode: "markers",
-        name: `${band} observed`,
+        name: t("ccdc.observed", { band }),
         marker: { size: 4, color: OBSERVED_COLOR, opacity: 0.85 },
         hovertemplate: "%{x|%Y-%m-%d}<br>%{y:.3f}<extra></extra>",
       },
@@ -55,7 +56,7 @@ export default function CcdcChart({ data, onClickObserved, selected }: CcdcChart
           y: segment.map((p) => p.value),
           type: "scatter",
           mode: "lines",
-          name: `Segment ${i + 1}`,
+          name: t("ccdc.segment", { n: i + 1 }),
           line: { width: 2.5, color: SEGMENT_COLORS[i % SEGMENT_COLORS.length] },
           hoverinfo: "skip",
         }),

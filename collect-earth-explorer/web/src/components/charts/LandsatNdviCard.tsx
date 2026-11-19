@@ -7,6 +7,7 @@ import { usePlot } from "../../state/PlotContext";
 import { useFold, type CardProps } from "../../lib/folds";
 import { pointsToCsv, downloadText, type Point } from "../../lib/csv";
 import { chartRequest, indexLabel, normaliseFormula } from "../../lib/config";
+import { t } from "../../lib/i18n";
 
 const isoDay = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 
@@ -26,12 +27,12 @@ export default function LandsatNdviCard(props: CardProps) {
   return (
     <ChartCard
       title={`Landsat ${label}`}
-      tooltip="Click a point to view that scene on the map"
+      tooltip={t("series.clickTooltip")}
       state={state}
       open={fold.open}
       onToggle={fold.toggle}
       controls={cloud.control}
-      onDownload={() => downloadText(`${plotId || "plot"}-landsat-${label.toLowerCase().replace(/\s+/g, "-")}.csv`, pointsToCsv(state.data!.points, ["sensor", "cloud"]))}
+      onDownload={() => downloadText(`${plotId || "plot"}-landsat-${indexLabel(params, "Custom index").toLowerCase().replace(/\s+/g, "-")}.csv`, pointsToCsv(state.data!.points, ["sensor", "cloud"]))}
     >
       {(d) => (
         <SeriesChart

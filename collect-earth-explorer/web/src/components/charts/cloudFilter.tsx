@@ -4,6 +4,7 @@ import { usePref } from "../../lib/prefs";
 import { summarize } from "../../lib/seriesStats";
 import { usePlot } from "../../state/PlotContext";
 import type { Status } from "../../hooks/useApi";
+import { t } from "../../lib/i18n";
 
 /** Each limit with its icon: from full cloud (no limit) through sun behind cloud to sun (nearly clear scenes only). */
 const LIMITS = [
@@ -29,15 +30,15 @@ export function useCloudFilter(points: Point[] | undefined, start = "40") {
   }, [points, maxCloud]);
   const control = (
     <select
-      aria-label="Maximum scene cloud cover"
+      aria-label={t("cloud.aria")}
       value={maxCloud}
       disabled={!points?.some((p) => typeof p.cloud === "number")}
       onChange={(e) => setMaxCloud(e.target.value)}
     >
-      <option value="any">☁️ Any cloud</option>
+      <option value="any">☁️ {t("cloud.any")}</option>
       {LIMITS.map(([l, icon]) => (
         <option key={l} value={l}>
-          {icon} max {l} %
+          {icon} {t("cloud.max", { n: l })}
         </option>
       ))}
     </select>

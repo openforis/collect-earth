@@ -1,6 +1,7 @@
 import { useApi, type ApiOptions } from "../hooks/useApi";
 import { postApi, type PlotBody, type TileResponse } from "../lib/api";
 import { nonDefault, type LayerEntry } from "../lib/config";
+import { t } from "../lib/i18n";
 import { usePlot, type LayerId, type PlotState, type Scene, type Year } from "../state/PlotContext";
 
 /**
@@ -58,7 +59,7 @@ export function useLayerTiles(layer: LayerId, options?: ApiOptions, override: Ov
   const side = tileSide(p, layer, override);
   return useApi<TileResponse>(
     (signal) => {
-      if (!side) return Promise.reject(new Error("no scene selected"));
+      if (!side) return Promise.reject(new Error(t("err.noScene")));
       const { path, ...fields } = side;
       return postApi(path, { plot, start, end, ...fields }, signal);
     },
@@ -70,13 +71,13 @@ export function useLayerTiles(layer: LayerId, options?: ApiOptions, override: Ov
 /** Why the NDVI difference cannot be shown for the current comparison, or undefined when it can. */
 export function differenceBlocked(p: Pick<PlotState, "layers" | "activeLayer" | "compareLayer" | "compareYear" | "compareScene" | "scene">): string | undefined {
   const radar = (l: LayerId) => l !== "scene" && p.layers[l].type === "sentinel1";
-  if (radar(p.activeLayer) || radar(p.compareLayer)) return "Not available for radar";
-  if (p.activeLayer === p.compareLayer && p.compareYear === undefined && !p.compareScene) return "Both sides show the same image";
+  if (radar(p.activeLayer) || radar(p.compareLayer)) return t("layers.blockedRadar");
+  if (p.activeLayer === p.compareLayer && p.compareYear === undefined && !p.compareScene) return t("layers.blockedSame");
   // Sentinel-2 and Landsat NDVI differ systematically, so a cross-sensor difference shows a false change everywhere.
   const sensor = (l: LayerId, scene = p.scene) => (l === "scene" ? scene?.sensor : p.layers[l].type);
   const left = sensor(p.activeLayer);
   const right = sensor(p.compareLayer, p.compareScene ?? p.scene);
-  if (left && right && left !== right) return "Only between two images of the same sensor";
+  if (left && right && left !== right) return t("layers.blockedSensor");
 }
 
 /** Fetches the NDVI change from the left side (`activeLayer`) to the right (`compareLayer` and its override). */
@@ -87,7 +88,7 @@ export function useDifferenceTiles(options?: ApiOptions) {
   const right = tileSide(p, p.compareLayer, { year: p.compareYear, scene: p.compareScene });
   return useApi<TileResponse>(
     (signal) => {
-      if (!left || !right) return Promise.reject(new Error("no scene selected"));
+      if (!left || !right) return Promise.reject(new Error(t("err.noScene")));
       return postApi("tiles/difference", { plot, start, end, left, right }, signal);
     },
     [JSON.stringify([left, right]), plot],

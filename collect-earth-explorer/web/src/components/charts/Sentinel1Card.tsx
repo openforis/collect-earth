@@ -6,6 +6,7 @@ import { postApi } from "../../lib/api";
 import { usePlot } from "../../state/PlotContext";
 import { pointsToCsv, downloadText, type Point } from "../../lib/csv";
 import { chartRequest } from "../../lib/config";
+import { t } from "../../lib/i18n";
 
 /** Backscatter in dB: most land lies between -25 and -5. */
 const DB_RANGE: [number, number] = [-30, 0];
@@ -21,7 +22,7 @@ export default function Sentinel1Card(props: CardProps) {
   return (
     <ChartCard
       title={`Sentinel-1 ${band} (dB)`}
-      tooltip="Sentinel-1 radar backscatter"
+      tooltip={t("s1.tooltip")}
       state={state}
       open={fold.open}
       onToggle={fold.toggle}

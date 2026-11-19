@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { LAST_12_MONTHS, usePlot, type LayerId, type Year } from "../state/PlotContext";
 import { layerChoices, yearRange, type LayerEntry } from "../lib/config";
 import { differenceBlocked } from "./LayerSources";
+import { t } from "../lib/i18n";
 
 const COMMIT_DELAY_MS = 400;
 /** Below this width (matches the CSS breakpoint) the panel starts collapsed behind a Layers button. */
@@ -49,11 +50,11 @@ const nameOf = (entry: LayerEntry) => (entry.params.label as string | undefined)
 function labelOf(entry: LayerEntry, year: Year | undefined) {
   const { label, start, end } = entry.params as { label?: string; start?: string; end?: string };
   if (typeof year === "number") return `${nameOf(entry)} ${year}`;
-  return label ?? (start ? `Sentinel-2 ${start} to ${end}` : "Sentinel-2, last 12 months");
+  return label ?? (start ? t("layers.s2Window", { start, end: end! }) : t("layers.s2Last12"));
 }
 
 /** "false-colour" -> "False colour", "vv" -> "VV" (a radar polarisation). */
-const bandsText = (v: string) => (v.length === 2 ? v.toUpperCase() : v[0].toUpperCase() + v.slice(1).replace("-", " "));
+const bandsText = (v: string) => (v.length === 2 ? v.toUpperCase() : t(`bands.${v}` as "bands.false-colour"));
 
 /**
  * An imagery entry's radio row with its band selector, and its year slider; each entry owns its pending year.
@@ -88,7 +89,7 @@ function LayerRow({ i, entry }: { i: number; entry: LayerEntry }) {
     <>
       <div className="layer-line">
         <Radio id={i} label={labelOf(entry, draftYear)} active={p.activeLayer} onSelect={p.setActiveLayer} />
-        <select aria-label={`${nameOf(entry)} bands`} value={p.bandsOf(i)} onChange={(e) => p.setBands(i, e.target.value)}>
+        <select aria-label={t("layers.bandsAria", { name: nameOf(entry) })} value={p.bandsOf(i)} onChange={(e) => p.setBands(i, e.target.value)}>
           {layerChoices(entry.type, "bands").map((v) => (
             <option key={v} value={v}>
               {bandsText(v)}
@@ -102,16 +103,16 @@ function LayerRow({ i, entry }: { i: number; entry: LayerEntry }) {
           <span>{min}</span>
           <input
             type="range"
-            aria-label={`${nameOf(entry)} year`}
+            aria-label={t("layers.yearAria", { name: nameOf(entry) })}
             min={min}
             max={lastStop}
             value={draftYear === LAST_12_MONTHS ? lastStop : draftYear}
             // The last stop's number is a year that does not exist for this slider: say what it is.
-            aria-valuetext={draftYear === LAST_12_MONTHS ? "Last 12 months" : undefined}
+            aria-valuetext={draftYear === LAST_12_MONTHS ? t("layers.last12") : undefined}
             onChange={(e) => setPendingYear(Number(e.target.value) > max ? LAST_12_MONTHS : Number(e.target.value))}
             style={{ "--stops": lastStop - min } as React.CSSProperties}
           />
-          <span>{lastStop > max ? "Last 12 mo" : max}</span>
+          <span>{lastStop > max ? t("layers.last12Short") : max}</span>
         </div>
       )}
     </>
@@ -132,7 +133,7 @@ export default function LayersPanel() {
 
   const toggle = (
     <button className="layers-toggle" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
-      Layers
+      {t("layers.title")}
     </button>
   );
   if (!open) return toggle;
@@ -141,24 +142,24 @@ export default function LayersPanel() {
     <>
       {toggle}
       <div className="layers-panel">
-        <strong>Layers</strong>
+        <strong>{t("layers.title")}</strong>
         {p.layers.map((entry, i) => (
           <LayerRow key={i} i={i} entry={entry} />
         ))}
         <Radio
           id="scene"
-          label={p.scene ? `Scene: ${p.scene.label}` : "Scene (click a chart point)"}
+          label={p.scene ? t("layers.scene", { label: p.scene.label }) : t("layers.sceneNone")}
           active={p.activeLayer}
           disabled={!p.scene}
           onSelect={p.setActiveLayer}
         />
         <label className="layer-row">
           <input type="checkbox" checked={p.compare} onChange={(e) => p.setCompare(e.target.checked)} />
-          Compare with
+          {t("layers.compareWith")}
         </label>
         {p.compare && (
           <select
-            aria-label="Compare layer"
+            aria-label={t("layers.compareAria")}
             value={p.compareLayer}
             onChange={(e) => p.setCompareLayer(e.target.value === "scene" ? "scene" : Number(e.target.value))}
           >
@@ -169,21 +170,21 @@ export default function LayersPanel() {
               </option>
             ))}
             <option value="scene" disabled={!p.scene}>
-              {p.scene ? `Scene: ${(p.compareScene ?? p.scene).label}` : "Scene (click a chart point)"}
+              {p.scene ? t("layers.scene", { label: (p.compareScene ?? p.scene).label }) : t("layers.sceneNone")}
             </option>
           </select>
         )}
         {p.compare && (
           <label className="layer-row" title={differenceBlocked(p)}>
             <input type="checkbox" checked={p.difference && !differenceBlocked(p)} disabled={!!differenceBlocked(p)} onChange={(e) => p.setDifference(e.target.checked)} />
-            Difference (NDVI change)
+            {t("layers.difference")}
           </label>
         )}
         {p.compare && p.difference && !differenceBlocked(p) && (
-          <div className="difference-legend" aria-label="NDVI change legend">
-            <span>loss</span>
+          <div className="difference-legend" aria-label={t("layers.legendAria")}>
+            <span>{t("layers.loss")}</span>
             <span className="difference-bar" />
-            <span>gain</span>
+            <span>{t("layers.gain")}</span>
           </div>
         )}
       </div>

@@ -55,7 +55,7 @@ describe("App", () => {
   it("explains the missing geoJson parameter instead of rendering the viewer", () => {
     window.history.replaceState({}, "", "/?");
     render(<App />);
-    expect(screen.getByText(/geoJson URL parameter is required/)).toBeTruthy();
+    expect(screen.getByText(/No plot in the address/)).toBeTruthy();
     expect(screen.queryByTestId("map")).toBeNull();
     expect(fetchMock).not.toHaveBeenCalled();
   });

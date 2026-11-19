@@ -6,6 +6,7 @@ import { postApi } from "../../lib/api";
 import { usePlot } from "../../state/PlotContext";
 import { pointsToCsv, downloadText, type Point } from "../../lib/csv";
 import { chartRequest } from "../../lib/config";
+import { t } from "../../lib/i18n";
 
 /** The rainfall colour, also used for the bars under the MODIS chart. */
 export const RAIN_COLOR = "#4a90d9";
@@ -22,14 +23,14 @@ export default function PrecipitationCard(props: CardProps) {
   const state = useApi<{ points: Point[] }>((s) => postApi(path, body, s), [plot, start, end], { enabled: fold.live });
   return (
     <ChartCard
-      title="Rainfall (mm)"
-      tooltip="Monthly rainfall, ERA5-Land"
+      title={t("rain.title")}
+      tooltip={t("rain.tooltip")}
       state={state}
       open={fold.open}
       onToggle={fold.toggle}
       onDownload={() => downloadText(`${plotId || "plot"}-rainfall.csv`, pointsToCsv(state.data!.points))}
     >
-      {(d) => <SeriesChart points={d.points} name="Rainfall" analyses={params} color={RAIN_COLOR} yRange={rainRange(d.points)} bar />}
+      {(d) => <SeriesChart points={d.points} name={t("rain.name")} analyses={params} color={RAIN_COLOR} yRange={rainRange(d.points)} bar />}
     </ChartCard>
   );
 }

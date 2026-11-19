@@ -10,6 +10,7 @@ import {
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { polygonBounds, type Polygon } from "../lib/urlParams";
+import { MAP_LOCALE } from "../lib/i18n";
 
 // MapLibre looks for its worker file next to its own module; bundled, that file does not exist and the plot
 // outline (the only non-raster layer) silently never draws. Ship the worker as an asset and point at it.
@@ -94,6 +95,7 @@ export default function MapView({ plot, tileUrl, onMap }: Props) {
       style: BASE_STYLE,
       bounds: polygonBounds(plot),
       fitBoundsOptions: { padding: 80, maxZoom: 16 },
+      locale: MAP_LOCALE,
     });
     map.addControl(new NavigationControl(), "top-right");
     map.addControl(new ScaleControl(), "bottom-right");

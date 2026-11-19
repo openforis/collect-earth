@@ -3,6 +3,7 @@ import { Map as MlMap } from "maplibre-gl";
 import Compare from "@maplibre/maplibre-gl-compare";
 import "@maplibre/maplibre-gl-compare/dist/maplibre-gl-compare.css";
 import { BASE_STYLE, addPlotOutline, setImagery } from "./MapView";
+import { MAP_LOCALE } from "../lib/i18n";
 import { polygonBounds, type Polygon } from "../lib/urlParams";
 
 interface Props {
@@ -38,6 +39,7 @@ export default function CompareMap({ plot, leftTileUrl, rightTileUrl }: Props) {
       style: BASE_STYLE,
       bounds: polygonBounds(plot),
       fitBoundsOptions: { padding: 80, maxZoom: 16 },
+      locale: MAP_LOCALE,
     };
     const left = new MlMap({ container: leftEl.current!, ...opts });
     const right = new MlMap({ container: rightEl.current!, ...opts });

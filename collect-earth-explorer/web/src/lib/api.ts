@@ -1,4 +1,5 @@
 import type { Polygon } from "./urlParams";
+import { t } from "./i18n";
 
 export interface ApiError {
   code: string;
@@ -81,12 +82,19 @@ export async function postApi<T>(
 }
 
 async function request<T>(path: string, body: PlotBody & Record<string, unknown>, signal?: AbortSignal): Promise<T> {
-  const res = await fetch(`${API_BASE}/api/${path}`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
-    signal,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}/api/${path}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+      signal,
+    });
+  } catch (e) {
+    // No answer at all (offline, DNS, CORS); an abort stays an abort.
+    if (signal?.aborted) throw e;
+    throw new ApiFailure({ code: "network", message: (e as Error).message, retryable: true }, 0);
+  }
   const parsed: unknown = await res.json().catch(() => NOT_JSON);
   if (!res.ok) {
     const err = errorOf(parsed) ?? {
@@ -116,4 +124,32 @@ export interface TileResponse {
  */
 export function isRetryable(error: unknown): boolean {
   return error instanceof ApiFailure ? error.err.retryable : true;
+}
+
+const ERROR_KEYS = { ee_busy: "err.ee_busy", not_found: "err.not_found", bad_request: "err.bad_request", internal: "err.internal", bad_json: "err.bad_json", network: "err.network" } as const;
+
+/**
+ * A failed request in the page's language: the API's known codes (app.js errorToResponse, lib/errors.js) and the
+ * client's own by their code, a bare HTTP failure by its status; another code keeps the server's (English) message.
+ * A refused request keeps the server's detail, which says what was wrong.
+ */
+export function errorText(error: Error | undefined): string {
+  if (!(error instanceof ApiFailure)) return error?.message ?? "";
+  const { code, message } = error.err;
+  if (Object.hasOwn(ERROR_KEYS, code)) return t(ERROR_KEYS[code as keyof typeof ERROR_KEYS], { detail: message });
+  if (/^http_\d+$/.test(code)) return t("err.http", { status: error.status });
+  return message;
+}
+
+/**
+ * A tile response's English `label` in the page's language. The API's labels are shared by all languages (cached), so the
+ * known forms are recognised here, keeping sensor names and dates; anything else (a scene: sensor and date) is shown as is.
+ */
+export function tileLabel(label: string): string {
+  let m: RegExpMatchArray | null;
+  if ((m = label.match(/^NDVI change: (.+?) → (.+)$/))) return t("tile.change", { left: tileLabel(m[1]), right: tileLabel(m[2]) });
+  if ((m = label.match(/^Sentinel-2 composite (\S+) to (\S+)$/))) return t("tile.s2", { start: m[1], end: m[2] });
+  if ((m = label.match(/^Sentinel-1 (\d{4}) radar composite$/))) return t("tile.s1", { year: m[1] });
+  if ((m = label.match(/^(.+) (\d{4}) composite$/))) return t("tile.composite", { sensors: m[1], year: m[2] });
+  return label;
 }

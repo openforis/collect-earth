@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { postApi, ApiFailure, isRetryable, whenIdle } from "./api";
+import { postApi, ApiFailure, errorText, isRetryable, tileLabel, whenIdle } from "./api";
+import { t } from "./i18n";
 
 const body = {
   plot: { type: "Polygon" as const, coordinates: [[[30, -2], [31, -2], [31, -3], [30, -3], [30, -2]]] },
@@ -70,6 +71,56 @@ describe("postApi", () => {
     expect(f.err.retryable).toBe(true);
     expect(f.status).toBe(200);
     expect(f.message).toBeTruthy();
+  });
+
+  it("turns a request that gets no answer into a retryable network failure, but keeps an abort", async () => {
+    fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
+    const f = await failure(postApi("tiles/sentinel2", body));
+    expect(f.err).toEqual({ code: "network", message: "Failed to fetch", retryable: true });
+    const c = new AbortController();
+    c.abort();
+    fetchMock.mockRejectedValue(new DOMException("aborted", "AbortError"));
+    await expect(postApi("tiles/sentinel2", body, c.signal)).rejects.toHaveProperty("name", "AbortError");
+  });
+});
+
+describe("errorText", () => {
+  const fail = (code: string, message: string, status = 500) => new ApiFailure({ code, message, retryable: false }, status);
+  it("translates the known codes, keeping a refused request's detail", () => {
+    expect(errorText(fail("ee_busy", "Earth Engine memory exceeded", 503))).toBe(t("err.ee_busy"));
+    expect(errorText(fail("not_found", "no Landsat scenes for 2012", 404))).toBe(t("err.not_found"));
+    expect(errorText(fail("internal", "Internal error"))).toBe(t("err.internal"));
+    expect(errorText(fail("bad_request", "plot is 120.0 ha; maximum is 100 ha", 400))).toBe("The request was refused: plot is 120.0 ha; maximum is 100 ha");
+    expect(errorText(fail("network", "Failed to fetch", 0))).toBe(t("err.network"));
+    expect(errorText(fail("http_502", "Bad Gateway", 502))).toBe("The server did not answer (HTTP 502).");
+  });
+  it("keeps the server's message for an unknown code, and a plain error's message", () => {
+    expect(errorText(fail("quota", "Quota exceeded"))).toBe("Quota exceeded");
+    expect(errorText(new Error("boom"))).toBe("boom");
+    expect(errorText(undefined)).toBe("");
+  });
+});
+
+describe("tileLabel", () => {
+  it("shows the API's English labels in the page's language, keeping sensors and dates", () => {
+    expect(tileLabel("Sentinel-2 composite 2025-11-19 to 2026-11-19")).toBe("Sentinel-2 composite 2025-11-19 to 2026-11-19");
+    expect(tileLabel("Landsat 2025 composite")).toBe("Landsat 2025 composite");
+  });
+  it("recognises every label form (in Spanish)", async () => {
+    vi.resetModules();
+    vi.doMock("./i18n", async (orig) => {
+      const m = await orig<typeof import("./i18n")>();
+      return { ...m, t: (k: Parameters<typeof m.t>[0], p?: Record<string, string | number>) => m.t(k, p, "es") };
+    });
+    const { tileLabel: es } = await import("./api");
+    vi.doUnmock("./i18n");
+    expect(es("Sentinel-2 composite 2025-11-19 to 2026-11-19")).toBe("Composición Sentinel-2 del 2025-11-19 al 2026-11-19");
+    expect(es("Landsat 8/Landsat 9 2025 composite")).toBe("Composición Landsat 8/Landsat 9 2025");
+    expect(es("Sentinel-1 2025 radar composite")).toBe("Composición de radar Sentinel-1 2025");
+    expect(es("NDVI change: Landsat 7 2010 composite → Landsat 2024-03-01")).toBe("Cambio de NDVI: Composición Landsat 7 2010 → Landsat 2024-03-01");
+    // A scene label (sensor and date) and anything unknown are shown as they come.
+    expect(es("Sentinel-2 2024-05-02")).toBe("Sentinel-2 2024-05-02");
+    expect(es("Something new")).toBe("Something new");
   });
 });
 

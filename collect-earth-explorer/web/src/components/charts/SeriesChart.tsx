@@ -5,6 +5,7 @@ import type { Point } from "../../lib/csv";
 import { CONFIG, baseLayout, iso, selectedRing } from "./chartStyle";
 import { changePoint, median as medianOf, monthlyProfile, trend, unusuallyLow, yearlyMedian } from "../../lib/seriesStats";
 import { usePref } from "../../lib/prefs";
+import { monthNames, t, tn } from "../../lib/i18n";
 
 interface Props {
   points: Point[];
@@ -46,8 +47,8 @@ const STYLE = { width: "100%", height: 266 };
 const SEASON_STYLE = { width: "100%", height: 170 };
 const RED = "#b00020";
 const GREY = "#8a857b";
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const MONTHS = monthNames("short");
+const MONTH_NAMES = monthNames("long");
 const yearOf = (ms: number) => new Date(ms).getUTCFullYear();
 
 /**
@@ -120,11 +121,11 @@ export default function SeriesChart({ points, name, color = "#587F2E", markers, 
         text: median.map((p) => String(new Date(p.date).getUTCFullYear())),
         type: "scatter",
         mode: "lines+markers",
-        name: "Yearly median",
+        name: t("chart.yearlyMedian"),
         // Dark, so the trend stands out from the coloured observations.
         marker: { size: 5, color: "#161922" },
         line: { width: 2, color: "#161922" },
-        hovertemplate: "%{text} median %{y:.3f}<extra></extra>",
+        hovertemplate: t("chart.medianHover", { year: "%{text}" }) + " %{y:.3f}<extra></extra>",
       });
     }
     if (showTrend && fit) {
@@ -134,7 +135,7 @@ export default function SeriesChart({ points, name, color = "#587F2E", markers, 
         y: years.map((y) => fit.intercept + fit.slope * y),
         type: "scatter",
         mode: "lines",
-        name: "Trend",
+        name: t("chart.trend"),
         line: { width: 2, dash: "dash", color: fit.p < 0.05 ? RED : GREY },
         hoverinfo: "skip",
       });
@@ -176,7 +177,7 @@ export default function SeriesChart({ points, name, color = "#587F2E", markers, 
   const seasonData = useMemo<Data[]>(() => {
     const x = profile.map((m) => m.month);
     const traces: Data[] = [
-      { x, y: profile.map((m) => m.q3), type: "scatter", mode: "lines", line: { width: 0, color }, hoverinfo: "skip", name: "Middle half" },
+      { x, y: profile.map((m) => m.q3), type: "scatter", mode: "lines", line: { width: 0, color }, hoverinfo: "skip", name: t("chart.middleHalf") },
       {
         x,
         y: profile.map((m) => m.q1),
@@ -186,9 +187,9 @@ export default function SeriesChart({ points, name, color = "#587F2E", markers, 
         fill: "tonexty",
         fillcolor: color + "33",
         hoverinfo: "skip",
-        name: "Middle half",
+        name: t("chart.middleHalf"),
       },
-      { x, y: profile.map((m) => m.median), type: "scatter", mode: "lines", line: { width: 2, color }, name: "Monthly median", hovertemplate: "%{y:.3f}<extra>median</extra>" },
+      { x, y: profile.map((m) => m.median), type: "scatter", mode: "lines", line: { width: 2, color }, name: t("chart.monthlyMedian"), hovertemplate: `%{y:.3f}<extra>${t("chart.median")}</extra>` },
     ];
     if (compareYear !== undefined) {
       const inYear = points.filter((p) => yearOf(p.date) === compareYear);
@@ -261,15 +262,15 @@ export default function SeriesChart({ points, name, color = "#587F2E", markers, 
         {change && onClickPoint && (
           <>
             {" "}
-            <button onClick={() => onClickPoint(sceneOf(Math.max(...years.filter((y) => y < change.year))))}>Scene before</button>{" "}
-            <button onClick={() => onClickPoint(sceneOf(change.year))}>Scene after</button>
+            <button onClick={() => onClickPoint(sceneOf(Math.max(...years.filter((y) => y < change.year))))}>{t("chart.sceneBefore")}</button>{" "}
+            <button onClick={() => onClickPoint(sceneOf(change.year))}>{t("chart.sceneAfter")}</button>
           </>
         )}
         {change && onCompareYears && (
           <>
             {" "}
-            <button title="Compare the yearly composites of the year before and the year after on the map" onClick={() => onCompareYears(change.year)}>
-              Compare years
+            <button title={t("chart.compareYearsTitle")} onClick={() => onCompareYears(change.year)}>
+              {t("chart.compareYears")}
             </button>
           </>
         )}
@@ -277,10 +278,10 @@ export default function SeriesChart({ points, name, color = "#587F2E", markers, 
           <>
             {" "}
             <button
-              title="Compare the least cloudy scene of the 3 months before the change with the least cloudy of the 3 months after"
+              title={t("chart.compareScenesTitle")}
               onClick={() => onCompareScenes(clearBefore, clearAfter)}
             >
-              Compare scenes
+              {t("chart.compareScenes")}
             </button>
           </>
         )}
@@ -288,9 +289,7 @@ export default function SeriesChart({ points, name, color = "#587F2E", markers, 
     ),
     showUnusual && unusualCount > 0 && (
       <div key="unusual">
-        <span>
-          {unusualCount} unusually low {unusualCount === 1 ? "observation" : "observations"} (red)
-        </span>
+        <span>{tn("chart.unusual", unusualCount)}</span>
       </div>
     ),
     showProfile && (
@@ -314,26 +313,26 @@ export default function SeriesChart({ points, name, color = "#587F2E", markers, 
     <>
       <Plot data={data} layout={layout} config={CONFIG} style={STYLE} onClick={onClick} />
       <div className="chart-options chart-chips">
-        {box("Yearly median", "Median", showMedian, setShowMedian)}
-        {box("Trend", "Trend", showTrend, setShowTrend)}
-        {box("Change year", "Change year", showChange, setShowChange)}
-        {box("Unusual values", "Unusual", showUnusual, setShowUnusual)}
-        {box("Seasonal profile", "Season", showSeason, setShowSeason)}
+        {box(t("chart.yearlyMedian"), t("chart.medianShort"), showMedian, setShowMedian)}
+        {box(t("chart.trend"), t("chart.trend"), showTrend, setShowTrend)}
+        {box(t("chart.changeYear"), t("chart.changeShort"), showChange, setShowChange)}
+        {box(t("chart.unusualValues"), t("chart.unusualShort"), showUnusual, setShowUnusual)}
+        {box(t("chart.seasonalProfile"), t("chart.seasonShort"), showSeason, setShowSeason)}
       </div>
       {lines.length > 0 && (
         <div className="chart-results">
           {lines}
           <button className="chart-explain" aria-expanded={helpOpen} onClick={() => setHelpOpen((o) => !o)}>
-            {helpOpen ? "Hide explanation" : "Explain"}
+            {t(helpOpen ? "chart.hideExplain" : "chart.explain")}
           </button>
         </div>
       )}
       {showProfile && (
         <>
           <div className="chart-options">
-            <span>Usual year (green) against</span>
-            <select aria-label="Year to compare" value={compareYear ?? "none"} onChange={(e) => setYearChoice(e.target.value)}>
-              <option value="none">No year</option>
+            <span>{t("chart.usualYear")}</span>
+            <select aria-label={t("chart.yearAria")} value={compareYear ?? "none"} onChange={(e) => setYearChoice(e.target.value)}>
+              <option value="none">{t("chart.noYear")}</option>
               {years.map((y) => (
                 <option key={y} value={y}>
                   {y}
@@ -347,28 +346,9 @@ export default function SeriesChart({ points, name, color = "#587F2E", markers, 
       {lines.length > 0 && helpOpen && (
         <div className="chart-help">
           {numbers && <p>{numbers}</p>}
-          <p>
-            The trend is tested on the yearly medians (Mann-Kendall test, Theil-Sen slope). The p-value is the chance of seeing a
-            trend at least this consistent if the plot had no real trend. Below 0.05 the trend is called significant: it is unlikely
-            to be chance. A high p-value does not prove that nothing changed, only that the data cannot tell. The p-value says
-            nothing about how large the change is; that is the change per year.
-          </p>
-          <p>
-            Most likely change: the year where the yearly medians shift most between a period before and a period after (Pettitt
-            test). Its p-value reads the same way. A gradual trend also produces a change year, so look at both.
-          </p>
-          <p>
-            Unusual values: an observation is marked when it is far below what is usual for its month over the whole period. Single
-            marks are often cloud or shadow that the mask missed; a run of marks suggests a real drop.
-          </p>
-          <p>
-            Seasonal profile: the usual value for each month (line) and the range that half of the observations fall in (band), with
-            one year drawn over it.
-          </p>
-          <p>
-            Cloud filter: removes observations from scenes with more cloud than the chosen limit. The limit is for the whole
-            satellite scene, not for the plot; cloudy pixels over the plot are already masked.
-          </p>
+          {(["help.trend", "help.change", "help.unusual", "help.season", "help.cloud"] as const).map((k) => (
+            <p key={k}>{t(k)}</p>
+          ))}
         </div>
       )}
     </>
@@ -376,27 +356,26 @@ export default function SeriesChart({ points, name, color = "#587F2E", markers, 
 }
 
 const pText = (p: number) => (p < 0.001 ? "p < 0.001" : `p = ${p.toFixed(3)}`);
-const verdict = (p: number) => (p < 0.05 ? "significant" : "not significant");
 
 function changeText(c: ReturnType<typeof changePoint>): string {
-  return c ? `Change in ${c.year}: ${verdict(c.p)}` : "Change year needs 8 years of data";
+  return c ? t(c.p < 0.05 ? "chart.changeSig" : "chart.changeNotSig", { year: c.year }) : t("chart.changeFew");
 }
 
 const changeNumbers = (c: NonNullable<ReturnType<typeof changePoint>>) =>
-  `Most likely change in ${c.year}: median ${c.before.toFixed(3)} before, ${c.after.toFixed(3)} after, ${pText(c.p)}.`;
+  t("chart.changeNumbers", { year: c.year, before: c.before.toFixed(3), after: c.after.toFixed(3), p: pText(c.p) });
 
 function seasonText(profile: ReturnType<typeof monthlyProfile>): string {
   const byMedian = [...profile].sort((a, b) => b.median - a.median);
   const high = byMedian[0];
   const low = byMedian[byMedian.length - 1];
-  return `Highest in ${MONTH_NAMES[high.month]}, lowest in ${MONTH_NAMES[low.month]}, seasonal swing ${(high.median - low.median).toFixed(2)}`;
+  return t("chart.season", { high: MONTH_NAMES[high.month], low: MONTH_NAMES[low.month], swing: (high.median - low.median).toFixed(2) });
 }
 
 function trendText(fit: ReturnType<typeof trend>): string {
-  if (!fit) return "Trend needs 8 years of data";
-  if (fit.p >= 0.05) return "Trend: not significant";
-  return `Trend: significant ${fit.slope >= 0 ? "increase" : "decrease"}`;
+  if (!fit) return t("chart.trendFew");
+  if (fit.p >= 0.05) return t("chart.trendNone");
+  return t(fit.slope >= 0 ? "chart.trendUp" : "chart.trendDown");
 }
 
 const trendNumbers = (fit: NonNullable<ReturnType<typeof trend>>) =>
-  `Trend: ${(fit.slope >= 0 ? "+" : "") + fit.slope.toFixed(4)} per year, ${pText(fit.p)}.`;
+  t("chart.trendNumbers", { slope: (fit.slope >= 0 ? "+" : "") + fit.slope.toFixed(4), p: pText(fit.p) });

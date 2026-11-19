@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { ApiState } from "../hooks/useApi";
-import { isRetryable } from "../lib/api";
+import { errorText, isRetryable } from "../lib/api";
+import { t } from "../lib/i18n";
 
 interface Props<T> {
   title: string;
@@ -32,12 +33,12 @@ export default function ChartCard<T>({ title, tooltip, state, onDownload, contro
         <div className="chart-card-actions">
           {open && controls}
           {open && state.status === "done" && onDownload && (
-            <button className="icon-button" aria-label="Download CSV" title="Download the data as CSV" onClick={onDownload}>
+            <button className="icon-button" aria-label={t("card.download")} title={t("card.downloadTitle")} onClick={onDownload}>
               {icon(DOWNLOAD)}
             </button>
           )}
           {onToggle && (
-            <button className="icon-button chart-fold" aria-expanded={open} aria-label={open ? "Fold chart" : "Show chart"} title={open ? "Fold chart" : "Show chart"} onClick={onToggle}>
+            <button className="icon-button chart-fold" aria-expanded={open} aria-label={t(open ? "card.fold" : "card.show")} title={t(open ? "card.fold" : "card.show")} onClick={onToggle}>
               {icon(CHEVRON)}
             </button>
           )}
@@ -45,11 +46,11 @@ export default function ChartCard<T>({ title, tooltip, state, onDownload, contro
       </header>
       {open && (
         <>
-          {state.status === "loading" && <div className="chart-placeholder"><span className="spinner" /> Computing…</div>}
+          {state.status === "loading" && <div className="chart-placeholder"><span className="spinner" /> {t("card.computing")}</div>}
           {state.status === "error" && (
             <div className="chart-placeholder chart-error">
-              {state.error?.message}
-              {isRetryable(state.error) && <button onClick={state.retry}>Retry</button>}
+              {errorText(state.error)}
+              {isRetryable(state.error) && <button onClick={state.retry}>{t("retry")}</button>}
             </div>
           )}
           {state.status === "done" && state.data && children(state.data)}

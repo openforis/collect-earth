@@ -1,5 +1,6 @@
 import catalogueJson from "../../../functions/catalogue.json";
 import type { PlotBody } from "./api";
+import { t, type Key } from "./i18n";
 
 type Spec = { type: string; min?: number; max?: number; values?: unknown[]; default?: unknown };
 type Kind = "layers" | "charts";
@@ -77,33 +78,35 @@ function formulaOk(text: unknown, bands: string[]): boolean {
   return depth === 0 && prev === "operand" && usesBand;
 }
 
-const singular = { layers: "Layer", charts: "Chart" };
+/** The notice for a skipped entry of `type`: `reason` (a key, with its `params`). */
+const skipped = (kind: Kind, type: unknown, reason: Key, params?: Record<string, string>) =>
+  t(kind === "layers" ? "notice.layerTypeSkipped" : "notice.chartTypeSkipped", { type: String(type), reason: t(reason, params) });
 
 /** One entry with every default filled in, or a notice saying why it is skipped. */
 function resolveEntry(kind: Kind, raw: unknown, maxYear: number): Entry | string {
-  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return `${singular[kind]} skipped: not an object.`;
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return t(kind === "layers" ? "notice.layerSkipped" : "notice.chartSkipped", { reason: t("reason.notObject") });
   const { type, ...given } = raw as Record<string, unknown>;
-  if (typeof type !== "string" || !Object.hasOwn(catalogue[kind], type)) return `${singular[kind]} "${type}" skipped: unknown type.`;
+  if (typeof type !== "string" || !Object.hasOwn(catalogue[kind], type)) return skipped(kind, type, "reason.unknownType");
   const specs = catalogue[kind][type].params;
   const params: Record<string, unknown> = {};
   for (const [name, value] of Object.entries(given)) {
-    if (!Object.hasOwn(specs, name)) return `${singular[kind]} "${type}" skipped: unknown parameter ${name}.`;
-    if (!check(specs[name], value, maxYear)) return `${singular[kind]} "${type}" skipped: ${name} is not valid.`;
+    if (!Object.hasOwn(specs, name)) return skipped(kind, type, "reason.unknownParam", { name });
+    if (!check(specs[name], value, maxYear)) return skipped(kind, type, "reason.invalidParam", { name });
     params[name] = value;
   }
   // Same rule as the API: a composite window needs both dates, start before end.
   if (type === "sentinel2" && ("start" in params || "end" in params) && !((params.start as string) < (params.end as string)))
-    return `${singular[kind]} "${type}" skipped: start and end must both be given, start before end.`;
+    return skipped(kind, type, "reason.window");
   // A year slider (year, years) and a fixed window (start, end) exclude each other; the API never sees year or years.
   if (type === "sentinel2" && "start" in params && ("year" in params || "years" in params))
-    return `${singular[kind]} "${type}" skipped: give either year and years or start and end.`;
+    return skipped(kind, type, "reason.yearOrWindow");
   // Same cap as the API (routes.js MAX_WINDOW_DAYS).
   if (type === "sentinel2" && "start" in params && Date.parse(params.end as string) - Date.parse(params.start as string) > 1096 * 86400000)
-    return `${singular[kind]} "${type}" skipped: the window from start to end is at most three years.`;
+    return skipped(kind, type, "reason.windowLength");
   // Same rules as the API's series routes: the formula is checked against the sensor's bands, and excludes another index.
   if ("formula" in params) {
-    if (params.index !== undefined && params.index !== specs.index.default) return `${singular[kind]} "${type}" skipped: give either index or formula.`;
-    if (!formulaOk(params.formula, catalogue.bands[type])) return `${singular[kind]} "${type}" skipped: formula is not valid.`;
+    if (params.index !== undefined && params.index !== specs.index.default) return skipped(kind, type, "reason.indexOrFormula");
+    if (!formulaOk(params.formula, catalogue.bands[type])) return skipped(kind, type, "reason.formula");
   }
   for (const [name, spec] of Object.entries(specs)) if (!(name in params) && spec.default !== undefined) params[name] = spec.default;
   return { type, params };
@@ -134,9 +137,9 @@ export function chartRequest(entry: ChartEntry, p: PlotBody): { path: string; bo
   return { path: CHART_PATHS[entry.type], body: { ...p, ...extra } };
 }
 
-/** What a Landsat or Sentinel-2 series chart is called after its sensor: the index, or the custom formula's name. */
-export const indexLabel = (params: ChartEntry["params"]) =>
-  params.formula === undefined ? (params.index as string) : (params.name as string | undefined) || "Custom index";
+/** What a Landsat or Sentinel-2 series chart is called after its sensor: the index, or the custom formula's name, else `custom`. */
+export const indexLabel = (params: ChartEntry["params"], custom = t("config.customIndex")) =>
+  params.formula === undefined ? (params.index as string) : (params.name as string | undefined) || custom;
 
 /** The allowed values of a layer type's choice parameter `name`, from the catalogue. */
 export const layerChoices = (type: string, name: string) => catalogue.layers[type].params[name].values as string[];
@@ -150,7 +153,7 @@ function resolveHalf(kind: Kind, list: unknown, maxYear: number, notices: string
   const standard = () => catalogue.standard[kind].map((e) => resolveEntry(kind, e, maxYear) as Entry);
   if (list === undefined) return standard();
   if (!Array.isArray(list)) {
-    notices.push(`The configuration's ${kind} are not a list; the standard ones are shown.`);
+    notices.push(t(kind === "layers" ? "notice.layersNotList" : "notice.chartsNotList"));
     return standard();
   }
   // An explicit empty chart list is honoured; a map always needs imagery.
@@ -176,9 +179,9 @@ export function resolveConfig(text: string | undefined, maxYear: number): { laye
       parsed = undefined;
     }
     if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-      notices.push("The survey's configuration could not be read; the standard one is shown.");
+      notices.push(t("notice.unreadable"));
     } else if ((parsed as Record<string, unknown>).v !== undefined && (parsed as Record<string, unknown>).v !== 1) {
-      notices.push(`Configuration version ${JSON.stringify((parsed as Record<string, unknown>).v)} is not supported; the standard one is shown.`);
+      notices.push(t("notice.version", { v: JSON.stringify((parsed as Record<string, unknown>).v) }));
     } else {
       doc = parsed as Record<string, unknown>;
     }
