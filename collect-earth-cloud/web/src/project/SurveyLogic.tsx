@@ -30,7 +30,7 @@ import type { MessageKey } from "../i18n";
 import { useApp } from "../appContext";
 import { ToolButton } from "./ToolButton";
 import type { ConditionRows, DesignCondition, DesignQuestion, DesignRule, ExpressionCheckAnswer, ExpressionCheckInput, NewFormula, NewRule, TotalTest } from "../api";
-import { conditionWords, languageNames, questionLabel, ruleWords, TEST_KEYS, textIn, type Words } from "./surveyDesignView";
+import { checkWords, conditionWords, languageNames, questionLabel, ruleWords, TEST_KEYS, textIn, type Words } from "./surveyDesignView";
 import { DescribeRule } from "./SurveyHelp";
 import {
   draftOf,
@@ -265,7 +265,7 @@ export function ExpressionField({ w, node, kind, label, value, onChange, helperT
           ? (check ? t("survey.check.checking") : helperText)
           : current.ok
             ? t("survey.check.ok")
-            : t(`surveyCheck.${current.code}` as MessageKey, current.values);
+            : checkWords(t, current.code, current.values);
   return (
     <TextField
       label={label}

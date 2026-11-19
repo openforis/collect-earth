@@ -344,3 +344,45 @@ describe('the second review: the routes', { timeout: 60_000 }, () => {
     expect((await impact(300)).statusCode).toBe(400);
   });
 });
+
+describe('what the dashboard words in each language', { timeout: 60_000 }, () => {
+  let ctx: TestContext;
+  beforeEach(async () => {
+    ctx = await makeContext();
+  });
+  afterEach(async () => {
+    await ctx.app.close();
+  });
+
+  it('gives a refusal a code and its values, and an expression that cannot be read its reason and place', async () => {
+    const p = await createProject(ctx.app);
+    await ctx.app.inject({ method: 'PUT', url: `/v1/projects/${p.projectId}/cep`, headers: { ...bearer(p.adminToken), 'content-type': 'application/zip' }, payload: demoCep() });
+    const get = async () => (await ctx.app.inject({ method: 'GET', url: `/v1/projects/${p.projectId}/survey/design`, headers: bearer(p.adminToken) })).json() as SurveyDesignAnswer;
+    const save = async (operations: unknown[]) =>
+      (await ctx.app.inject({ method: 'POST', url: `/v1/projects/${p.projectId}/survey/design`, headers: bearer(p.adminToken), payload: { revision: (await get()).revision, operations } })).json();
+    expect(await save([{ op: 'deleteQuestion', id: 999999 }])).toMatchObject({ code: 'gone', values: { what: 'question', name: '999999' } });
+    expect(await save([{ op: 'setText', target: { kind: 'title' }, part: 'label', language: 'xx', text: 'x' }])).toMatchObject({ code: 'noLanguage', values: { language: 'xx' } });
+    const d = (await get()).design!;
+    const q = questions(d).find((x) => !x.fixed && !x.hidden && !x.fromPlotFile && !x.formulas)!;
+    expect(await save([{ op: 'addQuestion', type: 'text', label: { [d.languages[0]]: 'x' }, name: q.name, page: d.pages[0].name }])).toMatchObject({ code: 'nameTaken', values: { what: 'question', name: q.name } });
+    const bad = await save([{ op: 'setExpression', id: q.id, part: 'shownWhen', text: "a = 'x" }]);
+    expect(bad).toMatchObject({ code: 'expression', values: { problem: 'syntax', reason: 'unclosedQuote', at: '5' } });
+    const check = await ctx.app.inject({ method: 'POST', url: `/v1/projects/${p.projectId}/survey/check`, headers: bearer(p.adminToken), payload: { id: q.id, kind: 'boolean', text: '(1 + ' } });
+    expect(check.json()).toMatchObject({ ok: false, code: 'syntax', values: { reason: 'expected', at: '' } });
+  });
+
+  it('says who wrote the survey served: the designer, or a project file', async () => {
+    const p = await createProject(ctx.app);
+    const upload = () => ctx.app.inject({ method: 'PUT', url: `/v1/projects/${p.projectId}/cep`, headers: { ...bearer(p.adminToken), 'content-type': 'application/zip' }, payload: demoCep() });
+    const get = async () => (await ctx.app.inject({ method: 'GET', url: `/v1/projects/${p.projectId}/survey/design`, headers: bearer(p.adminToken) })).json() as SurveyDesignAnswer;
+    expect((await get()).writtenBy).toBeNull();
+    await upload();
+    expect((await get()).writtenBy).toBe('file');
+    const d = await get();
+    const r = await ctx.app.inject({ method: 'POST', url: `/v1/projects/${p.projectId}/survey/design`, headers: bearer(p.adminToken), payload: { revision: d.revision, operations: [{ op: 'setText', target: { kind: 'title' }, part: 'label', language: d.design!.languages[0], text: 'Changed' }] } });
+    expect(r.statusCode).toBe(200);
+    expect((await get()).writtenBy).toBe('designer');
+    await upload();
+    expect((await get()).writtenBy).toBe('file');
+  });
+});

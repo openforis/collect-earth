@@ -29,6 +29,8 @@ export interface SurveyVersion {
   changes: number;
   /** The version a restore brought back, when the change was one */
   restoredFrom: string | null;
+  /** The revision of the survey the change wrote (null: kept before it was recorded) */
+  revisionAfter: string | null;
 }
 
 export interface SurveyVersionInput {
@@ -38,6 +40,8 @@ export interface SurveyVersionInput {
   createdBy: string | null;
   changes: number;
   restoredFrom: string | null;
+  /** The revision of the survey the change wrote */
+  revisionAfter: string | null;
 }
 
 export const SURVEY_VERSIONS_KEPT = 20;

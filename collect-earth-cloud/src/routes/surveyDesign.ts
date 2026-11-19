@@ -71,6 +71,11 @@ function namedPages(operations: SurveyOperation[], served: SurveyEdit, original:
   });
 }
 
+/** A refusal of the designer, with its code and values when it has them */
+function refusalOf(err: SurveyEditError): SurveyChangeRefusal {
+  return { error: 'bad_request', reason: err.message, ...(err.code ? { code: err.code, values: err.values } : {}) };
+}
+
 const UNREADABLE = { error: 'unreadable', reason: 'the survey of the project file cannot be read' };
 
 /** The changes whose impact reads no plot */
@@ -98,13 +103,13 @@ function generatedForm(cep: Buffer, date: Date): Buffer {
 }
 
 async function designAnswer(store: Store, config: Config, projectId: string, log: FastifyRequest['log']): Promise<SurveyDesignAnswer> {
-  const empty = { design: null, revision: null, editable: false, peopleWithFile: 0, problems: [] };
+  const empty = { design: null, revision: null, editable: false, peopleWithFile: 0, writtenBy: null, problems: [] };
   const cep = await store.getCep(projectId);
   // Without a project file, editable says a survey can be started here (POST /survey/new)
   if (!cep) return { ...empty, editable: !config.localMode, unreadable: false };
   try {
     const survey = surveyOf(readCep(cep));
-    const activity = await store.listMemberActivity(projectId);
+    const [activity, versions] = await Promise.all([store.listMemberActivity(projectId), store.listSurveyVersions(projectId)]);
     const revision = revisionOf(survey);
     return {
       design: surveyDesign(survey),
@@ -112,6 +117,7 @@ async function designAnswer(store: Store, config: Config, projectId: string, log
       revision,
       editable: !config.localMode,
       peopleWithFile: activity.filter((a) => a.lastCepDownloadAt !== null).length,
+      writtenBy: versions[0]?.revisionAfter === revision ? 'designer' : 'file',
       // What Collect or Collect Earth would refuse in it: shown as warnings, as the survey came from Collect's designer
       problems: checkSurvey(survey),
     };
@@ -396,7 +402,7 @@ export async function registerSurveyDesignRoutes(app: FastifyInstance, store: St
     // Written only while the project file is still the one the change was made on: of two changes at once, the
     // second is refused as one made on a survey read before
     const written = await store.replaceCep(projectId, served, nextServed, (await store.getRoundInfo(projectId)) ?? roundInfoOf(nextServed), nextOriginalCep, {
-      version: { ...kept, createdBy: request.userId ?? null },
+      version: { ...kept, createdBy: request.userId ?? null, revisionAfter: revisionOf(next) },
     });
     if (!written) return { status: 409, body: { error: 'stale', reason: 'the survey changed since it was read: read it again' } satisfies SurveyChangeRefusal };
     return null;
@@ -430,7 +436,7 @@ export async function registerSurveyDesignRoutes(app: FastifyInstance, store: St
     try {
       for (const op of operations) edit.apply(op);
     } catch (err) {
-      if (err instanceof SurveyEditError) return reply.code(400).send({ error: 'bad_request', reason: err.message } satisfies SurveyChangeRefusal);
+      if (err instanceof SurveyEditError) return reply.code(400).send(refusalOf(err));
       throw err;
     }
     const next = edit.bytes();
@@ -518,14 +524,14 @@ export async function registerSurveyDesignRoutes(app: FastifyInstance, store: St
       for (const op of operations) edit.apply(op);
       after = edit.bytes();
     } catch (err) {
-      if (err instanceof SurveyEditError) return reply.code(400).send({ error: 'bad_request', reason: err.message } satisfies SurveyChangeRefusal);
+      if (err instanceof SurveyEditError) return reply.code(400).send(refusalOf(err));
       throw err;
     }
     const records = await store.listRecordSummaries(projectId);
     // Each change tried on every plot: at most so many tries in one request (one change on 500,000 plots, 250 on 2,000)
     const tried = operations.filter((o) => !CHEAP_IMPACT.has(o.op)).length * records.length;
     if (tried > MAX_IMPACT_TRIES) {
-      return reply.code(400).send({ error: 'bad_request', reason: 'too many changes to try on the plots at once: save fewer at a time' } satisfies SurveyChangeRefusal);
+      return reply.code(400).send({ error: 'bad_request', reason: 'too many changes to try on the plots at once: save fewer at a time', code: 'tooMany', values: {} } satisfies SurveyChangeRefusal);
     }
     return surveyImpact(survey, operations, records, after) satisfies SurveyImpactAnswer;
   });
@@ -566,7 +572,7 @@ export async function registerSurveyDesignRoutes(app: FastifyInstance, store: St
         new Date(),
       );
     } catch (err) {
-      if (err instanceof SurveyEditError) return reply.code(400).send({ error: 'bad_request', reason: err.message } satisfies SurveyChangeRefusal);
+      if (err instanceof SurveyEditError) return reply.code(400).send(refusalOf(err));
       throw err;
     }
     const accepted = await acceptCep(store, projectId, cep, request.log);
@@ -588,7 +594,7 @@ export async function registerSurveyDesignRoutes(app: FastifyInstance, store: St
       const verdict = new SurveyEdit(surveyOf(readCep(cep))).checkText(b.id as number, b.kind, b.text);
       return (verdict.ok ? { ok: true } : { ok: false, code: verdict.code, values: verdict.values, beyondCollect: verdict.beyondCollect }) satisfies ExpressionCheckAnswer;
     } catch (err) {
-      if (err instanceof SurveyEditError) return reply.code(400).send({ error: 'bad_request', reason: err.message } satisfies SurveyChangeRefusal);
+      if (err instanceof SurveyEditError) return reply.code(400).send(refusalOf(err));
       if (err instanceof CepError || err instanceof XmlTreeError) return reply.code(409).send(UNREADABLE);
       throw err;
     }

@@ -704,3 +704,9 @@ spoiled, updates that did not reach people, and slow typing; all of it is fixed 
   of a change on a plot per request; a save keeps the schema index and who uses each answer between operations
   (999 answers deleted: 0.4 s, was 14 s). New surveys from the templates read as written for the project: texts
   without the file's layout, the multipurpose's `<END YEAR>` and 2023 set to the last year chosen.
+- *The last open points.* The refusals a coordinator can meet (what a change names is gone, a name taken, in use, a
+  language not added, a circle of show-whens, a formula's value, Collect's limits, too many changes at once) carry a
+  code and values (`SurveyRefusalCode`), and an expression that cannot be read its reason, place and token
+  (`ExpressionSyntaxReason`): the dashboard words them in each language, never the server's English. The design says
+  who wrote the survey served (`writtenBy`, from the revision each version records, migration 051): the dashboard
+  keeps typed texts over another coordinator's save and drops them only when a project file replaced the survey.

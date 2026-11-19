@@ -102,9 +102,11 @@ import { useT, type MessageKey } from "../i18n";
 import { useLoad } from "../useLoad";
 import {
   conditionWords,
+  checkWords,
   firstLanguage,
   languageNames,
   questionUsers,
+  refusalWords,
   requiredWords,
   ruleWords,
   tableWords,
@@ -251,6 +253,18 @@ function keepFocus(): () => void {
 /** Why a change was not made, when the server says why: in the dashboard's words, the server's own reason after it */
 function ChangeError({ error }: { error: unknown }) {
   const t = useT();
+  // A refusal the server gives a code: in the dashboard's words only
+  const words = error instanceof ApiError && error.status === 400 ? refusalWords(t, error.details.code, (error.details.values ?? {}) as Record<string, string>) : null;
+  if (words) {
+    return (
+      <Alert severity="error" role="alert">
+        {t("survey.edit.notMade")}
+        <Box component="span" sx={{ display: "block", mt: 0.5 }}>
+          {words}
+        </Box>
+      </Alert>
+    );
+  }
   if (error instanceof ApiError && error.status === 400 && error.reason) {
     return (
       <Alert severity="error" role="alert">
@@ -395,23 +409,11 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
     const typed = changedTexts(store.all()).length > 0 || addedRef.current.length > 0;
     if (!editingRef.current || !typed) return;
     const next = answer.design;
-    const revision = answer.revision;
-    void (async () => {
-      let other = !next || !before || !sameSurvey(before, next);
-      if (!other) {
-        // A new project file starts the versions again from none; a save in the designer keeps the one before it
-        try {
-          const versions = await listSurveyVersions(projectId);
-          queryClient.setQueryData(["project", projectId, "listSurveyVersions"], versions);
-          other = versions.versions.length === 0;
-        } catch {
-          // Cannot tell: the same survey (its ids and names are), changed by someone
-        }
-      }
-      if (knownRevision.current !== revision) return;
-      if (other || !next) dropAll();
-      else setOthersSaved(settleOn(next));
-    })();
+    // The server says who wrote the survey: another coordinator's save keeps the texts typed (those whose question is
+    // gone are dropped); a new project file (or the server's change) replaces the survey under them
+    const other = !next || !before || answer.writtenBy !== "designer" || !sameSurvey(before, next);
+    if (other || !next) dropAll();
+    else setOthersSaved(settleOn(next));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [answer, store, projectId]);
 
@@ -1260,7 +1262,7 @@ function Problems({ w, problems, title }: { w: Words; problems: SurveyProblem[];
           return (
             <Typography component="li" variant="body2" key={i} sx={{ overflowWrap: "anywhere" }}>
               {p.node && p.node !== "plot" && <>{t("survey.problems.where", { question: label, name })} </>}
-              {t(`surveyCheck.${p.code}` as MessageKey, p.values)}
+              {checkWords(t, p.code, p.values)}
               {p.expression && (
                 <Box component="code" sx={{ display: "block", fontSize: "0.8125rem", color: "text.secondary" }}>
                   {p.expression}

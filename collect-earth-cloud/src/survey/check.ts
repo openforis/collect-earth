@@ -131,7 +131,7 @@ export function checkExpression(node: SchemaNode, kind: ExpressionKind, text: st
   try {
     expr = parseExpression(text);
   } catch (e) {
-    if (e instanceof ExpressionSyntaxError) return refused('syntax', { detail: e.message });
+    if (e instanceof ExpressionSyntaxError) return refused('syntax', { detail: e.message, reason: e.reason, at: e.at === null ? '' : String(e.at), token: e.token });
     throw e;
   }
   const context = node.parent ?? node;

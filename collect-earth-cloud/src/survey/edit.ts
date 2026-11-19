@@ -102,7 +102,7 @@ export class SurveyEdit {
     let at = this.rootEntity();
     for (const name of names) {
       const next = childElements(at).find((c) => isNode(c) && attrValue(this.doc, c, 'name') === name);
-      if (!next) throw new SurveyEditError(`No question ${path}.`);
+      if (!next) throw new SurveyEditError(`No question ${path}.`, 'gone', { what: 'question', name: path });
       at = next;
     }
     return at;
@@ -139,7 +139,7 @@ export class SurveyEdit {
   list(name: string): XmlElement {
     const lists = firstChild(this.survey, 'codeLists');
     const l = lists && childrenNamed(lists, 'list').find((x) => attrValue(this.doc, x, 'name') === name);
-    if (!l) throw new SurveyEditError(`No list ${name}.`);
+    if (!l) throw new SurveyEditError(`No list ${name}.`, 'gone', { what: 'list', name });
     return l;
   }
 
@@ -245,7 +245,7 @@ export class SurveyEdit {
     for (const e of descendants(this.schema())) {
       if (isNode(e) && Number(attrValue(this.doc, e, 'id')) === id) return e;
     }
-    throw new SurveyEditError(`No question ${id}.`);
+    throw new SurveyEditError(`No question ${id}.`, 'gone', { what: 'question', name: String(id) });
   }
 
   /** A page (a tab of the root's tab set) by its name */
@@ -287,7 +287,7 @@ export class SurveyEdit {
         if (localName(e) === 'tab' && attrValue(this.doc, e, 'name') === name) return e;
       }
     }
-    throw new SurveyEditError(`No page ${name}.`);
+    throw new SurveyEditError(`No page ${name}.`, 'gone', { what: 'page', name });
   }
 
   /** The schema's nodes, read once until a node is added, deleted or moved */
@@ -337,7 +337,7 @@ export class SurveyEdit {
         return this.setFormulas(op.id, op.formulas);
       case 'addList':
         // Collect refuses a list of no answers (<items/>)
-        if (op.items.length === 0) throw new SurveyEditError('A list needs at least one answer.');
+        if (op.items.length === 0) throw new SurveyEditError('A list needs at least one answer.', 'emptyList');
         return void this.addNewList(op.label, op.items, op.name);
       case 'deleteList':
         return this.removeList(this.list(op.name));
@@ -370,7 +370,7 @@ export class SurveyEdit {
 
   private applyText(op: Extract<SurveyOperation, { op: 'setText' }>): void {
     const languages = this.languages();
-    if (!languages.includes(op.language)) throw new SurveyEditError(`The survey has no language ${op.language}: add it first.`);
+    if (!languages.includes(op.language)) throw new SurveyEditError(`The survey has no language ${op.language}: add it first.`, 'noLanguage', { language: op.language });
     const text = op.text.trim() === '' ? undefined : op.text;
     if (text !== undefined && text.length > MAX_TEXT) throw new SurveyEditError(`A text has at most ${MAX_TEXT} characters.`);
     const t = op.target;
@@ -388,7 +388,7 @@ export class SurveyEdit {
         if (text === undefined) {
           const labels = childrenNamed(tab, `${prefix}label`);
           if (labels.length === 0 || labels.every((l) => (attrValue(this.doc, l, 'xml:lang') ?? languages[0]) === op.language)) {
-            throw new SurveyEditError('A page keeps a name in at least one language.');
+            throw new SurveyEditError('A page keeps a name in at least one language.', 'pageName');
           }
         }
         this.setLocalized(tab, `${prefix}label`, op.language, text, undefined, [`${prefix}label`, `${prefix}tab`]);
@@ -417,7 +417,7 @@ export class SurveyEdit {
         if (op.part !== 'message') break;
         const node = this.nodeById(t.node);
         const rule = childElements(node).filter((c) => CHECK_TAGS.includes(c.name))[t.index];
-        if (!rule) throw new SurveyEditError(`The question has no rule ${t.index + 1}.`);
+        if (!rule) throw new SurveyEditError(`The question has no rule ${t.index + 1}.`, 'gone', { what: 'rule', name: String(t.index + 1) });
         this.setLocalized(rule, 'message', op.language, text, undefined, ['message']);
         return;
       }
@@ -433,7 +433,7 @@ export class SurveyEdit {
     const languages = this.languages();
     const out: Record<string, string> = {};
     for (const [language, text] of Object.entries(labels ?? {})) {
-      if (!languages.includes(language)) throw new SurveyEditError(`The survey has no language ${language}: add it first.`);
+      if (!languages.includes(language)) throw new SurveyEditError(`The survey has no language ${language}: add it first.`, 'noLanguage', { language });
       if (typeof text !== 'string' || text.trim() === '') continue;
       if (text.length > MAX_TEXT) throw new SurveyEditError(`A text has at most ${MAX_TEXT} characters.`);
       out[language] = text.trim();
@@ -469,7 +469,7 @@ export class SurveyEdit {
     if (name !== undefined) {
       // A page's name is Collect's tab name (tab_1312 in the templates), not a question's
       if (!/^[A-Za-z][A-Za-z0-9_]{0,62}$/.test(name)) throw new SurveyEditError(`${name} is not a page name.`);
-      if (this.pageNames().has(name)) throw new SurveyEditError(`There is a page ${name} already.`);
+      if (this.pageNames().has(name)) throw new SurveyEditError(`There is a page ${name} already.`, 'nameTaken', { what: 'page', name });
     }
     const tab = newElement(
       this.tabTag('tab'),
@@ -535,7 +535,7 @@ export class SurveyEdit {
     const labels = this.checkedLabels(op.label);
     const name = op.name ?? this.nameFrom(labels, 'question');
     checkName(name);
-    if (this.schemaNames().has(name)) throw new SurveyEditError(`There is a question ${name} already.`);
+    if (this.schemaNames().has(name)) throw new SurveyEditError(`There is a question ${name} already.`, 'nameTaken', { what: 'question', name });
     const attrs: Array<[string, string]> = [['id', String(this.nextId())], ['name', name]];
     if (op.required) attrs.push(['required', 'true']);
     const prefix = this.uiPrefix();
@@ -574,7 +574,7 @@ export class SurveyEdit {
         }
         const items = firstChild(this.list(list), 'items');
         const deepest = items ? Math.max(0, ...[...descendants(items)].filter((i) => i.name === 'item').map((i) => this.depthOf(i))) : 0;
-        if (deepest <= level) throw new SurveyEditError(`The list of ${op.parent} has no answers under its answers yet: add some first (the arrow beside an answer).`);
+        if (deepest <= level) throw new SurveyEditError(`The list of ${op.parent} has no answers under its answers yet: add some first (the arrow beside an answer).`, 'subListLevel', { question: op.parent });
         attrs.push(['list', list], ['parent', op.parent]);
       } else {
         if (!op.list) throw new SurveyEditError('A choice needs its answer list.');
@@ -643,7 +643,7 @@ export class SurveyEdit {
     const labels = this.checkedLabels(op.label);
     const name = op.name ?? this.nameFrom(labels, 'table');
     checkName(name);
-    if (this.schemaNames().has(name)) throw new SurveyEditError(`There is a question ${name} already.`);
+    if (this.schemaNames().has(name)) throw new SurveyEditError(`There is a question ${name} already.`, 'nameTaken', { what: 'question', name });
     const list = this.list(op.rows);
     if (attrValue(this.doc, list, 'lookup') !== undefined) throw new SurveyEditError(`The answers of ${op.rows} come from a table of the server: rows need a list of the survey.`);
     const items = firstChild(list, 'items');
@@ -682,7 +682,10 @@ export class SurveyEdit {
     const names = [table, ...childElements(table).filter(isNode)].map((e) => attrValue(this.doc, e, 'name') ?? '');
     for (const name of names) {
       const users = this.referencesTo(name).filter((e) => !isInside(e, table));
-      if (users.length > 0) throw new SurveyEditError(`${name} is used by ${users.map((u) => attrValue(this.doc, nodeOf(u), 'name')).join(', ')}.`);
+      if (users.length > 0) {
+        const names = users.map((u) => attrValue(this.doc, nodeOf(u), 'name')).join(', ');
+        throw new SurveyEditError(`${name} is used by ${names}.`, 'inUse', { name, users: names });
+      }
     }
     removeElement(table);
   }
@@ -726,7 +729,7 @@ export class SurveyEdit {
     }
     this.setShownWhen(node, conditionExpression(this.logicScope(), node, when, false));
     const cycle = this.shownCycle(attrValue(this.doc, node, 'name') ?? '');
-    if (cycle) throw new SurveyEditError(`Shown when would go round in a circle: ${cycle.join(' → ')}.`);
+    if (cycle) throw new SurveyEditError(`Shown when would go round in a circle: ${cycle.join(' → ')}.`, 'cycle', { cycle: cycle.join(' → ') });
   }
 
   /** A circle of questions each shown depending on the next, through `start`; null when there is none */
@@ -768,13 +771,13 @@ export class SurveyEdit {
     if (node.name === 'entity') throw new SurveyEditError('A rule is on a question: a table\'s are on its columns.');
     if (this.fromPlotFile(node)) throw new SurveyEditError(`${attrValue(this.doc, node, 'name')} comes from the plot file: nobody answers it.`);
     const old = index === undefined ? undefined : this.rulesOf(node)[index];
-    if (index !== undefined && !old) throw new SurveyEditError(`The question has no rule ${index + 1}.`);
+    if (index !== undefined && !old) throw new SurveyEditError(`The question has no rule ${index + 1}.`, 'gone', { what: 'rule', name: String(index + 1) });
     const { tag, attrs } = rule.kind === 'expression' ? this.expressionRule(node, rule) : ruleCheck(this.logicScope(), node, rule);
     const languages = this.languages();
     const messages = new Map<string, string>();
     if (old) for (const m of childrenNamed(old, 'message')) messages.set(attrValue(this.doc, m, 'xml:lang') ?? languages[0], textValue(this.doc, m));
     for (const [language, text] of Object.entries(rule.message ?? {})) {
-      if (!languages.includes(language)) throw new SurveyEditError(`The survey has no language ${language}: add it first.`);
+      if (!languages.includes(language)) throw new SurveyEditError(`The survey has no language ${language}: add it first.`, 'noLanguage', { language });
       if (typeof text !== 'string') continue;
       if (text.length > MAX_TEXT) throw new SurveyEditError(`A text has at most ${MAX_TEXT} characters.`);
       if (text.trim() === '') messages.delete(language);
@@ -850,7 +853,7 @@ export class SurveyEdit {
     }
     this.setShownWhen(node, value);
     const cycle = this.shownCycle(attrValue(this.doc, node, 'name') ?? '');
-    if (cycle) throw new SurveyEditError(`Shown when would go round in a circle: ${cycle.join(' → ')}.`);
+    if (cycle) throw new SurveyEditError(`Shown when would go round in a circle: ${cycle.join(' → ')}.`, 'cycle', { cycle: cycle.join(' → ') });
   }
 
   /**
@@ -872,9 +875,9 @@ export class SurveyEdit {
       if (expression !== '') attrs.push(['expr', this.checked(node, 'value', expression)]);
       else {
         // A value as it is: one of the list's codes, a number, yes or no
-        if (list && !listCodes(this.doc, list).has(value)) throw new SurveyEditError(`Formula ${i + 1}: the list has no code ${value}.`);
-        if (node.name === 'number' && !/^-?\d+(\.\d+)?$/.test(value)) throw new SurveyEditError(`Formula ${i + 1}: ${value} is not a number.`);
-        if (node.name === 'boolean' && value !== 'true' && value !== 'false') throw new SurveyEditError(`Formula ${i + 1}: a yes/no value is true or false.`);
+        if (list && !listCodes(this.doc, list).has(value)) throw new SurveyEditError(`Formula ${i + 1}: the list has no code ${value}.`, 'formulaCode', { index: String(i + 1), code: value });
+        if (node.name === 'number' && !/^-?\d+(\.\d+)?$/.test(value)) throw new SurveyEditError(`Formula ${i + 1}: ${value} is not a number.`, 'formulaNumber', { index: String(i + 1), value });
+        if (node.name === 'boolean' && value !== 'true' && value !== 'false') throw new SurveyEditError(`Formula ${i + 1}: a yes/no value is true or false.`, 'formulaYesNo', { index: String(i + 1) });
         attrs.push(['value', value]);
       }
       if (when !== '') attrs.push(['if', this.checked(node, 'boolean', when)]);
@@ -896,7 +899,7 @@ export class SurveyEdit {
   deleteRule(id: number, index: number): void {
     const node = this.nodeById(id);
     const rule = this.rulesOf(node)[index];
-    if (!rule) throw new SurveyEditError(`The question has no rule ${index + 1}.`);
+    if (!rule) throw new SurveyEditError(`The question has no rule ${index + 1}.`, 'gone', { what: 'rule', name: String(index + 1) });
     removeElement(rule);
   }
 
@@ -919,11 +922,11 @@ export class SurveyEdit {
     if (childrenNamed(item, 'item').length > 0) throw new SurveyEditError(`The answer ${code} has answers under it: delete them first.`);
     // Collect refuses a list of no answers (<items/>)
     if (item.parent?.name === 'items' && childrenNamed(item.parent, 'item').length === 1) {
-      throw new SurveyEditError(`${code} is the list's last answer: a list keeps at least one (delete the list instead).`);
+      throw new SurveyEditError(`${code} is the list's last answer: a list keeps at least one (delete the list instead).`, 'lastAnswer', { code });
     }
     this.usersOfCodes ??= codeUsers(this.doc, this.schema());
     const users = this.usersOfCodes.get(listName)?.get(code);
-    if (users && users.size > 0) throw new SurveyEditError(`The answer ${code} is used by ${[...users].join(', ')}: change that first.`);
+    if (users && users.size > 0) throw new SurveyEditError(`The answer ${code} is used by ${[...users].join(', ')}: change that first.`, 'inUse', { name: code, users: [...users].join(', ') });
     removeElement(item);
     this.codeIndex(list).delete(code);
   }
@@ -965,7 +968,7 @@ export class SurveyEdit {
     checkName(name);
     const parent = options.parent ?? this.rootEntity();
     const siblings = childElements(parent).filter(isNode);
-    if (siblings.some((s) => attrValue(this.doc, s, 'name') === name)) throw new SurveyEditError(`There is a question ${name} already.`);
+    if (siblings.some((s) => attrValue(this.doc, s, 'name') === name)) throw new SurveyEditError(`There is a question ${name} already.`, 'nameTaken', { what: 'question', name });
     const previous = options.after ?? siblings[siblings.length - 1];
     const attrs: Array<[string, string]> = [['id', String(this.nextId())], ['name', name]];
     const tab = previous && attrValue(this.doc, previous, 'ui:tab');
@@ -1009,7 +1012,7 @@ export class SurveyEdit {
     checkName(name);
     let lists = firstChild(this.survey, 'codeLists');
     if (lists && childrenNamed(lists, 'list').some((l) => attrValue(this.doc, l, 'name') === name)) {
-      throw new SurveyEditError(`There is a list ${name} already.`);
+      throw new SurveyEditError(`There is a list ${name} already.`, 'nameTaken', { what: 'list', name });
     }
     if (!lists) {
       lists = newElement('codeLists');
@@ -1033,7 +1036,7 @@ export class SurveyEdit {
       insertElement(this.doc, list, items);
     }
     const index = this.codeIndex(list);
-    if (index.has(code)) throw new SurveyEditError(`The list has a code ${code} already.`);
+    if (index.has(code)) throw new SurveyEditError(`The list has a code ${code} already.`, 'nameTaken', { what: 'answer', name: code });
     const parent = under ?? items;
     if (before && before.parent !== parent) throw new SurveyEditError('An answer goes before another of the same level.');
     const item = newElement('item', [['id', String(this.nextId())]], [newElement('code', [], [code]), ...this.labelsOf(labels, undefined)]);
@@ -1046,7 +1049,7 @@ export class SurveyEdit {
   /** An item of a list by its code, at any level */
   item(list: XmlElement, code: string): XmlElement {
     const found = this.codeIndex(list).get(code);
-    if (!found) throw new SurveyEditError(`The list has no code ${code}.`);
+    if (!found) throw new SurveyEditError(`The list has no code ${code}.`, 'gone', { what: 'answer', name: code });
     return found;
   }
 
@@ -1120,7 +1123,7 @@ export class SurveyEdit {
   /** Refuses an expression Collect would refuse, or the form could not evaluate, before it is written */
   private checked(e: XmlElement, kind: ExpressionKind, text: string): string {
     const verdict = checkExpression(this.schemaNode(e), kind, text);
-    if (!verdict.ok) throw new SurveyEditError(problemText(verdict));
+    if (!verdict.ok) throw new SurveyEditError(problemText(verdict), 'expression', { problem: verdict.code, ...verdict.values });
     return text;
   }
 
@@ -1182,7 +1185,7 @@ export class SurveyEdit {
     const users = this.referencesTo(name).filter((e) => !isInside(e, question));
     if (users.length > 0) {
       const names = users.map((u) => attrValue(this.doc, nodeOf(u), 'name')).join(', ');
-      throw new SurveyEditError(`${name} is used by ${names}.`);
+      throw new SurveyEditError(`${name} is used by ${names}.`, 'inUse', { name, users: names });
     }
     removeElement(question);
   }
@@ -1192,7 +1195,7 @@ export class SurveyEdit {
     const name = attrValue(this.doc, list, 'name');
     for (const e of descendants(this.schema())) {
       if (e.name === 'code' && attrValue(this.doc, e, 'list') === name) {
-        throw new SurveyEditError(`The list ${name} is used by ${attrValue(this.doc, e, 'name')}.`);
+        throw new SurveyEditError(`The list ${name} is used by ${attrValue(this.doc, e, 'name')}.`, 'inUse', { name: name ?? '', users: attrValue(this.doc, e, 'name') ?? '' });
       }
     }
     removeElement(list);

@@ -6,6 +6,8 @@
 //
 // test/expressionCheck.test.ts holds it to Collect's own verdicts on a corpus (the desktop's ExpressionVerdictsTest).
 
+import type { ExpressionSyntaxReason } from '../wire/survey.js';
+
 export type Expr =
   | { type: 'binary'; op: BinaryOp; left: Expr; right: Expr }
   | { type: 'negate'; arg: Expr }
@@ -27,7 +29,21 @@ export interface Step {
   predicates: Expr[];
 }
 
-export class ExpressionSyntaxError extends Error {}
+/** Why an expression cannot be read, for the dashboard to word in each language (the message is in English) */
+export type SyntaxReason = ExpressionSyntaxReason;
+
+export class ExpressionSyntaxError extends Error {
+  constructor(
+    message: string,
+    readonly reason: SyntaxReason,
+    /** Where (1 from the start), null at the end */
+    readonly at: number | null,
+    /** The character, operator or word in question */
+    readonly token: string = '',
+  ) {
+    super(message);
+  }
+}
 
 /**
  * JXPath's core functions (its XPathParser): compiled as its own, never looked up in Collect's libraries, so Collect
@@ -117,7 +133,7 @@ function tokenize(text: string): Token[] {
     const at = i;
     if (c === '"' || c === "'") {
       const end = text.indexOf(c, i + 1);
-      if (end < 0) throw new ExpressionSyntaxError(`A text in quotes is not closed (at ${at + 1}).`);
+      if (end < 0) throw new ExpressionSyntaxError(`A text in quotes is not closed (at ${at + 1}).`, 'unclosedQuote', at + 1);
       tokens.push({ kind: 'literal', value: text.slice(i + 1, end), at });
       i = end + 1;
       continue;
@@ -147,7 +163,7 @@ function tokenize(text: string): Token[] {
     }
     if (c === '$') {
       i++;
-      if (!NAME_START.test(text[i] ?? '')) throw new ExpressionSyntaxError(`A $ is not followed by a name (at ${at + 1}).`);
+      if (!NAME_START.test(text[i] ?? '')) throw new ExpressionSyntaxError(`A $ is not followed by a name (at ${at + 1}).`, 'dollarWithoutName', at + 1);
       let name = readName();
       if (text[i] === ':' && NAME_START.test(text[i + 1] ?? '')) {
         i++;
@@ -175,7 +191,7 @@ function tokenize(text: string): Token[] {
       tokens.push({ kind: 'name', value: name, at });
       continue;
     }
-    throw new ExpressionSyntaxError(`"${c}" is not expected here (at ${at + 1}).`);
+    throw new ExpressionSyntaxError(`"${c}" is not expected here (at ${at + 1}).`, 'unexpected', at + 1, c);
   }
   tokens.push({ kind: 'end', at: text.length });
   return tokens;
@@ -199,7 +215,7 @@ class Parser {
 
   /** Reads one nested part, refusing one nested too deep */
   private nested<T>(read: () => T): T {
-    if (++this.depth > MAX_DEPTH) throw this.error(`The expression is nested more than ${MAX_DEPTH} deep`);
+    if (++this.depth > MAX_DEPTH) throw this.error(`The expression is nested more than ${MAX_DEPTH} deep`, 'tooDeep', String(MAX_DEPTH));
     try {
       return read();
     } finally {
@@ -219,19 +235,19 @@ class Parser {
     return this.tokens[this.i++];
   }
   private expect(value: string): void {
-    if (!this.isOp(value)) throw this.error(`"${value}" is missing`);
+    if (!this.isOp(value)) throw this.error(`"${value}" is missing`, 'missing', value);
     this.i++;
   }
-  private error(what: string): ExpressionSyntaxError {
+  private error(what: string, reason: SyntaxReason, token = ''): ExpressionSyntaxError {
     const t = this.peek();
     const here = t.kind === 'end' ? 'at the end' : `at ${t.at + 1}`;
-    return new ExpressionSyntaxError(`${what} (${here}).`);
+    return new ExpressionSyntaxError(`${what} (${here}).`, reason, t.kind === 'end' ? null : t.at + 1, token);
   }
 
   parse(): Expr {
-    if (this.peek().kind === 'end') throw this.error('The expression is empty');
+    if (this.peek().kind === 'end') throw this.error('The expression is empty', 'empty');
     const e = this.orExpr();
-    if (this.peek().kind !== 'end') throw this.error('Something follows the end of the expression');
+    if (this.peek().kind !== 'end') throw this.error('Something follows the end of the expression', 'trailing');
     return e;
   }
 
@@ -306,7 +322,7 @@ class Parser {
       return { type: 'call', prefix, name, args, core: prefix === null && CORE_FUNCTIONS.has(name) };
     }
     this.i--;
-    throw this.error('An expression is expected');
+    throw this.error('An expression is expected', 'expected');
   }
 
   private predicates(): Expr[] {
@@ -333,7 +349,7 @@ class Parser {
       this.relativePath(steps, false);
       return { type: 'path', absolute: true, steps };
     }
-    if (!this.startsStep()) throw this.error('An expression is expected');
+    if (!this.startsStep()) throw this.error('An expression is expected', 'expected');
     this.relativePath(steps, false);
     return { type: 'path', absolute: false, steps };
   }
@@ -369,11 +385,11 @@ class Parser {
     } else if (this.peek().kind === 'name' && this.isOp('::', 1)) {
       const named = this.take();
       axis = named.kind === 'name' ? named.value : '';
-      if (!AXES.has(axis)) throw this.error(`"${axis}" is not an axis`);
+      if (!AXES.has(axis)) throw this.error(`"${axis}" is not an axis`, 'notAxis', axis);
       this.i++;
     }
     const t = this.peek();
-    if (t.kind !== 'name') throw this.error('A name is expected');
+    if (t.kind !== 'name') throw this.error('A name is expected', 'nameExpected');
     this.i++;
     let test = t.value;
     if (NODE_TYPES.has(test) && this.isOp('(')) {

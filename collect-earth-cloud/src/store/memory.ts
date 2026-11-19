@@ -692,6 +692,7 @@ export class InMemoryStore implements Store {
       createdBy: input.createdBy,
       changes: input.changes,
       restoredFrom: input.restoredFrom,
+      revisionAfter: input.revisionAfter,
     };
     entry.surveyVersions.unshift({ ...version, survey: Buffer.from(input.survey), original: input.original === null ? null : Buffer.from(input.original) });
     // The last ones stay, and the first: the survey before any change
@@ -700,9 +701,9 @@ export class InMemoryStore implements Store {
   }
 
   async listSurveyVersions(projectId: string): Promise<SurveyVersion[]> {
-    return (this.projects.get(projectId)?.surveyVersions ?? []).map(({ id, createdAt, createdBy, changes, restoredFrom }) => {
+    return (this.projects.get(projectId)?.surveyVersions ?? []).map(({ id, createdAt, createdBy, changes, restoredFrom, revisionAfter }) => {
       const user = createdBy === null ? undefined : this.users.get(createdBy);
-      return { id, createdAt, createdBy: user ? createdBy : null, changes, restoredFrom };
+      return { id, createdAt, createdBy: user ? createdBy : null, changes, restoredFrom, revisionAfter };
     });
   }
 

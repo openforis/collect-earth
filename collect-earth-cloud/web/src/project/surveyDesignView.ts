@@ -4,6 +4,7 @@
 
 import type { ConditionPart, DesignCondition, DesignItem, DesignList, DesignListItem, DesignQuestion, DesignRule, DesignTable, Localized, QuestionType, RuleBound, SurveyDesign } from "../api";
 import type { MessageKey, Translate } from "../i18n";
+import type { ExpressionSyntaxReason, SurveyCheckCode, SurveyRefusalCode } from "../../../src/wire/survey";
 
 /** A text in the language chosen, else in the survey's default language, else in any it has */
 export function textIn(text: Localized, language: string, languages: readonly string[]): string {
@@ -255,4 +256,40 @@ export function languageNames(uiLanguage: string): (code: string) => string {
       return code;
     }
   };
+}
+
+const SYNTAX_REASONS: readonly ExpressionSyntaxReason[] = ["unclosedQuote", "dollarWithoutName", "unexpected", "tooDeep", "missing", "empty", "trailing", "expected", "notAxis", "nameExpected"];
+
+/** What the survey check found, in the dashboard's language; why an expression cannot be read too (not the server's English) */
+export function checkWords(t: Translate, code: SurveyCheckCode, values: Readonly<Record<string, string>>): string {
+  if (code === "syntax" && SYNTAX_REASONS.includes(values.reason as ExpressionSyntaxReason)) {
+    const why = t(`surveyCheck.why.${values.reason}` as MessageKey, { token: values.token ?? "" });
+    const detail = values.at ? t("surveyCheck.where.at", { what: why, at: values.at }) : t("surveyCheck.where.end", { what: why });
+    return t("surveyCheck.syntax", { ...values, detail });
+  }
+  return t(`surveyCheck.${code}` as MessageKey, values);
+}
+
+const REFUSALS: readonly SurveyRefusalCode[] = [
+  "gone", "inUse", "nameTaken", "noLanguage", "cycle", "formulaCode", "formulaNumber", "formulaYesNo", "expression", "lastAnswer", "emptyList", "pageName", "subListLevel", "tooMany",
+];
+const GONE = ["question", "page", "list", "answer", "rule"];
+const TAKEN = ["question", "page", "list", "answer"];
+
+/**
+ * Why the server refused a change, in the dashboard's language, from its code and values; null for a refusal it gives
+ * no code (its English reason is shown then)
+ */
+export function refusalWords(t: Translate, code: unknown, values: Readonly<Record<string, string>> = {}): string | null {
+  if (typeof code !== "string" || !REFUSALS.includes(code as SurveyRefusalCode)) return null;
+  switch (code as SurveyRefusalCode) {
+    case "gone":
+      return GONE.includes(values.what) ? t(`survey.refusal.gone.${values.what}` as MessageKey, values) : null;
+    case "nameTaken":
+      return TAKEN.includes(values.what) ? t(`survey.refusal.taken.${values.what}` as MessageKey, values) : null;
+    case "expression":
+      return values.problem ? checkWords(t, values.problem as SurveyCheckCode, values) : null;
+    default:
+      return t(`survey.refusal.${code}` as MessageKey, values);
+  }
 }

@@ -782,9 +782,9 @@ export class PostgresStore implements Store {
     {
       const id = randomUUID();
       const res = await client.query(
-        `INSERT INTO survey_versions (id, project_id, created_by, changes, restored_from, survey_gz, original_gz)
-         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING created_at`,
-        [id, projectId, input.createdBy, input.changes, input.restoredFrom, gzipSync(input.survey), input.original === null ? null : gzipSync(input.original)],
+        `INSERT INTO survey_versions (id, project_id, created_by, changes, restored_from, survey_gz, original_gz, revision_after)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING created_at`,
+        [id, projectId, input.createdBy, input.changes, input.restoredFrom, gzipSync(input.survey), input.original === null ? null : gzipSync(input.original), input.revisionAfter],
       );
       // Only the last ones stay, and the first: the survey before any change
       await client.query(
@@ -793,14 +793,14 @@ export class PostgresStore implements Store {
            AND id NOT IN (SELECT id FROM survey_versions WHERE project_id = $1 ORDER BY created_at ASC, id LIMIT 1)`,
         [projectId, SURVEY_VERSIONS_KEPT],
       );
-      return { id, createdAt: (res.rows[0].created_at as Date).getTime(), createdBy: input.createdBy, changes: input.changes, restoredFrom: input.restoredFrom };
+      return { id, createdAt: (res.rows[0].created_at as Date).getTime(), createdBy: input.createdBy, changes: input.changes, restoredFrom: input.restoredFrom, revisionAfter: input.revisionAfter };
     }
   }
 
   async listSurveyVersions(projectId: string): Promise<SurveyVersion[]> {
     return this.withProject(projectId, async (client) => {
       const res = await client.query(
-        `SELECT id, created_at, created_by, changes, restored_from FROM survey_versions
+        `SELECT id, created_at, created_by, changes, restored_from, revision_after FROM survey_versions
          WHERE project_id = $1 ORDER BY created_at DESC, id`,
         [projectId],
       );
@@ -810,6 +810,7 @@ export class PostgresStore implements Store {
         createdBy: (r.created_by as string | null) ?? null,
         changes: Number(r.changes),
         restoredFrom: (r.restored_from as string | null) ?? null,
+        revisionAfter: (r.revision_after as string | null) ?? null,
       }));
     });
   }
