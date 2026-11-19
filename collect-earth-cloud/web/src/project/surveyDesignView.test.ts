@@ -6,7 +6,7 @@ import { CATALOGUES, LANGUAGES, translator, type MessageKey } from "../i18n";
 import { conditionWords, firstLanguage, questionLabel, requiredWords, ruleWords, tableWords, textIn, untranslated, words } from "./surveyDesignView";
 
 const template = (name: string) =>
-  surveyDesign(readFileSync(new URL(`../../../test/fixtures/templates/collect_earth${name}.idm.xml`, import.meta.url)));
+  surveyDesign(readFileSync(new URL(`../../../templates/collect_earth${name}.idm.xml`, import.meta.url)));
 const basic = template("");
 const ipcc = template("_ipcc");
 const en = words(basic, "en", translator("en"));
@@ -40,7 +40,7 @@ describe("the survey in words", () => {
     expect(ruleWords(en, question("integer_demo").rules[0])).toBe("The answer must be more than 5 and less than 20");
     expect(ruleWords(en, question("short_text_demo").rules[0])).toBe("The answer must have at least 6 characters");
     expect(ruleWords(en, { flag: "warning", message: {}, when: null, kind: "total", test: "atMost", total: 100 })).toBe("The column should add up to at most 100 (a warning)");
-    expect(ruleWords(en, { flag: "error", message: {}, when: null, kind: "advanced", text: "a != b" })).toBe("Rule: a != b");
+    expect(ruleWords(en, { flag: "error", message: {}, when: null, kind: "advanced", text: "a != b", expression: true })).toBe("Rule: a != b");
     const w = words(ipcc, "en", translator("en"));
     const year = w.questions.get("second_lu_conversion_year")!;
     expect(ruleWords(w, year.rules[0])).toBe(

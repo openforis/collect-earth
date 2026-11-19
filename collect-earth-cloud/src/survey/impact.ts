@@ -157,7 +157,7 @@ class Survey {
         if (!relevant) continue;
         const read = readCondition(relevant, (n) => {
           const q = this.named(x!, n);
-          return q ? { yesNo: q.name === 'boolean' } : undefined;
+          return q ? { yesNo: q.name === 'boolean', multiple: attrValue(this.doc, q, 'multiple') === 'true' } : undefined;
         });
         if (read.kind === 'never') return false;
         // An advanced condition is not evaluated here: the question counts as shown
@@ -203,6 +203,9 @@ class Survey {
         }
         return rule.test === 'atLeast' ? sum >= rule.total : rule.test === 'atMost' ? sum <= rule.total : sum === rule.total;
       }
+      default:
+        // A rule written as an expression is not evaluated here: Collect Earth checks it when the plot is opened
+        return undefined;
     }
   }
 }
@@ -247,6 +250,17 @@ export function surveyImpact(
       if (!node || node.name === 'entity') continue;
       const answered = count(before.keyPattern(node), (v) => !isBlankAnswer(v));
       if (answered > 0) effects.push({ kind: 'questionDeleted', question: before.name(node), answered });
+    } else if (op.op === 'deleteTable') {
+      const table = before.byId.get(op.id);
+      if (!table || table.name !== 'entity') continue;
+      const rows = new RegExp(`^collect_entity_${escape(before.name(table))}(\\[[^\\]]*\\])?\\.`);
+      // The row's key comes with the row: an answer is another column's
+      const keys = new Set(childElements(table).filter((c) => attrValue(before.doc, c, 'key') === 'true').map((c) => `${prefixOf(before.doc, c)}${before.name(c)}`));
+      const found = new Set<string>();
+      for (const r of records) {
+        if (Object.entries(r.summary).some(([k, v]) => rows.test(k) && !keys.has(k.slice(k.lastIndexOf('.') + 1)) && !isBlankAnswer(v))) found.add(r.recordKey);
+      }
+      if (found.size > 0) effects.push({ kind: 'tableDeleted', table: before.name(table), answered: found.size });
     } else if (op.op === 'deleteItem') {
       const found = new Set<string>();
       for (const node of before.byId.values()) {
@@ -272,14 +286,16 @@ export function surveyImpact(
       if (!node || node.name === 'entity' || (was && attrValue(before.doc, was, 'required') === 'true')) continue;
       // A table's empty answers are not in the summaries: only the plot's questions are counted
       if (next.tableOf(node)) continue;
-      let unanswered = 0;
-      for (const r of new Map(records.map((x) => [x.recordKey, x])).values()) {
+      // A plot counts when any of its records (one per person who assessed it) would be flagged, as the other effects
+      // count it, whatever the records' order
+      const unanswered = new Set<string>();
+      for (const r of records) {
         if (!isBlankAnswer(next.answer(r, node, null))) continue;
         if (!next.shown(r, node, null)) continue;
         if (op.required !== true && !next.conditionHolds(r, node, null, op.required)) continue;
-        unanswered++;
+        unanswered.add(r.recordKey);
       }
-      if (unanswered > 0) effects.push({ kind: 'nowRequired', question: next.name(node), unanswered });
+      if (unanswered.size > 0) effects.push({ kind: 'nowRequired', question: next.name(node), unanswered: unanswered.size });
     } else if (op.op === 'setShownWhen' && op.when !== null) {
       const node = next.byId.get(op.id);
       if (!node) continue;

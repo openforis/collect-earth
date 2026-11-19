@@ -113,7 +113,9 @@ export async function registerRecordRoutes(app: FastifyInstance, store: Store, s
       // Training records stored (training_records), for the Activity log
       let trainingStored = 0;
       // The project's records of the batch, written together once all are read (putRecordsWithEvents): where each answer goes
-      const uploads: { index: number; recordKey: string; operator: string; apply: RecordUpload['apply']; submitted: () => boolean }[] = [];
+      const uploads: { index: number; recordKey: string; operator: string; revision: string | null; apply: RecordUpload['apply']; submitted: () => boolean }[] = [];
+      // The survey each record stored was made with, when Collect Earth says it
+      const revisions: { recordKey: string; operator: string; revision: string }[] = [];
 
       for (const raw of envelopes) {
         const envelope = normalizeEnvelope(raw);
@@ -208,6 +210,7 @@ export async function registerRecordRoutes(app: FastifyInstance, store: Store, s
             index: results.length,
             recordKey: envelope.recordKey,
             operator,
+            revision: envelope.surveyRevision ?? null,
             apply: (existing, submittedBefore) => {
               const { row, status } = applyLww(envelope, existing, receivedAt);
               if (status !== 'stored') {
@@ -235,6 +238,7 @@ export async function registerRecordRoutes(app: FastifyInstance, store: Store, s
         if (stored) {
           storedCount += 1;
           firstSubmission ||= u.submitted();
+          if (u.revision) revisions.push({ recordKey: u.recordKey, operator: u.operator, revision: u.revision });
         }
       };
       if (uploads.length > 0) {
@@ -258,6 +262,10 @@ export async function registerRecordRoutes(app: FastifyInstance, store: Store, s
         }
       }
 
+      if (revisions.length > 0) {
+        // Never failing the batch: the records are stored
+        await store.setRecordSurveyRevisions(projectId, revisions).catch((err: unknown) => request.log.warn({ err }, 'the survey revisions of the records could not be kept'));
+      }
       noteActivity(request, { sync: { records: storedCount } }, { desktop: true });
       // Records refused (malformed, or failed to store): the owner is told when many are, in an hour
       request.server.ownerAlerts?.note('syncError', results.filter((r) => r.status === 'error').length);
@@ -305,6 +313,7 @@ function normalizeEnvelope(raw: unknown): RecordEnvelope | null {
     deleted,
     payloadVersion: typeof o.payloadVersion === 'number' ? o.payloadVersion : 1,
     activeSeconds: activeSecondsOf(o.activeSeconds),
+    surveyRevision: typeof o.surveyRevision === 'string' && /^[0-9a-f]{8,64}$/.test(o.surveyRevision) ? o.surveyRevision : null,
   };
 }
 

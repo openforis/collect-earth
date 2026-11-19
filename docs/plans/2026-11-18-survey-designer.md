@@ -249,7 +249,7 @@ does to the plots already collected:
 | Reordering pages, questions, list items | Nothing |
 | Making a question required, or a rule stricter | How many plots already collected break it, and that they are flagged when reopened |
 | A new "show when" | How many plots have an answer that would now be hidden; the answers stay in the records |
-| Deleting a question | How many plots answered it; their answers stay in the records and the exports of before, but no longer appear in the form, the exports or the analysis |
+| Deleting a question | How many plots answered it; their answers no longer appear in the form, the exports or the analysis, and Collect Earth drops them from a plot the next time it is saved (Collect reads a record by its questions' ids and skips the ones the survey no longer has): download the data first to keep them |
 | Deleting a list item | How many plots chose it, the same way |
 | Changing a list item's code | How many plots chose it; their answers keep the old code, which then matches no item |
 | Renaming a question's internal name | How many plots answered it; to Collect those answers belong to a question that no longer exists, so they disappear from the form and the exports |
@@ -458,7 +458,8 @@ seeing what the survey asks and fixing its wording without another program.
 ## Decisions (18 November 2026)
 
 1. **Collect Earth 2.0 and later only** for surveys made by the designer: yes.
-2. **Formulas:** shown, not edited, at first (see "Calculated values"): to be confirmed.
+2. **Formulas:** shown, not edited, at first (see "Calculated values"); from stage 7 edited as text, each checked as
+   Collect checks it before it is saved.
 3. **Changes to a survey in use:** all allowed, with warnings that say how the data already
    collected is affected (the table above).
 4. **Preview:** in the designer and in Collect Earth through a draft project first.
@@ -562,4 +563,81 @@ show-when counts the answers it would hide, a conditional required the plots it 
 with conditions in a row and on the plot, a column shown when, a question required when), written by
 `test/surveyLogic.test.ts`. A number without a type now reads as a decimal, as Collect reads it. Left for 4c:
 sub-lists, adding tables and repeated blocks; for 4b, Gemini's help.
+
+**Stage 4c, done (18 Nov), tables and sub-lists.** "Add a table" on a page makes a table of one row per answer of a
+list (an existing one, or one written there): Collect's enumerated multiple entity, laid out as a table
+(`ui:layout="table" collect:enumerate="true"`), whose key is a code of that list named `<table>_row`, as the templates'
+`land_cover` and `land_use` are; "Add a column" then adds its questions, and the column's total of stage 4a applies.
+A table is deleted with its columns, after the count of plots with answers in it, unless something outside it uses
+them. A repeated block is not offered: Collect Earth 2.0's form shows every enumerated entity as a table
+(`SurveyFormModelBuilder`), whatever its layout, and multiple entities whose rows the interpreter adds stay out
+(dropped in "What is dropped"). Sub-lists: an answer gets answers under it (the arrow beside it; the list gets
+`<hierarchy>` levels as deep as its answers, codes unique in the whole list as the survey check wants), and a
+choice question can offer "the answers under the answer to" another choice of one answer of the same page or table
+(Collect's `parent`, the same list). `designer/tables.idm.xml` (the basic template with a two-level list, a sub-list
+question and a table with a total under a condition) passes `DesignedSurveyIdmlTest`.
+
+**Stage 4b, done (18 Nov), the assistant's help.** With the AI assistant switched on for the project, the rule dialog
+has "Or describe the rule in your words" ("at most 100", "after the base year"): Gemini answers a rule in the
+builder's structure (a JSON schema of range, length or total, limits, error or warning, message, condition rows), the
+server checks it as a coordinator's rule (`SurveyEdit.putRule`, the survey check) and tries it on the plots collected,
+and the dialog's fields are filled with it, "flags 1 of the 2 plots where it applies", for the coordinator to check and
+apply; what cannot be said as a rule comes back as why, not as a guess. "Suggest rules" proposes up to 8 the survey
+lacks, each checked, tried and added with one press (those that fail a check are never shown). A rule's message is
+translated into the survey's other languages (the translations shown in fields to change before saving). An advanced
+condition, rule or formula gets "Explain", in the dashboard's language. The model is sent the survey's structure
+only (`helpStructure`: names, labels, kinds, places, lists' codes, conditions and rules, plot-file values marked as
+never answered), never a plot, an answer or a person (tested); the expression explained is the survey's own, never
+text from the dashboard. Each request is a run of kind `survey` (migration 049), within the project's AI limits, kept
+out of the AI tab; `AI_FAKE=1` answers all four for development. A rule on a value of the plot file is now refused
+(nobody answers it).
+
+**Stage 5, done (18 Nov), design the survey here.** Setup › Survey form of a project without a project file offers
+"Design the survey here": a blank survey, the demonstration (basic) template, the multipurpose one or the IPCC one, a
+title, the language it is written in (added when the template has not it), and for the multipurpose and IPCC
+templates the first and last year of their `years` list (the year of a change; the multipurpose base year becomes the
+last). The server makes the survey (`src/survey/templates.ts`) and the project file around it (`madeProjectFile`, as the
+CEO import and backups do; Collect Earth's 5 x 5 square plot, changed in Setup › Plot layout), stores it as an upload
+(`acceptCep`), and the survey opens in the designer. Its uri and folder name are its own (`<title>_<8 characters of
+the project id>`), as Collect Earth tells surveys apart by them. The templates moved from `test/fixtures/templates` to
+`templates/` (shipped in the image; the expression corpus follows). The blank survey is the basic template without its
+demonstration questions, with one question to start from, "Land use" in IPCC's six categories: a survey with no
+question gives Collect Earth's form no page, which `DesignedSurveyIdmlTest` refused. The IPCC template's yearly
+calculated values are not regenerated: Collect Earth's IPCC export adds those of its own years when a survey lacks them
+(`IPCCSurveyAdapter`). `designer/new-blank.idm.xml` and `new-multipurpose.idm.xml` (2010 to 2024) pass
+`DesignedSurveyIdmlTest`. An empty page holding only hidden fields is listed to put questions on, and is not
+deletable (`emptyPages[].deletable`).
+
+**Stage 6, done (18 Nov), a survey in use.** Collect Earth takes a changed survey by itself: `GET /survey/revision`
+(every member) gives the served survey's revision; the desktop keeps the one it opened in the project's cloud binding
+(`CloudBinding.surveyRevision`, set when a project is joined or opened), and `SurveyUpdateService` compares them twenty
+seconds after the start and every ten minutes. When the coordinator changed the survey, a notice says so ("The survey
+has changed") with "Update now", which opens the project again as the list of projects does (download, load,
+restart: the records collected stay, those not sent are sent after), or "Later", asked again at the next start. A
+project opened before this version takes the revision it first reads as its own; a server without the designer
+answers 404 and nothing is asked. `SurveyUpdateServiceTest` (a local HTTP server, the notice answered both ways, a
+refused update). The coordinator's banner says who gets the change and when. In the dashboard, "Preview the form"
+shows the survey page by page as a person collecting meets it, answered there to try it (`surveyPreviewView.ts`):
+questions show and hide by their conditions, required marks follow theirs, rules say when an answer breaks them
+(ranges with numbers or another answer, lengths, a table's column totals under it), a sub-list offers the answers
+under its parent's answer. What the preview cannot work out (advanced conditions, calculated values) is shown as
+shown and said so; the desktop's own form stays the reference (stage 7's "desktop's form as preview" is not done).
+
+**Stage 7, done (18 Nov), expressions as text and the texts as a spreadsheet.** What the builder cannot say is
+written as an expression of Collect's language, checked as it is typed (`POST /survey/check`, the 3b checker, from
+the place of the question: "Collect reads it", or the problem in the dashboard's words) and again when saved: a
+show-when or required-when ("Written as an expression" beside "Always" and "Only when…"; an advanced condition opens
+as its text), a rule ("Written as an expression", `$this` the answer, with its condition; a check written in Collect's
+designer changes so too, its other checks — pattern, distance, uniqueness — are only deleted), and a calculated
+value's formulas ("Edit the formulas": each a value or an expression, with its condition, the first that holds giving
+the value; a value must be one of the list's codes, a number, true or false). This answers decision 2: formulas are
+edited, with Collect's check, rather than only shown. A condition typed as text that the rows can say reads back as
+rows. The texts go to translators as a spreadsheet ("Download the texts": a CSV with a row per text people read —
+title, pages, questions, tables, rules' messages, answers of the lists in use — and a column per language; UTF-8 with
+its mark, formula-looking cells guarded) and come back ("Upload the texts": each changed cell becomes a pending change,
+as if typed, a new language column adds the language, rows the survey no longer has are counted and left out; the
+coordinator checks and saves). `designer/text.idm.xml` (a rule written as an expression with its condition, formulas
+replaced, a show-when as text) passes `DesignedSurveyIdmlTest`. Not done: the desktop's own form shown in the
+dashboard as the preview (the browser preview of stage 6 does it for what the builder says; formulas and advanced
+conditions are tried in Collect Earth with a training plot).
 

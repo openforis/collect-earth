@@ -22,15 +22,15 @@ export const MAX_LISTED_RUNS = 200;
 /** Invisible and control characters taken out of a free question (as run.ts does). */
 const INVISIBLE = /[\p{Cf}\u0000-\u0009\u000B-\u001F\u007F]/gu;
 
-const SESSION_REQUIRED = {
+export const SESSION_REQUIRED = {
   error: 'user_session_required',
   reason: 'Sign in to the dashboard with your account to use the AI assistant.',
 } as const;
-const UNAVAILABLE = {
+export const UNAVAILABLE = {
   error: 'ai_unavailable',
   reason: 'The AI assistant is not available on this server. The server owner can set it up and switch it on.',
 } as const;
-const NOT_ENABLED = {
+export const NOT_ENABLED = {
   error: 'ai_not_enabled',
   reason: 'The AI assistant is switched off for this project. A coordinator can switch it on in the project settings.',
 } as const;
@@ -217,29 +217,7 @@ export async function registerAiRoutes(app: FastifyInstance, store: Store, confi
     if (out.ok) {
       return reply.header('cache-control', 'no-store').send({ views: out.views } satisfies ProposedViewsAnswer);
     }
-    if ('failed' in out) {
-      return reply.code(502).send({ error: 'ai_failed', code: out.failed, reason: FAILURE_MESSAGES[out.failed] });
-    }
-    if (out.limit === 'busy') {
-      return reply.code(409).send({ error: 'busy', reason: 'The assistant is already working for this project. Wait until it has finished.' });
-    }
-    if (out.limit === 'daily') {
-      const none = settings.aiFollowUpsPerDay === 0;
-      return reply.code(429).send({
-        error: 'ai_daily_limit',
-        limit: 'follow_ups',
-        resetsAt: none ? null : out.resetsAt,
-        reason: none
-          ? 'Follow-ups and questions to the AI assistant are not allowed on this server: the daily limit is 0.'
-          : 'This project has used all its follow-ups and questions to the AI assistant for today.',
-      });
-    }
-    const none = settings.aiMonthlyTokens === 0;
-    return reply.code(429).send({
-      error: 'ai_monthly_limit',
-      resetsAt: none ? null : out.resetsAt,
-      reason: none ? 'The AI assistant is not allowed on this server: its monthly limit is 0.' : 'This project has used all the AI assistant time it may use this month.',
-    });
+    return sendOneCallRefusal(reply, out, settings);
   });
 
   // Reading the runs needs a person too, as starting them: a project token is no one, and
@@ -317,4 +295,38 @@ async function runRequest(store: Store, projectId: string, body: unknown): Promi
     return { status: 400, body: bad(`question must have 1 to ${MAX_QUESTION_CHARS} characters`) };
   }
   return { kind: 'question', language: lang, parentRun, parent, question };
+}
+
+/**
+ * Why a one-call use of the assistant (the analysis views, the survey designer's help) gave no answer: the model failed
+ * (502), another run is working (409), or a limit is reached (429).
+ */
+export function sendOneCallRefusal(
+  reply: FastifyReply,
+  out: { failed: keyof typeof FAILURE_MESSAGES } | { limit: 'busy' } | { limit: 'daily' | 'monthly'; resetsAt: number },
+  settings: { aiFollowUpsPerDay: number; aiMonthlyTokens: number },
+): FastifyReply {
+  if ('failed' in out) {
+    return reply.code(502).send({ error: 'ai_failed', code: out.failed, reason: FAILURE_MESSAGES[out.failed] });
+  }
+  if (out.limit === 'busy') {
+    return reply.code(409).send({ error: 'busy', reason: 'The assistant is already working for this project. Wait until it has finished.' });
+  }
+  if (out.limit === 'daily') {
+    const none = settings.aiFollowUpsPerDay === 0;
+    return reply.code(429).send({
+      error: 'ai_daily_limit',
+      limit: 'follow_ups',
+      resetsAt: none ? null : out.resetsAt,
+      reason: none
+        ? 'Follow-ups and questions to the AI assistant are not allowed on this server: the daily limit is 0.'
+        : 'This project has used all its follow-ups and questions to the AI assistant for today.',
+    });
+  }
+  const none = settings.aiMonthlyTokens === 0;
+  return reply.code(429).send({
+    error: 'ai_monthly_limit',
+    resetsAt: none ? null : out.resetsAt,
+    reason: none ? 'The AI assistant is not allowed on this server: its monthly limit is 0.' : 'This project has used all the AI assistant time it may use this month.',
+  });
 }

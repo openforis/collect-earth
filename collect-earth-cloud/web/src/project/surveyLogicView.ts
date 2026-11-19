@@ -113,18 +113,20 @@ export function listOptions(items: readonly DesignListItem[]): DesignListItem[] 
   return items.flatMap((i) => [i, ...listOptions(i.items)]);
 }
 
-export type RuleKind = "range" | "length" | "total";
+export type RuleKind = "range" | "length" | "total" | "expression";
 
 /** The rules the builder makes for a question: a number's range (and a table's total), a text's length */
 export function ruleKinds(q: DesignQuestion, table: DesignTable | null): RuleKind[] {
-  if (q.fixed || q.formulas || q.hidden) return [];
-  if (q.type === "integer" || q.type === "decimal") return table && table.layout !== "group" ? ["range", "total"] : ["range"];
-  if (q.type === "text" || q.type === "memo") return ["length"];
-  return [];
+  if (q.fixed || q.formulas || q.hidden || q.fromPlotFile) return [];
+  // Any question's rule can be written as an expression (stage 7)
+  if (q.type === "integer" || q.type === "decimal") return table && table.layout !== "group" ? ["range", "total", "expression"] : ["range", "expression"];
+  if (q.type === "text" || q.type === "memo") return ["length", "expression"];
+  return ["expression"];
 }
 
 /** Whether the builder can change a rule as it is (else it can only be deleted) */
-export const builderRule = (rule: DesignRule) => rule.kind === "length" || rule.kind === "total" || (rule.kind === "range" && [rule.min, rule.max].every((l) => !l || !("expression" in l.bound)));
+export const builderRule = (rule: DesignRule) =>
+  rule.kind === "length" || rule.kind === "total" || (rule.kind === "advanced" && rule.expression) || (rule.kind === "range" && [rule.min, rule.max].every((l) => !l || !("expression" in l.bound)));
 
 export interface LimitDraft {
   mode: "none" | "number" | "question";
@@ -146,6 +148,9 @@ export interface RuleDraft {
   maxChars: string;
   totalTest: TotalTest;
   total: string;
+  /** A rule written as an expression: the expression the answer must make true, and its condition written so */
+  expressionText: string;
+  whenText: string;
 }
 
 const noLimit: LimitDraft = { mode: "none", number: "", question: "", inclusive: true };
@@ -172,6 +177,8 @@ export function ruleDraftOf(rule: DesignRule | null, kinds: readonly RuleKind[],
     maxChars: "",
     totalTest: "atMost",
     total: "",
+    expressionText: "",
+    whenText: "",
   };
   if (!rule) return base;
   switch (rule.kind) {
@@ -181,6 +188,13 @@ export function ruleDraftOf(rule: DesignRule | null, kinds: readonly RuleKind[],
       return { ...base, kind: "length", minChars: rule.min === null ? "" : String(rule.min), maxChars: rule.max === null ? "" : String(rule.max) };
     case "total":
       return { ...base, kind: "total", totalTest: rule.test, total: String(rule.total) };
+    case "advanced":
+      return {
+        ...base,
+        kind: "expression",
+        expressionText: rule.text,
+        whenText: rule.when?.kind === "advanced" ? rule.when.text : "",
+      };
     default:
       return base;
   }
@@ -227,6 +241,11 @@ export function ruleOf(draft: RuleDraft, questions: ReadonlyMap<string, DesignQu
     case "total": {
       const total = parseNumber(draft.total);
       return Number.isNaN(total) ? null : { ...base, kind: "total", test: draft.totalTest, total };
+    }
+    case "expression": {
+      const text = draft.expressionText.trim();
+      const whenText = draft.whenText.trim();
+      return text === "" ? null : { ...base, kind: "expression", text, ...(whenText !== "" ? { whenText } : {}) };
     }
   }
 }

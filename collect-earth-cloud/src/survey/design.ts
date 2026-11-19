@@ -21,6 +21,7 @@ import type {
 } from '../wire/survey.js';
 import { NOTE_NAME, PERIOD_STATUS_NAME } from '../cep.js';
 import { namesUsed, readCondition, type QuestionLookup } from './condition.js';
+import { codeUsers } from './codeUses.js';
 import { questionType, readCheckRule } from './logic.js';
 import { attrValue, childElements, childrenNamed, firstChild, readXml, textValue, type XmlDocument, type XmlElement } from './xmlTree.js';
 
@@ -131,7 +132,7 @@ class DesignReader {
       else page.items.push(q);
     }
     const lists = this.lists();
-    // The pages nothing names (no question, shown or hidden, has its tab): empty, so they can be deleted
+    // The pages nothing is shown on, to put questions on; deletable when nothing (no question, shown or hidden) has their tab
     const named = new Set<string>();
     for (const node of descendantsOf(plot)) {
       const tab = attrLocal(this.doc, node, 'tab', this.ui);
@@ -143,7 +144,9 @@ class DesignReader {
       title: this.localized(this.doc.root, 'project'),
       pages: [...pages.values()].filter((p) => p.items.length > 0),
       pageOrder: tabs.map((t) => t.name),
-      emptyPages: tabs.filter((t) => !named.has(t.name)).map((t) => ({ name: t.name, label: t.label })),
+      emptyPages: tabs
+        .filter((t) => !pages.get(t.name)?.items.length)
+        .map((t) => ({ name: t.name, label: t.label, deletable: !named.has(t.name) })),
       fromPlotFile,
       calculated,
       hidden,
@@ -209,7 +212,7 @@ class DesignReader {
     return (name) => {
       for (const where of scope === plot ? [plot] : [scope, plot]) {
         const found = childElements(where).find((c) => ATTRIBUTE_TAGS.has(c.name) && attrValue(this.doc, c, 'name') === name);
-        if (found) return { yesNo: found.name === 'boolean' };
+        if (found) return { yesNo: found.name === 'boolean', multiple: attrValue(this.doc, found, 'multiple') === 'true' };
       }
       return undefined;
     };
@@ -306,7 +309,7 @@ class DesignReader {
             .filter((a) => a.name !== 'flag' && a.name !== 'if')
             .map((a) => `${c.name} ${a.name}=${attrValue(this.doc, c, a.name)}`)
             .join(', ');
-    return { ...base, kind: 'advanced', text: text.trim() };
+    return { ...base, kind: 'advanced', text: text.trim(), expression: c.name === 'check' };
   }
 
   private table(e: XmlElement, plot: XmlElement): DesignTable {
@@ -338,20 +341,26 @@ class DesignReader {
       const list = attrValue(this.doc, node, 'list');
       if (list) usedBy.set(list, [...(usedBy.get(list) ?? []), name]);
     }
-    const items = (parent: XmlElement | undefined): DesignListItem[] =>
-      (parent ? childrenNamed(parent, 'item') : []).map((i) => ({
-        code: textValue(this.doc, firstChild(i, 'code') ?? i).trim(),
-        label: this.localized(i, 'label'),
-        help: this.localized(i, 'description'),
-        items: items(i),
-      }));
+    const schema = firstChild(this.doc.root, 'schema');
+    const codesUsed = schema ? codeUsers(this.doc, schema) : new Map<string, Map<string, Set<string>>>();
+    const items = (parent: XmlElement | undefined, list: string): DesignListItem[] =>
+      (parent ? childrenNamed(parent, 'item') : []).map((i) => {
+        const code = textValue(this.doc, firstChild(i, 'code') ?? i).trim();
+        return {
+          code,
+          label: this.localized(i, 'label'),
+          help: this.localized(i, 'description'),
+          items: items(i, list),
+          usedBy: [...(codesUsed.get(list)?.get(code) ?? [])],
+        };
+      });
     return (lists ? childrenNamed(lists, 'list') : []).map((l) => {
       const name = attrValue(this.doc, l, 'name') ?? '';
       return {
         id: Number(attrValue(this.doc, l, 'id')),
         name,
         label: this.labels(l, 'item'),
-        items: items(firstChild(l, 'items')),
+        items: items(firstChild(l, 'items'), name),
         external: attrValue(this.doc, l, 'lookup') !== undefined,
         usedBy: usedBy.get(name) ?? [],
       };

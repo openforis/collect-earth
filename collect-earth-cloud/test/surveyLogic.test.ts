@@ -16,7 +16,7 @@ import type { ConditionRows, DesignItem, DesignQuestion, NewRule, SurveyDesign, 
 import { FIXTURE_DATE, realDemoCep } from './fixtures/cep.js';
 import { batchRequest, bearer, createProject, envelope, makeContext, type TestContext } from './helpers.js';
 
-const TEMPLATES = fileURLToPath(new URL('./fixtures/templates/', import.meta.url));
+const TEMPLATES = fileURLToPath(new URL('../templates/', import.meta.url));
 const DESIGNER = fileURLToPath(new URL('../../collect-earth/collect-earth-app/src/test/resources/designer/', import.meta.url));
 const basic = readFileSync(`${TEMPLATES}collect_earth.idm.xml`);
 const multipurpose = readFileSync(`${TEMPLATES}collect_earth_multipurpose.idm.xml`);
@@ -177,6 +177,7 @@ describe('rules from the builder', () => {
     expect(refused(basic, { op: 'addRule', id: integer, rule: { flag: 'error', message: {}, when: null, kind: 'total', test: 'atMost', total: 100 } })).toBe('A total is for a number column of a table.');
     expect(refused(basic, { op: 'addRule', id: integer, rule: { flag: 'error', message: {}, when: null, kind: 'range', min: { bound: { question: 'code_demo' }, inclusive: true }, max: null } })).toBe('code_demo is not a number.');
     expect(refused(basic, { op: 'setRule', id: integer, index: 5, rule: range(0, 1) })).toBe('The question has no rule 6.');
+    expect(refused(basic, { op: 'addRule', id: id(basic, 'elevation'), rule: range(0, 1) })).toBe('elevation comes from the plot file: nobody answers it.');
     expect(refused(basic, { op: 'addRule', id: integer, rule: range(0, 1, { message: { de: 'x' } }) })).toMatch(/no language de/);
   });
 

@@ -8,19 +8,23 @@
 import { createHash } from 'node:crypto';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { audit } from '../activity.js';
-import { readCep, roundInfoOf, withSurvey, type CepFiles } from '../cep.js';
+import { CepError, readCep, roundInfoOf, withSurvey, type CepFiles } from '../cep.js';
 import type { Config } from '../config.js';
 import { checkUploadFits } from '../limits.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import type { Store } from '../store/store.js';
-import { checkSurvey, type SurveyProblem } from '../survey/check.js';
+import { checkSurvey, newProblems } from '../survey/check.js';
 import { surveyDesign } from '../survey/design.js';
-import { SurveyEdit, SurveyEditError } from '../survey/edit.js';
+import { operationFor, SurveyEdit, SurveyEditError } from '../survey/edit.js';
 import { surveyImpact } from '../survey/impact.js';
+import { newProjectFile, TEMPLATES_WITH_YEARS } from '../survey/templates.js';
+import { acceptCep } from './platform.js';
 import { XmlTreeError } from '../survey/xmlTree.js';
 import type {
   ConditionPart,
   ConditionRows,
+  ExpressionCheckAnswer,
+  NewFormula,
   NewRule,
   NewRuleLimit,
   SurveyChangeInput,
@@ -28,7 +32,10 @@ import type {
   SurveyDesignAnswer,
   SurveyImpactAnswer,
   SurveyOperation,
+  SurveyNewInput,
   SurveyRestoreInput,
+  SurveyRevisionAnswer,
+  SurveyTemplate,
   SurveyVersionsAnswer,
   TotalTest,
   WordTarget,
@@ -36,6 +43,8 @@ import type {
 
 /** The most operations one save takes */
 const MAX_OPERATIONS = 2000;
+/** The most answers one save adds, in new lists and one by one (a save stays a matter of a second or two) */
+const MAX_NEW_ANSWERS = 20000;
 
 /** A survey's revision: what a change names, so that two coordinators do not undo each other */
 export const revisionOf = (survey: Uint8Array): string => createHash('sha256').update(survey).digest('hex').slice(0, 24);
@@ -43,18 +52,21 @@ export const revisionOf = (survey: Uint8Array): string => createHash('sha256').u
 const surveyOf = (files: CepFiles): Buffer => Buffer.from(files.entries.get(files.surveyPath)!);
 
 async function designAnswer(store: Store, config: Config, projectId: string, log: FastifyRequest['log']): Promise<SurveyDesignAnswer> {
-  const empty = { design: null, revision: null, editable: false, peopleWithFile: 0, problems: [] };
+  const empty = { design: null, revision: null, editable: false, peopleWithFile: 0, olderSurveyPlots: 0, problems: [] };
   const cep = await store.getCep(projectId);
-  if (!cep) return { ...empty, unreadable: false };
+  // Without a project file, editable says a survey can be started here (POST /survey/new)
+  if (!cep) return { ...empty, editable: !config.localMode, unreadable: false };
   try {
     const survey = surveyOf(readCep(cep));
-    const activity = await store.listMemberActivity(projectId);
+    const [activity, revisions] = await Promise.all([store.listMemberActivity(projectId), store.countRecordSurveyRevisions(projectId)]);
+    const revision = revisionOf(survey);
     return {
       design: surveyDesign(survey),
       unreadable: false,
-      revision: revisionOf(survey),
+      revision,
       editable: !config.localMode,
       peopleWithFile: activity.filter((a) => a.lastCepDownloadAt !== null).length,
+      olderSurveyPlots: [...revisions].reduce((n, [r, count]) => n + (r === revision ? 0 : count), 0),
       // What Collect or Collect Earth would refuse in it: shown as warnings, as the survey came from Collect's designer
       problems: checkSurvey(survey),
     };
@@ -136,7 +148,7 @@ function readOperation(raw: unknown): SurveyOperation | null {
     case 'addQuestion': {
       const label = readLocalized(o.label);
       if (!label || !NEW_TYPES.has(o.type as string) || !optionalString(o.name, 63) || !optionalString(o.page) || !optionalId(o.table) || !optionalId(o.before)) return null;
-      if (!optionalString(o.list) || (o.required !== undefined && typeof o.required !== 'boolean')) return null;
+      if (!optionalString(o.list) || !optionalString(o.parent, 63) || (o.required !== undefined && typeof o.required !== 'boolean')) return null;
       return {
         op: 'addQuestion',
         type: o.type as Extract<SurveyOperation, { op: 'addQuestion' }>['type'],
@@ -146,6 +158,7 @@ function readOperation(raw: unknown): SurveyOperation | null {
         ...(o.table !== undefined ? { table: o.table } : {}),
         ...(o.before !== undefined ? { before: o.before } : {}),
         ...(o.list !== undefined ? { list: o.list } : {}),
+        ...(o.parent !== undefined ? { parent: o.parent } : {}),
         ...(o.required !== undefined ? { required: o.required } : {}),
       };
     }
@@ -173,6 +186,24 @@ function readOperation(raw: unknown): SurveyOperation | null {
     }
     case 'deleteRule':
       return Number.isInteger(o.id) && isIndex(o.index) ? { op: 'deleteRule', id: o.id as number, index: o.index as number } : null;
+    case 'setExpression':
+      return Number.isInteger(o.id) && (o.part === 'shownWhen' || o.part === 'required') && (o.text === null || isString(o.text, 4000))
+        ? { op: 'setExpression', id: o.id as number, part: o.part, text: o.text as string | null }
+        : null;
+    case 'setFormulas': {
+      if (!Number.isInteger(o.id) || !Array.isArray(o.formulas) || o.formulas.length > 100) return null;
+      const formulas: NewFormula[] = [];
+      for (const raw of o.formulas) {
+        const f = (raw ?? {}) as Record<string, unknown>;
+        if (!optionalString(f.expression, 4000) || !optionalString(f.value, 4000) || !optionalString(f.when, 4000)) return null;
+        formulas.push({
+          ...(f.expression !== undefined ? { expression: f.expression } : {}),
+          ...(f.value !== undefined ? { value: f.value } : {}),
+          ...(f.when !== undefined ? { when: f.when } : {}),
+        });
+      }
+      return { op: 'setFormulas', id: o.id as number, formulas };
+    }
     case 'addList': {
       const label = readLocalized(o.label);
       if (!label || !optionalString(o.name, 63) || !Array.isArray(o.items) || o.items.length > 1000) return null;
@@ -184,10 +215,18 @@ function readOperation(raw: unknown): SurveyOperation | null {
       return isString(o.name) ? { op: 'deleteList', name: o.name } : null;
     case 'addItem': {
       const item = readItem(o.item);
-      return isString(o.list) && item && optionalString(o.before, 100)
-        ? { op: 'addItem', list: o.list, item, ...(o.before !== undefined ? { before: o.before } : {}) }
+      return isString(o.list) && item && optionalString(o.before, 100) && optionalString(o.under, 100)
+        ? { op: 'addItem', list: o.list, item, ...(o.before !== undefined ? { before: o.before } : {}), ...(o.under !== undefined ? { under: o.under } : {}) }
         : null;
     }
+    case 'addTable': {
+      const label = readLocalized(o.label);
+      return label && isString(o.page) && isString(o.rows) && optionalString(o.name, 63) && optionalId(o.before)
+        ? { op: 'addTable', label, page: o.page, rows: o.rows, ...(o.name !== undefined ? { name: o.name } : {}), ...(o.before !== undefined ? { before: o.before } : {}) }
+        : null;
+    }
+    case 'deleteTable':
+      return Number.isInteger(o.id) ? { op: 'deleteTable', id: o.id as number } : null;
     case 'moveItem':
       return isString(o.list) && isString(o.code, 100) && optionalString(o.before, 100)
         ? { op: 'moveItem', list: o.list, code: o.code, ...(o.before !== undefined ? { before: o.before } : {}) }
@@ -250,6 +289,10 @@ function readRule(v: unknown): NewRule | null {
       return ['atLeast', 'atMost', 'exactly'].includes(o.test as string) && typeof o.total === 'number' && Number.isFinite(o.total)
         ? { ...base, kind: 'total', test: o.test as TotalTest, total: o.total }
         : null;
+    case 'expression':
+      return isString(o.text, 4000) && (o.whenText === undefined || o.whenText === null || isString(o.whenText, 4000))
+        ? { ...base, kind: 'expression', text: o.text, ...(typeof o.whenText === 'string' ? { whenText: o.whenText } : {}) }
+        : null;
     default:
       return null;
   }
@@ -264,6 +307,8 @@ function readOperationList(v: unknown): SurveyOperation[] | string {
     if (!op) return `operation ${i + 1} is not one the designer makes`;
     operations.push(op);
   }
+  const answers = operations.reduce((n, o) => n + (o.op === 'addList' ? o.items.length : o.op === 'addItem' ? 1 : 0), 0);
+  if (answers > MAX_NEW_ANSWERS) return `at most ${MAX_NEW_ANSWERS} new answers at once`;
   return operations;
 }
 
@@ -272,13 +317,6 @@ function readOperations(body: unknown): { revision: string; operations: SurveyOp
   if (!isString(b.revision, 100)) return 'revision is missing';
   const operations = readOperationList(b.operations);
   return typeof operations === 'string' ? operations : { revision: b.revision, operations };
-}
-
-/** The problems a changed survey has that the survey before had not */
-function newProblems(before: SurveyProblem[], after: SurveyProblem[]): SurveyProblem[] {
-  const key = (p: SurveyProblem) => JSON.stringify([p.node, p.code, p.values, p.expression]);
-  const known = new Set(before.map(key));
-  return after.filter((p) => !known.has(key(p)));
 }
 
 export async function registerSurveyDesignRoutes(app: FastifyInstance, store: Store, config: Config): Promise<void> {
@@ -299,16 +337,20 @@ export async function registerSurveyDesignRoutes(app: FastifyInstance, store: St
     next: Buffer,
     nextOriginal: Buffer | null,
     kept: { survey: Buffer; original: Buffer | null; changes: number; restoredFrom: string | null },
-  ): Promise<{ status: 413; body: unknown } | null> {
+  ): Promise<{ status: 409 | 413; body: unknown } | null> {
     const date = new Date();
     const storedOriginal = await store.getOriginalCep(projectId);
     const originalCep = storedOriginal && !storedOriginal.equals(served) ? storedOriginal : null;
     const nextServed = withSurvey(served, next, date);
-    const nextOriginalCep = originalCep ? withSurvey(originalCep, nextOriginal ?? next, date) : null;
+    // The uploaded file's survey that could not be changed stays as it is: never the served one, with the server's fields
+    const nextOriginalCep = originalCep ? (nextOriginal ? withSurvey(originalCep, nextOriginal, date) : originalCep) : null;
     const over = await checkUploadFits(store, projectId, { kind: 'cep' }, nextServed.length + (nextOriginalCep?.length ?? 0));
     if (over) return { status: 413, body: over };
+    // Written only while the project file is still the one the change was made on: of two changes at once, the
+    // second is refused as one made on a survey read before
+    const written = await store.replaceCep(projectId, served, nextServed, (await store.getRoundInfo(projectId)) ?? roundInfoOf(nextServed), nextOriginalCep);
+    if (!written) return { status: 409, body: { error: 'stale', reason: 'the survey changed since it was read: read it again' } satisfies SurveyChangeRefusal };
     await store.addSurveyVersion(projectId, { ...kept, createdBy: request.userId ?? null });
-    await store.putCep(projectId, nextServed, (await store.getRoundInfo(projectId)) ?? roundInfoOf(nextServed), nextOriginalCep);
     return null;
   }
 
@@ -355,9 +397,15 @@ export async function registerSurveyDesignRoutes(app: FastifyInstance, store: St
       try {
         originalSurvey = surveyOf(readCep(storedOriginal));
         const originalEdit = new SurveyEdit(originalSurvey);
+        // The ids differ between the two (the server's fields take some): each operation names its questions by
+        // their names there, on both surveys as they are at that point
+        const servedEdit = new SurveyEdit(survey);
         for (const op of asked.operations) {
+          const there = operationFor(op, servedEdit, originalEdit);
+          servedEdit.apply(op);
+          if (!there) continue;
           try {
-            originalEdit.apply(op);
+            originalEdit.apply(there);
           } catch (err) {
             if (!(err instanceof SurveyEditError)) throw err;
           }
@@ -393,10 +441,19 @@ export async function registerSurveyDesignRoutes(app: FastifyInstance, store: St
     if (typeof operations === 'string') return reply.code(400).send({ error: 'bad_request', reason: operations } satisfies SurveyChangeRefusal);
     const served = await store.getCep(projectId);
     if (!served) return reply.code(404).send({ error: 'not_found' });
-    const survey = surveyOf(readCep(served));
+    let survey: Buffer;
+    let edit: SurveyEdit;
+    try {
+      survey = surveyOf(readCep(served));
+      edit = new SurveyEdit(survey);
+    } catch (err) {
+      if (err instanceof XmlTreeError || err instanceof SurveyEditError || err instanceof CepError) {
+        return reply.code(409).send({ error: 'unreadable', reason: 'the survey of the project file cannot be read' });
+      }
+      throw err;
+    }
     let after: Buffer;
     try {
-      const edit = new SurveyEdit(survey);
       for (const op of operations) edit.apply(op);
       after = edit.bytes();
     } catch (err) {
@@ -405,6 +462,84 @@ export async function registerSurveyDesignRoutes(app: FastifyInstance, store: St
     }
     const records = await store.listRecordSummaries(projectId);
     return surveyImpact(survey, operations, records, after) satisfies SurveyImpactAnswer;
+  });
+
+  // A project without a project file starts from a template (stage 5): the survey made, its project file stored as an
+  // upload is (acceptCep), so the round, the note and everything an upload gets come with it
+  app.post('/v1/projects/:pid/survey/new', admin, async (request, reply) => {
+    const projectId = request.membership!.projectId;
+    const b = (request.body ?? {}) as Partial<Record<keyof SurveyNewInput, unknown>>;
+    const templates: SurveyTemplate[] = ['blank', 'basic', 'multipurpose', 'ipcc'];
+    const years = b.years as { first?: unknown; last?: unknown } | undefined;
+    if (
+      !templates.includes(b.template as SurveyTemplate) ||
+      !isString(b.title, 200) ||
+      (b.title as string).trim() === '' ||
+      typeof b.language !== 'string' ||
+      !/^[a-z]{2,3}(_[A-Z]{2})?$/.test(b.language) ||
+      (years !== undefined && (!Number.isInteger(years?.first) || !Number.isInteger(years?.last)))
+    ) {
+      return reply.code(400).send({ error: 'bad_request', reason: 'template, title and language are needed; years as {first, last}' } satisfies SurveyChangeRefusal);
+    }
+    if (years && !TEMPLATES_WITH_YEARS.includes(b.template as SurveyTemplate)) {
+      return reply.code(400).send({ error: 'bad_request', reason: 'only the multipurpose and IPCC templates have years' } satisfies SurveyChangeRefusal);
+    }
+    if (await store.getCep(projectId)) {
+      return reply.code(409).send({ error: 'has_project_file', reason: 'The project has a project file already: change its survey here, or upload another one.' });
+    }
+    let cep: Buffer;
+    try {
+      cep = newProjectFile(
+        {
+          template: b.template as SurveyTemplate,
+          title: b.title as string,
+          language: b.language,
+          projectId,
+          ...(years ? { years: { first: years.first as number, last: years.last as number } } : {}),
+        },
+        new Date(),
+      );
+    } catch (err) {
+      if (err instanceof SurveyEditError) return reply.code(400).send({ error: 'bad_request', reason: err.message } satisfies SurveyChangeRefusal);
+      throw err;
+    }
+    const accepted = await acceptCep(store, projectId, cep, request.log);
+    if (!accepted.ok) return reply.code(accepted.status).send(accepted.body);
+    await audit(store, request, 'cep.replaced', { bytes: cep.length, template: b.template as string });
+    return designAnswer(store, config, projectId, request.log);
+  });
+
+  // An expression typed in the designer, checked as Collect checks it from the place of its question (stage 7); nothing
+  // is written. The words of a problem are the dashboard's (surveyCheck.<code>)
+  app.post('/v1/projects/:pid/survey/check', admin, async (request, reply) => {
+    const b = (request.body ?? {}) as Record<string, unknown>;
+    if (!Number.isInteger(b.id) || (b.kind !== 'boolean' && b.kind !== 'value') || !isString(b.text, 4000)) {
+      return reply.code(400).send({ error: 'bad_request', reason: 'id, kind (boolean or value) and text are needed' } satisfies SurveyChangeRefusal);
+    }
+    const cep = await store.getCep(request.membership!.projectId);
+    if (!cep) return reply.code(404).send({ error: 'not_found' });
+    try {
+      const verdict = new SurveyEdit(surveyOf(readCep(cep))).checkText(b.id as number, b.kind, b.text);
+      return (verdict.ok ? { ok: true } : { ok: false, code: verdict.code, values: verdict.values, beyondCollect: verdict.beyondCollect }) satisfies ExpressionCheckAnswer;
+    } catch (err) {
+      if (err instanceof SurveyEditError) return reply.code(400).send({ error: 'bad_request', reason: err.message } satisfies SurveyChangeRefusal);
+      throw err;
+    }
+  });
+
+  // The served survey's revision, for every member (stage 6): Collect Earth compares it with the one it opened, and
+  // offers to take the survey again when the coordinator changed it. null without a project file
+  app.get('/v1/projects/:pid/survey/revision', { preHandler: requireProjectMembership(store) }, async (request, reply) => {
+    const cep = await store.getCep(request.membership!.projectId);
+    let revision: string | null = null;
+    if (cep) {
+      try {
+        revision = revisionOf(surveyOf(readCep(cep)));
+      } catch {
+        revision = null;
+      }
+    }
+    return reply.header('cache-control', 'private, no-cache').send({ revision } satisfies SurveyRevisionAnswer);
   });
 
   app.get('/v1/projects/:pid/survey/versions', admin, async (request) => {

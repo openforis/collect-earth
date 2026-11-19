@@ -67,6 +67,13 @@ export type ProposalsResult =
   | { ok: false; limit: 'daily' | 'monthly'; resetsAt: number }
   | { ok: false; failed: 'blocked' | 'invalid_answer' | 'ai_unavailable' | 'ai_timeout' };
 
+/** The survey designer's help: the model's JSON answer, or why there is none */
+export type HelpCallResult =
+  | { ok: true; json: unknown }
+  | { ok: false; limit: 'busy' }
+  | { ok: false; limit: 'daily' | 'monthly'; resetsAt: number }
+  | { ok: false; failed: 'blocked' | 'invalid_answer' | 'ai_unavailable' | 'ai_timeout' };
+
 export type StartResult =
   | { ok: true; runId: string }
   | { ok: false; limit: 'busy' }
@@ -249,6 +256,64 @@ export class AiRunService {
     await (outcome.ok
       ? this.store.finishAiRun(projectId, runId, { ...end, status: 'done', result: { result: { views: outcome.views }, pseudonyms: {}, plots: {} }, error: null, errorCode: null })
       : this.store.finishAiRun(projectId, runId, { ...end, status: 'failed', result: null, error: FAILURE_MESSAGES[outcome.failed], errorCode: outcome.failed }));
+    return outcome;
+  }
+
+  /**
+   * One call for the survey designer's help (src/ai/surveyHelp.ts): a run of the kind "survey", counted against the
+   * project's limits as the analysis views are; its JSON answer, which the caller checks.
+   */
+  async surveyHelp(
+    projectId: string,
+    userId: string,
+    call: { system: string; turn: string; schema: object; maxOutputTokens: number },
+    settings: ServerSettings,
+  ): Promise<HelpCallResult> {
+    const client = this.options.client;
+    if (!client) {
+      throw new Error('the AI assistant is not set up');
+    }
+    const w = this.window(settings);
+    const started = await this.store.startAiRun(projectId, { kind: 'survey', startedBy: userId, model: this.options.model }, w);
+    if (!started.ok) {
+      if (started.limit === 'busy') return { ok: false, limit: 'busy' };
+      return { ok: false, limit: started.limit, resetsAt: started.limit === 'daily' ? w.nextDay : w.nextMonth };
+    }
+    const runId = started.run.id;
+    let used = { inputTokens: 0, outputTokens: 0 };
+    let outcome: HelpCallResult;
+    try {
+      const res = await withDeadline(client, Date.now() + PROPOSALS_TIMEOUT_MS).generate({
+        system: call.system,
+        turns: [{ role: 'user', text: call.turn }],
+        responseSchema: call.schema,
+        maxOutputTokens: call.maxOutputTokens,
+        thinking: 'low',
+        timeoutMs: PROPOSALS_TIMEOUT_MS - 5_000,
+      });
+      used = { inputTokens: res.inputTokens, outputTokens: res.outputTokens };
+      if (res.blocked || res.text === null) {
+        outcome = { ok: false, failed: 'blocked' };
+      } else {
+        let json: unknown = null;
+        try {
+          json = JSON.parse(res.text);
+        } catch {
+          json = null;
+        }
+        outcome = json === null || typeof json !== 'object' ? { ok: false, failed: 'invalid_answer' } : { ok: true, json };
+      }
+    } catch (err) {
+      this.log.warn({ err, projectId, runId }, 'ai: the survey designer\'s help failed');
+      outcome = { ok: false, failed: err instanceof AiError && err.timeout ? 'ai_timeout' : 'ai_unavailable' };
+    }
+    const end = { ...used, toolCalls: [], finishedAt: this.now() };
+    // The answer is about the survey's structure: it names no one and no plot
+    await (outcome.ok
+      ? this.store.finishAiRun(projectId, runId, { ...end, status: 'done', result: { result: outcome.json, pseudonyms: {}, plots: {} }, error: null, errorCode: null })
+      : 'failed' in outcome
+        ? this.store.finishAiRun(projectId, runId, { ...end, status: 'failed', result: null, error: FAILURE_MESSAGES[outcome.failed], errorCode: outcome.failed })
+        : Promise.resolve());
     return outcome;
   }
 

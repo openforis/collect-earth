@@ -1,6 +1,6 @@
 // The survey designer (docs/plans/2026-11-18-survey-designer.md): the project's survey as the designer shows it.
 
-import type { SurveyChangeInput, SurveyDesignAnswer, SurveyImpactAnswer, SurveyOperation, SurveyVersionsAnswer } from "../../../src/wire/survey";
+import type { ExpressionCheckAnswer, ExpressionCheckInput, SurveyChangeInput, SurveyDesignAnswer, SurveyHelpAnswer, SurveyHelpInput, SurveyImpactAnswer, SurveyNewInput, SurveyOperation, SurveyVersionsAnswer } from "../../../src/wire/survey";
 import { p, request } from "./transport";
 
 export type {
@@ -33,6 +33,14 @@ export type {
   NewRuleLimit,
   TotalTest,
   SurveyChangeRefusal,
+  SurveyHelpAnswer,
+  SurveyHelpInput,
+  SurveyNewInput,
+  ExpressionCheckAnswer,
+  ExpressionCheckInput,
+  NewFormula,
+  SurveyTemplate,
+  SuggestedRule,
   SurveyVersionView,
   SurveyVersionsAnswer,
   WordTarget,
@@ -64,4 +72,19 @@ export function restoreSurveyVersion(projectId: string, versionId: string, revis
 /** What changes would do to the plots already collected, before they are saved (nothing is written). */
 export function getSurveyImpact(projectId: string, operations: SurveyOperation[]): Promise<SurveyImpactAnswer> {
   return request("POST", `${p(projectId)}/survey/design/impact`, { json: { operations } });
+}
+
+/** The AI assistant's help with the survey's rules (coordinators, the assistant switched on): nothing is saved. */
+export function getSurveyHelp(projectId: string, input: SurveyHelpInput): Promise<SurveyHelpAnswer> {
+  return request("POST", `${p(projectId)}/survey/help`, { json: input });
+}
+
+/** A project without a project file starts from a template or a blank survey (coordinators); answers its survey. */
+export function startSurvey(projectId: string, input: SurveyNewInput): Promise<SurveyDesignAnswer> {
+  return request("POST", `${p(projectId)}/survey/new`, { json: input });
+}
+
+/** An expression typed in the designer, checked as Collect checks it (coordinators); nothing is written. */
+export function checkSurveyExpression(projectId: string, input: ExpressionCheckInput): Promise<ExpressionCheckAnswer> {
+  return request("POST", `${p(projectId)}/survey/check`, { json: input });
 }

@@ -190,6 +190,11 @@ export interface Store {
    * and the uploaded file when it differs from the served one (else null).
    */
   putCep(projectId: string, served: Buffer, info: RoundInfo, original: Buffer | null): Promise<void>;
+  /**
+   * putCep, only while the served CEP is still `expected` (what the change was made on): false, and nothing written,
+   * when another change came first
+   */
+  replaceCep(projectId: string, expected: Buffer, served: Buffer, info: RoundInfo, original: Buffer | null): Promise<boolean>;
   /** The CEP the project serves. */
   getCep(projectId: string): Promise<Buffer | null>;
   /** The CEP as uploaded: the original when the server changed it, else the served one. */
@@ -202,7 +207,8 @@ export interface Store {
   /** Size and last upload time of the CEP, without loading it; null if none uploaded. */
   getCepInfo(projectId: string): Promise<CepInfo | null>;
 
-  /** Keeps a survey as it was before a change of the survey designer; only the last SURVEY_VERSIONS_KEPT stay. */
+  /** Keeps a survey as it was before a change of the survey designer; only the last SURVEY_VERSIONS_KEPT stay, and the
+   * first (the survey before any change). */
   addSurveyVersion(projectId: string, input: SurveyVersionInput): Promise<SurveyVersion>;
   /** The survey's kept versions, newest first. */
   listSurveyVersions(projectId: string): Promise<SurveyVersion[]>;
@@ -210,6 +216,10 @@ export interface Store {
   getSurveyVersionData(projectId: string, versionId: string): Promise<{ survey: Buffer; original: Buffer | null } | null>;
   /** Forgets the kept versions: they were of another project file. */
   deleteSurveyVersions(projectId: string): Promise<void>;
+  /** Keeps the survey revision each record was last stored with (RecordEnvelope.surveyRevision) */
+  setRecordSurveyRevisions(projectId: string, entries: readonly { recordKey: string; operator: string; revision: string }[]): Promise<void>;
+  /** How many of the project's records (not deleted) were last stored with each survey revision, where it is known */
+  countRecordSurveyRevisions(projectId: string): Promise<Map<string, number>>;
 
   // --- Users & sessions (Phase A) ---
 
@@ -737,7 +747,7 @@ export interface Store {
    * `code` and `message`, of one project. How many.
    */
   failStaleAiRuns(projectId: string, before: number, code: string, message: string, now: number): Promise<number>;
-  /** The project's runs, newest first, at most `limit`; `exceptViews`: without the analysis page's view proposals (the AI tab). */
+  /** The project's runs, newest first, at most `limit`; `exceptViews`: without the analysis page's view proposals and the survey designer's help (the AI tab). */
   listAiRuns(projectId: string, limit: number, options?: { exceptViews?: boolean }): Promise<AiRunSummary[]>;
   /** Null when the project has no run with that id. */
   getAiRun(projectId: string, runId: string): Promise<AiRunRow | null>;

@@ -208,6 +208,24 @@ public class CloudApiClient {
 		return new JoinPreview(textOrNull(project, "projectId"), textOrNull(project, "name"), textOrNull(project, "role"), true);
 	}
 
+	/**
+	 * The revision of the survey the cloud project serves (GET /v1/projects/:id/survey/revision): it changes when a
+	 * coordinator changes the survey in the dashboard's designer. null without a project file, and from a server without
+	 * the designer (404).
+	 */
+	public String surveyRevision(Destination destination) throws IOException {
+		HttpGet request = new HttpGet(destination.projectUrl("/survey/revision"));
+		prepareWith(request, destination.getToken());
+		try {
+			return textOrNull(executeForJson("surveyRevision", request), "revision");
+		} catch (CloudApiException e) {
+			if (e.getStatus() == 404) {
+				return null;
+			}
+			throw e;
+		}
+	}
+
 	/** Whether the account is the server's administrator (GET /v1/me, isPlatformAdmin); null when the server does not say. */
 	public Boolean isServerAdmin(String baseUrl, String token) throws IOException {
 		HttpGet request = new HttpGet(normalize(baseUrl) + "/v1/me");

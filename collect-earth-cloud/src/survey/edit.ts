@@ -23,13 +23,15 @@ import {
 } from './xmlTree.js';
 import type { ConditionRows, NewRule, SurveyOperation } from '../wire/survey.js';
 import { isFixed } from './design.js';
+import { codeUsers } from './codeUses.js';
 import { SurveyEditError } from './errors.js';
-import { conditionExpression, ruleCheck, type LogicScope } from './logic.js';
+import { conditionExpression, listCodes, ruleCheck, type LogicScope } from './logic.js';
 import { namesUsed } from './condition.js';
 import { checkExpression, checkSurvey, problemText, schemaOf, type ExpressionKind, type SchemaNode, type SurveyProblem } from './check.js';
 
 export const IDML_NS = 'http://www.openforis.org/idml/3.0';
 export const UI_NS = 'http://www.openforis.org/collect/3.0/ui';
+export const COLLECT_NS = 'http://www.openforis.org/collect/3.0/collect';
 
 /** The kinds of node of a survey's schema */
 export const NODE_TAGS = ['entity', 'text', 'number', 'range', 'code', 'boolean', 'date', 'time', 'coordinate', 'taxon', 'file'] as const;
@@ -48,6 +50,8 @@ const CHECK_TAGS = ['check', 'compare', 'distance', 'pattern', 'unique'];
 const LANGUAGE_CODE = /^[a-z]{2,3}(_[A-Z]{2})?$/;
 /** The longest text the designer writes */
 export const MAX_TEXT = 4000;
+/** The longest expression the designer writes */
+export const MAX_EXPRESSION = 4000;
 const localName = (e: XmlElement) => e.name.slice(e.name.indexOf(':') + 1);
 
 export { SurveyEditError };
@@ -99,6 +103,33 @@ export class SurveyEdit {
     return at;
   }
 
+  /** The path of names of a question or table from the root entity (as node() takes it), or null when there is none */
+  pathOf(id: number): string | null {
+    let node: XmlElement;
+    try {
+      node = this.nodeById(id);
+    } catch {
+      return null;
+    }
+    const root = this.rootEntity();
+    const names: string[] = [];
+    for (let at: XmlElement | null = node; at && at !== root; at = at.parent) {
+      if (!isNode(at)) return null;
+      names.unshift(attrValue(this.doc, at, 'name') ?? '');
+    }
+    return names.join('/');
+  }
+
+  /** The id of a question or table by its path of names, or null when there is none */
+  idOfPath(path: string): number | null {
+    try {
+      const id = Number(attrValue(this.doc, this.node(path), 'id'));
+      return Number.isFinite(id) ? id : null;
+    } catch {
+      return null;
+    }
+  }
+
   /** A code list by its name */
   list(name: string): XmlElement {
     const lists = firstChild(this.survey, 'codeLists');
@@ -110,20 +141,26 @@ export class SurveyEdit {
   // -------------------------------------------------------------------------------------
   // Ids
 
-  /** The highest id the survey gives anything: lastId, or a higher id in it */
+  /** The highest id given so far, once read */
+  private top: number | undefined;
+
+  /** The highest id the survey gives anything: lastId, or a higher id in it (read once: new ids only come from nextId) */
   private highestId(): number {
+    if (this.top !== undefined) return this.top;
     let top = Number(attrValue(this.doc, this.survey, 'lastId') ?? 0) || 0;
     for (const e of descendants(this.survey)) {
       if (!isNode(e) && e.name !== 'list' && e.name !== 'item') continue;
       const id = Number(attrValue(this.doc, e, 'id'));
       if (Number.isFinite(id) && id > top) top = id;
     }
+    this.top = top;
     return top;
   }
 
   /** A new id, recorded in the survey's lastId as Collect does */
   nextId(): number {
     const id = this.highestId() + 1;
+    this.top = id;
     setAttr(this.survey, 'lastId', String(id));
     return id;
   }
@@ -246,14 +283,28 @@ export class SurveyEdit {
         return void this.putRule(op.id, op.rule, op.index);
       case 'deleteRule':
         return this.deleteRule(op.id, op.index);
+      case 'setExpression':
+        return this.setExpressionText(op.id, op.part, op.text);
+      case 'setFormulas':
+        return this.setFormulas(op.id, op.formulas);
       case 'addList':
         return void this.addNewList(op.label, op.items, op.name);
       case 'deleteList':
         return this.removeList(this.list(op.name));
       case 'addItem': {
         const list = this.list(op.list);
-        return void this.addItem(list, op.item.code, this.checkedLabels(op.item.label), op.before === undefined ? undefined : this.item(list, op.before));
+        return void this.addItem(
+          list,
+          op.item.code,
+          this.checkedLabels(op.item.label),
+          op.before === undefined ? undefined : this.item(list, op.before),
+          op.under === undefined ? undefined : this.item(list, op.under),
+        );
       }
+      case 'addTable':
+        return void this.addTable(op);
+      case 'deleteTable':
+        return this.deleteTable(op.id);
       case 'moveItem': {
         const list = this.list(op.list);
         const item = this.item(list, op.code);
@@ -444,17 +495,43 @@ export class SurveyEdit {
     if (!kind) throw new SurveyEditError(`The designer adds no question of type ${op.type}.`);
     attrs.push(...kind[1]);
     if (kind[0] === 'code') {
-      if (!op.list) throw new SurveyEditError('A choice needs its answer list.');
-      this.list(op.list);
-      attrs.push(['list', op.list]);
+      if (op.parent !== undefined) {
+        // A sub-list: the answers under the answer given to another question of the same place
+        const of = childElements(parent).find((c) => c.name === 'code' && attrValue(this.doc, c, 'name') === op.parent);
+        if (!of) throw new SurveyEditError(`A sub-list follows a choice of the same page or table: ${op.parent} is not one.`);
+        if (attrValue(this.doc, of, 'multiple') === 'true') throw new SurveyEditError(`${op.parent} takes several answers: a sub-list follows a question of one answer.`);
+        const list = attrValue(this.doc, of, 'list') ?? '';
+        if (op.list !== undefined && op.list !== list) throw new SurveyEditError(`A sub-list takes the list of ${op.parent}.`);
+        attrs.push(['list', list], ['parent', op.parent]);
+      } else {
+        if (!op.list) throw new SurveyEditError('A choice needs its answer list.');
+        this.list(op.list);
+        attrs.push(['list', op.list]);
+      }
     }
     const question = newElement(kind[0], attrs, this.labelsOf(labels, 'instance'));
     insertElement(this.doc, parent, question, this.placeOnPage(parent, op.page, null, op.before));
     return question;
   }
 
+  /** Whether a node holds a value of the plot file (read by its place among them) */
+  private fromPlotFile(node: XmlElement): boolean {
+    return node.attrs.some((a) => a.name.endsWith(':fromcsv') && attrValue(this.doc, node, a.name) === 'true');
+  }
+
+  /**
+   * Refuses to move or delete a key, a field Collect Earth fills or a value of the plot file: Collect Earth reads the
+   * plot's id and the plot file's columns by their order among them
+   */
+  private keepInPlace(node: XmlElement): void {
+    const name = attrValue(this.doc, node, 'name') ?? '';
+    if (isFixed(name, attrValue(this.doc, node, 'key') === 'true')) throw new SurveyEditError(`${name} is one of the fields Collect Earth needs.`);
+    if (this.fromPlotFile(node)) throw new SurveyEditError(`${name} comes from the plot file, read in the order of its columns: it stays as it is.`);
+  }
+
   moveQuestion(id: number, page?: string, before?: number): void {
     const node = this.nodeById(id);
+    this.keepInPlace(node);
     const parent = node.parent!;
     if (page !== undefined) {
       if (parent !== this.rootEntity()) throw new SurveyEditError('A table\'s column stays in its table.');
@@ -470,10 +547,71 @@ export class SurveyEdit {
 
   deleteQuestion(id: number): void {
     const node = this.nodeById(id);
-    const name = attrValue(this.doc, node, 'name') ?? '';
-    if (isFixed(name, attrValue(this.doc, node, 'key') === 'true')) throw new SurveyEditError(`${name} is one of the fields Collect Earth needs.`);
-    if (node.name === 'entity') throw new SurveyEditError('A table is deleted in Collect\'s Survey Designer for now.');
+    this.keepInPlace(node);
+    if (node.name === 'entity') throw new SurveyEditError('A table is deleted with its own button.');
     this.removeQuestion(node);
+  }
+
+  /** The prefix the survey gives Collect's own namespace (collect:enumerate), declared when it has none */
+  private collectPrefix(): string {
+    for (const a of this.survey.attrs) if (a.name.startsWith('xmlns:') && a.raw === COLLECT_NS) return a.name.slice(6);
+    setAttr(this.survey, 'xmlns:collect', COLLECT_NS);
+    return 'collect';
+  }
+
+  /**
+   * A table on a page of the plot: one row per answer of the list's first level, the answer as the row's key (as
+   * Collect Earth's templates make them: an enumerated multiple entity, laid out as a table). Its columns are added
+   * as questions with its id.
+   */
+  addTable(op: Extract<SurveyOperation, { op: 'addTable' }>): XmlElement {
+    const plot = this.rootEntity();
+    this.page(op.page);
+    const labels = this.checkedLabels(op.label);
+    const name = op.name ?? this.nameFrom(labels, 'table');
+    checkName(name);
+    if (this.schemaNames().has(name)) throw new SurveyEditError(`There is a question ${name} already.`);
+    const list = this.list(op.rows);
+    if (attrValue(this.doc, list, 'lookup') !== undefined) throw new SurveyEditError(`The answers of ${op.rows} come from a table of the server: rows need a list of the survey.`);
+    const items = firstChild(list, 'items');
+    if (!items || childrenNamed(items, 'item').length === 0) throw new SurveyEditError(`The list ${op.rows} has no answers to make rows of.`);
+    const ui = this.uiPrefix();
+    if (!ui) throw new SurveyEditError('The survey has no pages: add them in Collect\'s Survey Designer.');
+    const collect = this.collectPrefix();
+    const id = this.nextId();
+    const taken = this.schemaNames();
+    taken.add(name);
+    // The row's key: named after the table, labelled with the list's name
+    const listLabels: Record<string, string> = {};
+    for (const l of childrenNamed(list, 'label')) {
+      const language = attrValue(this.doc, l, 'xml:lang') ?? this.languages()[0];
+      if (!(language in listLabels)) listLabels[language] = textValue(this.doc, l).trim();
+    }
+    const keyName = uniqueName(`${name.slice(0, 36)}_row`, taken);
+    const key = newElement(
+      'code',
+      [['id', String(id + 1)], ['name', keyName], ['required', 'true'], ['key', 'true'], ['list', op.rows]],
+      this.labelsOf(Object.keys(listLabels).length > 0 ? listLabels : { [this.languages()[0]]: op.rows }, 'instance'),
+    );
+    const table = newElement(
+      'entity',
+      [['id', String(id)], ['name', name], ['multiple', 'true'], [`${ui}:tab`, op.page], [`${ui}:layout`, 'table'], [`${collect}:enumerate`, 'true']],
+      [...this.labelsOf(labels, 'instance'), key],
+    );
+    insertElement(this.doc, plot, table, this.placeOnPage(plot, op.page, null, op.before));
+    return table;
+  }
+
+  /** Deletes a table nothing outside it uses, with its columns */
+  deleteTable(id: number): void {
+    const table = this.nodeById(id);
+    if (table.name !== 'entity' || table === this.rootEntity()) throw new SurveyEditError('Not a table.');
+    const names = [table, ...childElements(table).filter(isNode)].map((e) => attrValue(this.doc, e, 'name') ?? '');
+    for (const name of names) {
+      const users = this.referencesTo(name).filter((e) => !isInside(e, table));
+      if (users.length > 0) throw new SurveyEditError(`${name} is used by ${users.map((u) => attrValue(this.doc, nodeOf(u), 'name')).join(', ')}.`);
+    }
+    removeElement(table);
   }
 
   setQuestionRequired(id: number, required: boolean | ConditionRows): void {
@@ -555,9 +693,10 @@ export class SurveyEdit {
   putRule(id: number, rule: NewRule, index?: number): XmlElement {
     const node = this.askedNode(id);
     if (node.name === 'entity') throw new SurveyEditError('A rule is on a question: a table\'s are on its columns.');
+    if (this.fromPlotFile(node)) throw new SurveyEditError(`${attrValue(this.doc, node, 'name')} comes from the plot file: nobody answers it.`);
     const old = index === undefined ? undefined : this.rulesOf(node)[index];
     if (index !== undefined && !old) throw new SurveyEditError(`The question has no rule ${index + 1}.`);
-    const { tag, attrs } = ruleCheck(this.logicScope(), node, rule);
+    const { tag, attrs } = rule.kind === 'expression' ? this.expressionRule(node, rule) : ruleCheck(this.logicScope(), node, rule);
     const languages = this.languages();
     const messages = new Map<string, string>();
     if (old) for (const m of childrenNamed(old, 'message')) messages.set(attrValue(this.doc, m, 'xml:lang') ?? languages[0], textValue(this.doc, m));
@@ -580,6 +719,105 @@ export class SurveyEdit {
       this.insertInOrder(node, check, NODE_ORDER, this.rulesOf(node).pop());
     }
     return check;
+  }
+
+  /** The survey's identifier (Collect's uri): Collect Earth tells surveys apart by it */
+  setUri(uri: string): void {
+    const e = firstChild(this.survey, 'uri');
+    if (!e) throw new SurveyEditError('The survey has no uri.');
+    setText(e, uri);
+  }
+
+  /**
+   * A list of years (the years list of the templates: a year of change, a base year) from `last` down to `first`, a
+   * code and a label each; a calculated base year of the list (its fixed default value) becomes the last year
+   */
+  setYears(listName: string, first: number, last: number): void {
+    if (!Number.isInteger(first) || !Number.isInteger(last) || first < 1900 || last > 2100 || first > last || last - first > 100) {
+      throw new SurveyEditError('The years go from a first year to a last one, between 1900 and 2100.');
+    }
+    const list = this.list(listName);
+    const items = firstChild(list, 'items');
+    for (const item of items ? childrenNamed(items, 'item') : []) removeElement(item);
+    this.codes.delete(list);
+    const languages = this.languages();
+    for (let y = last; y >= first; y--) this.addItem(list, String(y), Object.fromEntries(languages.map((l) => [l, String(y)])));
+    for (const e of descendants(this.schema())) {
+      if (e.name !== 'code' || attrValue(this.doc, e, 'list') !== listName || attrValue(this.doc, e, 'calculated') !== 'true') continue;
+      for (const d of childrenNamed(e, 'default')) if (attrValue(this.doc, d, 'value') !== undefined) setAttr(d, 'value', String(last));
+    }
+  }
+
+  /** A rule written as an expression: a check whose expression the answer must make true */
+  private expressionRule(node: XmlElement, rule: Extract<NewRule, { kind: 'expression' }>): { tag: 'check'; attrs: Array<[string, string]> } {
+    if (rule.flag !== 'error' && rule.flag !== 'warning') throw new SurveyEditError('A rule is an error or a warning.');
+    const text = typeof rule.text === 'string' ? rule.text.trim() : '';
+    if (text === '' || text.length > MAX_EXPRESSION) throw new SurveyEditError(`A rule's expression has 1 to ${MAX_EXPRESSION} characters.`);
+    const attrs: Array<[string, string]> = [['flag', rule.flag === 'warning' ? 'warn' : 'error']];
+    const when = typeof rule.whenText === 'string' ? rule.whenText.trim() : '';
+    if (when !== '') attrs.push(['if', this.checked(node, 'boolean', when)]);
+    else if (rule.when) attrs.push(['if', conditionExpression(this.logicScope(), node, rule.when, true)]);
+    attrs.push(['expr', this.checked(node, 'boolean', text)]);
+    return { tag: 'check', attrs };
+  }
+
+  /** A show-when or required-when written as an expression, checked as Collect checks it; null takes it away */
+  setExpressionText(id: number, part: 'shownWhen' | 'required', text: string | null): void {
+    const node = this.askedNode(id);
+    const value = text === null ? '' : text.trim();
+    if (value.length > MAX_EXPRESSION) throw new SurveyEditError(`An expression has at most ${MAX_EXPRESSION} characters.`);
+    if (part === 'required') {
+      if (node.name === 'entity') throw new SurveyEditError('A table is not answered itself: its questions are.');
+      this.setRequired(node, value === '' ? false : value);
+      return;
+    }
+    if (value === '') {
+      setAttr(node, 'relevant', undefined);
+      return;
+    }
+    this.setShownWhen(node, value);
+    const cycle = this.shownCycle(attrValue(this.doc, node, 'name') ?? '');
+    if (cycle) throw new SurveyEditError(`Shown when would go round in a circle: ${cycle.join(' → ')}.`);
+  }
+
+  /**
+   * A calculated value's formulas, replacing its own: each a value or an expression, with its condition; the first that
+   * holds gives the value (Collect's default values of a calculated attribute)
+   */
+  setFormulas(id: number, formulas: ReadonlyArray<{ expression?: string; value?: string; when?: string }>): void {
+    const node = this.nodeById(id);
+    if (attrValue(this.doc, node, 'calculated') !== 'true') throw new SurveyEditError('Only a calculated value has formulas.');
+    if (!Array.isArray(formulas) || formulas.length === 0 || formulas.length > 100) throw new SurveyEditError('A calculated value has 1 to 100 formulas.');
+    const list = node.name === 'code' ? this.logicScope().list(attrValue(this.doc, node, 'list') ?? '') : undefined;
+    const elements = formulas.map((f, i) => {
+      const expression = typeof f.expression === 'string' ? f.expression.trim() : '';
+      const value = typeof f.value === 'string' ? f.value.trim() : '';
+      const when = typeof f.when === 'string' ? f.when.trim() : '';
+      if ((expression === '') === (value === '')) throw new SurveyEditError(`Formula ${i + 1} gives a value or an expression.`);
+      if ([expression, value, when].some((x) => x.length > MAX_EXPRESSION)) throw new SurveyEditError(`A formula has at most ${MAX_EXPRESSION} characters.`);
+      const attrs: Array<[string, string]> = [];
+      if (expression !== '') attrs.push(['expr', this.checked(node, 'value', expression)]);
+      else {
+        // A value as it is: one of the list's codes, a number, yes or no
+        if (list && !listCodes(this.doc, list).has(value)) throw new SurveyEditError(`Formula ${i + 1}: the list has no code ${value}.`);
+        if (node.name === 'number' && !/^-?\d+(\.\d+)?$/.test(value)) throw new SurveyEditError(`Formula ${i + 1}: ${value} is not a number.`);
+        if (node.name === 'boolean' && value !== 'true' && value !== 'false') throw new SurveyEditError(`Formula ${i + 1}: a yes/no value is true or false.`);
+        attrs.push(['value', value]);
+      }
+      if (when !== '') attrs.push(['if', this.checked(node, 'boolean', when)]);
+      return newElement('default', attrs);
+    });
+    for (const d of childrenNamed(node, 'default')) removeElement(d);
+    let after = childElements(node).filter((c) => ['label', 'description', 'prompt', 'fieldLabel'].includes(c.name)).pop();
+    for (const e of elements) {
+      this.insertInOrder(node, e, NODE_ORDER, after);
+      after = e;
+    }
+  }
+
+  /** An expression typed in the designer, checked as Collect checks it, from the place of a question or table */
+  checkText(id: number, kind: ExpressionKind, text: string) {
+    return checkExpression(this.schemaNode(this.nodeById(id)), kind, text);
   }
 
   deleteRule(id: number, index: number): void {
@@ -606,23 +844,10 @@ export class SurveyEdit {
     const list = this.list(listName);
     const item = this.item(list, code);
     if (childrenNamed(item, 'item').length > 0) throw new SurveyEditError(`The answer ${code} has answers under it: delete them first.`);
-    const users = new Set<string>();
-    for (const e of descendants(this.schema())) {
-      if (e.name === 'code' && attrValue(this.doc, e, 'list') === listName) users.add(attrValue(this.doc, e, 'name') ?? '');
-    }
-    const quoted = new RegExp(`['"]${code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"]`);
-    for (const e of descendants(this.schema())) {
-      for (const a of e.attrs) {
-        if (!['relevant', 'requiredIf', 'expr', 'if', 'value', 'lt', 'lte', 'gt', 'gte'].includes(a.name)) continue;
-        const text = attrValue(this.doc, e, a.name)!;
-        if (!quoted.test(text)) continue;
-        if ([...users].some((u) => new RegExp(`(^|[^\\w])${u}($|[^\\w(])`).test(text))) {
-          const at = isNode(e) ? e : e.parent && isNode(e.parent) ? e.parent : e;
-          throw new SurveyEditError(`The answer ${code} is used by ${attrValue(this.doc, at, 'name')}: change that first.`);
-        }
-      }
-    }
+    const users = codeUsers(this.doc, this.schema()).get(listName)?.get(code);
+    if (users && users.size > 0) throw new SurveyEditError(`The answer ${code} is used by ${[...users].join(', ')}: change that first.`);
     removeElement(item);
+    this.codeIndex(list).delete(code);
   }
 
   /** A name made from a label, unused in the schema */
@@ -718,28 +943,76 @@ export class SurveyEdit {
     return list;
   }
 
-  /** An item at the end of a list (of its first level) */
-  addItem(list: XmlElement, code: string, labels: Record<string, string>, before?: XmlElement): XmlElement {
+  /**
+   * An item at the end of a list's first level, or of the answers under another (`under`: a sub-list's answers), or
+   * before one of the same level; its code is the list's only one of that code
+   */
+  addItem(list: XmlElement, code: string, labels: Record<string, string>, before?: XmlElement, under?: XmlElement): XmlElement {
     if (!/^[A-Za-z0-9_.-]+$/.test(code)) throw new SurveyEditError(`The code ${code} has characters a code cannot have.`);
     let items = firstChild(list, 'items');
     if (!items) {
       items = newElement('items');
       insertElement(this.doc, list, items);
     }
-    if (childrenNamed(items, 'item').some((i) => textValue(this.doc, firstChild(i, 'code') ?? items!).trim() === code)) {
-      throw new SurveyEditError(`The list has a code ${code} already.`);
-    }
+    const index = this.codeIndex(list);
+    if (index.has(code)) throw new SurveyEditError(`The list has a code ${code} already.`);
+    const parent = under ?? items;
+    if (before && before.parent !== parent) throw new SurveyEditError('An answer goes before another of the same level.');
     const item = newElement('item', [['id', String(this.nextId())]], [newElement('code', [], [code]), ...this.labelsOf(labels, undefined)]);
-    insertElement(this.doc, items, item, before);
+    insertElement(this.doc, parent, item, before);
+    index.set(code, item);
+    if (under) this.ensureLevels(list, this.depthOf(item));
     return item;
   }
 
-  /** An item of a list by its code */
+  /** An item of a list by its code, at any level */
   item(list: XmlElement, code: string): XmlElement {
-    const items = firstChild(list, 'items');
-    const found = items && childrenNamed(items, 'item').find((i) => textValue(this.doc, firstChild(i, 'code') ?? i).trim() === code);
+    const found = this.codeIndex(list).get(code);
     if (!found) throw new SurveyEditError(`The list has no code ${code}.`);
     return found;
+  }
+
+  /** The items of each list by their codes, read once (a list of thousands of answers is not read again per answer) */
+  private readonly codes = new WeakMap<XmlElement, Map<string, XmlElement>>();
+
+  private codeIndex(list: XmlElement): Map<string, XmlElement> {
+    let index = this.codes.get(list);
+    if (!index) {
+      index = new Map();
+      const items = firstChild(list, 'items');
+      for (const i of items ? descendants(items) : []) {
+        if (i.name !== 'item') continue;
+        const code = textValue(this.doc, firstChild(i, 'code') ?? i).trim();
+        if (!index.has(code)) index.set(code, i);
+      }
+      this.codes.set(list, index);
+    }
+    return index;
+  }
+
+  /** How deep an item is in its list: 1 for an answer of the first level */
+  private depthOf(item: XmlElement): number {
+    let depth = 0;
+    for (let x: XmlElement | null = item; x && x.name === 'item'; x = x.parent) depth++;
+    return depth;
+  }
+
+  /** The list's levels, named as Collect names them, as deep as its answers go */
+  private ensureLevels(list: XmlElement, depth: number): void {
+    if (depth < 2) return;
+    let hierarchy = firstChild(list, 'hierarchy');
+    if (!hierarchy) {
+      hierarchy = newElement('hierarchy');
+      this.insertInOrder(list, hierarchy, LIST_ORDER);
+    }
+    const levels = childrenNamed(hierarchy, 'level');
+    const taken = new Set(levels.map((l) => attrValue(this.doc, l, 'name') ?? ''));
+    for (let n = levels.length + 1; n <= depth; n++) {
+      let level = `level${n}`;
+      for (let k = 0; taken.has(level); k++) level = `level${n}${String.fromCharCode(97 + k)}`;
+      taken.add(level);
+      insertElement(this.doc, hierarchy, newElement('level', [['name', level]]));
+    }
   }
 
   // -------------------------------------------------------------------------------------
@@ -886,3 +1159,60 @@ export function uniqueName(name: string, taken: ReadonlySet<string>): string {
   throw new SurveyEditError(`No name is left for ${name}.`);
 }
 
+
+/**
+ * An operation made on one survey (`from`, the served one) as it reads on another (`to`, the uploaded one), whose
+ * ids differ: each question or table it names by id is found again by its path of names; null when one is not there
+ * (the operation is then left out there)
+ */
+export function operationFor(op: SurveyOperation, from: SurveyEdit, to: SurveyEdit): SurveyOperation | null {
+  const map = (id: number): number | null => {
+    const path = from.pathOf(id);
+    return path === null ? null : to.idOfPath(path);
+  };
+  const mapOptional = (id: number | undefined): number | undefined | null => (id === undefined ? undefined : map(id));
+  switch (op.op) {
+    case 'setText': {
+      const t = op.target;
+      if (t.kind === 'node') {
+        const id = map(t.id);
+        return id === null ? null : { ...op, target: { ...t, id } };
+      }
+      if (t.kind === 'rule') {
+        const node = map(t.node);
+        return node === null ? null : { ...op, target: { ...t, node } };
+      }
+      return op;
+    }
+    case 'addQuestion': {
+      const table = mapOptional(op.table);
+      const before = mapOptional(op.before);
+      if (table === null) return null;
+      return { ...op, table, before: before ?? undefined };
+    }
+    case 'moveQuestion': {
+      const id = map(op.id);
+      const before = mapOptional(op.before);
+      if (id === null) return null;
+      return { ...op, id, before: before ?? undefined };
+    }
+    case 'addTable': {
+      const before = mapOptional(op.before);
+      return { ...op, before: before ?? undefined };
+    }
+    case 'deleteQuestion':
+    case 'setRequired':
+    case 'setShownWhen':
+    case 'addRule':
+    case 'setRule':
+    case 'deleteRule':
+    case 'setExpression':
+    case 'setFormulas':
+    case 'deleteTable': {
+      const id = map(op.id);
+      return id === null ? null : { ...op, id };
+    }
+    default:
+      return op;
+  }
+}

@@ -88,12 +88,13 @@ describe("the rows of a condition", () => {
 });
 
 describe("rules", () => {
-  it("offers a range for a number, a total in a table, a length for a text, nothing for the rest", () => {
-    expect(ruleKinds(trees, null)).toEqual(["range"]);
-    expect(ruleKinds(share, table)).toEqual(["range", "total"]);
-    expect(ruleKinds(share, { ...table, layout: "group" })).toEqual(["range"]);
-    expect(ruleKinds(note, null)).toEqual(["length"]);
-    expect(ruleKinds(colour, null)).toEqual([]);
+  it("offers a range for a number, a total in a table, a length for a text, an expression for any; nothing for a calculated value", () => {
+    expect(ruleKinds(trees, null)).toEqual(["range", "expression"]);
+    expect(ruleKinds(share, table)).toEqual(["range", "total", "expression"]);
+    expect(ruleKinds(share, { ...table, layout: "group" })).toEqual(["range", "expression"]);
+    expect(ruleKinds(note, null)).toEqual(["length", "expression"]);
+    // Any other question: a rule written as an expression (stage 7)
+    expect(ruleKinds(colour, null)).toEqual(["expression"]);
     expect(ruleKinds(question("x", "integer", { formulas: [] }), null)).toEqual([]);
   });
 
@@ -121,8 +122,16 @@ describe("rules", () => {
   it("reads a rule back into its fields; one written in Collect is only deleted", () => {
     const draft = ruleDraftOf({ flag: "warning", message: { en: "Hm" }, when: { kind: "all", parts: [{ question: "burnt", test: "is", value: true }] }, kind: "range", min: null, max: { bound: { number: 9 }, inclusive: false } }, ["range"], "Hm");
     expect(draft).toMatchObject({ kind: "range", flag: "warning", message: "Hm", onlyWhen: true, max: { mode: "number", number: "9", inclusive: false }, min: { mode: "none" } });
-    expect(builderRule({ flag: "error", message: {}, when: null, kind: "advanced", text: "x" })).toBe(false);
+    expect(builderRule({ flag: "error", message: {}, when: null, kind: "advanced", text: "pattern regex=x", expression: false })).toBe(false);
+    expect(builderRule({ flag: "error", message: {}, when: null, kind: "advanced", text: "$this != 1", expression: true })).toBe(true);
     expect(builderRule({ flag: "error", message: {}, when: null, kind: "range", min: { bound: { expression: "a + b" }, inclusive: true }, max: null })).toBe(false);
     expect(builderRule({ flag: "error", message: {}, when: null, kind: "length", min: 1, max: null })).toBe(true);
+    // A check's expression changes as text
+    expect(ruleDraftOf({ flag: "error", message: {}, when: { kind: "advanced", text: "x > 1" }, kind: "advanced", text: "$this != 2", expression: true }, ["expression"], "")).toMatchObject({
+      kind: "expression",
+      expressionText: "$this != 2",
+      whenText: "x > 1",
+    });
+    expect(ruleOf({ ...ruleDraftOf(null, ["expression"], ""), kind: "expression", expressionText: " $this > 0 " }, byName)).toEqual({ flag: "error", when: null, message: {}, kind: "expression", text: "$this > 0" });
   });
 });

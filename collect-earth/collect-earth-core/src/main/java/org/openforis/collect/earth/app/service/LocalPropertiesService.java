@@ -762,6 +762,11 @@ public class LocalPropertiesService extends Observable {
 		public String role;
 		/** Whether the account is the server's administrator, null when the server did not say */
 		public Boolean serverAdmin;
+		/**
+		 * The revision of the survey this computer has (the cloud's GET /survey/revision when the project was opened):
+		 * another one means the coordinator changed the survey since. null before it was known.
+		 */
+		public String surveyRevision;
 
 		public CloudBinding() {
 		}

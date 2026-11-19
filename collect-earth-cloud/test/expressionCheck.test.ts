@@ -27,8 +27,8 @@ interface Entry {
   expression: string;
 }
 
-const BASIC = 'collect-earth-cloud/test/fixtures/templates/collect_earth.idm.xml';
-const IPCC = 'collect-earth-cloud/test/fixtures/templates/collect_earth_ipcc.idm.xml';
+const BASIC = 'collect-earth-cloud/templates/collect_earth.idm.xml';
+const IPCC = 'collect-earth-cloud/templates/collect_earth_ipcc.idm.xml';
 
 /** Written here: [survey, node, kind, expression] */
 const CASES: Array<[string, string, ExpressionKind, string]> = [
@@ -120,7 +120,7 @@ const CASES: Array<[string, string, ExpressionKind, string]> = [
 function corpus(): Entry[] {
   const entries: Entry[] = [];
   const surveys = [
-    ...readdirSync(`${REPO}collect-earth-cloud/test/fixtures/templates`).filter((f) => f.endsWith('.xml')).map((f) => `collect-earth-cloud/test/fixtures/templates/${f}`),
+    ...readdirSync(`${REPO}collect-earth-cloud/templates`).filter((f) => f.endsWith('.xml')).map((f) => `collect-earth-cloud/templates/${f}`),
     ...readdirSync(`${REPO}collect-earth/collect-earth-app/src/test/resources/ceo`).filter((f) => f.endsWith('.idm.xml')).map((f) => `collect-earth/collect-earth-app/src/test/resources/ceo/${f}`),
   ];
   for (const survey of surveys) {
@@ -199,14 +199,14 @@ describe("the server's check agrees with Collect's", () => {
 
 describe('the survey check', () => {
   it('finds nothing in the surveys that open in Collect Earth', () => {
-    for (const f of readdirSync(`${REPO}collect-earth-cloud/test/fixtures/templates`).filter((x) => x.endsWith('.xml'))) {
-      expect(checkSurvey(readFileSync(`${REPO}collect-earth-cloud/test/fixtures/templates/${f}`)), f).toEqual([]);
+    for (const f of readdirSync(`${REPO}collect-earth-cloud/templates`).filter((x) => x.endsWith('.xml'))) {
+      expect(checkSurvey(readFileSync(`${REPO}collect-earth-cloud/templates/${f}`)), f).toEqual([]);
     }
     for (const f of readdirSync(DESIGNER).filter((x) => x.endsWith('.idm.xml'))) expect(checkSurvey(readFileSync(DESIGNER + f)), f).toEqual([]);
   });
 
   it("finds Collect Earth's rules broken, and a broken expression, with where", () => {
-    let text = readFileSync(`${REPO}collect-earth-cloud/test/fixtures/templates/collect_earth.idm.xml`, 'latin1');
+    let text = readFileSync(`${REPO}collect-earth-cloud/templates/collect_earth.idm.xml`, 'latin1');
     text = text
       .replace('name="plot_file"', 'name="plot_files"')
       .replace('name="memo_text_demo" relevant="yes_no_demo = true()"', 'name="memo_text_demo" relevant="yes_no_demo = tru()"')

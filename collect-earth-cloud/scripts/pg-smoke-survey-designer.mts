@@ -13,6 +13,7 @@ import { runMigrations } from '../src/store/migrate.js';
 import { buildServer } from '../src/server.js';
 import { demoCep } from '../test/fixtures/cep.js';
 import { SURVEY_VERSIONS_KEPT } from '../src/types.js';
+import { createFakeClient } from '../src/ai/fake.js';
 
 const port = process.argv[2] ?? '55481';
 const host = `localhost:${port}`;
@@ -43,9 +44,10 @@ const store = new PostgresStore(appUrl);
 check('RLS binds the app role', (await store.rowLevelSecurity()).enforced);
 const app = await buildServer({
   store,
-  config: { port: 0, host: '127.0.0.1', storeBackend: 'postgres', adminApiKey: 'k', setupCode: 'X', rateLimitPerMinute: 0, stateStaleMs: 0, qualityMinIntervalMs: 0 } as any,
+  config: { port: 0, host: '127.0.0.1', storeBackend: 'postgres', adminApiKey: 'k', setupCode: 'X', rateLimitPerMinute: 0, stateStaleMs: 0, qualityMinIntervalMs: 0, aiConfigured: true, aiVertexApiKey: 'x' } as any,
   webDir: null,
-});
+  ai: { client: createFakeClient() },
+} as any);
 const bearer = (t: string) => ({ authorization: `Bearer ${t}` });
 let res = await app.inject({ method: 'POST', url: '/v1/setup', payload: { setupCode: 'X', username: 'owner', password: 'owner-password' } });
 const ownerToken = res.json().token as string;
@@ -80,7 +82,33 @@ for (let i = 0; i < SURVEY_VERSIONS_KEPT + 3; i++) {
   revision = res.json().revision;
 }
 versions = (await call('GET', a, '/survey/versions')).json().versions;
-check(`the last ${SURVEY_VERSIONS_KEPT} kept, newest first`, versions.length === SURVEY_VERSIONS_KEPT && versions[0].createdAt >= versions[1].createdAt, versions.length);
+check(`the last ${SURVEY_VERSIONS_KEPT} kept, newest first, and the first`, versions.length === SURVEY_VERSIONS_KEPT + 1 && versions[0].createdAt >= versions[1].createdAt && versions[versions.length - 1].changes === 1, versions.length);
+
+// Two saves made on the same survey at once: one is written, the other refused (replaceCep)
+{
+  const d = (await call('GET', a, '/survey/design')).json();
+  const at = (text: string) => call('POST', a, '/survey/design', { revision: d.revision, operations: [{ op: 'setText', target: { kind: 'title' }, part: 'label', language, text }] });
+  const codes = (await Promise.all([at('At once 1'), at('At once 2'), at('At once 3')])).map((r) => r.statusCode).sort();
+  check('of three saves at once, one is written', JSON.stringify(codes) === JSON.stringify([200, 409, 409]), codes);
+  revision = (await call('GET', a, '/survey/design')).json().revision;
+}
+
+// 050: the survey each record was made with
+{
+  const send = (key: string, surveyRevision: string | null) =>
+    call('POST', a, '/records:batch', { records: [{ recordKey: key, surveyUri: 'x', operator: 'owner', modifiedOn: Date.now(), activelySaved: true, step: 1, xml: '<x/>', summary: {}, deleted: false, payloadVersion: 1, ...(surveyRevision ? { surveyRevision } : {}) }] });
+  await call('PUT', a, '/status', { status: 'active' });
+  const r1 = await send('101', 'aaaaaaaaaaaaaaaaaaaaaaaa');
+  await send('102', revision);
+  await send('103', null);
+  const older = (await call('GET', a, '/survey/design')).json().olderSurveyPlots;
+  check('050: plots of an earlier survey counted', older === 1, { older, status: r1.statusCode, body: r1.body.slice(0, 200) });
+  const rows = (await owner.query('SELECT project_id, count(*)::int AS n FROM record_survey_revisions GROUP BY project_id')).rows;
+  check('050: kept per project', rows.length === 1 && rows[0].project_id === a && rows[0].n === 2, rows);
+  check("050: B counts none of A's", (await store.countRecordSurveyRevisions(b)).size === 0);
+  const rlsOn = (await owner.query("SELECT relrowsecurity FROM pg_class WHERE relname = 'record_survey_revisions'")).rows[0];
+  check('050: row level security on', rlsOn?.relrowsecurity === true);
+}
 
 res = await call('POST', a, `/survey/versions/${versions[0].id}/restore`, { revision });
 check('a restore brings the survey before back', res.statusCode === 200 && res.json().design.title[language] === `Title ${SURVEY_VERSIONS_KEPT + 1}`, res.body);
@@ -91,6 +119,22 @@ res = await call('POST', b, `/survey/versions/${versions[1].id}/restore`, { revi
 check("B cannot restore A's version", res.statusCode === 404, res.body);
 const crossRead = await store.getSurveyVersionData(b, versions[1].id);
 check("the store does not read A's version from B", crossRead === null);
+
+// Stage 4: a show-when from rows, saved (049: the assistant's help is a run of kind 'survey')
+{
+  const d = (await call('GET', a, '/survey/design')).json();
+  const questions = d.design.pages.flatMap((p: any) => p.items).filter((i: any) => i.kind === 'question' && !i.fixed);
+  const [target, other] = [questions[1], questions[0]];
+  res = await call('POST', a, '/survey/design', { revision: d.revision, operations: [{ op: 'setShownWhen', id: target.id, when: { kind: 'all', parts: [{ question: other.name, test: 'answered', value: null }] } }] });
+  check('a show-when from rows is saved', res.statusCode === 200, res.body);
+  await app.inject({ method: 'PUT', url: '/v1/admin/settings', headers: bearer(ownerToken), payload: { aiEnabled: true } });
+  await call('PUT', a, '/ai', { enabled: true });
+  res = await call('POST', a, '/survey/help', { task: 'suggest', language: 'en' });
+  check('the survey help answers', res.statusCode === 200 && Array.isArray(res.json().suggestions), res.body);
+  const kinds = (await owner.query('SELECT kind, status FROM ai_runs WHERE project_id = $1', [a])).rows;
+  check('049: it is a run of kind survey, done', kinds.length === 1 && kinds[0].kind === 'survey' && kinds[0].status === 'done', kinds);
+  check('not listed in the AI tab', (await call('GET', a, '/ai/runs')).json().runs.length === 0);
+}
 
 const log = (await call('GET', a, '/activity?kind=files')).json();
 check('the activity log has survey.edited', JSON.stringify(log).includes('survey.edited'), Object.keys(log));
