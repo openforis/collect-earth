@@ -20,6 +20,12 @@
 // Earth's own sync state (/api/cloud/recordSync, until "sent"), and checked in the People tab with the coordinator's
 // session load-mapathon.mts hands over.
 //
+// Existing projects and accounts (scripts/mapathon-run.mts): a mapathon of HANDOFF without inviteToken, whose people
+// carry their own password ({username, password}), is opened as a person who is in it already: Collect Earth signs in
+// to HANDOFF.base with the person's password (Settings › Cloud) and opens the project from its list; with UNTIL_ALL=1
+// each instance collects every plot it holds once and stops; the server's count of each person's plots is then
+// checked as that person sees it (My work).
+//
 // Settings (environment): CE_APP (the collect-earth-app folder, where CollectEarth.jar is built and must run from),
 // CE_HOMES (where the instances' user folders go, emptied first), FIRST_PORT (8031), PACE_S ("20-40": seconds between
 // two plots of one person), XMX (1g), KEEP=1 to leave the instances running, OUT for the JSON report.
@@ -44,13 +50,16 @@ const pct = (sorted: number[], p: number) => (sorted.length ? sorted[Math.min(so
 
 while (!existsSync(HANDOFF)) await sleep(1000);
 const handoff = JSON.parse(readFileSync(HANDOFF, 'utf8')) as {
-  base: string; password: string; coordinatorToken?: string; training?: number;
-  mapathons: { name: string; pid: string; inviteToken: string; coordinatorToken?: string; people: string[] }[];
+  base: string; password?: string; coordinatorToken?: string; training?: number;
+  mapathons: { name: string; pid: string; inviteToken?: string; coordinatorToken?: string; people: (string | { username: string; password: string })[] }[];
 };
 const TRAINING = handoff.training ?? 0;
+const UNTIL_ALL = process.env.UNTIL_ALL === '1';
+/** With UNTIL_ALL: at most so many plots each (a rehearsal) */
+const PLOTS_EACH = Number(process.env.PLOTS_EACH ?? Infinity);
 
 interface Instance {
-  n: number; port: number; home: string; username: string; pid: string; mapathon: string; process?: ChildProcess;
+  n: number; port: number; home: string; username: string; password: string; pid: string; mapathon: string; process?: ChildProcess;
   plots: string[]; next: number;
   /** plot -> when its last save made it complete (actively saved, valid) */
   completed: Map<string, number>;
@@ -63,9 +72,11 @@ interface Instance {
 
 const instances: Instance[] = [];
 for (const m of handoff.mapathons) {
-  for (const username of m.people) {
+  for (const person of m.people) {
     const n = instances.length + 1;
-    instances.push({ n, port: FIRST_PORT + n - 1, home: join(CE_HOMES, `ce${n}`), username, pid: m.pid, mapathon: m.name,
+    const username = typeof person === 'string' ? person : person.username;
+    const password = typeof person === 'string' ? handoff.password! : person.password;
+    instances.push({ n, port: FIRST_PORT + n - 1, home: join(CE_HOMES, `ce${n}`), username, password, pid: m.pid, mapathon: m.name,
       plots: [], next: 0, completed: new Map(), saves: [], failedSaves: 0, incomplete: 0, sentAfter: new Map(), training: [], trainingCompleted: 0 });
   }
 }
@@ -125,8 +136,10 @@ async function prepare(i: Instance) {
   await waitUp(first);
   await stop(first);
   const file = join(i.home, 'CollectEarth', 'earth.properties');
-  const lines = readFileSync(file, 'utf8').split('\n').filter((l) => !l.startsWith('port='));
+  const lines = readFileSync(file, 'utf8').split('\n').filter((l) => !l.startsWith('port=') && !l.startsWith('cloud_sync_url='));
   lines.push(`port=${i.port}`);
+  // The server Collect Earth signs in to (Settings › Cloud): an existing project is opened from its list there
+  lines.push(`cloud_sync_url=${handoff.base}`);
   writeFileSync(file, lines.join('\n') + '\n');
   start(i);
   await waitUp(i);
@@ -151,9 +164,16 @@ const isTraining = (id: string) => /^(T-|-)/.test(id);
 /** Joins failed and tried again, as the person would (the server failing to give the project file, say) */
 const joinFailures: string[] = [];
 
-async function joinMapathon(i: Instance, inviteToken: string) {
+async function joinMapathon(i: Instance, inviteToken: string | undefined) {
   for (let attempt = 1; ; attempt++) {
-    const res = await api(i, 'cloud/join', { baseUrl: handoff.base, inviteToken, projectId: i.pid, username: i.username, password: handoff.password, register: false });
+    let res: Response;
+    if (inviteToken) {
+      res = await api(i, 'cloud/join', { baseUrl: handoff.base, inviteToken, projectId: i.pid, username: i.username, password: i.password, register: false });
+    } else {
+      // In the project already: signed in with the person's password, the project opened from the list
+      res = await api(i, 'cloud/login', { username: i.username, password: i.password });
+      if (res.status === 200) res = await api(i, 'cloud/projects/open', { projectId: i.pid, server: handoff.base });
+    }
     if (res.status === 200) break;
     const why = `instance ${i.n} could not join (try ${attempt}): ${res.status} ${(await res.text()).slice(0, 200)}`;
     joinFailures.push(why);
@@ -327,8 +347,11 @@ async function timeSent(i: Instance, plot: string, completedAt: number) {
 
 async function collect(i: Instance) {
   while (!existsSync(`${HANDOFF}.done`)) {
+    // UNTIL_ALL: each plot the person holds, once, then the person stops
+    if (UNTIL_ALL && i.next >= Math.min(i.plots.length, PLOTS_EACH)) break;
     await sleep(between(PACE_LO * 1000, PACE_HI * 1000));
     if (existsSync(`${HANDOFF}.done`)) break;
+    if (i.next % 25 === 0 && i.next > 0) log(`instance ${i.n} (${i.username}): ${i.next} of ${i.plots.length} plots`);
     const plot = i.next < i.plots.length ? i.plots[i.next++] : i.plots[Math.floor(Math.random() * i.plots.length)];
     await fillPlot(i, plot);
   }
@@ -433,6 +456,22 @@ for (const i of instances) {
         await sleep(2000);
       }
       checks.push({ what: `Collect Earth ${i.n}: the People tab counts the plots it completed`, ok: submitted === i.completed.size, detail: `${submitted} shown, ${i.completed.size} completed` });
+    } else if (!handoff.password) {
+      // The person's own count (My work), signed in with the person's password: the plots the server says they submitted
+      let submitted: number | undefined;
+      try {
+        const login = await (await fetch(`${handoff.base}/v1/auth/login`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ username: i.username, password: i.password }) })).json() as { token: string };
+        for (let attempt = 0; attempt < 30; attempt++) {
+          const work = await (await fetch(`${handoff.base}/v1/projects/${i.pid}/my-work`, { headers: { authorization: `Bearer ${login.token}` } })).json() as { asOf: number | null; person: { plots: { submitted: number } } };
+          submitted = work.person?.plots.submitted;
+          if (work.asOf === null) break;
+          await sleep(2000);
+        }
+        await fetch(`${handoff.base}/v1/auth/logout`, { method: 'POST', headers: { authorization: `Bearer ${login.token}` } });
+      } catch (err) {
+        log(`instance ${i.n}: My work not read: ${err}`);
+      }
+      checks.push({ what: `Collect Earth ${i.n}: My work counts the plots it completed`, ok: submitted !== undefined && submitted >= i.completed.size, detail: `${submitted} shown, ${i.completed.size} completed` });
     }
   }
   allLatencies = allLatencies.concat(latencies);
