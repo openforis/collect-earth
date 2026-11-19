@@ -26,6 +26,9 @@
 // each instance collects every plot it holds once and stops; the server's count of each person's plots is then
 // checked as that person sees it (My work).
 //
+// ATTACH=1: the instances are running already and in their project (a run that stopped): none is started or joined,
+// and each goes on after the last of its plots Collect Earth has sent (its plots are collected in their order).
+//
 // Settings (environment): CE_APP (the collect-earth-app folder, where CollectEarth.jar is built and must run from),
 // CE_HOMES (where the instances' user folders go, emptied first), FIRST_PORT (8031), PACE_S ("20-40": seconds between
 // two plots of one person), XMX (1g), KEEP=1 to leave the instances running, OUT for the JSON report.
@@ -55,6 +58,9 @@ const handoff = JSON.parse(readFileSync(HANDOFF, 'utf8')) as {
 };
 const TRAINING = handoff.training ?? 0;
 const UNTIL_ALL = process.env.UNTIL_ALL === '1';
+const ATTACH = process.env.ATTACH === '1';
+// A request that fails here is told and the run goes on (a network error is a person's bad moment, not the end)
+process.on('unhandledRejection', (err) => log(`unhandled: ${err instanceof Error ? err.message : err}`));
 /** With UNTIL_ALL: at most so many plots each (a rehearsal) */
 const PLOTS_EACH = Number(process.env.PLOTS_EACH ?? Infinity);
 
@@ -375,12 +381,24 @@ async function collect(i: Instance) {
 
 mkdirSync(CE_HOMES, { recursive: true });
 log(`${instances.length} Collect Earth instances: ${instances.map((i) => `${i.username} on ${i.port}`).join(', ')}`);
-// One at a time: the first start of each uses the default port
-for (const i of instances) {
-  await prepare(i);
-  log(`instance ${i.n} up on ${i.port}`);
+if (ATTACH) {
+  for (const i of instances) {
+    await waitUp(i, 1);
+    i.plots = await plotsShown(i);
+    // On after the last plot it has sent: the ones before it are done
+    let last = -1;
+    for (const [k, plot] of i.plots.entries()) if ((await syncState(i, plot)) === 'sent') last = k;
+    i.next = last + 1;
+    log(`instance ${i.n} (${i.username}) attached: ${i.plots.length} plots, going on from plot ${i.next + 1}`);
+  }
+} else {
+  // One at a time: the first start of each uses the default port
+  for (const i of instances) {
+    await prepare(i);
+    log(`instance ${i.n} up on ${i.port}`);
+  }
 }
-await Promise.all(instances.map((i) => joinMapathon(i, handoff.mapathons.find((m) => m.pid === i.pid)!.inviteToken)));
+if (!ATTACH) await Promise.all(instances.map((i) => joinMapathon(i, handoff.mapathons.find((m) => m.pid === i.pid)!.inviteToken)));
 await loadFieldTypes(instances[0]);
 log(`joined, ${TRAINING > 0 ? `training opened: ${instances.map((i) => `${i.training.length}${i.openedByItself ? '' : ' (opened by hand)'}`).join(', ')} training plots` : `plot files applied: ${instances.map((i) => i.plots.length).join(', ')} plots`}`);
 if (TRAINING > 0) {

@@ -13,11 +13,13 @@
 //                 reviewer ("60-120"); XMX each Collect Earth's memory (1g); FIRST_PORT (8031)
 //   PLOTS_EACH    stop each participant after so many plots (all of them when not given)
 //   OUT           the folder of the reports (mapathon-reports)
+//   ATTACH_FIRST=1  the first project's Collect Earths are running and in it already (a run that stopped): they go on
+//                 after the plots they have sent (load-desktop.mts ATTACH)
 //
 // Nothing is made or deleted on the server but what collecting and reviewing makes: records, and reviewers' decisions.
 
 import { spawn } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 const env = process.env;
@@ -32,6 +34,8 @@ if (!BASE || !ACCOUNTS || PROJECTS.length === 0) {
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+// A request that fails is told and the run goes on: the Collect Earths are not this script's to stop
+process.on('unhandledRejection', (err) => console.error(`unhandled: ${err instanceof Error ? err.message : err}`));
 const between = (lo: number, hi: number) => lo + Math.random() * (hi - lo);
 const log = (msg: string) => console.log(`${new Date().toISOString()} ${msg}`);
 
@@ -46,20 +50,30 @@ const accounts = readFileSync(ACCOUNTS, 'utf8')
 const participants = accounts.filter((a) => a.role === 'participant');
 const reviewers = accounts.filter((a) => a.role === 'reviewer');
 
+/** A request to the server; a network error is an answer of status 0 (told, and the reviewer goes on) */
 async function api(method: string, path: string, token: string | null, body?: unknown): Promise<{ status: number; json: () => any }> {
-  const res = await fetch(`${BASE}${path}`, {
-    method,
-    headers: { ...(token ? { authorization: `Bearer ${token}` } : {}), ...(body !== undefined ? { 'content-type': 'application/json' } : {}) },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
-  const text = await res.text();
-  return { status: res.status, json: () => JSON.parse(text) };
+  try {
+    const res = await fetch(`${BASE}${path}`, {
+      method,
+      headers: { ...(token ? { authorization: `Bearer ${token}` } : {}), ...(body !== undefined ? { 'content-type': 'application/json' } : {}) },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+      signal: AbortSignal.timeout(60_000),
+    });
+    const text = await res.text();
+    return { status: res.status, json: () => JSON.parse(text) };
+  } catch (err) {
+    return { status: 0, json: () => ({ error: err instanceof Error ? (err.cause instanceof Error ? err.cause.message : err.message) : String(err) }) };
+  }
 }
 
 /** A reviewer at work while the mapathon lasts: the progress, the map, the review queue, a decision on some plots */
 async function review(account: { username: string; password: string }, projectId: string, running: () => boolean) {
   const stats = { looks: 0, decisions: 0, errors: [] as string[] };
-  const login = await api('POST', '/v1/auth/login', null, { username: account.username, password: account.password });
+  let login = await api('POST', '/v1/auth/login', null, { username: account.username, password: account.password });
+  for (let attempt = 0; login.status === 0 && attempt < 5; attempt++) {
+    await sleep(10_000);
+    login = await api('POST', '/v1/auth/login', null, { username: account.username, password: account.password });
+  }
   if (login.status !== 200) {
     stats.errors.push(`sign-in ${login.status}`);
     return stats;
@@ -94,21 +108,21 @@ const summary: string[] = [];
 for (const [n, projectId] of PROJECTS.entries()) {
   const handoffFile = join(OUT, `handoff-${n + 1}.json`);
   for (const suffix of ['', '.ready', '.done', '.synced']) rmSync(handoffFile + suffix, { force: true });
+  rmSync(join(OUT, `mapathon-${n + 1}.log`), { force: true });
   const name = `Mapathon ${n + 1} of ${PROJECTS.length}`;
   writeFileSync(handoffFile, JSON.stringify({ base: BASE, mapathons: [{ name, pid: projectId, people: participants.map((p) => ({ username: p.username, password: p.password })) }] }));
   log(`${name}: project ${projectId}, ${participants.length} Collect Earth instances, ${reviewers.length} reviewers`);
   const report = join(OUT, `mapathon-${n + 1}.json`);
+  // Its own log: the Collect Earths' run goes on whatever happens to this script
+  const deskLog = join(OUT, `mapathon-${n + 1}.log`);
+  const out = openSync(deskLog, 'a');
   const desk = spawn('npx', ['tsx', 'scripts/load-desktop.mts'], {
     cwd: resolve(import.meta.dirname, '..'),
-    env: { ...env, HANDOFF: handoffFile, UNTIL_ALL: '1', OUT: report },
-    stdio: ['ignore', 'pipe', 'pipe'],
+    env: { ...env, HANDOFF: handoffFile, UNTIL_ALL: '1', OUT: report, ...(n === 0 && env.ATTACH_FIRST === '1' ? { ATTACH: '1' } : {}) },
+    stdio: ['ignore', out, out],
+    detached: true,
   });
-  const lines: string[] = [];
-  desk.stdout.on('data', (d: Buffer) => {
-    process.stdout.write(d);
-    lines.push(...d.toString().split('\n').filter(Boolean));
-  });
-  desk.stderr.on('data', (d: Buffer) => process.stderr.write(d));
+  log(`  Collect Earths' log: ${deskLog}`);
   let running = true;
   const ended = new Promise<number>((r) => desk.on('exit', (code) => r(code ?? 1)));
   void ended.then(() => {
@@ -118,6 +132,7 @@ for (const [n, projectId] of PROJECTS.entries()) {
   while (running && !existsSync(`${handoffFile}.ready`)) await sleep(2000);
   const reviewing = reviewers.map((r) => review(r, projectId, () => running));
   const code = await ended;
+  const lines = readFileSync(deskLog, 'utf8').split('\n');
   const reviewed = await Promise.all(reviewing);
   const reviewLines = reviewers.map((r, k) => `${r.username}: ${reviewed[k].looks} looks, ${reviewed[k].decisions} decisions${reviewed[k].errors.length ? `, errors: ${[...new Set(reviewed[k].errors)].join('; ')}` : ''}`);
   summary.push(`${name} (project ${projectId}): Collect Earth run ${code === 0 ? 'passed its checks' : `ended with ${code}`}`, ...lines.filter((l) => /^(ok|FAIL|All instances|Collect Earth \d)/.test(l)).map((l) => `  ${l}`), ...reviewLines.map((l) => `  reviewer ${l}`));
