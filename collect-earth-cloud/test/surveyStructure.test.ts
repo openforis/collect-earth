@@ -117,7 +117,7 @@ describe("the designer's operations on pages, questions and lists", () => {
     expect(() => apply(basic, { op: 'deleteItem', list: 'demo_codelist', code: 'B' })).toThrow(/demo_date/);
     expect(() => apply(basic, { op: 'addItem', list: 'demo_codelist', item: { code: 'A', label: { en: 'Again' } } })).toThrow(/already/);
     expect(() => apply(basic, { op: 'deleteList', name: 'demo_codelist' })).toThrow(/code_demo/);
-    const spare = { op: 'addList', label: { en: 'Spare' }, items: [{ code: 'x', label: { en: 'X' } }] } as const;
+    const spare: SurveyOperation = { op: 'addList', label: { en: 'Spare' }, items: [{ code: 'x', label: { en: 'X' } }] };
     const unused = apply(basic, spare, { op: 'deleteList', name: 'spare' });
     expect(unused.equals(apply(basic, spare))).toBe(false);
     expect(surveyDesign(unused).lists.some((l) => l.name === 'spare')).toBe(false);
