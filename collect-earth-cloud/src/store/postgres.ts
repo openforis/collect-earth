@@ -827,17 +827,10 @@ export class PostgresStore implements Store {
     });
   }
 
-  async countRecordSurveyRevisions(projectId: string): Promise<Map<string, number>> {
+  async listRecordSurveyRevisions(projectId: string): Promise<Map<string, string>> {
     return this.withProject(projectId, async (client) => {
-      const res = await client.query(
-        `SELECT v.revision, count(*)::int AS n
-           FROM record_survey_revisions v
-           JOIN records r ON r.project_id = v.project_id AND r.record_key = v.record_key AND r.operator = v.operator
-          WHERE v.project_id = $1 AND NOT r.deleted
-          GROUP BY v.revision`,
-        [projectId],
-      );
-      return new Map(res.rows.map((r) => [r.revision as string, r.n as number]));
+      const res = await client.query('SELECT record_key, operator, revision FROM record_survey_revisions WHERE project_id = $1', [projectId]);
+      return new Map(res.rows.map((r) => [`${r.record_key as string} ${r.operator as string}`, r.revision as string]));
     });
   }
 

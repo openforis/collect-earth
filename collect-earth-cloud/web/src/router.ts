@@ -262,10 +262,8 @@ function notify() {
 
 function subscribe(listener: () => void): () => void {
   listeners.add(listener);
-  window.addEventListener("popstate", listener);
   return () => {
     listeners.delete(listener);
-    window.removeEventListener("popstate", listener);
   };
 }
 
@@ -278,11 +276,30 @@ export function setLeaveGuard(guard: ((path: string) => boolean) | null): void {
   leaveGuard = guard;
 }
 
+/** The path the app shows: where the browser's Back or Forward is taken back to when the guard stops it */
+let shownPath = typeof window === "undefined" ? "/" : window.location.pathname;
+
+/**
+ * The browser's Back and Forward: the address has changed already, so a move the guard stops puts the page's address
+ * back (the guard then asks, and navigates itself to where the person was going once they choose to leave).
+ */
+export function onHistoryMove(): void {
+  const path = window.location.pathname;
+  if (path !== shownPath && leaveGuard && !leaveGuard(path)) {
+    window.history.pushState(null, "", shownPath);
+    return;
+  }
+  shownPath = path;
+  notify();
+}
+if (typeof window !== "undefined") window.addEventListener("popstate", onHistoryMove);
+
 export function navigate(path: string, options: { replace?: boolean } = {}): void {
   if (path === window.location.pathname) return;
   if (leaveGuard && !leaveGuard(path)) return;
   if (options.replace) window.history.replaceState(null, "", path);
   else window.history.pushState(null, "", path);
+  shownPath = path;
   window.scrollTo?.(0, 0);
   notify();
 }

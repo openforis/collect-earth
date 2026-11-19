@@ -378,6 +378,17 @@ export interface SurveyVersionsAnswer {
   versions: SurveyVersionView[];
 }
 
+/**
+ * GET /v1/projects/:pid/survey/older: the plots last saved with an earlier version of the survey, whose answers follow
+ * the survey of then. Collect Earth 2.0 says which survey a record was made with; a record that does not say (an
+ * older Collect Earth, an import) counts when it answers a question the survey no longer has.
+ */
+export interface SurveyOlderAnswer {
+  plots: number;
+  /** Of them, the ones Collect Earth said so of (the rest found by their answers) */
+  byRevision: number;
+}
+
 export interface SurveyDesignAnswer {
   /** null: no project file yet, or a survey the server cannot read (unreadable) */
   design: SurveyDesign | null;
@@ -391,11 +402,6 @@ export interface SurveyDesignAnswer {
   editable: boolean;
   /** People who have the project file already: Collect Earth 2.0 offers them a change within ten minutes */
   peopleWithFile: number;
-  /**
-   * Plots last saved with an earlier version of the survey (as Collect Earth 2.0 says; older ones do not): their
-   * answers follow the survey of then
-   */
-  olderSurveyPlots: number;
   /** What Collect or Collect Earth would refuse in the survey: none for a survey that opens */
   problems: SurveyProblem[];
 }

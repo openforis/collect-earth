@@ -218,8 +218,8 @@ export interface Store {
   deleteSurveyVersions(projectId: string): Promise<void>;
   /** Keeps the survey revision each record was last stored with (RecordEnvelope.surveyRevision) */
   setRecordSurveyRevisions(projectId: string, entries: readonly { recordKey: string; operator: string; revision: string }[]): Promise<void>;
-  /** How many of the project's records (not deleted) were last stored with each survey revision, where it is known */
-  countRecordSurveyRevisions(projectId: string): Promise<Map<string, number>>;
+  /** The survey revision each record was last stored with, where it is known, by `${recordKey} ${operator}` */
+  listRecordSurveyRevisions(projectId: string): Promise<Map<string, string>>;
 
   // --- Users & sessions (Phase A) ---
 

@@ -18,6 +18,7 @@ import { checkSurvey, newProblems } from '../survey/check.js';
 import { surveyDesign } from '../survey/design.js';
 import { operationFor, SurveyEdit, SurveyEditError } from '../survey/edit.js';
 import { surveyImpact } from '../survey/impact.js';
+import { olderSurveyPlots } from '../survey/olderPlots.js';
 import { newProjectFile, TEMPLATES_WITH_YEARS } from '../survey/templates.js';
 import { acceptCep } from './platform.js';
 import { XmlTreeError } from '../survey/xmlTree.js';
@@ -32,6 +33,7 @@ import type {
   SurveyChangeRefusal,
   SurveyDesignAnswer,
   SurveyImpactAnswer,
+  SurveyOlderAnswer,
   SurveyOperation,
   SurveyNewInput,
   SurveyRestoreInput,
@@ -62,13 +64,13 @@ function generatedForm(cep: Buffer, date: Date): Buffer {
 }
 
 async function designAnswer(store: Store, config: Config, projectId: string, log: FastifyRequest['log']): Promise<SurveyDesignAnswer> {
-  const empty = { design: null, revision: null, editable: false, peopleWithFile: 0, olderSurveyPlots: 0, problems: [] };
+  const empty = { design: null, revision: null, editable: false, peopleWithFile: 0, problems: [] };
   const cep = await store.getCep(projectId);
   // Without a project file, editable says a survey can be started here (POST /survey/new)
   if (!cep) return { ...empty, editable: !config.localMode, unreadable: false };
   try {
     const survey = surveyOf(readCep(cep));
-    const [activity, revisions] = await Promise.all([store.listMemberActivity(projectId), store.countRecordSurveyRevisions(projectId)]);
+    const activity = await store.listMemberActivity(projectId);
     const revision = revisionOf(survey);
     return {
       design: surveyDesign(survey),
@@ -76,7 +78,6 @@ async function designAnswer(store: Store, config: Config, projectId: string, log
       revision,
       editable: !config.localMode,
       peopleWithFile: activity.filter((a) => a.lastCepDownloadAt !== null).length,
-      olderSurveyPlots: [...revisions].reduce((n, [r, count]) => n + (r === revision ? 0 : count), 0),
       // What Collect or Collect Earth would refuse in it: shown as warnings, as the survey came from Collect's designer
       problems: checkSurvey(survey),
     };
@@ -550,6 +551,27 @@ export async function registerSurveyDesignRoutes(app: FastifyInstance, store: St
       }
     }
     return reply.header('cache-control', 'private, no-cache').send({ revision } satisfies SurveyRevisionAnswer);
+  });
+
+  // The plots of an earlier survey: read apart from the design (every record's answers are read), when the page asks
+  app.get('/v1/projects/:pid/survey/older', admin, async (request, reply) => {
+    const projectId = request.membership!.projectId;
+    const served = await store.getCep(projectId);
+    if (!served) return { plots: 0, byRevision: 0 } satisfies SurveyOlderAnswer;
+    let survey: Buffer;
+    try {
+      survey = surveyOf(readCep(served));
+    } catch (err) {
+      if (err instanceof CepError) return reply.code(409).send({ error: 'unreadable', reason: 'the survey of the project file cannot be read' });
+      throw err;
+    }
+    const [records, revisions] = await Promise.all([store.listRecordSummaries(projectId), store.listRecordSurveyRevisions(projectId)]);
+    try {
+      return olderSurveyPlots(survey, revisionOf(survey), records.filter((r) => !r.deleted), revisions) satisfies SurveyOlderAnswer;
+    } catch (err) {
+      if (err instanceof XmlTreeError) return reply.code(409).send({ error: 'unreadable', reason: 'the survey of the project file cannot be read' });
+      throw err;
+    }
   });
 
   app.get('/v1/projects/:pid/survey/versions', admin, async (request) => {

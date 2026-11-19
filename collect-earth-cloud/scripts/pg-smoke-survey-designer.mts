@@ -101,11 +101,11 @@ check(`the last ${SURVEY_VERSIONS_KEPT} kept, newest first, and the first`, vers
   const r1 = await send('101', 'aaaaaaaaaaaaaaaaaaaaaaaa');
   await send('102', revision);
   await send('103', null);
-  const older = (await call('GET', a, '/survey/design')).json().olderSurveyPlots;
-  check('050: plots of an earlier survey counted', older === 1, { older, status: r1.statusCode, body: r1.body.slice(0, 200) });
+  const older = (await call('GET', a, '/survey/older')).json();
+  check('050: plots of an earlier survey counted', older.plots === 1 && older.byRevision === 1, { older, status: r1.statusCode, body: r1.body.slice(0, 200) });
   const rows = (await owner.query('SELECT project_id, count(*)::int AS n FROM record_survey_revisions GROUP BY project_id')).rows;
   check('050: kept per project', rows.length === 1 && rows[0].project_id === a && rows[0].n === 2, rows);
-  check("050: B counts none of A's", (await store.countRecordSurveyRevisions(b)).size === 0);
+  check("050: B reads none of A's", (await store.listRecordSurveyRevisions(b)).size === 0 && (await store.listRecordSurveyRevisions(a)).size === 2);
   const rlsOn = (await owner.query("SELECT relrowsecurity FROM pg_class WHERE relname = 'record_survey_revisions'")).rows[0];
   check('050: row level security on', rlsOn?.relrowsecurity === true);
 }

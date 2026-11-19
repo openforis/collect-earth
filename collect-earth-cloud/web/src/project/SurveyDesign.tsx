@@ -38,6 +38,7 @@ import {
   checkSurveyExpression,
   getProjectAi,
   getSurveyDesign,
+  getSurveyOlder,
   getSurveyHelp,
   getSurveyImpact,
   listSurveyVersions,
@@ -217,6 +218,10 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
   const [preview, setPreview] = useState<Words | null>(null);
   const [leaving, setLeaving] = useState<string | null>(null);
   const [textsRead, setTextsRead] = useState<{ count: number; languages: string[]; unknown: number } | null>(null);
+  // The plots of an earlier survey: read apart (every record's answers), again for each revision of the survey
+  const older = useLoad(["project", projectId, "getSurveyOlder", answer?.revision ?? null], () =>
+    answer?.design ? getSurveyOlder(projectId).catch(() => null) : Promise.resolve(null),
+  );
   const check = useMemo(() => (answer?.design ? (input: ExpressionCheckInput) => checkSurveyExpression(projectId, input) : null), [answer?.design, projectId]);
   // The AI assistant's help, when it is switched on for the project (never in the dashboard inside Collect Earth)
   const ai = useLoad(["project", projectId, "SurveyDesign.ai", answer?.editable === true], () =>
@@ -520,8 +525,8 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
                 {t("survey.edit.replaced")}
               </Alert>
             )}
-            {answer.olderSurveyPlots > 0 && (
-              <Alert severity="info">{t("survey.olderSurveyPlots", { count: answer.olderSurveyPlots })}</Alert>
+            {(older.data?.plots ?? 0) > 0 && (
+              <Alert severity="info">{t("survey.olderSurveyPlots", { count: older.data!.plots })}</Alert>
             )}
             {editing && (
               <Alert severity="info" icon={<EditOutlined />}>

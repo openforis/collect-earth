@@ -666,12 +666,15 @@ spoiled, updates that did not reach people, and slow typing; all of it is fixed 
 - *Desktop.* The survey's revision is computed from the project's own survey file (the first 24 hex characters of its
   sha256, as the server's), so a person who installs Collect Earth after a change is offered it. Records not yet sent
   are sent before an update, which waits while some are left. Records carry the revision of the survey they were made
-  with (`surveyRevision`, migration 050), and the designer says how many plots were last saved with an earlier one.
+  with (`surveyRevision`, migration 050), and the designer says how many plots were last saved with an earlier one
+  (`GET /survey/older`; a record of an older Collect Earth, which does not say, counts when it answers a question
+  the survey no longer has).
   The files of before are kept while an update is applied: a survey Collect cannot import or validate puts them back,
   loads the old survey and is not offered again. One offer, one update and one opening at a time; a person in training
   goes back to the training set; a cloud project that leaves out `web_form` or `csv` clears them.
 - *Dashboard.* Typed texts live outside React (a keystroke on the IPCC survey, 1,006 fields: 17 ms, was 640 ms). A
-  save removes only the texts it sent and that still read so; leaving the page asks first; a new project file uploaded
+  save removes only the texts it sent and that still read so; leaving the page asks first, the browser's Back
+  button too (`router.ts` `onHistoryMove` puts the address back while the person chooses); a new project file uploaded
   while editing ends edit mode. A refused change is offered again after reading the survey again; Discard asks; the
   new question's dialog keeps what was typed until the save works; Delete is disabled, with who uses it, on what is in
   use; the preview shows the typed texts; a rule's message is written in the survey's language; "Saved" shows in the

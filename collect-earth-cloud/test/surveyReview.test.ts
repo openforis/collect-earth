@@ -10,7 +10,7 @@ import { surveyDesign } from '../src/survey/design.js';
 import { SurveyEdit } from '../src/survey/edit.js';
 import { surveyImpact } from '../src/survey/impact.js';
 import { readXml } from '../src/survey/xmlTree.js';
-import type { DesignQuestion, SurveyDesign, SurveyDesignAnswer } from '../src/wire/survey.js';
+import type { DesignQuestion, SurveyDesign, SurveyDesignAnswer, SurveyOlderAnswer } from '../src/wire/survey.js';
 import { demoCep } from './fixtures/cep.js';
 import { batchRequest, bearer, createProject, makeContext, type TestContext } from './helpers.js';
 
@@ -206,22 +206,33 @@ describe('the routes', () => {
     expect(r.statusCode).toBe(409);
   });
 
-  it('counts the plots last saved with an earlier survey, as Collect Earth says it', async () => {
+  it('counts the plots last saved with an earlier survey: as Collect Earth 2.0 says, or by an answer to a question gone', async () => {
     const { p, get, save } = await project();
     const before = (await get()).revision!;
-    const send = (key: string, revision?: string) =>
+    const older = async () =>
+      (await ctx.app.inject({ method: 'GET', url: `/v1/projects/${p.projectId}/survey/older`, headers: bearer(p.adminToken) })).json() as SurveyOlderAnswer;
+    const send = (key: string, revision?: string, summary: Record<string, string> = {}) =>
       batchRequest(ctx.app, p.projectId, p.projectToken, [
-        { recordKey: key, surveyUri: 'x', operator: 'ana', modifiedOn: Date.now(), activelySaved: true, step: 1, xml: '<x/>', summary: {}, deleted: false, payloadVersion: 1, ...(revision ? { surveyRevision: revision } : {}) },
+        { recordKey: key, surveyUri: 'x', operator: 'ana', modifiedOn: Date.now(), activelySaved: true, step: 1, xml: '<x/>', summary, deleted: false, payloadVersion: 1, ...(revision ? { surveyRevision: revision } : {}) },
       ]);
-    await send('1', before);
-    await send('2', before);
-    await send('3');
-    expect((await get()).olderSurveyPlots).toBe(0);
-    const lang = (await get()).design!.languages[0];
-    expect((await save([{ op: 'setText', target: { kind: 'node', id: idIn((await get()).design!, 'elevation') }, part: 'label', language: lang, text: 'Height' }])).statusCode).toBe(200);
-    expect((await get()).olderSurveyPlots).toBe(2);
+    const d = (await get()).design!;
+    const page = d.pages[0].name;
+    const lang = d.languages[0];
+    expect((await save([{ op: 'addQuestion', type: 'text', label: { [lang]: 'To delete' }, page }])).statusCode).toBe(200);
+    const made = (await get()).revision!;
+    expect(made).not.toBe(before);
+    await send('1', made);
+    await send('2', made);
+    // An older Collect Earth: no revision; one answered the question to delete, one left it blank
+    await send('3', undefined, { collect_text_to_delete: 'kept', collect_text_elevation_x: '' });
+    await send('4', undefined, { collect_text_to_delete: '' });
+    expect(await older()).toEqual({ plots: 0, byRevision: 0 });
+    const id = idIn((await get()).design!, 'to_delete');
+    expect((await save([{ op: 'deleteQuestion', id }])).statusCode).toBe(200);
+    // Plots 1 and 2 said the survey of then; 3 answers a question gone; 4 has nothing that does not fit
+    expect(await older()).toEqual({ plots: 3, byRevision: 2 });
     await send('2', (await get()).revision!);
-    expect((await get()).olderSurveyPlots).toBe(1);
+    expect(await older()).toEqual({ plots: 2, byRevision: 1 });
   });
 });
 

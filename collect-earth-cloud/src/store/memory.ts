@@ -706,16 +706,8 @@ export class InMemoryStore implements Store {
     for (const e of entries) entry.recordSurveyRevisions.set(`${e.recordKey} ${e.operator}`, e.revision);
   }
 
-  async countRecordSurveyRevisions(projectId: string): Promise<Map<string, number>> {
-    const entry = this.projects.get(projectId);
-    const counts = new Map<string, number>();
-    if (!entry) return counts;
-    for (const [key, revision] of entry.recordSurveyRevisions) {
-      const record = entry.records.get(key);
-      if (!record || record.deleted) continue;
-      counts.set(revision, (counts.get(revision) ?? 0) + 1);
-    }
-    return counts;
+  async listRecordSurveyRevisions(projectId: string): Promise<Map<string, string>> {
+    return new Map(this.projects.get(projectId)?.recordSurveyRevisions ?? []);
   }
 
   async deleteSurveyVersions(projectId: string): Promise<void> {
