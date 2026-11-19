@@ -249,7 +249,7 @@ does to the plots already collected:
 | Reordering pages, questions, list items | Nothing |
 | Making a question required, or a rule stricter | How many plots already collected break it, and that they are flagged when reopened |
 | A new "show when" | How many plots have an answer that would now be hidden; the answers stay in the records |
-| Deleting a question | How many plots answered it; their answers stay in the records and the exports of before, but no longer appear in the form, the exports or the analysis |
+| Deleting a question | How many plots answered it; their answers no longer appear in the form, the exports or the analysis, and Collect Earth drops them from a plot the next time it is saved (Collect reads a record by its questions' ids and skips the ones the survey no longer has): download the data first to keep them |
 | Deleting a list item | How many plots chose it, the same way |
 | Changing a list item's code | How many plots chose it; their answers keep the old code, which then matches no item |
 | Renaming a question's internal name | How many plots answered it; to Collect those answers belong to a question that no longer exists, so they disappear from the form and the exports |

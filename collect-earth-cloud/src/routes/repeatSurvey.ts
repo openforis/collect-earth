@@ -117,13 +117,17 @@ function headerOf(raw: unknown, outline: ReadonlyMap<string, Question>): string[
 
 /** The served project file with the period status (addPeriodStatus), the original kept as the upload path keeps it. */
 export async function servePeriodStatus(store: Store, projectId: string): Promise<void> {
-  const [served, info, original] = await Promise.all([store.getCep(projectId), store.getRoundInfo(projectId), store.getOriginalCep(projectId)]);
-  if (!served || !info) return;
-  const status = addPeriodStatus(served);
-  if (status.added) {
-    await store.putCep(projectId, status.cep, info, original ?? served);
-    // The survey changed (a field of the period added): the designer's versions are of the survey before
-    await store.deleteSurveyVersions(projectId);
+  // Only over the project file read here: a survey saved meanwhile in the designer is read again, not undone
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const [served, info, original] = await Promise.all([store.getCep(projectId), store.getRoundInfo(projectId), store.getOriginalCep(projectId)]);
+    if (!served || !info) return;
+    const status = addPeriodStatus(served);
+    if (!status.added) return;
+    if (await store.replaceCep(projectId, served, status.cep, info, original ?? served)) {
+      // The survey changed (a field of the period added): the designer's versions are of the survey before
+      await store.deleteSurveyVersions(projectId);
+      return;
+    }
   }
 }
 

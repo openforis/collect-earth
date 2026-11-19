@@ -125,6 +125,8 @@ interface ProjectEntry {
   /** projects.created_at */
   createdAt: number;
   records: Map<string, RecordRow>; // key = recordKey + ' ' + operator
+  /** The survey revision each record was last stored with, same key */
+  recordSurveyRevisions: Map<string, string>;
   cep: Buffer | null;
   cepUpdatedAt: number | null;
   /** The upload, when the server serves a changed copy of it. */
@@ -539,6 +541,7 @@ export class InMemoryStore implements Store {
       project,
       createdAt: Date.now(),
       records: new Map(),
+      recordSurveyRevisions: new Map(),
       cep: null,
       cepUpdatedAt: null,
       cepOriginal: null,
@@ -662,6 +665,13 @@ export class InMemoryStore implements Store {
     entry.cepUpdatedAt = Math.max(Date.now(), (entry.cepUpdatedAt ?? 0) + 1);
   }
 
+  async replaceCep(projectId: string, expected: Buffer, served: Buffer, info: RoundInfo, original: Buffer | null): Promise<boolean> {
+    const entry = this.requireProject(projectId);
+    if (!entry.cep || !entry.cep.equals(expected)) return false;
+    await this.putCep(projectId, served, info, original);
+    return true;
+  }
+
   async addSurveyVersion(projectId: string, input: SurveyVersionInput): Promise<SurveyVersion> {
     const entry = this.requireProject(projectId);
     const before = entry.surveyVersions[0]?.createdAt ?? 0;
@@ -674,7 +684,8 @@ export class InMemoryStore implements Store {
       restoredFrom: input.restoredFrom,
     };
     entry.surveyVersions.unshift({ ...version, survey: Buffer.from(input.survey), original: input.original === null ? null : Buffer.from(input.original) });
-    entry.surveyVersions.length = Math.min(entry.surveyVersions.length, SURVEY_VERSIONS_KEPT);
+    // The last ones stay, and the first: the survey before any change
+    if (entry.surveyVersions.length > SURVEY_VERSIONS_KEPT + 1) entry.surveyVersions.splice(SURVEY_VERSIONS_KEPT, entry.surveyVersions.length - SURVEY_VERSIONS_KEPT - 1);
     return { ...version };
   }
 
@@ -688,6 +699,23 @@ export class InMemoryStore implements Store {
   async getSurveyVersionData(projectId: string, versionId: string): Promise<{ survey: Buffer; original: Buffer | null } | null> {
     const v = this.projects.get(projectId)?.surveyVersions.find((x) => x.id === versionId);
     return v ? { survey: Buffer.from(v.survey), original: v.original === null ? null : Buffer.from(v.original) } : null;
+  }
+
+  async setRecordSurveyRevisions(projectId: string, entries: readonly { recordKey: string; operator: string; revision: string }[]): Promise<void> {
+    const entry = this.requireProject(projectId);
+    for (const e of entries) entry.recordSurveyRevisions.set(`${e.recordKey} ${e.operator}`, e.revision);
+  }
+
+  async countRecordSurveyRevisions(projectId: string): Promise<Map<string, number>> {
+    const entry = this.projects.get(projectId);
+    const counts = new Map<string, number>();
+    if (!entry) return counts;
+    for (const [key, revision] of entry.recordSurveyRevisions) {
+      const record = entry.records.get(key);
+      if (!record || record.deleted) continue;
+      counts.set(revision, (counts.get(revision) ?? 0) + 1);
+    }
+    return counts;
   }
 
   async deleteSurveyVersions(projectId: string): Promise<void> {

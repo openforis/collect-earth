@@ -82,7 +82,33 @@ for (let i = 0; i < SURVEY_VERSIONS_KEPT + 3; i++) {
   revision = res.json().revision;
 }
 versions = (await call('GET', a, '/survey/versions')).json().versions;
-check(`the last ${SURVEY_VERSIONS_KEPT} kept, newest first`, versions.length === SURVEY_VERSIONS_KEPT && versions[0].createdAt >= versions[1].createdAt, versions.length);
+check(`the last ${SURVEY_VERSIONS_KEPT} kept, newest first, and the first`, versions.length === SURVEY_VERSIONS_KEPT + 1 && versions[0].createdAt >= versions[1].createdAt && versions[versions.length - 1].changes === 1, versions.length);
+
+// Two saves made on the same survey at once: one is written, the other refused (replaceCep)
+{
+  const d = (await call('GET', a, '/survey/design')).json();
+  const at = (text: string) => call('POST', a, '/survey/design', { revision: d.revision, operations: [{ op: 'setText', target: { kind: 'title' }, part: 'label', language, text }] });
+  const codes = (await Promise.all([at('At once 1'), at('At once 2'), at('At once 3')])).map((r) => r.statusCode).sort();
+  check('of three saves at once, one is written', JSON.stringify(codes) === JSON.stringify([200, 409, 409]), codes);
+  revision = (await call('GET', a, '/survey/design')).json().revision;
+}
+
+// 050: the survey each record was made with
+{
+  const send = (key: string, surveyRevision: string | null) =>
+    call('POST', a, '/records:batch', { records: [{ recordKey: key, surveyUri: 'x', operator: 'owner', modifiedOn: Date.now(), activelySaved: true, step: 1, xml: '<x/>', summary: {}, deleted: false, payloadVersion: 1, ...(surveyRevision ? { surveyRevision } : {}) }] });
+  await call('PUT', a, '/status', { status: 'active' });
+  const r1 = await send('101', 'aaaaaaaaaaaaaaaaaaaaaaaa');
+  await send('102', revision);
+  await send('103', null);
+  const older = (await call('GET', a, '/survey/design')).json().olderSurveyPlots;
+  check('050: plots of an earlier survey counted', older === 1, { older, status: r1.statusCode, body: r1.body.slice(0, 200) });
+  const rows = (await owner.query('SELECT project_id, count(*)::int AS n FROM record_survey_revisions GROUP BY project_id')).rows;
+  check('050: kept per project', rows.length === 1 && rows[0].project_id === a && rows[0].n === 2, rows);
+  check("050: B counts none of A's", (await store.countRecordSurveyRevisions(b)).size === 0);
+  const rlsOn = (await owner.query("SELECT relrowsecurity FROM pg_class WHERE relname = 'record_survey_revisions'")).rows[0];
+  check('050: row level security on', rlsOn?.relrowsecurity === true);
+}
 
 res = await call('POST', a, `/survey/versions/${versions[0].id}/restore`, { revision });
 check('a restore brings the survey before back', res.statusCode === 200 && res.json().design.title[language] === `Title ${SURVEY_VERSIONS_KEPT + 1}`, res.body);

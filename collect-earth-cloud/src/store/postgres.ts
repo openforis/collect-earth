@@ -1,7 +1,7 @@
 import { OPERATOR_SUMMARY_KEY, operatorXmlPattern } from '../anonymize.js';
 import pg from 'pg';
 import { DatabaseBusyError, isPoolWaitTimeout } from './busy.js';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { gunzipSync, gzipSync } from 'node:zlib';
 import { isUuid } from '../accountRules.js';
 import { generateShareToken, generateToken, hashToken, SESSION_IDLE_MS, SESSION_TOUCH_MS } from '../auth.js';
@@ -757,6 +757,18 @@ export class PostgresStore implements Store {
     });
   }
 
+  async replaceCep(projectId: string, expected: Buffer, served: Buffer, info: RoundInfo, original: Buffer | null): Promise<boolean> {
+    return this.withProject(projectId, async (client) => {
+      // Compared by digest: the row is locked by the update, so two changes made on the same CEP cannot both pass
+      const res = await client.query(
+        `UPDATE project_ceps SET data = $2, cep_original = $3, round_info = $4, updated_at = now()
+          WHERE project_id = $1 AND sha256(data) = $5`,
+        [projectId, served, original, JSON.stringify(info), createHash('sha256').update(expected).digest()],
+      );
+      return (res.rowCount ?? 0) > 0;
+    });
+  }
+
   async addSurveyVersion(projectId: string, input: SurveyVersionInput): Promise<SurveyVersion> {
     return this.withProject(projectId, async (client) => {
       const id = randomUUID();
@@ -765,10 +777,11 @@ export class PostgresStore implements Store {
          VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING created_at`,
         [id, projectId, input.createdBy, input.changes, input.restoredFrom, gzipSync(input.survey), input.original === null ? null : gzipSync(input.original)],
       );
-      // Only the last ones stay
+      // Only the last ones stay, and the first: the survey before any change
       await client.query(
-        `DELETE FROM survey_versions WHERE project_id = $1 AND id NOT IN (
-           SELECT id FROM survey_versions WHERE project_id = $1 ORDER BY created_at DESC, id LIMIT $2)`,
+        `DELETE FROM survey_versions WHERE project_id = $1
+           AND id NOT IN (SELECT id FROM survey_versions WHERE project_id = $1 ORDER BY created_at DESC, id LIMIT $2)
+           AND id NOT IN (SELECT id FROM survey_versions WHERE project_id = $1 ORDER BY created_at ASC, id LIMIT 1)`,
         [projectId, SURVEY_VERSIONS_KEPT],
       );
       return { id, createdAt: (res.rows[0].created_at as Date).getTime(), createdBy: input.createdBy, changes: input.changes, restoredFrom: input.restoredFrom };
@@ -799,6 +812,32 @@ export class PostgresStore implements Store {
       if (res.rowCount === 0) return null;
       const original = res.rows[0].original_gz as Buffer | null;
       return { survey: gunzipSync(res.rows[0].survey_gz as Buffer), original: original === null ? null : gunzipSync(original) };
+    });
+  }
+
+  async setRecordSurveyRevisions(projectId: string, entries: readonly { recordKey: string; operator: string; revision: string }[]): Promise<void> {
+    if (entries.length === 0) return;
+    await this.withProject(projectId, async (client) => {
+      await client.query(
+        `INSERT INTO record_survey_revisions (project_id, record_key, operator, revision)
+         SELECT $1, k, o, r FROM unnest($2::text[], $3::text[], $4::text[]) AS t(k, o, r)
+         ON CONFLICT (project_id, record_key, operator) DO UPDATE SET revision = EXCLUDED.revision`,
+        [projectId, entries.map((e) => e.recordKey), entries.map((e) => e.operator), entries.map((e) => e.revision)],
+      );
+    });
+  }
+
+  async countRecordSurveyRevisions(projectId: string): Promise<Map<string, number>> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query(
+        `SELECT v.revision, count(*)::int AS n
+           FROM record_survey_revisions v
+           JOIN records r ON r.project_id = v.project_id AND r.record_key = v.record_key AND r.operator = v.operator
+          WHERE v.project_id = $1 AND NOT r.deleted
+          GROUP BY v.revision`,
+        [projectId],
+      );
+      return new Map(res.rows.map((r) => [r.revision as string, r.n as number]));
     });
   }
 

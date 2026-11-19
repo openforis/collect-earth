@@ -160,6 +160,8 @@ export interface DesignListItem {
   help: Localized;
   /** The second level (a sub-list's items) */
   items: DesignListItem[];
+  /** The questions whose condition, rule or formula names this answer: it is deleted once they no longer do */
+  usedBy: string[];
 }
 
 export interface DesignList {
@@ -318,7 +320,7 @@ export type SurveyOperation =
 export type SurveyEffect =
   /** Questions added: the plots collected have no answer to them, and are not reopened by themselves */
   | { kind: 'newQuestions'; count: number }
-  /** A question deleted: its answers stay in the records, but leave the form, the exports and the analysis */
+  /** A question deleted: its answers leave the form, the exports and the analysis, and Collect Earth drops them from a plot the next time it is saved */
   | { kind: 'questionDeleted'; question: string; answered: number }
   /** A table deleted: the plots with an answer in one of its rows */
   | { kind: 'tableDeleted'; table: string; answered: number }
@@ -387,8 +389,13 @@ export interface SurveyDesignAnswer {
    * start one from a template (POST /v1/projects/:pid/survey/new)
    */
   editable: boolean;
-  /** People who have the project file already: a change reaches them when they open the project again */
+  /** People who have the project file already: Collect Earth 2.0 offers them a change within ten minutes */
   peopleWithFile: number;
+  /**
+   * Plots last saved with an earlier version of the survey (as Collect Earth 2.0 says; older ones do not): their
+   * answers follow the survey of then
+   */
+  olderSurveyPlots: number;
   /** What Collect or Collect Earth would refuse in the survey: none for a survey that opens */
   problems: SurveyProblem[];
 }

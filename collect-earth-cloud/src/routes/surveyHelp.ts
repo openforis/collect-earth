@@ -32,6 +32,7 @@ import { readCep } from '../cep.js';
 import type { Config } from '../config.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import type { Store } from '../store/store.js';
+import { checkSurvey, newProblems } from '../survey/check.js';
 import { surveyDesign } from '../survey/design.js';
 import { SurveyEdit, SurveyEditError } from '../survey/edit.js';
 import { surveyImpact, type ImpactRecord } from '../survey/impact.js';
@@ -57,7 +58,8 @@ function tried(survey: Buffer, id: number, rule: NewRule, records: readonly Impa
   try {
     const edit = new SurveyEdit(survey);
     edit.putRule(id, rule);
-    if (edit.problems().length > 0) return 'The survey check refuses it.';
+    // Only problems it brings: a survey uploaded with known ones takes rules as the save does
+    if (newProblems(checkSurvey(survey), edit.problems()).length > 0) return 'The survey check refuses it.';
     const effect = surveyImpact(survey, [{ op: 'addRule', id, rule }], records, edit.bytes()).effects.find((e) => e.kind === 'ruleFlags');
     return effect && effect.kind === 'ruleFlags' ? { flagged: effect.flagged, checked: effect.checked } : { flagged: 0, checked: 0 };
   } catch (err) {

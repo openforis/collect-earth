@@ -8,14 +8,14 @@
 import { createHash } from 'node:crypto';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { audit } from '../activity.js';
-import { readCep, roundInfoOf, withSurvey, type CepFiles } from '../cep.js';
+import { CepError, readCep, roundInfoOf, withSurvey, type CepFiles } from '../cep.js';
 import type { Config } from '../config.js';
 import { checkUploadFits } from '../limits.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import type { Store } from '../store/store.js';
-import { checkSurvey, type SurveyProblem } from '../survey/check.js';
+import { checkSurvey, newProblems } from '../survey/check.js';
 import { surveyDesign } from '../survey/design.js';
-import { SurveyEdit, SurveyEditError } from '../survey/edit.js';
+import { operationFor, SurveyEdit, SurveyEditError } from '../survey/edit.js';
 import { surveyImpact } from '../survey/impact.js';
 import { newProjectFile, TEMPLATES_WITH_YEARS } from '../survey/templates.js';
 import { acceptCep } from './platform.js';
@@ -43,6 +43,8 @@ import type {
 
 /** The most operations one save takes */
 const MAX_OPERATIONS = 2000;
+/** The most answers one save adds, in new lists and one by one (a save stays a matter of a second or two) */
+const MAX_NEW_ANSWERS = 20000;
 
 /** A survey's revision: what a change names, so that two coordinators do not undo each other */
 export const revisionOf = (survey: Uint8Array): string => createHash('sha256').update(survey).digest('hex').slice(0, 24);
@@ -50,19 +52,21 @@ export const revisionOf = (survey: Uint8Array): string => createHash('sha256').u
 const surveyOf = (files: CepFiles): Buffer => Buffer.from(files.entries.get(files.surveyPath)!);
 
 async function designAnswer(store: Store, config: Config, projectId: string, log: FastifyRequest['log']): Promise<SurveyDesignAnswer> {
-  const empty = { design: null, revision: null, editable: false, peopleWithFile: 0, problems: [] };
+  const empty = { design: null, revision: null, editable: false, peopleWithFile: 0, olderSurveyPlots: 0, problems: [] };
   const cep = await store.getCep(projectId);
   // Without a project file, editable says a survey can be started here (POST /survey/new)
   if (!cep) return { ...empty, editable: !config.localMode, unreadable: false };
   try {
     const survey = surveyOf(readCep(cep));
-    const activity = await store.listMemberActivity(projectId);
+    const [activity, revisions] = await Promise.all([store.listMemberActivity(projectId), store.countRecordSurveyRevisions(projectId)]);
+    const revision = revisionOf(survey);
     return {
       design: surveyDesign(survey),
       unreadable: false,
-      revision: revisionOf(survey),
+      revision,
       editable: !config.localMode,
       peopleWithFile: activity.filter((a) => a.lastCepDownloadAt !== null).length,
+      olderSurveyPlots: [...revisions].reduce((n, [r, count]) => n + (r === revision ? 0 : count), 0),
       // What Collect or Collect Earth would refuse in it: shown as warnings, as the survey came from Collect's designer
       problems: checkSurvey(survey),
     };
@@ -303,6 +307,8 @@ function readOperationList(v: unknown): SurveyOperation[] | string {
     if (!op) return `operation ${i + 1} is not one the designer makes`;
     operations.push(op);
   }
+  const answers = operations.reduce((n, o) => n + (o.op === 'addList' ? o.items.length : o.op === 'addItem' ? 1 : 0), 0);
+  if (answers > MAX_NEW_ANSWERS) return `at most ${MAX_NEW_ANSWERS} new answers at once`;
   return operations;
 }
 
@@ -311,13 +317,6 @@ function readOperations(body: unknown): { revision: string; operations: SurveyOp
   if (!isString(b.revision, 100)) return 'revision is missing';
   const operations = readOperationList(b.operations);
   return typeof operations === 'string' ? operations : { revision: b.revision, operations };
-}
-
-/** The problems a changed survey has that the survey before had not */
-function newProblems(before: SurveyProblem[], after: SurveyProblem[]): SurveyProblem[] {
-  const key = (p: SurveyProblem) => JSON.stringify([p.node, p.code, p.values, p.expression]);
-  const known = new Set(before.map(key));
-  return after.filter((p) => !known.has(key(p)));
 }
 
 export async function registerSurveyDesignRoutes(app: FastifyInstance, store: Store, config: Config): Promise<void> {
@@ -338,16 +337,20 @@ export async function registerSurveyDesignRoutes(app: FastifyInstance, store: St
     next: Buffer,
     nextOriginal: Buffer | null,
     kept: { survey: Buffer; original: Buffer | null; changes: number; restoredFrom: string | null },
-  ): Promise<{ status: 413; body: unknown } | null> {
+  ): Promise<{ status: 409 | 413; body: unknown } | null> {
     const date = new Date();
     const storedOriginal = await store.getOriginalCep(projectId);
     const originalCep = storedOriginal && !storedOriginal.equals(served) ? storedOriginal : null;
     const nextServed = withSurvey(served, next, date);
-    const nextOriginalCep = originalCep ? withSurvey(originalCep, nextOriginal ?? next, date) : null;
+    // The uploaded file's survey that could not be changed stays as it is: never the served one, with the server's fields
+    const nextOriginalCep = originalCep ? (nextOriginal ? withSurvey(originalCep, nextOriginal, date) : originalCep) : null;
     const over = await checkUploadFits(store, projectId, { kind: 'cep' }, nextServed.length + (nextOriginalCep?.length ?? 0));
     if (over) return { status: 413, body: over };
+    // Written only while the project file is still the one the change was made on: of two changes at once, the
+    // second is refused as one made on a survey read before
+    const written = await store.replaceCep(projectId, served, nextServed, (await store.getRoundInfo(projectId)) ?? roundInfoOf(nextServed), nextOriginalCep);
+    if (!written) return { status: 409, body: { error: 'stale', reason: 'the survey changed since it was read: read it again' } satisfies SurveyChangeRefusal };
     await store.addSurveyVersion(projectId, { ...kept, createdBy: request.userId ?? null });
-    await store.putCep(projectId, nextServed, (await store.getRoundInfo(projectId)) ?? roundInfoOf(nextServed), nextOriginalCep);
     return null;
   }
 
@@ -394,9 +397,15 @@ export async function registerSurveyDesignRoutes(app: FastifyInstance, store: St
       try {
         originalSurvey = surveyOf(readCep(storedOriginal));
         const originalEdit = new SurveyEdit(originalSurvey);
+        // The ids differ between the two (the server's fields take some): each operation names its questions by
+        // their names there, on both surveys as they are at that point
+        const servedEdit = new SurveyEdit(survey);
         for (const op of asked.operations) {
+          const there = operationFor(op, servedEdit, originalEdit);
+          servedEdit.apply(op);
+          if (!there) continue;
           try {
-            originalEdit.apply(op);
+            originalEdit.apply(there);
           } catch (err) {
             if (!(err instanceof SurveyEditError)) throw err;
           }
@@ -432,10 +441,19 @@ export async function registerSurveyDesignRoutes(app: FastifyInstance, store: St
     if (typeof operations === 'string') return reply.code(400).send({ error: 'bad_request', reason: operations } satisfies SurveyChangeRefusal);
     const served = await store.getCep(projectId);
     if (!served) return reply.code(404).send({ error: 'not_found' });
-    const survey = surveyOf(readCep(served));
+    let survey: Buffer;
+    let edit: SurveyEdit;
+    try {
+      survey = surveyOf(readCep(served));
+      edit = new SurveyEdit(survey);
+    } catch (err) {
+      if (err instanceof XmlTreeError || err instanceof SurveyEditError || err instanceof CepError) {
+        return reply.code(409).send({ error: 'unreadable', reason: 'the survey of the project file cannot be read' });
+      }
+      throw err;
+    }
     let after: Buffer;
     try {
-      const edit = new SurveyEdit(survey);
       for (const op of operations) edit.apply(op);
       after = edit.bytes();
     } catch (err) {

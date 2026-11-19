@@ -5,8 +5,8 @@
 
 import type { ConditionPart, ConditionTest, DesignCondition } from '../wire/survey.js';
 
-/** What the reader needs to know of a question a condition names: whether it is a yes/no one */
-export type QuestionLookup = (name: string) => { yesNo: boolean } | undefined;
+/** What the reader needs to know of a question a condition names: whether it is a yes/no one, one of several answers */
+export type QuestionLookup = (name: string) => { yesNo: boolean; multiple?: boolean } | undefined;
 
 const NAME = '(?:parent\\(\\)/)?([a-z][a-z0-9_]*)';
 const VALUE = `'([^']*)'|"([^"]*)"|(true|false)\\(\\)|(-?\\d+(?:\\.\\d+)?)`;
@@ -50,7 +50,10 @@ function readPart(piece: string, lookup: QuestionLookup): ConditionPart | undefi
     const test = TESTS[op];
     // A yes/no compared with yes or no, a code or a number compared with a value of its kind
     if (typeof value === 'boolean' && (!target.yesNo || (test !== 'is' && test !== 'isNot'))) return undefined;
+    if (target.yesNo && typeof value !== 'boolean') return undefined;
     if (typeof value === 'string' && test !== 'is' && test !== 'isNot') return undefined;
+    // On several answers q != 'X' holds when some answer is not X, which no row says ("is not" is none of them)
+    if (test === 'isNot' && target.multiple) return undefined;
     return { question, test, value };
   }
   m = BARE.exec(piece);

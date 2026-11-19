@@ -409,6 +409,11 @@ export interface RecordEnvelope {
    * or absent/null when not known (an older Collect Earth, a tool).
    */
   activeSeconds?: number | null;
+  /**
+   * The revision of the survey the record was made with (the first 24 hex characters of the sha256 of its
+   * placemark.idm.xml, as SurveyDesignAnswer.revision), or absent/null when not known (Collect Earth before 2.0)
+   */
+  surveyRevision?: string | null;
 }
 
 /** Per-record outcome, as consumed by CloudSyncService.applyResult. */

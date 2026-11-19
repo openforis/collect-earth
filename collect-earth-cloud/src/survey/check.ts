@@ -346,3 +346,10 @@ export function checkSurvey(bytes: Uint8Array): SurveyProblem[] {
   visit(root);
   return problems;
 }
+
+/** The problems a changed survey has that the survey before had not */
+export function newProblems(before: SurveyProblem[], after: SurveyProblem[]): SurveyProblem[] {
+  const key = (p: SurveyProblem) => JSON.stringify([p.node, p.code, p.values, p.expression]);
+  const known = new Set(before.map(key));
+  return after.filter((p) => !known.has(key(p)));
+}

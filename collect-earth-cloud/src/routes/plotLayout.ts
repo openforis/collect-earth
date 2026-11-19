@@ -90,7 +90,10 @@ function registerProjectSettings(app: FastifyInstance, store: Store, places: Plo
     const next = rewrite(served);
     const over = await checkUploadFits(store, projectId, { kind: 'cep' }, next.length + (original?.length ?? 0));
     if (over) return reply.code(413).send(over);
-    await store.putCep(projectId, next, (await store.getRoundInfo(projectId)) ?? roundInfoOf(next), original);
+    // Only over the project file the change was made on: a survey saved meanwhile in the designer is not undone
+    if (!(await store.replaceCep(projectId, served, next, (await store.getRoundInfo(projectId)) ?? roundInfoOf(next), original))) {
+      return reply.code(409).send({ error: 'stale', reason: 'the project file changed meanwhile: try again' });
+    }
 
     // Collect Earth applies the change by itself: who had the project file before still has it,
     // so the dashboard does not tell the coordinator to send them a link for a new one.

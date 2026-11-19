@@ -238,11 +238,21 @@ export function* descendants(e: XmlElement): Generator<XmlElement> {
  * quotes given, that quote and line breaks too.
  */
 export function escapeText(value: string, quote?: '"' | "'"): string {
-  let out = value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  let out = xmlChars(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   if (quote) {
     out = (quote === '"' ? out.replace(/"/g, '&quot;') : out.replace(/'/g, '&apos;')).replace(/\n/g, '&#10;').replace(/\r/g, '&#13;').replace(/\t/g, '&#9;');
   }
   return out.replace(/[^\x00-\x7f]/gu, (c) => `&#${c.codePointAt(0)};`);
+}
+
+/**
+ * A text with only the characters XML 1.0 allows (a pasted text can bring others: Word's line break, a control
+ * character, half of an emoji): a vertical tab or a form feed becomes a line break, the others are left out
+ */
+export function xmlChars(value: string): string {
+  return value
+    .replace(/[\v\f]/g, '\n')
+    .replace(/[\x00-\x08\x0e-\x1f\ufffe\uffff]|[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/g, '');
 }
 
 /** Marks an element, and every element around it, as changed: they are written again rather than copied. */
@@ -281,13 +291,22 @@ export function setAttr(e: XmlElement, name: string, value: string | undefined):
   touch(e);
 }
 
-/** Where an attribute is in a start tag: its leading space, its value between the quotes, its end */
+/**
+ * Where an attribute is in a start tag: its leading space, its value between the quotes, its end. The attributes are
+ * read one after the other, so a name inside another's value is never taken for it.
+ */
 function attributeSpan(tag: string, name: string): { lead: number; valueStart: number; valueEnd: number; end: number } | undefined {
-  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const m = new RegExp(`(\\s+)${escaped}(\\s*=\\s*)("[^"]*"|'[^']*')`).exec(tag);
-  if (!m) return undefined;
-  const valueStart = m.index + m[1].length + name.length + m[2].length + 1;
-  return { lead: m.index, valueStart, valueEnd: m.index + m[0].length - 1, end: m.index + m[0].length };
+  const start = /^<[^\s/>]+/.exec(tag);
+  if (!start) return undefined;
+  const attribute = /(\s+)([^\s=/>]+)(\s*=\s*)("[^"]*"|'[^']*')/y;
+  attribute.lastIndex = start[0].length;
+  for (let m = attribute.exec(tag); m; m = attribute.exec(tag)) {
+    if (m[2] === name) {
+      const valueStart = m.index + m[1].length + name.length + m[3].length + 1;
+      return { lead: m.index, valueStart, valueEnd: m.index + m[0].length - 1, end: m.index + m[0].length };
+    }
+  }
+  return undefined;
 }
 
 /** Replaces an element's content with a text. */
