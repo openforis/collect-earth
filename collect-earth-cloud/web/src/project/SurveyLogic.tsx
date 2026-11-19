@@ -356,12 +356,14 @@ export function RuleDialog({ w, q, rule, kinds, candidates, onClose, onApply }: 
   const label = textIn(q.label, w.language, w.design.languages) || q.name;
   const { language: uiLanguage } = useApp();
   const names = useMemo(() => languageNames(uiLanguage), [uiLanguage]);
+  // The message saved when none is typed: the rule in words, in the survey's language when the dashboard has it
+  const surveyT = useMemo(() => surveyTranslator(w.language), [w.language]);
+  const generated = made && surveyT ? ruleWords({ ...w, t: surveyT }, { ...made, flag: "error" } as DesignRule) : null;
   const apply = () => {
     if (!made || !words) return;
     // The message a person collecting reads: the rule in words, without saying it is a warning (the form shows that),
-    // written in the survey's language when the dashboard has it; else none (the form then shows the rule's own words)
-    const surveyT = surveyTranslator(w.language);
-    const message = draft.message.trim() || (surveyT ? ruleWords({ ...w, t: surveyT }, { ...made, flag: "error" } as DesignRule) : "");
+    // in the survey's language when the dashboard has it; else no message
+    const message = draft.message.trim() || (generated ?? "");
     onApply({ ...made, message: { [w.language]: message } });
   };
   return (
@@ -421,7 +423,7 @@ export function RuleDialog({ w, q, rule, kinds, candidates, onClose, onApply }: 
           )}
           {draft.kind !== "expression" && draft.onlyWhen && <ConditionEditor w={w} candidates={candidates} draft={draft.when} onChange={(when) => set({ when })} />}
           <TextField label={t("survey.logic.message", { language: names(w.language) })} value={draft.message} onChange={(e) => set({ message: e.target.value })} multiline
-            placeholder={words ?? undefined} helperText={t("survey.logic.messageHelp")} slotProps={{ htmlInput: { lang: w.language } }} />
+            placeholder={generated ?? undefined} helperText={t("survey.logic.messageHelp")} slotProps={{ htmlInput: { lang: w.language } }} />
           {words ? (
             <Typography variant="body2" color="text.secondary">{t("survey.logic.inWords", { text: words })}</Typography>
           ) : (

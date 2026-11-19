@@ -251,6 +251,8 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
   const knownRevision = useRef<string | null | undefined>(undefined);
   /** After "Read it again": the survey read next is taken, the changes kept, from this revision */
   const acceptFrom = useRef<string | null | undefined>(undefined);
+  /** The change refused as stale, offered again once the survey is read again */
+  const retryAfterRead = useRef<Retry | null>(null);
   useEffect(() => {
     if (!answer) return;
     const known = knownRevision.current;
@@ -259,6 +261,8 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
     if (acceptFrom.current !== undefined && acceptFrom.current === known) {
       acceptFrom.current = undefined;
       if (answer.design) store.settle(answer.design);
+      setRetry(retryAfterRead.current);
+      retryAfterRead.current = null;
       return;
     }
     const dropped = changedTexts(store.all()).length > 0 || addedRef.current.length > 0;
@@ -424,7 +428,7 @@ export function SurveyDesignCards({ projectId }: { projectId: string }) {
   /** The survey read again after someone else's change: the texts typed stay, to be saved on top of it */
   const readAgain = () => {
     acceptFrom.current = answerRef.current?.revision ?? null;
-    setRetry(stale && stale.ops.length > 0 ? stale : null);
+    retryAfterRead.current = stale && stale.ops.length > 0 ? stale : null;
     setStale(null);
     loaded.reload();
   };
