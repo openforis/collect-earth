@@ -3,10 +3,10 @@ import { describe, expect, it } from 'vitest';
 import { createTransport } from 'nodemailer';
 import { loadConfig } from '../src/config.js';
 import { collectorHasNews, collectorMail, confirmMail, coordinatorHasNews, coordinatorMail, dueWeek, previousWeek, type CollectorProject, type CoordinatorProject, type DigestContext } from '../src/digest.js';
-import { DIGEST_WORDS, escapeHtml, oneLine } from '../src/digestText.js';
+import { DIGEST_WORDS, EMBLEM_CID, escapeHtml, oneLine, renderHtml, type MailLine } from '../src/digestText.js';
 import { isEmailAddress } from '../src/accountRules.js';
 import { linkSecret } from '../src/backupLink.js';
-import { errorSummary, isMailFrom, isPermanentFailure, isSenderLimit, LogMailer, mailerFrom, mailFromHeader, parseSmtpUrl, SmtpMailer, transportOptions } from '../src/mail.js';
+import { errorSummary, isMailFrom, isPermanentFailure, isSenderLimit, LogMailer, mailEmblem, mailerFrom, mailFromHeader, parseSmtpUrl, SmtpMailer, smtpMessage, transportOptions } from '../src/mail.js';
 import { mailSecret, readConfirmToken, readUnsubscribeToken, writeConfirmToken, writeUnsubscribeToken, CONFIRM_TTL_MS } from '../src/mailLinks.js';
 import { MAIL_LANGUAGES, type MailLanguage } from '../src/types.js';
 
@@ -359,5 +359,69 @@ describe('the digests\' words (Task 19)', () => {
     expect(previousWeek('2026-W01')).toBe('2025-W52');
     expect(previousWeek('2021-W01')).toBe('2020-W53');
     expect(oneLine('a\r\nb\u0007c')).toBe('a b c');
+  });
+});
+
+describe("the HTML mails' layout", () => {
+  const hostile = '<script>alert(1)</script> & "co"';
+  const lines: MailLine[] = [
+    { kind: 'para', text: `Hello ${hostile}` },
+    { kind: 'heading', text: `Project: ${hostile}` },
+    { kind: 'value', label: 'Plots done', value: '12' },
+    { kind: 'list', label: 'Quiet', items: [hostile] },
+    { kind: 'link', label: 'Open the project', url: 'https://ce.example.org/p?a=1&b="2"' },
+    { kind: 'rule' },
+    { kind: 'para', text: 'You get this email because you asked for it.' },
+    { kind: 'link', label: 'Stop these emails', url: 'https://ce.example.org/v1/unsubscribe/T' },
+  ];
+
+  it('escapes every text, the server name and the addresses: never markup', () => {
+    const html = renderHtml(lines, 'en', `Cloud ${hostile}`);
+    expect(html).not.toContain('<script');
+    expect(html).not.toContain('"co"');
+    expect(html.match(/&lt;script&gt;alert\(1\)&lt;\/script&gt; &amp; &quot;co&quot;/g)?.length).toBe(5); // preheader, para, heading, list, server
+    expect(html).toContain('href="https://ce.example.org/p?a=1&amp;b=&quot;2&quot;"');
+    expect(html).toContain('<html lang="en">');
+    // An administrator's line break stays one, after escaping.
+    expect(renderHtml([{ kind: 'para', text: 'Thanks,\n<b>The team</b>' }], 'en', 'Cloud')).toContain('Thanks,<br>&lt;b&gt;The team&lt;/b&gt;');
+  });
+
+  it("shows the emblem by its Content-ID, beside the server's name", () => {
+    const html = renderHtml(lines, 'fr', 'FAO Cloud');
+    expect(html).toContain(`<img src="cid:${EMBLEM_CID}" width="44" height="44" alt="Collect Earth"`);
+    expect(html).toMatch(/cid:emblem@collect-earth[^>]*><\/td><td[^>]*>FAO Cloud<\/td>/);
+  });
+
+  it("the body's only link is a button; several are text links; the footer after the rule is small text", () => {
+    const html = renderHtml(lines, 'en', 'Cloud');
+    expect(html).toMatch(/<td bgcolor="#1565c0"[^>]*><a href="https:\/\/ce\.example\.org\/p\?a=1&amp;b=&quot;2&quot;"[^>]*color:#ffffff[^>]*>Open the project<\/a>/);
+    const [body, footer] = html.split('font-size:12px');
+    expect(body).toContain('Open the project');
+    expect(body).not.toContain('You get this email');
+    expect(footer).toContain('You get this email because you asked for it.');
+    expect(footer).toMatch(/<a href="https:\/\/ce\.example\.org\/v1\/unsubscribe\/T" style="[^"]*text-decoration:underline">Stop these emails<\/a>/);
+    expect(footer).not.toContain('bgcolor');
+    // A digest over several projects: one text link each, no button.
+    const two = renderHtml([...lines.slice(0, 5), { kind: 'link', label: 'Second', url: 'https://ce.example.org/q' }], 'en', 'Cloud');
+    expect(two).not.toContain('bgcolor="#1565c0"');
+    expect([...two.matchAll(/href="([^"]+)"/g)].map((m) => m[1])).toEqual(['https://ce.example.org/p?a=1&amp;b=&quot;2&quot;', 'https://ce.example.org/q']);
+    // No rule, no footer.
+    expect(renderHtml(lines.slice(0, 5), 'en', 'Cloud')).not.toContain('font-size:12px');
+  });
+
+  it('SMTP: the emblem (a 96 px PNG) goes inline under its Content-ID, only when the HTML shows it', async () => {
+    const emblem = mailEmblem();
+    expect(emblem.subarray(1, 4).toString()).toBe('PNG');
+    expect([emblem.readUInt32BE(16), emblem.readUInt32BE(20)]).toEqual([96, 96]);
+    const message = { to: 'maria@example.org', subject: 's', text: 't', html: renderHtml(lines, 'en', 'Cloud'), tag: 'test', headers: { 'Auto-Submitted': 'auto-generated' } };
+    expect(smtpMessage('a@example.org', message, emblem).attachments).toEqual([{ filename: 'collect-earth.png', content: emblem, cid: EMBLEM_CID, contentType: 'image/png' }]);
+    expect(smtpMessage('a@example.org', { ...message, html: '<p>no image</p>' }, emblem)).not.toHaveProperty('attachments');
+    // As nodemailer writes it: the image beside the HTML (multipart/related), inline, under that Content-ID.
+    const composer = createTransport({ streamTransport: true, buffer: true });
+    const raw = ((await composer.sendMail(smtpMessage('a@example.org', message, emblem))).message as Buffer).toString();
+    expect(raw).toContain('multipart/related');
+    expect(raw).toContain(`Content-ID: <${EMBLEM_CID}>`);
+    expect(raw).toMatch(/Content-Disposition: inline/);
+    expect(raw).toContain(emblem.toString('base64').slice(0, 60));
   });
 });

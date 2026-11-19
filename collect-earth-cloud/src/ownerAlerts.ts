@@ -197,7 +197,7 @@ export function alertMail(alert: OwnerAlert, language: MailLanguage, server: str
     { kind: 'rule' },
     { kind: 'para', text: fill(t.footer, { server }) },
   ];
-  return { subject: fill(t.subject, { server, what: t[alert.kind] }), text: renderText(lines, language), html: renderHtml(lines, language) };
+  return { subject: fill(t.subject, { server, what: t[alert.kind] }), text: renderText(lines, language), html: renderHtml(lines, language, server) };
 }
 
 /** An alert in words for a chat channel (the webhook): a project by its id only, never its name. */

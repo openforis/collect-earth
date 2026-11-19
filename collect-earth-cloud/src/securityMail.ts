@@ -202,7 +202,7 @@ function params(ctx: SecurityContext): Record<string, string> {
 }
 
 function message(ctx: SecurityContext, to: string, subject: string, lines: MailLine[], tag: string): MailMessage {
-  return { to, subject: oneLine(subject), text: renderText(lines, ctx.language), html: renderHtml(lines, ctx.language), tag, headers: HEADERS };
+  return { to, subject: oneLine(subject), text: renderText(lines, ctx.language), html: renderHtml(lines, ctx.language, ctx.serverName), tag, headers: HEADERS };
 }
 
 /** What to do when it was not you, then who to write to, then the dashboard's address. */

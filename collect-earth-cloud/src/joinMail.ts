@@ -205,7 +205,7 @@ export function joinedMail(ctx: JoinMailContext, joined: Joined, to: string): Ma
     to,
     subject: oneLine(w('subject', p)),
     text: renderText(lines, ctx.language),
-    html: renderHtml(lines, ctx.language),
+    html: renderHtml(lines, ctx.language, ctx.serverName),
     tag: 'project.joined',
     headers: {
       'List-Unsubscribe': `<${ctx.unsubscribeUrl}>`,
@@ -260,7 +260,7 @@ export function joinedSummaryMail(
     to,
     subject: oneLine(w(one ? 'summarySubjectOne' : 'summarySubject', p)),
     text: renderText(lines, ctx.language),
-    html: renderHtml(lines, ctx.language),
+    html: renderHtml(lines, ctx.language, ctx.serverName),
     tag: 'project.joined.summary',
     headers: {
       'List-Unsubscribe': `<${ctx.unsubscribeUrl}>`,

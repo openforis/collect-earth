@@ -139,7 +139,7 @@ function message(ctx: DigestContext, kind: DigestKind, subject: string, lines: M
     to,
     subject: oneLine(subject),
     text: renderText(lines, ctx.language),
-    html: renderHtml(lines, ctx.language),
+    html: renderHtml(lines, ctx.language, ctx.serverName),
     tag: `digest.${kind}`,
     // RFC 2369 and RFC 8058: mail programs show an Unsubscribe button that POSTs to the address.
     headers: {
@@ -213,7 +213,7 @@ export function confirmMail(ctx: ConfirmContext, to: string): MailMessage {
     { kind: 'link', label: w('confirmAction'), url: ctx.confirmUrl },
     { kind: 'para', text: w('confirmIgnore') },
   ];
-  return { to, subject: oneLine(w('confirmSubject', params)), text: renderText(lines, ctx.language), html: renderHtml(lines, ctx.language), tag: 'email.confirm', headers: { 'Auto-Submitted': 'auto-generated' } };
+  return { to, subject: oneLine(w('confirmSubject', params)), text: renderText(lines, ctx.language), html: renderHtml(lines, ctx.language, ctx.serverName), tag: 'email.confirm', headers: { 'Auto-Submitted': 'auto-generated' } };
 }
 
 export interface DigestDeps {

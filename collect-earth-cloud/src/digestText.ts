@@ -1,5 +1,5 @@
 // The digests' words (Task 19), in the dashboard's five languages, and the mail written from a digest:
-// plain text and a simple HTML version of the same lines, every value escaped. Counts are written as
+// plain text and an HTML version of the same lines (in the dashboard's look), every value escaped. Counts are written as
 // "label: n" so no sentence needs a plural form; dates in the person's language.
 import type { MailLanguage } from './types.js';
 
@@ -207,33 +207,80 @@ export function renderText(lines: readonly MailLine[], language: MailLanguage): 
   return `${out.join('\n').replace(/\n{3,}/g, '\n\n').trim()}\n`;
 }
 
-export function renderHtml(lines: readonly MailLine[], language: MailLanguage): string {
-  const colon = escapeHtml(colonOf(language));
+/** The Content-ID of the Collect Earth emblem the HTML shows: SmtpMailer attaches the image under it (src/mail.ts). */
+export const EMBLEM_CID = 'emblem@collect-earth';
+
+// The dashboard's look (web/src/shared/collectEarthTheme.ts) in what mail programs keep: tables and inline styles only
+// (Gmail and Outlook drop or rewrite style sheets).
+const FONT = "font-family:Roboto,'Segoe UI',Helvetica,Arial,sans-serif";
+const PRIMARY = '#1565c0';
+const TEXT = '#1f2933';
+const MUTED = '#5f6b76';
+const TABLE = 'role="presentation" cellpadding="0" cellspacing="0" border="0"';
+
+/** The lines of one part of the mail (its body, or its footer: `small`), every text and address escaped. */
+function htmlBlocks(lines: readonly MailLine[], small: boolean, button: boolean): string {
   const out: string[] = [];
-  let inList = false;
-  const closeList = () => {
-    if (inList) out.push('</ul>');
-    inList = false;
+  let rows: string[] = [];
+  const flush = () => {
+    if (rows.length > 0) out.push(`<table ${TABLE} width="100%" style="margin:0 0 16px">${rows.join('')}</table>`);
+    rows = [];
   };
+  const cell = 'padding:8px 0;border-bottom:1px solid #e6e9ed';
   for (const line of lines) {
     if (line.kind === 'value') {
-      if (!inList) out.push('<ul style="padding-left:20px;margin:8px 0">');
-      inList = true;
-      out.push(`<li>${escapeHtml(line.label)}${colon}<strong>${escapeHtml(line.value)}</strong></li>`);
+      rows.push(`<tr><td style="${cell};padding-right:16px">${escapeHtml(line.label)}</td><td align="right" style="${cell};font-weight:600;white-space:nowrap">${escapeHtml(line.value)}</td></tr>`);
       continue;
     }
     if (line.kind === 'list') {
-      if (!inList) out.push('<ul style="padding-left:20px;margin:8px 0">');
-      inList = true;
-      out.push(`<li>${escapeHtml(line.label)}${colon.trimEnd()}<ul>${line.items.map((i) => `<li>${escapeHtml(i)}</li>`).join('')}</ul></li>`);
+      const items = line.items.map((i) => `<li style="margin:2px 0">${escapeHtml(i)}</li>`).join('');
+      rows.push(`<tr><td colspan="2" style="${cell}">${escapeHtml(line.label)}<ul style="margin:6px 0 0;padding-left:20px">${items}</ul></td></tr>`);
       continue;
     }
-    closeList();
-    if (line.kind === 'para') out.push(`<p style="margin:8px 0">${escapeHtml(line.text)}</p>`);
-    else if (line.kind === 'heading') out.push(`<h2 style="font-size:17px;margin:20px 0 4px">${escapeHtml(line.text)}</h2>`);
-    else if (line.kind === 'link') out.push(`<p style="margin:8px 0"><a href="${escapeHtml(line.url)}">${escapeHtml(line.label)}</a></p>`);
-    else out.push('<hr style="border:0;border-top:1px solid #ccc;margin:20px 0">');
+    flush();
+    // A line break typed in an administrators' message (a signature) stays one, as in the text version.
+    if (line.kind === 'para') out.push(`<p style="margin:0 0 ${small ? 8 : 14}px">${escapeHtml(line.text).replace(/\n/g, '<br>')}</p>`);
+    else if (line.kind === 'heading') out.push(`<h2 style="margin:26px 0 6px;${FONT};font-size:17px;line-height:1.3;font-weight:600;color:${TEXT}">${escapeHtml(line.text)}</h2>`);
+    else if (line.kind === 'link' && button) {
+      // A table cell coloured in, so the button shows in Outlook too (it ignores an <a>'s padding: mso-padding-alt).
+      out.push(
+        `<table ${TABLE} style="margin:6px 0 20px"><tr><td bgcolor="${PRIMARY}" style="border-radius:6px;mso-padding-alt:12px 24px">` +
+          `<a href="${escapeHtml(line.url)}" style="display:inline-block;padding:12px 24px;${FONT};font-size:15px;line-height:20px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:6px">${escapeHtml(line.label)}</a></td></tr></table>`,
+      );
+    } else if (line.kind === 'link') {
+      out.push(`<p style="margin:0 0 ${small ? 6 : 14}px"><a href="${escapeHtml(line.url)}" style="color:${PRIMARY};${small ? 'text-decoration:underline' : 'font-weight:600;text-decoration:none'}">${escapeHtml(line.label)}</a></p>`);
+    }
   }
-  closeList();
-  return `<!doctype html><html lang="${language}"><head><meta charset="utf-8"></head><body style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.45;color:#1a1a1a;max-width:640px">${out.join('')}</body></html>`;
+  flush();
+  return out.join('');
+}
+
+/**
+ * The HTML mail: a white card on the dashboard's grey, headed by the emblem and the server's name. What follows the first
+ * `rule` is the footer (why the mail came, how to stop it), in small grey text. The body's link is a button when it is
+ * the body's only one (the mail's action); several (a digest's projects) stay text links, never a column of buttons.
+ */
+export function renderHtml(lines: readonly MailLine[], language: MailLanguage, server: string): string {
+  const split = lines.findIndex((l) => l.kind === 'rule');
+  const body = split === -1 ? lines : lines.slice(0, split);
+  const footer = split === -1 ? [] : lines.slice(split + 1);
+  const button = body.filter((l) => l.kind === 'link').length === 1;
+  // The inbox's preview line: the first sentence, not the header's server name.
+  const first = lines.find((l) => l.kind === 'para');
+  const preheader = first ? `<div style="display:none;max-height:0;overflow:hidden;mso-hide:all">${escapeHtml(first.text)}</div>` : '';
+  const header =
+    `<tr><td style="padding:16px 28px;border-bottom:3px solid ${PRIMARY}"><table ${TABLE}><tr>` +
+    `<td style="padding-right:12px;vertical-align:middle"><img src="cid:${EMBLEM_CID}" width="44" height="44" alt="Collect Earth" style="display:block;border:0;width:44px;height:44px"></td>` +
+    `<td style="vertical-align:middle;${FONT};font-size:18px;line-height:1.3;font-weight:600;color:${TEXT}">${escapeHtml(oneLine(server))}</td></tr></table></td></tr>`;
+  const foot = footer.length === 0 ? '' : `<tr><td style="padding:16px 28px 20px;border-top:1px solid #e6e9ed;${FONT};font-size:12px;line-height:1.5;color:${MUTED}">${htmlBlocks(footer, true, false)}</td></tr>`;
+  return (
+    `<!doctype html><html lang="${language}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>` +
+    `<body style="margin:0;padding:0;background:#f4f6f8">${preheader}` +
+    `<table ${TABLE} width="100%" style="background:#f4f6f8"><tr><td align="center" style="padding:24px 12px">` +
+    // Outlook (Word) ignores max-width: a fixed 600 px table there.
+    `<!--[if mso]><table ${TABLE} width="600"><tr><td><![endif]-->` +
+    `<table ${TABLE} width="100%" style="max-width:600px;background:#ffffff;border:1px solid #dfe3e8;border-radius:10px">${header}` +
+    `<tr><td style="padding:24px 28px 12px;${FONT};font-size:15px;line-height:1.5;color:${TEXT}">${htmlBlocks(body, false, button)}</td></tr>${foot}</table>` +
+    `<!--[if mso]></td></tr></table><![endif]--></td></tr></table></body></html>`
+  );
 }

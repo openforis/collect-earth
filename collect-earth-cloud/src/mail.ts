@@ -7,8 +7,10 @@
 //   relay). Certificates are always checked. Options in the URL (?ignoreTLS=…, ?tls.…) are refused,
 //   so nothing in the environment can turn the checks off.
 // - `test`: keeps the messages in memory for the tests. No test sends real mail.
+import { readFileSync } from 'node:fs';
 import { isIP } from 'node:net';
 import { createTransport } from 'nodemailer';
+import { EMBLEM_CID } from './digestText.js';
 
 export interface MailMessage {
   to: string;
@@ -215,6 +217,31 @@ export function transportOptions(settings: SmtpSettings) {
   };
 }
 
+/**
+ * The Collect Earth emblem of the HTML mails (96 px, sharp at the 44 px shown on high-density screens). A file beside the
+ * sources, which the Docker image copies; read only by SmtpMailer, never in local mode (its bundle has no SMTP).
+ */
+export function mailEmblem(): Buffer {
+  return readFileSync(new URL('./mailEmblem.png', import.meta.url));
+}
+
+/**
+ * nodemailer's message. The emblem goes inline, by its Content-ID, when the HTML shows it: an attached image, not a remote
+ * one (mail programs block those by default, and fetching one tells the sender the mail was opened) nor a data: URI
+ * (Gmail drops those).
+ */
+export function smtpMessage(from: string, message: MailMessage, emblem: Buffer) {
+  return {
+    from,
+    to: message.to,
+    subject: message.subject,
+    text: message.text,
+    html: message.html,
+    headers: message.headers,
+    ...(message.html.includes(`cid:${EMBLEM_CID}`) ? { attachments: [{ filename: 'collect-earth.png', content: emblem, cid: EMBLEM_CID, contentType: 'image/png' }] } : {}),
+  };
+}
+
 /** SMTP through nodemailer, over TLS only, certificates checked. */
 export class SmtpMailer implements Mailer {
   readonly transport = 'smtp' as const;
@@ -222,6 +249,8 @@ export class SmtpMailer implements Mailer {
   private readonly transporter;
   /** MAIL_FROM with its display name quoted (mailFromHeader). */
   private readonly from: string;
+  /** Read at start, so a missing file stops the server rather than every mail. */
+  private readonly emblem: Buffer;
 
   constructor(
     settings: SmtpSettings,
@@ -229,17 +258,11 @@ export class SmtpMailer implements Mailer {
   ) {
     this.transporter = createTransport(transportOptions(settings));
     this.from = mailFromHeader(from);
+    this.emblem = mailEmblem();
   }
 
   async send(message: MailMessage): Promise<void> {
-    await this.transporter.sendMail({
-      from: this.from,
-      to: message.to,
-      subject: message.subject,
-      text: message.text,
-      html: message.html,
-      headers: message.headers,
-    });
+    await this.transporter.sendMail(smtpMessage(this.from, message, this.emblem));
   }
 }
 
