@@ -46,7 +46,7 @@ describe("the preview of the form", () => {
   });
 
   it("offers a sub-list's answers under its parent question's", () => {
-    const items = [{ code: "F", label: {}, help: {}, items: [{ code: "F1", label: {}, help: {}, items: [] }] }, { code: "G", label: {}, help: {}, items: [] }];
+    const items = [{ code: "F", label: {}, help: {}, usedBy: [], items: [{ code: "F1", label: {}, help: {}, usedBy: [], items: [] }] }, { code: "G", label: {}, help: {}, usedBy: [], items: [] }];
     const sub: DesignQuestion = { ...q("code_demo"), name: "sub", parentQuestion: "code_demo" };
     expect(optionsOf(sub, items, noAnswers(), {})).toEqual([]);
     expect(optionsOf(sub, items, with_({ code_demo: "F" }), {}).map((i) => i.code)).toEqual(["F1"]);

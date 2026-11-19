@@ -15,6 +15,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.EarthConstants.CollectDBDriver;
@@ -81,6 +82,11 @@ public class CloudService {
 	private final CloudSyncService sync;
 	private final EarthProjectsService projects;
 	private final LocalPropertiesService properties;
+	/**
+	 * Held while a project is downloaded and unzipped (a join, a project opened, a changed survey taken): two at once
+	 * would unzip into the same folder, and the second is refused.
+	 */
+	private final ReentrantLock opening = new ReentrantLock();
 
 	/** To start a learning set's new attempt afresh (deleting earlier records); absent in some tests. */
 	private EarthSurveyService surveyService;
@@ -231,20 +237,49 @@ public class CloudService {
 	 * the server's sign-in, and switches to cloud mode for it: the caller restarts.
 	 */
 	private void useProject(String baseUrl, String projectId, String token, String username) throws InvalidCloudRequestException, IOException {
-		File cep = api.downloadCep(baseUrl, projectId, token);
+		if (!opening.tryLock()) {
+			throw new InvalidCloudRequestException("cloud.busy", Messages.getString("CloudJoin.busy")); //$NON-NLS-1$ //$NON-NLS-2$
+		}
 		try {
-			refuseToReplaceUnsent(projects.projectFolderFor(cep), projectId);
-			projects.loadCompressedProjectFile(cep);
+			useProjectNow(baseUrl, projectId, token, username);
+		} finally {
+			opening.unlock();
+		}
+	}
+
+	/** Whether a project is being downloaded and unzipped now ({@link #useProject}) */
+	boolean isOpening() {
+		return opening.isLocked();
+	}
+
+	private void useProjectNow(String baseUrl, String projectId, String token, String username) throws InvalidCloudRequestException, IOException {
+		String server = LocalPropertiesService.normalizeServer(baseUrl);
+		// The training set open in this very project (a changed survey taken during a training): open again after
+		File training = isOpen(server, projectId) ? openTrainingFile() : null;
+		File cep = api.downloadCep(baseUrl, projectId, token);
+		String revision;
+		try {
+			File folder = projects.projectFolderFor(cep);
+			refuseToReplaceUnsent(folder, projectId);
+			// The survey just downloaded, as the server names it: from the file itself, not asked after, when the
+			// coordinator may have changed it again (a later one is offered by SurveyUpdateService)
+			revision = SurveyRevision.ofProjectFile(cep);
+			// The files replaced, kept until the new survey is loaded at the start (EarthSurveyService)
+			SurveyUpdateBackup.keep(cep, folder);
+			try {
+				projects.loadCompressedProjectFile(cep, true);
+			} catch (IOException | RuntimeException e) {
+				restoreAfterFailure(folder);
+				throw e;
+			}
 		} finally {
 			if (cep != null && !cep.delete()) {
 				cep.deleteOnExit();
 			}
 		}
-		String server = LocalPropertiesService.normalizeServer(baseUrl);
 		CloudBinding binding = new CloudBinding(properties.getProjectFolder(), server, projectId, null, username);
 		describe(api, binding, token);
-		// The survey just downloaded: a later one is offered when the coordinator changes it (SurveyUpdateService)
-		binding.surveyRevision = SurveyUpdateService.revisionOrNull(api, binding, token);
+		binding.surveyRevision = revision;
 		properties.saveCloudBinding(binding);
 		properties.saveCloudToken(server, username, token);
 		if (StringUtils.isNotBlank(username)) {
@@ -264,6 +299,25 @@ public class CloudService {
 		// The person's plots, so the first start shows them (an older server: the assigned plot file at the start)
 		if (myPlots != null) {
 			myPlots.atJoin(new CloudApiClient.Destination(server, projectId, token));
+			// Taking a changed survey during a training goes back to it, not to the person's own plots
+			if (training != null && training.isFile()) {
+				myPlots.openTraining(training);
+			}
+		}
+	}
+
+	/** Whether the project open is that cloud project */
+	private boolean isOpen(String server, String projectId) {
+		return properties.isCloudSyncEnabled() && StringUtils.equals(projectId, properties.getCloudProjectId())
+				&& server.equals(LocalPropertiesService.normalizeServer(properties.getCloudSyncUrl()));
+	}
+
+	/** The files of before put back after a project file that could not be unzipped or loaded over them */
+	private void restoreAfterFailure(File folder) {
+		try {
+			SurveyUpdateBackup.restore(folder);
+		} catch (IOException | RuntimeException e) {
+			logger.error("The files of {} could not be put back after a failed download", folder, e); //$NON-NLS-1$
 		}
 	}
 

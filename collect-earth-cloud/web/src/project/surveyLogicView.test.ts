@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DesignQuestion, DesignTable, SurveyDesign } from "../api";
-import { builderRule, conditionQuestions, draftOf, listOptions, newRow, parseNumber, partOf, ruleDraftOf, ruleKinds, ruleOf, rowsOf, testsFor } from "./surveyLogicView";
+import { translator } from "../i18n";
+import { builderRule, conditionQuestions, draftOf, listOptions, newRow, parseNumber, partOf, ruleDraftOf, ruleKinds, ruleOf, rowsOf, testsFor, surveyTranslator } from "./surveyLogicView";
 
 const question = (name: string, type: DesignQuestion["type"], more: Partial<DesignQuestion> = {}): DesignQuestion => ({
   kind: "question",
@@ -82,7 +83,7 @@ describe("the rows of a condition", () => {
   });
 
   it("lists the answers of every level", () => {
-    const items = [{ code: "F", label: {}, help: {}, items: [{ code: "F1", label: {}, help: {}, items: [] }] }, { code: "G", label: {}, help: {}, items: [] }];
+    const items = [{ code: "F", label: {}, help: {}, usedBy: [], items: [{ code: "F1", label: {}, help: {}, usedBy: [], items: [] }] }, { code: "G", label: {}, help: {}, usedBy: [], items: [] }];
     expect(listOptions(items).map((i) => i.code)).toEqual(["F", "F1", "G"]);
   });
 });
@@ -133,5 +134,13 @@ describe("rules", () => {
       whenText: "x > 1",
     });
     expect(ruleOf({ ...ruleDraftOf(null, ["expression"], ""), kind: "expression", expressionText: " $this > 0 " }, byName)).toEqual({ flag: "error", when: null, message: {}, kind: "expression", text: "$this > 0" });
+  });
+});
+
+describe("a rule's message written for the survey", () => {
+  it("is in the survey's language when the dashboard has it, else none", () => {
+    expect(surveyTranslator("fr")?.("survey.and")).toBe(translator("fr")("survey.and"));
+    expect(surveyTranslator("pt_BR")?.("survey.and")).toBe(translator("pt")("survey.and"));
+    expect(surveyTranslator("sw")).toBeNull();
   });
 });

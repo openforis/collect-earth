@@ -77,6 +77,41 @@ public class EarthProjectsServiceTest {
 		assertEquals("", properties.getValue(EarthProperty.EXPLORER_CONFIG));
 	}
 
+	/**
+	 * A cloud project's file made by its server has no plot file (the person's plots are downloaded after it): the plot
+	 * file of the project open before is not kept, nor its form. A local project keeps them as before.
+	 */
+	@Test
+	public void aCloudProjectWithoutAPlotFileOrAFormDoesNotKeepThoseOfTheProjectBefore() throws IOException {
+		LocalPropertiesService properties = new LocalPropertiesService(new Properties());
+		EarthProjectsService projects = new EarthProjectsService();
+		projects.init(properties);
+		File before = project("before", "csv=${project_path}/plots.csv\nweb_form=balloon\n");
+		File cloud = project("cloud");
+		File bound = project("bound");
+		File local = project("local");
+		properties.saveCloudBinding(new CloudBinding(bound.getPath(), "https://a.org", "p2", "Bound", "ana"));
+
+		assertTrue(projects.loadProjectInFolder(before));
+		assertEquals(new File(before, "plots.csv").getAbsolutePath(), properties.getValue(EarthProperty.SAMPLE_FILE));
+		assertEquals(LocalPropertiesService.WEB_FORM_BALLOON, properties.getWebForm());
+
+		// Downloaded from its server, not bound yet (CloudService)
+		assertTrue(projects.loadProjectInFolder(cloud, true));
+		assertEquals("", properties.getValue(EarthProperty.SAMPLE_FILE));
+		assertEquals(LocalPropertiesService.WEB_FORM_GENERATED, properties.getWebForm());
+
+		assertTrue(projects.loadProjectInFolder(before));
+		// Bound to its cloud project already
+		assertTrue(projects.loadProjectInFolder(bound));
+		assertEquals("", properties.getValue(EarthProperty.SAMPLE_FILE));
+		assertEquals(LocalPropertiesService.WEB_FORM_GENERATED, properties.getWebForm());
+
+		assertTrue(projects.loadProjectInFolder(before));
+		assertTrue(projects.loadProjectInFolder(local));
+		assertEquals(new File(before, "plots.csv").getAbsolutePath(), properties.getValue(EarthProperty.SAMPLE_FILE), "as before");
+	}
+
 	/** Two cloud projects on two servers and a local one, opened in turn: each keeps its own mode, server and account. */
 	@Test
 	public void switchingBetweenTwoCloudProjectsAndALocalOneKeepsEachOnesMode() throws IOException {

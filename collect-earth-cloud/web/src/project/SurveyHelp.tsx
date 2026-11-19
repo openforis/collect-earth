@@ -15,10 +15,11 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import AutoAwesome from "@mui/icons-material/AutoAwesomeOutlined";
-import { createContext, useContext, useEffect, useId, useState } from "react";
+import { createContext, useContext, useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import type { DesignRule, NewRule, SuggestedRule, SurveyHelpAnswer, SurveyHelpInput, SurveyOperation } from "../api";
 import { ErrorAlert } from "../components/ErrorAlert";
-import { ruleWords, textIn, type Words } from "./surveyDesignView";
+import { useApp } from "../appContext";
+import { languageNames, ruleWords, textIn, type Words } from "./surveyDesignView";
 
 /** The assistant's help, when it is switched on for the project; null otherwise */
 export interface SurveyHelp {
@@ -87,12 +88,30 @@ export function DescribeRule({ w, question, onRule }: { w: Words; question: numb
   );
 }
 
-/** Rules the assistant suggests for the survey, each tried on the plots collected, added one by one */
-export function SuggestRulesDialog({ w, onClose, onAdd }: { w: Words; onClose: () => void; onAdd: (ops: SurveyOperation[]) => void }) {
+/**
+ * Rules the assistant suggests for the survey, each tried on the plots collected, added one by one: one save at a
+ * time, marked Added once saved; a save that fails says so here
+ */
+export function SuggestRulesDialog({ w, onClose, onAdd }: {
+  w: Words;
+  onClose: () => void;
+  onAdd: (ops: SurveyOperation[]) => Promise<{ saved: boolean; problem?: ReactNode }>;
+}) {
   const help = useContext(HelpContext);
   const titleId = useId();
   const [suggestions, setSuggestions] = useState<SuggestedRule[] | null>(null);
   const [added, setAdded] = useState<Set<number>>(new Set());
+  /** The suggestion being saved */
+  const [saving, setSaving] = useState<number | null>(null);
+  const [problem, setProblem] = useState<{ index: number; node: ReactNode } | null>(null);
+  const add = async (i: number, s: SuggestedRule) => {
+    setSaving(i);
+    setProblem(null);
+    const result = await onAdd([{ op: "addRule", id: s.question, rule: s.rule }]);
+    setSaving(null);
+    if (result.saved) setAdded((before) => new Set([...before, i]));
+    else if (result.problem) setProblem({ index: i, node: result.problem });
+  };
   const call = useCall<SurveyHelpAnswer>();
   const { t } = w;
   useEffect(() => {
@@ -108,7 +127,7 @@ export function SuggestRulesDialog({ w, onClose, onAdd }: { w: Words; onClose: (
     return (q && textIn(q.label, w.language, w.design.languages)) || name;
   };
   return (
-    <Dialog open onClose={onClose} aria-labelledby={titleId} maxWidth="md" fullWidth>
+    <Dialog open onClose={saving !== null ? undefined : onClose} aria-labelledby={titleId} maxWidth="md" fullWidth>
       <DialogTitle id={titleId}>{t("survey.help.suggestTitle")}</DialogTitle>
       <DialogContent>
         <Stack spacing={1.5}>
@@ -127,19 +146,18 @@ export function SuggestRulesDialog({ w, onClose, onAdd }: { w: Words; onClose: (
               <Typography variant="body2">{ruleWords(w, s.rule as DesignRule)}</Typography>
               {s.why && <Typography variant="body2" color="text.secondary">{s.why}</Typography>}
               <Typography variant="body2" color="text.secondary">{flagsWords(w, s.flagged, s.checked)}</Typography>
-              <Button size="small" sx={{ mt: 0.5 }} variant={added.has(i) ? "text" : "outlined"} disabled={added.has(i)}
-                onClick={() => {
-                  setAdded(new Set([...added, i]));
-                  onAdd([{ op: "addRule", id: s.question, rule: s.rule }]);
-                }}>
+              <Button size="small" sx={{ mt: 0.5 }} variant={added.has(i) ? "text" : "outlined"} disabled={added.has(i) || saving !== null}
+                startIcon={saving === i ? <CircularProgress size={14} /> : undefined}
+                onClick={() => void add(i, s)}>
                 {added.has(i) ? t("survey.help.added") : t("survey.help.add")}
               </Button>
+              {problem?.index === i && <Box sx={{ mt: 1 }}>{problem.node}</Box>}
             </Box>
           ))}
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>{t("survey.edit.done")}</Button>
+        <Button onClick={onClose} disabled={saving !== null}>{t("survey.edit.done")}</Button>
       </DialogActions>
     </Dialog>
   );
@@ -160,6 +178,8 @@ export function TranslateDialog({ w, message, onClose, onApply }: {
   const [texts, setTexts] = useState<Record<string, string>>(() => Object.fromEntries(to.map((l) => [l, message[l] ?? ""])));
   const call = useCall<SurveyHelpAnswer>();
   const { t } = w;
+  const { language: uiLanguage } = useApp();
+  const names = useMemo(() => languageNames(uiLanguage), [uiLanguage]);
   useEffect(() => {
     if (!help || !message[from]) return;
     void call.run(() => help.ask({ task: "translate", text: message[from], from, to, language: help.language })).then((out) => {
@@ -172,7 +192,7 @@ export function TranslateDialog({ w, message, onClose, onApply }: {
       <DialogTitle id={titleId}>{t("survey.help.translateTitle")}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
-          <Typography variant="body2">“{message[from]}” ({from})</Typography>
+          <Typography variant="body2">“{message[from]}” ({names(from)})</Typography>
           {call.busy && (
             <Stack direction="row" spacing={1} sx={{ alignItems: "center" }} role="status">
               <CircularProgress size={20} />
@@ -181,7 +201,7 @@ export function TranslateDialog({ w, message, onClose, onApply }: {
           )}
           {call.error !== null && <ErrorAlert error={call.error} />}
           {to.map((l) => (
-            <TextField key={l} label={l} value={texts[l] ?? ""} multiline onChange={(e) => setTexts({ ...texts, [l]: e.target.value })} slotProps={{ htmlInput: { lang: l } }} />
+            <TextField key={l} label={names(l)} value={texts[l] ?? ""} multiline onChange={(e) => setTexts({ ...texts, [l]: e.target.value })} slotProps={{ htmlInput: { lang: l } }} />
           ))}
         </Stack>
       </DialogContent>

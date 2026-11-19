@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { surveyDesign } from "../../../src/survey/design";
+import { translator } from "../i18n";
 import { importTexts, parseCsv, textRows, textsCsv } from "./surveyTextsView";
 
 const basic = surveyDesign(readFileSync(new URL("../../../templates/collect_earth.idm.xml", import.meta.url)));
@@ -42,5 +43,16 @@ describe("the survey's texts as a spreadsheet", () => {
 
   it("reads quoted cells with line breaks", () => {
     expect(parseCsv('a,b\r\n"one\nline",2\r\n')).toEqual([["a", "b"], ["one\nline", "2"]]);
+  });
+});
+
+describe("the texts' spreadsheet in the dashboard's language", () => {
+  it("says what each text is in it, and is read back by its keys alone", () => {
+    const csv = textsCsv(basic, translator("es"));
+    expect(csv.split("\r\n")[0]).toBe("key,qué es,en,es,fr,pt");
+    expect(textRows(basic, translator("es"))[0].what).toBe("Título de la encuesta");
+    expect(importTexts(basic, csv).changes).toEqual([]);
+    const changed = csv.replace(/^("?title:label"?,[^,]*,)[^,\r\n]*/m, "$1New title");
+    expect(importTexts(basic, changed).changes).toMatchObject([{ target: { kind: "title" }, language: "en", text: "New title" }]);
   });
 });

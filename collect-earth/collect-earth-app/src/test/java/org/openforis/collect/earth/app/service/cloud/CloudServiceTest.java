@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -82,7 +83,7 @@ public class CloudServiceTest {
 		request.username = " maria ";
 		request.password = "pw";
 		service.join(request);
-		verify(projects).loadCompressedProjectFile(cep);
+		verify(projects).loadCompressedProjectFile(cep, true);
 		assertFalse(cep.exists());
 		// the cloud mode is this project's only (EarthProjectsService.driverAfterLoading): its folder is bound
 		verify(properties).saveCloudBinding(org.mockito.ArgumentMatchers.argThat(b -> "C:/projects/kenya".equals(b.folder)
@@ -157,7 +158,7 @@ public class CloudServiceTest {
 		when(api.getProject(any())).thenReturn(new JoinPreview("p2", "Peru", "admin", true));
 		// No server given (the request of before): the first signed in to
 		service.open("p2", null);
-		verify(projects).loadCompressedProjectFile(cep);
+		verify(projects).loadCompressedProjectFile(cep, true);
 		verify(properties).saveCloudBinding(org.mockito.ArgumentMatchers.argThat(b -> "C:/projects/peru".equals(b.folder) && "https://c.org".equals(b.server)
 				&& "p2".equals(b.projectId) && "Peru".equals(b.projectName) && "admin".equals(b.role) && "maria".equals(b.username)));
 		verify(properties).saveCloudToken("https://c.org", "maria", "session-token");
@@ -193,7 +194,7 @@ public class CloudServiceTest {
 		service.join(request);
 		verify(api).joinWithSession("https://c.org", "session-token", "tok");
 		verify(api, never()).login(any(), any(), any(), any(), any());
-		verify(projects).loadCompressedProjectFile(cep);
+		verify(projects).loadCompressedProjectFile(cep, true);
 		verify(properties).saveCloudToken("https://c.org", "maria", "session-token");
 		verify(properties).saveOperator("maria");
 		verify(properties).setCloudSyncEnabled(true);
@@ -563,7 +564,7 @@ public class CloudServiceTest {
 		InvalidCloudRequestException e = assertThrows(InvalidCloudRequestException.class, () -> service.join(request));
 		assertEquals("cloud.unsentRecords", e.getCode());
 		assertEquals(java.text.MessageFormat.format(Messages.getString("CloudJoin.unsentRecords"), 3, "Kenya 2025"), e.getMessage());
-		verify(projects, never()).loadCompressedProjectFile(any());
+		verify(projects, never()).loadCompressedProjectFile(any(), org.mockito.ArgumentMatchers.anyBoolean());
 		verify(properties, never()).saveCloudBinding(any());
 		verify(properties, never()).saveCloudToken(any(), any(), any());
 		assertFalse(cep.exists());
@@ -571,7 +572,7 @@ public class CloudServiceTest {
 		when(sync.unsentCount("p1")).thenReturn(0);
 		java.nio.file.Files.write(cep.toPath(), new byte[] { 1 });
 		service.join(request);
-		verify(projects).loadCompressedProjectFile(cep);
+		verify(projects).loadCompressedProjectFile(cep, true);
 		// The same cloud project joined again (a new link) never is refused
 		when(sync.unsentCount("p1")).thenReturn(5);
 		request.projectId = "p1";
@@ -665,5 +666,124 @@ public class CloudServiceTest {
 		when(properties.isCloudSyncEnabled()).thenReturn(true);
 		when(sync.recordState("1,2")).thenReturn("sent");
 		assertEquals("sent", service.recordSync(" 1,2 ").get("state"));
+	}
+
+	/** A project file with its survey, as a server serves it */
+	private File projectFile(String name, String survey) throws IOException {
+		java.util.Map<String, String> entries = new java.util.LinkedHashMap<>();
+		entries.put("project_definition.properties", "survey_name=peru\nmetadata_file=${project_path}/placemark.idm.xml\n");
+		entries.put("placemark.idm.xml", survey);
+		return SurveyRevisionTest.zip(new File(folder, name), entries);
+	}
+
+	private void signedInTo(String server, String projectFolder) {
+		java.util.Map<String, String> accounts = new java.util.LinkedHashMap<>();
+		accounts.put(server, "maria");
+		when(properties.getCloudAccounts()).thenReturn(accounts);
+		when(properties.getCloudToken(server)).thenReturn("session-token");
+		when(properties.getProjectFolder()).thenReturn(projectFolder);
+	}
+
+	/**
+	 * The revision kept is the one of the survey downloaded, read from the file: not asked of the server after, when the
+	 * coordinator may have changed it again meanwhile (that one would then never be offered).
+	 */
+	@Test
+	public void theRevisionKeptIsTheOneOfTheSurveyDownloaded() throws Exception {
+		File cep = projectFile("peru.cep", "<survey>downloaded</survey>");
+		signedInTo("https://c.org", "C:/projects/peru");
+		when(api.downloadCep("https://c.org", "p2", "session-token")).thenReturn(cep);
+		when(api.surveyRevision(any())).thenReturn("changed-since");
+		service.open("p2", "https://c.org");
+		String downloaded = SurveyRevision.of("<survey>downloaded</survey>".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+		verify(properties).saveCloudBinding(org.mockito.ArgumentMatchers.argThat(b -> downloaded.equals(b.surveyRevision)));
+		verify(api, never()).surveyRevision(any());
+	}
+
+	/** The files replaced are kept until the survey is loaded at the start, and put back at once when they cannot be loaded */
+	@Test
+	public void aProjectFileThatCannotBeLoadedPutsTheFilesOfBeforeBack() throws Exception {
+		File peru = new File(folder, "peru");
+		java.nio.file.Files.createDirectories(peru.toPath());
+		java.nio.file.Files.write(new File(peru, "placemark.idm.xml").toPath(), "<survey>before</survey>".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+		File cep = projectFile("peru.cep", "<survey>after</survey>");
+		signedInTo("https://c.org", peru.getPath());
+		when(api.downloadCep("https://c.org", "p2", "session-token")).thenReturn(cep);
+		when(projects.projectFolderFor(cep)).thenReturn(peru);
+		when(projects.loadCompressedProjectFile(cep, true)).thenAnswer(i -> {
+			assertTrue(SurveyUpdateBackup.isPending(peru), "kept before it is unzipped");
+			try (net.lingala.zip4j.ZipFile zip = new net.lingala.zip4j.ZipFile(cep)) {
+				zip.extractAll(peru.getAbsolutePath());
+			}
+			throw new IOException("The project definition file cannot be read");
+		});
+		assertThrows(IOException.class, () -> service.open("p2", "https://c.org"));
+		assertEquals("<survey>before</survey>", new String(java.nio.file.Files.readAllBytes(new File(peru, "placemark.idm.xml").toPath()), java.nio.charset.StandardCharsets.UTF_8));
+		assertFalse(SurveyUpdateBackup.isPending(peru));
+		verify(properties, never()).saveCloudBinding(any());
+
+		// Loaded: kept for the start (EarthSurveyService)
+		org.mockito.Mockito.doReturn(true).when(projects).loadCompressedProjectFile(cep, true);
+		java.nio.file.Files.copy(projectFile("again.cep", "<survey>after</survey>").toPath(), cep.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+		service.open("p2", "https://c.org");
+		assertTrue(SurveyUpdateBackup.isPending(peru));
+	}
+
+	/** Taking a changed survey during a training goes back to the training's plots, not to the person's own */
+	@Test
+	public void theTrainingOpenStaysOpenWhenTheProjectIsOpenedAgain() throws Exception {
+		MyPlotsService myPlots = mock(MyPlotsService.class);
+		service.setMyPlots(myPlots);
+		File training = new File(folder, "assignments/training.csv");
+		java.nio.file.Files.createDirectories(training.getParentFile().toPath());
+		java.nio.file.Files.write(training.toPath(), "id,x,y".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+		File cep = projectFile("peru.cep", "<survey>after</survey>");
+		signedInTo("https://c.org", "C:/projects/peru");
+		when(properties.isCloudSyncEnabled()).thenReturn(true);
+		when(properties.getCloudProjectId()).thenReturn("p2");
+		when(properties.getCloudSyncUrl()).thenReturn("https://c.org/");
+		when(myPlots.onTraining()).thenReturn(true);
+		when(properties.getValue(org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty.CLOUD_TRAINING_FILE)).thenReturn(training.getPath());
+		when(api.downloadCep("https://c.org", "p2", "session-token")).thenReturn(cep);
+		service.open("p2", "https://c.org");
+		org.mockito.InOrder order = org.mockito.Mockito.inOrder(myPlots);
+		order.verify(myPlots).atJoin(any());
+		order.verify(myPlots).openTraining(training.getAbsoluteFile());
+
+		// Another project opened: its own plots
+		when(myPlots.onTraining()).thenReturn(true);
+		File other = projectFile("other.cep", "<survey>other</survey>");
+		when(api.downloadCep("https://c.org", "p3", "session-token")).thenReturn(other);
+		service.open("p3", "https://c.org");
+		verify(myPlots, org.mockito.Mockito.times(1)).openTraining(any());
+	}
+
+	/** Two downloads at once would unzip into the same folder: the second is refused */
+	@Test
+	public void oneProjectIsOpenedAtATime() throws Exception {
+		File cep = projectFile("peru.cep", "<survey>after</survey>");
+		signedInTo("https://c.org", "C:/projects/peru");
+		java.util.concurrent.CountDownLatch downloading = new java.util.concurrent.CountDownLatch(1);
+		java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
+		when(api.downloadCep("https://c.org", "p2", "session-token")).thenAnswer(i -> {
+			downloading.countDown();
+			assertTrue(release.await(10, java.util.concurrent.TimeUnit.SECONDS));
+			return cep;
+		});
+		Thread first = new Thread(() -> {
+			try {
+				service.open("p2", "https://c.org");
+			} catch (Exception e) {
+				throw new IllegalStateException(e);
+			}
+		});
+		first.start();
+		assertTrue(downloading.await(10, java.util.concurrent.TimeUnit.SECONDS));
+		assertTrue(service.isOpening());
+		assertEquals("cloud.busy", assertThrows(InvalidCloudRequestException.class, () -> service.open("p2", "https://c.org")).getCode());
+		release.countDown();
+		first.join(10_000);
+		assertFalse(service.isOpening());
+		verify(api, org.mockito.Mockito.times(1)).downloadCep(any(), any(), any());
 	}
 }

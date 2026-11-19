@@ -3,6 +3,7 @@ package org.openforis.collect.earth.app.service.cloud;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.InputStream;
@@ -117,6 +118,25 @@ public class CloudRecordSerializerTest {
 		assertEquals(original.getRootEntityKeyValues(), parsed.getRootEntityKeyValues());
 		TextAttribute parsedOperator = (TextAttribute) parsed.findNodeByPath("plot/operator");
 		assertEquals(OPERATOR_NAME, parsedOperator.getValue().getValue());
+	}
+
+	/** The revision of the survey loaded goes with the records made with it (the server tells the surveys apart by it) */
+	@Test
+	public void theRecordCarriesTheRevisionOfTheSurveyLoaded() throws Exception {
+		CloudRecordSerializer serializer = new CloudRecordSerializer();
+		org.openforis.collect.earth.app.service.EarthSurveyService surveys = org.mockito.Mockito.mock(org.openforis.collect.earth.app.service.EarthSurveyService.class);
+		org.mockito.Mockito.when(surveys.getCollectSurvey()).thenReturn(survey);
+		org.mockito.Mockito.when(surveys.getLoadedSurveyRevision()).thenReturn("0123456789abcdef01234567");
+		java.lang.reflect.Field field = CloudRecordSerializer.class.getDeclaredField("surveys");
+		field.setAccessible(true);
+		field.set(serializer, surveys);
+
+		RecordEnvelope envelope = serializer.serialize(createRecordWithKey("77"), "77", survey.getUri());
+		assertEquals("0123456789abcdef01234567", envelope.getSurveyRevision());
+		assertEquals("0123456789abcdef01234567", envelope.withOperator("someone").getSurveyRevision());
+		// Not the survey loaded: not known
+		assertNull(serializer.serialize(createRecordWithKey("78"), "78", "http://another/survey").getSurveyRevision());
+		assertNull(CloudRecordSerializer.tombstone("99", survey.getUri(), OPERATOR_NAME, new Date()).getSurveyRevision());
 	}
 
 	@Test

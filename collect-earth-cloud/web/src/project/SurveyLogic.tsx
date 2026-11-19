@@ -26,8 +26,10 @@ import Close from "@mui/icons-material/Close";
 import EditOutlined from "@mui/icons-material/EditOutlined";
 import { createContext, useContext, useEffect, useId, useMemo, useState } from "react";
 import type { MessageKey } from "../i18n";
+import { useApp } from "../appContext";
+import { ToolButton } from "./ToolButton";
 import type { ConditionRows, DesignCondition, DesignQuestion, DesignRule, ExpressionCheckAnswer, ExpressionCheckInput, NewFormula, NewRule, TotalTest } from "../api";
-import { conditionWords, questionLabel, ruleWords, TEST_KEYS, textIn, type Words } from "./surveyDesignView";
+import { conditionWords, languageNames, questionLabel, ruleWords, TEST_KEYS, textIn, type Words } from "./surveyDesignView";
 import { DescribeRule } from "./SurveyHelp";
 import {
   draftOf,
@@ -38,6 +40,7 @@ import {
   ruleDraftOf,
   ruleOf,
   rowsOf,
+  surveyTranslator,
   testsFor,
   type ConditionDraft,
   type LimitDraft,
@@ -219,7 +222,8 @@ export function ExpressionField({ w, node, kind, label, value, onChange, helperT
 }) {
   const { t } = w;
   const check = useContext(ExpressionCheckContext);
-  const [verdict, setVerdict] = useState<{ text: string; answer: ExpressionCheckAnswer } | null>(null);
+  // null answer: it could not be checked now (no connection); the save checks it again
+  const [verdict, setVerdict] = useState<{ text: string; answer: ExpressionCheckAnswer | null } | null>(null);
   useEffect(() => {
     const text = value.trim();
     if (!check || text === "") return;
@@ -230,7 +234,7 @@ export function ExpressionField({ w, node, kind, label, value, onChange, helperT
           if (!stale) setVerdict({ text, answer });
         })
         .catch(() => {
-          if (!stale) setVerdict(null);
+          if (!stale) setVerdict({ text, answer: null });
         });
     }, 500);
     return () => {
@@ -238,9 +242,18 @@ export function ExpressionField({ w, node, kind, label, value, onChange, helperT
       clearTimeout(timer);
     };
   }, [check, node, kind, value]);
-  const current = verdict && verdict.text === value.trim() ? verdict.answer : null;
+  const checked = verdict && verdict.text === value.trim() ? verdict : null;
+  const current = checked?.answer ?? null;
   const words =
-    value.trim() === "" ? helperText : current === null ? (check ? t("survey.check.checking") : helperText) : current.ok ? t("survey.check.ok") : t(`surveyCheck.${current.code}` as MessageKey, current.values);
+    value.trim() === ""
+      ? helperText
+      : checked && current === null
+        ? t("survey.check.failed")
+        : current === null
+          ? (check ? t("survey.check.checking") : helperText)
+          : current.ok
+            ? t("survey.check.ok")
+            : t(`surveyCheck.${current.code}` as MessageKey, current.values);
   return (
     <TextField
       label={label}
@@ -271,7 +284,8 @@ export function RequiredControl({ w, q, candidates, busy, onChange, onText }: {
   return (
     <>
       <TextField select size="small" label={t("survey.required")} value={value} disabled={busy} sx={{ width: 210, flex: "none", ml: 0.5 }}
-        slotProps={{ htmlInput: { "aria-label": `${t("survey.required")}: ${label}` } }}
+        // The name goes on the select a screen reader meets (MUI's input is hidden): which question it is about
+        slotProps={{ select: { SelectDisplayProps: { "aria-label": `${t("survey.required")}: ${label}`, "aria-labelledby": undefined } } }}
         onChange={(e) => {
           if (e.target.value === "when") setAsking(true);
           else onChange(e.target.value === "always");
@@ -281,11 +295,9 @@ export function RequiredControl({ w, q, candidates, busy, onChange, onText }: {
         <MenuItem value="when">{t("survey.logic.requiredWhen")}</MenuItem>
       </TextField>
       {value === "when" && (
-        <Tooltip title={t("survey.logic.requiredChange")}>
-          <IconButton size="small" aria-label={`${t("survey.logic.requiredChange")}: ${label}`} disabled={busy} onClick={() => setAsking(true)}>
-            <EditOutlined fontSize="small" />
-          </IconButton>
-        </Tooltip>
+        <ToolButton title={t("survey.logic.requiredChange")} label={`${t("survey.logic.requiredChange")}: ${label}`} disabled={busy} onClick={() => setAsking(true)}>
+          <EditOutlined fontSize="small" />
+        </ToolButton>
       )}
       {asking && (
         <ConditionDialog
@@ -342,10 +354,15 @@ export function RuleDialog({ w, q, rule, kinds, candidates, onClose, onApply }: 
   const words = made ? ruleWords(w, made as DesignRule) : null;
   const numbers = numberQuestions(candidates).filter((c) => c.name !== q.name);
   const label = textIn(q.label, w.language, w.design.languages) || q.name;
+  const { language: uiLanguage } = useApp();
+  const names = useMemo(() => languageNames(uiLanguage), [uiLanguage]);
   const apply = () => {
     if (!made || !words) return;
-    // The message a person collecting reads: the rule in words, without saying it is a warning (the form shows that)
-    onApply({ ...made, message: { [w.language]: draft.message.trim() || ruleWords(w, { ...made, flag: "error" } as DesignRule) } });
+    // The message a person collecting reads: the rule in words, without saying it is a warning (the form shows that),
+    // written in the survey's language when the dashboard has it; else none (the form then shows the rule's own words)
+    const surveyT = surveyTranslator(w.language);
+    const message = draft.message.trim() || (surveyT ? ruleWords({ ...w, t: surveyT }, { ...made, flag: "error" } as DesignRule) : "");
+    onApply({ ...made, message: { [w.language]: message } });
   };
   return (
     <Dialog open onClose={onClose} aria-labelledby={titleId} maxWidth="md" fullWidth>
@@ -403,7 +420,7 @@ export function RuleDialog({ w, q, rule, kinds, candidates, onClose, onApply }: 
             />
           )}
           {draft.kind !== "expression" && draft.onlyWhen && <ConditionEditor w={w} candidates={candidates} draft={draft.when} onChange={(when) => set({ when })} />}
-          <TextField label={t("survey.logic.message", { language: w.language })} value={draft.message} onChange={(e) => set({ message: e.target.value })} multiline
+          <TextField label={t("survey.logic.message", { language: names(w.language) })} value={draft.message} onChange={(e) => set({ message: e.target.value })} multiline
             placeholder={words ?? undefined} helperText={t("survey.logic.messageHelp")} slotProps={{ htmlInput: { lang: w.language } }} />
           {words ? (
             <Typography variant="body2" color="text.secondary">{t("survey.logic.inWords", { text: words })}</Typography>

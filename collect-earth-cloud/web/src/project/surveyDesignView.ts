@@ -172,3 +172,87 @@ export function untranslated(design: SurveyDesign, language: string): number {
 export function firstLanguage(design: SurveyDesign, uiLanguage: string): string {
   return design.languages.includes(uiLanguage) ? uiLanguage : design.languages[0];
 }
+
+/** The names a condition names: its rows' questions, or the words of an advanced one */
+function conditionNames(condition: DesignCondition | null, into: Set<string>): void {
+  if (!condition || condition.kind === "never") return;
+  if (condition.kind === "advanced") expressionNames(condition.text, into);
+  else for (const p of condition.parts) into.add(p.question);
+}
+
+/** The names an expression may name: its words, not the functions it calls (as the server's referencesTo reads them) */
+function expressionNames(text: string | null | undefined, into: Set<string>): void {
+  if (!text) return;
+  for (const m of text.matchAll(/[A-Za-z_][\w]*(?!\w|\s*\()/g)) into.add(m[0]);
+}
+
+/** What a question or table names: its conditions, rules, formulas and the question its sub-list follows */
+function namesUsedBy(item: DesignItem): Set<string> {
+  const names = new Set<string>();
+  conditionNames(item.shownWhen, names);
+  if (item.kind === "table") return names;
+  if (typeof item.required === "object") conditionNames(item.required.when, names);
+  for (const r of item.rules) {
+    conditionNames(r.when, names);
+    if (r.kind === "advanced") expressionNames(r.text, names);
+    if (r.kind === "range") {
+      for (const limit of [r.min, r.max]) {
+        if (!limit) continue;
+        if ("question" in limit.bound) names.add(limit.bound.question);
+        if ("expression" in limit.bound) expressionNames(limit.bound.expression, names);
+      }
+    }
+  }
+  for (const f of item.formulas ?? []) for (const text of [f.expression, f.value, f.when]) expressionNames(text, names);
+  for (const n of item.uses) names.add(n);
+  if (item.parentQuestion) names.add(item.parentQuestion);
+  return names;
+}
+
+/**
+ * For each name, the questions and tables that name it (a condition, rule, formula or sub-list): what keeps it from
+ * being deleted. A node's own logic naming itself is left out.
+ */
+export function questionUsers(design: SurveyDesign): Map<string, string[]> {
+  const nodes: DesignItem[] = [...design.pages.flatMap((p) => p.items.flatMap((i) => (i.kind === "table" ? [i, ...i.columns] : [i]))), ...design.fromPlotFile, ...design.calculated, ...design.hidden];
+  const users = new Map<string, string[]>();
+  for (const node of nodes) {
+    for (const name of namesUsedBy(node)) {
+      if (name === node.name) continue;
+      const list = users.get(name) ?? [];
+      if (!list.includes(node.name)) list.push(node.name);
+      users.set(name, list);
+    }
+  }
+  return users;
+}
+
+/** Who keeps a question from being deleted: the others naming it */
+export function usersOfQuestion(users: ReadonlyMap<string, readonly string[]>, q: DesignQuestion): string[] {
+  return (users.get(q.name) ?? []).filter((n) => n !== q.name);
+}
+
+/** Who keeps a table from being deleted: what outside it names the table or one of its columns */
+export function usersOfTable(users: ReadonlyMap<string, readonly string[]>, table: DesignTable): string[] {
+  const inside = new Set([table.name, ...table.columns.map((c) => c.name)]);
+  const out = new Set<string>();
+  for (const name of inside) for (const u of users.get(name) ?? []) if (!inside.has(u)) out.add(u);
+  return [...out];
+}
+
+/** A language code's name in the dashboard's language ("es" -> "Spanish"), else the code */
+export function languageNames(uiLanguage: string): (code: string) => string {
+  let names: Intl.DisplayNames | null = null;
+  try {
+    names = new Intl.DisplayNames([uiLanguage], { type: "language" });
+  } catch {
+    names = null;
+  }
+  return (code) => {
+    try {
+      return names?.of(code.replace("_", "-")) ?? code;
+    } catch {
+      return code;
+    }
+  };
+}

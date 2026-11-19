@@ -763,10 +763,16 @@ public class LocalPropertiesService extends Observable {
 		/** Whether the account is the server's administrator, null when the server did not say */
 		public Boolean serverAdmin;
 		/**
-		 * The revision of the survey this computer has (the cloud's GET /survey/revision when the project was opened):
-		 * another one means the coordinator changed the survey since. null before it was known.
+		 * The revision of the survey this computer has (the cloud's GET /survey/revision names the served one the same
+		 * way: SurveyRevision, of the bytes of the project file's placemark.idm.xml): another one means the coordinator
+		 * changed the survey since. null before it was known (a project opened by an earlier version).
 		 */
 		public String surveyRevision;
+		/**
+		 * The revision of a changed survey that was taken but could not be used here (Collect could not import it, and the
+		 * one before was put back): not offered again until the coordinator changes the survey again. null when none.
+		 */
+		public String surveyRevisionRefused;
 
 		public CloudBinding() {
 		}
@@ -865,6 +871,27 @@ public class LocalPropertiesService extends Observable {
 		binding.folder = folder.getPath();
 		settings.projects.add(binding);
 		saveCloudSettings(settings);
+	}
+
+	/**
+	 * Changes some fields of a folder's binding as it is stored now, the others left as they are: a copy read before a
+	 * call to the server and saved after it would undo what was saved meanwhile (the survey's revision, say).
+	 *
+	 * @return false when the folder has no binding (nothing is saved)
+	 */
+	public synchronized boolean updateCloudBinding(File folder, java.util.function.Consumer<CloudBinding> change) {
+		if (folder == null) {
+			return false;
+		}
+		CloudSettings settings = cloudSettings();
+		for (CloudBinding binding : settings.projects) {
+			if (StringUtils.isNotBlank(binding.folder) && new File(binding.folder).getAbsoluteFile().equals(folder.getAbsoluteFile())) {
+				change.accept(binding);
+				saveCloudSettings(settings);
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/** The token of a server's sign-in, or blank when nobody is signed in there; the one token of before as a fallback. */

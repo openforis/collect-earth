@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { surveyDesign } from "../../../src/survey/design";
 import type { DesignTable, SurveyCheckCode } from "../api";
 import { CATALOGUES, LANGUAGES, translator, type MessageKey } from "../i18n";
-import { conditionWords, firstLanguage, questionLabel, requiredWords, ruleWords, tableWords, textIn, untranslated, words } from "./surveyDesignView";
+import { conditionWords, firstLanguage, languageNames, questionLabel, questionUsers, usersOfQuestion, usersOfTable, requiredWords, ruleWords, tableWords, textIn, untranslated, words } from "./surveyDesignView";
 
 const template = (name: string) =>
   surveyDesign(readFileSync(new URL(`../../../templates/collect_earth${name}.idm.xml`, import.meta.url)));
@@ -87,5 +87,41 @@ describe("the survey check's problems", () => {
       }
     }
     expect(translator("es")("surveyCheck.unknownQuestion", { name: "lu", in: "plot" })).toBe("No hay ninguna pregunta lu en plot.");
+  });
+});
+
+describe("what keeps a question or table from being deleted", () => {
+  it("lists the questions whose conditions, rules or formulas name it", () => {
+    const users = questionUsers(ipcc);
+    const all = ipcc.pages.flatMap((p) => p.items.flatMap((i) => (i.kind === "table" ? [i, ...i.columns] : [i])));
+    const byName = (name: string) => all.find((i) => i.name === name)!;
+    expect(users.get("plot_distribution")).toEqual(expect.arrayContaining(["land_use", "land_use_whole_plot"]));
+    // An advanced condition's words count too
+    expect(users.get("land_use_subcategory")).toContain("land_use_subdivision_year_of_change");
+    const forest = byName("forest_dynamics");
+    expect(forest.kind === "question" && usersOfQuestion(users, forest)).toEqual(expect.arrayContaining(["previous_tree_cover", "degradation_year"]));
+    // A question nothing names can go
+    const last = byName("increase_year");
+    expect(last.kind === "question" && usersOfQuestion(users, last)).toEqual([]);
+  });
+
+  it("leaves out what a table's own columns name", () => {
+    const users = questionUsers(ipcc);
+    const table = ipcc.pages.flatMap((p) => p.items).find((i): i is DesignTable => i.kind === "table" && i.name === "land_use")!;
+    expect(usersOfTable(users, table).some((n) => table.columns.some((c) => c.name === n))).toBe(false);
+  });
+
+  it("reads a formula's names, not the functions it calls", () => {
+    const users = questionUsers(basic);
+    for (const c of basic.calculated) for (const n of c.uses) expect(users.get(n)).toContain(c.name);
+    expect(users.has("idm:lookup")).toBe(false);
+  });
+});
+
+describe("a language's name", () => {
+  it("is said in the dashboard's language, a code it does not know as it is", () => {
+    expect(languageNames("en")("es")).toBe("Spanish");
+    expect(languageNames("fr")("pt_BR")).toMatch(/portugais/i);
+    expect(languageNames("en")("not a code")).toBe("not a code");
   });
 });

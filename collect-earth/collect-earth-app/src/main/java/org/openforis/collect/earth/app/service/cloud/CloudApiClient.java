@@ -298,6 +298,10 @@ public class CloudApiClient {
 		if (envelope.getActiveSeconds() != null) {
 			node.put("activeSeconds", envelope.getActiveSeconds().intValue());
 		}
+		// Which survey the record was made with: a server before it ignores the field, as every field it does not know
+		if (envelope.getSurveyRevision() != null) {
+			node.put("surveyRevision", envelope.getSurveyRevision());
+		}
 		ObjectNode summary = node.putObject("summary");
 		if (envelope.getSummary() != null) {
 			for (java.util.Map.Entry<String, String> entry : envelope.getSummary().entrySet()) {
