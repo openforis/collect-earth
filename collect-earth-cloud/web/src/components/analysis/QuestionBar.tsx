@@ -16,8 +16,8 @@ import StackedLineChart from "@mui/icons-material/StackedLineChart";
 import SwapHoriz from "@mui/icons-material/SwapHoriz";
 import TableChart from "@mui/icons-material/TableChart";
 import ViewQuilt from "@mui/icons-material/ViewQuilt";
-import type { ReactNode } from "react";
-import { CHARTS, moveField, overTime, swapAxes, type Measure, type Question } from "../../analysisQuestion";
+import type { DragEvent, ReactNode } from "react";
+import { CHARTS, moveField, overTime, swapAxes, type FieldPlace, type Measure, type Question } from "../../analysisQuestion";
 import type { ColumnGroup, Cube, CubeColumn } from "../../analysisView";
 import { useT, type MessageKey } from "../../i18n";
 
@@ -69,11 +69,26 @@ export function QuestionBar({ cube, measures, question, onChange, disabled }: { 
       const { key, ...props } = getTagProps({ index }) as { key: string } & Record<string, unknown>;
       return <Chip key={key} size="small" label={label(v)} {...props} />;
     });
-  /** The rows' or columns' chips, in the order of the table: dragged onto another, or moved with Shift + ← →, a field changes place */
+  /** Where a dragged chip came from (its bar and place), when it is one of the rows' or columns' */
+  const dragged = (e: DragEvent): FieldPlace | null => {
+    const [axis, index] = e.dataTransfer.getData(FIELD_DRAG).split(" ");
+    return axis === "rows" || axis === "columns" ? { axis, index: Number(index) } : null;
+  };
+  const dropOn = (e: DragEvent, to: FieldPlace) => {
+    const from = dragged(e);
+    if (!from) return;
+    e.preventDefault();
+    e.stopPropagation();
+    onChange(moveField(question, from, to));
+  };
+  /**
+   * The rows' or columns' chips, in the order of the table: dragged onto another (of either bar), or moved with Shift + ← →, a
+   * field changes place
+   */
   const fieldChips = (which: "rows" | "columns", values: readonly string[], getItemProps: (o: { index: number }) => Record<string, unknown>) =>
     values.map((v, index) => {
       const { key, ...props } = getItemProps({ index }) as { key: string } & Record<string, unknown>;
-      const movable = !disabled && values.length > 1;
+      const movable = !disabled;
       return (
         <Chip key={key} size="small" label={v} {...props}
           title={movable ? t("analysis.q.reorder") : undefined}
@@ -82,13 +97,7 @@ export function QuestionBar({ cube, measures, question, onChange, disabled }: { 
           // The bar takes a press anywhere for its input, which stops a drag in some browsers; its ✕ keeps that
           onMouseDown={(e) => { if (movable && !(e.target as Element).closest(".MuiChip-deleteIcon")) e.stopPropagation(); }}
           onDragStart={(e) => { e.dataTransfer.setData(FIELD_DRAG, `${which} ${index}`); e.dataTransfer.effectAllowed = "move"; }}
-          onDragOver={(e) => { if (e.dataTransfer.types.includes(FIELD_DRAG)) e.preventDefault(); }}
-          onDrop={(e) => {
-            const [axis, from] = e.dataTransfer.getData(FIELD_DRAG).split(" ");
-            if (axis !== which) return;
-            e.preventDefault();
-            onChange(moveField(question, which, Number(from), index));
-          }}
+          onDrop={(e) => dropOn(e, { axis: which, index })}
           onKeyDown={(e) => {
             // The bar sends the focus back to its input on any key but ← →, Shift too, which would end the move before it starts
             if (movable && e.key === "Shift") e.stopPropagation();
@@ -100,7 +109,7 @@ export function QuestionBar({ cube, measures, question, onChange, disabled }: { 
               e.stopPropagation();
               return;
             }
-            onChange(moveField(question, which, index, to));
+            onChange(moveField(question, { axis: which, index }, { axis: which, index: to }));
           }}
         />
       );
@@ -117,6 +126,9 @@ export function QuestionBar({ cube, measures, question, onChange, disabled }: { 
       filterSelectedOptions
       renderValue={(values, getItemProps) => fieldChips(which, values, getItemProps)}
       renderInput={(params) => <TextField {...params} label={label} placeholder={question[which].length ? "" : placeholder} />}
+      // A chip dropped anywhere else in the bar, an empty one too, goes last
+      onDragOver={(e) => { if (!disabled && e.dataTransfer.types.includes(FIELD_DRAG)) e.preventDefault(); }}
+      onDrop={(e) => dropOn(e, { axis: which, index: question[which].length })}
       sx={{ flex: "1 1 260px", minWidth: 220 }}
     />
   );

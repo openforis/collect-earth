@@ -143,14 +143,23 @@ describe("the question bar and Perspective's configuration", () => {
     expect(swapAxes(q)).toMatchObject({ rows: ["Province"], columns: ["Land use 2025"] });
   });
 
-  it("move a field of the rows or the columns to another place among them", () => {
-    const three: Question = { ...q, rows: ["Province", "District", "Land use 2025"] };
-    expect(moveField(three, "rows", 2, 0).rows).toEqual(["Land use 2025", "Province", "District"]);
-    expect(moveField(three, "rows", 0, 1).rows).toEqual(["District", "Province", "Land use 2025"]);
-    expect(moveField(three, "rows", 0, 2).columns).toEqual(three.columns);
-    // Beyond either end, nothing moves
-    expect(moveField(three, "rows", 0, -1)).toBe(three);
-    expect(moveField(three, "rows", 2, 3)).toBe(three);
+  it("move a field of the rows or the columns to another place among them, or into the other", () => {
+    const three: Question = { ...q, rows: ["Province", "District", "Land use 2025"], columns: ["Year"] };
+    const rows = (index: number) => ({ axis: "rows" as const, index });
+    const columns = (index: number) => ({ axis: "columns" as const, index });
+    expect(moveField(three, rows(2), rows(0)).rows).toEqual(["Land use 2025", "Province", "District"]);
+    expect(moveField(three, rows(0), rows(1)).rows).toEqual(["District", "Province", "Land use 2025"]);
+    expect(moveField(three, rows(0), rows(2)).columns).toEqual(["Year"]);
+    // Into the other: at the place given, last beyond the end, and out of where it was
+    expect(moveField(three, rows(1), columns(0))).toMatchObject({ rows: ["Province", "Land use 2025"], columns: ["District", "Year"] });
+    expect(moveField(three, columns(0), rows(99))).toMatchObject({ rows: ["Province", "District", "Land use 2025", "Year"], columns: [] });
+    // Dropped beyond the end of its own: last
+    expect(moveField(three, rows(0), rows(99)).rows).toEqual(["District", "Land use 2025", "Province"]);
+    // Nothing to move, a place before the start, or the place it has: as it was
+    expect(moveField(three, columns(1), rows(0))).toBe(three);
+    expect(moveField(three, rows(0), rows(-1))).toBe(three);
+    expect(moveField(three, rows(2), rows(3))).toBe(three);
+    expect(moveField(three, rows(1), rows(1))).toBe(three);
   });
 
   it("colour bars of one field of categories by it: the field goes in the columns too, and the bar does not show it", () => {
