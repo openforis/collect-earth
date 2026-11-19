@@ -1,5 +1,5 @@
 import Alert from "@mui/material/Alert";
-import Box from "@mui/material/Box";
+import Box, { type BoxProps } from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import ButtonBase from "@mui/material/ButtonBase";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -28,6 +28,7 @@ import ContentCopy from "@mui/icons-material/ContentCopyOutlined";
 import ArrowDownward from "@mui/icons-material/ArrowDownward";
 import ArrowUpward from "@mui/icons-material/ArrowUpward";
 import DeleteOutline from "@mui/icons-material/DeleteOutlined";
+import DragIndicator from "@mui/icons-material/DragIndicator";
 import DriveFileMoveOutlined from "@mui/icons-material/DriveFileMoveOutlined";
 import Download from "@mui/icons-material/Download";
 import Upload from "@mui/icons-material/Upload";
@@ -54,7 +55,8 @@ import SmartButtonOutlined from "@mui/icons-material/SmartButtonOutlined";
 import ArrowDropDownCircleOutlined from "@mui/icons-material/ArrowDropDownCircleOutlined";
 import FileDownloadOffOutlined from "@mui/icons-material/FileDownloadOffOutlined";
 import ListItemIcon from "@mui/material/ListItemIcon";
-import { createContext, memo, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type ClipboardEvent, type ReactNode } from "react";
+import type { Theme } from "@mui/material/styles";
+import { createContext, memo, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type ClipboardEvent, type DragEvent, type ReactNode } from "react";
 import {
   ApiError,
   checkSurveyExpression,
@@ -86,9 +88,11 @@ import {
 import { formatDate } from "../format";
 import { queryClient } from "../queryClient";
 import {
+  canDropIn,
   changedTexts,
   COMMON_LANGUAGES,
   Drafts,
+  dropChange,
   editKey,
   isItemCode,
   isLanguageCode,
@@ -110,6 +114,9 @@ import {
   subListParents,
   uniqueName,
   withPendingTexts,
+  type Dragged,
+  type DragPlace,
+  type Drop,
   type PendingText,
   type WordPart,
 } from "./surveyEditView";
@@ -1244,9 +1251,13 @@ const DesignView = memo(function DesignView({ w, onLanguage, addLanguage }: { w:
             const name = textIn(p.label, language, design.languages) || t("survey.noLabel");
             const count = questionCount(p);
             return (
-              <Chip key={p.name} size="small" variant={open[p.name] ? "filled" : "outlined"} onClick={() => goTo(p.name)} sx={{ maxWidth: "100%" }}
-                aria-label={t("survey.outline.go", { card: name, count })}
-                label={<><span lang={language}>{name}</span> <Box component="span" sx={{ color: "text.secondary" }}>{count}</Box></>} />
+              // A question dragged onto a card's name here goes last on that card
+              <DropBox component="span" key={p.name} dropKey={`p${p.name}`} to={{ place: { kind: "card", page: p.name }, order: p.items.map((i) => i.id) }}
+                sx={{ display: "inline-flex", maxWidth: "100%", borderRadius: 4 }}>
+                <Chip size="small" variant={open[p.name] ? "filled" : "outlined"} onClick={() => goTo(p.name)} sx={{ maxWidth: "100%" }}
+                  aria-label={t("survey.outline.go", { card: name, count })}
+                  label={<><span lang={language}>{name}</span> <Box component="span" sx={{ color: "text.secondary" }}>{count}</Box></>} />
+              </DropBox>
             );
           })}
           <Button size="small" onClick={() => openAll(true)}>{t("survey.outline.openAll")}</Button>
@@ -1392,7 +1403,9 @@ function PageView({ w, page, open, onToggle, order }: {
   const id = useId();
   const label = textIn(page.label, w.language, w.design.languages) || w.t("survey.noLabel");
   return (
-    <Box sx={{ border: 1, borderColor: "divider", borderRadius: 1, scrollMarginTop: 72 }} data-focus-home data-card={page.name}>
+    // A question or table dropped on the card but on none of its own (its name, its end) goes last
+    <DropBox dropKey={`p${page.name}`} to={{ place: { kind: "card", page: page.name }, order: page.items.map((i) => i.id) }}
+      sx={{ border: 1, borderColor: "divider", borderRadius: 1, scrollMarginTop: 72 }} data-focus-home data-card={page.name}>
       {/* The heading holds the button (not the other way round): a heading inside a button is no heading to a screen reader */}
       <Typography variant="h3" sx={{ m: 0 }}>
         <ButtonBase
@@ -1445,7 +1458,7 @@ function PageView({ w, page, open, onToggle, order }: {
         </Stack>
         )}
       </Collapse>
-    </Box>
+    </DropBox>
   );
 }
 
@@ -1494,8 +1507,9 @@ function QuestionView({ w, q, inTable, table, siblings, page }: {
   const candidates = useMemo(() => (ruleOpen ? conditionQuestions(w.design, table ?? null, null) : []), [ruleOpen, w.design, table]);
   const label = textIn(q.label, w.language, w.design.languages) || q.name;
   const TypeIcon = TYPE_ICONS[q.type];
+  const place = siblings ? placeOf(page, table) : null;
   return (
-    <Box data-question={q.name} data-focus-home
+    <DropBox data-question={q.name} data-focus-home dropKey={`n${q.id}`} to={place && siblings ? { place, order: siblings.map((s) => s.id), on: q.id } : null}
       sx={{ pl: 1.5, borderLeft: 3, borderColor: q.hidden || q.formulas ? "divider" : "primary.light", contentVisibility: "auto", containIntrinsicSize: "auto 160px" }}>
       <Words target={{ kind: "node", id: q.id }} part="label" value={q.label} label={t("survey.edit.label")} multiline>
         <Typography sx={{ fontWeight: 600, overflowWrap: "anywhere" }}>{label}</Typography>
@@ -1628,7 +1642,7 @@ function QuestionView({ w, q, inTable, table, siblings, page }: {
       <Typography variant="caption" color="text.secondary" sx={{ overflowWrap: "anywhere" }}>
         {t("survey.name", { name: q.name })}
       </Typography>
-    </Box>
+    </DropBox>
   );
 }
 
@@ -1647,7 +1661,8 @@ function TableView({ w: survey, table, siblings, page }: { w: Words; table: Desi
         : table.rowsList ? t("survey.table.block", { list: listName }) : t("survey.table.blockFree");
   const help = textIn(table.help, w.language, w.design.languages);
   return (
-    <Box sx={{ p: 1.5, border: 1, borderColor: "divider", borderRadius: 1, bgcolor: "action.hover" }}>
+    <DropBox dropKey={`n${table.id}`} to={{ place: { kind: "card", page }, order: siblings.map((s) => s.id), on: table.id }}
+      sx={{ p: 1.5, border: 1, borderColor: "divider", borderRadius: 1, bgcolor: "action.hover" }}>
       <Words target={{ kind: "node", id: table.id }} part="label" value={table.label} label={t("survey.edit.label")} multiline>
         <Typography sx={{ fontWeight: 600 }}>{textIn(table.label, w.language, w.design.languages) || table.name}</Typography>
       </Words>
@@ -1658,19 +1673,22 @@ function TableView({ w: survey, table, siblings, page }: { w: Words; table: Desi
         {help && <Detail>{help}</Detail>}
       </Words>
       {table.shownWhen && <Detail>{t("survey.shownWhen", { condition: conditionWords(w, table.shownWhen) })}</Detail>}
-      <Stack spacing={2} sx={{ mt: 1.5 }}>
-        {table.columns.map((c) => (
-          <QuestionView key={c.name} w={w} q={c} inTable table={table} siblings={table.columns} />
-        ))}
-        {edit && (
-          <Box>
-            <Button size="small" variant="outlined" startIcon={<Add />} disabled={edit.busy} onClick={() => edit.addQuestion({ table: table.id })}>
-              {t("survey.edit.addColumn")}
-            </Button>
-          </Box>
-        )}
-      </Stack>
-    </Box>
+      {/* A column dropped here but on no other column goes last */}
+      <DropBox dropKey={`t${table.id}`} to={{ place: { kind: "table", table: table.id }, order: table.columns.map((c) => c.id) }} sx={{ mt: 1.5 }}>
+        <Stack spacing={2}>
+          {table.columns.map((c) => (
+            <QuestionView key={c.name} w={w} q={c} inTable table={table} siblings={table.columns} />
+          ))}
+          {edit && (
+            <Box>
+              <Button size="small" variant="outlined" startIcon={<Add />} disabled={edit.busy} onClick={() => edit.addQuestion({ table: table.id })}>
+                {t("survey.edit.addColumn")}
+              </Button>
+            </Box>
+          )}
+        </Stack>
+      </DropBox>
+    </DropBox>
   );
 }
 
@@ -1706,13 +1724,16 @@ const ListView = memo(function ListView({ w, list }: { w: Words; list: DesignLis
   );
 });
 
-function ItemTree({ w, list, items, codes }: { w: Words; list: string; items: DesignListItem[]; codes?: ReadonlySet<string> }) {
+function ItemTree({ w, list, items, codes, parent }: { w: Words; list: string; items: DesignListItem[]; codes?: ReadonlySet<string>; parent?: string }) {
   const edit = useContext(EditContext);
   const editing = edit !== null;
   const [under, setUnder] = useState<DesignListItem | null>(null);
   // Every code of the list, at every level: a new one is none of them
   const taken = useMemo(() => codes ?? new Set(listOptions(w.lists.get(list)?.items ?? []).map((i) => i.code)), [codes, w.lists, list]);
   if (items.length === 0) return null;
+  const order = items.map((x) => x.code);
+  // An answer is dragged among those of its level: under the same answer, or none
+  const place: DragPlace = { kind: "list", list, under: parent ?? null };
   return (
     <Box component="ul" sx={{ m: 0, pl: 3 }}>
       {under && edit && (
@@ -1735,7 +1756,7 @@ function ItemTree({ w, list, items, codes }: { w: Words; list: string; items: De
                 : undefined;
         return (
         <Typography component="li" variant="body2" key={i.code} sx={{ overflowWrap: "anywhere" }}>
-          <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
+          <DropBox dropKey={`a${list} ${i.code}`} to={{ place, order, on: i.code }} sx={{ display: "flex", gap: 0.5, alignItems: "center" }}>
             <Box sx={{ flex: 1, minWidth: 0 }}>
               <Words target={{ kind: "item", list, code: i.code }} part="label" value={i.label} label={w.t("survey.edit.answer", { code: i.code })}>
                 {textIn(i.label, w.language, w.design.languages) || i.code}{" "}
@@ -1743,10 +1764,11 @@ function ItemTree({ w, list, items, codes }: { w: Words; list: string; items: De
             </Box>
             {edit && (
               <>
+                <DragHandle from={{ place, id: i.code }} />
                 <MoveButtons
                   label={name}
-                  up={itemMoveTarget(items.map((x) => x.code), i.code, -1)}
-                  down={itemMoveTarget(items.map((x) => x.code), i.code, 1)}
+                  up={itemMoveTarget(order, i.code, -1)}
+                  down={itemMoveTarget(order, i.code, 1)}
                   onMove={(to) => edit.change([{ op: "moveItem", list, code: i.code, ...(to.before !== undefined ? { before: to.before as string } : {}) }])}
                 />
                 <ToolButton title={w.t("survey.list.addUnder")} label={`${w.t("survey.list.addUnder")}: ${name}`} disabled={edit.busy} onClick={() => setUnder(i)}>
@@ -1764,13 +1786,13 @@ function ItemTree({ w, list, items, codes }: { w: Words; list: string; items: De
                 </ToolButton>
               </>
             )}
-          </Stack>
+          </DropBox>
           {!editing && (
             <Typography component="span" variant="caption" color="text.secondary">
               ({i.code})
             </Typography>
           )}
-          <ItemTree w={w} list={list} items={i.items} codes={taken} />
+          <ItemTree w={w} list={list} items={i.items} codes={taken} parent={i.code} />
         </Typography>
         );
       })}
@@ -1945,6 +1967,105 @@ function MoveButtons<T>({ label, up, down, onMove }: { label: string; up: T | nu
   );
 }
 
+/** What a drag of the designer carries: a file or a text dragged in is not dropped here */
+const SURVEY_DRAG = "application/x-survey-design";
+/** Where what is dragged would land: a line before or after an item, or a page or table outlined (last of it) */
+type DropMark = "before" | "after" | "end";
+/** The drag on its way (one at a time): what is dragged, and the one place showing where it would land */
+const dragging: { from: Dragged | null; mark: { key: string; mark: DropMark } | null; listeners: Set<() => void> } = { from: null, mark: null, listeners: new Set() };
+const subscribeDrag = (listener: () => void) => {
+  dragging.listeners.add(listener);
+  return () => void dragging.listeners.delete(listener);
+};
+function showDropMark(mark: { key: string; mark: DropMark } | null): void {
+  if (mark?.key === dragging.mark?.key && mark?.mark === dragging.mark?.mark) return;
+  dragging.mark = mark;
+  for (const l of [...dragging.listeners]) l();
+}
+function endDrag(): void {
+  dragging.from = null;
+  showDropMark(null);
+}
+const MARK_SX = {
+  before: { boxShadow: (theme: Theme) => `inset 0 2px 0 ${theme.palette.primary.main}` },
+  after: { boxShadow: (theme: Theme) => `inset 0 -2px 0 ${theme.palette.primary.main}` },
+  end: { outline: (theme: Theme) => `2px solid ${theme.palette.primary.main}` },
+} as const;
+
+/** The page or table a question or table moves among */
+const placeOf = (page?: string, table?: DesignTable): DragPlace | null => (table ? { kind: "table", table: table.id } : page !== undefined ? { kind: "card", page } : null);
+
+/**
+ * A box what is dragged in the designer can be dropped on: an item of a page, table or list (`to.on`: before or after
+ * it, by its half under the pointer), or a page or table (last of it). `dropKey` names the mark it shows.
+ */
+function DropBox({ dropKey, to, sx, ...props }: BoxProps & { dropKey: string; to: Omit<Drop, "after"> | null }) {
+  const edit = useContext(EditContext);
+  const mark = useSyncExternalStore(subscribeDrag, () => (dragging.mark?.key === dropKey ? dragging.mark.mark : null));
+  const styles = [mark !== null && MARK_SX[mark], ...(Array.isArray(sx) ? sx : [sx])];
+  if (!edit || !to) return <Box {...props} sx={styles} />;
+  const drop = (e: DragEvent<HTMLElement>): Drop => {
+    const r = e.currentTarget.getBoundingClientRect();
+    return { ...to, after: to.on !== undefined && e.clientY > r.top + r.height / 2 };
+  };
+  // A drag it does not take (a column over the page around its table) goes on to the box around it
+  const takes = (e: DragEvent) => dragging.from !== null && !edit.busy && e.dataTransfer.types.includes(SURVEY_DRAG) && canDropIn(dragging.from.place, to.place);
+  return (
+    <Box
+      {...props}
+      data-drop-item={to.on !== undefined || undefined}
+      sx={styles}
+      onDragOver={(e: DragEvent<HTMLElement>) => {
+        if (!takes(e)) return;
+        e.stopPropagation();
+        const at = drop(e);
+        // Where nothing would change, nothing is dropped
+        const moves = dropChange(dragging.from!, at) !== null;
+        if (moves) e.preventDefault();
+        showDropMark(moves ? { key: dropKey, mark: at.on === undefined ? "end" : at.after ? "after" : "before" } : null);
+      }}
+      onDragLeave={(e: DragEvent<HTMLElement>) => {
+        if (dragging.mark?.key === dropKey && !e.currentTarget.contains(e.relatedTarget as Node | null)) showDropMark(null);
+      }}
+      onDrop={(e: DragEvent<HTMLElement>) => {
+        if (!takes(e)) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const op = dropChange(dragging.from!, drop(e));
+        endDrag();
+        if (op) edit.change([op]);
+      }}
+    />
+  );
+}
+
+/** The handle a question, table or answer is dragged by: the mouse's way to move it (the keyboard's, ↑ ↓) */
+function DragHandle({ from }: { from: Dragged }) {
+  const edit = useContext(EditContext);
+  const t = useT();
+  if (!edit) return null;
+  return (
+    <Box
+      component="span"
+      draggable={!edit.busy}
+      title={t("survey.edit.drag")}
+      onDragStart={(e: DragEvent<HTMLElement>) => {
+        e.dataTransfer.setData(SURVEY_DRAG, "");
+        e.dataTransfer.effectAllowed = "move";
+        // What is seen moving is the whole question, not the handle
+        const box = e.currentTarget.closest<HTMLElement>("[data-drop-item]");
+        const r = box?.getBoundingClientRect();
+        if (box && r) e.dataTransfer.setDragImage(box, e.clientX - r.left, e.clientY - r.top);
+        dragging.from = from;
+      }}
+      onDragEnd={endDrag}
+      sx={{ display: "inline-flex", p: { xs: 1, sm: "5px" }, color: edit.busy ? "action.disabled" : "action.active", cursor: edit.busy ? "default" : "grab" }}
+    >
+      <DragIndicator fontSize="small" />
+    </Box>
+  );
+}
+
 /** Whether the editor offers the Required box: not on the fields Collect Earth fills in, nor on calculated answers */
 const canRequire = (q: DesignQuestion) => !q.fixed && !q.formulas;
 /** Whether the editor offers "When it is shown": a table, or a question asked in the form */
@@ -1966,8 +2087,11 @@ function ItemTools({ w, item, siblings, page, table }: { w: Words; item: DesignI
   const question = item.kind === "question" ? item : null;
   const others = edit.pages.filter((p) => p.name !== page);
   const usedBy = item.kind === "table" ? usersOfTable(edit.users, item) : usersOfQuestion(edit.users, item);
+  const place = placeOf(page, table);
   return (
     <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: "wrap", alignItems: "center", my: 0.5 }}>
+      {/* The fields Collect Earth fills stay where they are (the server refuses moving them) */}
+      {place && (item.kind === "table" || !item.fixed) && <DragHandle from={{ place, id: item.id }} />}
       <MoveButtons
         label={label}
         up={moveTarget(siblings, item.id, -1)}

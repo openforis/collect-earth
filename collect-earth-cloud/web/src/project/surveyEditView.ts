@@ -361,6 +361,43 @@ export function itemMoveTarget(codes: readonly string[], code: string, step: -1 
   return pageMoveTarget(codes, code, step);
 }
 
+/** Where something dragged in the designer is, or is dropped: a page, a table, a level of a list (under an answer, or its first) */
+export type DragPlace = { kind: "card"; page: string } | { kind: "table"; table: number } | { kind: "list"; list: string; under: string | null };
+
+/** What is dragged: a question or table (its id), or an answer (its code) */
+export interface Dragged {
+  place: DragPlace;
+  id: number | string;
+}
+
+/** Where it is dropped: before or after `on`, one of the items of the place (`order`, in order), or on the place itself: last */
+export interface Drop {
+  place: DragPlace;
+  order: readonly (number | string)[];
+  on?: number | string;
+  after?: boolean;
+}
+
+const samePlace = (a: DragPlace, b: DragPlace): boolean =>
+  a.kind === "card" ? b.kind === "card" && a.page === b.page : a.kind === "table" ? b.kind === "table" && a.table === b.table : b.kind === "list" && a.list === b.list && a.under === b.under;
+
+/** Whether what is dragged from a place can go to another: a question or table to any page, a column in its table, an answer at its level */
+export function canDropIn(from: DragPlace, to: DragPlace): boolean {
+  return samePlace(from, to) || (from.kind === "card" && to.kind === "card");
+}
+
+/** The move a drop makes; null when what is dragged cannot go there, or would stay where it is */
+export function dropChange(from: Dragged, to: Drop): SurveyOperation | null {
+  if (!canDropIn(from.place, to.place) || (to.on !== undefined && !to.order.includes(to.on))) return null;
+  const before = to.on === undefined ? undefined : to.order[to.order.indexOf(to.on) + (to.after ? 1 : 0)];
+  const same = samePlace(from.place, to.place);
+  const at = to.order.indexOf(from.id);
+  // Right before itself, or before the one already after it (last when it is last already)
+  if (same && at >= 0 && (before === from.id || before === to.order[at + 1])) return null;
+  if (from.place.kind === "list") return { op: "moveItem", list: from.place.list, code: String(from.id), ...(before !== undefined ? { before: String(before) } : {}) };
+  return { op: "moveQuestion", id: Number(from.id), ...(!same && to.place.kind === "card" ? { page: to.place.page } : {}), ...(before !== undefined ? { before: Number(before) } : {}) };
+}
+
 /** The question or table right after another among those of its page or table (a copy made below it) */
 export function itemAfter(design: SurveyDesign, id: number): DesignItem | undefined {
   const places = design.pages.flatMap((p): readonly DesignItem[][] => [p.items, ...p.items.flatMap((i) => (i.kind === "table" ? [i.columns] : []))]);

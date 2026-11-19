@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 import { surveyDesign } from "../../../src/survey/design";
 import type { DesignQuestion, DesignRule, SurveyDesign } from "../api";
 import {
+  canDropIn,
   changedTexts,
   Drafts,
+  dropChange,
   editKey,
   isItemCode,
   itemAfter,
@@ -108,6 +110,40 @@ describe("the questions changed (stage 3)", () => {
     expect(moveTarget(items, 4, 1)).toBeNull();
     expect(pageMoveTarget(["a", "b", "c"], "a", 1)).toEqual({ before: "c" });
     expect(pageMoveTarget(["a", "b", "c"], "c", -1)).toEqual({ before: "b" });
+  });
+
+  it("works out the move a drop makes, or none", () => {
+    const card = { kind: "card", page: "a" } as const;
+    const order = [1, 2, 3, 4];
+    const drop = (on?: number, after = false) => dropChange({ place: card, id: 2 }, { place: card, order, on, after });
+    // On the item after it, before or after
+    expect(drop(3)).toBeNull();
+    expect(drop(3, true)).toEqual({ op: "moveQuestion", id: 2, before: 4 });
+    expect(drop(4, true)).toEqual({ op: "moveQuestion", id: 2 });
+    expect(drop(1)).toEqual({ op: "moveQuestion", id: 2, before: 1 });
+    // On itself, after the one before it, on another place's item
+    expect(drop(2, true)).toBeNull();
+    expect(drop(1, true)).toBeNull();
+    expect(drop(9)).toBeNull();
+    // On its card: last, unless it is last already
+    expect(drop()).toEqual({ op: "moveQuestion", id: 2 });
+    expect(dropChange({ place: card, id: 4 }, { place: card, order })).toBeNull();
+    // To another card: before an item of it, or last
+    const other = { kind: "card", page: "b" } as const;
+    expect(dropChange({ place: card, id: 2 }, { place: other, order: [7, 8], on: 8 })).toEqual({ op: "moveQuestion", id: 2, page: "b", before: 8 });
+    expect(dropChange({ place: card, id: 2 }, { place: other, order: [] })).toEqual({ op: "moveQuestion", id: 2, page: "b" });
+    // A column stays in its table, and a question goes in no table
+    const table = { kind: "table", table: 5 } as const;
+    expect(dropChange({ place: table, id: 6 }, { place: table, order: [6, 7], on: 7, after: true })).toEqual({ op: "moveQuestion", id: 6 });
+    expect(dropChange({ place: table, id: 6 }, { place: { kind: "table", table: 9 }, order: [10] })).toBeNull();
+    expect(dropChange({ place: table, id: 6 }, { place: card, order })).toBeNull();
+    expect(dropChange({ place: card, id: 2 }, { place: table, order: [6, 7] })).toBeNull();
+    expect(canDropIn(card, other) && !canDropIn(table, card)).toBe(true);
+    // An answer at its level only
+    const top = { kind: "list", list: "colours", under: null } as const;
+    expect(dropChange({ place: top, id: "red" }, { place: top, order: ["red", "green", "blue"], on: "blue", after: true })).toEqual({ op: "moveItem", list: "colours", code: "red" });
+    expect(dropChange({ place: top, id: "blue" }, { place: top, order: ["red", "green", "blue"], on: "red" })).toEqual({ op: "moveItem", list: "colours", code: "blue", before: "red" });
+    expect(dropChange({ place: top, id: "red" }, { place: { ...top, under: "green" }, order: ["lime"], on: "lime" })).toBeNull();
   });
 
   it("finds the question right below another, on its card or in its table", () => {
