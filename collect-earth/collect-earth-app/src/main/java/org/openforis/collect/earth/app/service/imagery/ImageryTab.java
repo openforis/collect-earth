@@ -1,7 +1,10 @@
 package org.openforis.collect.earth.app.service.imagery;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.Locale;
 import java.util.function.BooleanSupplier;
 
 import org.openqa.selenium.json.Json;
@@ -12,6 +15,8 @@ public final class ImageryTab {
 
 	/** Marks the document a load leaves: the new document of the page does not have it. */
 	private static final String LEAVING_MARK = "window.__collectEarthLeaving";
+	/** Marks the document a load leaves ({@link #LEAVING_MARK}) and gives its address, in one round trip. */
+	static final String MARK_LEAVING_SCRIPT = "(() => { " + LEAVING_MARK + " = true; return String(location.href); })()";
 	private static final Duration POLL = Duration.ofMillis(250);
 	/**
 	 * How long a poll of {@link #waitUntil} in the tab of a source other than Google Earth Web waits for its answer: a
@@ -50,6 +55,11 @@ public final class ImageryTab {
 	 * only changes in the #fragment, which a navigation alone does not load again. Returns whether it loaded in time.
 	 * The wait is a series of short commands, so the other tabs are served meanwhile.
 	 * <p>
+	 * The reload is sent only when the navigation stays in the document (see {@link #staysInDocument}): a navigation to
+	 * another address loads the page by itself, and reloading it on top loaded the page of every plot twice (Firefox 160:
+	 * two loads of the new address for one navigation and its reload). The address is the one the browser compares,
+	 * the page's own as it is now. When it cannot be read (a page that takes no scripts), the reload is sent as before.
+	 * <p>
 	 * A navigation that fails (no network, a site that is down) lands on a new, complete error document, so this
 	 * returns true then too: whether the page is the one wanted is for the caller to judge. A page that does not take
 	 * scripts (an error page, a privileged page) is navigated away from all the same, without the mark.
@@ -64,19 +74,65 @@ public final class ImageryTab {
 	 */
 	public boolean load(String url, boolean reload, Duration timeout, BooleanSupplier cancelled) {
 		browser.call(source, (d, tab) -> {
+			String leaving = null;
 			try {
-				d.evaluate(tab, LEAVING_MARK + " = true");
+				leaving = d.evaluate(tab, MARK_LEAVING_SCRIPT);
 			} catch (PageScriptException e) {
 				// Not marked: the wait may then see the old document as loaded, which is still better than not loading
 			}
 			d.navigate(tab, url);
-			if (reload) {
+			// "null": the page gave no address, which is then not known
+			if (reload && (leaving == null || "null".equals(leaving) || staysInDocument(leaving, url))) {
 				d.reload(tab);
 			}
 			browser.navigated(tab);
 			return null;
 		});
 		return waitUntil("return !" + LEAVING_MARK + " && document.readyState === 'complete';", timeout, cancelled);
+	}
+
+	/**
+	 * Whether a navigation from the page at {@code from} to {@code to} may stay in its document, which a browser only
+	 * scrolls to the #fragment instead of loading: {@code to} has a fragment and its address before it is the page's
+	 * (HTML's "navigate to a fragment"). An address without a fragment is always loaded, even the same one. Compared as
+	 * the browser compares them, not as text: the page's own address is the browser's writing of it (a "/" for an empty
+	 * path, the host in lower case, the default port left out, characters escaped), which the configured address of a
+	 * source may not be. Only a document that is certainly another counts as one: when in doubt (an address that does
+	 * not parse), it may stay, and the caller reloads, as it always did.
+	 */
+	static boolean staysInDocument(String from, String to) {
+		int hash = to.indexOf('#');
+		if (hash < 0) {
+			return false;
+		}
+		int fromHash = from.indexOf('#');
+		String fromDocument = fromHash < 0 ? from : from.substring(0, fromHash);
+		String toDocument = to.substring(0, hash);
+		if (fromDocument.equals(toDocument)) {
+			return true;
+		}
+		String a = documentOf(fromDocument);
+		String b = documentOf(toDocument);
+		return a == null || b == null || a.equals(b);
+	}
+
+	/** An address as the browser compares it, or null when it does not parse. */
+	private static String documentOf(String address) {
+		try {
+			URI uri = new URI(address);
+			if (!uri.isAbsolute() || uri.isOpaque()) {
+				return uri.isOpaque() ? uri.getScheme().toLowerCase(Locale.ROOT) + ":" + uri.getSchemeSpecificPart() : null;
+			}
+			String scheme = uri.getScheme().toLowerCase(Locale.ROOT);
+			String host = uri.getHost() == null ? "" : uri.getHost().toLowerCase(Locale.ROOT);
+			int port = uri.getPort();
+			boolean defaultPort = port == -1 || ("https".equals(scheme) && port == 443) || ("http".equals(scheme) && port == 80);
+			String path = uri.getPath() == null || uri.getPath().isEmpty() ? "/" : uri.getPath();
+			String query = uri.getQuery() == null ? "" : "?" + uri.getQuery();
+			return scheme + "://" + host + (defaultPort ? "" : ":" + port) + path + query;
+		} catch (URISyntaxException e) {
+			return null;
+		}
 	}
 
 	/**

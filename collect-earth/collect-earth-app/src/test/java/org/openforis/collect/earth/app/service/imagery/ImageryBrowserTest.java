@@ -321,6 +321,51 @@ public class ImageryBrowserTest {
 	}
 
 	@Test
+	public void aLoadOfAnotherAddressIsNotReloadedOnTop() {
+		// Earth Map, Planet's page, Street View: another address each plot, which the navigation loads by itself
+		browser.answers.put(ImageryTab.MARK_LEAVING_SCRIPT, "https://earthmap/?polygon=1");
+		browser.answers.put("readyState", "true");
+		assertTrue(imagery.tab(ImagerySource.EARTH_MAP).load("https://earthmap/?polygon=2", true, Duration.ofSeconds(5)));
+		assertTrue(browser.calls.contains("navigate tab0 https://earthmap/?polygon=2"), browser.calls.toString());
+		assertFalse(browser.calls.contains("reload tab0"), browser.calls.toString());
+	}
+
+	@Test
+	public void aLoadThatOnlyChangesTheFragmentIsReloaded() {
+		// Wayback and the Earth Engine app: the same page, the plot after the #, which a navigation only scrolls to
+		browser.answers.put(ImageryTab.MARK_LEAVING_SCRIPT, "https://app/explorer#plotId=1");
+		browser.answers.put("readyState", "true");
+		assertTrue(imagery.tab(ImagerySource.GEE_APP).load("https://app/explorer#plotId=2", true, Duration.ofSeconds(5)));
+		assertEquals(Arrays.asList("evaluate tab0", "navigate tab0 https://app/explorer#plotId=2", "reload tab0"),
+				browser.calls.subList(0, 3));
+	}
+
+	@Test
+	public void aPageWhoseAddressIsNotKnownIsReloadedAsBefore() {
+		browser.failingScripts.add("__collectEarthLeaving = true"); // an error page, a privileged page
+		browser.answers.put("readyState", "true");
+		assertTrue(imagery.tab(ImagerySource.GEE_APP).load("https://app/explorer#plotId=2", true, Duration.ofSeconds(5)));
+		assertTrue(browser.calls.contains("reload tab0"), browser.calls.toString());
+	}
+
+	@Test
+	public void aNavigationStaysInTheDocumentWhenOnlyTheFragmentChanges() {
+		assertTrue(ImageryTab.staysInDocument("https://a/b?c=1#x", "https://a/b?c=1#y"));
+		assertTrue(ImageryTab.staysInDocument("https://a/b?c=1", "https://a/b?c=1#y"));
+		assertTrue(ImageryTab.staysInDocument("https://a/b#x", "https://a/b#x"));
+		assertFalse(ImageryTab.staysInDocument("https://a/b#x", "https://a/b"), "no fragment: loaded");
+		assertFalse(ImageryTab.staysInDocument("https://a/b?c=1#x", "https://a/b?c=2#x"));
+		assertFalse(ImageryTab.staysInDocument("about:blank", "https://a/b#x"));
+		// The page's address as the browser writes it, against the source's as configured: the same document
+		assertTrue(ImageryTab.staysInDocument("https://x.users.earthengine.app/#plotId=1", "https://x.users.earthengine.app#plotId=2"));
+		assertTrue(ImageryTab.staysInDocument("https://x.users.earthengine.app/view/app#p=1", "https://X.Users.EarthEngine.app:443/view/app#p=2"));
+		assertTrue(ImageryTab.staysInDocument("https://a/my%20app?q=a%20b#x", "https://a/my%20app?q=a b#y".replace(" ", "%20")));
+		assertTrue(ImageryTab.staysInDocument("https://a/b#x", "https://a/b c#y"), "an address that does not parse: may stay, reloaded");
+		assertFalse(ImageryTab.staysInDocument("https://a/b/#x", "https://a/c/#y"));
+		assertFalse(ImageryTab.staysInDocument("https://a:8443/b#x", "https://a/b#y"));
+	}
+
+	@Test
 	public void aDocumentBeingReplacedIsWaitedFor() {
 		browser.failNextEvaluates = 1;
 		browser.answers.put("ready", "true");
