@@ -10,6 +10,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.logging.GAlogger;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.PlotTimeService;
+import org.openforis.collect.earth.app.service.cloud.CorrectionService;
 import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.earth.core.model.PlacemarkLoadResult;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,6 +40,37 @@ public class PlacemarkDataController extends AbstractPlacemarkDataController {
 
 	void setProperties(LocalPropertiesService properties) {
 		this.properties = properties;
+	}
+
+	/** The plots the person corrects, kept apart from the local database (absent in some tests) */
+	@Autowired(required = false)
+	private CorrectionService corrections;
+
+	void setCorrections(CorrectionService corrections) {
+		this.corrections = corrections;
+	}
+
+	/**
+	 * While the person corrects plots, the plots file is theirs to correct, and the form saves through the correction
+	 * calls below, never into the local database: a form of before (opened on the person's own plots) is refused,
+	 * rather than storing a record with the keys of a plot to correct. Answers 200 with the reason, as without a name.
+	 */
+	boolean refusedWhileCorrecting(String placemarkId, HttpServletResponse response) throws IOException {
+		if (corrections == null || placemarkId == null || placemarkId.contains("$[") || !corrections.isOpen()) { //$NON-NLS-1$
+			return false;
+		}
+		PlacemarkLoadResult result = new PlacemarkLoadResult();
+		result.setSuccess(false);
+		result.setMessage(Messages.getString("Corrections.formOfBefore")); //$NON-NLS-1$
+		setJsonResponse(response, result);
+		return true;
+	}
+
+	private CorrectionService corrections() {
+		if (corrections == null) {
+			throw new IllegalStateException("No corrections here"); //$NON-NLS-1$
+		}
+		return corrections;
 	}
 
 	/**
@@ -92,7 +124,8 @@ public class PlacemarkDataController extends AbstractPlacemarkDataController {
 	@PostMapping(value="/save-data-expanded")
 	public void saveDataExpanded(PlacemarkUpdateRequest updateRequest, HttpServletResponse response) throws IOException {
 		try{
-			if (refusedWithoutName(updateRequest.getPlacemarkId(), response)) {
+			if (refusedWithoutName(updateRequest.getPlacemarkId(), response)
+					|| refusedWhileCorrecting(updateRequest.getPlacemarkId(), response)) {
 				return;
 			}
 			work(updateRequest.getPlacemarkId());
@@ -110,7 +143,8 @@ public class PlacemarkDataController extends AbstractPlacemarkDataController {
 	@PostMapping(value="/create-entity")
 	public void createEntity(PlacemarkEntityCreateParams params, HttpServletResponse response) throws IOException {
 		try{
-			if (refusedWithoutName(params.getPlacemarkId(), response)) {
+			if (refusedWithoutName(params.getPlacemarkId(), response)
+					|| refusedWhileCorrecting(params.getPlacemarkId(), response)) {
 				return;
 			}
 			work(params.getPlacemarkId());
@@ -125,10 +159,68 @@ public class PlacemarkDataController extends AbstractPlacemarkDataController {
 	@PostMapping(value="/delete-entity")
 	public void deleteEntity(PlacemarkEntityCreateParams params, HttpServletResponse response) throws IOException {
 		try{
+			if (refusedWhileCorrecting(params.getPlacemarkId(), response)) {
+				return;
+			}
 			work(params.getPlacemarkId());
 			super.deleteEntity(params, response);
 		}catch(Exception e){
 			logger.error("Error deleting " + params.getEntityName() + " from plot " + params.getPlacemarkId(), e);
+			sendError(response);
+		}
+	}
+
+	// ---------------------------------------------------------------------------------------------------------------
+	// Correcting plots others answered (CorrectionService): the form's calls with correction=1 in its address. The
+	// record is kept apart from the local database; the time spent is not counted as the person's plot's.
+
+	@GetMapping(value="/correction-info-expanded")
+	public void correctionInfoExpanded(@RequestParam("id") String placemarkId, HttpServletResponse response) throws IOException {
+		try {
+			setJsonResponse(response, corrections().load(placemarkId));
+		} catch (Exception e) {
+			logger.error("Error loading the correction of plot " + placemarkId, e);
+			sendError(response);
+		}
+	}
+
+	@PostMapping(value="/correction-save-expanded")
+	public void correctionSaveExpanded(PlacemarkUpdateRequest updateRequest, HttpServletResponse response) throws IOException {
+		try {
+			if (refusedWithoutName(updateRequest.getPlacemarkId(), response)) {
+				return;
+			}
+			Map<String, String> values = adjustParameters(updateRequest);
+			if (values.isEmpty()) {
+				setJsonResponse(response, handleEmptyCollectedData());
+				return;
+			}
+			setJsonResponse(response, corrections().save(updateRequest.getPlacemarkId(), new java.util.HashMap<>(values), updateRequest.isPartialUpdate()));
+		} catch (Exception e) {
+			logger.error("Error saving the correction of plot " + updateRequest.getPlacemarkId(), e);
+			sendError(response);
+		}
+	}
+
+	@PostMapping(value="/correction-create-entity")
+	public void correctionCreateEntity(PlacemarkEntityCreateParams params, HttpServletResponse response) throws IOException {
+		try {
+			if (refusedWithoutName(params.getPlacemarkId(), response)) {
+				return;
+			}
+			setJsonResponse(response, corrections().addEntity(params.getPlacemarkId(), params.getEntityName(), new java.util.HashMap<>(adjustParameters(params))));
+		} catch (Exception e) {
+			logger.error("Error adding " + params.getEntityName() + " to the correction of plot " + params.getPlacemarkId(), e);
+			sendError(response);
+		}
+	}
+
+	@PostMapping(value="/correction-delete-entity")
+	public void correctionDeleteEntity(PlacemarkEntityCreateParams params, HttpServletResponse response) throws IOException {
+		try {
+			setJsonResponse(response, corrections().deleteEntity(params.getPlacemarkId(), params.getEntityName()));
+		} catch (Exception e) {
+			logger.error("Error deleting " + params.getEntityName() + " from the correction of plot " + params.getPlacemarkId(), e);
 			sendError(response);
 		}
 	}

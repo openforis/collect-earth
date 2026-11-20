@@ -116,7 +116,7 @@ describe("the ready-made views", () => {
   });
 
   it("open on the main question: the number of plots, as horizontal bars, largest first, first assessments only", () => {
-    expect(tpls[0].question).toEqual({ rows: ["Land use"], columns: [], measures: ["plots"], extra: [], filters: [["Assessment", "==", "First assessment"]], chart: "X Bar", order: "desc" });
+    expect(tpls[0].question).toEqual({ rows: ["Land use"], columns: [], measures: ["plots"], extra: [], filters: [["Plot's answer", "==", "Yes"]], chart: "X Bar", order: "desc" });
     // with the areas of the project file: the area
     const withAreas = data({ areas: { source: "region_areas.csv", unknownColumns: [], noStratum: { plots: 0, examples: [] }, plots: 30, unmatched: 0 } });
     const c = cubeOf(withAreas, "plot", "en", t);
@@ -131,11 +131,11 @@ describe("the ready-made views", () => {
       columns: ["From LU"],
       chart: "Heatmap",
       filters: [
-        ["Assessment", "==", "First assessment"],
+        ["Plot's answer", "==", "Yes"],
         ["Any change?", "==", "Yes"],
       ],
     });
-    expect(by("year:change2_yr")).toMatchObject({ rows: ["Year of change"], chart: "Y Bar", filters: [["Assessment", "==", "First assessment"], ["Any change?", "==", "Yes"]] });
+    expect(by("year:change2_yr")).toMatchObject({ rows: ["Year of change"], chart: "Y Bar", filters: [["Plot's answer", "==", "Yes"], ["Any change?", "==", "Yes"]] });
     expect(by("count:disturbance2")).toMatchObject({ chart: "X Bar", order: "desc" });
     expect(by("yesno:confidentt2")).toMatchObject({ rows: ["Land use"], columns: ["Are you confident with the interpretation?"], chart: "Y Bar" });
     // the work over time as lines

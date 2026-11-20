@@ -183,6 +183,12 @@ export async function registerPlotsGeoRoutes(
     ]);
     const { state } = served;
     if (file !== null && !state.files.some((f) => f.id === file)) return bad(reply, 'no plot file of this project has this id');
+    // A plot to correct in Collect Earth shows as one to look at again until it is corrected, then as decided
+    // (docs/plans/2026-11-20-review-at-scale.md)
+    const corrected = decisions.some((d) => d.decision === 'correct')
+      ? new Set((await store.listCorrections(projectId)).filter((c) => c.correctedAt !== null).map((c) => c.plot))
+      : new Set<string>();
+    const shown = (d: { plot: string; decision: DecisionKind }): DecisionKind => (d.decision !== 'correct' ? d.decision : corrected.has(d.plot) ? 'first' : 'recheck');
     let figures: ServedReport | null = null;
     try {
       figures = await quality.peek(projectId, request.log);
@@ -195,7 +201,7 @@ export async function registerPlotsGeoRoutes(
       mapVersion({
         key,
         state: state.version,
-        decisions: decisions.map((d) => [d.plot, d.decision, d.decidedAt]),
+        decisions: decisions.map((d) => [d.plot, d.decision, d.decidedAt, corrected.has(d.plot) ? 1 : 0]),
         figures: f ? (f.version ?? f.computedAt) : null,
         srid: facts.srid,
         hidden: facts.hidden,
@@ -243,7 +249,7 @@ export async function registerPlotsGeoRoutes(
       files,
       isPlot: isPlotUnit(state.info),
       progress: state.units,
-      decisions: new Map<string, DecisionKind>(decisions.map((d) => [d.plot, d.decision])),
+      decisions: new Map<string, DecisionKind>(decisions.map((d) => [d.plot, shown(d)])),
       differing: figures ? new Set(figures.report.pairs.plot) : null,
       resubmitted: figures ? new Set(resubmittedAfterRecheck(figures.flags, decisions).map((r) => r.plot)) : null,
       nameOf: hidden && hidden.some(Boolean) ? (unit) => visibleId(unit, hidden) : null,

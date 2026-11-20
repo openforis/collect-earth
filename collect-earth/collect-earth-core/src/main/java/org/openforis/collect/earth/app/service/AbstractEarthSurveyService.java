@@ -723,6 +723,134 @@ public abstract class AbstractEarthSurveyService implements DisposableBean {
 		}
 	}
 	
+	// ---------------------------------------------------------------------------------------------------------------
+	// Records kept apart from the local database: corrections (docs/plans/2026-11-20-review-at-scale.md). A correction is
+	// someone else's answer that the person corrects: it must never be a record of the local database, which the cloud
+	// sync, its reconcile and "Send to cloud" all send as the person's own interpretation.
+
+	/** A record's XML (a cloud record's, a correction's draft) read into a record of the survey loaded, stored nowhere; null when it cannot be read */
+	public CollectRecord parseDetachedRecord(String xml) {
+		try {
+			org.openforis.collect.persistence.xml.DataUnmarshaller.ParseRecordResult parsed = new org.openforis.collect.persistence.xml.DataUnmarshaller(getCollectSurvey())
+					.parse(new java.io.StringReader(xml));
+			CollectRecord record = parsed.isSuccess() ? parsed.getRecord() : null;
+			// another survey's, or no record at all: a plot's record has its keys
+			if (record == null || record.getRootEntity() == null || !ROOT_ENTITY_NAME.equals(record.getRootEntity().getName())
+					|| record.getRootEntityKeyValues() == null || record.getRootEntityKeyValues().isEmpty()
+					|| record.getRootEntityKeyValues().stream().anyMatch(StringUtils::isBlank)) {
+				return null;
+			}
+			// Collect Earth's records have no user: Collect reads one without a name, which it cannot write back
+			if (record.getCreatedBy() != null && record.getCreatedBy().getUsername() == null) {
+				record.setCreatedBy(null);
+			}
+			if (record.getModifiedBy() != null && record.getModifiedBy().getUsername() == null) {
+				record.setModifiedBy(null);
+			}
+			// as a record loaded from the database is: its counts and relevance known before any change
+			recordUpdater.initializeRecord(record);
+			return record;
+		} catch (Exception e) {
+			logger.warn("A record could not be read from its XML: {}", e.getMessage()); //$NON-NLS-1$
+			return null;
+		}
+	}
+
+	/** The XML of a record kept apart */
+	public String detachedRecordXml(CollectRecord record) throws java.io.IOException {
+		java.io.StringWriter writer = new java.io.StringWriter();
+		try {
+			new org.openforis.collect.persistence.xml.DataMarshaller().write(record, writer);
+		} catch (Exception e) {
+			throw new java.io.IOException("The record could not be written as XML", e); //$NON-NLS-1$
+		}
+		return writer.toString();
+	}
+
+	/** A record kept apart, as the form loads a plot */
+	public synchronized PlacemarkLoadResult loadDetachedRecord(CollectRecord record) {
+		return createPlacemarkLoadSuccessResult(record);
+	}
+
+	/**
+	 * The form's values applied to a record kept apart as a save applies them to a stored record (on submit, validated
+	 * again, and actively saved only when complete), its operator the person's; stored nowhere.
+	 */
+	public synchronized PlacemarkLoadResult updateDetachedRecord(CollectRecord record, Map<String, String> parameters, boolean partialUpdate) {
+		try {
+			parameters.put(OPERATOR_PARAMETER, localPropertiesService.getOperator());
+			return updatePlacemarkDataExistingRecord(parameters, null, partialUpdate, record, null, true, true);
+		} catch (Exception e) {
+			logger.error("Error while correcting the record " + e.getMessage(), e); //$NON-NLS-1$
+			PlacemarkLoadResult result = new PlacemarkLoadResult();
+			result.setSuccess(false);
+			return result;
+		}
+	}
+
+	/**
+	 * A new record kept apart, for a plot to correct that has no answer to start from: its keys and the form's values of
+	 * the plot file, the person its operator; stored nowhere.
+	 */
+	public synchronized CollectRecord newDetachedRecord(String[] plotKeyAttributes, Map<String, String> parameters) {
+		Map<String, String> values = new LinkedHashMap<>(parameters == null ? Collections.emptyMap() : parameters);
+		values.put(OPERATOR_PARAMETER, localPropertiesService.getOperator());
+		return createNewRecord(plotKeyAttributes, values, new LinkedHashMap<>());
+	}
+
+	/**
+	 * Someone's answer made the start of a correction: no longer submitted (the person submits the correction) and the
+	 * person its operator. The answers stay as they are.
+	 */
+	public synchronized void startDetachedRecord(CollectRecord record) {
+		BooleanAttribute attr = record.findNodeByPath(ROOT_ENTITY_NAME + "/" + ACTIVELY_SAVED_ATTRIBUTE_NAME); //$NON-NLS-1$
+		if (attr != null) {
+			recordUpdater.updateAttribute(attr, new BooleanValue(false));
+		}
+		Map<String, String> operator = new HashMap<>();
+		operator.put(OPERATOR_PARAMETER, localPropertiesService.getOperator());
+		collectParametersHandler.saveToEntity(operator, record.getRootEntity());
+	}
+
+	/** A row added to a record kept apart (a multiple entity of the form) */
+	public synchronized PlacemarkLoadResult addEntityToDetachedRecord(CollectRecord record, String entityName) {
+		try {
+			NodeChangeSet changeSet = recordUpdater.addEntity(record.getRootEntity(), entityName);
+			return createPlacemarkLoadSuccessResult(record, changeSet);
+		} catch (Exception e) {
+			logger.error("Error adding to a record kept apart: " + e.getMessage(), e); //$NON-NLS-1$
+			PlacemarkLoadResult result = new PlacemarkLoadResult();
+			result.setSuccess(false);
+			return result;
+		}
+	}
+
+	/** The last row of a multiple entity taken off a record kept apart */
+	public synchronized PlacemarkLoadResult deleteEntityOfDetachedRecord(CollectRecord record, String entityName) {
+		PlacemarkLoadResult result;
+		try {
+			List<Node<? extends NodeDefinition>> entities = record.getRootEntity().getChildren(entityName);
+			if (entities == null || entities.isEmpty()) {
+				result = new PlacemarkLoadResult();
+				result.setSuccess(false);
+				result.setMessage("No entity found to delete"); //$NON-NLS-1$
+				return result;
+			}
+			NodeChangeSet changeSet = recordUpdater.deleteNode((Entity) entities.get(entities.size() - 1));
+			return createPlacemarkLoadSuccessResult(record, changeSet);
+		} catch (Exception e) {
+			logger.error("Error deleting from a record kept apart: " + e.getMessage(), e); //$NON-NLS-1$
+			result = new PlacemarkLoadResult();
+			result.setSuccess(false);
+			return result;
+		}
+	}
+
+	/** A record's answers by the form's names, as the cloud's records carry them (CloudRecordSerializer) */
+	public Map<String, String> detachedRecordSummary(CollectRecord record) {
+		return collectParametersHandler.getValuesByHtmlParameters(record.getRootEntity());
+	}
+
 	private PlacemarkLoadResult updatePreviewPlacemarkData(String[] plotKeyAttributes, Map<String, String> parameters) {
 		CollectRecord record = createRecord();
 
@@ -823,6 +951,12 @@ public abstract class AbstractEarthSurveyService implements DisposableBean {
 	 */
 	private PlacemarkLoadResult updatePlacemarkDataExistingRecord(Map<String, String> parameters, String sessionId,
 			boolean partialUpdate, CollectRecord record, String key, boolean notStored) throws RecordPersistenceException {
+		return updatePlacemarkDataExistingRecord(parameters, sessionId, partialUpdate, record, key, notStored, false);
+	}
+
+	/** {@code detached}: a record kept apart from the local database (a correction), never stored whatever its state */
+	private PlacemarkLoadResult updatePlacemarkDataExistingRecord(Map<String, String> parameters, String sessionId,
+			boolean partialUpdate, CollectRecord record, String key, boolean notStored, boolean detached) throws RecordPersistenceException {
 		// Populate the data of the record using the HTTP parameters
 		// received
 		Entity plotEntity = record.getRootEntity();
@@ -868,7 +1002,7 @@ public abstract class AbstractEarthSurveyService implements DisposableBean {
 
 		// Persisted synchronously when the user explicitly submits & validates, otherwise
 		// deferred (write-behind) to keep interactive field changes fast on a remote DB.
-		if (!notStored || isActivelySaved(record) || hasCollectorInput(record)) {
+		if (!detached && (!notStored || isActivelySaved(record) || hasCollectorInput(record))) {
 			persistOrDefer(key, record, sessionId, userClickOnSubmitAndValidate);
 		}
 

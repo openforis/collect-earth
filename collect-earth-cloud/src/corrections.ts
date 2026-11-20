@@ -1,0 +1,196 @@
+// Corrections (docs/plans/2026-11-20-review-at-scale.md, B2-B4): plots decided "Correct it in Collect Earth" are
+// assigned by a coordinator to people of the project (reviewers, interpreters or coordinators), who correct them in their
+// own Collect Earth. Pure: how plots are shared, whose own plots are assigned (a warning, not a refusal), and what
+// Collect Earth is given of a plot to correct (its answers and where they differ).
+import { createHash } from 'node:crypto';
+import { pairFields } from './quality.js';
+import type { Store } from './store/store.js';
+import type { Question } from './surveyOutline.js';
+import type { QualityCorrection, RecordRow } from './types.js';
+import type { CorrectionAnswer, CorrectionDifference, OwnAssignment } from './wire/review.js';
+import type { DecisionKind } from './wire/quality.js';
+
+/** The plots shared evenly between the people, in the order given (round robin); none: to nobody */
+export function shareEvenly(plots: readonly string[], people: readonly string[]): { plot: string; userId: string | null }[] {
+  return plots.map((plot, i) => ({ plot, userId: people.length === 0 ? null : people[i % people.length] }));
+}
+
+/**
+ * The plots assigned to someone who answered them (a record of theirs, or a copy they hold): they would correct their
+ * own work. Said to the coordinator, never refused (decided 20 Nov 2026).
+ */
+export function ownAssignments(
+  assignments: readonly { plot: string; userId: string | null }[],
+  usernameOf: (userId: string) => string | null,
+  answeredBy: (plot: string, username: string, userId: string) => boolean,
+): OwnAssignment[] {
+  const out: OwnAssignment[] = [];
+  for (const a of assignments) {
+    if (a.userId === null) continue;
+    const username = usernameOf(a.userId);
+    if (username !== null && answeredBy(a.plot, username, a.userId)) out.push({ plot: a.plot, username });
+  }
+  return out;
+}
+
+/** How many plots each person gets, and how many of them are their own */
+export function assignmentCounts(
+  assignments: readonly { plot: string; userId: string | null }[],
+  own: readonly OwnAssignment[],
+  usernameOf: (userId: string) => string | null,
+): { userId: string; username: string; plots: number; own: number }[] {
+  const ownBy = new Map<string, number>();
+  for (const o of own) ownBy.set(o.username, (ownBy.get(o.username) ?? 0) + 1);
+  const by = new Map<string, number>();
+  for (const a of assignments) if (a.userId !== null) by.set(a.userId, (by.get(a.userId) ?? 0) + 1);
+  return [...by].map(([userId, plots]) => {
+    const username = usernameOf(userId) ?? '';
+    return { userId, username, plots, own: ownBy.get(username) ?? 0 };
+  });
+}
+
+/**
+ * Where a plot's answers differ: every question on which some answer differs from the first (`answers[0]`), with each
+ * answer's value (labels as the survey says them, where it has some). The first answer is what the form starts from.
+ */
+export function correctionDifferences(
+  answers: readonly Pick<CorrectionAnswer, 'operator' | 'summary'>[],
+  outline: ReadonlyMap<string, Question> | null,
+  margins: Readonly<Record<string, number>> = {},
+): CorrectionDifference[] {
+  if (answers.length < 2) return [];
+  const keys: string[] = [];
+  for (const other of answers.slice(1)) {
+    for (const f of pairFields(answers[0].summary, other.summary, outline, margins)) if (!keys.includes(f.key)) keys.push(f.key);
+  }
+  return keys.map((key) => {
+    const q = outline?.get(key);
+    const label = (code: string) => q?.options?.find((o) => o.code === code)?.label ?? code;
+    return {
+      key,
+      question: q?.label ?? key,
+      values: answers.map((a) => {
+        const value = Object.hasOwn(a.summary, key) ? a.summary[key] : '';
+        return { operator: a.operator, value, label: value === '' ? '' : value.split(',').map((v) => label(v.trim())).join(', ') };
+      }),
+    };
+  });
+}
+
+/**
+ * A plot's id in my-corrections.csv: its unit, with the round column a first assessment has inserted where the server
+ * added round to the survey (roundColumnOf: "1" after the first key), as Collect Earth reads the row's keys.
+ */
+export function correctionPlacemarkId(unit: string, state: string | undefined, roundIndex: number | null): string {
+  if (state !== 'added' || roundIndex === null) return unit;
+  const fields = unit.split(',');
+  if (roundIndex > fields.length) return unit;
+  fields.splice(roundIndex, 0, '1');
+  return fields.join(',');
+}
+
+/** The version of a person's plots to correct: Collect Earth asks again only when it changed */
+export function correctionsVersion(parts: unknown): string {
+  return createHash('sha256').update(JSON.stringify(parts)).digest('hex').slice(0, 16);
+}
+
+/**
+ * A plot's correction as the plot's answer (asked 20 Nov 2026: "use the corrections for the analysis and all further
+ * works"): where a plot decided "correct" is corrected, its correction is what the analysis, the areas, the uncertainty,
+ * the IPCC files, the export's weights, the Collect backup and a repeat survey's earlier answers read of it, not its
+ * first assessment. The quality figures, the people's figures and the progress still read the interpreters' records: a
+ * correction is no interpretation.
+ */
+export interface CorrectedAnswer {
+  /** The plot unit */
+  plot: string;
+  /** The corrected record's key (the first assessment's) and who corrected it (its operator in the exports) */
+  recordKey: string;
+  operator: string;
+  correctedAt: number;
+  summary: Record<string, string>;
+  xml: string | null;
+}
+
+/**
+ * The corrections that are the plots' answers: of the plots decided "correct" (now: a decision changed since leaves the
+ * correction aside), corrected, reference plots left out (they are never decided).
+ */
+export function correctedAnswers(
+  decisions: readonly { plot: string; decision: string }[],
+  corrections: readonly QualityCorrection[],
+  reference: { has(plot: string): boolean } = new Set<string>(),
+): Map<string, CorrectedAnswer> {
+  const toCorrect = new Set(decisions.filter((d) => d.decision === 'correct' && !reference.has(d.plot)).map((d) => d.plot));
+  const out = new Map<string, CorrectedAnswer>();
+  for (const c of corrections) {
+    if (!toCorrect.has(c.plot) || c.correctedAt === null || c.recordKey === null) continue;
+    out.set(c.plot, { plot: c.plot, recordKey: c.recordKey, operator: c.correctedBy ?? '', correctedAt: c.correctedAt, summary: c.summary ?? {}, xml: c.xml ?? null });
+  }
+  return out;
+}
+
+/**
+ * The project's corrections that are plots' answers (correctedAnswers), read from the store; `xml`: with the corrected
+ * records' XML (the backup), else their answers only (up to 2 MB each otherwise)
+ */
+export async function loadCorrectedAnswers(
+  store: Pick<Store, 'listQualityDecisions' | 'listCorrections'>,
+  projectId: string,
+  reference: { has(plot: string): boolean } = new Set<string>(),
+  options: { xml?: boolean } = {},
+): Promise<Map<string, CorrectedAnswer>> {
+  const decisions = await store.listQualityDecisions(projectId);
+  if (!decisions.some((d) => d.decision === 'correct')) return new Map();
+  return correctedAnswers(decisions, await store.listCorrections(projectId, { withRecords: options.xml ? true : 'summary' }), reference);
+}
+
+/** A correction as a record row (the exports, the backup, a repeat survey's earlier answers): submitted, its corrector's */
+export function correctionRow(projectId: string, c: CorrectedAnswer): RecordRow {
+  return {
+    projectId,
+    recordKey: c.recordKey,
+    operator: c.operator,
+    modifiedOn: c.correctedAt,
+    receivedAt: c.correctedAt,
+    activelySaved: true,
+    step: 1,
+    xml: c.xml,
+    summary: c.summary,
+    deleted: false,
+    deletedOn: null,
+  };
+}
+
+/** What changes when a correction does: a stamp for the caches of what is worked out from the plots' answers */
+export function correctedStamp(corrected: ReadonlyMap<string, CorrectedAnswer>): string {
+  return [...corrected.values()].map((c) => `${c.plot}\u0000${c.correctedAt}`).sort().join('\u0001');
+}
+
+/**
+ * What the coordinators chose for the plots (asked 20 Nov 2026: "use the coordinator marked plot"): the corrections
+ * (correctedAnswers) and the decisions by plot ("first", "check": the record they took is the plot's answer; "recheck"
+ * and a "correct" not corrected yet leave the first assessment). Reference plots are never decided.
+ */
+export interface PlotChoices {
+  corrected: Map<string, CorrectedAnswer>;
+  decided: Map<string, DecisionKind>;
+}
+
+/** The project's choices (PlotChoices), read from the store */
+export async function loadPlotChoices(
+  store: Pick<Store, 'listQualityDecisions' | 'listCorrections'>,
+  projectId: string,
+  reference: { has(plot: string): boolean } = new Set<string>(),
+  options: { xml?: boolean } = {},
+): Promise<PlotChoices> {
+  const decisions = (await store.listQualityDecisions(projectId)).filter((d) => !reference.has(d.plot));
+  const decided = new Map(decisions.map((d) => [d.plot, d.decision as DecisionKind]));
+  if (!decisions.some((d) => d.decision === 'correct')) return { corrected: new Map(), decided };
+  return { corrected: correctedAnswers(decisions, await store.listCorrections(projectId, { withRecords: options.xml ? true : 'summary' }), reference), decided };
+}
+
+/** What changes when a choice does: a stamp for the caches of what is worked out from the plots' answers */
+export function choicesStamp(choices: PlotChoices): string {
+  return `${correctedStamp(choices.corrected)}\u0002${[...choices.decided].map(([plot, d]) => `${plot}\u0000${d}`).sort().join('\u0001')}`;
+}

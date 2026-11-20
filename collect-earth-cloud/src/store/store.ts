@@ -42,6 +42,7 @@ import type {
   ProjectRow,
   ProjectStatus,
   ProjectStorage,
+  QualityCorrection,
   QualityDecision,
   QualitySettings,
   RecordEvent,
@@ -723,6 +724,7 @@ export interface Store {
   /**
    * Decides several plots at once (the bulk decisions), in one transaction: each plot only
    * when it has no decision yet (one made meanwhile is kept). Gives the plots decided.
+   * `replace`: a plot's decision is replaced too (one decision for plots picked in the list, decisions:apply).
    */
   addQualityDecisions(
     projectId: string,
@@ -730,9 +732,30 @@ export interface Store {
     comment: string | null,
     userId: string | null,
     batch: string,
+    options?: { replace?: boolean },
   ): Promise<string[]>;
   /** False when the plot had no decision. */
   deleteQualityDecision(projectId: string, plot: string): Promise<boolean>;
+  /**
+   * The plots to correct and their corrections, by plot (docs/plans/2026-11-20-review-at-scale.md, B2); `withRecords`:
+   * the corrected records' XML and summary (true), or their summary only ('summary')
+   */
+  listCorrections(projectId: string, options?: { withRecords?: boolean | 'summary' }): Promise<QualityCorrection[]>;
+  /**
+   * Assigns plots to people to correct (userId null: to nobody), in one transaction; a plot's correction already made is
+   * kept. `by`: who assigned them (null for a project token).
+   */
+  assignCorrections(projectId: string, assignments: readonly { plot: string; userId: string | null }[], by: string | null, at: number): Promise<void>;
+  /**
+   * Keeps a plot's correction, made by `userId`: only when the plot is assigned to them ('not_assigned' otherwise). A
+   * correction made before is replaced (the person corrected it again).
+   */
+  saveCorrection(
+    projectId: string,
+    plot: string,
+    userId: string,
+    correction: { recordKey: string; xml: string; summary: Record<string, string>; baseOperator: string | null; at: number },
+  ): Promise<'saved' | 'not_assigned'>;
   listGuidanceNotes(projectId: string): Promise<GuidanceNote[]>;
   createGuidanceNote(projectId: string, note: GuidanceNoteInput, userId: string | null): Promise<GuidanceNote>;
   /** Null when the project has no note with that id. */

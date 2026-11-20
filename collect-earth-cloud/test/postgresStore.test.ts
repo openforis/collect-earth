@@ -239,6 +239,15 @@ describe('PostgresStore pool', () => {
     expect(list.params).toEqual([PROJECT, new Date(0), new Date(10), 5, 'maria', new Date(5), '7']);
   });
 
+  it('counts how long each transaction waited for a connection (the owner\'s alerts say it)', async () => {
+    const { DatabaseVitals } = await import('../src/databaseVitals.js');
+    const vitals = new DatabaseVitals();
+    const store = new PostgresStore('postgres://x', { vitals });
+    await store.qualityVersion(PROJECT);
+    await store.syncIntake(PROJECT);
+    expect(vitals.summary()).toMatchObject({ waits: 2, slow: 0, busy: 0 });
+  });
+
   it('syncIntake reads the status, the training plots and the round info in one statement under the project setting', async () => {
     const store = new PostgresStore('postgres://x');
     intake.row = { status: 'draft', open: [], closed: [], round_info: null };

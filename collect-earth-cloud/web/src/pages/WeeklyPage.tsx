@@ -150,7 +150,7 @@ function Quality({ projectId, data }: { projectId: string; data: WeeklyAnswer })
       <Typography>
         {d.total === 0
           ? t("weekly.decidedNone")
-          : t("weekly.decided", { n: n(d.total), first: n(d.first), check: n(d.check), recheck: n(d.recheck) })}
+          : t("weekly.decided", { n: n(d.total), first: n(d.first), check: n(d.check), recheck: n(d.recheck), correct: n(d.correct) })}
       </Typography>
       {!q.available ? (
         <Alert

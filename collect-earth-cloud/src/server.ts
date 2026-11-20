@@ -64,6 +64,7 @@ import { registerCollectBackupRoutes } from './routes/collectBackup.js';
 import { registerCollectImportRoutes } from './routes/collectImport.js';
 import { registerMailRoutes, type AccountMailHooks } from './routes/mail.js';
 import { registerQualityRoutes } from './routes/quality.js';
+import { registerCorrectionRoutes } from './routes/corrections.js';
 import { registerRecordRoutes } from './routes/records.js';
 import { registerTrainingRoutes } from './routes/training.js';
 import { referenceSyncer, registerReferenceRoutes } from './routes/reference.js';
@@ -74,6 +75,7 @@ import { SamplingService } from './samplingService.js';
 import { disableLocalOffRoutes, registerLocalRoutes, type LocalSetup } from './local.js';
 import { InMemoryStore } from './store/memory.js';
 import { DatabaseBusyError, isPoolWaitTimeout } from './store/busy.js';
+import { databaseVitals, type DatabaseVitals } from './databaseVitals.js';
 import type { AlertsMarkedAnswer, OwnerAlertsPage, WebhookTestAnswer } from './wire/serverAdmin.js';
 
 export interface BuildServerOptions {
@@ -93,6 +95,8 @@ export interface BuildServerOptions {
   mailer?: Mailer;
   /** For tests: how the alerts' webhook is posted to (src/alertWebhook.ts); fetch by default. */
   webhookFetch?: Fetch;
+  /** Where the database's waits and busy answers are counted (tests); the instance's own by default (src/databaseVitals.ts). */
+  databaseVitals?: DatabaseVitals;
   /** For tests: a lower cap on confirmation mails per instance and hour. */
   mailLimits?: { perInstanceHour?: number };
   /** For tests: Google's keys for the weekly job's OIDC token. */
@@ -153,6 +157,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   // The log's warnings and errors, also kept for the owner's "many server errors" mail (src/errorLog.ts)
   const errorLog = new ErrorLog();
   const loggerOptions = typeof options.logger === 'object' ? options.logger : {};
+  const vitals = options.databaseVitals ?? databaseVitals;
   const app = Fastify({
     // A token in an address (progress links, invitations, reset pages, backup downloads) is never
     // written to the server's log (src/logRedact.ts).
@@ -179,6 +184,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   // Collect Earth and the dashboard try again after, instead of a 500. Every other error as Fastify answers it.
   app.setErrorHandler((err, request, reply) => {
     if (err instanceof DatabaseBusyError || isPoolWaitTimeout(err)) {
+      vitals.noteBusy();
       request.log.warn({ url: request.url }, 'database busy: no connection of the pool came free in time');
       void reply.code(503).header('retry-after', '15').send({ error: 'busy', reason: 'The server is busy: try again in a moment.' });
       return;
@@ -246,6 +252,8 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   // the local mode (one person, on their own computer: nobody else to tell).
   const ownerAlerts = new OwnerAlerts({
     notify: local ? undefined : ownerNotifier(store, mailer, app.log, async () => (await store.getSettings()).serverName ?? 'Collect Earth Cloud', options.webhookFetch, () => errorLog.text()),
+    // The alerts about errors say how the database kept up meanwhile, and the wait a request is given for it
+    database: () => ({ ...vitals.summary(), connectTimeoutMs: config.dbConnectTimeoutMs ?? 0 }),
   });
   app.decorate('ownerAlerts', ownerAlerts);
   // The thresholds are server settings: read at start and every five minutes (another instance may change them; this
@@ -407,6 +415,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   // The plot index of plot search, also what tells a decision's plot exists.
   const indexes = new PlotIndexCache(store, places);
   await registerQualityRoutes(app, store, quality, places, indexes);
+  await registerCorrectionRoutes(app, store, quality);
   await registerPlotSearchRoutes(app, store, quality, places, indexes);
   await registerProgressRoutes(app, store, quality, states, now);
   await registerPeopleRoutes(app, store, quality, states, now);

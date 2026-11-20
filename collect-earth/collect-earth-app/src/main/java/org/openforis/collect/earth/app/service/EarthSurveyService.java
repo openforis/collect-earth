@@ -166,7 +166,7 @@ public class EarthSurveyService extends AbstractEarthSurveyService implements In
 	}
 
 	/**
-	 * The files of before put back, their settings applied again (the plots file and the training set open kept), the
+	 * The files of before put back, their settings applied again (the plots file, and the training set or the plots to correct open, kept), the
 	 * survey of before loaded, and the person told. A survey Collect cannot use ({@code refuse}) is not offered again
 	 * until the coordinator changes it again; another failure leaves it offered again.
 	 */
@@ -175,6 +175,7 @@ public class EarthSurveyService extends AbstractEarthSurveyService implements In
 		if (projects != null) {
 			String plotFile = localPropertiesService.getValue(EarthProperty.SAMPLE_FILE);
 			String training = localPropertiesService.getValue(EarthProperty.CLOUD_TRAINING_FILE);
+			String corrections = localPropertiesService.getValue(EarthProperty.CLOUD_CORRECTIONS_FILE);
 			try {
 				projects.loadProjectInFolder(projectFolder);
 			} catch (IOException | RuntimeException e) {
@@ -182,6 +183,7 @@ public class EarthSurveyService extends AbstractEarthSurveyService implements In
 			}
 			localPropertiesService.setValue(EarthProperty.SAMPLE_FILE, plotFile);
 			localPropertiesService.setValue(EarthProperty.CLOUD_TRAINING_FILE, training);
+			localPropertiesService.setValue(EarthProperty.CLOUD_CORRECTIONS_FILE, corrections);
 		}
 		File idmSurveyModel = new File(getIdmFilePath());
 		loadSurvey(idmSurveyModel);

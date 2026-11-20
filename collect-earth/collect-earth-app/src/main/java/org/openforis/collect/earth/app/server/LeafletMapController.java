@@ -24,6 +24,7 @@ import org.openforis.collect.earth.app.service.LocalPropertiesService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.service.PlotFileIndex;
 import org.openforis.collect.earth.app.service.PlotGeoJsonBuilder;
+import org.openforis.collect.earth.app.service.cloud.CorrectionService;
 import org.openforis.collect.earth.app.service.cloud.TrainingPlotFiles;
 import org.openforis.collect.earth.core.utils.CsvReaderUtils;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
@@ -159,6 +160,10 @@ public class LeafletMapController {
 			HttpCaching.send(request, response, IOUtils.toByteArray(in), contentType, cacheControl, null);
 		}
 	}
+
+	/** The plots the person corrects, when they are the plots file (absent in some tests) */
+	@Autowired(required = false)
+	private CorrectionService corrections;
 
 	// ---------- data endpoints ----------
 
@@ -302,10 +307,16 @@ public class LeafletMapController {
 		return plot;
 	}
 
-	/** The index, with {@code training}, the set's name, when the plots file is the training set the person opened (the list says so) */
+	/**
+	 * The index, with {@code training}, the set's name, when the plots file is the training set the person opened, or
+	 * {@code corrections} when it is their plots to correct (the list says so)
+	 */
 	private String withTraining(String index, String csvFile) throws IOException {
 		if (!localPropertiesService.isCloudSyncEnabled()) {
 			return index;
+		}
+		if (corrections != null && corrections.isOpen()) {
+			return "{\"corrections\":true," + index.substring(1); //$NON-NLS-1$
 		}
 		String training = TrainingPlotFiles.trainingName(csvFile, localPropertiesService.getValue(EarthProperty.CLOUD_TRAINING_FILE));
 		return training == null ? index : "{\"training\":" + json.writeValueAsString(training) + "," + index.substring(1); //$NON-NLS-1$
@@ -368,7 +379,14 @@ public class LeafletMapController {
 			String csvFile = localPropertiesService.getCsvFile();
 			String version = plotsVersion(csvFile);
 			Set<String> plotIds = !version.isEmpty() ? plotFileIndex.indexOf(csvFile).idSet : Collections.emptySet();
-			List<CollectRecordSummary> summaries = plotIds.isEmpty() ? null : earthSurveyService.getRecordSummariesSavedSince(since);
+			// The plots to correct are no records of the local database (CorrectionService): their statuses are the
+			// corrections', every time (a few plots), and a record of the person's with the same keys is not shown
+			boolean correcting = corrections != null && corrections.isOpen();
+			if (correcting) {
+				statuses.putAll(corrections.statuses());
+				statuses.keySet().retainAll(plotIds);
+			}
+			List<CollectRecordSummary> summaries = plotIds.isEmpty() || correcting ? null : earthSurveyService.getRecordSummariesSavedSince(since);
 			if (summaries != null) {
 				for (CollectRecordSummary summary : summaries) {
 					List<String> keys = summary.getRootEntityKeyValues();
@@ -391,6 +409,10 @@ public class LeafletMapController {
 			result.put("now", now);
 			result.put("statuses", statuses);
 			result.put("plots", version);
+			if (corrections != null && localPropertiesService.isCloudSyncEnabled()) {
+				// the list offers them while the person is on their own plots
+				result.put("toCorrect", corrections.toCorrect());
+			}
 			if (repeat) {
 				result.put("periods", periods);
 			}

@@ -1,4 +1,4 @@
-import { recordId, type AnalysisColumn, type AnalysisModel } from './analysis.js';
+import { answerId, type AnalysisColumn, type AnalysisModel } from './analysis.js';
 import type { RoundInfo } from './cep.js';
 import type { FinalAnswer } from './quality.js';
 import { copyUnitsByUser, recordRound, unitOfRecord, type RecordRound } from './rounds.js';
@@ -48,6 +48,8 @@ export interface ExportOptions {
   weights?: ReadonlyMap<string, { factor: number; weight: number }>;
   /** The CSV's separators: English's when not given. */
   format?: CsvFormat;
+  /** Rows that are a plot's correction (docs/plans/2026-11-20-review-at-scale.md): "correction" in the assessment column */
+  corrections?: ReadonlySet<RecordRow>;
 }
 
 /**
@@ -140,13 +142,13 @@ export function recordsTable(
   const { weights } = options;
   const rows = kept.map((r) => {
     const { plot, round, assessment } = roundOf(r);
-    const fixed = [r.recordKey, plot, round, assessment, finalOf(r), referenceOf(r) ? 'yes' : '', r.operator, String(r.activelySaved), new Date(r.modifiedOn).toISOString()];
+    const fixed = [r.recordKey, plot, round, options.corrections?.has(r) ? 'correction' : assessment, finalOf(r), referenceOf(r) ? 'yes' : '', r.operator, String(r.activelySaved), new Date(r.modifiedOn).toISOString()];
     const answers = summaryKeys.flatMap((k, i) => {
       const value = r.summary[k] ?? '';
       return labels[i] ? [value, value === '' ? '' : labels[i](value)] : [value];
     });
     // Only the record the analysis counts for its plot: a sum of the column counts each plot once.
-    const weight = weights?.get(recordId(r.recordKey, r.operator));
+    const weight = weights?.get(answerId(r.recordKey, r.operator, options.corrections?.has(r) === true));
     return [...fixed, ...answers, ...(weights ? (weight ? [String(weight.factor), String(weight.weight)] : ['', '']) : [])];
   });
   const answerColumns = summaryKeys.flatMap((k, i) => (labels[i] ? [k, `${k}_label`] : [k]));

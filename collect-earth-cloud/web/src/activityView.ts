@@ -63,6 +63,7 @@ const DECISION_KEYS = {
   first: "quality.decision.first",
   check: "quality.decision.check",
   recheck: "quality.decision.recheck",
+  correct: "quality.decision.correct",
 } as const satisfies Record<string, MessageKey>;
 
 const SETTING_KEYS: Record<string, MessageKey> = {
@@ -218,11 +219,17 @@ export function logSentence(t: Translate, item: LogItem, page: Pick<ActivityPage
       // "Share again what is left" on a plot file's page: how many people shared the plots left, how many moved.
       return t("activity.audit.moved.rebalanced", { actor, count: num(d.people, language), file: fileOf(t, page, d.csvFileId), moved: num(d.moved, language) });
     case "decision.set":
-      return t("activity.audit.decided", { actor, plot, decision: t(DECISION_KEYS[d.decision === "first" || d.decision === "check" ? d.decision : "recheck"]) });
+      return t("activity.audit.decided", { actor, plot, decision: t(DECISION_KEYS[d.decision === "first" || d.decision === "check" || d.decision === "correct" ? d.decision : "recheck"]) });
+    case "corrections.assigned":
+      return t("activity.audit.correctionsAssigned", { actor, count: num(d.count, language) });
+    case "correction.saved":
+      return t("activity.audit.correctionSaved", { actor, plot });
     case "decision.deleted":
       return t("activity.audit.undone", { actor, plot });
     case "decision.bulk":
-      return t(d.count === 1 ? "activity.audit.bulkOne" : "activity.audit.bulk", { actor, count: num(d.count, language), decision: t(DECISION_KEYS[d.decision === "first" || d.decision === "check" ? d.decision : "recheck"]) });
+    // One decision for plots picked in the review list (decisions:apply): said as the bulk rules are
+    case "decision.applied":
+      return t(d.count === 1 ? "activity.audit.bulkOne" : "activity.audit.bulk", { actor, count: num(d.count, language), decision: t(DECISION_KEYS[d.decision === "first" || d.decision === "check" || d.decision === "correct" ? d.decision : "recheck"]) });
     case "settings.changed":
       if (d.setting === "ai") return t(d.enabled === true ? "activity.audit.aiOn" : "activity.audit.aiOff", { actor });
       if (d.setting === "name") {

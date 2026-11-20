@@ -19,6 +19,8 @@ export const ROW_COLUMNS = [
   ['_plot', 'VARCHAR'],
   ['_round', 'VARCHAR'],
   ['_assessment', 'VARCHAR'],
+  // Whether the row is its plot's answer: its correction, else its first submitted assessment (what the areas count)
+  ['_answer', 'BOOLEAN'],
   ['_operator', 'VARCHAR'],
   ['_submitted', 'BOOLEAN'],
   ['_saved_on', 'DATE'],
@@ -210,10 +212,13 @@ export interface AnalysisRecord {
   /** The plot (unit) it is of, or null for a plot in no plot file. */
   plot: string | null;
   round: string;
-  assessment: 'main' | 'check' | 'other';
+  /** 'correction': a plot's correction (src/corrections.ts), its answer where it has one */
+  assessment: 'main' | 'check' | 'other' | 'correction';
   submitted: boolean;
   modifiedOn: number;
   summary: Record<string, string>;
+  /** Whether it is its plot's answer (its correction, else its first submitted assessment); null: not said (a collector's own records) */
+  answer?: boolean | null;
 }
 
 /** Whether a raw answer is usable for its type: "" is NULL, a number must parse, a boolean be true or false… */
@@ -252,6 +257,12 @@ const isoDay = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 export const recordId = (recordKey: string, operator: string) => `${recordKey}\u0000${operator}`;
 
 /**
+ * The identity of the row that is a plot's answer (the key of `analysisTables`' and the export's factors): a record's, or
+ * a correction's, told apart, as a person may correct a plot they answered themselves (the same key and operator).
+ */
+export const answerId = (recordKey: string, operator: string, correction = false) => recordId(recordKey, operator) + (correction ? '\u0000correction' : '');
+
+/**
  * The rows of every table of the model, from the records (deleted ones left out by the caller). `factors` gives the
  * expansion factor and weight of the record that counts for its plot, by recordId: its first submitted assessment, the
  * one the factors are divided among (routes/analysis.ts). Every other record of the plot (a check, a draft, a second
@@ -269,6 +280,7 @@ export function analysisTables(
     r.plot ?? '',
     options.hideRounds ? '' : r.round,
     options.hideRounds ? '' : r.assessment,
+    options.hideRounds || r.answer === undefined || r.answer === null ? '' : String(r.answer),
     r.operator,
     String(r.submitted),
     isoDay(r.modifiedOn),
@@ -283,7 +295,7 @@ export function analysisTables(
       for (const r of records) {
         const cells = [...fixed(r), ...table.columns.map((c) => cell(c, r.summary[c.key]))];
         if (factors) {
-          const f = factors.get(recordId(r.recordKey, r.operator));
+          const f = factors.get(answerId(r.recordKey, r.operator, r.assessment === 'correction'));
           cells.push(f ? String(f.factor) : '', f ? String(f.weight) : '');
         }
         lines.push(cells.map(csvField).join(','));

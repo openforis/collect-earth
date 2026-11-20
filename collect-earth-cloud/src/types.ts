@@ -468,6 +468,30 @@ export interface QualityDecision {
   batch?: string | null;
 }
 
+/**
+ * A plot decided "Correct it in Collect Earth" (quality_corrections, migration 052): who corrects it, and once corrected
+ * the corrected record (docs/plans/2026-11-20-review-at-scale.md, B2-B3).
+ */
+export interface QualityCorrection {
+  plot: string;
+  /** The person it is assigned to (a member who signs in), and their username; null: assigned to nobody */
+  assignedTo: string | null;
+  assignedToName: string | null;
+  /** Username of who assigned it */
+  assignedBy: string | null;
+  assignedAt: number;
+  /** Username of who corrected it, and when; null until corrected */
+  correctedBy: string | null;
+  correctedAt: number | null;
+  /** The record the form started from (its operator), null when it started empty */
+  baseOperator: string | null;
+  /** The corrected record's key (null until corrected) */
+  recordKey: string | null;
+  /** The corrected record (only when asked for: listCorrections({ withRecords: true }) */
+  xml?: string | null;
+  summary?: Record<string, string> | null;
+}
+
 // --- The AI assistant's runs (ai_runs, migration 011) ---
 
 /** One tool call of a run as stored: our tool's name (or "unknown"), the arguments as validated (pseudonymous), and whether it worked. */
@@ -697,6 +721,9 @@ export const AUDIT_ACTIONS = [
   'decision.set',
   'decision.deleted',
   'decision.bulk',
+  'decision.applied',
+  'corrections.assigned',
+  'correction.saved',
   'settings.changed',
   'export.downloaded',
   'survey.replaced',

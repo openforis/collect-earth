@@ -489,3 +489,58 @@ describe("the time spent on a plot", () => {
     expect(stillWorking(100_000, 99_000, false)).toBe(false);
   });
 });
+
+describe("a plot to correct (correction=1)", () => {
+  /** Collect Earth's answers for a plot to correct: its calls apart from the local database's, and their paths asked */
+  let asked: string[];
+  function serveCorrection(correctionAfterSave: string) {
+    asked = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      const path = url.replace("http://localhost:8028/earth/", "");
+      asked.push(path.split("?")[0]);
+      const json = path === "surveyForm" ? model
+        : path.startsWith("surveyForm/plot") ? { values: {} }
+          : path.startsWith("api/cloud/corrections/plot")
+            ? { plot: "p1", placemarkId: "p1", comment: "look at the trees", decidedBy: "owner", decidedAt: 1, own: true, correctedAt: null,
+              answers: [{ operator: "ana", recordKey: "p1", assessment: "main", submitted: true, modifiedOn: 1, summary: {} }], differences: [], state: "NONE", reason: null }
+            : path.startsWith("correction-info-expanded")
+              ? { success: true, activelySaved: false, inputFieldInfoByParameterName: answered }
+              : { success: true, activelySaved: accepted, inputFieldInfoByParameterName: saved, correction: correctionAfterSave, correctionReason: null };
+      return { ok: true, json: async () => json };
+    }));
+  }
+
+  it("loads and saves through the correction calls, never the local database's, and says where the correction is", async () => {
+    serveCorrection("SENT");
+    const store = new FormStore("p1", false, true);
+    await store.load();
+    await vi.waitFor(() => expect(store.getState().correction?.info?.comment).toBe("look at the trees"));
+    expect(store.getState().correction?.info?.own).toBe(true);
+    saved = answered;
+    accepted = true;
+    expect(await store.submit()).toBe(true);
+    expect(store.getState().correction?.state).toBe("SENT");
+    expect(asked).toContain("correction-info-expanded");
+    expect(asked).toContain("correction-save-expanded");
+    expect(asked.filter((p) => p === "placemark-info-expanded" || p === "save-data-expanded")).toEqual([]);
+  });
+
+  it("maps every form call to its correction call; a plot of the person's keeps its own", async () => {
+    const { formPath } = await import("./store");
+    expect(["placemark-info-expanded", "save-data-expanded", "create-entity", "delete-entity"].map((p) => formPath(p, true)))
+      .toEqual(["correction-info-expanded", "correction-save-expanded", "correction-create-entity", "correction-delete-entity"]);
+    expect(formPath("save-data-expanded", false)).toBe("save-data-expanded");
+  });
+
+  it("does not count the time on it as the person's plot's", async () => {
+    serveCorrection("DRAFT");
+    const store = new FormStore("p1", false, true);
+    await store.load();
+    const win = { addEventListener: () => undefined, removeEventListener: () => undefined, setInterval: (f: () => void, ms: number) => setInterval(f, ms),
+      clearInterval: (id: number) => clearInterval(id), document: { visibilityState: "visible" } } as unknown as Window;
+    const stop = store.watchActivity(win, () => Date.now());
+    await vi.advanceTimersByTimeAsync(120_000);
+    stop();
+    expect(asked.filter((p) => p === "plot-activity")).toEqual([]);
+  });
+});

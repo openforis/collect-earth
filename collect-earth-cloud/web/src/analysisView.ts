@@ -132,10 +132,20 @@ const FIXED: { id: string; key: MessageKey; sql: (alias: string, t: Translate) =
     id: "_assessment",
     key: "analysis.col.assessment",
     sql: (a, t) =>
-      `CASE ${a}._assessment WHEN 'main' THEN ${quoteString(t("analysis.assessment.main"))} WHEN 'check' THEN ${quoteString(t("analysis.assessment.check"))} WHEN 'other' THEN ${quoteString(t("analysis.assessment.other"))} END`,
+      `CASE ${a}._assessment WHEN 'main' THEN ${quoteString(t("analysis.assessment.main"))} WHEN 'check' THEN ${quoteString(t("analysis.assessment.check"))} WHEN 'other' THEN ${quoteString(t("analysis.assessment.other"))} WHEN 'correction' THEN ${quoteString(t("analysis.assessment.correction"))} END`,
     kind: "text",
     rounds: true,
-    values: (t) => ({ main: t("analysis.assessment.main"), check: t("analysis.assessment.check"), other: t("analysis.assessment.other") }),
+    values: (t) => ({ main: t("analysis.assessment.main"), check: t("analysis.assessment.check"), other: t("analysis.assessment.other"), correction: t("analysis.assessment.correction") }),
+  },
+  // Whether the row is its plot's answer: its correction, else the record a coordinator's decision took, else its first
+  // submitted assessment (the row the areas are on): the views start filtered on it
+  {
+    id: "_answer",
+    key: "analysis.col.answer",
+    sql: (a, t) => `CASE WHEN ${a}._answer THEN ${quoteString(t("common.yes"))} ELSE ${quoteString(t("common.no"))} END`,
+    kind: "text",
+    rounds: true,
+    values: (t) => ({ true: t("common.yes"), false: t("common.no") }),
   },
   { id: "_submitted", key: "analysis.col.submitted", sql: (a) => `${a}._submitted`, kind: "boolean" },
   { id: "_saved_on", key: "analysis.col.savedOn", sql: (a) => `${a}._saved_on`, kind: "date", time: true },
@@ -238,8 +248,8 @@ export interface ViewConfig {
 
 /**
  * The view the page opens with: the first ready-made view, the survey's main question (its land use) by the number
- * of plots and their share, as horizontal bars, largest first; for coordinators the first assessments only, as the
- * quality checks are other people's answers for the same plots. Perspective's panel starts closed: the question bar
+ * of plots and their share, as horizontal bars, largest first; for coordinators each plot's answer only (its correction,
+ * else its first submitted assessment), as the quality checks are other people's answers for the same plots. Perspective's panel starts closed: the question bar
  * above it is the way in.
  */
 export function defaultView(data: Pick<AnalysisAnswer, "model" | "scope" | "areas">, cube: Cube, t: Translate): ViewConfig {

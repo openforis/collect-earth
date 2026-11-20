@@ -7,6 +7,7 @@ import Button from "@mui/material/Button";
 import FormControl from "@mui/material/FormControl";
 import InputLabel from "@mui/material/InputLabel";
 import MenuItem from "@mui/material/MenuItem";
+import Link from "@mui/material/Link";
 import Paper from "@mui/material/Paper";
 import Select from "@mui/material/Select";
 import Stack from "@mui/material/Stack";
@@ -63,6 +64,7 @@ import { QualityAssistant } from "./QualityAssistant";
 import { QualityDifferences, type PlotFocus } from "./QualityDifferences";
 import { NoteDialog, QualityNotes, type NoteDraft } from "./QualityNotes";
 import { ReviewQueue } from "./ReviewQueue";
+import { CorrectionsPanel } from "./Corrections";
 
 /**
  * The agreement colour: one series everywhere, so one hue. A step of the dashboard's
@@ -287,7 +289,7 @@ function Answer({ questionKey, value, options }: { questionKey: string; value: s
   );
 }
 
-function Confusions({ data, onWriteNote }: { data: QualityAnswer; onWriteNote: (draft: NoteDraft) => void }) {
+function Confusions({ projectId, data, onWriteNote }: { projectId: string; data: QualityAnswer; onWriteNote: (draft: NoteDraft) => void }) {
   const t = useT();
   const { language } = useApp();
   const label = labelMap(data.questions);
@@ -364,7 +366,14 @@ function Confusions({ data, onWriteNote }: { data: QualityAnswer; onWriteNote: (
                         </Stack>
                         {open === id && (
                           <Typography variant="body2" sx={{ mt: 1, wordBreak: "break-word" }}>
-                            {t("quality.plotsList", { plots: c.plots.join("; ") })}
+                            {/* Each plot a link to its page (docs/plans/2026-11-20-review-at-scale.md, A4) */}
+                            {t("quality.plotsList", { plots: "" })}
+                            {c.plots.map((plot, i) => (
+                              <span key={plot}>
+                                {i > 0 && "; "}
+                                <Link {...linkProps(pathFor({ name: "plot", projectId, plot }))}>{plot}</Link>
+                              </span>
+                            ))}
                           </Typography>
                         )}
                       </TableCell>
@@ -708,6 +717,8 @@ function TeamQualityTab({ projectId, view }: { projectId: string; view: ProjectV
   const quality = useLoad(["project", projectId, "getQuality"], () => getQuality(projectId));
   const { data, error, loading, reload, setData } = quality;
   const [note, setNote] = useState<NoteDraft | null>(null);
+  /** Bumped after decisions, so the plots to correct are read again */
+  const [correctionsRefresh, setCorrectionsRefresh] = useState(0);
   const sectionsRef = useRef<HTMLDivElement>(null);
   /** A plot to show in the differences list (from the assistant's links); `at` makes each click a new one. */
   const [focus, setFocus] = useState<PlotFocus | null>(null);
@@ -779,7 +790,10 @@ function TeamQualityTab({ projectId, view }: { projectId: string; view: ProjectV
   const update = (change: (prev: QualityAnswer) => Partial<QualityAnswer>) => setData((prev) => ({ ...prev, ...change(prev) }));
   const savedNote = (saved: GuidanceNote) => update((prev) => ({ notes: withNote(prev.notes, saved) }));
 
-  const onDecision = (plot: string, decision: Parameters<typeof withDecision>[2]) => update((prev) => ({ decisions: withDecision(prev.decisions, plot, decision) }));
+  const onDecision = (plot: string, decision: Parameters<typeof withDecision>[2]) => {
+    update((prev) => ({ decisions: withDecision(prev.decisions, plot, decision) }));
+    setCorrectionsRefresh((n) => n + 1);
+  };
   const reports = (
     <>
       <Button variant="outlined" size="small" {...linkProps(pathFor({ name: "teamReport", projectId }))}>
@@ -804,7 +818,17 @@ function TeamQualityTab({ projectId, view }: { projectId: string; view: ProjectV
       {view === "review" && (
         <>
           {/* the plots to decide, one at a time; then the checks that differ, and the plots worth a look */}
-          <ReviewQueue projectId={projectId} canBulk onDecision={onDecision} onBulk={reload} />
+          <ReviewQueue
+            projectId={projectId}
+            canBulk
+            onDecision={onDecision}
+            onBulk={() => {
+              reload();
+              setCorrectionsRefresh((n) => n + 1);
+            }}
+          />
+          {/* The plots decided "Correct it in Collect Earth": who corrects them (docs/plans/2026-11-20-review-at-scale.md) */}
+          <CorrectionsPanel projectId={projectId} refresh={correctionsRefresh} />
           {data.plotsChecked > 0 && <QualityDifferences projectId={projectId} data={data} focus={focus} onDecision={onDecision} />}
           <QualityFlags projectId={projectId} canEdit folded />
         </>
@@ -820,7 +844,7 @@ function TeamQualityTab({ projectId, view }: { projectId: string; view: ProjectV
           {data.plotsChecked > 0 && (
             <>
               <Questions projectId={projectId} data={data} onMargins={(margins) => (update((prev) => ({ settings: { ...prev.settings, margins } })), reload())} />
-              <Confusions data={data} onWriteNote={setNote} />
+              <Confusions projectId={projectId} data={data} onWriteNote={setNote} />
               <People data={data} />
               <Weeks data={data} />
             </>

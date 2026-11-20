@@ -98,7 +98,7 @@ describe('the weekly summary', () => {
       ['ana', 0, 1],
       ['zoe', 0, 0],
     ]);
-    expect(s.quality.decided).toEqual({ first: 1, check: 0, recheck: 1, total: 2 });
+    expect(s.quality.decided).toEqual({ first: 1, check: 0, recheck: 1, correct: 0, total: 2 });
     expect(s.quality.week).toEqual({ compared: 25, agreeing: 20, rate: 0.8 });
     expect(s.quality.overall).toEqual({ compared: 30, agreeing: 25, rate: 25 / 30 });
     expect(s.quality.flags?.total).toBe(3);
@@ -122,13 +122,13 @@ describe('the weekly summary', () => {
     expect(s.progress).toMatchObject({ checks: 0, referenceMeasurements: 1 });
     expect(s.progress.days.every((d) => d.checks === 0)).toBe(true);
     expect(s.people.find((p) => p.username === 'ana')).toMatchObject({ checks: 0, referenceMeasurements: 1 });
-    expect(s.quality.decided).toEqual({ first: 1, check: 0, recheck: 0, total: 1 });
+    expect(s.quality.decided).toEqual({ first: 1, check: 0, recheck: 0, correct: 0, total: 1 });
   });
 
   it('without figures at hand: no agreement nor flags, the decisions still counted; a past week is not current', () => {
     const s = weeklySummary({ week: '2026-W44', timeZone: 'UTC', now: wednesday, units, people, decisions: [], quality: null, flags: null });
     expect(s.current).toBe(false);
-    expect(s.quality).toEqual({ available: false, computedAt: null, stale: false, week: null, overall: null, decided: { first: 0, check: 0, recheck: 0, total: 0 }, flags: null });
+    expect(s.quality).toEqual({ available: false, computedAt: null, stale: false, week: null, overall: null, decided: { first: 0, check: 0, recheck: 0, correct: 0, total: 0 }, flags: null });
     // In UTC, plot 1 (Sunday 22:30) and 2 (Sunday 23:30) are both in week 44.
     expect(s.progress.submitted).toBe(2);
   });

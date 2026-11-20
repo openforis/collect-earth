@@ -122,7 +122,7 @@ describe('the activity log: both lists merged, newest first, paged by a cursor o
     expect(kindFilter('records')).toEqual({ changes: undefined, actions: false });
     expect(kindFilter('coordinators')).toEqual({ changes: false, actions: undefined });
     expect(kindFilter('draft')).toEqual({ changes: ['created', 'updated'], actions: false });
-    expect(kindFilter('decisions')).toEqual({ changes: false, actions: ['decision.set', 'decision.deleted', 'decision.bulk'] });
+    expect(kindFilter('decisions')).toEqual({ changes: false, actions: ['decision.set', 'decision.deleted', 'decision.bulk', 'decision.applied', 'corrections.assigned', 'correction.saved'] });
   });
 
   it('through the memory store: kinds, person and date window', async () => {

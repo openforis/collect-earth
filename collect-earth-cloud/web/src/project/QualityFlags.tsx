@@ -3,6 +3,8 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import FormControl from "@mui/material/FormControl";
 import Link from "@mui/material/Link";
+import Menu from "@mui/material/Menu";
+import Pagination from "@mui/material/Pagination";
 import InputLabel from "@mui/material/InputLabel";
 import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
@@ -25,6 +27,8 @@ import {
   MIN_FAST_SECONDS,
   NO_FLAGS_FILTER,
   saveFastSeconds,
+  setQualityDecision,
+  type DecisionKind,
   type FlagKind,
   type FlagsAnswer,
   type FlagsFilter,
@@ -36,7 +40,7 @@ import { Loading } from "../components/Loading";
 import { FoldingCard } from "../components/FoldingCard";
 import { FLAG_KIND_KEYS, flagSaysMore, flagText, parseSeconds, PROBLEM_KINDS } from "../flagsView";
 import { formatDate, formatNumber } from "../format";
-import { useT } from "../i18n";
+import { useT, type MessageKey } from "../i18n";
 import { linkProps, pathFor } from "../router";
 import { useLoad } from "../useLoad";
 import { onceVisibleAfter } from "../visibility";
@@ -45,8 +49,58 @@ import { queryClient } from "../queryClient";
 /** The select value for "everyone" / "all kinds" (an empty value would leave the field looking blank). */
 const ALL = "__all__";
 
-/** Flags shown before "Show all". */
-const FLAGS_SHOWN = 20;
+/** Flags on a page (up to the 500 listed: pages, not one long list) */
+const FLAGS_PAGE = 25;
+
+const DECISION_LABELS: Record<DecisionKind, MessageKey> = {
+  first: "quality.decision.first",
+  check: "quality.decision.check",
+  recheck: "quality.decision.recheck",
+  correct: "quality.decision.correct",
+};
+
+/** A flagged plot decided where it is listed (coordinators): a menu of the decisions, then what was decided */
+function FlagDecision({ projectId, plot, decided, onDecided }: { projectId: string; plot: string; decided: DecisionKind | undefined; onDecided: (d: DecisionKind) => void }) {
+  const t = useT();
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  const menuId = useId();
+  const decide = async (decision: DecisionKind) => {
+    setAnchor(null);
+    setBusy(true);
+    setError(null);
+    try {
+      await setQualityDecision(projectId, plot, decision, "");
+      onDecided(decision);
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Box component="span" sx={{ ml: 1 }}>
+      {decided ? (
+        <Typography variant="body2" component="span" sx={{ fontWeight: 500 }}>
+          {t("flags.decidedAs", { decision: t(DECISION_LABELS[decided]) })}
+        </Typography>
+      ) : (
+        <Button size="small" disabled={busy} aria-haspopup="menu" aria-controls={anchor ? menuId : undefined} aria-label={t("flags.decideLabel", { plot })} onClick={(e) => setAnchor(e.currentTarget)}>
+          {t("flags.decide")}
+        </Button>
+      )}
+      <Menu id={menuId} anchorEl={anchor} open={anchor !== null} onClose={() => setAnchor(null)}>
+        {(["first", "recheck"] as const).map((d) => (
+          <MenuItem key={d} onClick={() => void decide(d)}>
+            {t(DECISION_LABELS[d])}
+          </MenuItem>
+        ))}
+      </Menu>
+      {error !== null && <ErrorAlert error={error} />}
+    </Box>
+  );
+}
 
 /** Tables fit a phone: they scroll inside their own frame. */
 const tableFrame = { border: 1, borderColor: "divider", borderRadius: 1, overflowX: "auto", maxHeight: 420 } as const;
@@ -196,7 +250,9 @@ export function QualityFlags({ projectId, canEdit, folded = false }: {
   const local = useLocalMode();
   const perPerson = canEdit && !local;
   const [filter, setFilter] = useState<FlagsFilter>(NO_FLAGS_FILTER);
-  const [all, setAll] = useState(false);
+  const [page, setPage] = useState(1);
+  /** Plots decided here (FlagDecision), by plot */
+  const [decided, setDecided] = useState<Map<string, DecisionKind>>(new Map());
   const flags = useLoad(["project", projectId, "getFlags", filter], () => getFlags(projectId, filter));
   const { data, error, loading, reload } = flags;
   const busy = error instanceof ApiError && error.code === "busy";
@@ -208,7 +264,8 @@ export function QualityFlags({ projectId, canEdit, folded = false }: {
 
   const filtered = filter.person !== null || filter.kind !== null;
   const people = data ? [...new Set([...data.people.map((p) => p.username), ...(filter.person ? [filter.person] : [])])].sort() : [];
-  const shown = data ? (all ? data.flags : data.flags.slice(0, FLAGS_SHOWN)) : [];
+  const pages = data ? Math.max(1, Math.ceil(data.flags.length / FLAGS_PAGE)) : 1;
+  const shown = data ? data.flags.slice((Math.min(page, pages) - 1) * FLAGS_PAGE, Math.min(page, pages) * FLAGS_PAGE) : [];
   const problems = data ? PROBLEM_KINDS.reduce((sum, k) => sum + data.counts[k], 0) : 0;
 
   const body = (
@@ -235,7 +292,7 @@ export function QualityFlags({ projectId, canEdit, folded = false }: {
               <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} useFlexGap sx={{ flexWrap: "wrap" }}>
                 {/* Reviewers get no counts per person (Decision 10): no person filter for them. */}
                 {perPerson && (
-                  <SelectField label={t("answers.filterPerson")} value={filter.person ?? ALL} onChange={(v) => (setFilter({ ...filter, person: v === ALL ? null : v }), setAll(false))}>
+                  <SelectField label={t("answers.filterPerson")} value={filter.person ?? ALL} onChange={(v) => (setFilter({ ...filter, person: v === ALL ? null : v }), setPage(1))}>
                     <MenuItem value={ALL}>{t("answers.everyone")}</MenuItem>
                     {people.map((p) => (
                       <MenuItem key={p} value={p}>
@@ -244,7 +301,7 @@ export function QualityFlags({ projectId, canEdit, folded = false }: {
                     ))}
                   </SelectField>
                 )}
-                <SelectField label={t("flags.filterKind")} value={filter.kind ?? ALL} onChange={(v) => (setFilter({ ...filter, kind: v === ALL ? null : (v as FlagKind) }), setAll(false))}>
+                <SelectField label={t("flags.filterKind")} value={filter.kind ?? ALL} onChange={(v) => (setFilter({ ...filter, kind: v === ALL ? null : (v as FlagKind) }), setPage(1))}>
                   <MenuItem value={ALL}>{t("flags.allKinds")}</MenuItem>
                   {FLAG_KINDS.map((k) => (
                     <MenuItem key={k} value={k}>
@@ -254,7 +311,7 @@ export function QualityFlags({ projectId, canEdit, folded = false }: {
                   ))}
                 </SelectField>
                 {filtered && (
-                  <Button size="small" onClick={() => (setFilter(NO_FLAGS_FILTER), setAll(false))} sx={{ alignSelf: { sm: "center" } }}>
+                  <Button size="small" onClick={() => (setFilter(NO_FLAGS_FILTER), setPage(1))} sx={{ alignSelf: { sm: "center" } }}>
                     {t("answers.clear")}
                   </Button>
                 )}
@@ -290,27 +347,28 @@ export function QualityFlags({ projectId, canEdit, folded = false }: {
                           {" · "}
                           {t(FLAG_KIND_KEYS[f.kind])}
                         </Typography>
+                        {canEdit && !local && <FlagDecision projectId={projectId} plot={f.plot} decided={decided.get(f.plot)} onDecided={(d) => setDecided((m) => new Map(m).set(f.plot, d))} />}
                         {flagSaysMore(f.kind) && <Typography variant="body2">{flagText(t, f, language, { local })}</Typography>}
                       </Box>
                     ))}
                   </Stack>
-                  {data.flags.length > FLAGS_SHOWN && (
-                    <Button size="small" onClick={() => setAll(!all)} sx={{ mt: 0.5 }}>
-                      {all
-                        ? t("flags.showFewer")
-                        : data.total > data.flags.length
-                          ? t("flags.showListed", { n: formatNumber(data.flags.length, language), total: formatNumber(data.total, language) })
-                          : t("flags.showAll", { n: formatNumber(data.total, language) })}
-                    </Button>
+                  {pages > 1 && (
+                    <Pagination
+                      count={pages}
+                      page={Math.min(page, pages)}
+                      onChange={(_, p) => setPage(p)}
+                      sx={{ mt: 1 }}
+                      getItemAriaLabel={(type, p) => (type === "page" ? t("reviewList.page", { page: String(p) }) : t(`accounts.pageNav.${type}` as MessageKey))}
+                    />
                   )}
-                  {all && data.total > data.flags.length && (
+                  {data.total > data.flags.length && (
                     <Typography variant="body2" color="text.secondary">
                       {t("flags.capped", { n: formatNumber(data.flags.length, language), total: formatNumber(data.total, language) })}
                     </Typography>
                   )}
                 </Box>
               )}
-              {perPerson && <PeopleCounts data={data} onPerson={(username) => (setFilter({ ...filter, person: username }), setAll(false))} />}
+              {perPerson && <PeopleCounts data={data} onPerson={(username) => (setFilter({ ...filter, person: username }), setPage(1))} />}
             </Stack>
           </Box>
         )}

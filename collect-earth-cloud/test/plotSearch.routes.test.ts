@@ -150,10 +150,10 @@ describe('plot search: GET /plots/search, GET /plots/:plot', () => {
     // Plot 2: maria's first assessment 5 s after plot 1, very fast.
     res = await call('GET', '/plots/2', owner.token);
     expect(res.json().flags).toEqual([expect.objectContaining({ kind: 'very_fast', plot: '2', operator: 'maria' })]);
-    // A reviewer's own plot: someone else decides it.
+    // A plot the asker answered: said on its page (someone else had better decide it), decided all the same
     expect((await call('GET', '/plots/3', rita.token)).json().ownPlot).toBe(true);
     expect((await call('GET', '/plots/3', owner.token)).json().ownPlot).toBe(false);
-    expect((await call('PUT', '/quality/decisions/3', rita.token, { decision: 'first' })).statusCode).toBe(409);
+    expect((await call('PUT', '/quality/decisions/3', rita.token, { decision: 'first' })).json()).toMatchObject({ decidedBy: 'rita', byAssessor: true });
     // A plot in no plot file is not found.
     expect((await call('GET', '/plots/999', owner.token)).statusCode).toBe(404);
   });

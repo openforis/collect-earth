@@ -1,6 +1,7 @@
 import { OPERATOR_SUMMARY_KEY, operatorXmlPattern } from '../anonymize.js';
 import pg from 'pg';
 import { DatabaseBusyError, isPoolWaitTimeout } from './busy.js';
+import { databaseVitals, type DatabaseVitals } from '../databaseVitals.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { gunzipSync, gzipSync } from 'node:zlib';
 import { isUuid } from '../accountRules.js';
@@ -63,6 +64,7 @@ import {
   type ProjectRow,
   type ProjectStatus,
   type ProjectStorage,
+  type QualityCorrection,
   type QualityDecision,
   type QualitySettings,
   type RecordChange,
@@ -155,6 +157,8 @@ export interface PostgresStoreOptions {
   statementTimeoutMs?: number;
   /** Called when an idle connection of the pool fails (the database restarts, the network drops); logged by default. */
   onPoolError?: (err: Error) => void;
+  /** Where the waits for a connection are counted (the owner's alerts tell them); the instance's own by default. */
+  vitals?: DatabaseVitals;
 }
 
 /** Clients whose connection failed while checked out: destroyed when released (PostgresStore.connect). */
@@ -164,6 +168,7 @@ export class PostgresStore implements Store {
   private readonly pool: pg.Pool;
   private readonly statementTimeout: string | null;
   private readonly onPoolError: (err: Error) => void;
+  private readonly vitals: DatabaseVitals;
 
   constructor(
     private readonly databaseUrl: string,
@@ -184,6 +189,7 @@ export class PostgresStore implements Store {
       });
     this.pool.on('error', onPoolError);
     this.onPoolError = onPoolError;
+    this.vitals = options.vitals ?? databaseVitals;
     this.statementTimeout = options.statementTimeoutMs ? String(Math.round(options.statementTimeoutMs)) : null;
   }
 
@@ -196,12 +202,15 @@ export class PostgresStore implements Store {
    */
   private async connect(): Promise<pg.PoolClient> {
     let client: pg.PoolClient;
+    const asked = performance.now();
     try {
       client = await this.pool.connect();
     } catch (err) {
+      // (counted as busy where it is answered: server.ts's error handler, which also sees the pool's own queries)
       if (isPoolWaitTimeout(err)) throw new DatabaseBusyError();
       throw err;
     }
+    this.vitals.noteWait(performance.now() - asked);
     const onError = (err: Error) => {
       if (!brokenClients.has(client)) brokenClients.set(client, err);
       this.onPoolError(err);
@@ -356,6 +365,7 @@ export class PostgresStore implements Store {
       await client.query('DELETE FROM attention_reads WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM audit_log WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM quality_decisions WHERE project_id = $1', [projectId]);
+      await client.query('DELETE FROM quality_corrections WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM guidance_notes WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM sampling_rules WHERE project_id = $1', [projectId]);
       await client.query('DELETE FROM reference_plots WHERE project_id = $1', [projectId]);
@@ -2043,6 +2053,8 @@ export class PostgresStore implements Store {
         [projectId, from, to, pattern],
       );
       await client.query(`UPDATE record_events SET operator = $3, summary = CASE WHEN summary IS NULL THEN NULL ELSE ${summary('summary')} END WHERE project_id = $1 AND operator = $2`, [projectId, from, to]);
+      // The answer a correction started from goes by the person's name too
+      await client.query('UPDATE quality_corrections SET base_operator = $3 WHERE project_id = $1 AND base_operator = $2', [projectId, from, to]);
       await client.query(
         `UPDATE quality_decisions SET seen = (
            SELECT jsonb_agg(CASE WHEN e ->> 'operator' = $2 THEN jsonb_set(e, '{operator}', to_jsonb($3::text)) ELSE e END ORDER BY n)
@@ -2081,6 +2093,8 @@ export class PostgresStore implements Store {
           WHERE project_id = $1 AND operator = $2 AND record_key = ANY($4::text[])`,
         [projectId, from, to, keys],
       );
+      // The answer a correction started from goes by the person's name too
+      await client.query('UPDATE quality_corrections SET base_operator = $3 WHERE project_id = $1 AND base_operator = $2', [projectId, from, to]);
       await client.query(
         `UPDATE quality_decisions SET seen = (
            SELECT jsonb_agg(CASE WHEN e ->> 'operator' = $2 THEN jsonb_set(e, '{operator}', to_jsonb($3::text)) ELSE e END ORDER BY n)
@@ -3336,17 +3350,22 @@ export class PostgresStore implements Store {
     comment: string | null,
     userId: string | null,
     batch: string,
+    options?: { replace?: boolean },
   ): Promise<string[]> {
     if (decisions.length === 0) {
       return [];
     }
     return this.withProject(projectId, async (client) => {
-      // One statement in the transaction: a plot decided meanwhile keeps its decision.
+      // One statement in the transaction: a plot decided meanwhile keeps its decision (unless `replace`).
+      const onConflict = options?.replace
+        ? `DO UPDATE SET decision = EXCLUDED.decision, comment = EXCLUDED.comment, decided_by = EXCLUDED.decided_by,
+             decided_at = EXCLUDED.decided_at, seen = EXCLUDED.seen, decided_batch = EXCLUDED.decided_batch`
+        : 'DO NOTHING';
       const res = await client.query(
         `INSERT INTO quality_decisions (project_id, plot, decision, comment, decided_by, decided_at, seen, decided_batch)
          SELECT $1, d.plot, d.decision, $5, $6, now(), d.seen::jsonb, $7::uuid
            FROM unnest($2::text[], $3::text[], $4::text[]) AS d(plot, decision, seen)
-         ON CONFLICT (project_id, plot) DO NOTHING
+         ON CONFLICT (project_id, plot) ${onConflict}
          RETURNING plot`,
         [
           projectId,
@@ -3359,6 +3378,63 @@ export class PostgresStore implements Store {
         ],
       );
       return res.rows.map((r) => r.plot as string);
+    });
+  }
+
+  async listCorrections(projectId: string, options: { withRecords?: boolean | 'summary' } = {}): Promise<QualityCorrection[]> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query(
+        `SELECT c.plot, c.assigned_to, t.username AS assigned_to_name, b.username AS assigned_by, c.assigned_at,
+                k.username AS corrected_by, c.corrected_at, c.base_operator, c.record_key${options.withRecords === 'summary' ? ', c.summary' : options.withRecords ? ', c.xml, c.summary' : ''}
+           FROM quality_corrections c
+           LEFT JOIN users t ON t.id = c.assigned_to
+           LEFT JOIN users b ON b.id = c.assigned_by
+           LEFT JOIN users k ON k.id = c.corrected_by
+          WHERE c.project_id = $1
+          ORDER BY c.plot COLLATE "C"`,
+        [projectId],
+      );
+      return res.rows.map((r) => ({
+        plot: r.plot as string,
+        assignedTo: (r.assigned_to as string | null) ?? null,
+        assignedToName: (r.assigned_to_name as string | null) ?? null,
+        assignedBy: (r.assigned_by as string | null) ?? null,
+        assignedAt: (r.assigned_at as Date).getTime(),
+        correctedBy: (r.corrected_by as string | null) ?? null,
+        correctedAt: r.corrected_at ? (r.corrected_at as Date).getTime() : null,
+        baseOperator: (r.base_operator as string | null) ?? null,
+        recordKey: (r.record_key as string | null) ?? null,
+        ...(options.withRecords ? { xml: options.withRecords === 'summary' ? null : ((r.xml as string | null) ?? null), summary: (r.summary as Record<string, string> | null) ?? null } : {}),
+      }));
+    });
+  }
+
+  async assignCorrections(projectId: string, assignments: readonly { plot: string; userId: string | null }[], by: string | null, at: number): Promise<void> {
+    if (assignments.length === 0) return;
+    await this.withProject(projectId, async (client) => {
+      // One statement; a plot's correction already made is kept (only who it is assigned to changes)
+      await client.query(
+        `INSERT INTO quality_corrections (project_id, plot, assigned_to, assigned_by, assigned_at)
+         SELECT $1, a.plot, a.user_id::uuid, $4::uuid, $5 FROM unnest($2::text[], $3::text[]) AS a(plot, user_id)
+         ON CONFLICT (project_id, plot) DO UPDATE SET assigned_to = EXCLUDED.assigned_to, assigned_by = EXCLUDED.assigned_by, assigned_at = EXCLUDED.assigned_at`,
+        [projectId, assignments.map((a) => a.plot), assignments.map((a) => a.userId), by, new Date(at)],
+      );
+    });
+  }
+
+  async saveCorrection(
+    projectId: string,
+    plot: string,
+    userId: string,
+    correction: { recordKey: string; xml: string; summary: Record<string, string>; baseOperator: string | null; at: number },
+  ): Promise<'saved' | 'not_assigned'> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query(
+        `UPDATE quality_corrections SET corrected_by = $3, corrected_at = $4, base_operator = $5, xml = $6, summary = $7::jsonb, record_key = $8
+          WHERE project_id = $1 AND plot = $2 AND assigned_to = $3`,
+        [projectId, plot, userId, new Date(correction.at), correction.baseOperator, correction.xml, JSON.stringify(correction.summary), correction.recordKey],
+      );
+      return (res.rowCount ?? 0) > 0 ? 'saved' : 'not_assigned';
     });
   }
 

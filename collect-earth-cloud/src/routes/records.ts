@@ -359,7 +359,7 @@ export const MAX_SUMMARY_VALUE_CHARS = 10_000;
  * rest of the summary is kept: refusing the whole summary for one empty attribute lost
  * every answer of the desktop's records.
  */
-function summaryOf(value: unknown): Record<string, string> {
+export function summaryOf(value: unknown): Record<string, string> {
   const out: Record<string, string> = {};
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     return out;

@@ -372,6 +372,18 @@ describe('repeating a survey in the dashboard', () => {
     expect(earlier.map((r) => [r.operator, r.answers[LAND_USE]])).toEqual([['ben', 'G']]);
   });
 
+  it("takes a plot's correction as its earlier answer, before the decision's or the first assessment", async () => {
+    await ctx.store.setQualityDecision(pid, '1', 'correct', null, owner.userId);
+    await ctx.store.assignCorrections(pid, [{ plot: '1', userId: ben.userId }], owner.userId, Date.now());
+    expect(await ctx.store.saveCorrection(pid, '1', ben.userId, { recordKey: '1,1', xml: '<plot/>', summary: { [LAND_USE]: 'W', [FOREST]: '10', collect_code_round: '1' }, baseOperator: 'maria', at: Date.now() })).not.toBe('not_assigned');
+    const res = await call('POST', '/repeat', owner.token, { name: 'Land 2025', label: '2025', earlierLabel: '2020' });
+    expect(res.statusCode, res.body).toBe(201);
+    const earlier = await ctx.store.getPlotPeriodAnswers(res.json().projectId, '1');
+    expect(earlier.map((r) => [r.operator, r.answers[LAND_USE]])).toEqual([['ben', 'W']]);
+    // the other plots as before
+    expect((await ctx.store.getPlotPeriodAnswers(res.json().projectId, '2')).map((r) => r.answers[LAND_USE])).toEqual(['C']);
+  });
+
   it('a repeat of a repeat brings every earlier period, each with a label of its own', async () => {
     const first = (await call('POST', '/repeat', owner.token, { name: 'Land 2025', label: '2025', earlierLabel: '2020', members: true })).json().projectId;
     // a new project is a draft until the coordinator opens it

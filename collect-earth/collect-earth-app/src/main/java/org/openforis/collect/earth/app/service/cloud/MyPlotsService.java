@@ -64,8 +64,8 @@ import com.opencsv.exceptions.CsvValidationException;
  * so nobody loses a plot half-way through.</li>
  * <li>Each row's plot file comes with it (the server's last column, taken off the copy): the record keeps it as it keeps
  * a project's own plot file's ({@link #plotFileOf}).</li>
- * <li>A training set the person opened (Settings › Project) stays the plots file until they go back to their plots;
- * training sets are not in the person's plots.</li>
+ * <li>A training set the person opened (Settings › Project), or their plots to correct (CorrectionService), stays the
+ * plots file until they go back to their plots; neither is in the person's plots.</li>
  * <li>Offline, the last copy is used. An older server, which has no person's plots, keeps the assigned plot files of before
  * (AssignedPlotFileSetup).</li>
  * </ul>
@@ -214,6 +214,12 @@ public class MyPlotsService implements ApplicationListener<ContextRefreshedEvent
 		return !(plots instanceof Integer) || (Integer) plots == 0;
 	}
 
+	/** The person opened their plots to correct (CorrectionService): the plots file stays on them */
+	public boolean onCorrections() {
+		String corrections = StringUtils.trimToEmpty(properties.getValue(EarthProperty.CLOUD_CORRECTIONS_FILE));
+		return !corrections.isEmpty() && sameFile(corrections, plotFileInUse()) && new File(corrections).isFile();
+	}
+
 	/** The person opened a training set: the plots file stays on it */
 	boolean onTraining() {
 		String training = StringUtils.trimToEmpty(properties.getValue(EarthProperty.CLOUD_TRAINING_FILE));
@@ -275,6 +281,7 @@ public class MyPlotsService implements ApplicationListener<ContextRefreshedEvent
 			synchronized (plotFileSetting) {
 				properties.setValue(EarthProperty.SAMPLE_FILE, new File(folderOf(destination.getProjectId()), COPY).getAbsolutePath());
 				properties.setValue(EarthProperty.CLOUD_TRAINING_FILE, ""); //$NON-NLS-1$
+				properties.setValue(EarthProperty.CLOUD_CORRECTIONS_FILE, ""); //$NON-NLS-1$
 			}
 			return true;
 		} catch (IOException | RuntimeException e) {
@@ -283,11 +290,12 @@ public class MyPlotsService implements ApplicationListener<ContextRefreshedEvent
 		}
 	}
 
-	/** Back to the person's plots from a training set (Settings › Project): the plots are reloaded */
+	/** Back to the person's plots from a training set (Settings › Project) or their plots to correct: the plots are reloaded */
 	public synchronized boolean useMyPlots() {
 		boolean switched;
 		synchronized (plotFileSetting) {
 			properties.setValue(EarthProperty.CLOUD_TRAINING_FILE, ""); //$NON-NLS-1$
+			properties.setValue(EarthProperty.CLOUD_CORRECTIONS_FILE, ""); //$NON-NLS-1$
 			switched = usePlotFile(true);
 		}
 		if (switched) {
@@ -362,17 +370,18 @@ public class MyPlotsService implements ApplicationListener<ContextRefreshedEvent
 	}
 
 	/**
-	 * Makes the copy the plots file, unless a training set is open (or {@code always}, going back from one). True when
-	 * the plots file changed.
+	 * Makes the copy the plots file, unless a training set or the plots to correct are open (or {@code always}, going back
+	 * from them). True when the plots file changed.
 	 */
 	private boolean usePlotFile(boolean always) {
 		synchronized (plotFileSetting) {
 			File copy = copy();
-			if (!copy.isFile() || sameFile(copy.getAbsolutePath(), plotFileInUse()) || !always && onTraining()) {
+			if (!copy.isFile() || sameFile(copy.getAbsolutePath(), plotFileInUse()) || !always && (onTraining() || onCorrections())) {
 				return false;
 			}
 			properties.setValue(EarthProperty.SAMPLE_FILE, copy.getAbsolutePath());
 			properties.setValue(EarthProperty.CLOUD_TRAINING_FILE, ""); //$NON-NLS-1$
+			properties.setValue(EarthProperty.CLOUD_CORRECTIONS_FILE, ""); //$NON-NLS-1$
 			return true;
 		}
 	}
@@ -386,6 +395,16 @@ public class MyPlotsService implements ApplicationListener<ContextRefreshedEvent
 		synchronized (plotFileSetting) {
 			properties.setValue(EarthProperty.SAMPLE_FILE, training.getAbsolutePath());
 			properties.setValue(EarthProperty.CLOUD_TRAINING_FILE, training.getAbsolutePath());
+			properties.setValue(EarthProperty.CLOUD_CORRECTIONS_FILE, ""); //$NON-NLS-1$
+		}
+	}
+
+	/** Makes the plots to correct the plots file (CorrectionService), both settings written together as for a training set */
+	public void openCorrections(File corrections) {
+		synchronized (plotFileSetting) {
+			properties.setValue(EarthProperty.SAMPLE_FILE, corrections.getAbsolutePath());
+			properties.setValue(EarthProperty.CLOUD_CORRECTIONS_FILE, corrections.getAbsolutePath());
+			properties.setValue(EarthProperty.CLOUD_TRAINING_FILE, ""); //$NON-NLS-1$
 		}
 	}
 
@@ -770,6 +789,7 @@ public class MyPlotsService implements ApplicationListener<ContextRefreshedEvent
 		status.put("unreadable", (int) Math.max(0, longOfOr(state.getProperty("unreadable"), 0))); //$NON-NLS-1$ //$NON-NLS-2$
 		boolean training = cloud && onTraining();
 		status.put("training", training ? new File(plotFileInUse()).getName() : null); //$NON-NLS-1$
+		status.put("corrections", cloud && onCorrections()); //$NON-NLS-1$
 		status.put("inUse", cloud && copy.isFile() && sameFile(copy.getAbsolutePath(), plotFileInUse())); //$NON-NLS-1$
 		status.put("checkMinutes", CHECK_MINUTES); //$NON-NLS-1$
 		return status;

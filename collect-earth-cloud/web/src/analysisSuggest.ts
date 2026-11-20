@@ -126,7 +126,9 @@ export function templatesOf(data: Pick<AnalysisAnswer, "model" | "scope" | "area
   const byId = new Map(cube.columns.map((c) => [c.id, c]));
   const name = (id: string | undefined) => (id === undefined ? undefined : byId.get(id)?.name);
   const assessment = name("_assessment");
-  const firsts: Filter[] = assessment && data.scope !== "own" ? [[assessment, "==", t("analysis.assessment.main")]] : [];
+  // Each plot once, by its answer: its correction where it has one, else its first submitted assessment
+  const answer = name("_answer");
+  const firsts: Filter[] = answer && data.scope !== "own" ? [[answer, "==", t("common.yes")]] : [];
   const q = (rows: (string | undefined)[], columns: (string | undefined)[], ms: string[], chart = "Datagrid", filters = firsts, order: Question["order"] = "name"): Question => ({
     rows: rows.filter((x): x is string => !!x),
     columns: columns.filter((x): x is string => !!x),

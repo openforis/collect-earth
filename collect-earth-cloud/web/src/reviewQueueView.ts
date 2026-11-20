@@ -2,7 +2,7 @@
 import type { PlotOutline } from "./api";
 
 /** What a key does in the review queue. */
-export type QueueAction = "first" | "check" | "recheck" | "next" | "previous" | "comment" | "leave";
+export type QueueAction = "first" | "check" | "recheck" | "correct" | "next" | "previous" | "comment" | "leave";
 
 /** The element a key was pressed on, as far as the queue needs it. */
 export interface KeyTarget {
@@ -44,7 +44,7 @@ export function isTyping(target: KeyTarget | null): boolean {
 
 /**
  * What a key press does in the queue: 1 First is right, 2 Check is right, 3 Both need
- * another look, J next, K previous, C the comment. Never while typing (then only Escape,
+ * another look, 4 Correct it in Collect Earth, J next, K previous, C the comment. Never while typing (then only Escape,
  * which leaves the field), nor with Ctrl, Cmd or Alt, nor while an input method composes, nor
  * for a key pressed outside the queue (React sends a portal's keys, a dialog's, up its tree). A
  * held key moves on (J/K) but decides only once: 1/2/3 and C are not repeated.
@@ -60,6 +60,8 @@ export function queueKeyAction(e: QueueKey): QueueAction | null {
       return "check";
     case "3":
       return "recheck";
+    case "4":
+      return "correct";
     case "j":
     case "J":
       return "next";

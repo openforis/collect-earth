@@ -4,6 +4,7 @@ import type { MessageKey } from "../i18n";
 import { ACTIVELY_SAVED, type Field, type FieldError, type FieldInfo, type FormModel, type LoadResult, answersToRemember, draftErrors,
   errorList, fieldsByName, isTabVisible, mergeInfos, saveBody, updateRequired } from "./model";
 import { PERIOD_STATUS_FIELD, toPlotPeriods, withoutPeriodStatus, type PeriodStatus, type PlotPeriods } from "./period";
+import type { CorrectionInfo, CorrectionState } from "../settingsApi";
 
 const REQUEST_TIMEOUT = 20000;
 /** Collect Earth's JSON API (server.api, under /earth/api) answers only requests that say they are its pages' (ApiHeaderFilter) */
@@ -125,7 +126,42 @@ export interface FormState {
   period: PlotPeriods | null;
   /** Submit was pressed with the header's question not answered */
   periodMissing: boolean;
+  /**
+   * A plot to correct (correction=1 in the page's address): what is said beside its form (the reviewer's comment, the
+   * answers and where they differ), and its correction's state; null for any other plot
+   */
+  correction: CorrectionView | null;
 }
+
+/** A plot to correct, beside its form: its details from Collect Earth (null until they come), its correction's state */
+export interface CorrectionView {
+  info: CorrectionInfo | null;
+  /** The details could not be had */
+  failed: boolean;
+  state: CorrectionState;
+  reason: string | null;
+}
+
+const CORRECTION_STATES: readonly CorrectionState[] = ["NONE", "DRAFT", "PENDING", "SENT", "REFUSED"];
+
+/** The correction's state a save answered, or the one before when it said none */
+export function correctionStateOf(result: LoadResult | null, before: CorrectionState): CorrectionState {
+  const s = result?.correction;
+  return s && (CORRECTION_STATES as readonly string[]).includes(s) ? (s as CorrectionState) : before;
+}
+
+/** The form's calls of a plot to correct: kept apart from the local database (PlacemarkDataController) */
+export function formPath(path: string, correction: boolean): string {
+  if (!correction) return path;
+  return CORRECTION_PATHS[path] ?? path;
+}
+
+const CORRECTION_PATHS: Record<string, string> = {
+  "placemark-info-expanded": "correction-info-expanded",
+  "save-data-expanded": "correction-save-expanded",
+  "create-entity": "correction-create-entity",
+  "delete-entity": "correction-delete-entity",
+};
 
 /** The answers of a plot submitted, by question (see answersToRemember) */
 export interface PreviousPlot { plotId: string; answers: Record<string, string> }
@@ -227,12 +263,16 @@ export class FormStore {
   /** the save state with nothing waiting to be saved: what a change taken back returns to (see setDraftProblem) */
   private settled: SaveState = "idle";
 
-  /** training: the plot is a training set's (training=1 in the page's address): only its submit asks for the feedback */
-  constructor(placemarkId: string, private readonly training = false) {
+  /**
+   * training: the plot is a training set's (training=1 in the page's address): only its submit asks for the feedback.
+   * correction: a plot others answered, which the person corrects (correction=1): its record is kept apart (formPath)
+   */
+  constructor(placemarkId: string, private readonly training = false, private readonly correcting = false) {
     this.state = {
       phase: "loading", failure: null, model: null, placemarkId, infos: {}, pending: {}, tab: 0, saveState: "idle",
       serverDown: false, saveError: null, retrying: false, submitted: false, alreadyFilled: false, unsubmitted: false, submitErrors: null, submitting: false, attempted: false, training: null, trainingLoading: false,
       entityBusy: null, entityFailure: null, incomplete: false, previous: null, drafts: {}, period: null, periodMissing: false,
+      correction: correcting ? { info: null, failed: false, state: "NONE", reason: null } : null,
     };
   }
 
@@ -275,7 +315,8 @@ export class FormStore {
     for (const e of events) win.addEventListener(e, used, { capture: true, passive: true });
     const timer = win.setInterval(() => {
       const id = this.state.placemarkId;
-      if (!id || this.state.phase !== "ready" || !stillWorking(now(), lastInput, win.document.visibilityState === "visible")) return;
+      // a plot to correct is no plot of the person's: its time is not theirs
+      if (!id || this.correcting || this.state.phase !== "ready" || !stillWorking(now(), lastInput, win.document.visibilityState === "visible")) return;
       void fetchWithTimeout(earthBase() + "plot-activity?id=" + encodeURIComponent(id), { method: "POST" }).catch(() => undefined);
     }, ACTIVITY_PING_MS);
     return () => {
@@ -311,7 +352,8 @@ export class FormStore {
       return;
     }
     try {
-      const result = await getJson<LoadResult>(earthBase() + "placemark-info-expanded?id=" + encodeURIComponent(id));
+      if (this.correcting) void this.loadCorrection(id);
+      const result = await getJson<LoadResult>(earthBase() + formPath("placemark-info-expanded", this.correcting) + "?id=" + encodeURIComponent(id));
       if (result.success) {
         const infos = mergeInfos({}, result, true);
         this.set({ model, infos }, true);
@@ -415,7 +457,7 @@ export class FormStore {
     const values: Record<string, string> = { ...this.plotValues };
     for (const name of names) values[name] = this.state.pending[name] ?? this.state.infos[name]?.value ?? "";
     values[ACTIVELY_SAVED] = "false";
-    if (navigator.sendBeacon(earthBase() + "save-data-expanded", saveBody(this.state.placemarkId, values, this.state.tab, true))) {
+    if (navigator.sendBeacon(earthBase() + formPath("save-data-expanded", this.correcting), saveBody(this.state.placemarkId, values, this.state.tab, true))) {
       this.dirty.clear();
     }
   };
@@ -437,7 +479,7 @@ export class FormStore {
     let result: LoadResult | null = null;
     const request = (async () => {
       try {
-        result = await postForm("save-data-expanded", saveBody(this.state.placemarkId, values, this.state.tab, !full));
+        result = await postForm(formPath("save-data-expanded", this.correcting), saveBody(this.state.placemarkId, values, this.state.tab, !full));
       } catch (e) {
         // Collect Earth answered with an error, or did not answer at all (null)
         result = e instanceof ServerError ? { success: false, message: e.message } as LoadResult : null;
@@ -458,6 +500,7 @@ export class FormStore {
     }
     this.failures = 0;
     this.settled = "saved";
+    if (this.state.correction) this.set({ correction: { ...this.state.correction, state: correctionStateOf(response, this.state.correction.state), reason: response.correctionReason ?? null } });
     this.cancelRetry();
     const infos = mergeInfos(this.state.infos, response, full);
     const pending = { ...this.state.pending };
@@ -598,6 +641,20 @@ export class FormStore {
     return false;
   };
 
+  /** A plot to correct's details for the panel beside its form: the comment, the answers and where they differ */
+  loadCorrection = async (id: string): Promise<void> => {
+    let info: CorrectionInfo | null = null;
+    try {
+      const r = await fetchWithTimeout(`${earthBase()}api/cloud/corrections/plot?id=${encodeURIComponent(id)}`, { headers: LOCAL_API_HEADERS }, 20000);
+      if (r.ok) info = (await r.json()) as CorrectionInfo;
+    } catch {
+      info = null;
+    }
+    if (this.state.placemarkId !== id || !this.state.correction) return;
+    const state = this.state.correction.state === "NONE" && info ? info.state : this.state.correction.state;
+    this.set({ correction: { info, failed: info === null, state, reason: this.state.correction.reason ?? info?.reason ?? null } });
+  };
+
   /** Asks Collect Earth for the plot's earlier period (a repeat survey's, in cloud mode); none when it cannot be had. */
   checkPeriods = async (id: string): Promise<void> => {
     let period: PlotPeriods | null = null;
@@ -648,6 +705,7 @@ export class FormStore {
   private async entityRequest(path: string, entity: string): Promise<void> {
     await this.flush();
     const action = path === "create-entity" ? "add" : "delete";
+    path = formPath(path, this.correcting);
     this.set({ entityBusy: entity, entityFailure: null });
     const body = saveBody(this.state.placemarkId, { ...this.plotValues }, this.state.tab, true);
     body.append("entityName", entity);
