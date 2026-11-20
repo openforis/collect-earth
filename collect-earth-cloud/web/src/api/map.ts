@@ -99,6 +99,13 @@ export function addMapPage(map: MapPlots | null, page: MapPage): MapPlots {
   return map;
 }
 
+/** One plot's place (a map page of one plot), or null when no plot is on the map: to preview the Explorer on. */
+export async function getOnePlace(projectId: string): Promise<{ lat: number; lon: number } | null> {
+  const page = await request<MapPage>("GET", `${p(projectId)}/map/plots?size=1`);
+  const point = page.points[0];
+  return point ? { lat: point[0], lon: point[1] } : null;
+}
+
 /**
  * Every plot on the map (coordinators and reviewers), read page by page (20,000 a page);
  * `onProgress` says how many are read. The server builds a map on its first page and serves

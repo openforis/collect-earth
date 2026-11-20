@@ -1,202 +1,66 @@
-// The Imagery card's Explorer section: the configuration document (`explorer_config`) of the Explorer window, as a
-// form edits it, built on the Explorer's catalogue (collect-earth-explorer/functions/catalogue.json). The checks mirror
-// the Explorer's own (web/src/lib/config.ts resolveEntry); the Explorer is the authority and skips what it refuses.
+// The Imagery card's Explorer section: the configuration document (`explorer_config`) of the Explorer window, edited on
+// the Explorer's own page (/configure) in a dialog. Here: the one-line summary of what is stored, the page's address and
+// which of its messages to believe.
 
-export type ParamSpec = { type: string; min?: number; max?: number; values?: string[]; default?: unknown };
+/** The parts of the Explorer's catalogue (collect-earth-explorer/functions/catalogue.json) the dashboard reads. */
 export type Catalogue = {
-  v: number;
-  layers: Record<string, { title: string; params: Record<string, ParamSpec> }>;
-  charts: Record<string, { title: string; params: Record<string, ParamSpec> }>;
-  indices: Record<string, string>;
-  bands: Record<string, string[]>;
-  standard: { v: number; layers: { type: string }[]; charts: { type: string }[] };
+  layers: Record<string, { title: string }>;
+  charts: Record<string, { title: string }>;
+  standard: { layers: { type: string }[]; charts: { type: string }[] };
 };
-export type Kind = "layers" | "charts";
-export type Entry = { type: string; params: Record<string, unknown> };
-export type Doc = { layers: Entry[]; charts: Entry[] };
-/** Why a field is refused; the form shows the message file.explorer.error.<code>. */
-export type EntryError =
-  | "invalid" | "number" | "year" | "yearOrder" | "date" | "textLength" | "textChars" | "formulaLength" | "formula"
-  | "bothDates" | "dateOrder" | "window" | "yearOrWindow" | "indexOrFormula";
-
-export const EXPLORER_CONFIG_MAX = 2000;
-const MAX_WINDOW_DAYS = 1096;
+type Kind = "layers" | "charts";
+/** A half's number of entries, or "standard" when it is the standard list and the catalogue is not at hand to count it. */
+export type ExplorerSummary = { layers: number | "standard"; charts: number | "standard"; names: string[] };
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
-const isBlank = (v: unknown) => v === undefined || (typeof v === "string" && v.trim() === "");
-/** What the server refuses inside the document's texts (collect-earth-cloud/src/imagery.ts CONTROL). */
-const CONTROL = /[\u0000-\u001f\u007f]/;
 
-/** The stored document as the form shows it, and whether reading it dropped something (saving would remove it). */
-export function parseDoc(stored: string, catalogue: Catalogue): { doc: Doc; unknown: boolean } {
-  const standard = (kind: Kind) => catalogue.standard[kind].map((e) => ({ type: e.type, params: {} }));
-  let parsed: unknown;
+/** What the stored document shows, as the Explorer reads it; null for the standard window (nothing stored). */
+export function summarise(stored: string, catalogue: Catalogue | null): ExplorerSummary | null {
+  if (stored.trim() === "") return null;
+  let doc: unknown;
   try {
-    parsed = stored === "" ? {} : JSON.parse(stored);
+    doc = JSON.parse(stored);
   } catch {
-    parsed = undefined;
+    return null; // the server stores only JSON objects: the Explorer would show the standard window
   }
-  if (!isObject(parsed) || (parsed.v !== undefined && parsed.v !== 1)) return { doc: { layers: standard("layers"), charts: standard("charts") }, unknown: true };
-  let unknown = false;
-  const half = (kind: Kind): Entry[] => {
-    const list = parsed[kind];
-    if (list === undefined) return standard(kind);
-    if (!Array.isArray(list)) {
-      unknown = true;
-      return standard(kind);
-    }
-    // As the Explorer: an empty chart list is honoured, a map always needs imagery
-    if (list.length === 0) return kind === "charts" ? [] : standard(kind);
-    const entries: Entry[] = [];
-    for (const raw of list) {
-      const { type, ...given } = isObject(raw) ? raw : {};
-      if (typeof type !== "string" || !Object.hasOwn(catalogue[kind], type)) {
-        unknown = true;
-        continue;
-      }
-      const specs = catalogue[kind][type].params;
-      const params: Record<string, unknown> = {};
-      for (const [name, value] of Object.entries(given)) {
-        if (Object.hasOwn(specs, name)) params[name] = value;
-        else unknown = true;
-      }
-      entries.push({ type, params });
-    }
-    return entries.length ? entries : standard(kind);
+  if (!isObject(doc)) return null;
+  const names: string[] = [];
+  const half = (kind: Kind): number | "standard" => {
+    const raw = doc[kind];
+    const known = (Array.isArray(raw) ? raw : []).filter(
+      (e): e is { type: string } => isObject(e) && typeof e.type === "string" && (!catalogue || Object.hasOwn(catalogue[kind], e.type)),
+    );
+    // As the Explorer: a half left out, or with nothing it knows, is the standard one; an empty chart list is honoured
+    const honoured = known.length > 0 || (kind === "charts" && Array.isArray(raw) && raw.length === 0);
+    const list = honoured ? known : catalogue?.standard[kind];
+    if (!list) return "standard";
+    if (catalogue) names.push(...list.map((e) => catalogue[kind][e.type]?.title ?? e.type));
+    return list.length;
   };
-  const doc = { layers: half("layers"), charts: half("charts") };
-  return { doc, unknown };
+  return { layers: half("layers"), charts: half("charts"), names };
 }
 
-const compact = (doc: Doc, catalogue: Catalogue) => {
-  const entry = (kind: Kind, e: Entry) => {
-    const out: Record<string, unknown> = { type: e.type };
-    for (const [name, spec] of Object.entries(catalogue[kind][e.type].params)) {
-      const value = e.params[name];
-      if (!isBlank(value) && value !== spec.default) out[name] = value;
-    }
-    return out;
-  };
-  return JSON.stringify({ v: 1, layers: doc.layers.map((e) => entry("layers", e)), charts: doc.charts.map((e) => entry("charts", e)) });
-};
-
-/** What to store: compact JSON without defaults and blanks, or '' for the standard configuration. */
-export function serialiseDoc(doc: Doc, catalogue: Catalogue): string {
-  const text = compact(doc, catalogue);
-  return text === compact(parseDoc("", catalogue).doc, catalogue) ? "" : text;
+/** The Explorer's setup page: the stored document, a plot of the project to preview on (else its sample plot), the language. */
+export function configureUrl(base: string, stored: string, lang: string, plot: { lat: number; lon: number } | null): string {
+  const params = [
+    stored ? `config=${encodeURIComponent(stored)}` : "",
+    plot ? `geoJson=${encodeURIComponent(JSON.stringify({ type: "Point", coordinates: [plot.lon, plot.lat] }))}` : "",
+    `lang=${encodeURIComponent(lang)}`,
+  ];
+  return `${base}/configure?${params.filter(Boolean).join("&")}`;
 }
 
-/** The length of what would be stored, against EXPLORER_CONFIG_MAX. */
-export const docSize = (doc: Doc, catalogue: Catalogue) => serialiseDoc(doc, catalogue).length;
-
-const isDate = (v: unknown) =>
-  typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v)) && new Date(v).toISOString().startsWith(v);
-
-const FUNCTIONS = ["sqrt", "abs", "min", "max", "pow"];
-const TOKEN = /\s+|(\d+(?:\.\d*)?|\.\d+)|([A-Za-z_]\w*)|([-+*/(),])/y;
-
-// Mirrors collect-earth-explorer/web/src/lib/config.ts formulaOk (itself mirroring functions/lib/formula.js checkFormula).
-function formulaOk(text: unknown, bands: string[]): boolean {
-  if (typeof text !== "string" || text.length > 200 || text.trim() === "") return false;
-  let prev = "start", depth = 0, usesBand = false, pos = 0;
-  while (pos < text.length) {
-    TOKEN.lastIndex = pos;
-    const m = TOKEN.exec(text);
-    if (!m) return false;
-    const [, number, name, symbol] = m;
-    const afterOperand = prev === "operand";
-    if (number === undefined && name === undefined && symbol === undefined) {
-      // whitespace
-    } else if (FUNCTIONS.includes(prev) && symbol !== "(") return false;
-    else if (number !== undefined || name !== undefined) {
-      if (afterOperand) return false;
-      if (name !== undefined && FUNCTIONS.includes(name)) prev = name;
-      else {
-        if (name !== undefined && !bands.includes(name)) return false;
-        if (name !== undefined) usesBand = true;
-        prev = "operand";
-      }
-    } else if (symbol === "(") {
-      if (afterOperand) return false;
-      depth++;
-      prev = "(";
-    } else if (symbol === ")") {
-      if (!afterOperand || --depth < 0) return false;
-      prev = "operand";
-    } else if (symbol === ",") {
-      if (!afterOperand || depth === 0) return false;
-      prev = ",";
-    } else {
-      if (!afterOperand && symbol !== "-") return false;
-      prev = "operator";
-    }
-    pos = TOKEN.lastIndex;
-  }
-  return depth === 0 && prev === "operand" && usesBand;
+/**
+ * The setup page's report, `{ source: "collect-earth-explorer", type: "config", config, valid }`, from a message event;
+ * null unless it comes from the Explorer's origin, from the dialog's own frame, and has that shape.
+ */
+export function configMessage(
+  event: { origin: string; source: unknown; data: unknown },
+  origin: string,
+  frame: unknown,
+): { config: string; valid: boolean } | null {
+  if (event.origin !== origin || !frame || event.source !== frame) return null;
+  const d = event.data;
+  if (!isObject(d) || d.source !== "collect-earth-explorer" || d.type !== "config" || typeof d.config !== "string" || typeof d.valid !== "boolean") return null;
+  return { config: d.config, valid: d.valid };
 }
-
-function paramError(spec: ParamSpec, value: unknown, thisYear: number, bands: string[]): EntryError | null {
-  const isYear = (y: unknown) => Number.isInteger(y) && (y as number) >= spec.min! && (y as number) <= thisYear;
-  switch (spec.type) {
-    case "choice": return spec.values!.includes(value as string) ? null : "invalid";
-    case "bool": return value === true || value === false ? null : "invalid";
-    case "int": return Number.isInteger(value) && (value as number) >= spec.min! && (value as number) <= spec.max! ? null : "number";
-    case "year": return isYear(value) ? null : "year";
-    case "yearRange":
-      if (!Array.isArray(value) || value.length !== 2 || !value.every(isYear)) return "year";
-      return value[0] <= value[1] ? null : "yearOrder";
-    case "date": return isDate(value) ? null : "date";
-    case "text":
-      if (typeof value !== "string" || value.length > spec.max!) return "textLength";
-      return /[<>]/.test(value) || CONTROL.test(value) ? "textChars" : null;
-    case "formula":
-      if (typeof value !== "string" || value.length > spec.max!) return "formulaLength";
-      // The Explorer's TOKEN takes tabs and line breaks as spaces, the server refuses them in the document
-      return !CONTROL.test(value) && formulaOk(value, bands) ? null : "formula";
-    default: return "invalid";
-  }
-}
-
-/** The entry's refused fields, by parameter name: each by its type, then the Explorer's rules across fields. */
-export function entryErrors(kind: Kind, entry: Entry, catalogue: Catalogue, thisYear: number): Record<string, EntryError> {
-  const specs = catalogue[kind][entry.type].params;
-  const p = entry.params;
-  const errors: Record<string, EntryError> = {};
-  for (const [name, spec] of Object.entries(specs)) {
-    const error = isBlank(p[name]) ? null : paramError(spec, p[name], thisYear, catalogue.bands[entry.type] ?? []);
-    if (error) errors[name] = error;
-  }
-  const has = (name: string) => !isBlank(p[name]);
-  if (entry.type === "sentinel2" && (has("start") || has("end"))) {
-    if (!has("start")) errors.start ??= "bothDates";
-    else if (!has("end")) errors.end ??= "bothDates";
-    else if (!errors.start && !errors.end) {
-      const days = (Date.parse(p.end as string) - Date.parse(p.start as string)) / 86400000;
-      if (days <= 0) errors.end = "dateOrder";
-      else if (days > MAX_WINDOW_DAYS) errors.end = "window";
-    }
-    for (const name of ["year", "years"]) if (has(name)) errors[name] ??= "yearOrWindow";
-  }
-  if (has("formula") && has("index") && p.index !== specs.index?.default) errors.formula ??= "indexOrFormula";
-  return errors;
-}
-
-/** The Explorer on a sample plot with this configuration, as Collect Earth opens it. */
-export function previewUrl(base: string, doc: Doc, catalogue: Catalogue, samplePlot: { lat: number; lon: number }): string {
-  const geoJson = encodeURIComponent(JSON.stringify({ type: "Point", coordinates: [samplePlot.lon, samplePlot.lat] }));
-  const config = serialiseDoc(doc, catalogue);
-  return `${base}/?geoJson=${geoJson}&plot_id=Preview${config ? `&config=${encodeURIComponent(config)}` : ""}`;
-}
-
-/** The list with the entry at `index` moved by `delta` places; unchanged when that leaves the list. */
-export function move<T>(list: T[], index: number, delta: number): T[] {
-  const to = index + delta;
-  const next = [...list];
-  if (to < 0 || to >= list.length) return next;
-  [next[index], next[to]] = [next[to], next[index]];
-  return next;
-}
-
-export const remove = <T>(list: T[], index: number): T[] => list.filter((_, i) => i !== index);
-
-export const add = (list: Entry[], type: string): Entry[] => [...list, { type, params: {} }];
