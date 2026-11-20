@@ -4,8 +4,6 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.Enumeration;
-import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
@@ -24,27 +22,6 @@ import com.google.gson.GsonBuilder;
  */
 public abstract class JsonPocessorServlet extends DataAccessingServlet {
 	Gson gson = new GsonBuilder().create();
-
-	protected Map<String, String> extractRequestData(HttpServletRequest request) {
-		Map<String, String> collectedData = new HashMap<>();
-
-		Enumeration<String> enParams = request.getParameterNames();
-		while (enParams.hasMoreElements()) {
-
-			String paramName = enParams.nextElement();
-			String[] values = request.getParameterValues(paramName);
-			if (values.length == 1) {
-				collectedData.put(paramName, values[0]);
-			} else {
-				int i = 1;
-				for (String val : values) {
-					collectedData.put(paramName + "_" + i, val); //$NON-NLS-1$
-					i++;
-				}
-			}
-		}
-		return collectedData;
-	}
 
 	protected void processRequest(HttpServletRequest request, HttpServletResponse response) throws IOException {
 

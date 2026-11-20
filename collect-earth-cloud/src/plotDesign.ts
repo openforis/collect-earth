@@ -8,7 +8,7 @@ import { degreesPerMetre } from './plotShape.js';
 import { readDbf, readShpPolygons, signedArea2 } from './shapefile.js';
 import type { PlotDesign as Design, DesignStratum as Stratum } from './wire/plotFiles.js';
 
-export type { PlotDesign as Design, DesignStratum as Stratum } from './wire/plotFiles.js';
+export type { PlotDesign as Design } from './wire/plotFiles.js';
 
 /** Most plots one design may make. */
 export const MAX_DESIGN_PLOTS = 50_000;

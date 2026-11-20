@@ -153,7 +153,9 @@ public class LocalPropertiesService extends Observable {
 				/** The training sets offered at a start (id:checksum, by commas): each version is offered once (CloudService) */
 				CLOUD_TRAINING_OFFERED("cloud_training_offered"),
 				/** Which training that is over had its plots' records deleted here (TrainingPlotFiles): done once for each */
-				CLOUD_TRAINING_CLEANED("cloud_training_cleaned"),;
+				CLOUD_TRAINING_CLEANED("cloud_training_cleaned"),
+		/** The plots to correct the person opened (CorrectionService), while they are the plots file: SAMPLE_FILE is set with it */
+		CLOUD_CORRECTIONS_FILE("cloud_corrections_file"),;
 
 		private String name;
 
@@ -229,11 +231,6 @@ public class LocalPropertiesService extends Observable {
 		return convertToOSPath(getValue(EarthProperty.BALLOON_TEMPLATE_KEY_WEB));
 	}
 
-	@Deprecated // nothing calls it since Collect Earth 2: it served the KMZ of Google Earth Pro
-	public String getBalloonFileChecksum() {
-		return getValue(EarthProperty.BALLOON_TEMPLATE_KEY_CHECKSUM);
-	}
-
 	public CollectDBDriver getCollectDBDriver() {
 
 		final String collectDbDriver = getValue(EarthProperty.DB_DRIVER);
@@ -256,11 +253,6 @@ public class LocalPropertiesService extends Observable {
 
 	public String getCsvFile() {
 		return convertToOSPath(getValue(EarthProperty.SAMPLE_FILE));
-	}
-
-	@Deprecated // nothing calls it since Collect Earth 2: it served the KMZ of Google Earth Pro
-	public String getCsvFileChecksum() {
-		return getValue(EarthProperty.CSV_KEY_CHECKSUM);
 	}
 
 	private String getExportedSurveyName(String surveyName) {
@@ -295,10 +287,6 @@ public class LocalPropertiesService extends Observable {
 
 	public String getPlanetMapsKey() {
 		return getValue(EarthProperty.PLANET_MAPS_KEY);
-	}
-
-	public String getPlanetMapsCeKey() {
-		return getValue(EarthProperty.PLANET_MAPS_CE_KEY);
 	}
 
 	/**
@@ -342,11 +330,6 @@ public class LocalPropertiesService extends Observable {
 
 	public String getPlanetTfoDateTo() {
 		return getValue(EarthProperty.PLANET_TFO_DATE_TO);
-	}
-
-	@Deprecated // nothing calls it since Collect Earth 2: it served the KMZ of Google Earth Pro
-	public String getGeneratedOn() {
-		return getValue(EarthProperty.GENERATED_KEY);
 	}
 
 	/**
@@ -464,11 +447,6 @@ public class LocalPropertiesService extends Observable {
 
 	public String getTemplateFile() {
 		return convertToOSPath(getValue(EarthProperty.KML_TEMPLATE_KEY));
-	}
-
-	@Deprecated // nothing calls it since Collect Earth 2: it served the KMZ of Google Earth Pro
-	public String getTemplateFileChecksum() {
-		return getValue(EarthProperty.KML_TEMPLATE_KEY_CHECKSUM);
 	}
 
 	public UI_LANGUAGE getUiLanguage() {
@@ -1054,43 +1032,8 @@ public class LocalPropertiesService extends Observable {
 	}
 
 
-	@Deprecated // nothing calls it since Collect Earth 2: it served the KMZ of Google Earth Pro
-	public void nullifyChecksumValues() {
-		saveBalloonFileChecksum("");
-		saveCsvFileCehcksum("");
-		saveTemplateFileChecksum("");
-		storeProperties();
-	}
-
 	public void removeModelVersionName() {
 		setValue(EarthProperty.MODEL_VERSION_NAME, "");
-	}
-
-	@Deprecated // nothing calls it since Collect Earth 2: it served the KMZ of Google Earth Pro
-	public void saveBalloonFileChecksum(String checksum) {
-		setValue(EarthProperty.BALLOON_TEMPLATE_KEY_CHECKSUM, checksum);
-
-	}
-
-	public void saveCrs(String crsName) {
-		setValue(EarthProperty.CRS_KEY, crsName);
-
-	}
-
-	public void saveCsvFile(String csvFile) {
-		setValue(EarthProperty.SAMPLE_FILE, csvFile);
-
-	}
-
-	@Deprecated // nothing calls it since Collect Earth 2: it served the KMZ of Google Earth Pro
-	public void saveCsvFileCehcksum(String checksum) {
-		setValue(EarthProperty.CSV_KEY_CHECKSUM, checksum);
-
-	}
-
-	public void saveHost(String hostName) {
-		setValue(EarthProperty.HOST_KEY, hostName);
-
 	}
 
 	public void saveOperator(String operatorName) {
@@ -1098,34 +1041,8 @@ public class LocalPropertiesService extends Observable {
 
 	}
 
-	public void savePort(String portName) {
-		setValue(EarthProperty.HOST_PORT_KEY, portName);
-
-	}
-
-	@Deprecated // nothing calls it since Collect Earth 2: it served the KMZ of Google Earth Pro
-	public void saveTemplateFileChecksum(String checksum) {
-		setValue(EarthProperty.KML_TEMPLATE_KEY_CHECKSUM, checksum);
-
-	}
-
 	public void setExceptionShown(Boolean showException) {
 		setValue(EarthProperty.EXCEPTION_SHOWN, showException.toString());
-	}
-
-	public void setJumpToNextPlot(String shouldSkip) {
-		String booleanSkip = "";
-		if (shouldSkip != null && shouldSkip.length() > 0) {
-			if (shouldSkip.equals("on")) {
-				booleanSkip = "true";
-			} else if (shouldSkip.equals("off")) {
-				booleanSkip = "false";
-			}
-		} else {
-			booleanSkip = "false";
-		}
-		setValue(EarthProperty.JUMP_TO_NEXT, booleanSkip);
-
 	}
 
 	/** @param exportedAt when the export started: a record saved while it ran goes in the next one */
@@ -1135,14 +1052,6 @@ public class LocalPropertiesService extends Observable {
 
 	public void setModelVersionName(String modelVersionName) {
 		setValue(EarthProperty.MODEL_VERSION_NAME, modelVersionName);
-	}
-
-	public void setSampleShape(SAMPLE_SHAPE shape) {
-		setValue(EarthProperty.SAMPLE_SHAPE, shape.name());
-	}
-
-	public void setBufferShape(BUFFER_SHAPE shape) {
-		setValue(EarthProperty.BUFFER_SHAPE, shape.name());
 	}
 
 	public void setUiLanguage(UI_LANGUAGE language) {

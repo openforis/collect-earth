@@ -12,15 +12,17 @@
 // problem is not a flood. Counted per server instance, in memory, as the panel's counters are: a restart starts again.
 // The mail of "many server errors" carries the instance's recent warnings and errors as a file (src/errorLog.ts, at most
 // 500 KB, the newest), so the administrator sees what failed; the webhook's post does not (a chat channel is wider).
+// The alerts about errors (server errors, records refused) say how the database kept up in the same hour when it did
+// not (src/databaseVitals.ts): busy answers and slow waits for a connection are how a database too small for its load
+// shows first (DEPLOY.md, "Is the database big enough?").
 import type { FastifyBaseLogger } from 'fastify';
 import { postWebhook, type Fetch } from './alertWebhook.js';
 import { fill, renderHtml, renderText, type MailLine } from './digestText.js';
 import type { MailAttachment, Mailer } from './mail.js';
 import type { Store } from './store/store.js';
+import { databaseStruggled, type DatabaseSummary } from './databaseVitals.js';
 import type { MailLanguage } from './types.js';
 import type { AlertSignal, AlertThresholds, OwnerAlertKind as AlertKind } from './wire/serverAdmin.js';
-
-export type { AlertSignal, AlertThresholds, OwnerAlertKind as AlertKind } from './wire/serverAdmin.js';
 
 export interface OwnerAlert {
   kind: AlertKind;
@@ -30,7 +32,15 @@ export interface OwnerAlert {
   count: number;
   /** For storage: the project. */
   projectId?: string;
+  /** For the alerts about errors: the database's last hour on this instance, when it did not keep up. */
+  database?: AlertDatabase;
 }
+
+/** The database's last hour as an alert tells it, with how long a request waits for a connection (PG_CONNECT_TIMEOUT_MS) */
+export type AlertDatabase = DatabaseSummary & { connectTimeoutMs: number };
+
+/** The alerts that say how the database kept up: those about errors, which a database too slow causes */
+const WITH_DATABASE: ReadonlySet<AlertKind> = new Set(['server_errors', 'sync_errors']);
 
 /** How many in one hour raise an alert, by default (the server settings alertFailedLogins...). */
 export const THRESHOLDS: Record<AlertSignal, number> = { failedLogin: 50, serverError: 20, syncError: 50 };
@@ -54,7 +64,9 @@ export class OwnerAlerts {
   private readonly raised: OwnerAlert[] = [];
   private thresholds: AlertThresholds = { ...THRESHOLDS, storagePercent: STORAGE_PERCENT };
 
-  constructor(private readonly options: { now?: () => number; notify?: (alert: OwnerAlert) => Promise<void> | void } = {}) {}
+  constructor(
+    private readonly options: { now?: () => number; notify?: (alert: OwnerAlert) => Promise<void> | void; database?: () => AlertDatabase } = {},
+  ) {}
 
   /** The thresholds from the server settings (read at start, after a change, and every few minutes). */
   setThresholds(t: AlertThresholds): void {
@@ -79,7 +91,12 @@ export class OwnerAlerts {
     // never more than the threshold kept: the count that matters is "at least that many"
     const threshold = this.thresholds[signal];
     if (list.length > threshold) list.splice(0, list.length - threshold);
-    if (list.length >= threshold) this.raise({ kind: KIND_OF[signal], at: now, count: list.length }, KIND_OF[signal], COOLDOWN_MS);
+    if (list.length >= threshold) {
+      const alert: OwnerAlert = { kind: KIND_OF[signal], at: now, count: list.length };
+      const database = WITH_DATABASE.has(alert.kind) ? this.options.database?.() : undefined;
+      if (database && databaseStruggled(database)) alert.database = database;
+      this.raise(alert, KIND_OF[signal], COOLDOWN_MS);
+    }
   }
 
   /** Each project's storage against the server's limit (0: no limit, nothing to check). */
@@ -131,6 +148,10 @@ const en = {
   two_factor_keysText: 'The server cannot read the two-step sign-in of {count} accounts it checked when it started: those people can only sign in with a recovery code. Its key changed: put back the TWO_FACTOR_KEY it had (the server log names the keys missing), or turn their two-step sign-in off in the server panel.',
   footer: 'This mail goes to the administrators of {server}. The same alert is sent at most once every six hours.',
   errorLogAttached: 'The server\'s most recent warnings and errors are attached ({file}, at most 500 KB, the newest last).',
+  databaseIntro: 'The database in the last hour, on the server instance that raised this alert:',
+  databaseBusy: '{busy} requests found no free connection to the database within {timeout} s and were answered "busy".',
+  databaseSlow: '{slow} requests waited more than a second for a connection, the longest {max} s (a few milliseconds when the database keeps up).',
+  databaseAdvice: 'Requests waiting for the database mean it cannot keep up with the load: look at its CPU and memory in the Cloud SQL console, and see "Is the database big enough?" in the server\'s DEPLOY.md.',
 };
 type AlertTexts = typeof en;
 const es: AlertTexts = {
@@ -147,6 +168,10 @@ const es: AlertTexts = {
   two_factor_keysText: 'El servidor no puede leer la verificación en dos pasos de {count} cuentas que comprobó al arrancar: esas personas solo pueden entrar con un código de recuperación. Su clave cambió: vuelva a poner la TWO_FACTOR_KEY que tenía (el registro del servidor indica las claves que faltan), o desactive su verificación en dos pasos en el panel del servidor.',
   footer: 'Este correo va a los administradores de {server}. La misma alerta se envía como mucho una vez cada seis horas.',
   errorLogAttached: 'Se adjuntan las advertencias y errores más recientes del servidor ({file}, como mucho 500 KB, los más nuevos al final).',
+  databaseIntro: 'La base de datos en la última hora, en la instancia del servidor que dio esta alerta:',
+  databaseBusy: '{busy} solicitudes no encontraron una conexión libre con la base de datos en {timeout} s y recibieron la respuesta «ocupado».',
+  databaseSlow: '{slow} solicitudes esperaron más de un segundo por una conexión, la más larga {max} s (unos milisegundos cuando la base de datos da abasto).',
+  databaseAdvice: 'Que las solicitudes esperen a la base de datos significa que no da abasto con la carga: mire su CPU y su memoria en la consola de Cloud SQL, y vea «Is the database big enough?» en el DEPLOY.md del servidor.',
 };
 const fr: AlertTexts = {
   subject: '{server} : {what}',
@@ -162,6 +187,10 @@ const fr: AlertTexts = {
   two_factor_keysText: 'Le serveur ne peut pas lire la validation en deux étapes de {count} comptes vérifiés à son démarrage : ces personnes ne peuvent se connecter qu\'avec un code de récupération. Sa clé a changé : remettez la TWO_FACTOR_KEY qu\'il avait (le journal du serveur nomme les clés manquantes), ou désactivez leur validation en deux étapes dans le panneau du serveur.',
   footer: 'Ce message va aux administrateurs de {server}. La même alerte est envoyée au plus une fois toutes les six heures.',
   errorLogAttached: 'Les avertissements et erreurs les plus récents du serveur sont joints ({file}, 500 Ko au plus, les plus récents à la fin).',
+  databaseIntro: 'La base de données dans la dernière heure, sur l\'instance du serveur qui a donné cette alerte :',
+  databaseBusy: '{busy} requêtes n\'ont trouvé aucune connexion libre à la base de données en {timeout} s et ont reçu la réponse « occupé ».',
+  databaseSlow: '{slow} requêtes ont attendu plus d\'une seconde une connexion, la plus longue {max} s (quelques millisecondes quand la base de données suit).',
+  databaseAdvice: 'Des requêtes qui attendent la base de données signifient qu\'elle ne suit pas la charge : regardez son processeur et sa mémoire dans la console Cloud SQL, et voyez « Is the database big enough? » dans le DEPLOY.md du serveur.',
 };
 const pt: AlertTexts = {
   subject: '{server}: {what}',
@@ -177,6 +206,10 @@ const pt: AlertTexts = {
   two_factor_keysText: 'O servidor não consegue ler a verificação em duas etapas de {count} contas que conferiu ao iniciar: essas pessoas só conseguem entrar com um código de recuperação. A chave mudou: recoloque a TWO_FACTOR_KEY que ele tinha (o log do servidor indica as chaves que faltam), ou desative a verificação em duas etapas delas no painel do servidor.',
   footer: 'Este e-mail vai para os administradores de {server}. O mesmo alerta é enviado no máximo uma vez a cada seis horas.',
   errorLogAttached: 'Os avisos e erros mais recentes do servidor estão em anexo ({file}, no máximo 500 KB, os mais novos no fim).',
+  databaseIntro: 'O banco de dados na última hora, na instância do servidor que deu este alerta:',
+  databaseBusy: '{busy} pedidos não encontraram uma conexão livre com o banco de dados em {timeout} s e receberam a resposta "ocupado".',
+  databaseSlow: '{slow} pedidos esperaram mais de um segundo por uma conexão, o mais longo {max} s (alguns milissegundos quando o banco de dados dá conta).',
+  databaseAdvice: 'Pedidos esperando pelo banco de dados significam que ele não dá conta da carga: veja a CPU e a memória dele no console do Cloud SQL, e veja "Is the database big enough?" no DEPLOY.md do servidor.',
 };
 const tr: AlertTexts = {
   subject: '{server}: {what}',
@@ -192,6 +225,10 @@ const tr: AlertTexts = {
   two_factor_keysText: 'Sunucu, başlarken denetlediği {count} hesabın iki adımlı oturum açma bilgisini okuyamıyor: bu kişiler yalnızca bir kurtarma koduyla oturum açabilir. Anahtar değişti: sunucunun önceki TWO_FACTOR_KEY değerini geri koyun (eksik anahtarlar sunucu günlüğünde yazar) ya da bu kişilerin iki adımlı oturum açmasını sunucu panelinden kapatın.',
   footer: 'Bu e-posta {server} yöneticilerine gönderilir. Aynı uyarı en fazla altı saatte bir gönderilir.',
   errorLogAttached: 'Sunucunun en son uyarıları ve hataları ektedir ({file}, en fazla 500 KB, en yeniler sonda).',
+  databaseIntro: 'Son bir saatte veritabanı, bu uyarıyı veren sunucu örneğinde:',
+  databaseBusy: '{busy} istek {timeout} sn içinde veritabanına boş bir bağlantı bulamadı ve "meşgul" yanıtı aldı.',
+  databaseSlow: '{slow} istek bir bağlantı için bir saniyeden uzun bekledi, en uzunu {max} sn (veritabanı yetiştiğinde birkaç milisaniye).',
+  databaseAdvice: 'İsteklerin veritabanını beklemesi, veritabanının yüke yetişemediği anlamına gelir: Cloud SQL konsolunda işlemci ve bellek kullanımına bakın ve sunucunun DEPLOY.md dosyasındaki "Is the database big enough?" bölümünü okuyun.',
 };
 const TEXTS: Record<MailLanguage, AlertTexts> = { en, es, fr, pt, tr };
 
@@ -201,6 +238,7 @@ export function alertMail(alert: OwnerAlert, language: MailLanguage, server: str
   const body = t[`${alert.kind}Text` as keyof AlertTexts];
   const lines: MailLine[] = [
     { kind: 'para', text: fill(body, { count: String(alert.count), project: projectName ?? alert.projectId ?? '' }) },
+    ...(alert.database ? [{ kind: 'para' as const, text: databaseText(alert.database, language) }] : []),
     ...(attached ? [{ kind: 'para' as const, text: fill(t.errorLogAttached, { file: attached }) }] : []),
     { kind: 'rule' },
     { kind: 'para', text: fill(t.footer, { server }) },
@@ -220,12 +258,24 @@ export function errorLogAttachment(alert: Pick<OwnerAlert, 'kind' | 'at'>, serve
 }
 
 /** An alert in words for a chat channel (the webhook): a project by its id only, never its name. */
-export function alertForChannel(alert: Pick<OwnerAlert, 'kind' | 'count' | 'projectId'>, language: MailLanguage, server: string): { title: string; text: string } {
+export function alertForChannel(alert: Pick<OwnerAlert, 'kind' | 'count' | 'projectId' | 'database'>, language: MailLanguage, server: string): { title: string; text: string } {
   const t = TEXTS[language] ?? en;
+  const text = fill(t[`${alert.kind}Text` as keyof AlertTexts], { count: String(alert.count), project: alert.projectId ?? '' });
   return {
     title: fill(t.subject, { server, what: t[alert.kind] }),
-    text: fill(t[`${alert.kind}Text` as keyof AlertTexts], { count: String(alert.count), project: alert.projectId ?? '' }),
+    text: alert.database ? `${text}\n\n${databaseText(alert.database, language)}` : text,
   };
+}
+
+/** How the database kept up, in words: the busy answers, the slow waits, and what to look at */
+export function databaseText(d: AlertDatabase, language: MailLanguage): string {
+  const t = TEXTS[language] ?? en;
+  const seconds = (ms: number) => new Intl.NumberFormat(language, { maximumFractionDigits: 1 }).format(ms / 1000);
+  const parts = [t.databaseIntro];
+  if (d.busy > 0) parts.push(fill(t.databaseBusy, { busy: String(d.busy), timeout: seconds(d.connectTimeoutMs) }));
+  if (d.slow > 0) parts.push(fill(t.databaseSlow, { slow: String(d.slow), max: seconds(d.maxWaitMs) }));
+  parts.push(t.databaseAdvice);
+  return parts.join(' ');
 }
 
 /**
@@ -234,7 +284,7 @@ export function alertForChannel(alert: Pick<OwnerAlert, 'kind' | 'count' | 'proj
  */
 export function ownerNotifier(store: Store, mailer: Mailer, log: FastifyBaseLogger, serverName: () => Promise<string>, fetchImpl?: Fetch, errorLog?: () => string | null) {
   return async (alert: OwnerAlert) => {
-    log.error({ ownerAlert: alert.kind, count: alert.count, projectId: alert.projectId }, `owner alert: ${alert.kind}`);
+    log.error({ ownerAlert: alert.kind, count: alert.count, projectId: alert.projectId, database: alert.database }, `owner alert: ${alert.kind}`);
     try {
       await store.appendOwnerAlert({ kind: alert.kind, at: alert.at, count: alert.count, projectId: alert.projectId ?? null });
     } catch (err) {

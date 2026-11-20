@@ -33,7 +33,6 @@ export function apiErrorFrom(status: number, body: unknown): ApiError {
 const CODE_MESSAGES: Record<string, MessageKey> = {
   [NETWORK_ERROR]: "error.network",
   invalid_credentials: "error.invalidCredentials",
-  own_plot: "quality.ownPlot",
   no_such_plot: "quality.noSuchPlot",
   reference_plot: "plot.referenceNoDecision",
   map_changed: "map.changed",
@@ -91,7 +90,7 @@ const CODE_MESSAGES: Record<string, MessageKey> = {
   no_plots: "error.noPlots",
   training_plot_in_file: "error.trainingPlotInFile",
   training_plot_clash: "training.clash",
-  // The Collect Earth backup (GET /exports/collect-backup).
+  // The Collect Earth backup (POST /exports/collect-backup/link).
   no_round_key: "backup.noRoundKey",
   no_project_file: "backup.noProjectFile",
   backup_busy: "backup.busy",
@@ -109,6 +108,8 @@ const CODE_MESSAGES: Record<string, MessageKey> = {
   no_such_week: "weekly.noSuchWeek",
   round_codes_changed: "error.roundCodesChanged",
   key_shape_changed: "error.keyShapeChanged",
+  // The survey is not in WGS84 latitude and longitude, the only coordinate system Collect Earth takes
+  not_wgs84: "error.notWgs84",
   plots_divided: "error.plotsDivided",
   too_large: "error.cepTooLarge",
   // The quality figures (GET /quality and the reports).

@@ -145,17 +145,19 @@ describe('the review queue: GET /quality/queue, decisions by reviewers, POST /qu
     expect(body.items.map((i: { plot: string; resubmitted: unknown }) => [i.plot, i.resubmitted])).toEqual([['7', [{ plot: '7', operator: 'maria', at: before, decidedAt: decided.json().decidedAt }]]]);
   });
 
-  it("a reviewer's queue leaves out the plots they assessed (first assessment or check), before the counts, the people and the cursor; a coordinator's keeps them", async () => {
+  it("a person's own plots (first assessment or check) stay in their queue, marked: a warning, not a refusal (20 Nov 2026)", async () => {
     const owners = await fresh();
-    expect(owners.excludedOwn).toBe(0);
+    // the owner made a check of plot 4
+    expect(owners.items.filter((i: { own?: boolean }) => i.own).map((i: { plot: string }) => i.plot)).toEqual(['4']);
     const ritas = await fresh('/quality/queue', rita.token);
-    expect(ritas.items.map((i: { plot: string }) => i.plot)).toEqual(['1', '4', '6']);
-    expect(ritas).toMatchObject({ total: 3, counts: { difference: 2, flag: 1, resubmitted: 0 }, excludedOwn: 2 });
+    expect(ritas.items.map((i: { plot: string }) => i.plot)).toEqual(['1', '2', '3', '4', '6']);
+    expect(ritas.items.filter((i: { own?: boolean }) => i.own).map((i: { plot: string }) => i.plot)).toEqual(['2', '3']);
+    expect(ritas).toMatchObject({ total: 5, counts: { difference: 4, flag: 1, resubmitted: 0 } });
     // nobody to filter by, and no queue per person: its counts would be that person's differences and flags
     expect(ritas.people).toEqual([]);
     expect((await call('GET', '/quality/queue?person=ana', rita.token)).statusCode).toBe(403);
     expect((await call('GET', '/quality/queue?person=ana&kind=difference', rita.token)).statusCode).toBe(403);
-    expect((await call('GET', '/quality/queue?after=difference::1', rita.token)).json().items.map((i: { plot: string }) => i.plot)).toEqual(['4', '6']);
+    expect((await call('GET', '/quality/queue?after=difference::1', rita.token)).json().items.map((i: { plot: string }) => i.plot)).toEqual(['2', '3', '4', '6']);
     expect(owners.items.map((i: { plot: string }) => i.plot)).toEqual(['1', '2', '3', '4', '6']);
   });
 
@@ -175,6 +177,91 @@ describe('the review queue: GET /quality/queue, decisions by reviewers, POST /qu
       ['decision.deleted', 'rita', { plot: '1' }],
       ['decision.set', 'rita', { plot: '1', decision: 'check' }],
     ]);
+  });
+
+  it('the list: one line per plot, searched, sorted and paged; the decided plots when asked; the queue\'s rules', async () => {
+    await fresh();
+    const list = async (query = '', token = owner.token) => {
+      const res = await call('GET', `/quality/review-list${query}`, token);
+      expect(res.statusCode, res.body).toBe(200);
+      return res.json();
+    };
+    const plots = (body: { lines: { plot: string }[] }) => body.lines.map((l) => l.plot);
+    const all = await list();
+    expect(plots(all)).toEqual(['1', '2', '3', '4', '6']);
+    expect(all).toMatchObject({ total: 5, offset: 0, people: ['ana', 'ben', 'owner', 'rita'] });
+    expect(all.lines[0]).toEqual({ plot: '1', section: 'difference', kinds: ['difference'], people: ['ana', 'ben'], checks: 1, decision: null });
+    expect(all.lines[4]).toMatchObject({ plot: '6', section: 'flag', kinds: ['very_fast'], people: ['ana'], checks: 0 });
+    // search (any case, part of the id), sort, pages
+    expect(plots(await list('?q=6'))).toEqual(['6']);
+    expect(plots(await list('?sort=plot&dir=desc'))).toEqual(['6', '4', '3', '2', '1']);
+    expect(await list('?limit=2&offset=2')).toMatchObject({ lines: [{ plot: '3' }, { plot: '4' }], total: 5, offset: 2 });
+    expect(plots(await list('?kind=very_fast'))).toEqual(['6']);
+    expect(plots(await list('?person=owner'))).toEqual(['4']);
+    // decided plots: only when asked, with their decision
+    await call('PUT', '/quality/decisions/1', owner.token, { decision: 'check', comment: 'G' });
+    expect(plots(await list())).toEqual(['2', '3', '4', '6']);
+    const decided = await list('?state=decided');
+    expect(decided.lines).toEqual([{ plot: '1', section: null, kinds: ['difference'], people: ['ana', 'ben'], checks: 1, decision: expect.objectContaining({ decision: 'check', comment: 'G', decidedBy: 'owner' }) }]);
+    expect(plots(await list('?state=all'))).toEqual(['2', '3', '4', '6', '1']);
+    // a reviewer: their own plots in it, marked; no person filter; collectors: no list
+    const ritas = await list('?state=all', rita.token);
+    expect(plots(ritas)).toEqual(['2', '3', '4', '6', '1']);
+    expect(ritas.lines.filter((l: { own?: boolean }) => l.own).map((l: { plot: string }) => l.plot)).toEqual(['2', '3']);
+    expect(ritas).toMatchObject({ people: [] });
+    expect((await call('GET', '/quality/review-list?person=ana', rita.token)).statusCode).toBe(403);
+    expect((await call('GET', '/quality/review-list', maria.token)).statusCode).toBe(403);
+    // the list's page one at a time: the queue's items of those plots, in the order asked (decided or unknown ones left out)
+    const some = (await call('GET', '/quality/queue?plot=6&plot=3&plot=1&plot=99', owner.token)).json();
+    expect(some).toMatchObject({ total: 2, next: null });
+    expect(some.items.map((i: { plot: string }) => i.plot)).toEqual(['6', '3']);
+    expect((await call('GET', '/quality/queue?plot=1&after=difference::1', owner.token)).statusCode).toBe(400);
+    for (const bad of ['?state=some', '?sort=size', '?limit=0', '?limit=201', '?offset=-1', '?kind=odd']) {
+      expect((await call('GET', `/quality/review-list${bad}`, owner.token)).statusCode, bad).toBe(400);
+    }
+  });
+
+  it('one decision for many plots: picked or by the filters, a dry run first, plots that cannot take it skipped and named, one audit entry', async () => {
+    await fresh();
+    const apply = (payload: unknown, token = owner.token, dry = false) => call('POST', `/quality/decisions:apply${dry ? '?dryRun=1' : ''}`, token, payload);
+    const dry = await apply({ plots: ['1', '4', '6', '99'], decision: 'check' }, owner.token, true);
+    expect(dry.statusCode, dry.body).toBe(200);
+    expect(dry.json()).toEqual({
+      decision: 'check',
+      count: 2,
+      plots: ['1', '4'],
+      skipped: [
+        { plot: '6', reason: 'no_check' },
+        { plot: '99', reason: 'not_in_list' },
+      ],
+      skippedCount: 2,
+      dryRun: true,
+      batch: null,
+      // the owner made the check of plot 4: said, not refused
+      own: ['4'],
+      ownCount: 1,
+    });
+    expect(await ctx.store.listQualityDecisions(pid)).toEqual([]);
+    // A decision a plot has is replaced
+    await call('PUT', '/quality/decisions/1', owner.token, { decision: 'check' });
+    const done = await apply({ filter: { state: 'all', kind: 'difference' }, decision: 'first', comment: 'the first assessors were right' });
+    expect(done.statusCode, done.body).toBe(200);
+    expect(done.json()).toMatchObject({ decision: 'first', count: 4, plots: ['2', '3', '4', '1'], skippedCount: 0, dryRun: false, batch: expect.stringMatching(/^[0-9a-f-]{36}$/) });
+    const decisions = await ctx.store.listQualityDecisions(pid);
+    expect(decisions.map((d) => [d.plot, d.decision, d.comment, d.batch]).sort()).toEqual(
+      ['1', '2', '3', '4'].map((plot) => [plot, 'first', 'the first assessors were right', done.json().batch]),
+    );
+    expect(decisions.every((d) => d.seen && d.seen.length === 2)).toBe(true);
+    const audit = await ctx.store.listAudit(pid, { limit: 10, action: 'decision.applied' });
+    expect(audit.map((e) => [e.actor, e.details])).toEqual([['owner', { decision: 'first', count: 4, batch: done.json().batch, own: 1 }]]);
+    // A reviewer: their own plots are decided too, and said; no person filter; collectors cannot
+    const ritas = await apply({ plots: ['2', '6'], decision: 'recheck' }, rita.token);
+    expect(ritas.json()).toMatchObject({ count: 2, plots: ['2', '6'], skipped: [], own: ['2'], ownCount: 1 });
+    expect((await apply({ filter: { person: 'ana' }, decision: 'first' }, rita.token)).statusCode).toBe(403);
+    expect((await apply({ plots: ['1'], decision: 'first' }, maria.token)).statusCode).toBe(403);
+    for (const payload of [{ decision: 'first' }, { plots: ['1'], filter: {}, decision: 'first' }, { plots: [], decision: 'first' }, { plots: ['1'], decision: 'maybe' }, { filter: { state: 'some' }, decision: 'first' }]) {
+      expect((await apply(payload)).statusCode, JSON.stringify(payload)).toBe(400);
+    }
   });
 
   it('bulk: a dry run gives the count; the rule decides only plots without a decision, keeps what each saw, one audit entry; coordinators only', async () => {
@@ -257,25 +344,31 @@ describe('the review queue: GET /quality/queue, decisions by reviewers, POST /qu
     expect(page2.next).toBeNull();
   });
 
-  it('a reviewer may not decide a plot they assessed (409); a coordinator may, and the decision says so', async () => {
+  it('anyone may decide a plot they assessed: a warning, not a refusal (once a 409); the decision and the audit say so', async () => {
     await fresh();
     for (const plot of ['3', '2']) {
       const res = await call('PUT', `/quality/decisions/${plot}`, rita.token, { decision: 'first' });
-      expect(res.statusCode, plot).toBe(409);
-      expect(res.json()).toMatchObject({ error: 'own_plot', reason: expect.stringContaining('someone else decides it') });
+      expect(res.statusCode, plot).toBe(200);
+      expect(res.json()).toMatchObject({ decidedBy: 'rita', byAssessor: true });
     }
-    expect(await ctx.store.listQualityDecisions(pid)).toEqual([]);
     const own = await call('PUT', '/quality/decisions/4', owner.token, { decision: 'check' });
     expect(own.statusCode).toBe(200);
     expect(own.json()).toMatchObject({ decidedBy: 'owner', byAssessor: true });
     expect((await call('PUT', '/quality/decisions/1', owner.token, { decision: 'check' })).json().byAssessor).toBe(false);
     expect((await call('GET', '/quality', owner.token)).json().decisions.map((d: { plot: string; byAssessor: boolean }) => [d.plot, d.byAssessor])).toEqual([
       ['1', false],
+      ['2', true],
+      ['3', true],
       ['4', true],
     ]);
-    // Nor undo one: plot 3 decided by the owner, rita checked it.
-    await call('PUT', '/quality/decisions/3', owner.token, { decision: 'first' });
-    expect((await call('DELETE', '/quality/decisions/3', rita.token)).statusCode).toBe(409);
-    expect((await call('DELETE', '/quality/decisions/1', rita.token)).statusCode).toBe(204);
+    const audit = await ctx.store.listAudit(pid, { limit: 10, action: 'decision.set' });
+    expect(audit.map((e) => [e.actor, e.details]).reverse()).toEqual([
+      ['rita', { plot: '3', decision: 'first', own: true }],
+      ['rita', { plot: '2', decision: 'first', own: true }],
+      ['owner', { plot: '4', decision: 'check', own: true }],
+      ['owner', { plot: '1', decision: 'check' }],
+    ]);
+    // and undo one
+    expect((await call('DELETE', '/quality/decisions/3', rita.token)).statusCode).toBe(204);
   });
 });

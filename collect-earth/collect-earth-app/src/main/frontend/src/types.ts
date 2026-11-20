@@ -25,6 +25,8 @@ export interface PlotsIndex {
   warning?: string;
   /** The plot file is a training set's (its name), whose plots are the team's to learn on (TrainingPlotFiles) */
   training?: string;
+  /** The plot file is the person's plots to correct, which others answered (CorrectionService) */
+  corrections?: boolean;
 }
 
 /** One plot opened (/plotDetail): its feature, and the outline of each plot around it, itself included, nearest first. */

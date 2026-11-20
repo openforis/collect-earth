@@ -187,8 +187,6 @@ export const LOCAL_HOST = '127.0.0.1';
 /** The shortest DIGEST_SECRET accepted. */
 export const MIN_DIGEST_SECRET_LENGTH = 32;
 
-export type { MapTiles } from './wire/account.js';
-
 /**
  * OpenStreetMap's own tiles: no key, with the attribution its tile usage policy asks for
  * (operations.osmfoundation.org/policies/tiles). Fine for a project's coordinators; heavy

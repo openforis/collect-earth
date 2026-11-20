@@ -18,7 +18,7 @@ import { nearbyAvailability, nearbyRanksOf, servedNearby, type NearbyAvailabilit
 import { columnValues, plotColumns } from '../plotColumns.js';
 import { plotFileOf } from '../plotFileCache.js';
 import { loadPlotContext, type Log } from '../qualityService.js';
-import { isWgs84, PlotPlaceReader } from './plotPlaces.js';
+import { PlotPlaceReader } from './plotPlaces.js';
 import { fileKeyCount, keyShape, splitKey } from '../rounds.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import type { Store } from '../store/store.js';
@@ -72,19 +72,14 @@ async function nearbyOf(
   keyCount: number,
   log: FastifyRequest['log'],
 ): Promise<{ availability: NearbyAvailability; places: ReadonlyMap<string, readonly [number, number]> }> {
-  const { srid } = await reader.surveyFacts(projectId, log);
   // The file in hand is parsed (not read again by id): the places are of this very content.
-  const places = isWgs84(srid)
-    ? ((await reader.placesOfFile(projectId, file.id, file.checksum, keyCount, log, file))?.places ?? new Map<string, readonly [number, number]>())
-    : new Map<string, readonly [number, number]>();
-  return { availability: nearbyAvailability(srid, places.size, plotCount), places };
+  const places = (await reader.placesOfFile(projectId, file.id, file.checksum, keyCount, log, file))?.places ?? new Map<string, readonly [number, number]>();
+  return { availability: nearbyAvailability(places.size, plotCount), places };
 }
 
 /** Why order 'nearby' is refused, for the 400. */
-function nearbyRefusal(availability: NearbyAvailability): string {
-  return availability.reason === 'other_srs'
-    ? `order 'nearby' needs latitude and longitude; the survey's coordinates are in ${availability.srid}`
-    : "order 'nearby' needs plots with latitude and longitude (the two columns after the plot id); this file has none";
+function nearbyRefusal(): string {
+  return "order 'nearby' needs plots with latitude and longitude (the two columns after the plot id); this file has none";
 }
 
 type Loaded = NonNullable<Awaited<ReturnType<typeof loadFile>>>;
@@ -212,7 +207,7 @@ export async function registerDivisionRoutes(app: FastifyInstance, store: Store,
     if (parsed.order === 'nearby') {
       const nearby = await nearbyOf(placeReader, projectId, file, plotFile.plotIds.length, keyCount, request.log);
       if (!nearby.availability.available) {
-        return reply.code(400).send({ error: 'bad_request', reason: nearbyRefusal(nearby.availability) });
+        return reply.code(400).send({ error: 'bad_request', reason: nearbyRefusal() });
       }
       rank = await nearbyRanksOf(file, keyCount, async () => nearby.places);
     }

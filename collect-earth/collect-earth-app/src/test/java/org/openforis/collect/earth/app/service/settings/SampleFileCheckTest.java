@@ -161,4 +161,59 @@ public class SampleFileCheckTest {
 		result = null;
 		assertTrue(problems(check.check(file.getAbsolutePath())).isEmpty());
 	}
+
+	/** Plots in UTM metres, as a plot file of a survey in EPSG:32737 had them: Collect Earth takes WGS84 degrees only */
+	@Test
+	public void plotsOutOfTheRangeOfDegreesAreRefusedAndNamed() throws Exception {
+		File file = csv("utm.csv", "id,YCoordinate,XCoordinate,elevation,slope,aspect", "a,-1.29,36.82,0,0,0", "u1,9857000,257000,0,0,0",
+				"u2,-1.29,257100,0,0,0", "u3,9857200,257200,0,0,0", "u4,9857300,257300,0,0,0", "u5,9857400,257400,0,0,0",
+				"u6,9857500,257500,0,0,0");
+		Map<String, Object> answer = check.check(file.getAbsolutePath());
+		Map<String, Object> problem = problems(answer).get(0);
+		assertEquals("notWgs84Plots", problem.get("code"));
+		assertEquals(true, problem.get("blocking"));
+		assertTrue(SampleFileCheck.isBlocking(answer));
+		String message = (String) problem.get("message");
+		assertTrue(message.contains("u1, u2, u3, u4, u5, ...") && !message.contains("u6"), message);
+		assertTrue(message.contains("EPSG:4326") && !message.contains("<br/>"), message);
+		// the wrong cells marked in the rows shown: the latitude and the longitude of u1, the longitude only of u2
+		List<?> cells = (List<?>) problem.get("details");
+		assertEquals(Arrays.asList("2:2", "2:3", "3:3"), cells.subList(0, 3).stream()
+				.map(c -> ((Map<?, ?>) c).get("row") + ":" + ((Map<?, ?>) c).get("column")).collect(java.util.stream.Collectors.toList()));
+		// every plot still shows in the table, and the map draws them (it leaves out what is not degrees itself)
+		assertEquals(7, answer.get("plots"));
+
+		// Collect's own check of an EPSG:4326 survey says the same in English: said once, here
+		result = new CSVFileValidationResult(ErrorType.INVALID_VALUES_IN_CSV);
+		result.setRowValidations(Arrays.asList(
+				new CSVRowValidationResult(2, ErrorType.INVALID_VALUES_IN_CSV, 2, "The latitude of a plot must be between -90 and 90 degrees!"),
+				new CSVRowValidationResult(2, ErrorType.INVALID_VALUES_IN_CSV, 3, "The latitude of a plot must be between -180 and 180 degrees!")));
+		assertEquals(Arrays.asList("notWgs84Plots"), codes(check.check(file.getAbsolutePath())));
+		// with another problem as well, Collect's is said too
+		result.setRowValidations(Arrays.asList(new CSVRowValidationResult(2, ErrorType.INVALID_VALUES_IN_CSV, 4, "not a number")));
+		assertEquals(Arrays.asList("notWgs84Plots", "INVALID_VALUES_IN_CSV"), codes(check.check(file.getAbsolutePath())));
+	}
+
+	@Test
+	public void aSurveyInAnotherSystemIsSaidOnceInsteadOfEveryPlot() throws Exception {
+		File file = csv("utm.csv", "id,YCoordinate,XCoordinate,elevation,slope,aspect", "u1,9857000,257000,0,0,0");
+		Map<String, Object> answer = new SampleFileCheck(f -> result, () -> EXPECTED, () -> 1, () -> "EPSG:32737").check(file.getAbsolutePath());
+		assertEquals(Arrays.asList("notWgs84Survey"), codes(answer));
+		String message = (String) problems(answer).get(0).get("message");
+		assertTrue(message.contains("EPSG:32737") && message.contains("EPSG:4326") && !message.contains("<br/>"), message);
+		assertTrue(SampleFileCheck.isBlocking(answer));
+		// a WGS84 one by any of its names, and plots in degrees: nothing said
+		for (String wgs84 : new String[] { "", "LATLONG", "wgs84", "EPSG:4326" }) {
+			File degrees = csv("degrees.csv", "id,YCoordinate,XCoordinate,elevation,slope,aspect", "a,-1.29,36.82,0,0,0");
+			assertTrue(problems(new SampleFileCheck(f -> result, () -> EXPECTED, () -> 1, () -> wgs84).check(degrees.getAbsolutePath())).isEmpty(), wgs84);
+		}
+	}
+
+	private static List<Object> codes(Map<String, Object> answer) {
+		List<Object> codes = new ArrayList<>();
+		for (Map<String, Object> problem : problems(answer)) {
+			codes.add(problem.get("code"));
+		}
+		return codes;
+	}
 }

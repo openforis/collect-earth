@@ -104,23 +104,6 @@ public class DataImportExportService {
 		return recordFilter;
 	}
 
-	public CSVDataExportProcess exportSurveyAsFusionTable(File exportToFile, boolean includeCodeItemLabelColumn) {
-
-		final CSVDataExportProcess csvDataExportProcess = applicationContext.getBean(CSVDataExportProcess.class);
-		csvDataExportProcess.setOutputFile(exportToFile);
-		csvDataExportProcess.setEntityId(earthSurveyService.getRootEntityDefinition().getId());
-		csvDataExportProcess.setRecordFilter( getRecordFilter() ) ;
-
-		CSVDataExportParameters config = new CSVDataExportParameters();
-		config.setIncludeAllAncestorAttributes(true);
-		config.setLanguageCode( localPropertiesService.getValue(EarthProperty.UI_LANGUAGE) );
-		config.setIncludeCodeItemPositionColumn(true);
-		config.setIncludeKMLColumnForCoordinates(true);
-		config.setIncludeCodeItemLabelColumn( includeCodeItemLabelColumn );
-		csvDataExportProcess.setConfiguration(config);
-		return csvDataExportProcess;
-	}
-
 	public XMLDataExportProcess exportSurveyAsZipWithXml(File exportToFile, Date modifiedSince) throws Exception {
 		final XMLDataExportProcess xmlDataExportProcess = applicationContext.getBean(XMLDataExportProcess.class);
 		xmlDataExportProcess.setOutputFile(exportToFile);

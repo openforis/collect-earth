@@ -47,21 +47,6 @@ public class PlacemarkImageServlet extends JsonPocessorServlet {
 	 * Returns an icon/overlay image that represents the state of the placemark not-filled/filling/filled
 	 * @param response The HTTP response object
 	 * @param request The HTTP request object
-	 * @param placemarkId The ID of the placemark for which we want to get the icon/overlay
-	 * @param listView True if want to get the icon for the placemark list, false to get the overlay image (transparent or see-through red for filled placemarks)
-	 * @throws IOException In case the image icon cannot be open
-	 * @throws URISyntaxException In case the image icon URL contains an error
-	 */
-	@GetMapping("/placemarkIcon")
-	public void getImage(HttpServletResponse response, HttpServletRequest request, @RequestParam( EarthConstants.PLACEMARK_ID_PARAMETER ) String placemarkId,
-			@RequestParam(value = "listView", required = false) Boolean listView) throws IOException, URISyntaxException {
-		getImageExt(response, request, placemarkId, listView);
-	}
-
-	/**
-	 * Returns an icon/overlay image that represents the state of the placemark not-filled/filling/filled
-	 * @param response The HTTP response object
-	 * @param request The HTTP request object
 	 * @param id The ID of the plot with separated by commas
 	 * @param listView True if want to get the icon for the placemark list, false to get the overlay image (transparent or see-through red for filled placemarks)
 	 * @throws IOException In case the image icon cannot be open

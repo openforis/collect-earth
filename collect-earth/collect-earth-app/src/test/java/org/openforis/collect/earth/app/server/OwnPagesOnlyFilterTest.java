@@ -76,21 +76,14 @@ public class OwnPagesOnlyFilterTest {
 	}
 
 	@Test
-	public void googleEarthProsBalloonsAreLetThroughWhereAllowed() {
-		// A balloon's Origin is no web address, and its browser sends no Sec-Fetch-Site
-		assertTrue(OwnPagesOnlyFilter.isFromOwnPage(null, "null", "http", "127.0.0.1:8028", CONFIGURED, true));
-		assertTrue(OwnPagesOnlyFilter.isFromOwnPage(null, "file://", "http", "127.0.0.1:8028", CONFIGURED, true));
-		assertTrue(OwnPagesOnlyFilter.isFromOwnPage(null, null, "http", "127.0.0.1:8028", CONFIGURED, true));
-		assertTrue(OwnPagesOnlyFilter.isFromOwnPage("same-origin", "http://127.0.0.1:8028", "http", "127.0.0.1:8028",
-				CONFIGURED, true));
-		// Other sites stay refused: a form posted from one, a sandboxed frame in a browser that says so, a rebound name
-		assertFalse(OwnPagesOnlyFilter.isFromOwnPage(null, "https://example.com", "http", "127.0.0.1:8028", CONFIGURED, true));
-		assertFalse(OwnPagesOnlyFilter.isFromOwnPage("cross-site", "https://example.com", "http", "127.0.0.1:8028",
-				CONFIGURED, true));
-		assertFalse(OwnPagesOnlyFilter.isFromOwnPage("cross-site", "null", "http", "127.0.0.1:8028", CONFIGURED, true));
-		assertFalse(OwnPagesOnlyFilter.isFromOwnPage("same-site", "http://localhost:9000", "http", "127.0.0.1:8028",
-				CONFIGURED, true));
-		assertFalse(OwnPagesOnlyFilter.isFromOwnPage(null, "null", "http", "evil.example:8028", CONFIGURED, true));
+	public void anOriginThatIsNoWebAddressIsRefused() {
+		// What Google Earth Pro's balloons sent ("null", file://): no page of this server sends it, and a sandboxed frame
+		// or a file opened in a browser may (Google Earth Pro is not supported from 2.0)
+		assertFalse(OwnPagesOnlyFilter.isFromOwnPage(null, "null", "http", "127.0.0.1:8028", CONFIGURED));
+		assertFalse(OwnPagesOnlyFilter.isFromOwnPage(null, "file://", "http", "127.0.0.1:8028", CONFIGURED));
+		// The web form and a project's balloon (/balloon): this server's own origin, or none
+		assertTrue(OwnPagesOnlyFilter.isFromOwnPage("same-origin", "http://127.0.0.1:8028", "http", "127.0.0.1:8028", CONFIGURED));
+		assertTrue(OwnPagesOnlyFilter.isFromOwnPage(null, null, "http", "127.0.0.1:8028", CONFIGURED));
 	}
 
 	@Test

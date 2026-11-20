@@ -15,16 +15,15 @@ import java.util.Map;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.text.StringEscapeUtils;
-import org.locationtech.jts.geom.Point;
 import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openforis.collect.earth.sampler.utils.FreemarkerTemplateUtils;
 import org.openforis.collect.earth.sampler.utils.GeoUtils;
 import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
+import org.openforis.collect.earth.sampler.utils.NotWgs84Exception;
 import org.openforis.collect.metamodel.CollectAnnotations;
 import org.openforis.collect.model.CollectSurvey;
 import org.openforis.idm.metamodel.AttributeDefinition;
-import org.opengis.referencing.FactoryException;
 import org.opengis.referencing.operation.TransformException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -211,7 +210,7 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 	}
 
 	public SimplePlacemarkObject getPlotObject(String[] csvValuesInLine, String[] possibleColumnNames,
-			CollectSurvey collectSurvey, boolean kmlExport) throws KmlGenerationException, TransformException, FactoryException {
+			CollectSurvey collectSurvey, boolean kmlExport) throws KmlGenerationException, TransformException {
 
 		List<AttributeDefinition> keyAttributeDefinitions = collectSurvey.getSchema().getRootEntityDefinitions().get(0)
 				.getKeyAttributeDefinitions();
@@ -311,19 +310,21 @@ public abstract class KmlGenerator extends AbstractCoordinateCalculation {
 					+ " , LONG : " + longitude + " ) and there is no polygon column to place the plot with");
 		}
 
-		// Handle teh calculation of different SRSs that EPSG:3264
-		// Lets keep a copy of the original coordinates to use on the KML Data for
-		// long/lat that will be sent to Collect Earth
+		// Kept as the file has them, for the plot's values the form and the KML export are given
 		plotProperties.setOriginalLongitude(plotProperties.getCoord().getLongitude());
 		plotProperties.setOriginalLatitude(plotProperties.getCoord().getLatitude());
 
-		String sourceEpsgCode = collectSurvey.getSpatialReferenceSystems().get(0).getId();
-
-		if (!GeoUtils.isUsingWGS84(sourceEpsgCode)) {
-			final Point transformedPoint = GeoUtils.transformToWGS84(
-					Double.parseDouble(plotProperties.getCoord().getLongitude()),
-					Double.parseDouble(plotProperties.getCoord().getLatitude()), sourceEpsgCode); // TOP-LEFT
-			plotProperties.setCoord(new SimpleCoordinate(transformedPoint.getY(), transformedPoint.getX()));
+		// Collect Earth takes only WGS84 latitude and longitude in decimal degrees (EPSG:4326), the system of Google Earth
+		// Web and the imagery: there is no conversion from another one. A survey in another system is refused, and so is
+		// a plot whose coordinates cannot be degrees (UTM metres, say), each with what the user is told (NotWgs84Exception)
+		final String surveySrsId = GeoUtils.getSurveySrsId(collectSurvey);
+		if (!GeoUtils.isUsingWGS84(surveySrsId)) {
+			throw NotWgs84Exception.ofSurvey(surveySrsId);
+		}
+		final double plotLatitude = Double.parseDouble(plotProperties.getCoord().getLatitude());
+		final double plotLongitude = Double.parseDouble(plotProperties.getCoord().getLongitude());
+		if (!GeoUtils.isInWgs84Range(plotLatitude, plotLongitude)) {
+			throw NotWgs84Exception.outOfRange(plotProperties.getPlacemarkId(), plotLatitude, plotLongitude);
 		}
 
 		return plotProperties;

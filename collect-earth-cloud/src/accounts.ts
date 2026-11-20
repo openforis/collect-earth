@@ -4,8 +4,6 @@ import { isEmailAddress, isValidUsername } from './accountRules.js';
 import type { UserSummary } from './types.js';
 import type { AccountFilter, AccountPage, AccountQuery, AccountSort } from './wire/serverAdmin.js';
 
-export type { AccountFilter, AccountQuery, AccountSort } from './wire/serverAdmin.js';
-
 /** An account not active for this many days counts as inactive. */
 export const INACTIVE_DAYS = 90;
 const DAY_MS = 24 * 3600 * 1000;

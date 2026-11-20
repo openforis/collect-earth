@@ -132,9 +132,6 @@ export function filterPeople(rows: readonly PersonRow[], text: string, status: S
   return rows.filter((r) => (status === "all" || r.status.kind === status) && (!needle || r.username.toLowerCase().includes(needle)));
 }
 
-// --- CSV ------------------------------------------------------------------------------
-
-export { csvCell, csvFormat, csvTime } from "./csv";
 
 /** The people table as CSV in the person's language (a header row, then one row per person). */
 export function peopleCsv(t: Translate, rows: readonly PersonRow[], formatTime: (ms: number) => string, language = "en"): string {

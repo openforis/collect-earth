@@ -48,10 +48,8 @@ export const SURVEY_VERSIONS_KEPT = 20;
 export type { Assignment, AssignmentDetail, CsvFile, DivisionOrder, StoredDistribution } from './wire/plotFiles.js';
 export type { ReferenceChangeResult, SamplingCore, SamplingDraw, SamplingFileRule, SamplingRule } from './wire/checks.js';
 export type { DecisionKind, GuidanceNote, GuidanceNoteInput, QualitySettings } from './wire/quality.js';
-export type { AiRunKind, AiRunStatus } from './wire/ai.js';
 export type {
   AdminProject,
-  DayCount,
   ServerAction,
   ServerActionKind,
   ServerActivityEntry,
@@ -158,28 +156,6 @@ export const DEFAULT_SETTINGS: ServerSettings = {
   loginLockMinutes: 15,
 };
 
-/** What the server activity log keeps: server administrators' actions (migration 041). */
-export const SERVER_ACTIONS = [
-  'settings.changed',
-  'account.created',
-  'account.disabled',
-  'account.enabled',
-  'account.admin_granted',
-  'account.admin_removed',
-  'account.signed_out',
-  'account.deleted',
-  'account.reset_link',
-  'account.reset_mailed',
-  'account.two_factor_off',
-  'accounts.exported',
-  'project.archived',
-  'project.restored',
-  'project.coordinator',
-  'mail.test',
-  'message.sent',
-  'alerts.seen',
-  'account.unlocked',
-] as const satisfies readonly ServerAction[];
 /** The kinds the log is filtered by: an action's first word ("accounts" counts as "account"). */
 export const SERVER_ACTION_KINDS = ['settings', 'account', 'project', 'mail', 'message', 'alerts'] as const satisfies readonly ServerActionKind[];
 export const serverActionKind = (a: ServerAction): ServerActionKind =>
@@ -344,7 +320,6 @@ export interface TrainingSet {
   finishedBy: string | null;
 }
 
-
 /**
  * One attempt of one participant at a set. A record counts for the open attempt when it was
  * submitted at or after `startedAt`; a closed attempt keeps a snapshot of its scores (`results`).
@@ -491,6 +466,30 @@ export interface QualityDecision {
   seen?: { operator: string; hash: number; full?: number }[] | null;
   /** The bulk run that made it (its audit entry has the same id); null for a decision made alone. */
   batch?: string | null;
+}
+
+/**
+ * A plot decided "Correct it in Collect Earth" (quality_corrections, migration 052): who corrects it, and once corrected
+ * the corrected record (docs/plans/2026-11-20-review-at-scale.md, B2-B3).
+ */
+export interface QualityCorrection {
+  plot: string;
+  /** The person it is assigned to (a member who signs in), and their username; null: assigned to nobody */
+  assignedTo: string | null;
+  assignedToName: string | null;
+  /** Username of who assigned it */
+  assignedBy: string | null;
+  assignedAt: number;
+  /** Username of who corrected it, and when; null until corrected */
+  correctedBy: string | null;
+  correctedAt: number | null;
+  /** The record the form started from (its operator), null when it started empty */
+  baseOperator: string | null;
+  /** The corrected record's key (null until corrected) */
+  recordKey: string | null;
+  /** The corrected record (only when asked for: listCorrections({ withRecords: true }) */
+  xml?: string | null;
+  summary?: Record<string, string> | null;
 }
 
 // --- The AI assistant's runs (ai_runs, migration 011) ---
@@ -722,6 +721,9 @@ export const AUDIT_ACTIONS = [
   'decision.set',
   'decision.deleted',
   'decision.bulk',
+  'decision.applied',
+  'corrections.assigned',
+  'correction.saved',
   'settings.changed',
   'export.downloaded',
   'survey.replaced',

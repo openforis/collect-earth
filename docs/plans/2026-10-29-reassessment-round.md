@@ -594,7 +594,7 @@ Commit: "Collect Earth Cloud: collectors' plot files carry the round, 1 for the 
   references `users` and the route put the project id there. It is now null (the
   column allowed it; no migration), and the memory store refuses a maker who is not
   a user. A 403 for token callers would have broken the documented Phase-0 flow
-  (PHASE0_VERIFICATION.md) and the tests; the dashboard always uses sessions, and the
+  (its verification walkthrough, since removed) and the tests; the dashboard always uses sessions, and the
   desktop app never makes invites.
 - **After the review:**
   - `buildPlotFile` encodes each distinct inserted text once and copies the rows into

@@ -1,5 +1,4 @@
 import { plotFileOf } from './plotFileCache.js';
-import { isWgs84 } from './routes/plotPlaces.js';
 import type { StoredDistribution } from './types.js';
 import type { NearbyAvailability } from './wire/plotFiles.js';
 
@@ -125,14 +124,10 @@ export function servedNearby(distribution: StoredDistribution | null | undefined
 }
 
 /**
- * Order 'nearby' needs latitude and longitude: the survey's first spatial reference system
- * must be one Collect Earth takes as it is (isWgs84; others it transforms, this server does
- * not), and at least one plot must have a place. The plots without one go last.
+ * Order 'nearby' needs at least one plot with a place (latitude and longitude, WGS84 as every plot's: acceptCep). The
+ * plots without one go last.
  */
-export function nearbyAvailability(srid: string, withPlace: number, plotCount: number): NearbyAvailability {
-  if (!isWgs84(srid)) {
-    return { available: false, reason: 'other_srs', withPlace: 0, withoutPlace: plotCount, srid };
-  }
+export function nearbyAvailability(withPlace: number, plotCount: number): NearbyAvailability {
   if (withPlace === 0) {
     return { available: false, reason: 'no_places', withPlace: 0, withoutPlace: plotCount };
   }

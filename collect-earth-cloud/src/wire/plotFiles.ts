@@ -174,7 +174,6 @@ export interface PlotColumn {
 /** Whether order 'nearby' can be offered, and why not. */
 export type NearbyAvailability =
   | { available: true; reason: null; withPlace: number; withoutPlace: number }
-  | { available: false; reason: 'other_srs'; withPlace: 0; withoutPlace: number; srid: string }
   | { available: false; reason: 'no_places'; withPlace: 0; withoutPlace: number };
 
 /** GET /v1/projects/:pid/csv-files/:id/columns */

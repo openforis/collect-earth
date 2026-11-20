@@ -6,7 +6,6 @@ import {
   bucketLabel,
   calendarWeeks,
   checksLeftText,
-  csvCell,
   durationText,
   medianGapText,
   fileLeft,
@@ -30,6 +29,7 @@ import {
   workloadOf,
   workloadRows,
 } from "./peopleView";
+import { csvCell } from "./csv";
 
 const t = translator("en");
 const DAY = 86_400_000;

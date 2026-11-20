@@ -5,17 +5,10 @@
 target
 bin
 classes
-/createJar.jardesc
-/eye.properties
-/gePlugin.kmz
-/resultAnssi.kml
 /server.log
-/*.kml
-/*.kmz
 /*.db
 /*.log
 generated
 *_files
 *.db
-/pom.xml.releaseBackup
 ${sys:collectEarth.userFolder}

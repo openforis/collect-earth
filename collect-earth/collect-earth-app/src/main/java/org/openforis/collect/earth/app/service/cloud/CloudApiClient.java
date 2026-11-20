@@ -955,6 +955,66 @@ public class CloudApiClient {
 		}
 	}
 
+	// -------------------------------------------------------------------------------------------------------------
+	// Corrections (docs/plans/2026-11-20-review-at-scale.md): plots a coordinator assigned to the person to correct
+
+	/**
+	 * The person's plots to correct (GET my-corrections): each with its answers (the first assessment first, which the form
+	 * starts from), where they differ, the reviewer's comment and whether the person answered it. The JSON as it comes.
+	 * An older server, which has no such route, answers 404.
+	 */
+	public JsonNode myCorrections(Destination destination) throws IOException {
+		HttpGet request = new HttpGet(destination.projectUrl("/my-corrections"));
+		prepareWith(request, destination.getToken());
+		return executeForJson("myCorrections", request);
+	}
+
+	/** Downloads the plots to correct as a plot file (my-corrections.csv of a version) into {@code target}. A 409 says they changed. */
+	public void downloadMyCorrections(Destination destination, String downloadPath, File target) throws IOException {
+		HttpGet request = new HttpGet(normalize(destination.getBaseUrl()) + downloadPath);
+		prepareWith(request, destination.getToken());
+		File temp = File.createTempFile("ce-to-correct-", ".csv");
+		try (CloseableHttpResponse response = client().execute(request)) {
+			int status = response.getStatusLine().getStatusCode();
+			if (!isSuccess(status)) {
+				throw errorFor("downloadMyCorrections", status, response);
+			}
+			HttpEntity entity = response.getEntity();
+			if (entity != null) {
+				try (java.io.OutputStream out = Files.newOutputStream(temp.toPath())) {
+					entity.writeTo(out);
+				}
+			}
+			File folder = target.getAbsoluteFile().getParentFile();
+			if (folder != null && !folder.isDirectory() && !folder.mkdirs()) {
+				throw new IOException("Could not make the folder of the plots to correct " + folder); //$NON-NLS-1$
+			}
+			Files.move(temp.toPath(), target.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+		} finally {
+			Files.deleteIfExists(temp.toPath());
+		}
+	}
+
+	/**
+	 * Sends a plot's correction (PUT corrections/:plot): the corrected record's key, XML and answers, and the answer the form
+	 * started from. A CloudApiException 409 ({@code not_assigned}, {@code not_to_correct}) when the plot is no longer the
+	 * person's to correct. Never through records:batch: a correction is no record of the person's.
+	 */
+	public void putCorrection(Destination destination, String plot, String recordKey, String xml, Map<String, String> summary, String baseOperator) throws IOException {
+		HttpPut request = new HttpPut(destination.projectUrl("/corrections/"
+				+ java.net.URLEncoder.encode(plot, java.nio.charset.StandardCharsets.UTF_8.name()).replace("+", "%20")));
+		prepareWith(request, destination.getToken());
+		com.fasterxml.jackson.databind.node.ObjectNode body = objectMapper.createObjectNode();
+		body.put("recordKey", recordKey);
+		body.put("xml", xml);
+		body.set("summary", objectMapper.valueToTree(summary));
+		if (baseOperator != null) {
+			body.put("baseOperator", baseOperator);
+		}
+		request.setEntity(jsonEntity(body.toString()));
+		executeForJson("putCorrection", request);
+	}
+
 	/**
 	 * Downloads an assigned CSV into {@code targetFolder}, verifying its sha256
 	 * checksum against the value the server advertised. Returns the local file.

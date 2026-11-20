@@ -3,8 +3,6 @@
 import type { PlotFile } from './plots.js';
 import type { PlotColumn } from './wire/plotFiles.js';
 
-export type { PlotColumn } from './wire/plotFiles.js';
-
 /** Most distinct values a column may have for them to be listed. */
 export const MAX_LISTED_VALUES = 200;
 

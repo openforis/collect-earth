@@ -13,7 +13,7 @@ import { plotOrder, type DifferingPairs } from './quality.js';
 import type { DecisionKind } from './types.js';
 import type { BulkRule, QueueSection } from './wire/review.js';
 
-export type { BulkRule, QueueSection } from './wire/review.js';
+export type { BulkRule } from './wire/review.js';
 
 const SECTIONS: readonly QueueSection[] = ['difference', 'flag', 'resubmitted'];
 /** What the queue can be filtered by: a part, or a kind of flag. */

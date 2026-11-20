@@ -186,6 +186,18 @@ describe('planBackup: which records, one per key', () => {
     expect(plan).toMatchObject({ sameKey: 4, sameKeyExamples: ['1,1', '2,1', '3,1', '5,1'], drafts: 1 });
   });
 
+  it("a plot's correction takes the place of the record of its key, in both modes, and is written with its XML", async () => {
+    const records = [state('1,1', 'ana'), state('1,2', 'ben'), state('2,1', 'ana')];
+    const corrections = new Map([['1,1', { operator: 'maria', xml: '<plot>corrected</plot>' }]]);
+    for (const rounds of ['1', 'all'] as const) {
+      const plan = planBackup(input(records, { corrections }), rounds);
+      expect(plan.records.find((r) => r.recordKey === '1,1')).toEqual({ recordKey: '1,1', operator: 'maria', correction: { xml: '<plot>corrected</plot>' } });
+      expect(plan.corrected).toBe(1);
+      expect(plan.sameKey).toBe(0);
+    }
+    expect(planBackup(input(records, { corrections }), 'all').records.map((r) => r.recordKey)).toEqual(['1,1', '1,2', '2,1']);
+  });
+
   it('a record without XML never wins its key, and is counted', () => {
     const records = [state('1,1', 'ana', { modifiedOn: 900 }), state('1,1', 'ben', { modifiedOn: 100 }), state('2,1', 'ana')];
     const plan = planBackup(input(records, { hasXml: (r) => !(r.operator === 'ana') }), '1');
@@ -291,7 +303,7 @@ describe('backup links (signed, 60 s)', () => {
   });
 });
 
-describe('GET /exports/collect-backup', () => {
+describe('the Collect Earth backup (a link, then its download)', () => {
   let ctx: TestContext;
   let pid: string;
   let projectToken: string;
@@ -327,7 +339,13 @@ describe('GET /exports/collect-backup', () => {
     );
     expect(res.statusCode, res.body).toBe(200);
   };
-  const backup = (query = '', token = owner.token) => call('GET', `/exports/collect-backup${query}`, token);
+  /** A backup as the dashboard asks for it: a link for the query's rounds and format, then the download it gives. */
+  const backup = async (query = '', token = owner.token) => {
+    const q = new URLSearchParams(query.replace(/^\?/, ''));
+    const link = await call('POST', '/exports/collect-backup/link', token, { rounds: q.get('rounds') ?? '1', ...(q.has('format') ? { format: q.get('format') } : {}) });
+    if (link.statusCode !== 200) return link;
+    return ctx.app.inject({ method: 'GET', url: link.json().url as string });
+  };
 
   beforeEach(async () => {
     ctx = await makeContext();

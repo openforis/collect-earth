@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.commons.lang3.StringUtils;
-import org.openforis.collect.model.NodeChangeMap;
 import org.openforis.collect.model.NodeChangeSet;
 import org.openforis.collect.model.RecordUpdater;
 import org.openforis.idm.metamodel.AttributeDefinition;
@@ -36,15 +35,6 @@ public abstract class AbstractAttributeHandler<C> {
 		this.recordUpdater.setClearDependentCodeAttributes(true);
 	}
 
-	public NodeChangeSet deleteAttributes(String parameterName, Entity entity) {
-		NodeChangeMap result = new NodeChangeMap();
-		List<Attribute<?, ?>> attributes = getAttributeNodesFromParameter(parameterName, entity);
-		for (Attribute<?, ?> attribute : attributes) {
-			NodeChangeSet partialChange = recordUpdater.deleteNode(attribute);
-			result.addMergeChanges(partialChange);
-		}
-		return result;
-	}
 	
 	public NodeChangeSet updateMultipleAttribute(String parameterName, Entity parentEntity, String[] parameterValues) {
 		AttributeDefinition attrDef = getAttributeDefinition(parentEntity, parameterName);

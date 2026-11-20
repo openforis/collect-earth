@@ -106,10 +106,9 @@ describe('nearbyOrder', () => {
 
 describe('nearbyAvailability', () => {
   it('is offered only for latitude and longitude with places', () => {
-    expect(nearbyAvailability('', 10, 10)).toEqual({ available: true, reason: null, withPlace: 10, withoutPlace: 0 });
-    expect(nearbyAvailability('EPSG:4326', 8, 10)).toEqual({ available: true, reason: null, withPlace: 8, withoutPlace: 2 });
-    expect(nearbyAvailability('EPSG:32633', 10, 10)).toEqual({ available: false, reason: 'other_srs', withPlace: 0, withoutPlace: 10, srid: 'EPSG:32633' });
-    expect(nearbyAvailability('', 0, 10)).toEqual({ available: false, reason: 'no_places', withPlace: 0, withoutPlace: 10 });
+    expect(nearbyAvailability(10, 10)).toEqual({ available: true, reason: null, withPlace: 10, withoutPlace: 0 });
+    expect(nearbyAvailability(8, 10)).toEqual({ available: true, reason: null, withPlace: 8, withoutPlace: 2 });
+    expect(nearbyAvailability(0, 10)).toEqual({ available: false, reason: 'no_places', withPlace: 0, withoutPlace: 10 });
   });
 });
 

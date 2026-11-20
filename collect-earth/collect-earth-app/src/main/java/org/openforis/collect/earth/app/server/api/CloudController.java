@@ -6,6 +6,7 @@ import java.util.Map;
 
 import org.openforis.collect.earth.app.service.RestartService;
 import org.openforis.collect.earth.app.service.cloud.CloudService;
+import org.openforis.collect.earth.app.service.cloud.CorrectionService;
 import org.openforis.collect.earth.app.service.cloud.MyPlotsService;
 import org.openforis.collect.earth.app.service.cloud.CloudService.InvalidCloudRequestException;
 import org.openforis.collect.earth.app.service.cloud.CloudService.JoinRequest;
@@ -50,6 +51,21 @@ public class CloudController {
 	@Autowired(required = false)
 	public void setMyPlots(MyPlotsService myPlots) {
 		this.myPlots = myPlots;
+	}
+
+	/** The plots the person was given to correct (absent in some tests) */
+	private CorrectionService corrections;
+
+	@Autowired(required = false)
+	public void setCorrections(CorrectionService corrections) {
+		this.corrections = corrections;
+	}
+
+	private CorrectionService corrections() {
+		if (corrections == null) {
+			throw new ApiException("cloud.corrections", "The plots to correct are not available"); //$NON-NLS-1$ //$NON-NLS-2$
+		}
+		return corrections;
 	}
 
 	private MyPlotsService plots() {
@@ -232,6 +248,45 @@ public class CloudController {
 		} catch (InvalidCloudRequestException e) {
 			throw new ApiException(e.getCode(), e.getMessage());
 		}
+	}
+
+	/** The plots to correct: how many, how many are left, whether they are open */
+	@GetMapping("/api/cloud/corrections")
+	public Map<String, Object> correctionsStatus() {
+		return corrections().status();
+	}
+
+	/** Asks the server now for the plots to correct */
+	@PostMapping("/api/cloud/corrections/refresh")
+	public Map<String, Object> refreshCorrections() {
+		corrections().check();
+		return corrections().status();
+	}
+
+	/** The plots to correct made the plots file, instead of the person's plots */
+	@PostMapping("/api/cloud/corrections/open")
+	public Map<String, Object> openCorrections() {
+		if (!corrections().open()) {
+			throw new ApiException("cloud.corrections.none", "There are no plots to correct"); //$NON-NLS-1$ //$NON-NLS-2$
+		}
+		return corrections().status();
+	}
+
+	/** Back to the person's plots */
+	@PostMapping("/api/cloud/corrections/close")
+	public Map<String, Object> closeCorrections() {
+		corrections().close();
+		return corrections().status();
+	}
+
+	/** One plot to correct, for the panel beside its form: the comment, the answers and where they differ, its state */
+	@GetMapping("/api/cloud/corrections/plot")
+	public Map<String, Object> correctionOf(@RequestParam("id") String placemarkId) {
+		Map<String, Object> info = corrections().plotInfo(placemarkId);
+		if (info == null) {
+			throw new ApiException(org.springframework.http.HttpStatus.NOT_FOUND, "cloud.corrections.notListed", "This plot is not to correct"); //$NON-NLS-1$ //$NON-NLS-2$
+		}
+		return info;
 	}
 
 	/** Downloads one of them: the page then makes it the plots file, which Apply saves */

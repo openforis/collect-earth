@@ -5,7 +5,6 @@ import java.util.Comparator;
 import java.awt.Desktop;
 import java.awt.Font;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetAddress;
@@ -68,17 +67,6 @@ public class CollectEarthUtils {
 				}
 			}
 			return DigestUtils.md5Hex(md5Hex.toString().getBytes(StandardCharsets.UTF_8));
-		}
-	}
-
-	public static String getMd5FromFile(String filePath) throws IOException {
-		// Only the failures of the file : catching everything made the declared IOException misleading, while the callers
-		// depend on the null that is returned for a file that cannot be read
-		try (FileInputStream fis = new FileInputStream(new File(filePath))) {
-			return DigestUtils.md5Hex(fis);
-		} catch (IOException e) {
-			logger.error("Error getting MD5 from file", e);
-			return null;
 		}
 	}
 

@@ -8,8 +8,6 @@
 
 import type { PersonTime, TimeSpent } from './wire/people.js';
 
-export type { PersonTime, QuickPlot, TimeSpent } from './wire/people.js';
-
 /** A plot is quick when its active time is under this share of the team's median. */
 export const QUICK_SHARE = 0.25;
 /** The team's median says what usual is only from this many timed plots on: fewer, and nothing is called quick. */

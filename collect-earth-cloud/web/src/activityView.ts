@@ -2,6 +2,7 @@ import type { ActivityPage, DailyRow, DecisionRow, DifferenceRow, LogItem, LogKi
 import { ApiError, asStatus } from "./api";
 import { csvText } from "./csv";
 import { formatNumber } from "./format";
+import { isoWeekOf, weekMonday } from "./isoWeek";
 import type { MessageKey, Translate } from "./i18n";
 import type { AnswerOptions } from "./api";
 
@@ -62,6 +63,7 @@ const DECISION_KEYS = {
   first: "quality.decision.first",
   check: "quality.decision.check",
   recheck: "quality.decision.recheck",
+  correct: "quality.decision.correct",
 } as const satisfies Record<string, MessageKey>;
 
 const SETTING_KEYS: Record<string, MessageKey> = {
@@ -217,11 +219,17 @@ export function logSentence(t: Translate, item: LogItem, page: Pick<ActivityPage
       // "Share again what is left" on a plot file's page: how many people shared the plots left, how many moved.
       return t("activity.audit.moved.rebalanced", { actor, count: num(d.people, language), file: fileOf(t, page, d.csvFileId), moved: num(d.moved, language) });
     case "decision.set":
-      return t("activity.audit.decided", { actor, plot, decision: t(DECISION_KEYS[d.decision === "first" || d.decision === "check" ? d.decision : "recheck"]) });
+      return t("activity.audit.decided", { actor, plot, decision: t(DECISION_KEYS[d.decision === "first" || d.decision === "check" || d.decision === "correct" ? d.decision : "recheck"]) });
+    case "corrections.assigned":
+      return t("activity.audit.correctionsAssigned", { actor, count: num(d.count, language) });
+    case "correction.saved":
+      return t("activity.audit.correctionSaved", { actor, plot });
     case "decision.deleted":
       return t("activity.audit.undone", { actor, plot });
     case "decision.bulk":
-      return t(d.count === 1 ? "activity.audit.bulkOne" : "activity.audit.bulk", { actor, count: num(d.count, language), decision: t(DECISION_KEYS[d.decision === "first" || d.decision === "check" ? d.decision : "recheck"]) });
+    // One decision for plots picked in the review list (decisions:apply): said as the bulk rules are
+    case "decision.applied":
+      return t(d.count === 1 ? "activity.audit.bulkOne" : "activity.audit.bulk", { actor, count: num(d.count, language), decision: t(DECISION_KEYS[d.decision === "first" || d.decision === "check" || d.decision === "correct" ? d.decision : "recheck"]) });
     case "settings.changed":
       if (d.setting === "ai") return t(d.enabled === true ? "activity.audit.aiOn" : "activity.audit.aiOff", { actor });
       if (d.setting === "name") {
@@ -293,31 +301,13 @@ function localAuditSentence(t: Translate, action: string, d: Record<string, unkn
 
 // --- weeks, in the browser's time zone ------------------------------------------------------
 
+export { isIsoWeek, isoWeekOf, weekMonday } from "./isoWeek";
+
 const pad = (n: number) => String(n).padStart(2, "0");
 
 /** A calendar day written YYYY-MM-DD, in the browser's time zone. */
 export function localDay(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-
-/** The ISO week (YYYY-Www) of a calendar day: the week's Thursday gives the year. */
-export function isoWeekOf(date: string): string {
-  const [y, m, d] = date.split("-").map(Number);
-  const day = Date.UTC(y, m - 1, d);
-  const weekday = (new Date(day).getUTCDay() + 6) % 7;
-  const thursday = new Date(day + (3 - weekday) * 86_400_000);
-  const year = thursday.getUTCFullYear();
-  const week = 1 + Math.floor((thursday.getTime() - Date.UTC(year, 0, 1)) / (7 * 86_400_000));
-  return `${year}-W${pad(week)}`;
-}
-
-/** The Monday of an ISO week. */
-export function weekMonday(week: string): string {
-  const year = Number(week.slice(0, 4));
-  const n = Number(week.slice(6, 8));
-  const jan4 = Date.UTC(year, 0, 4);
-  const weekday = (new Date(jan4).getUTCDay() + 6) % 7;
-  return new Date(jan4 + (-weekday + (n - 1) * 7) * 86_400_000).toISOString().slice(0, 10);
 }
 
 /** An ISO week as a range of days in the language: "Oct 26 – Nov 1, 2026" (en), "26 oct – 1 nov 2026" (fr). */
@@ -331,12 +321,6 @@ export function weekRangeText(week: string, language: string): string {
 export function shiftWeek(week: string, n: number): string {
   const monday = Date.parse(`${weekMonday(week)}T00:00:00Z`) + n * 7 * 86_400_000;
   return isoWeekOf(new Date(monday).toISOString().slice(0, 10));
-}
-
-export function isIsoWeek(text: string | null | undefined): text is string {
-  if (!text || !/^\d{4}-W\d{2}$/.test(text)) return false;
-  const n = Number(text.slice(6, 8));
-  return n >= 1 && n <= 53 && isoWeekOf(weekMonday(text)) === text;
 }
 
 /** The start of a calendar day in the browser's time zone (ms), for the log's date filter. */

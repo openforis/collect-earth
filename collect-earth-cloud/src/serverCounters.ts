@@ -1,6 +1,6 @@
 import type { CountersSnapshot, HourCounts } from './wire/serverAdmin.js';
 
-export type { CountersSnapshot, HourCounts } from './wire/serverAdmin.js';
+export type { CountersSnapshot } from './wire/serverAdmin.js';
 
 /** How many hours of counts are kept: the last 7 days. The totals go back to the start. */
 export const COUNTER_HOURS = 7 * 24;

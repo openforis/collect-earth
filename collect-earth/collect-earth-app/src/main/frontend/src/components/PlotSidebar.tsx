@@ -35,7 +35,12 @@ const ROW_HEIGHT = 40;
  */
 export function PlotSidebar({ controller, state, onHide }: { controller: MapController; state: UiState; onHide?: () => void }) {
   const t = useT();
-  const { order, labels, statuses, statusesVersion, filter, query, activeId, loaded, training } = state;
+  const { order, labels, statuses, statusesVersion, filter, query, activeId, loaded, training, corrections, toCorrect } = state;
+  const [switching, setSwitching] = useState(false);
+  const showCorrections = (show: boolean) => {
+    setSwitching(true);
+    controller.showCorrections(show).catch(() => { /* the statuses' next poll tells which list it is */ }).finally(() => setSwitching(false));
+  };
   const counts = useMemo(() => countStatuses(order, statuses), [order, statuses, statusesVersion]);
   const { repeat, periods, periodFilter } = state;
   // a repeat survey's filter by what the collector said against the earlier period (see MapController.periodView)
@@ -75,6 +80,23 @@ export function PlotSidebar({ controller, state, onHide }: { controller: MapCont
       </Stack>
 
       <Stack spacing={1.5} sx={{ px: 2, pb: 1.5 }}>
+        {corrections && (
+          <Tooltip title={t("corrections.help")}>
+            <Alert severity="warning" variant="outlined" data-testid="corrections-plots" sx={{ py: 0, alignItems: "center", "& .MuiAlert-message": { overflow: "hidden" } }}
+              action={<Button color="inherit" size="small" disabled={switching} onClick={() => showCorrections(false)} data-testid="corrections-back">{t("corrections.back")}</Button>}>
+              <Typography variant="body2" noWrap>{t("corrections.banner")}</Typography>
+            </Alert>
+          </Tooltip>
+        )}
+        {!corrections && toCorrect > 0 && (
+          <Tooltip title={t("corrections.openHelp")}>
+            <span>
+              <Button variant="outlined" color="warning" size="small" fullWidth disabled={switching} onClick={() => showCorrections(true)} data-testid="corrections-open">
+                {t("corrections.open", { n: toCorrect })}
+              </Button>
+            </span>
+          </Tooltip>
+        )}
         {training && order.length > 0 && (
           <Tooltip title={t("training.help")}>
             <Alert severity="info" variant="outlined" data-testid="training-plots" sx={{ py: 0, "& .MuiAlert-message": { overflow: "hidden" } }}>

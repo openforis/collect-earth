@@ -76,16 +76,4 @@ public class FolderFinder {
 		return localFolder;
 	}
 
-	public static String getLocalAppDataFolder(){
-		String appDataFolder = getUserHome();
-		if (SystemUtils.IS_OS_WINDOWS){
-			if( ! appDataFolder.toLowerCase().endsWith("local")){
-				File roaming = new File(appDataFolder);
-				File local = new File( roaming.getParentFile(), "Local");
-				appDataFolder = local.getAbsolutePath();
-			}
-		}
-		return appDataFolder;
-	}
-
 }

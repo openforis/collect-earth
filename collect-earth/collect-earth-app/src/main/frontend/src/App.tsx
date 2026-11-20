@@ -83,7 +83,7 @@ export function App({ controller }: { controller: MapController }) {
               : state.submitted.next
               ? t("toast.submitted", { id: plotLabel(state.labels, state.submitted.plotId),
                 next: plotLabel(state.labels, state.submitted.next) })
-              : t("toast.submittedLast", { id: plotLabel(state.labels, state.submitted.plotId) })}
+              : t(state.submitted.correction ? "toast.submittedLastCorrection" : "toast.submittedLast", { id: plotLabel(state.labels, state.submitted.plotId) })}
             {/* The time left before it goes, shrinking to nothing */}
             <Box aria-hidden sx={{
               position: "absolute", left: 0, bottom: 0, height: 3, width: "100%", bgcolor: "common.white", opacity: 0.7,

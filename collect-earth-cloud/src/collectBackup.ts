@@ -27,6 +27,8 @@ export const SURVEY_BYTES = 50_000;
 export interface BackupRecord {
   recordKey: string;
   operator: string;
+  /** A plot's correction (src/corrections.ts), its XML with it: it takes the place of the plot's first assessment */
+  correction?: { xml: string };
 }
 
 export interface BackupPlan {
@@ -51,6 +53,8 @@ export interface BackupPlan {
   sameKeyExamples: string[];
   /** Records not in the backup because the server has no XML for them. */
   noXml: number;
+  /** Plots whose correction is in the backup in place of their first assessment (src/corrections.ts) */
+  corrected: number;
 }
 
 export interface PlanInput {
@@ -64,6 +68,11 @@ export interface PlanInput {
   isMainHolder: (r: { recordKey: string; operator: string }) => boolean;
   /** Whether the server has the record's XML (Store.listRecordKeysWithoutXml). */
   hasXml: (r: { recordKey: string; operator: string }) => boolean;
+  /**
+   * The plots' corrections by their record key (the first assessment's): each is its plot's answer, in the backup in
+   * place of the record of that key (Collect Earth keeps one record a key), in every mode.
+   */
+  corrections?: ReadonlyMap<string, { operator: string; xml: string }>;
 }
 
 const MAX_EXAMPLES = 20;
@@ -109,7 +118,18 @@ export function planBackup(input: PlanInput, rounds: BackupRounds): BackupPlan {
   let drafts = 0;
   let sameKey = 0;
   const sameKeyExamples: string[] = [];
+  // A corrected plot's key: its correction instead (a plot with no record of that key left too)
+  const corrections = input.corrections ?? new Map<string, { operator: string; xml: string }>();
+  for (const key of corrections.keys()) if (!byKey.has(key)) keys.push(key);
+  keys.sort(compare);
+  let corrected = 0;
   for (const key of keys) {
+    const correction = corrections.get(key);
+    if (correction) {
+      records.push({ recordKey: key, operator: correction.operator, correction: { xml: correction.xml } });
+      corrected += 1;
+      continue;
+    }
     const list = byKey.get(key)!;
     const kept = list.reduce((best, item) => (better(item, best) ? item : best)).r;
     records.push({ recordKey: kept.recordKey, operator: kept.operator });
@@ -119,7 +139,7 @@ export function planBackup(input: PlanInput, rounds: BackupRounds): BackupPlan {
       if (sameKeyExamples.length < MAX_EXAMPLES) sameKeyExamples.push(key);
     }
   }
-  return { rounds, records, drafts, otherRounds, measurements, sameKey, sameKeyExamples, noXml };
+  return { rounds, records, drafts, otherRounds, measurements, sameKey, sameKeyExamples, noXml, corrected };
 }
 
 /** Whether `a` is kept before `b` for one key. */
@@ -169,10 +189,16 @@ export async function* backupEntries(
   const folder = format === 'collect' ? 'data/' : '';
   for (let start = 0; start < plan.records.length; start += BACKUP_PAGE) {
     const page = plan.records.slice(start, start + BACKUP_PAGE);
-    const found = await store.getRecordXml(projectId, page);
+    const found = await store.getRecordXml(projectId, page.filter((r) => !r.correction));
     const byId = new Map(found.map((r) => [`${r.recordKey}\u0000${r.operator}`, r]));
     for (let i = 0; i < page.length; i++) {
       const r = page[i];
+      if (r.correction) {
+        // a correction is a submitted record of the first step, as Collect Earth sends its records
+        outcome.written += 1;
+        yield { name: `${folder}1/${start + i + 1}.xml`, data: Buffer.from(r.correction.xml, 'utf8') };
+        continue;
+      }
       const stored = byId.get(`${r.recordKey}\u0000${r.operator}`);
       if (stored?.deleted) {
         outcome.deleted += 1;

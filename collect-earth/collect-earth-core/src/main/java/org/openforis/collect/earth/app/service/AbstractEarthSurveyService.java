@@ -34,7 +34,6 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.CollectEarthSurveyContext;
-import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.earth.core.handlers.BalloonInputFieldsUtils;
@@ -53,8 +52,6 @@ import org.openforis.collect.model.NodeChangeSet;
 import org.openforis.collect.model.NodeDeleteChange;
 import org.openforis.collect.model.RecordFilter;
 import org.openforis.collect.model.RecordUpdater;
-import org.openforis.collect.model.RecordValidationReportGenerator;
-import org.openforis.collect.model.RecordValidationReportItem;
 import org.openforis.collect.model.validation.CollectEarthValidator;
 import org.openforis.collect.model.validation.ValidationMessageBuilder;
 import org.openforis.collect.persistence.RecordPersistenceException;
@@ -63,7 +60,6 @@ import org.openforis.idm.metamodel.CodeAttributeDefinition;
 import org.openforis.idm.metamodel.EntityDefinition;
 import org.openforis.idm.metamodel.ModelVersion;
 import org.openforis.idm.metamodel.NodeDefinition;
-import org.openforis.idm.metamodel.NodeLabel.Type;
 import org.openforis.idm.metamodel.Schema;
 import org.openforis.idm.metamodel.SurveyContext;
 import org.openforis.idm.model.Attribute;
@@ -351,41 +347,6 @@ public abstract class AbstractEarthSurveyService implements DisposableBean {
 	}
 
 	/**
-	* @deprecated Used for the 2013/14 versions of the surveys!
-	*/
-	@Deprecated
-	private void addValidationMessages(Map<String, String> parameters, CollectRecord ceRecord) {
-		// Validation
-		recordUpdater.validate(ceRecord);
-
-		final RecordValidationReportGenerator reportGenerator = new RecordValidationReportGenerator(ceRecord);
-		final List<RecordValidationReportItem> validationItems = reportGenerator.generateValidationItems();
-
-		for (final RecordValidationReportItem recordValidationReportItem : validationItems) {
-			String label = ""; //$NON-NLS-1$
-			if (recordValidationReportItem.getNodeId() != null) {
-				final Node<?> node = ceRecord.getNodeByInternalId(recordValidationReportItem.getNodeId());
-				label = node.getDefinition().getLabel(Type.INSTANCE,
-						localPropertiesService.getUiLanguage().name().toLowerCase());
-
-				String message = getAdaptedValidationMessage(recordValidationReportItem.getMessage());
-
-				parameters.put("validation_" + node.getDefinition().getName(), label + " - " + message); //$NON-NLS-1$ //$NON-NLS-2$
-
-			} else {
-				label = recordValidationReportItem.getPath();
-				parameters.put("validation_" + label, label + " - " + recordValidationReportItem.getMessage()); //$NON-NLS-1$ //$NON-NLS-2$
-			}
-
-		}
-
-		if (!validationItems.isEmpty()) {
-			parameters.put("valid_data", "false"); //$NON-NLS-1$ //$NON-NLS-2$
-		}
-
-	}
-
-	/**
 	 * Nothing in error, required questions included : getErrors leaves out the ones not answered (getMissingErrors), so a
 	 * plot was submitted with them empty while every form said it was not finished
 	 */
@@ -423,35 +384,6 @@ public abstract class AbstractEarthSurveyService implements DisposableBean {
 
 	protected String getIdmFilePath() {
 		return localPropertiesService.getImdFile();
-	}
-
-	public Map<String, String> getPlacemark(String[] keyAttributes, boolean validateRecord) {
-		CollectRecord record = loadRecord(keyAttributes, validateRecord);
-		Map<String, String> placemarkParameters = null;
-		if (record == null) {
-			placemarkParameters = new HashMap<>();
-			addResultParameter(placemarkParameters, false);
-		} else {
-			placemarkParameters = collectParametersHandler.getValuesByHtmlParameters(record.getRootEntity());
-
-			if ((placemarkParameters.get(COLLECT_CODE_CANOPY_COVER) != null) //$NON-NLS-1$
-					&& placemarkParameters.get(COLLECT_CODE_CANOPY_COVER).equals("0")) { //$NON-NLS-1$ //$NON-NLS-2$
-				placemarkParameters.put(COLLECT_CODE_CANOPY_COVER, //$NON-NLS-1$
-						"0;" + COLLECT_CODE_DEFORESTATION_REASON + "="
-								+ placemarkParameters.get(COLLECT_CODE_DEFORESTATION_REASON)); //$NON-NLS-1$
-			}
-			// For the PNG version with the old name
-			if ((placemarkParameters.get(COLLECT_CODE_CROWN_COVER) != null) //$NON-NLS-1$
-					&& placemarkParameters.get(COLLECT_CODE_CROWN_COVER).equals("0")) { //$NON-NLS-1$ //$NON-NLS-2$
-				placemarkParameters.put(COLLECT_CODE_CROWN_COVER, //$NON-NLS-1$
-						COLLECT_CODE_DEFORESTATION_REASON
-								+ placemarkParameters.get(COLLECT_CODE_DEFORESTATION_REASON)); //$NON-NLS-1$
-			}
-			addResultParameter(placemarkParameters, true);
-		}
-		addLocalProperties(placemarkParameters);
-
-		return placemarkParameters;
 	}
 
 	public synchronized PlacemarkLoadResult loadPlacemarkExpanded(String[] keyAttributeValues) {
@@ -552,40 +484,6 @@ public abstract class AbstractEarthSurveyService implements DisposableBean {
 		RecordFilter rf = new RecordFilter(getCollectSurvey(), ROOT_ENTITY_NAME);
 		rf.setModifiedSince(updatedSince);
 		return recordManager.loadSummaries(rf );
-	}
-
-	@Deprecated // nothing calls it since Collect Earth 2: it served Google Earth Pro's icon refresh
-	public String[] getPlacemarksId(List<CollectRecordSummary> listOfRecords) {
-		if (listOfRecords == null) {
-			return new String[0];
-		}
-		final String[] placemarkIds = new String[listOfRecords.size()];
-		for (int i = 0; i < listOfRecords.size(); i++) {
-			CollectRecordSummary recordSummary = listOfRecords.get(i);
-			// A record with no key values used to throw here : substring(0, -1)
-			placemarkIds[i] = String.join(",", recordSummary.getRootEntityKeyValues());
-		}
-
-		return placemarkIds;
-	}
-
-	/**
-	 * Return the list of the IDs of records that are already saved (completely
-	 * or partially) in the database.
-	 *
-	 * @return The list of the IDs of the records for the survey in the DB
-	 */
-	@Deprecated // nothing calls it since Collect Earth 2: it served Google Earth Pro's icon refresh
-	public String[] getRecordsSavedIDs() {
-		final List<CollectRecordSummary> recordsSavedForSurvey = recordManager.loadSummaries(
-				new RecordFilter(getCollectSurvey(),ROOT_ENTITY_NAME)
-		);
-
-		if ((recordsSavedForSurvey != null) && !recordsSavedForSurvey.isEmpty()) {
-			return getPlacemarksId(recordsSavedForSurvey);
-		} else {
-			return new String[]{};
-		}
 	}
 
 	/**
@@ -799,65 +697,6 @@ public abstract class AbstractEarthSurveyService implements DisposableBean {
 			return null;
 		}
 	}
-	@Deprecated
-	public synchronized boolean storePlacemarkOld(Map<String, String> parameters) {
-
-		String[] keys = new String[] { parameters.get(EarthConstants.PLACEMARK_ID_PARAMETER) };
-		RecordFilter rf = new RecordFilter(getCollectSurvey(), ROOT_ENTITY_NAME);
-		rf.setKeyValues(keys);
-		final List<CollectRecordSummary> summaries = recordManager.loadSummaries(rf); // $NON-NLS-1$
-		boolean success = false;
-
-		try {
-			// Add the operator to the collected data
-			parameters.put(OPERATOR_PARAMETER, localPropertiesService.getOperator());
-
-			CollectRecord ceRecord = null;
-			Entity plotEntity = null;
-
-			if ( !summaries.isEmpty() ) { // DELETE IF ALREADY PRESENT
-				recordManager.delete(summaries.get(0).getId());
-				ceRecord = createRecord();
-				plotEntity = ceRecord.getRootEntity();
-			} else {
-				// Create new record
-				ceRecord = createRecord();
-				plotEntity = ceRecord.getRootEntity();
-			}
-
-			boolean userClickOnSaveAndValidate = isPlacemarkSavedActively(parameters);
-
-			setPlacemarkSavedOn(parameters);
-
-			// Populate the data of the record using the HTTP parameters
-			// received
-			// This also generates the validation messages
-			collectParametersHandler.saveToEntity(parameters, plotEntity);
-
-			// Do not validate unless actively saved
-			if (userClickOnSaveAndValidate) {
-				addValidationMessages(parameters, ceRecord);
-
-				// Check that there is no validation errors so the tick doesn't
-				// turn green
-				if (!isComplete(ceRecord)) {
-					setPlacemarkSavedActively(parameters, false);
-					// Force saving again to remove the "actively saved"
-					// parameter!
-					collectParametersHandler.saveToEntity(parameters, plotEntity);
-				}
-			}
-
-			ceRecord.setModifiedDate(new Date());
-			recordManager.save(ceRecord);
-			notifyRecordSaved(ceRecord);
-
-			success = true;
-		} catch (Exception e) {
-			logger.error("Error while storing the record " + e.getMessage(), e); //$NON-NLS-1$
-		}
-		return success;
-	}
 
 	public synchronized PlacemarkLoadResult updatePlacemarkData(String[] plotKeyAttributes,
 			Map<String, String> parameters, String sessionId, boolean partialUpdate) {
@@ -884,6 +723,134 @@ public abstract class AbstractEarthSurveyService implements DisposableBean {
 		}
 	}
 	
+	// ---------------------------------------------------------------------------------------------------------------
+	// Records kept apart from the local database: corrections (docs/plans/2026-11-20-review-at-scale.md). A correction is
+	// someone else's answer that the person corrects: it must never be a record of the local database, which the cloud
+	// sync, its reconcile and "Send to cloud" all send as the person's own interpretation.
+
+	/** A record's XML (a cloud record's, a correction's draft) read into a record of the survey loaded, stored nowhere; null when it cannot be read */
+	public CollectRecord parseDetachedRecord(String xml) {
+		try {
+			org.openforis.collect.persistence.xml.DataUnmarshaller.ParseRecordResult parsed = new org.openforis.collect.persistence.xml.DataUnmarshaller(getCollectSurvey())
+					.parse(new java.io.StringReader(xml));
+			CollectRecord record = parsed.isSuccess() ? parsed.getRecord() : null;
+			// another survey's, or no record at all: a plot's record has its keys
+			if (record == null || record.getRootEntity() == null || !ROOT_ENTITY_NAME.equals(record.getRootEntity().getName())
+					|| record.getRootEntityKeyValues() == null || record.getRootEntityKeyValues().isEmpty()
+					|| record.getRootEntityKeyValues().stream().anyMatch(StringUtils::isBlank)) {
+				return null;
+			}
+			// Collect Earth's records have no user: Collect reads one without a name, which it cannot write back
+			if (record.getCreatedBy() != null && record.getCreatedBy().getUsername() == null) {
+				record.setCreatedBy(null);
+			}
+			if (record.getModifiedBy() != null && record.getModifiedBy().getUsername() == null) {
+				record.setModifiedBy(null);
+			}
+			// as a record loaded from the database is: its counts and relevance known before any change
+			recordUpdater.initializeRecord(record);
+			return record;
+		} catch (Exception e) {
+			logger.warn("A record could not be read from its XML: {}", e.getMessage()); //$NON-NLS-1$
+			return null;
+		}
+	}
+
+	/** The XML of a record kept apart */
+	public String detachedRecordXml(CollectRecord record) throws java.io.IOException {
+		java.io.StringWriter writer = new java.io.StringWriter();
+		try {
+			new org.openforis.collect.persistence.xml.DataMarshaller().write(record, writer);
+		} catch (Exception e) {
+			throw new java.io.IOException("The record could not be written as XML", e); //$NON-NLS-1$
+		}
+		return writer.toString();
+	}
+
+	/** A record kept apart, as the form loads a plot */
+	public synchronized PlacemarkLoadResult loadDetachedRecord(CollectRecord record) {
+		return createPlacemarkLoadSuccessResult(record);
+	}
+
+	/**
+	 * The form's values applied to a record kept apart as a save applies them to a stored record (on submit, validated
+	 * again, and actively saved only when complete), its operator the person's; stored nowhere.
+	 */
+	public synchronized PlacemarkLoadResult updateDetachedRecord(CollectRecord record, Map<String, String> parameters, boolean partialUpdate) {
+		try {
+			parameters.put(OPERATOR_PARAMETER, localPropertiesService.getOperator());
+			return updatePlacemarkDataExistingRecord(parameters, null, partialUpdate, record, null, true, true);
+		} catch (Exception e) {
+			logger.error("Error while correcting the record " + e.getMessage(), e); //$NON-NLS-1$
+			PlacemarkLoadResult result = new PlacemarkLoadResult();
+			result.setSuccess(false);
+			return result;
+		}
+	}
+
+	/**
+	 * A new record kept apart, for a plot to correct that has no answer to start from: its keys and the form's values of
+	 * the plot file, the person its operator; stored nowhere.
+	 */
+	public synchronized CollectRecord newDetachedRecord(String[] plotKeyAttributes, Map<String, String> parameters) {
+		Map<String, String> values = new LinkedHashMap<>(parameters == null ? Collections.emptyMap() : parameters);
+		values.put(OPERATOR_PARAMETER, localPropertiesService.getOperator());
+		return createNewRecord(plotKeyAttributes, values, new LinkedHashMap<>());
+	}
+
+	/**
+	 * Someone's answer made the start of a correction: no longer submitted (the person submits the correction) and the
+	 * person its operator. The answers stay as they are.
+	 */
+	public synchronized void startDetachedRecord(CollectRecord record) {
+		BooleanAttribute attr = record.findNodeByPath(ROOT_ENTITY_NAME + "/" + ACTIVELY_SAVED_ATTRIBUTE_NAME); //$NON-NLS-1$
+		if (attr != null) {
+			recordUpdater.updateAttribute(attr, new BooleanValue(false));
+		}
+		Map<String, String> operator = new HashMap<>();
+		operator.put(OPERATOR_PARAMETER, localPropertiesService.getOperator());
+		collectParametersHandler.saveToEntity(operator, record.getRootEntity());
+	}
+
+	/** A row added to a record kept apart (a multiple entity of the form) */
+	public synchronized PlacemarkLoadResult addEntityToDetachedRecord(CollectRecord record, String entityName) {
+		try {
+			NodeChangeSet changeSet = recordUpdater.addEntity(record.getRootEntity(), entityName);
+			return createPlacemarkLoadSuccessResult(record, changeSet);
+		} catch (Exception e) {
+			logger.error("Error adding to a record kept apart: " + e.getMessage(), e); //$NON-NLS-1$
+			PlacemarkLoadResult result = new PlacemarkLoadResult();
+			result.setSuccess(false);
+			return result;
+		}
+	}
+
+	/** The last row of a multiple entity taken off a record kept apart */
+	public synchronized PlacemarkLoadResult deleteEntityOfDetachedRecord(CollectRecord record, String entityName) {
+		PlacemarkLoadResult result;
+		try {
+			List<Node<? extends NodeDefinition>> entities = record.getRootEntity().getChildren(entityName);
+			if (entities == null || entities.isEmpty()) {
+				result = new PlacemarkLoadResult();
+				result.setSuccess(false);
+				result.setMessage("No entity found to delete"); //$NON-NLS-1$
+				return result;
+			}
+			NodeChangeSet changeSet = recordUpdater.deleteNode((Entity) entities.get(entities.size() - 1));
+			return createPlacemarkLoadSuccessResult(record, changeSet);
+		} catch (Exception e) {
+			logger.error("Error deleting from a record kept apart: " + e.getMessage(), e); //$NON-NLS-1$
+			result = new PlacemarkLoadResult();
+			result.setSuccess(false);
+			return result;
+		}
+	}
+
+	/** A record's answers by the form's names, as the cloud's records carry them (CloudRecordSerializer) */
+	public Map<String, String> detachedRecordSummary(CollectRecord record) {
+		return collectParametersHandler.getValuesByHtmlParameters(record.getRootEntity());
+	}
+
 	private PlacemarkLoadResult updatePreviewPlacemarkData(String[] plotKeyAttributes, Map<String, String> parameters) {
 		CollectRecord record = createRecord();
 
@@ -984,6 +951,12 @@ public abstract class AbstractEarthSurveyService implements DisposableBean {
 	 */
 	private PlacemarkLoadResult updatePlacemarkDataExistingRecord(Map<String, String> parameters, String sessionId,
 			boolean partialUpdate, CollectRecord record, String key, boolean notStored) throws RecordPersistenceException {
+		return updatePlacemarkDataExistingRecord(parameters, sessionId, partialUpdate, record, key, notStored, false);
+	}
+
+	/** {@code detached}: a record kept apart from the local database (a correction), never stored whatever its state */
+	private PlacemarkLoadResult updatePlacemarkDataExistingRecord(Map<String, String> parameters, String sessionId,
+			boolean partialUpdate, CollectRecord record, String key, boolean notStored, boolean detached) throws RecordPersistenceException {
 		// Populate the data of the record using the HTTP parameters
 		// received
 		Entity plotEntity = record.getRootEntity();
@@ -1029,7 +1002,7 @@ public abstract class AbstractEarthSurveyService implements DisposableBean {
 
 		// Persisted synchronously when the user explicitly submits & validates, otherwise
 		// deferred (write-behind) to keep interactive field changes fast on a remote DB.
-		if (!notStored || isActivelySaved(record) || hasCollectorInput(record)) {
+		if (!detached && (!notStored || isActivelySaved(record) || hasCollectorInput(record))) {
 			persistOrDefer(key, record, sessionId, userClickOnSubmitAndValidate);
 		}
 
@@ -1219,25 +1192,6 @@ public abstract class AbstractEarthSurveyService implements DisposableBean {
 			}
 		}
 		return changedParameters;
-	}
-
-	public String[] getKeysInOrder(Map<String, String> receivedBalloonParamaters) {
-
-		List<AttributeDefinition> keyAttributeDefinitions = getRootEntityDefinition().getKeyAttributeDefinitions();
-		String[] keys = new String[keyAttributeDefinitions.size()];
-
-		BalloonInputFieldsUtils balloonInputFieldsUtils = new BalloonInputFieldsUtils();
-		int i = 0;
-		for (AttributeDefinition keyAttribute : keyAttributeDefinitions) {
-			String balloonName = balloonInputFieldsUtils.getCollectBalloonParamName(keyAttribute);
-			if (!receivedBalloonParamaters.containsKey(balloonName)) {
-				throw new IllegalArgumentException(
-						"The parameters received do not contain the mandatory parameter " + balloonName);
-			}
-			keys[i++] = receivedBalloonParamaters.get(balloonName);
-		}
-
-		return keys;
 	}
 
 	public String[] getKeyNamesForSurvey() {

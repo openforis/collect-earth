@@ -95,3 +95,39 @@ export const cloudAssignments = (signal?: AbortSignal) =>
 
 /** Downloads an assigned plot file into the project; answers where, for the plots file field */
 export const downloadAssignment = (id: string) => apiPost<{ path: string }>("cloud/assignments/download", { id }).then((r) => r.path);
+
+/** The plots the person was given to correct (CorrectionService): how many, how many are left, whether they are open */
+export interface Corrections { plots: number; toCorrect: number; open: boolean; available: boolean }
+
+export const corrections = (signal?: AbortSignal) => apiGet<Corrections>("cloud/corrections", signal);
+export const refreshCorrections = () => apiPost<Corrections>("cloud/corrections/refresh", {});
+/** The plots to correct made the plots file, instead of the person's plots */
+export const openCorrections = () => apiPost<Corrections>("cloud/corrections/open", {});
+/** Back to the person's plots */
+export const closeCorrections = () => apiPost<Corrections>("cloud/corrections/close", {});
+
+/** One answer of a plot to correct, as the server listed it (its XML left out) */
+export interface CorrectionAnswerInfo { operator: string; recordKey: string; assessment: "main" | "check" | "other" | string; submitted: boolean; modifiedOn: number; summary: Record<string, string> }
+/** A question on which the answers differ: each answer's value, labelled as the survey says it */
+export interface CorrectionDifferenceInfo { key: string; question: string; values: { operator: string; value: string; label: string }[] }
+/** What the form of a plot to correct shows beside it (GET cloud/corrections/plot) */
+export interface CorrectionInfo {
+  plot: string;
+  placemarkId: string;
+  comment: string | null;
+  decidedBy: string | null;
+  decidedAt: number;
+  /** The person answered it themselves: said, never refused */
+  own: boolean;
+  correctedAt: number | null;
+  answers: CorrectionAnswerInfo[];
+  differences: CorrectionDifferenceInfo[];
+  /** Here: NONE, DRAFT, PENDING (submitted, not sent yet), SENT, REFUSED */
+  state: CorrectionState;
+  /** Why the server would not take it */
+  reason: string | null;
+}
+export type CorrectionState = "NONE" | "DRAFT" | "PENDING" | "SENT" | "REFUSED";
+
+export const correctionOf = (placemarkId: string, signal?: AbortSignal) =>
+  apiGet<CorrectionInfo>("cloud/corrections/plot?id=" + encodeURIComponent(placemarkId), signal);

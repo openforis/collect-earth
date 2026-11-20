@@ -25,6 +25,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.EarthConstants.UI_LANGUAGE;
 import org.openforis.collect.earth.app.desktop.ServerController;
+import org.openforis.collect.earth.app.service.AbstractEarthSurveyService.PlotStatus;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.service.imagery.BidiCommandException;
 import org.openforis.collect.earth.app.service.imagery.BidiTabDriver;
@@ -1032,9 +1033,10 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	}
 
 	/**
-	 * The plot after this one in the plot file, its outline filled in, for the Explorer to load ahead; null for the last
-	 * plot, a plot not in the file or any failure, which never stops the plot from opening. Plain file order: plots
-	 * already filled are not skipped. One row made into a plot; the file itself is read once (PlotFileIndex).
+	 * The plot the person goes to next, its outline filled in, for the Explorer to load ahead: the one the plots map opens
+	 * after a submit, the next in the plot file not submitted yet (PlotIndex.nextUnfinishedOf), so the warm-up is for the
+	 * plot really opened next and not for one already done. Null when there is none, or on any failure, which never stops
+	 * the plot from opening. One row made into a plot; the file itself is read once (PlotFileIndex).
 	 */
 	private SimplePlacemarkObject nextPlotOf(SimplePlacemarkObject placemarkObject, CollectSurvey survey) {
 		try {
@@ -1043,7 +1045,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 				return null;
 			}
 			PlotFileIndex.PlotIndex index = plotFileIndex.indexOf(csvFile);
-			Integer at = index.nextOf(placemarkObject.getPlacemarkId());
+			Integer at = index.nextUnfinishedOf(placemarkObject.getPlacemarkId(), this::isSubmitted, NEXT_PLOT_CHECKS);
 			if (at == null) {
 				return null;
 			}
@@ -1054,6 +1056,19 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 		} catch (Exception e) {
 			logger.debug("No next plot for the Explorer after {}", placemarkObject.getPlacemarkId(), e);
 			return null;
+		}
+	}
+
+	/** How many plots after this one are looked at for the next one not submitted (each may read its record). */
+	static final int NEXT_PLOT_CHECKS = 50;
+
+	/** Whether the plot's record is submitted, as the plots map shows it ("saved"); a record that cannot be read is not. */
+	private boolean isSubmitted(String plotId) {
+		try {
+			return earthSurveyService.getPlotStatus(plotId.split(",")) == PlotStatus.SUBMITTED;
+		} catch (RuntimeException e) {
+			logger.debug("No status for plot {}", plotId, e);
+			return false;
 		}
 	}
 

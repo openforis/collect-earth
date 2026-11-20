@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { bearer, createProject, legacyPlotFile, makeContext, type TestContext } from './helpers.js';
 import { strFromU8, strToU8, unzipSync } from 'fflate';
 import { cepWith, idOnlyCep } from './fixtures/cep.js';
-import { MAX_PLACES } from '../src/routes/plotPlaces.js';
+import { isWgs84, MAX_PLACES, otherSrsOf } from '../src/routes/plotPlaces.js';
 
 /** The demo survey's plot outline. */
 const SQUARE = { kind: 'square', sideMeters: 70 };
@@ -72,21 +72,35 @@ describe('POST /quality/places', () => {
     }
   });
 
-  it("gives no places when the survey's coordinates are not latitude and longitude (its first spatial reference system)", async () => {
-    // The demo survey with its spatial reference system changed to UTM 33N, as Collect Earth would transform.
+  it("refuses a survey whose coordinates are not WGS84 latitude and longitude; one stored before gives no places", async () => {
+    // The demo survey with its spatial reference system changed to UTM 33N
     const files = unzipSync(idOnlyCep());
     const survey = strFromU8(files['placemark.idm.xml']);
     expect(survey).toContain('<spatialReferenceSystem srid="EPSG:4326">');
     files['placemark.idm.xml'] = strToU8(survey.replace('<spatialReferenceSystem srid="EPSG:4326">', '<spatialReferenceSystem srid="EPSG:32633">'));
+    const utm = cepWith(Object.entries(files).map(([path, data]): [string, Buffer] => [path, Buffer.from(data)]));
     const put = await ctx.app.inject({
       method: 'PUT',
       url: `/v1/projects/${project.projectId}/cep`,
       headers: { ...bearer(project.adminToken), 'content-type': 'application/zip' },
-      payload: cepWith(Object.entries(files).map(([path, data]): [string, Buffer] => [path, Buffer.from(data)])),
+      payload: utm,
     });
-    expect(put.statusCode, put.body).toBe(200);
+    expect(put.statusCode).toBe(422);
+    expect(put.json()).toMatchObject({ error: 'not_wgs84', srid: 'EPSG:32633' });
+    // A project file a server took before WGS84 was required: its places are not latitude and longitude
+    await ctx.store.putCep(project.projectId, utm, (await ctx.store.getRoundInfo(project.projectId))!, null);
     await upload('a.csv', 'id,x,y\n1,500000,4649776\n');
     expect((await places(['1'])).json()).toEqual({ places: [], outline: { kind: 'place' }, unsupportedSrs: 'EPSG:32633' });
+  });
+
+  it('takes WGS84 written any way Collect Earth reads it, and a survey without a spatial reference system', () => {
+    for (const srid of ['', ' ', 'EPSG:4326', 'epsg:4326', ' EPSG:4326 ', 'WGS84', 'wgs84', 'LATLONG']) expect(isWgs84(srid), srid).toBe(true);
+    for (const srid of ['EPSG:32633', 'EPSG:3857', 'EPSG:43260', 'UTM']) expect(isWgs84(srid), srid).toBe(false);
+    expect(otherSrsOf(idOnlyCep())).toBeNull();
+    const files = unzipSync(idOnlyCep());
+    files['placemark.idm.xml'] = strToU8(strFromU8(files['placemark.idm.xml']).replace('srid="EPSG:4326"', 'srid="EPSG:32737"'));
+    expect(otherSrsOf(cepWith(Object.entries(files).map(([path, data]): [string, Buffer] => [path, Buffer.from(data)])))).toBe('EPSG:32737');
+    expect(otherSrsOf(Buffer.from('not a zip'))).toBeNull();
   });
 
   it('reads each plot file once while it does not change, plots not found included', async () => {

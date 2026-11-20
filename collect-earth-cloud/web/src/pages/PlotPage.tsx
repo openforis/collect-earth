@@ -37,6 +37,7 @@ const DECISIONS: { kind: DecisionKind; label: MessageKey }[] = [
   { kind: "first", label: "quality.decision.first" },
   { kind: "check", label: "quality.decision.check" },
   { kind: "recheck", label: "quality.decision.recheck" },
+  { kind: "correct", label: "quality.decision.correct" },
 ];
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -99,20 +100,17 @@ function Decision({ projectId, data, onChange }: { projectId: string; data: Plot
               {t("quality.byAssessor")}
             </Typography>
           )}
-          {!data.ownPlot && (
-            <Button size="small" onClick={undo} disabled={busy}>
-              {t("quality.undo")}
-            </Button>
-          )}
+          <Button size="small" onClick={undo} disabled={busy}>
+            {t("quality.undo")}
+          </Button>
         </Stack>
       ) : (
         <Typography color="text.secondary">{t("plot.noDecision")}</Typography>
       )}
       {decision?.comment && <Typography sx={{ wordBreak: "break-word" }}>{decision.comment}</Typography>}
-      {data.ownPlot ? (
-        <Alert severity="info" role="note">{t("quality.ownPlot")}</Alert>
-      ) : (
-        <>
+      {/* A plot the asker answered: said, never refused (decided 20 Nov 2026) */}
+      {data.ownPlot && <Alert severity="warning" role="note">{t("quality.ownPlot")}</Alert>}
+      <>
           {!withCheck && (
             <Typography variant="body2" color="text.secondary">
               {t("queue.noCheck")}
@@ -135,8 +133,7 @@ function Decision({ projectId, data, onChange }: { projectId: string; data: Plot
               </Button>
             ))}
           </Stack>
-        </>
-      )}
+      </>
       <ErrorAlert error={error} />
     </Stack>
   );

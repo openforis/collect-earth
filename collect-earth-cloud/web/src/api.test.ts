@@ -63,8 +63,8 @@ import {
   getBackupLink,
   getBackupSummary,
   getRoundInfo,
+  uploadProjectFile,
   setReassessmentCode,
-  uploadCep,
   getProjectAi,
   setProjectAi,
   startAiRun,
@@ -789,7 +789,7 @@ describe("the project file and round", () => {
 
   it("an upload returns what the server did about round", async () => {
     const sent = fakeXhr(200, { ok: true, bytes: 10, round: added });
-    expect(await uploadCep("p 1", new Blob(["zip"]))).toEqual(added);
+    expect((await uploadProjectFile("p 1", new Blob(["zip"]))).round).toEqual(added);
     expect(sent[0]).toMatchObject({ method: "PUT", url: "/v1/projects/p%201/cep", headers: { "content-type": "application/zip" } });
   });
 
@@ -798,13 +798,14 @@ describe("the project file and round", () => {
     [409, "note_removed", "error.noteRemoved"],
     [409, "round_codes_changed", "error.roundCodesChanged"],
     [409, "key_shape_changed", "error.keyShapeChanged"],
+    [422, "not_wgs84", "error.notWgs84"],
     [409, "plots_divided", "error.plotsDivided"],
     [409, "note_column_in_file", "error.noteColumnInFile"],
     [413, "too_large", "error.cepTooLarge"],
     [413, "storage_limit_reached", "error.storageLimitReached"],
   ])("a %i %s upload becomes its own sentence", async (status, code, key) => {
     fakeXhr(status, { error: code, reason: "in English" });
-    const error = await uploadCep("p1", new Blob(["zip"])).catch((e: unknown) => e);
+    const error = await uploadProjectFile("p1", new Blob(["zip"])).catch((e: unknown) => e);
     expect(error).toBeInstanceOf(ApiError);
     expect((error as ApiError).reason).toBe("in English");
     expect(errorMessageKey(error)).toBe(key);

@@ -4,6 +4,7 @@ import { byId, changedAfterSubmit, type FormMessage, indexPlots, leftUnsubmitted
   periodAnswer, type PeriodView, previousMessage, previousPlot, previousStands, type PreviousPlot, visibleIds } from "./plots";
 import { imageryForNumber, reconcileImagery, sameImageryStatus, type ImageryExpectation } from "./imagery";
 import { loadPrefs, savePrefs, type Prefs } from "./prefs";
+import { closeCorrections, openCorrections } from "./settingsApi";
 import { formWindow, isFormMessage } from "./shortcuts";
 import type { ImagerySource, ImageryStatus, LatLng, ListFilter, MapConfig, PeriodAnswer, PeriodFilter, PlotFeature, PlotStatus } from "./types";
 
@@ -32,6 +33,10 @@ export interface UiState {
   loaded: boolean;
   /** The plot file is a training set's: its name (the list says so); null otherwise */
   training: string | null;
+  /** The plot file is the person's plots to correct (others answered them): their forms save them apart */
+  corrections: boolean;
+  /** How many plots the person has left to correct, in a cloud project (0 otherwise) */
+  toCorrect: number;
   activeId: string | null;
   /** Counts the plots selected, the one open selected again included: the one-pane layout then shows its form again */
   selected: number;
@@ -49,7 +54,7 @@ export interface UiState {
   /** The tabs of the imagery window and the one shown: the source buttons. */
   imagery: ImageryStatus;
   /** The plot just submitted and the one the list moved to (null: none left), for a toast; key tells two apart. */
-  submitted: { key: number; plotId: string; next: string | null; training?: boolean } | null;
+  submitted: { key: number; plotId: string; next: string | null; training?: boolean; correction?: boolean } | null;
   /** A plot changed after it was submitted, and left without submitting it again, for a notice; key tells two apart. */
   unsubmitted: { key: number; plotId: string } | null;
 }
@@ -95,7 +100,7 @@ export class MapController {
 
   constructor() {
     this.state = {
-      order: [], labels: byId(), statuses: byId(), statusesVersion: 0, loaded: false, training: null, activeId: null, selected: 0, formUrl: null,
+      order: [], labels: byId(), statuses: byId(), statusesVersion: 0, loaded: false, training: null, corrections: false, toCorrect: 0, activeId: null, selected: 0, formUrl: null,
       filter: this.prefs.filter ?? "all", query: "", repeat: false, periods: byId(), periodFilter: this.prefs.periodFilter ?? "all", language: "en",
       imagery: { sources: [], visible: null }, submitted: null, unsubmitted: null,
     };
@@ -147,7 +152,7 @@ export class MapController {
       // None (e.g. no survey loaded): the list says so; the statuses tell when there is a plot file to load
       if (!index.ids || index.ids.length === 0) {
         this.plots = byId();
-        this.set({ order: [], labels: byId(), statuses: byId(), statusesVersion: this.state.statusesVersion + 1, loaded: true, training: null, ...(this.state.activeId !== null ? { activeId: null, formUrl: null } : {}) });
+        this.set({ order: [], labels: byId(), statuses: byId(), statusesVersion: this.state.statusesVersion + 1, loaded: true, training: null, corrections: false, ...(this.state.activeId !== null ? { activeId: null, formUrl: null } : {}) });
         this.startStatusPolling();
         return;
       }
@@ -165,7 +170,7 @@ export class MapController {
       const activeGone = this.state.activeId !== null && !(this.state.activeId in plots);
       // nothing to go back to
       if (this.changedAfterSubmit != null && !(this.changedAfterSubmit in plots)) this.changedAfterSubmit = null;
-      this.set({ order, labels, statuses, statusesVersion: this.state.statusesVersion + 1, loaded: true, training: index.training ?? null, ...(activeGone ? { activeId: null, formUrl: null } : {}) });
+      this.set({ order, labels, statuses, statusesVersion: this.state.statusesVersion + 1, loaded: true, training: index.training ?? null, corrections: index.corrections === true, ...(activeGone ? { activeId: null, formUrl: null } : {}) });
       this.startStatusPolling();
     } catch {
       window.setTimeout(() => this.loadPlots(), 5000);
@@ -188,6 +193,12 @@ export class MapController {
   // ---------- statuses ----------
   /** The next poll starts once this one is answered: on a slow server, polls on a timer piled up. */
   private async pollStatuses(): Promise<void> {
+    await this.refreshStatuses();
+    window.setTimeout(() => this.pollStatuses(), POLL_MILLIS);
+  }
+
+  /** The statuses asked for once (the polls, and at once after the list switched to another plot file) */
+  private async refreshStatuses(): Promise<void> {
     const version = this.plotsVersion;
     try {
       const data = await fetchStatuses(this.lastStatusPoll);
@@ -201,11 +212,11 @@ export class MapController {
       for (const [id, status] of Object.entries(data.statuses)) {
         if (id in this.plots) updates[id] = normalizeStatus(status);
       }
+      if ((data.toCorrect ?? 0) !== this.state.toCorrect) this.set({ toCorrect: data.toCorrect ?? 0 });
       if (data.periods) this.applyPeriods(data.periods);
       else if (this.state.repeat) this.set({ repeat: false, periods: byId() });
       this.applyStatuses(updates);
     } catch { /* transient - the next poll retries */ }
-    window.setTimeout(() => this.pollStatuses(), POLL_MILLIS);
   }
 
   private applyStatuses(updates: Record<string, PlotStatus>): void {
@@ -255,7 +266,7 @@ export class MapController {
       // A training plot stays open: its form shows how the answers compare with the golden ones
       const training = this.state.training != null;
       const next = training ? null : this.goToNextUnfinished();
-      this.set({ submitted: { key: Date.now(), plotId: data.plotId, next, training } });
+      this.set({ submitted: { key: Date.now(), plotId: data.plotId, next, training, correction: this.state.corrections } });
     } else if (data.type === "ce:dirty") {
       this.applyStatuses({ [data.plotId]: "partial" });
     }
@@ -276,8 +287,9 @@ export class MapController {
     const place = placeFeature(id, plot.center);
     // The generated form goes by the plot's id alone and opens at once; the project's own balloon is filled with every
     // column of the plot's row, which comes with its details
-    const balloon = this.webForm === "balloon";
-    this.set({ activeId: id, selected: this.state.selected + 1, formUrl: balloon ? null : formUrl(place, this.webForm, this.state.language, this.state.training != null) });
+    // A plot to correct always has the generated form, which keeps it apart from the local database
+    const balloon = this.webForm === "balloon" && !this.state.corrections;
+    this.set({ activeId: id, selected: this.state.selected + 1, formUrl: balloon ? null : formUrl(place, this.webForm, this.state.language, this.state.training != null, this.state.corrections) });
     openAuxiliaryWindows(place);
     void this.openDetail(id, this.state.selected, DETAIL_TRIES);
   };
@@ -291,7 +303,7 @@ export class MapController {
     try {
       const detail = await fetchPlotDetail(id);
       if (!current()) return;
-      if (this.webForm === "balloon") this.set({ formUrl: formUrl(detail.feature, this.webForm, this.state.language) });
+      if (this.webForm === "balloon" && !this.state.corrections) this.set({ formUrl: formUrl(detail.feature, this.webForm, this.state.language) });
       postGewContext(id, detail.near.map((p) => ({
         id: p.id,
         status: this.state.statuses[p.id] ?? "empty",
@@ -302,7 +314,7 @@ export class MapController {
       if (!current()) return;
       if (tries > 1) {
         window.setTimeout(() => void this.openDetail(id, selected, tries - 1), DETAIL_RETRY_MILLIS);
-      } else if (this.webForm === "balloon") {
+      } else if (this.webForm === "balloon" && !this.state.corrections) {
         // The balloon with what the list knows of the plot rather than no form at all
         this.set({ formUrl: formUrl(placeFeature(id, this.plots[id].center), this.webForm, this.state.language) });
       }
@@ -310,6 +322,19 @@ export class MapController {
   }
 
   /** Selects the next plot not completed; returns it, null when there is none. */
+  // ---------- plots to correct ----------
+  /**
+   * The person's plots to correct made the list (or back to their own plots): Collect Earth switches the plots file, and
+   * the list loads it at once rather than at the next poll. The plot open is closed: it is of the other list.
+   */
+  showCorrections = async (show: boolean): Promise<void> => {
+    await (show ? openCorrections() : closeCorrections());
+    if (this.state.activeId !== null) this.set({ activeId: null, formUrl: null });
+    if (!this.loadingPlots) await this.loadPlots();
+    // their statuses now, not at the next poll: the plots corrected would show "not started" meanwhile
+    await this.refreshStatuses();
+  };
+
   goToNextUnfinished = (): string | null => {
     const id = nextUnfinished(this.state.order, this.state.statuses, this.state.activeId);
     if (id) this.selectPlot(id);

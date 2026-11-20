@@ -47,8 +47,7 @@ export function getQuality(projectId: string): Promise<QualityAnswer> {
   return request("GET", `${p(projectId)}/quality`);
 }
 
-/** The "very fast" threshold of a project that has not set one, and the range it may take (as the server's). */
-export const DEFAULT_FAST_SECONDS = 15;
+/** The range the "very fast" threshold may take (as the server's). */
 export const MIN_FAST_SECONDS = 1;
 export const MAX_FAST_SECONDS = 120;
 

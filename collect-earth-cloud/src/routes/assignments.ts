@@ -28,7 +28,7 @@ import { recheckFileId, sentBackTo, type RecheckFile } from '../sendBack.js';
 import type { Question } from '../surveyOutline.js';
 import { registerDivisionRoutes } from './division.js';
 import { hasPolygonColumn } from '../plotShape.js';
-import { coordinate, isWgs84, PlotPlaceReader } from './plotPlaces.js';
+import { coordinate, PlotPlaceReader } from './plotPlaces.js';
 import { finishedTraining, trainingAssignments, trainingUnits } from './training.js';
 
 interface AssignmentsBody {
@@ -166,9 +166,8 @@ export async function registerAssignmentRoutes(
     // Ids an integer or real key of the survey cannot take (Collect Earth would not find their records).
     const badIds = facts.keys ? idsNotFittingKeys(parsed.plotIds, facts.keys, keyCount) : [];
     if (!polygons) {
-      const { srid } = facts;
-      // Out-of-range values are only known for latitude and longitude; other systems need numbers.
-      const [latLimit, lonLimit] = isWgs84(srid) ? [90, 180] : [Infinity, Infinity];
+      // Plots are WGS84 latitude and longitude in decimal degrees: within -90..90 and -180..180
+      const [latLimit, lonLimit] = [90, 180];
       for (const row of parsed.rows) {
         if (coordinate(row.fields[keyCount], latLimit) === null || coordinate(row.fields[keyCount + 1], lonLimit) === null) {
           bad.push(row.id);
@@ -610,7 +609,8 @@ export async function registerAssignmentRoutes(
     // A row whose coordinates Collect Earth cannot read stops Google Earth Pro's plot file: left out (a file of
     // polygons has its shapes, as the upload's warnings take it)
     const { srid } = await placeReader.surveyFacts(projectId, request.log);
-    const [latLimit, lonLimit] = isWgs84(srid) ? [90, 180] : [Infinity, Infinity];
+    // WGS84 latitude and longitude only (acceptCep): out of -90..90 or -180..180 is no place
+    const [latLimit, lonLimit] = [90, 180];
     const readable = (fields: readonly string[]) =>
       hasPolygonColumn(fields) || (coordinate(fields[keyCount], latLimit) !== null && coordinate(fields[keyCount + 1], lonLimit) !== null);
     // From what each part depends on: nothing is built to answer whether the person's plots changed
@@ -715,8 +715,7 @@ export async function registerAssignmentRoutes(
           const file = await store.getCsvFile(projectId, meta.id);
           if (file) parts.push({ csvFileId: meta.id, filename: meta.filename, data: wholeFile(file, info).data });
         }
-        const { srid } = await placeReader.surveyFacts(projectId, request.log);
-        const [latLimit, lonLimit] = isWgs84(srid) ? [90, 180] : [Infinity, Infinity];
+        const [latLimit, lonLimit] = [90, 180];
         const merged = mergePlotFiles(parts, keyCount, {
           readable: (fields) => hasPolygonColumn(fields) || (coordinate(fields[keyCount], latLimit) !== null && coordinate(fields[keyCount + 1], lonLimit) !== null),
         });

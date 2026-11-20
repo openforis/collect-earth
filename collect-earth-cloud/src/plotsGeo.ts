@@ -19,7 +19,6 @@ import type { MapFile, MapStatus } from './wire/map.js';
  * Codes 2 to 6 together are the plots the Progress tab counts as submitted.
  */
 export const GEO_STATUSES = ['notStarted', 'started', 'submitted', 'accepted', 'recheck', 'differs', 'resubmitted'] as const satisfies readonly MapStatus[];
-export type GeoStatus = MapStatus;
 
 /** Plots in one page of GET /map/plots. */
 export const GEO_PAGE_SIZE = 20_000;

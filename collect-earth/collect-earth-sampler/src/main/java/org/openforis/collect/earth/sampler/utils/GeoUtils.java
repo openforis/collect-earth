@@ -1,17 +1,16 @@
 package org.openforis.collect.earth.sampler.utils;
 
-import org.geotools.geometry.jts.JTS;
-import org.geotools.referencing.CRS;
-import org.geotools.referencing.crs.DefaultGeographicCRS;
-import org.locationtech.jts.geom.Coordinate;
-import org.locationtech.jts.geom.GeometryFactory;
-import org.locationtech.jts.geom.Point;
-import org.opengis.referencing.FactoryException;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
-import org.opengis.referencing.operation.MathTransform;
-import org.opengis.referencing.operation.TransformException;
+import java.util.List;
 
+import org.openforis.collect.model.CollectSurvey;
+import org.openforis.idm.metamodel.SpatialReferenceSystem;
 
+/**
+ * Collect Earth works only with plots in WGS84 latitude and longitude, in decimal degrees (EPSG:4326), the system of
+ * Google Earth Web and of the imagery it opens. There is no conversion from other coordinate systems: a survey that
+ * uses another one is refused with a message that says so (see {@link NotWgs84Exception}). GeoTools' EPSG database,
+ * which the conversion needed, was left out of the build in November 2020, so the conversion only ever failed since.
+ */
 public class GeoUtils {
 
 	public static final String LATLONG = "LATLONG";
@@ -19,21 +18,44 @@ public class GeoUtils {
 	public static final String EPSG4326 = "EPSG:4326";
 
 	private GeoUtils() {}
-	
-	/** Check the spatial reference system used in the specified coordinates of the plots
-	 * @return True if using latlong coordinates false otherwise
+
+	/**
+	 * Whether the id of a spatial reference system is WGS84 latitude and longitude: empty (or none), "LATLONG", "WGS84"
+	 * or "EPSG:4326", whatever their case and the spaces around them.
 	 */
-	public static boolean isUsingWGS84( String epsgCode ){
-		return (epsgCode.trim().length() == 0 || epsgCode.equals(LATLONG) || epsgCode.equals(WGS84)  || epsgCode.equals(EPSG4326) );	
-	
+	public static boolean isUsingWGS84(String srsId) {
+		if (srsId == null) {
+			return true;
+		}
+		final String id = srsId.trim();
+		return id.isEmpty() || id.equalsIgnoreCase(LATLONG) || id.equalsIgnoreCase(WGS84) || id.equalsIgnoreCase(EPSG4326);
 	}
 
-	public static Point transformToWGS84(double longitude, double latitude, String sourceEpsgCode ) throws TransformException, FactoryException {
-		final GeometryFactory gf = new GeometryFactory();
-		final Coordinate c = new Coordinate(longitude, latitude);
-		Point p = gf.createPoint(c);
-		final CoordinateReferenceSystem sourceEpsgCRS = CRS.decode(sourceEpsgCode);
-		final MathTransform mathTransform = CRS.findMathTransform(sourceEpsgCRS, DefaultGeographicCRS.WGS84, false);
-		return (Point) JTS.transform(p, mathTransform);		
+	/**
+	 * The id of the coordinate system of the survey's plots: its first spatial reference system, as a Collect Earth
+	 * survey has only one. "" when there is no survey or it has none, which is taken as WGS84.
+	 */
+	public static String getSurveySrsId(CollectSurvey survey) {
+		if (survey == null) {
+			return "";
+		}
+		final List<SpatialReferenceSystem> systems = survey.getSpatialReferenceSystems();
+		if (systems == null || systems.isEmpty() || systems.get(0) == null || systems.get(0).getId() == null) {
+			return "";
+		}
+		return systems.get(0).getId().trim();
+	}
+
+	/** Whether the survey's plots are in WGS84 latitude and longitude ({@link #isUsingWGS84(String)} of its system). */
+	public static boolean isUsingWGS84(CollectSurvey survey) {
+		return isUsingWGS84(getSurveySrsId(survey));
+	}
+
+	/**
+	 * Whether the coordinates can be WGS84 decimal degrees: the latitude between -90 and 90 and the longitude between
+	 * -180 and 180. A plot outside is in another system (UTM metres, for instance), or its columns are swapped.
+	 */
+	public static boolean isInWgs84Range(double latitude, double longitude) {
+		return latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180;
 	}
 }

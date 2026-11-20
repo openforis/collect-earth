@@ -18,6 +18,14 @@ The easiest way to generate a systematic or random grid of plots is this tool:
 https://collectearth.users.earthengine.app/view/collect-earth-grid-generator
 
 
+PLOT COORDINATES: WGS84 LATITUDE AND LONGITUDE ONLY
+The latitude and longitude of the plots in the plot file must be WGS84 latitude and longitude in decimal degrees
+(EPSG:4326), for example -1.2921 and 36.8219: the latitude between -90 and 90, the longitude between -180 and 180.
+Collect Earth takes no other coordinate system (UTM, a national grid...) and converts none, because Google Earth Web and
+the imagery it opens use WGS84 degrees. Convert a plot file in another system first (in QGIS, for instance), and set the
+survey's coordinate system to EPSG:4326 in the survey designer.
+
+
 WORKING AS A TEAM
 A coordinator can run a project on a Collect Earth Cloud server: the team joins it from Collect Earth (Join cloud project) and each person receives the plots assigned to them.
 

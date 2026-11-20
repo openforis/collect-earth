@@ -47,18 +47,6 @@
 				</dependency>
 				
 							
-				<dependency>
-			<groupId>org.geotools</groupId>
-			<artifactId>gt-geometry</artifactId>
-			<version>${geotools.version}</version>
-
-			<exclusions>
-				<exclusion>
-					<groupId>com.fasterxml.jackson.core</groupId>
-					<artifactId>jackson-core</artifactId>
-				</exclusion>
-			</exclusions>
-				</dependency>
 		<!-- Error updateing to latest version. keep this version for now -->
 		<dependency>
 		    <groupId>org.wololo</groupId>

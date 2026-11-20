@@ -28,7 +28,7 @@ import { fileKeyCount, keyShape, splitKey, unitOfRecord } from '../rounds.js';
 import type { Store } from '../store/store.js';
 import type { PlotAssignment, StoredDistribution } from '../types.js';
 import type { CsvColumns, MoveUnfinishedAnswer, TakePlotsAnswer } from '../wire/plotFiles.js';
-import { isWgs84, PlotPlaceReader } from './plotPlaces.js';
+import { PlotPlaceReader } from './plotPlaces.js';
 
 /** The most plots one move or take moves */
 const MAX_MOVE = 20000;
@@ -150,15 +150,12 @@ export async function registerProjectDivisionRoutes(app: FastifyInstance, store:
 
   /** The places of the project's plots, and whether order nearby can be used */
   const nearbyOf = async (projectId: string, project: Project, log: FastifyRequest['log']) => {
-    const { srid } = await placeReader.surveyFacts(projectId, log);
     const places = new Map<string, readonly [number, number]>();
-    if (isWgs84(srid)) {
-      for (const f of project.files) {
-        const read = await placeReader.placesOfFile(projectId, f.id, f.checksum, project.keyCount, log, f);
-        for (const [id, place] of read?.places ?? []) if (project.fileOf.get(id) === f.id) places.set(id, place);
-      }
+    for (const f of project.files) {
+      const read = await placeReader.placesOfFile(projectId, f.id, f.checksum, project.keyCount, log, f);
+      for (const [id, place] of read?.places ?? []) if (project.fileOf.get(id) === f.id) places.set(id, place);
     }
-    return { availability: nearbyAvailability(srid, places.size, project.plotIds.length), places };
+    return { availability: nearbyAvailability(places.size, project.plotIds.length), places };
   };
 
   app.get('/v1/projects/:pid/plots/columns', admin, async (request: FastifyRequest, reply: FastifyReply) => {

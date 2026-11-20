@@ -2,6 +2,7 @@ import { isPositionKey, withoutPositions } from '../positions.js';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { secretsEqual } from '../accountRules.js';
 import { audit } from '../activity.js';
+import { correctionRow, loadCorrectedAnswers } from '../corrections.js';
 import { bearerToken } from '../auth.js';
 import type { Config } from '../config.js';
 import { attachment } from '../download.js';
@@ -20,7 +21,7 @@ import type { ProjectCopyAnswer, ProjectRenameAnswer, ProjectStatusAnswer } from
 import type { NewProjectAnswer, OperatorProgress, Overview, ProjectInfo } from '../wire/projects.js';
 import { copyProject } from '../projectCopy.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
-import { factorsByRecord, firstAssessments, projectFactors } from './analysis.js';
+import { factorsByRecord, plotAnswers, projectFactors } from './analysis.js';
 import { surveyOf } from './areas.js';
 import { PlotPlaceReader } from './plotPlaces.js';
 
@@ -333,7 +334,18 @@ export async function registerProjectRoutes(
       const { info, units, copyHolders, reference } = context;
       // Reference plots (Task 14) are never decided: their round 2 measures the collectors
       // against the reference, so `final` stays blank for them and `reference` says "yes".
-      const finalOf = finalAnswers({ records, info, units, copyHolders }, new Map(decisions.filter((d) => !reference.has(d.plot)).map((d) => [d.plot, d.decision])));
+      // A plot decided "correct" and corrected: the correction is its final answer, a row of its own (operator: the
+      // corrector, assessment "correction", final "yes"), its records "no" (docs/plans/2026-11-20-review-at-scale.md)
+      const corrected = await loadCorrectedAnswers(store, projectId, reference, { xml: true });
+      const correctionRows = new Set<RecordRow>([...corrected.values()].map((c) => correctionRow(projectId, c)));
+      const recordsFinal = finalAnswers(
+        { records, info, units, copyHolders },
+        new Map(decisions.filter((d) => !reference.has(d.plot)).map((d) => [d.plot, d.decision])),
+        new Set(corrected.keys()),
+      );
+      const finalOf = (r: RecordRow) => (correctionRows.has(r) ? 'yes' : recordsFinal(r));
+      // (a new array: `records` may be `all`, whose first assessments the weights are worked out from)
+      const exported = [...records, ...correctionRows];
       const resolve = recordResolver({ info, units, copyHolders });
       // The coordinator's note the server added (Task 16) is the coordinator's text, not an answer.
       const leaveOut = noteColumn(info) !== null ? new Set([NOTE_SUMMARY_KEY]) : new Set<string>();
@@ -342,9 +354,13 @@ export async function registerProjectRoutes(
       if (noPositions && format !== 'csv') {
         return reply.code(400).send({ error: 'bad_request', reason: 'a map file always has the plot locations' });
       }
-      if (noPositions) for (const r of records) for (const k of Object.keys(r.summary)) if (isPositionKey(k)) leaveOut.add(k);
-      // The plots' expansion factors and weights, as the analysis has them: over every first assessment of the project
-      const firsts = firstAssessments(all, resolve);
+      if (noPositions) for (const r of exported) for (const k of Object.keys(r.summary)) if (isPositionKey(k)) leaveOut.add(k);
+      // The plots' expansion factors and weights, as the analysis has them: over every plot's answer (its correction, else
+      // the record a coordinator's decision took, else its first assessment), on the row of that answer
+      const firsts = plotAnswers(all, { info, units, copyHolders }, {
+        corrected,
+        decided: new Map(decisions.filter((d) => !reference.has(d.plot)).map((d) => [d.plot, d.decision])),
+      });
       const factors = await projectFactors(store, projectId, parsed, firsts, info);
       // The person's language (?lang=): the CSV's separators, and the labels of the answers when asked (?labels=include)
       const language = typeof query.lang === 'string' ? query.lang : 'en';
@@ -354,8 +370,9 @@ export async function registerProjectRoutes(
         labelsOf: labels ? answerLabels(parsed.model, language) : undefined,
         weights: factors ? factorsByRecord(factors, firsts) : undefined,
         format: csvFormatOf(language),
+        corrections: correctionRows,
       };
-      const args = [records, exportRoundOf(info, units, copyHolders), finalOf, (r: RecordRow) => reference.size > 0 && reference.has(resolve(r).group), leaveOut, options] as const;
+      const args = [exported, exportRoundOf(info, units, copyHolders), finalOf, (r: RecordRow) => reference.size > 0 && reference.has(resolve(r).group), leaveOut, options] as const;
       let body: string | Buffer;
       if (format === 'csv') {
         body = recordsCsv(...args);

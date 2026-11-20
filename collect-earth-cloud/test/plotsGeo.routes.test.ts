@@ -335,11 +335,14 @@ describe('map of progress: GET /map/plots', () => {
     expect((await ctx.app.inject({ method: 'GET', url: `/v1/projects/${pid}/map/plots`, headers: bearer(other.adminToken) })).statusCode).toBe(404);
   });
 
-  it('puts no plot on the map when the survey uses another coordinate system, and says which', async () => {
+  it('puts no plot on the map of a project stored with another coordinate system, and says which', async () => {
     const files = unzipSync(idOnlyCep());
     files['placemark.idm.xml'] = strToU8(strFromU8(files['placemark.idm.xml']).replace('<spatialReferenceSystem srid="EPSG:4326">', '<spatialReferenceSystem srid="EPSG:32633">'));
-    const put = await call('PUT', '/cep', owner.token, cepWith(Object.entries(files).map(([path, data]): [string, Buffer] => [path, Buffer.from(data)])), { 'content-type': 'application/zip' });
-    expect(put.statusCode, put.body).toBe(200);
+    const utm = cepWith(Object.entries(files).map(([path, data]): [string, Buffer] => [path, Buffer.from(data)]));
+    // Refused now (WGS84 latitude and longitude only); a server took it before that rule
+    const put = await call('PUT', '/cep', owner.token, utm, { 'content-type': 'application/zip' });
+    expect(put.statusCode).toBe(422);
+    await ctx.store.putCep(pid, utm, (await ctx.store.getRoundInfo(pid))!, null);
     const body = await geo('');
     expect(body.unsupportedSrs).toBe('EPSG:32633');
     expect(body.points).toEqual([]);

@@ -9,9 +9,6 @@ import type { GuidanceNote } from './types.js';
 import type { AnswerOptions } from './wire/quality.js';
 import type { PersonalReport, ReportConfusion, ReportNote, TeamReport } from './wire/reports.js';
 
-export type { AnswerOption, AnswerOptions } from './wire/quality.js';
-export type { PersonalReport, ReportConfusion, ReportNote, ReportRate, TeamReport } from './wire/reports.js';
-
 /** The served survey's outline, or null without one. */
 type Outline = ReadonlyMap<string, Question> | null;
 

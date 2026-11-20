@@ -234,16 +234,23 @@ public class AuxiliaryWindowUrlTest {
 	}
 
 	@Test
-	public void theNextPlotIsTheOneAfterInThePlotFile() throws IOException {
+	public void theNextPlotIsTheOneThePlotsMapOpensAfterASubmit() throws IOException {
 		PlotFileIndex.PlotIndex index = new PlotFileIndex.PlotIndex("plots.csv", "1:1", "", null, null,
-				Arrays.asList("a", "b", "c"), Arrays.asList(null, null, null),
-				Arrays.asList(new double[] { 0, 0 }, new double[] { 0, 1 }, new double[] { 0, 2 }),
-				Arrays.asList(new String[] { "a" }, new String[] { "b" }, new String[] { "c" }),
-				Map.of("a", 0, "b", 1, "c", 2), new ObjectMapper());
-		assertEquals(1, index.nextOf("a"));
-		assertEquals(2, index.nextOf("b"));
-		assertNull(index.nextOf("c"), "the last plot has none");
-		assertNull(index.nextOf("z"), "a plot not in the plot file has none");
-		assertNull(index.nextOf(null));
+				Arrays.asList("a", "b", "c", "d"), Arrays.asList(null, null, null, null),
+				Arrays.asList(new double[] { 0, 0 }, new double[] { 0, 1 }, new double[] { 0, 2 }, new double[] { 0, 3 }),
+				Arrays.asList(new String[] { "a" }, new String[] { "b" }, new String[] { "c" }, new String[] { "d" }),
+				Map.of("a", 0, "b", 1, "c", 2, "d", 3), new ObjectMapper());
+		java.util.function.Predicate<String> none = id -> false;
+		assertEquals(1, index.nextUnfinishedOf("a", none, 50));
+		// the plots already submitted are skipped, as nextUnfinished (plots.ts) does
+		java.util.Set<String> done = java.util.Set.of("b", "c");
+		assertEquals(3, index.nextUnfinishedOf("a", done::contains, 50));
+		// after the last plot, from the start again
+		assertEquals(0, index.nextUnfinishedOf("d", none, 50));
+		// none when every other plot is submitted (never the plot itself), or none among the first plots looked at
+		assertNull(index.nextUnfinishedOf("d", java.util.Set.of("a", "b", "c")::contains, 50));
+		assertNull(index.nextUnfinishedOf("a", done::contains, 2), "c and b looked at, d not");
+		assertNull(index.nextUnfinishedOf("z", none, 50), "a plot not in the plot file has none");
+		assertNull(index.nextUnfinishedOf(null, none, 50));
 	}
 }

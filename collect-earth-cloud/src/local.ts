@@ -143,6 +143,15 @@ export const LOCAL_OFF_ROUTES: readonly string[] = [
   'DELETE /v1/projects/:pid/reference/answers',
   'GET /v1/projects/:pid/quality/queue',
   'POST /v1/projects/:pid/quality/decisions:bulk',
+  // The review queue as a list and one decision for many plots; corrections, assigned to people of the project
+  // (docs/plans/2026-11-20-review-at-scale.md: Fastify's `::` is the colon)
+  'GET /v1/projects/:pid/quality/review-list',
+  'POST /v1/projects/:pid/quality/decisions::apply',
+  'GET /v1/projects/:pid/quality/corrections',
+  'POST /v1/projects/:pid/quality/corrections::assign',
+  'GET /v1/projects/:pid/my-corrections',
+  'GET /v1/projects/:pid/my-corrections.csv',
+  'PUT /v1/projects/:pid/corrections/:plot',
   'PUT /v1/projects/:pid/quality/decisions/:plot',
   'DELETE /v1/projects/:pid/quality/decisions/:plot',
   'POST /v1/projects/:pid/quality/places',

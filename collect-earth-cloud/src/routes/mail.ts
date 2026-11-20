@@ -21,8 +21,6 @@ import type { GivenPlots } from '../invitePlots.js';
 import type { DigestView, Notifications, UnsubscribeAnswer } from '../wire/account.js';
 import type { MailCheck, MessagePreview, MessageSentAnswer, TestMailAnswer } from '../wire/serverAdmin.js';
 
-export { MAX_EMAIL_LENGTH } from '../accountRules.js';
-
 /** Confirmation mails per account (stored: changing the address does not start them again). */
 export const CONFIRMATIONS_PER_HOUR = 3;
 export const CONFIRMATIONS_PER_DAY = 6;

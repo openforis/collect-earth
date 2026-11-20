@@ -431,6 +431,12 @@ public class EarthApp {
 			public void run() {
 				try {
 					preparePlotsAndOpen();
+				} catch (KmlGenerationException e) {
+					// What the project lacks (the plot file, a WGS84 survey), said in HTML of our own as at start
+					// (prepareProjectFiles): escaped again, its path or line breaks showed as code
+					logger.warn("The project's files are not ready: {}", e.getMessage()); //$NON-NLS-1$
+					EarthApp.notify(Notice.ERROR, Messages.getString("NoticesPage.server.plots") + "<br/>" //$NON-NLS-1$ //$NON-NLS-2$
+							+ StringUtils.defaultString(e.getMessage()));
 				} catch (Exception e) {
 					logger.error("Error reloading the plots", e); //$NON-NLS-1$
 					EarthApp.notify(Notice.ERROR, Messages.getString("NoticesPage.server.plots") + "<br/>" //$NON-NLS-1$ //$NON-NLS-2$
