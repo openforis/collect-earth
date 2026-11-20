@@ -3722,13 +3722,13 @@ The GAUL data might be inadequate if the Administrative Units of the country hav
           </check>
           <check flag="error" if="lu='C'  and coverage!='na'" expr="percentage &gt;= &#10;parent()/land_cover[element='crops']/percentage">
             <message xml:lang="fr">La couverture des terres cultivées doit être au moins égale à la couverture des cultures</message>
-            <message>You must specify the land cover of the cultivation area</message>
+            <message>The cropland cover must be at least as much as the crop cover</message>
             <message xml:lang="es">La cobertura de tierras de cultivo debe ser al menos igual a la cobertura de cultivos</message>
             <message xml:lang="pt">A cobertura de terras agrícolas deve ser pelo menos tanto quanto a cobertura de culturas</message>
           </check>
           <check flag="error" if="coverage!='na' and lu='C'" expr="parent()/land_cover[element='crops']/percentage  &gt; 0">
             <message xml:lang="fr">Vous devez spécifier l'occupation du sol de la zone de culture</message>
-            <message>Vous devez spécifier l'occupation du sol de la zone de culture</message>
+            <message>You must specify the land cover of the cultivation area</message>
             <message xml:lang="es">Debe especificar la cobertura del suelo del área de cultivo</message>
             <message xml:lang="pt">Você deve especificar a cobertura da terra da área de cultivo</message>
           </check>
