@@ -91,7 +91,7 @@ const CODE_MESSAGES: Record<string, MessageKey> = {
   no_plots: "error.noPlots",
   training_plot_in_file: "error.trainingPlotInFile",
   training_plot_clash: "training.clash",
-  // The Collect Earth backup (GET /exports/collect-backup).
+  // The Collect Earth backup (POST /exports/collect-backup/link).
   no_round_key: "backup.noRoundKey",
   no_project_file: "backup.noProjectFile",
   backup_busy: "backup.busy",

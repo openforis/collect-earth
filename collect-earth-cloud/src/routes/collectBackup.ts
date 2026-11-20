@@ -39,8 +39,7 @@ const BUSY = { error: 'backup_busy', reason: 'another Collect Earth backup is be
  * - `POST /v1/projects/:pid/exports/collect-backup/link { rounds, format? }`: a download link, signed, for 60 s
  *   and one use (backupLink.ts), so the browser downloads the file by itself;
  * - `GET /v1/collect-backup/:token`: the file, by that link (no session: the link is the permission,
- *   checked again against the coordinator's role);
- * - `GET /v1/projects/:pid/exports/collect-backup?rounds=1|all&format=zip|collect`: the file, with the session.
+ *   checked again against the coordinator's role).
  * `format` is `zip` (Collect Earth's import, the default) or `collect` (OpenForis Collect's own backup,
  * .collect-backup, with the plot files and the areas per stratum; collectBackup.ts).
  * One backup is written at a time on an instance (memory: 100,000 records keep the heap under
@@ -118,15 +117,6 @@ export async function registerCollectBackupRoutes(
     if (!used.use(link, at)) return reply.code(410).send({ error: 'link_used', reason: 'the download link was used already: ask for the backup again' });
     request.membership = { projectId: link.projectId, role: 'admin', ...(link.userId ? { userId: link.userId } : {}) };
     return send(request, reply, link.projectId, link.rounds, link.format);
-  });
-
-  app.get('/v1/projects/:pid/exports/collect-backup', admin, async (request: FastifyRequest, reply: FastifyReply) => {
-    const { rounds = '1', format = 'zip' } = request.query as { rounds?: BackupRounds; format?: BackupFormat };
-    if (!BACKUP_ROUNDS.includes(rounds)) {
-      return reply.code(400).send({ error: 'bad_request', reason: 'rounds is 1 or all' });
-    }
-    if (!BACKUP_FORMATS.includes(format)) return reply.code(400).send(BAD_FORMAT);
-    return send(request, reply, request.membership!.projectId, rounds, format);
   });
 
   /**

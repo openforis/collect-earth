@@ -205,7 +205,6 @@ describe('LOCAL_MODE server', () => {
       '/exports/people',
       '/exports/daily',
       '/exports/collect-backup/summary',
-      '/exports/collect-backup?rounds=1',
     ];
     for (const path of ok) {
       const res = await call('GET', path);

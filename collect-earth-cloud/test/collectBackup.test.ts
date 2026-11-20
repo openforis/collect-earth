@@ -291,7 +291,7 @@ describe('backup links (signed, 60 s)', () => {
   });
 });
 
-describe('GET /exports/collect-backup', () => {
+describe('the Collect Earth backup (a link, then its download)', () => {
   let ctx: TestContext;
   let pid: string;
   let projectToken: string;
@@ -327,7 +327,13 @@ describe('GET /exports/collect-backup', () => {
     );
     expect(res.statusCode, res.body).toBe(200);
   };
-  const backup = (query = '', token = owner.token) => call('GET', `/exports/collect-backup${query}`, token);
+  /** A backup as the dashboard asks for it: a link for the query's rounds and format, then the download it gives. */
+  const backup = async (query = '', token = owner.token) => {
+    const q = new URLSearchParams(query.replace(/^\?/, ''));
+    const link = await call('POST', '/exports/collect-backup/link', token, { rounds: q.get('rounds') ?? '1', ...(q.has('format') ? { format: q.get('format') } : {}) });
+    if (link.statusCode !== 200) return link;
+    return ctx.app.inject({ method: 'GET', url: link.json().url as string });
+  };
 
   beforeEach(async () => {
     ctx = await makeContext();
