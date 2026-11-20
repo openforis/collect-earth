@@ -170,6 +170,18 @@ public class LocalPropertiesService extends Observable {
 
 	public static final String DEFAULT_LOCAL_PORT = "8028";
 
+	/**
+	 * Earth Map's address when earth_map_url is blank: the one of the installer's earth.properties_initial and
+	 * earth.properties_forced_update. A user folder made without those files (Collect Earth started from elsewhere than
+	 * its installation folder) has none, and the plot would go to "?polygon=...", which the browser refuses.
+	 */
+	public static final String DEFAULT_EARTH_MAP_URL = "https://earthmap.org";
+	/**
+	 * Collect Earth Explorer's address when gee_app_url is blank, as for {@link #DEFAULT_EARTH_MAP_URL}: blank, the plot
+	 * would go as the #fragment of the page the tab shows.
+	 */
+	public static final String DEFAULT_GEE_APP_URL = "https://explorer.collectearth.org/";
+
 	public static final String LOCAL_HOST = "127.0.0.1";
 
 	private static final String PROPERTIES_FILE_PATH = FolderFinder.getCollectEarthDataFolder() + File.separator
@@ -267,16 +279,18 @@ public class LocalPropertiesService extends Observable {
 		return getValue(EarthProperty.EARTH_MAP_SCRIPTS);
 	}
 
+	/** earth_map_url, or {@link #DEFAULT_EARTH_MAP_URL} when blank; the file keeps what it says */
 	public String getEarthMapURL() {
-		return getValue(EarthProperty.EARTH_MAP_URL);
+		return StringUtils.defaultIfBlank(getValue(EarthProperty.EARTH_MAP_URL), DEFAULT_EARTH_MAP_URL);
 	}
 
 	public String getExtraMap() {
 		return getValue(EarthProperty.EXTRA_MAP_URL);
 	}
 
+	/** gee_app_url, or {@link #DEFAULT_GEE_APP_URL} when blank; the file keeps what it says */
 	public String getGEEAppURL() {
-		return getValue(EarthProperty.GEE_MAP_URL);
+		return StringUtils.defaultIfBlank(getValue(EarthProperty.GEE_MAP_URL), DEFAULT_GEE_APP_URL);
 	}
 
 	public String getPlanetMapsKey() {
