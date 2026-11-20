@@ -20,4 +20,4 @@ This command requires local Maven settings with InstallBuilder paths, output dir
 
 ## Change Guidance
 
-Do not commit real credentials, API keys, local filesystem paths, or generated installer binaries. Keep placeholder tokens such as `PROJECT_VERSION`, `GOOGLE_MAPS_API_KEY`, and `PLANET_MAPS_CE_KEY` intact unless intentionally changing the replacement flow. For installer changes, verify at least one platform build or document why it was not run.
+Do not commit real credentials, API keys, local filesystem paths, or generated installer binaries. Keep placeholder tokens such as `PROJECT_VERSION`, and `GOOGLE_MAPS_API_KEY` intact unless intentionally changing the replacement flow. For installer changes, verify at least one platform build or document why it was not run.

@@ -287,10 +287,6 @@ public class LocalPropertiesService extends Observable {
 		return getValue(EarthProperty.PLANET_MAPS_KEY);
 	}
 
-	public String getPlanetMapsCeKey() {
-		return getValue(EarthProperty.PLANET_MAPS_CE_KEY);
-	}
-
 	/**
 	 * The Google Analytics Measurement Protocol secret. It is written into earth.properties when the installer is built
 	 * ( from the ga_api_secret property of the Maven settings ) so that it never has to be stored in the source code.
