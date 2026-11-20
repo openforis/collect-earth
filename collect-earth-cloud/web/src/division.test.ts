@@ -54,7 +54,7 @@ const base: DivisionForm = initialForm(null, [], members);
 
 describe("order nearby (plots close on the map together)", () => {
   const even: DivisionForm = { ...base, mode: "even", order: "nearby" };
-  const otherSrs: CsvColumns = { ...columns, nearby: { available: false, reason: "other_srs", withPlace: 0, withoutPlace: 120, srid: "EPSG:32633" } };
+  const noPlaces: CsvColumns = { ...columns, nearby: { available: false, reason: "no_places", withPlace: 0, withoutPlace: 120 } };
 
   it("is sent as it is chosen, round-trips, and needs no seed", () => {
     expect(formProblem(even, columns)).toBeNull();
@@ -70,15 +70,14 @@ describe("order nearby (plots close on the map together)", () => {
   });
 
   it("cannot be sent when the file's places do not allow it", () => {
-    expect(formProblem(even, otherSrs)).toBe("divide.problemNearby");
-    expect(formProblem({ ...even, order: "file" }, otherSrs)).toBeNull();
-    expect(formProblem({ ...even, mode: "whole" }, otherSrs)).toBeNull();
+    expect(formProblem(even, noPlaces)).toBe("divide.problemNearby");
+    expect(formProblem({ ...even, order: "file" }, noPlaces)).toBeNull();
+    expect(formProblem({ ...even, mode: "whole" }, noPlaces)).toBeNull();
   });
 
   it("says why it is not available, or how many plots go last", () => {
     const n = (value: number) => String(value);
     expect(nearbyNote(columns.nearby, t, n)).toBeNull();
-    expect(nearbyNote(otherSrs.nearby, t, n)).toBe("Not available: the survey's coordinates are in EPSG:32633, not in latitude and longitude.");
     expect(nearbyNote({ available: false, reason: "no_places", withPlace: 0, withoutPlace: 3 }, t, n)).toBe(
       "Not available: no plot of this file has a latitude and longitude (the two columns after the plot id).",
     );

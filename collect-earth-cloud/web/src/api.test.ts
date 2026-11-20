@@ -798,6 +798,7 @@ describe("the project file and round", () => {
     [409, "note_removed", "error.noteRemoved"],
     [409, "round_codes_changed", "error.roundCodesChanged"],
     [409, "key_shape_changed", "error.keyShapeChanged"],
+    [422, "not_wgs84", "error.notWgs84"],
     [409, "plots_divided", "error.plotsDivided"],
     [409, "note_column_in_file", "error.noteColumnInFile"],
     [413, "too_large", "error.cepTooLarge"],

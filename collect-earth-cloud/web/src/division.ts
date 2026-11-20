@@ -199,7 +199,7 @@ export function formProblem(form: DivisionForm, columns: CsvColumns | null): Mes
  * `format` writes a count in the viewer's language.
  */
 export function nearbyNote(info: NearbyAvailability, t: Translate, format: (n: number) => string): string | null {
-  if (!info.available) return info.reason === "other_srs" ? t("divide.orderNearbyOtherSrs", { srid: info.srid }) : t("divide.orderNearbyNoPlaces");
+  if (!info.available) return t("divide.orderNearbyNoPlaces");
   if (info.withoutPlace === 1) return t("divide.orderNearbyMissingOne");
   return info.withoutPlace > 1 ? t("divide.orderNearbyMissing", { count: format(info.withoutPlace) }) : null;
 }

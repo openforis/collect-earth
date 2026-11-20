@@ -10,6 +10,7 @@ import { cepForCollector } from '../collectorCep.js';
 import { checkUploadFits } from '../limits.js';
 import { servedBundledPlotFile } from './assignments.js';
 import { fileKeyCount } from '../rounds.js';
+import { otherSrsOf } from './plotPlaces.js';
 import { invitesFor } from './people.js';
 import { storedWithoutSecrets, withoutSecrets } from '../cepSecrets.js';
 import { requireProjectMembership, requireSession } from '../plugins/projectAuth.js';
@@ -625,6 +626,19 @@ export async function acceptCep(store: Store, projectId: string, uploaded: Buffe
     if (e.code === 'too_large') return refuse(413, { error: 'too_large', reason: e.message });
     // No zip the server reads: its settings cannot be cleaned, and it would be handed to every person as it came
     return refuse(422, { error: 'not_a_project_file', reason: e.message });
+  }
+  // Plots are WGS84 latitude and longitude, in decimal degrees, everywhere: Collect Earth converts no other system, and
+  // Google Earth Web, the imagery and the map take only that
+  const otherSrs = otherSrsOf(cep);
+  if (otherSrs !== null) {
+    return refuse(422, {
+      error: 'not_wgs84',
+      srid: otherSrs,
+      reason:
+        `the survey's coordinates are in ${otherSrs}: Collect Earth takes plots only in WGS84 latitude and longitude, in ` +
+        'decimal degrees (EPSG:4326). Set the survey\'s spatial reference system to EPSG:4326 and give the plot files ' +
+        'their latitude and longitude, then upload it again',
+    });
   }
   let served = cep;
   let original: Buffer | null = null;

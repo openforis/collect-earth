@@ -109,6 +109,8 @@ const CODE_MESSAGES: Record<string, MessageKey> = {
   no_such_week: "weekly.noSuchWeek",
   round_codes_changed: "error.roundCodesChanged",
   key_shape_changed: "error.keyShapeChanged",
+  // The survey is not in WGS84 latitude and longitude, the only coordinate system Collect Earth takes
+  not_wgs84: "error.notWgs84",
   plots_divided: "error.plotsDivided",
   too_large: "error.cepTooLarge",
   // The quality figures (GET /quality and the reports).

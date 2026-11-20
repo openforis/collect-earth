@@ -42,9 +42,26 @@ export function coordinate(value: string | undefined, limit: number): number | n
   return Number.isFinite(n) && Math.abs(n) <= limit ? n : null;
 }
 
-/** Whether Collect Earth takes a spatial reference system for latitude and longitude as they are (GeoUtils.isUsingWGS84). */
+/**
+ * Whether a spatial reference system is WGS84 latitude and longitude (GeoUtils.isUsingWGS84): none, LATLONG, WGS84 or
+ * EPSG:4326. Collect Earth takes plots only so, in decimal degrees: it converts no other system (acceptCep refuses a
+ * project file whose survey has one).
+ */
 export function isWgs84(srid: string): boolean {
-  return srid.trim().length === 0 || srid === 'LATLONG' || srid === 'WGS84' || srid === 'EPSG:4326';
+  const s = srid.trim().toUpperCase();
+  return s === '' || s === 'LATLONG' || s === 'WGS84' || s === 'EPSG:4326';
+}
+
+/** A project file's survey's first spatial reference system when it is not WGS84 (isWgs84); null when it is, or the survey cannot be read. */
+export function otherSrsOf(cep: Buffer): string | null {
+  try {
+    const files = readCep(cep);
+    const srid = firstSrid(new TextDecoder().decode(files.entries.get(files.surveyPath)!));
+    return isWgs84(srid) ? null : srid.trim();
+  } catch {
+    // An unreadable file is refused, or not, by what reads it next
+    return null;
+  }
 }
 
 /** The id of a survey's first spatial reference system ("" when it has none), as KmlGenerator reads it. */

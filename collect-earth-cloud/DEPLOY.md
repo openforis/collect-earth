@@ -1004,9 +1004,12 @@ caches to the 1 GiB column (`gcloud run services update collect-earth-cloud --re
   Earth Engine app and the plots map, so a collector using them can tell a check
   apart. The server cannot see which version a collector uses: ask collectors to
   update before quality checks start.
-- **"Open in Google Earth" links** on the Quality tab only work for plot files in
-  latitude/longitude (WGS 84); for other coordinate systems the tab says they are
-  not available.
+- **Plots are WGS84 latitude and longitude only** (EPSG:4326, decimal degrees), on the
+  server and in Collect Earth, which converts no other coordinate system. A project file
+  whose survey has another one is refused (422 `not_wgs84`; README.md, "Plot coordinates").
+  A project stored before this rule keeps its survey, but its plots have no place on the
+  maps nor "Open in Google Earth" links, and Collect Earth cannot open them: upload a
+  project file in EPSG:4326 and plot files with latitude and longitude.
 - **Personal reports name no one,** but when a single person checks a collector's
   plots, the collector can tell who that is.
 - **No Content-Security-Policy header** is sent by the server. If you add one (in a proxy

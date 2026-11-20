@@ -723,16 +723,21 @@ describe('dividing plots between people', () => {
       // Some plots without a place: offered, those go last.
       const some = await legacyPlotFile(ctx, pid, 'some.csv', `${GRID}g99,,,"none"${CRLF}`) as string;
       expect((await columns(some)).nearby).toEqual({ available: true, reason: null, withPlace: 16, withoutPlace: 1 });
-      // The survey in another coordinate system (Collect Earth transforms it; this server does not).
+      // A survey in another coordinate system is refused (WGS84 latitude and longitude only): nearby stays as it was
       const files = unzipSync(idOnlyCep());
       files['placemark.idm.xml'] = strToU8(
         strFromU8(files['placemark.idm.xml']).replace('<spatialReferenceSystem srid="EPSG:4326">', '<spatialReferenceSystem srid="EPSG:32633">'),
       );
-      await putCep(cepWith(Object.entries(files).map(([path, data]): [string, Buffer] => [path, Buffer.from(data)])));
-      expect((await columns(gridId)).nearby).toEqual({ available: false, reason: 'other_srs', withPlace: 0, withoutPlace: 16, srid: 'EPSG:32633' });
-      const other = await divideFile({ mode: 'even', people: [maria.userId], order: 'nearby' }, gridId);
-      expect(other.statusCode).toBe(400);
-      expect(other.json().reason).toContain('EPSG:32633');
+      const utm = await ctx.app.inject({
+        method: 'PUT',
+        url: `/v1/projects/${pid}/cep`,
+        headers: { ...bearer(admin), 'content-type': 'application/zip' },
+        payload: cepWith(Object.entries(files).map(([path, data]): [string, Buffer] => [path, Buffer.from(data)])),
+      });
+      expect(utm.statusCode).toBe(422);
+      expect(utm.json()).toMatchObject({ error: 'not_wgs84', srid: 'EPSG:32633' });
+      expect(utm.json().reason).toContain('EPSG:4326');
+      expect((await columns(gridId)).nearby).toEqual({ available: true, reason: null, withPlace: 16, withoutPlace: 0 });
       // The other orders still work.
       expect((await divideFile({ mode: 'even', people: [maria.userId], order: 'file' }, gridId)).statusCode).toBe(200);
     });
