@@ -9,7 +9,6 @@ import { planChecks, type PlannedCheck } from './rules.js';
 import { planSurvey, slug, type SurveyPlan } from './survey.js';
 
 export { CeoImportError, readCeoProject } from './project.js';
-export type { ReportEntry } from './report.js';
 
 export interface CeoSurvey {
   project: CeoProject;

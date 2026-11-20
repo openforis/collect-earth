@@ -105,8 +105,6 @@ export class PlotIndexCache {
 type BadRequest = { error: 'bad_request'; reason: string };
 const bad = (reason: string): BadRequest => ({ error: 'bad_request', reason });
 
-export type { PlotPageRecord } from '../wire/review.js';
-
 const ORDER: Record<Assessment, number> = { main: 0, check: 1, other: 2 };
 
 export async function registerPlotSearchRoutes(

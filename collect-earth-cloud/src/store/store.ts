@@ -215,9 +215,6 @@ export interface Store {
   /** Size and last upload time of the CEP, without loading it; null if none uploaded. */
   getCepInfo(projectId: string): Promise<CepInfo | null>;
 
-  /** Keeps a survey as it was before a change of the survey designer; only the last SURVEY_VERSIONS_KEPT stay, and the
-   * first (the survey before any change). */
-  addSurveyVersion(projectId: string, input: SurveyVersionInput): Promise<SurveyVersion>;
   /** The survey's kept versions, newest first. */
   listSurveyVersions(projectId: string): Promise<SurveyVersion[]>;
   /** A kept version's surveys; null when the project has none of that id. */

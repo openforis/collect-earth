@@ -7,7 +7,7 @@ import { keyShape, splitKey } from './rounds.js';
 import type { CepInfo, Member, MemberActivity } from './types.js';
 import type { AttentionItem, AttentionPerson, Forecast, Progress, ProgressDay, ProgressSettings, ProgressTotals } from './wire/progress.js';
 
-export type { AttentionItem, AttentionPerson, Forecast, Progress, ProgressDay, ProgressTotals } from './wire/progress.js';
+export type { AttentionItem, ProgressTotals } from './wire/progress.js';
 
 /**
  * The Progress tab's figures (monitoring Phase 2), pure: the totals per plot unit, the

@@ -5,7 +5,7 @@ import { copyUnitsByUser, keyShape, recordRound, unitOfRecord } from './rounds.j
 import { inRankOrder } from './nearby.js';
 import type { DistributionSummary, PersonShare, RebalanceMove } from './wire/plotFiles.js';
 
-export type { DistributionSummary, PersonShare, RebalanceMove } from './wire/plotFiles.js';
+export type { DistributionSummary } from './wire/plotFiles.js';
 
 /**
  * Dividing one plot file's plots between people: validating a request, computing

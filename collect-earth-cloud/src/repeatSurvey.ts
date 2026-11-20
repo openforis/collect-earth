@@ -10,8 +10,7 @@ import { stratifiedTotal } from './uncertainty.js';
 import type { AreaEstimate, ChangeAreaEstimates as ChangeAreas } from './wire/data.js';
 import type { ChangeOutcome, ChangeRow, MatchReport, PeriodStatusAnswer } from './wire/projects.js';
 
-export type { AreaEstimate, ChangeAreaEstimates as ChangeAreas } from './wire/data.js';
-export type { ChangeOutcome, ChangeRow, MatchReport, PeriodStatusAnswer } from './wire/projects.js';
+export type { MatchReport } from './wire/projects.js';
 
 /** A record of the earlier project, as it is read (listRecordSummaries). */
 export interface SourceRecord {

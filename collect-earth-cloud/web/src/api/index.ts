@@ -6,7 +6,7 @@
 //
 // transport.ts holds how the calls are made (request, send, upload): only its errors are for the pages.
 
-export { ApiError, apiErrorFrom, asStatus, errorMessageKey, NETWORK_ERROR, safeUrl, setUnauthorizedHandler, type Progress } from "./transport";
+export { ApiError, apiErrorFrom, asStatus, errorMessageKey, safeUrl, setUnauthorizedHandler } from "./transport";
 export * from "./common";
 export * from "./account";
 export * from "./projects";

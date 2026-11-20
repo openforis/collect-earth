@@ -143,7 +143,7 @@ const COLLECTION: Record<AiLanguage, Record<'operator' | 'assessment' | 'main' |
 export const VIEW_CHARTS = ['table', 'bars', 'hbars', 'stacked', 'lines', 'areas', 'heatmap', 'treemap', 'sunburst'] as const satisfies readonly ViewChart[];
 export const FILTER_OPS = ['is', 'isNot', 'yes', 'no', 'answered', 'notAnswered', 'atLeast', 'atMost'] as const satisfies readonly FilterOp[];
 export const VIEW_ORDERS = ['largest', 'smallest', 'name'] as const satisfies readonly ViewOrder[];
-export type { FilterOp, ProposedFilter, ProposedView, ViewChart } from '../wire/analysis.js';
+export type { ProposedFilter, ProposedView } from '../wire/analysis.js';
 
 const STRING = { type: 'string' };
 const IDS = { type: 'array', items: { type: 'string' } };

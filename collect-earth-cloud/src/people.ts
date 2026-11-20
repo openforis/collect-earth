@@ -9,20 +9,7 @@ import type { SentBackPlot } from './sendBack.js';
 import type { CepInfo, CsvFile, InviteSummary, Member, MemberActivity, ProgressSettings, QualityDecision } from './types.js';
 import type { PeopleTable, PersonDetail, PersonFile, PersonRow, PersonStatus, PlotStatus, QualityAtHand, SentBack, Speed, SyncHealth } from './wire/people.js';
 
-export type {
-  InviteRow,
-  PeopleTable,
-  PersonDetail,
-  PersonFile,
-  PersonRow,
-  PersonStatus,
-  PlotStatus,
-  QualityAtHand,
-  SentBack,
-  Speed,
-  SyncHealth,
-  WeekSummary,
-} from './wire/people.js';
+export type { PeopleTable, PersonRow } from './wire/people.js';
 
 /**
  * The People tab (monitoring Phase 3), pure: one row per person, the week, and each

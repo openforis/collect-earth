@@ -29,8 +29,6 @@ export interface SurveyFacts {
 /** Survey facts kept (a few hundred bytes each): one per project in use; each miss reads the whole project file. */
 export const MAX_CACHED_SRS = 256;
 
-export type { PlotPlace, PlotPlaces } from '../wire/map.js';
-
 /**
  * A coordinate field as Collect Earth reads it (KmlGenerator.getPlotObject): a decimal
  * comma is a point, and it must be a number; null otherwise or out of range.

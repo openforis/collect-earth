@@ -782,10 +782,6 @@ export class PostgresStore implements Store {
     });
   }
 
-  async addSurveyVersion(projectId: string, input: SurveyVersionInput): Promise<SurveyVersion> {
-    return this.withProject(projectId, (client) => this.insertVersion(client, projectId, input));
-  }
-
   private async insertVersion(client: pg.PoolClient, projectId: string, input: SurveyVersionInput): Promise<SurveyVersion> {
     {
       const id = randomUUID();

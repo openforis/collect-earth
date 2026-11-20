@@ -46,7 +46,6 @@ import { MAX_NAME, publicDecision } from './quality.js';
  */
 
 export const EXPORT_KINDS = ['people', 'daily', 'decisions', 'differences'] as const satisfies readonly ExportKind[];
-export type { DailyRow, DifferenceRow, ExportKind, LogItem } from '../wire/activity.js';
 /** The latest time a log's window may end (the largest time a JS Date holds). */
 const END_OF_TIME = MAX_STORED_TIME;
 /** At most this many keys are marked read in one request. */

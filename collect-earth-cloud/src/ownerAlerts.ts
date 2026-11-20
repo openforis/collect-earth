@@ -20,8 +20,6 @@ import type { Store } from './store/store.js';
 import type { MailLanguage } from './types.js';
 import type { AlertSignal, AlertThresholds, OwnerAlertKind as AlertKind } from './wire/serverAdmin.js';
 
-export type { AlertSignal, AlertThresholds, OwnerAlertKind as AlertKind } from './wire/serverAdmin.js';
-
 export interface OwnerAlert {
   kind: AlertKind;
   /** When it was raised (epoch ms). */

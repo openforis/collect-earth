@@ -5,8 +5,6 @@ import type { AdminProject, ClientUse, ServerActivityEntry } from './types.js';
 import { PROJECT_STATUSES } from './types.js';
 import type { CollectEarthVersions, ProjectFilter, ProjectPage, ProjectQuery, ProjectSort, VersionRow } from './wire/serverAdmin.js';
 
-export type { ProjectFilter, ProjectQuery, ProjectSort, VersionRow } from './wire/serverAdmin.js';
-
 const DAY_MS = 24 * 3600 * 1000;
 /** A coordinator not active for this many days does not count as active (as accounts: INACTIVE_DAYS). */
 export const COORDINATOR_ACTIVE_DAYS = 90;

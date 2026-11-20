@@ -688,10 +688,6 @@ export class InMemoryStore implements Store {
     return true;
   }
 
-  async addSurveyVersion(projectId: string, input: SurveyVersionInput): Promise<SurveyVersion> {
-    return this.addVersionNow(this.requireProject(projectId), input);
-  }
-
   private addVersionNow(entry: ProjectEntry, input: SurveyVersionInput): SurveyVersion {
     const before = entry.surveyVersions[0]?.createdAt ?? 0;
     const version: SurveyVersion = {

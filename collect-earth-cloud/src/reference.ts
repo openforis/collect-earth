@@ -18,7 +18,7 @@ import type { RoundInfo } from './cep.js';
 import type { Member, PlotAssignment, PlotHoldingKey, ReferencePlot } from './types.js';
 import type { ExternalReferenceFigures, ReferenceFigures, ReferencePerson } from './wire/checks.js';
 
-export type { ExternalReferenceFigures, ReferenceFigures, ReferencePerson, ReferenceQuestion } from './wire/checks.js';
+export type { ReferenceFigures } from './wire/checks.js';
 
 /** At most this many reference plots per project (each is a copy for every collector). */
 export const MAX_REFERENCE_PLOTS = 500;

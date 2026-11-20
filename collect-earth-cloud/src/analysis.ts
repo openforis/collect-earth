@@ -11,7 +11,7 @@ import { withWeights } from './areas.js';
 import { prefixOf, QUALIFIER_SEPARATOR } from './surveyOutline.js';
 import type { AnalysisColumn, AnalysisModel, AnalysisTable, ColumnType, Labels, ListItem, TableData } from './wire/analysis.js';
 
-export type { AnalysisColumn, AnalysisModel, AnalysisTable, ColumnType, Labels, ListItem, TableData } from './wire/analysis.js';
+export type { AnalysisColumn, AnalysisModel, Labels } from './wire/analysis.js';
 
 /** The fixed columns of every row, before the survey's (and their DuckDB types). */
 export const ROW_COLUMNS = [

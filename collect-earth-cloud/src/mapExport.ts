@@ -4,8 +4,6 @@ import { csvField, type RecordsTable } from './export.js';
 import { outlineRing, type PlotOutline } from './plotShape.js';
 import { dbfFieldNames, MAX_DBF_FIELDS, oriented, WGS84_PRJ, writeDbf, writeShp, type Geometry } from './shapefile.js';
 
-export type MapFormat = 'geojson' | 'kml' | 'shp';
-
 /** A plot's shape (a polygon, counterclockwise as GeoJSON wants), its place when the shape is unknown, null when it has no place. */
 export function plotGeometry(place: readonly [number, number] | undefined, outline: PlotOutline): Geometry {
   if (!place) return null;

@@ -48,10 +48,8 @@ export const SURVEY_VERSIONS_KEPT = 20;
 export type { Assignment, AssignmentDetail, CsvFile, DivisionOrder, StoredDistribution } from './wire/plotFiles.js';
 export type { ReferenceChangeResult, SamplingCore, SamplingDraw, SamplingFileRule, SamplingRule } from './wire/checks.js';
 export type { DecisionKind, GuidanceNote, GuidanceNoteInput, QualitySettings } from './wire/quality.js';
-export type { AiRunKind, AiRunStatus } from './wire/ai.js';
 export type {
   AdminProject,
-  DayCount,
   ServerAction,
   ServerActionKind,
   ServerActivityEntry,
@@ -158,28 +156,6 @@ export const DEFAULT_SETTINGS: ServerSettings = {
   loginLockMinutes: 15,
 };
 
-/** What the server activity log keeps: server administrators' actions (migration 041). */
-export const SERVER_ACTIONS = [
-  'settings.changed',
-  'account.created',
-  'account.disabled',
-  'account.enabled',
-  'account.admin_granted',
-  'account.admin_removed',
-  'account.signed_out',
-  'account.deleted',
-  'account.reset_link',
-  'account.reset_mailed',
-  'account.two_factor_off',
-  'accounts.exported',
-  'project.archived',
-  'project.restored',
-  'project.coordinator',
-  'mail.test',
-  'message.sent',
-  'alerts.seen',
-  'account.unlocked',
-] as const satisfies readonly ServerAction[];
 /** The kinds the log is filtered by: an action's first word ("accounts" counts as "account"). */
 export const SERVER_ACTION_KINDS = ['settings', 'account', 'project', 'mail', 'message', 'alerts'] as const satisfies readonly ServerActionKind[];
 export const serverActionKind = (a: ServerAction): ServerActionKind =>
@@ -343,7 +319,6 @@ export interface TrainingSet {
   finishedAt: number | null;
   finishedBy: string | null;
 }
-
 
 /**
  * One attempt of one participant at a set. A record counts for the open attempt when it was

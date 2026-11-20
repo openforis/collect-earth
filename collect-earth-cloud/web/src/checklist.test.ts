@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fromPairs, hasChanges, pairKey, toPairs } from "./assignmentGrid";
+import { fromPairs, pairKey } from "./assignmentGrid";
 import { checklist, doneCount, STEP_ORDER, type ProjectFacts } from "./checklist";
 import { passwordProblem, usernameProblem } from "./validation";
 
@@ -51,22 +51,11 @@ describe("assignment grid", () => {
   ];
 
   it("round-trips and drops files or people that are gone", () => {
-    const pairs = toPairs([
-      { userId: "u1", csvFileId: "f1" },
-      { userId: "u2", csvFileId: "f2" },
-      { userId: "gone", csvFileId: "f1" },
-    ]);
+    const pairs = new Set([pairKey("f1", "u1"), pairKey("f2", "u2"), pairKey("f1", "gone")]);
     expect(fromPairs(pairs, files, people)).toEqual([
       { userId: "u1", csvFileId: "f1" },
       { userId: "u2", csvFileId: "f2" },
     ]);
-  });
-
-  it("detects changes", () => {
-    const saved = toPairs([{ userId: "u1", csvFileId: "f1" }]);
-    expect(hasChanges(new Set(saved), saved)).toBe(false);
-    expect(hasChanges(new Set([pairKey("f2", "u1")]), saved)).toBe(true);
-    expect(hasChanges(new Set(), saved)).toBe(true);
   });
 });
 

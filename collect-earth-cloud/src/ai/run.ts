@@ -32,7 +32,7 @@ import { withQuestionLabels } from '../questionLabels.js';
 import { AI_INTERRUPTED } from '../types.js';
 import { PlotNames, Pseudonyms, ToolBox, TOOL_NAMES, TOOLS, usernamesOf, type ToolData } from './tools.js';
 
-export type { AiAnswer, AiFinding, AiReport, FindingCause } from '../wire/ai.js';
+export type { AiAnswer, AiReport } from '../wire/ai.js';
 
 export interface AiRunLimits {
   /** Tool calls in all, per run. */

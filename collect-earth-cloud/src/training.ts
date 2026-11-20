@@ -5,19 +5,7 @@ import type { Question } from './surveyOutline.js';
 import type { RecordRow, TrainingAttempt, TrainingGolden } from './types.js';
 import type { AnonymousCalibration, AnswerCount, CalibrationCell, CalibrationFigures, CalibrationPlot, LearningScore, ScoredAnswer, ScoredPlot, Share } from './wire/training.js';
 
-export type {
-  AnonymousCalibration,
-  AnswerCount,
-  CalibrationCell,
-  CalibrationFigures,
-  CalibrationPerson,
-  CalibrationPlot,
-  CalibrationQuestion,
-  LearningScore,
-  ScoredAnswer,
-  ScoredPlot,
-  Share,
-} from './wire/training.js';
+export type { LearningScore } from './wire/training.js';
 
 /**
  * Calibration and learning plots (docs/plans/2026-11-04-calibration-and-learning-plots.md): the

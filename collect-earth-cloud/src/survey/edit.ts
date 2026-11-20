@@ -30,7 +30,6 @@ import { conditionExpression, listCodes, ruleCheck, type LogicScope } from './lo
 import { namesUsed } from './condition.js';
 import { checkExpression, checkSurvey, problemText, schemaOf, type ExpressionKind, type SchemaNode, type SurveyProblem } from './check.js';
 
-export const IDML_NS = 'http://www.openforis.org/idml/3.0';
 export const UI_NS = 'http://www.openforis.org/collect/3.0/ui';
 export const COLLECT_NS = 'http://www.openforis.org/collect/3.0/collect';
 

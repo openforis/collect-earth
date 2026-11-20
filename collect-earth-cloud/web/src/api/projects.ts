@@ -231,11 +231,6 @@ export function getOverview(projectId: string): Promise<Overview> {
   return request("GET", `${p(projectId)}/overview`);
 }
 
-/** Uploads the project file; answers what the server did about round. */
-export async function uploadCep(projectId: string, file: Blob, onProgress?: Progress): Promise<RoundInfo> {
-  return (await uploadProjectFile(projectId, file, onProgress)).round;
-}
-
 /** Uploads the project file; the whole answer: the round, and the keys and passwords the server left out of its settings. */
 export function uploadProjectFile(projectId: string, file: Blob, onProgress?: Progress): Promise<CepUploadAnswer> {
   return upload<CepUploadAnswer>("PUT", `${p(projectId)}/cep`, file, "application/zip", onProgress);

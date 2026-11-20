@@ -10,7 +10,7 @@
 
 import type { Estimate, ForestRow, IpccCategory, UncertaintyResult, UncertaintySettings } from './wire/data.js';
 
-export type { Estimate, ForestRow, IpccCategory, UncertaintyResult, UncertaintySettings } from './wire/data.js';
+export type { IpccCategory, UncertaintySettings } from './wire/data.js';
 
 export const IPCC_CATEGORIES = ['forest', 'cropland', 'grassland', 'wetland', 'settlement', 'other'] as const satisfies readonly IpccCategory[];
 const Z95 = 1.96;

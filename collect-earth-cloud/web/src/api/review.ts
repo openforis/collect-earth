@@ -1,7 +1,6 @@
 // Checking the work: automatic checks, reference plots, the review queue, survey health and plot search.
 
 import type {
-  HealthReason,
   ReferenceAnswer,
   ReferenceAnswersReport,
   ReferenceChangeAnswer,
@@ -118,7 +117,6 @@ export function bulkDecisions(projectId: string, rule: BulkRule, dryRun: boolean
 // --- survey health (Task 6) -----------------------------------------------------
 
 export type { HealthCodes, HealthReason, HealthRow, SurveyHealthAnswer } from "../../../src/wire/checks";
-export const HEALTH_REASONS: readonly HealthReason[] = ["low_agreement", "often_other", "often_empty", "often_changed"];
 
 /** Survey health (coordinators and reviewers). A 503 "busy" is thrown as ApiError code "busy". */
 export function getSurveyHealth(projectId: string): Promise<SurveyHealthAnswer> {

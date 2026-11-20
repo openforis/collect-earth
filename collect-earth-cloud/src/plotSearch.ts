@@ -113,8 +113,6 @@ function lowerBound(keys: readonly string[], text: string): number {
   return lo;
 }
 
-export type { PlotMatch } from './wire/review.js';
-
 /** The files of a unit (by its index). */
 export function filesOfUnit(index: PlotIndex, u: number): { id: string; filename: string }[] {
   return [index.firstFile[u], ...(index.moreFiles.get(u) ?? [])].sort((a, b) => a - b).map((f) => index.files[f]);

@@ -7,7 +7,7 @@ import { areaOf, csvSeparatorOf, parseCsv, type Factors } from './analysis.js';
 import type { Store } from './store/store.js';
 import type { AreaSettings, StrataAreas } from './wire/plotFiles.js';
 
-export type { AreaSettings, StrataAreas } from './wire/plotFiles.js';
+export type { AreaSettings } from './wire/plotFiles.js';
 
 /**
  * A total area typed before the areas had one place (Setup › Areas): on the Uncertainty page, else for a repeat survey's

@@ -6,7 +6,7 @@ import { isoWeek, MIN_PLOTS, overallAgreement, type QualityReport, type Rate } f
 import type { QualityDecision } from './types.js';
 import type { WeeklyPerson, WeeklySummary } from './wire/activity.js';
 
-export type { WeeklyPerson, WeeklySummary } from './wire/activity.js';
+export type { WeeklySummary } from './wire/activity.js';
 
 /**
  * The weekly summary (Task 10, monitoring Phase 6), pure: one ISO week (Monday to Sunday) of the

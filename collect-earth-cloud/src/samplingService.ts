@@ -8,8 +8,6 @@ import type { Store } from './store/store.js';
 import type { CsvFile, Member, PlotAssignment, SampledCopy, SamplingDraw, SamplingRule, SamplingState } from './types.js';
 import type { SamplingView } from './wire/checks.js';
 
-export type { SamplingView } from './wire/checks.js';
-
 /**
  * After this many automatic draws in a row of one project worked out past their request's wait, the
  * next one is stored even when late (the project would otherwise never get its checks). Safe since
