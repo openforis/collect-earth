@@ -19,6 +19,8 @@ import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import { choiceLabel, fieldLabel, type Field, type Values } from "../../settings";
 import { chooseFile } from "../../settingsApi";
 import { serverText, type Texts } from "../../serverTexts";
+import { EXPLORER_CONFIG } from "../../explorerConfig";
+import { ExplorerConfigField } from "./ExplorerConfigField";
 
 export interface SettingFieldProps {
   field: Field;
@@ -34,6 +36,9 @@ export interface SettingFieldProps {
   pickFile?: typeof chooseFile;
   /** Shown, not changed here: a file or folder read-only without Browse, any other field disabled */
   readOnly?: boolean;
+  /** For the Explorer window's setting: gee_app_url, and a plot (latitude, longitude) for its editor's preview */
+  explorerUrl?: string | null;
+  previewPoint?: [number, number] | null;
 }
 
 /**
@@ -42,7 +47,7 @@ export interface SettingFieldProps {
  * the field only the error or the warning of the last validation. A setting only a new server reads carries a Restart
  * chip, as applying it restarts Collect Earth.
  */
-export function SettingField({ field, value, values, texts, error, warning, changed, onChange, pickFile = chooseFile, readOnly = false }: SettingFieldProps) {
+export function SettingField({ field, value, values, texts, error, warning, changed, onChange, pickFile = chooseFile, readOnly = false, explorerUrl, previewPoint }: SettingFieldProps) {
   const s = (key: string) => serverText(texts, key);
   const [shown, setShown] = useState(false);
   const label = s(fieldLabel(field, values));
@@ -133,6 +138,10 @@ export function SettingField({ field, value, values, texts, error, warning, chan
       break;
     default:
       control = <TextField {...common} />;
+      if (field.key === EXPLORER_CONFIG) {
+        control = <ExplorerConfigField value={value} onChange={onChange} readOnly={readOnly} texts={texts} rawField={control}
+          explorerUrl={explorerUrl} point={previewPoint} />;
+      }
   }
   return (
     <Box data-testid={"field-" + field.key} data-changed={changed || undefined}>

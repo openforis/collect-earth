@@ -57,6 +57,7 @@ public class SettingsControllerTest {
 		current.put("csv", "C:/plots.csv");
 		current.put("db_driver", "SQLITE");
 		when(settings.current()).thenReturn(current);
+		when(settings.explorerUrl()).thenReturn("https://explorer.example.org/");
 		SampleFileCheck sampleFile = new SampleFileCheck(file -> null, () -> Arrays.asList("id", "YCoordinate", "XCoordinate"));
 		SettingsController controller = new SettingsController(settings, sampleFile, () -> "C:/backup", () -> "192.168.1.5", request -> {
 			databaseTested = request;
@@ -78,7 +79,8 @@ public class SettingsControllerTest {
 				.andExpect(jsonPath("$.values.csv").value("C:/plots.csv"))
 				.andExpect(jsonPath("$.info.computerIp").value("192.168.1.5"))
 				.andExpect(jsonPath("$.info.backupFolder").value("C:/backup"))
-				.andExpect(jsonPath("$.info.cloudMode").value(false));
+				.andExpect(jsonPath("$.info.cloudMode").value(false))
+				.andExpect(jsonPath("$.info.explorerUrl").value("https://explorer.example.org/"));
 	}
 
 	@Test

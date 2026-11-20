@@ -189,6 +189,8 @@ export function SettingsPage({ texts, compact, width, onClose, onApplied }: Prop
       field, value: values[field.key] ?? "", values, texts, error: errors[field.key], warning: validation?.warnings[field.key],
       changed: isChanged(stored, values, field.key), onChange: (v: string) => change(field.key, v),
       readOnly: locked.has(field.key),
+      // The first plot of the plots file, for the preview of the Explorer window's editor
+      explorerUrl: data?.info.explorerUrl, previewPoint: fileCheck?.points[0],
     };
     if (field.key === PLOT_FILE) {
       const card = <SampleFileCard key={field.key} {...props} check={fileCheck} checking={checkingFile} checkError={fileCheckError} />;

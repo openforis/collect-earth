@@ -71,6 +71,11 @@ public class SettingsService {
 		return validator.getModel();
 	}
 
+	/** The address of the Explorer that opens the plots (gee_app_url), whose editor of the Explorer window the page opens */
+	public String explorerUrl() {
+		return properties.getValue(EarthProperty.GEE_MAP_URL);
+	}
+
 	/**
 	 * The stored value of every setting, by key, as the dialog showed it: a number within its range (the spinners
 	 * replaced what was not), the form and driver resolved to one of their choices (as

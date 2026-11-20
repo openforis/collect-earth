@@ -53,7 +53,8 @@ export interface PlotFigures {
 
 export interface Validation { errors: Record<string, string>; warnings: Record<string, string>; plot: PlotFigures | null }
 
-export interface SettingsInfo { computerIp: string; backupFolder: string; cloudMode: boolean }
+/** `explorerUrl`: gee_app_url, the Explorer that opens the plots (missing from an older server) */
+export interface SettingsInfo { computerIp: string; backupFolder: string; cloudMode: boolean; explorerUrl?: string | null }
 
 export interface Settings { sections: Section[]; values: Values; info: SettingsInfo }
 

@@ -111,6 +111,7 @@ public class SettingsController {
 		info.put("computerIp", computerIp.get());
 		info.put("backupFolder", backupFolder.get());
 		info.put("cloudMode", CollectDBDriver.CLOUD.name().equals(values.get(EarthProperty.DB_DRIVER.toString())));
+		info.put("explorerUrl", settings.explorerUrl());
 		Map<String, Object> answer = new LinkedHashMap<>();
 		answer.put("sections", withSurveyVersions(settings.getModel().toJson(), surveyVersions.get()));
 		answer.put("values", values);
