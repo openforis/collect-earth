@@ -53,11 +53,13 @@ const DECISIONS: { kind: DecisionKind; label: MessageKey }[] = [
   { kind: "first", label: "quality.decision.first" },
   { kind: "check", label: "quality.decision.check" },
   { kind: "recheck", label: "quality.decision.recheck" },
+  { kind: "correct", label: "quality.decision.correct" },
 ];
 const DECISION_LABEL: Record<DecisionKind, MessageKey> = {
   first: "quality.decision.first",
   check: "quality.decision.check",
   recheck: "quality.decision.recheck",
+  correct: "quality.decision.correct",
 };
 
 /** One check's differing answers next to the first assessment's (also the review queue's). */

@@ -27,6 +27,7 @@ import {
   ApiError,
   applyDecisions,
   FLAG_KINDS,
+  getCorrections,
   getReviewList,
   type ApplyDecisionsAnswer,
   type DecisionKind,
@@ -44,6 +45,7 @@ import { FLAG_KIND_KEYS } from "../flagsView";
 import { formatDate, formatNumber } from "../format";
 import { useT, type MessageKey } from "../i18n";
 import { linkProps, pathFor } from "../router";
+import { AssignmentPreviewView, PeoplePicker, type Assignee } from "./Corrections";
 import { applyTarget, cardSequence, isPicked, kindsText, NO_SELECTION, pageCount, pageOf, pageState, pickedCount, skippedText, toggle, togglePage, type Selection } from "../reviewListView";
 
 const ALL = "__all__";
@@ -63,6 +65,7 @@ const DECISIONS: { kind: DecisionKind; label: MessageKey }[] = [
   { kind: "first", label: "quality.decision.first" },
   { kind: "check", label: "quality.decision.check" },
   { kind: "recheck", label: "quality.decision.recheck" },
+  { kind: "correct", label: "quality.decision.correct" },
 ];
 const DECISION_LABEL = new Map(DECISIONS.map((d) => [d.kind, d.label]));
 
@@ -92,8 +95,11 @@ export function ReviewList({
   onSelection,
   onOpen,
   onApplied,
+  canAssign = false,
 }: {
   projectId: string;
+  /** A coordinator: "Correct it in Collect Earth" asks whom to assign the plots to */
+  canAssign?: boolean;
   query: ReviewListQuery;
   onQuery: (q: ReviewListQuery) => void;
   selection: Selection;
@@ -323,6 +329,7 @@ export function ReviewList({
       {deciding && (
         <ApplyDialog
           projectId={projectId}
+          canAssign={canAssign}
           count={picked}
           target={applyTarget(selection, query)}
           onClose={() => setDeciding(false)}
@@ -342,12 +349,14 @@ export function ReviewList({
 /** One decision for the plots picked: the decision and a comment, a count first (and those that cannot take it), then do it. */
 function ApplyDialog({
   projectId,
+  canAssign,
   count,
   target,
   onClose,
   onDone,
 }: {
   projectId: string;
+  canAssign: boolean;
   count: number;
   target: ReturnType<typeof applyTarget>;
   onClose: () => void;
@@ -360,26 +369,37 @@ function ApplyDialog({
   const [dry, setDry] = useState<ApplyDecisionsAnswer | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
+  /** "Correct it in Collect Earth": whom to assign them to (coordinators), and the people they can choose from */
+  const [assign, setAssign] = useState<string[]>([]);
+  const [people, setPeople] = useState<Assignee[] | null>(null);
   const titleId = useId();
   const latest = useRef(0);
+  const assigning = canAssign && decision === "correct";
+  useEffect(() => {
+    if (!assigning || people !== null) return;
+    getCorrections(projectId).then(
+      (answer) => setPeople(answer.people),
+      (err: unknown) => setError(err),
+    );
+  }, [assigning, people, projectId]);
 
-  // A count for the decision chosen (a "check is right" skips the plots without a check)
+  // A count for the decision chosen (a "check is right" skips the plots without a check), and who would correct them
   useEffect(() => {
     const call = ++latest.current;
     setDry(null);
     setError(null);
-    applyDecisions(projectId, target, decision, "", true).then(
+    applyDecisions(projectId, target, decision, "", true, assigning ? assign : []).then(
       (answer) => call === latest.current && setDry(answer),
       (err: unknown) => call === latest.current && setError(err),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId, decision]);
+  }, [projectId, decision, assigning, assign.join("\u0000")]);
 
   const go = async () => {
     setBusy(true);
     setError(null);
     try {
-      onDone(await applyDecisions(projectId, target, decision, comment, false));
+      onDone(await applyDecisions(projectId, target, decision, comment, false, assigning ? assign : []));
     } catch (err) {
       setError(err);
       setBusy(false);
@@ -402,6 +422,13 @@ function ApplyDialog({
           <Typography variant="body2" color="text.secondary">
             {t("reviewList.replaceNote")}
           </Typography>
+          {assigning && people !== null && <PeoplePicker people={people} value={assign} onChange={setAssign} />}
+          {assigning && assign.length === 0 && (
+            <Typography variant="body2" color="text.secondary">
+              {t("corrections.assignLater")}
+            </Typography>
+          )}
+          {dry?.assignment && dry.assignment.people.length > 0 && <AssignmentPreviewView preview={dry.assignment} />}
           {!dry && !error && <Loading />}
           {dry && (
             <Stack spacing={1} role="status">

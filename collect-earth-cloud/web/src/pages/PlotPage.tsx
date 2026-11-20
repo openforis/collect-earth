@@ -37,6 +37,7 @@ const DECISIONS: { kind: DecisionKind; label: MessageKey }[] = [
   { kind: "first", label: "quality.decision.first" },
   { kind: "check", label: "quality.decision.check" },
   { kind: "recheck", label: "quality.decision.recheck" },
+  { kind: "correct", label: "quality.decision.correct" },
 ];
 
 function Section({ title, children }: { title: string; children: ReactNode }) {

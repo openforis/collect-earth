@@ -63,6 +63,7 @@ import { registerCollectBackupRoutes } from './routes/collectBackup.js';
 import { registerCollectImportRoutes } from './routes/collectImport.js';
 import { registerMailRoutes, type AccountMailHooks } from './routes/mail.js';
 import { registerQualityRoutes } from './routes/quality.js';
+import { registerCorrectionRoutes } from './routes/corrections.js';
 import { registerRecordRoutes } from './routes/records.js';
 import { registerTrainingRoutes } from './routes/training.js';
 import { referenceSyncer, registerReferenceRoutes } from './routes/reference.js';
@@ -402,6 +403,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   // The plot index of plot search, also what tells a decision's plot exists.
   const indexes = new PlotIndexCache(store, places);
   await registerQualityRoutes(app, store, quality, places, indexes);
+  await registerCorrectionRoutes(app, store, quality);
   await registerPlotSearchRoutes(app, store, quality, places, indexes);
   await registerProgressRoutes(app, store, quality, states, now);
   await registerPeopleRoutes(app, store, quality, states, now);

@@ -135,6 +135,107 @@ export interface ApplyDecisionsAnswer {
   dryRun: boolean;
   /** The run's id, kept with its decisions and in its audit entry (null for a dry run or nothing decided) */
   batch: string | null;
+  /** "Correct it in Collect Earth" with people to assign them to (`assign`): who gets how many, and their own plots */
+  assignment?: AssignmentPreview;
+}
+
+// ---------------------------------------------------------------------------
+// Corrections (docs/plans/2026-11-20-review-at-scale.md, B2-B4): GET /quality/corrections, POST
+// /quality/corrections:assign, and for Collect Earth GET /my-corrections(.csv), PUT /corrections/:plot
+
+/** A plot assigned to someone who answered it: they would correct their own work (a warning, not a refusal) */
+export interface OwnAssignment {
+  plot: string;
+  username: string;
+}
+
+/** Who gets how many plots to correct, and the plots that are their own */
+export interface AssignmentPreview {
+  people: { userId: string; username: string; plots: number; own: number }[];
+  /** The plots assigned to someone who answered them (up to MAX_BULK_LISTED), and how many in all */
+  own: OwnAssignment[];
+  ownCount: number;
+}
+
+/** POST .../quality/corrections:assign (?dryRun=1 only counts) */
+export interface AssignCorrectionsAnswer extends AssignmentPreview {
+  /** Plots assigned (or, in a dry run, that would be); to nobody when no people were given */
+  count: number;
+  /** Plots not decided "Correct it in Collect Earth" (up to MAX_BULK_LISTED), and how many in all */
+  skipped: string[];
+  skippedCount: number;
+  dryRun: boolean;
+}
+
+/** One plot to correct, as the coordinators see it */
+export interface CorrectionLine {
+  plot: string;
+  /** Who corrects it (null: nobody yet) */
+  assignedTo: { userId: string; username: string } | null;
+  assignedAt: number | null;
+  correctedBy: string | null;
+  correctedAt: number | null;
+  /** Assigned to someone who answered it */
+  own: boolean;
+}
+
+export interface CorrectionsAnswer {
+  lines: CorrectionLine[];
+  counts: { unassigned: number; assigned: number; corrected: number };
+  /** The people plots can be assigned to: the project's members who sign in (not disabled) */
+  people: { userId: string; username: string; role: string }[];
+}
+
+/** One answer of a plot to correct, as Collect Earth gets it */
+export interface CorrectionAnswer {
+  operator: string;
+  recordKey: string;
+  /** The first assessment, a check, or neither */
+  assessment: Assessment;
+  submitted: boolean;
+  modifiedOn: number;
+  /** The record's XML (null when the server has none of it) */
+  xml: string | null;
+  summary: Record<string, string>;
+}
+
+/** A question on which the answers differ, with every answer (in the order of `answers`) */
+export interface CorrectionDifference {
+  key: string;
+  /** The question's label */
+  question: string;
+  values: { operator: string; value: string; label: string }[];
+}
+
+/** One plot to correct of the person's */
+export interface MyCorrection {
+  plot: string;
+  /** The reviewer's comment, and who decided when */
+  comment: string | null;
+  decidedBy: string | null;
+  decidedAt: number;
+  /** The person answered it: a warning, as on the dashboard */
+  own: boolean;
+  /** When they corrected it (null: not yet) */
+  correctedAt: number | null;
+  /** First the answer the form starts from (the first assessment), then the others */
+  answers: CorrectionAnswer[];
+  differences: CorrectionDifference[];
+}
+
+/** GET .../my-corrections */
+export interface MyCorrectionsAnswer {
+  version: string;
+  plots: MyCorrection[];
+  /** The plot id's columns in the plot file (my-corrections.csv) */
+  keyColumns: number;
+  downloadPath: string;
+}
+
+/** PUT .../corrections/:plot */
+export interface CorrectionSavedAnswer {
+  plot: string;
+  correctedAt: number;
 }
 
 // ---------------------------------------------------------------------------

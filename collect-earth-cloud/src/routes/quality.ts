@@ -21,6 +21,7 @@ import type { Store } from '../store/store.js';
 import type { DecisionKind, GuidanceNoteInput, QualityDecision, QualitySettings } from '../types.js';
 import type { SurveyHealthAnswer } from '../wire/checks.js';
 import type { ApplyDecisionsAnswer, BulkDecisionAnswer, ReviewListAnswer, ReviewQueueAnswer, SkippedPlot } from '../wire/review.js';
+import { planAssignment } from './corrections.js';
 import { MAX_REVIEW_LIST_LINES, REVIEW_LIST_SORTS, REVIEW_LIST_STATES, reviewList, type ReviewListSort, type ReviewListState } from '../reviewList.js';
 import type {
   AnswerColumnsAnswer,
@@ -38,7 +39,7 @@ import type { MyQualityAnswer, TeamReportAnswer } from '../wire/reports.js';
 export const MAX_TEXT = 2000;
 /** Longest plot id, question key or answer a decision or note may name. */
 export const MAX_NAME = 1000;
-const DECISIONS: readonly DecisionKind[] = ['first', 'check', 'recheck'];
+const DECISIONS: readonly DecisionKind[] = ['first', 'check', 'recheck', 'correct'];
 /** The fewest plots a reviewer's answers filter (a plot file, a column's value) may hold (Decision 10). */
 export const MIN_REVIEWER_GROUP = 5;
 /** A reviewer's filtered answers must also be more than one person's (Decision 10). */
@@ -623,11 +624,18 @@ export async function registerQualityRoutes(
   // (`::` is a literal colon for Fastify's router: `decisions:bulk` above is read as `decisions` and a parameter.)
   app.post('/v1/projects/:pid/quality/decisions::apply', reviewer, async (request: FastifyRequest, reply: FastifyReply) => {
     const projectId = request.membership!.projectId;
-    const body = (request.body ?? {}) as { plots?: unknown; filter?: unknown; decision?: unknown; comment?: unknown };
+    const body = (request.body ?? {}) as { plots?: unknown; filter?: unknown; decision?: unknown; comment?: unknown; assign?: unknown };
     if (!DECISIONS.includes(body.decision as DecisionKind)) {
       return reply.code(400).send(bad(`decision must be one of ${DECISIONS.join(', ')}`));
     }
     const decision = body.decision as DecisionKind;
+    // "Correct it in Collect Earth" with the people to share the plots between (coordinators: they assign)
+    const assign = body.assign;
+    if (assign !== undefined) {
+      if (decision !== 'correct') return reply.code(400).send(bad('assign goes with the decision correct'));
+      if (!Array.isArray(assign) || assign.length === 0 || !assign.every((x) => typeof x === 'string')) return reply.code(400).send(bad('assign must be the user ids of the people to correct them'));
+      if (request.membership!.role !== 'admin') return reply.code(403).send({ error: 'forbidden', reason: 'only coordinators assign plots to correct' });
+    }
     let comment: string | null = null;
     if (body.comment !== undefined && body.comment !== null) {
       if (typeof body.comment !== 'string' || body.comment.trim().length > MAX_TEXT) {
@@ -696,8 +704,19 @@ export async function registerQualityRoutes(
         take.push(plot);
       }
     }
+    const plan = assign !== undefined ? await planAssignment(store, projectId, take, assign as string[]) : null;
+    if (plan && 'reason' in plan) return reply.code(400).send(bad(plan.reason));
     const answer = (count: number, plots: string[], batch: string | null) =>
-      reply.send({ decision, count, plots: plots.slice(0, MAX_BULK_LISTED), skipped: skipped.slice(0, MAX_BULK_LISTED), skippedCount: skipped.length, dryRun, batch } satisfies ApplyDecisionsAnswer);
+      reply.send({
+        decision,
+        count,
+        plots: plots.slice(0, MAX_BULK_LISTED),
+        skipped: skipped.slice(0, MAX_BULK_LISTED),
+        skippedCount: skipped.length,
+        dryRun,
+        batch,
+        ...(plan ? { assignment: plan.preview } : {}),
+      } satisfies ApplyDecisionsAnswer);
     if (dryRun || take.length === 0) {
       return answer(dryRun ? take.length : 0, dryRun ? take : [], null);
     }
@@ -712,6 +731,10 @@ export async function registerQualityRoutes(
     );
     if (decided.length > 0) {
       await audit(store, request, 'decision.applied', { decision, count: decided.length, batch });
+    }
+    if (plan && decided.length > 0) {
+      await store.assignCorrections(projectId, plan.assignments, request.membership!.userId ?? null, Date.now());
+      await audit(store, request, 'corrections.assigned', { count: plan.assignments.length, people: plan.preview.people.length, own: plan.preview.ownCount });
     }
     return answer(decided.length, decided, decided.length > 0 ? batch : null);
   });

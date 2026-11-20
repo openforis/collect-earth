@@ -112,7 +112,7 @@ export interface AnswerOption {
 export type AnswerOptions = Record<string, AnswerOption[]>;
 
 /** Which answer of a differing plot is right: the first assessment, the check, or neither (look again). */
-export type DecisionKind = 'first' | 'check' | 'recheck';
+export type DecisionKind = 'first' | 'check' | 'recheck' | 'correct';
 
 /**
  * A decision as clients get it (PUT .../quality/decisions/:plot, and in the figures, the review queue

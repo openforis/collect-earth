@@ -647,8 +647,11 @@ export function recordResolver({ info, units, copyHolders }: ResolverInput) {
   };
 }
 
-/** The export's final column: the answer the coordinator took, the one set aside, both to look at again, or none. */
-export type FinalAnswer = 'yes' | 'no' | 'recheck' | '';
+/**
+ * The export's final column: the answer the coordinator took, the one set aside, both to look at again, to correct in
+ * Collect Earth (no correction yet), or none.
+ */
+export type FinalAnswer = 'yes' | 'no' | 'recheck' | 'correct' | '';
 
 /**
  * The final column of each record, from the coordinator's decisions (by plot unit, as
@@ -657,12 +660,15 @@ export type FinalAnswer = 'yes' | 'no' | 'recheck' | '';
  * - "first": the main record the figures compare (the latest, as in qualityReport) is
  *   yes, every other record of the plot no;
  * - "check": the latest check record is yes, every other no;
- * - "recheck": every record of the plot is recheck.
+ * - "recheck": every record of the plot is recheck;
+ * - "correct" (docs/plans/2026-11-20-review-at-scale.md): every record is "correct" until the plot is corrected
+ *   (`corrected`, by plot unit), then "no": the correction is the plot's final answer (a row of its own in the export).
  * Records of other plots, drafts, and records of an unknown round are blank.
  */
 export function finalAnswers(
   input: ResolverInput & { records: readonly QualityRecord[] },
   decisions: ReadonlyMap<string, DecisionKind>,
+  corrected: ReadonlySet<string> = new Set(),
 ): (r: { recordKey: string; operator: string }) => FinalAnswer {
   const answers = new Map<string, FinalAnswer>();
   const id = (r: { recordKey: string; operator: string }) => `${r.recordKey}\u0000${r.operator}`;
@@ -685,10 +691,14 @@ export function finalAnswers(
       }
       (round.assessment === 'main' ? g.main : g.check).push(r);
     }
-    for (const g of groups.values()) {
+    for (const [group, g] of groups) {
       const all = [...g.main, ...g.check];
       if (g.decision === 'recheck') {
         for (const r of all) answers.set(id(r), 'recheck');
+        continue;
+      }
+      if (g.decision === 'correct') {
+        for (const r of all) answers.set(id(r), corrected.has(group) ? 'no' : 'correct');
         continue;
       }
       const side = g.decision === 'first' ? g.main : g.check;

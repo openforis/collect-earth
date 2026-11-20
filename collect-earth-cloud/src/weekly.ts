@@ -97,7 +97,7 @@ export function weeklySummary(input: WeeklyInput): WeeklySummary {
   });
   people.sort((a, b) => b.submitted - a.submitted || b.checks - a.checks || (a.username < b.username ? -1 : a.username > b.username ? 1 : 0));
 
-  const decided = { first: 0, check: 0, recheck: 0, total: 0 };
+  const decided = { first: 0, check: 0, recheck: 0, correct: 0, total: 0 };
   for (const d of input.decisions) {
     if (reference?.has(d.plot)) continue;
     if (inWeek(dayOf(d.decidedAt))) {

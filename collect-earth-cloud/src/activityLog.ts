@@ -25,7 +25,7 @@ const RECORD_KINDS: Record<string, readonly RecordChange[]> = {
 
 /** The coordinators' actions a "kind" of the log stands for. */
 const AUDIT_KINDS: Record<string, readonly AuditAction[]> = {
-  decisions: ['decision.set', 'decision.deleted', 'decision.bulk', 'decision.applied'],
+  decisions: ['decision.set', 'decision.deleted', 'decision.bulk', 'decision.applied', 'corrections.assigned', 'correction.saved'],
   people: ['invite.created', 'invite.revoked', 'member.removed', 'member.anonymized', 'records.given', 'member.signed_out', 'member.role', 'member.excluded'],
   files: ['project.imported', 'cep.replaced', 'survey.replaced', 'survey.edited', 'csv.uploaded', 'assignments.set', 'division.applied', 'plots.moved', 'plots.rebalanced', 'plots.taken', 'sampling.drawn', 'reference.changed', 'training.changed', 'training.synced'],
   settings: ['settings.changed', 'link.created', 'link.revoked'],

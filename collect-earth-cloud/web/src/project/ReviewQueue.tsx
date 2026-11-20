@@ -67,11 +67,13 @@ const DECISIONS: { kind: DecisionKind; key: string; label: MessageKey }[] = [
   { kind: "first", key: "1", label: "quality.decision.first" },
   { kind: "check", key: "2", label: "quality.decision.check" },
   { kind: "recheck", key: "3", label: "quality.decision.recheck" },
+  { kind: "correct", key: "4", label: "quality.decision.correct" },
 ];
 const DECISION_LABEL: Record<DecisionKind, MessageKey> = {
   first: "quality.decision.first",
   check: "quality.decision.check",
   recheck: "quality.decision.recheck",
+  correct: "quality.decision.correct",
 };
 const SECTION_LABEL: Record<QueueSection, MessageKey> = {
   difference: "queue.section.difference",
@@ -662,6 +664,7 @@ export function ReviewQueue({
           {mode === "list" ? (
             <ReviewList
               projectId={projectId}
+              canAssign={canBulk}
               query={listQuery}
               onQuery={setListQuery}
               selection={selection}

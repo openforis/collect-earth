@@ -59,6 +59,7 @@ import {
   type ProjectRow,
   type ProjectStatus,
   type ProjectStorage,
+  type QualityCorrection,
   type QualityDecision,
   type QualitySettings,
   type RecordEvent,
@@ -154,6 +155,7 @@ interface ProjectEntry {
   /** Oldest first; `startedBy` holds the user id (the username is read when listed). */
   aiRuns: AiRunRow[];
   decisions: Map<string, StoredDecision>; // key = plot
+  corrections: Map<string, StoredCorrection>; // key = plot
   notes: Map<string, StoredNote>; // key = id
   /** Oldest first (by id). */
   recordEvents: RecordEvent[];
@@ -179,6 +181,18 @@ interface StoredReference {
   assessorUserId: string;
   addedAt: number;
   addedBy: string | null;
+}
+
+interface StoredCorrection {
+  assignedTo: string | null; // user id
+  assignedBy: string | null; // user id
+  assignedAt: number;
+  correctedBy: string | null; // user id
+  correctedAt: number | null;
+  baseOperator: string | null;
+  recordKey: string | null;
+  xml: string | null;
+  summary: Record<string, string> | null;
 }
 
 interface StoredDecision {
@@ -477,6 +491,7 @@ export class InMemoryStore implements Store {
     for (const d of entry.decisions.values()) {
       if (d.seen) d.seen = d.seen.map((s) => (s.operator === from ? { ...s, operator: to } : s));
     }
+    for (const c of entry.corrections.values()) if (c.baseOperator === from) c.baseOperator = to;
     if (userId) {
       for (const a of entry.audit) {
         if (a.details && a.details.userId === userId) {
@@ -517,6 +532,8 @@ export class InMemoryStore implements Store {
     for (const d of entry.decisions.values()) {
       if (d.seen && !d.seen.some((s) => s.operator === to)) d.seen = d.seen.map((s) => (s.operator === from ? { ...s, operator: to } : s));
     }
+    // The answer a correction started from goes by the account's name too
+    for (const c of entry.corrections.values()) if (c.baseOperator === from) c.baseOperator = to;
     entry.recordsGeneration++;
     return { moved: keys.size, kept };
   }
@@ -572,6 +589,7 @@ export class InMemoryStore implements Store {
       aiEnabled: false,
       aiRuns: [],
       decisions: new Map(),
+      corrections: new Map(),
       notes: new Map(),
       recordEvents: [],
       memberActivity: new Map(),
@@ -2419,6 +2437,57 @@ export class InMemoryStore implements Store {
       added.push(d.plot);
     }
     return added;
+  }
+
+  async listCorrections(projectId: string, options: { withRecords?: boolean } = {}): Promise<QualityCorrection[]> {
+    const entry = this.projects.get(projectId);
+    if (!entry) return [];
+    const name = (id: string | null) => (id ? (this.users.get(id)?.username ?? null) : null);
+    return [...entry.corrections]
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+      .map(([plot, c]) => ({
+        plot,
+        assignedTo: c.assignedTo,
+        assignedToName: name(c.assignedTo),
+        assignedBy: name(c.assignedBy),
+        assignedAt: c.assignedAt,
+        correctedBy: name(c.correctedBy),
+        correctedAt: c.correctedAt,
+        baseOperator: c.baseOperator,
+        recordKey: c.recordKey,
+        ...(options.withRecords ? { xml: c.xml, summary: c.summary ? { ...c.summary } : null } : {}),
+      }));
+  }
+
+  async assignCorrections(projectId: string, assignments: readonly { plot: string; userId: string | null }[], by: string | null, at: number): Promise<void> {
+    const entry = this.requireProject(projectId);
+    for (const a of assignments) {
+      const before = entry.corrections.get(a.plot);
+      entry.corrections.set(a.plot, {
+        correctedBy: null,
+        correctedAt: null,
+        baseOperator: null,
+        recordKey: null,
+        xml: null,
+        summary: null,
+        ...before,
+        assignedTo: a.userId,
+        assignedBy: by,
+        assignedAt: at,
+      });
+    }
+  }
+
+  async saveCorrection(
+    projectId: string,
+    plot: string,
+    userId: string,
+    correction: { recordKey: string; xml: string; summary: Record<string, string>; baseOperator: string | null; at: number },
+  ): Promise<'saved' | 'not_assigned'> {
+    const c = this.projects.get(projectId)?.corrections.get(plot);
+    if (!c || c.assignedTo !== userId) return 'not_assigned';
+    Object.assign(c, { correctedBy: userId, correctedAt: correction.at, baseOperator: correction.baseOperator, recordKey: correction.recordKey, xml: correction.xml, summary: { ...correction.summary } });
+    return 'saved';
   }
 
   async deleteQualityDecision(projectId: string, plot: string): Promise<boolean> {

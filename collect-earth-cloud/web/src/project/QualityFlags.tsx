@@ -56,6 +56,7 @@ const DECISION_LABELS: Record<DecisionKind, MessageKey> = {
   first: "quality.decision.first",
   check: "quality.decision.check",
   recheck: "quality.decision.recheck",
+  correct: "quality.decision.correct",
 };
 
 /** A flagged plot decided where it is listed (coordinators): a menu of the decisions, then what was decided */

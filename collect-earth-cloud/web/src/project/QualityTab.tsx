@@ -64,6 +64,7 @@ import { QualityAssistant } from "./QualityAssistant";
 import { QualityDifferences, type PlotFocus } from "./QualityDifferences";
 import { NoteDialog, QualityNotes, type NoteDraft } from "./QualityNotes";
 import { ReviewQueue } from "./ReviewQueue";
+import { CorrectionsPanel } from "./Corrections";
 
 /**
  * The agreement colour: one series everywhere, so one hue. A step of the dashboard's
@@ -716,6 +717,8 @@ function TeamQualityTab({ projectId, view }: { projectId: string; view: ProjectV
   const quality = useLoad(["project", projectId, "getQuality"], () => getQuality(projectId));
   const { data, error, loading, reload, setData } = quality;
   const [note, setNote] = useState<NoteDraft | null>(null);
+  /** Bumped after decisions, so the plots to correct are read again */
+  const [correctionsRefresh, setCorrectionsRefresh] = useState(0);
   const sectionsRef = useRef<HTMLDivElement>(null);
   /** A plot to show in the differences list (from the assistant's links); `at` makes each click a new one. */
   const [focus, setFocus] = useState<PlotFocus | null>(null);
@@ -787,7 +790,10 @@ function TeamQualityTab({ projectId, view }: { projectId: string; view: ProjectV
   const update = (change: (prev: QualityAnswer) => Partial<QualityAnswer>) => setData((prev) => ({ ...prev, ...change(prev) }));
   const savedNote = (saved: GuidanceNote) => update((prev) => ({ notes: withNote(prev.notes, saved) }));
 
-  const onDecision = (plot: string, decision: Parameters<typeof withDecision>[2]) => update((prev) => ({ decisions: withDecision(prev.decisions, plot, decision) }));
+  const onDecision = (plot: string, decision: Parameters<typeof withDecision>[2]) => {
+    update((prev) => ({ decisions: withDecision(prev.decisions, plot, decision) }));
+    setCorrectionsRefresh((n) => n + 1);
+  };
   const reports = (
     <>
       <Button variant="outlined" size="small" {...linkProps(pathFor({ name: "teamReport", projectId }))}>
@@ -812,7 +818,17 @@ function TeamQualityTab({ projectId, view }: { projectId: string; view: ProjectV
       {view === "review" && (
         <>
           {/* the plots to decide, one at a time; then the checks that differ, and the plots worth a look */}
-          <ReviewQueue projectId={projectId} canBulk onDecision={onDecision} onBulk={reload} />
+          <ReviewQueue
+            projectId={projectId}
+            canBulk
+            onDecision={onDecision}
+            onBulk={() => {
+              reload();
+              setCorrectionsRefresh((n) => n + 1);
+            }}
+          />
+          {/* The plots decided "Correct it in Collect Earth": who corrects them (docs/plans/2026-11-20-review-at-scale.md) */}
+          <CorrectionsPanel projectId={projectId} refresh={correctionsRefresh} />
           {data.plotsChecked > 0 && <QualityDifferences projectId={projectId} data={data} focus={focus} onDecision={onDecision} />}
           <QualityFlags projectId={projectId} canEdit folded />
         </>

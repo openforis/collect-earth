@@ -13,7 +13,9 @@ import type {
 } from "../../../src/wire/checks";
 import type {
   ApplyDecisionsAnswer,
+  AssignCorrectionsAnswer,
   BulkDecisionAnswer,
+  CorrectionsAnswer,
   BulkRule,
   DecisionKind,
   PlotPageAnswer,
@@ -155,13 +157,32 @@ export function getReviewList(projectId: string, query: ReviewListQuery): Promis
 /** Which plots one decision is for: those picked, or all those the list's filters show */
 export type ApplyTarget = { plots: string[] } | { filter: Pick<ReviewListQuery, "state" | "person" | "kind" | "q"> };
 
-/** One decision for many plots; `dryRun` only counts them and names those skipped. */
-export function applyDecisions(projectId: string, target: ApplyTarget, decision: DecisionKind, comment: string, dryRun: boolean): Promise<ApplyDecisionsAnswer> {
+/**
+ * One decision for many plots; `dryRun` only counts them and names those skipped. `assign` (coordinators, with
+ * "correct"): the people to share the plots to correct between.
+ */
+export function applyDecisions(projectId: string, target: ApplyTarget, decision: DecisionKind, comment: string, dryRun: boolean, assign: readonly string[] = []): Promise<ApplyDecisionsAnswer> {
   const body =
     "plots" in target
       ? { plots: target.plots }
       : { filter: { state: target.filter.state, ...(target.filter.person ? { person: target.filter.person } : {}), ...(target.filter.kind ? { kind: target.filter.kind } : {}), ...(target.filter.q.trim() ? { q: target.filter.q.trim() } : {}) } };
-  return request("POST", `${p(projectId)}/quality/decisions:apply${dryRun ? "?dryRun=1" : ""}`, { json: { ...body, decision, ...(comment.trim() ? { comment: comment.trim() } : {}) } });
+  return request("POST", `${p(projectId)}/quality/decisions:apply${dryRun ? "?dryRun=1" : ""}`, {
+    json: { ...body, decision, ...(comment.trim() ? { comment: comment.trim() } : {}), ...(decision === "correct" && assign.length > 0 ? { assign } : {}) },
+  });
+}
+
+// --- corrections (docs/plans/2026-11-20-review-at-scale.md, B2) ---------------------
+
+export type { AssignCorrectionsAnswer, AssignmentPreview, CorrectionLine, CorrectionsAnswer, OwnAssignment } from "../../../src/wire/review";
+
+/** The plots to correct, who corrects them, and whom they can be assigned to (coordinators) */
+export function getCorrections(projectId: string): Promise<CorrectionsAnswer> {
+  return request("GET", `${p(projectId)}/quality/corrections`);
+}
+
+/** Assigns plots decided "correct" to people, shared evenly (none: to nobody); `dryRun` only counts them */
+export function assignCorrections(projectId: string, plots: readonly string[], people: readonly string[], dryRun: boolean): Promise<AssignCorrectionsAnswer> {
+  return request("POST", `${p(projectId)}/quality/corrections:assign${dryRun ? "?dryRun=1" : ""}`, { json: { plots, people } });
 }
 
 /** Bulk decisions (coordinators): `dryRun` only counts the plots the rule would decide. */
