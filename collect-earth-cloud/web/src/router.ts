@@ -1,4 +1,5 @@
 import { useSyncExternalStore, type MouseEvent } from "react";
+import { isIsoWeek } from "./isoWeek";
 
 // A tiny history-based router: the dashboard has a handful of fixed pages, so a
 // path <-> route table is all it needs. The server returns index.html for every
@@ -166,7 +167,8 @@ export function matchRoute(pathname: string): Route {
   if (first === "projects" && (parts.length === 4 || parts.length === 5) && third === "activity" && fourth === "week") {
     const projectId = decode(second);
     const week = parts.length === 5 ? decode(fifth) : null;
-    if (projectId && (parts.length === 4 || (week && /^\d{4}-W\d{2}$/.test(week)))) return { name: "weekly", projectId, week };
+    // a week that exists only: not 2026-W00, nor a W53 of a year of 52 weeks
+    if (projectId && (parts.length === 4 || isIsoWeek(week))) return { name: "weekly", projectId, week };
   }
   if (first === "projects" && parts.length === 5 && third === "quality" && fourth === "plot") {
     const projectId = decode(second);

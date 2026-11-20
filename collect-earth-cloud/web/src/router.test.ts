@@ -48,12 +48,14 @@ describe("matchRoute", () => {
     ["/projects/p-1/activity", { name: "project", projectId: "p-1", tab: "activity" }],
     ["/projects/p-1/activity/week", { name: "weekly", projectId: "p-1", week: null }],
     ["/projects/p-1/activity/week/2026-W45", { name: "weekly", projectId: "p-1", week: "2026-W45" }],
+    // 2026 has 53 weeks
+    ["/projects/p-1/activity/week/2026-W53", { name: "weekly", projectId: "p-1", week: "2026-W53" }],
   ])("%s", (path, route) => {
     expect(matchRoute(path)).toEqual(route);
   });
 
   it("anything else is not found", () => {
-    for (const path of ["/projects/p/nope", "/projects/p/people/x/y", "/projects/p/my-work/x", "/projects/p/plots/f/x", "/projects/p/my-quality/x", "/projects/p/quality/other", "/projects/p/quality/team-report/x", "/projects/p/quality/plot", "/projects/p/quality/plot/1/x", "/projects/p/activity/week/45", "/projects/p/activity/week/2026-W45/x", "/projects/p/activity/other", "/join", "/join/a/b", "/whatever", "/reset/%E0%A4%A", "/p", "/p/a/b", "/server/overview", "/server/nope", "/server/accounts/x"]) {
+    for (const path of ["/projects/p/nope", "/projects/p/people/x/y", "/projects/p/my-work/x", "/projects/p/plots/f/x", "/projects/p/my-quality/x", "/projects/p/quality/other", "/projects/p/quality/team-report/x", "/projects/p/quality/plot", "/projects/p/quality/plot/1/x", "/projects/p/activity/week/45", "/projects/p/activity/week/2026-W00", "/projects/p/activity/week/2025-W53", "/projects/p/activity/week/2026-W54", "/projects/p/activity/week/2026-W45/x", "/projects/p/activity/other", "/join", "/join/a/b", "/whatever", "/reset/%E0%A4%A", "/p", "/p/a/b", "/server/overview", "/server/nope", "/server/accounts/x"]) {
       expect(matchRoute(path).name, path).toBe("notFound");
     }
   });

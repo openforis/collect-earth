@@ -105,7 +105,9 @@ async function join(pid: string, username: string) {
   const r = await app.inject({ method: 'POST', url: '/v1/auth/register', payload: { username, password: 'password12', inviteToken: inv.json().inviteToken } });
   if (r.statusCode !== 201) {
     const l = await app.inject({ method: 'POST', url: `/v1/auth/login`, payload: { username, password: 'password12' } });
-    await app.inject({ method: 'POST', url: `/v1/join/${inv.json().inviteToken}/accept`, headers: bearer(l.json().token) });
+    // The account exists already (a second project's invitation): taken with its session, as Collect Earth does
+    const joined = await app.inject({ method: 'POST', url: '/v1/auth/join', headers: bearer(l.json().token), payload: { inviteToken: inv.json().inviteToken } });
+    check(`${username} joins with the session`, joined.statusCode === 200, joined.body);
     return { token: l.json().token as string, userId: l.json().userId as string };
   }
   return { token: r.json().token as string, userId: r.json().userId as string };
