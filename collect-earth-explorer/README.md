@@ -114,6 +114,27 @@ used. Example:
   reflectance; Sentinel-2 adds `rededge1 rededge2 rededge3`. Landsat is surface reflectance and
   Sentinel-2 is top of atmosphere, so the same index reads somewhat differently on the two.
 
+Ready-made documents ("starting points": deforestation, fire, cloudy tropics, drylands) are in
+`catalogue.json` `presets`.
+
+### The configuration editor (`/configure`)
+`/configure?config=<URL-encoded document>&geoJson=<plot for the preview>&lang=<en|es|fr|pt|tr>` is a
+page that edits this document, with a live preview of the Explorer beside it (on `geoJson`, else a
+sample plot in Rondônia). It is meant to be embedded in an iframe by the dashboard and Collect Earth,
+which keep their own Save and Cancel. It reads its input from the address only. When framed, on load
+and after every change, it posts to the parent window (target origin `"*"`: the document is not
+secret and hosts run at unknown origins):
+
+```js
+{ source: "collect-earth-explorer", type: "config", config: "<text to store>", valid: true }
+```
+
+`config` is compact JSON without defaults or blank values, `""` for the standard configuration, at
+most 2000 characters; `valid` is false while a field is refused or the text is too long, and the host
+should not save then.
+
+`lang` (any page) sets the interface language when the host's differs from the browser's.
+
 The address takes two forms. Query: `/?geoJson=…&startTime=…&endTime=…&plot_id=…&config=…`.
 Fragment, as Collect Earth builds it: `/#geoJson=…;plotId=…;startTime=…;endTime=…;config=…;`
 (each value URL-encoded).

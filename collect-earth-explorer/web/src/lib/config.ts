@@ -2,7 +2,7 @@ import catalogueJson from "../../../functions/catalogue.json";
 import type { PlotBody } from "./api";
 import { t, type Key } from "./i18n";
 
-type Spec = { type: string; min?: number; max?: number; values?: unknown[]; default?: unknown };
+export type Spec = { type: string; min?: number; max?: number; values?: unknown[]; default?: unknown };
 type Kind = "layers" | "charts";
 type Entry = { type: string; params: Record<string, unknown> };
 export type LayerEntry = Entry;
@@ -17,7 +17,7 @@ const isDate = (v: unknown) =>
   typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) && !isNaN(Date.parse(v)) && new Date(v).toISOString().startsWith(v);
 
 // Mirrors functions/lib/catalogue.js paramOf: the server is the authority, this only decides what to draw.
-function check(spec: Spec, value: unknown, maxYear: number): boolean {
+export function check(spec: Spec, value: unknown, maxYear: number): boolean {
   const isYear = (y: unknown) => Number.isInteger(y) && (y as number) >= spec.min! && (y as number) <= maxYear;
   switch (spec.type) {
     case "choice": return spec.values!.includes(value);
@@ -39,7 +39,7 @@ const TOKEN = /\s+|(\d+(?:\.\d*)?|\.\d+)|([A-Za-z_]\w*)|([-+*/(),])/y;
 export const normaliseFormula = (text: string) => text.replace(/\s+/g, "");
 
 // Mirrors functions/lib/formula.js checkFormula (true instead of returning, false instead of throwing).
-function formulaOk(text: unknown, bands: string[]): boolean {
+export function formulaOk(text: unknown, bands: string[]): boolean {
   if (typeof text !== "string" || text.length > 200 || text.trim() === "") return false;
   let prev = "start", depth = 0, usesBand = false, pos = 0;
   while (pos < text.length) {

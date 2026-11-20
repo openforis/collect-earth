@@ -132,5 +132,27 @@
     "v": 1,
     "layers": [{ "type": "sentinel2" }, { "type": "landsat" }, { "type": "sentinel1" }],
     "charts": [{ "type": "landsat-series" }, { "type": "sentinel2-series" }, { "type": "ccdc" }, { "type": "modis" }, { "type": "sentinel1-series", "collapsed": true }, { "type": "precipitation", "collapsed": true }]
+  },
+  "presets": {
+    "deforestation": {
+      "v": 1,
+      "layers": [{ "type": "sentinel2" }, { "type": "landsat" }],
+      "charts": [{ "type": "ccdc" }, { "type": "landsat-series", "change": true }, { "type": "sentinel2-series", "change": true }, { "type": "modis", "collapsed": true }]
+    },
+    "fire": {
+      "v": 1,
+      "layers": [{ "type": "sentinel2" }, { "type": "landsat" }],
+      "charts": [{ "type": "landsat-series", "index": "NBR", "change": true, "unusual": true }, { "type": "modis" }, { "type": "sentinel2-series", "index": "NBR", "change": true }, { "type": "ccdc", "collapsed": true }]
+    },
+    "cloudy": {
+      "v": 1,
+      "layers": [{ "type": "sentinel1" }, { "type": "sentinel2" }, { "type": "landsat" }],
+      "charts": [{ "type": "sentinel1-series" }, { "type": "landsat-series" }, { "type": "ccdc" }, { "type": "sentinel2-series", "collapsed": true }, { "type": "modis", "collapsed": true }]
+    },
+    "drylands": {
+      "v": 1,
+      "layers": [{ "type": "sentinel2" }, { "type": "landsat" }],
+      "charts": [{ "type": "modis", "rainfall": true, "season": true }, { "type": "precipitation" }, { "type": "landsat-series", "index": "SAVI" }, { "type": "sentinel2-series", "index": "SAVI", "collapsed": true }]
+    }
   }
 }

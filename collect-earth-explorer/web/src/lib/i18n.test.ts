@@ -1,17 +1,20 @@
 import { describe, it, expect } from "vitest";
-import { DICTIONARIES, LANGS, lang, monthNames, pickLang, t, tn, type Key } from "./i18n";
+import { DICTIONARIES, LANGS, lang, monthNames, pickLang, t, tn } from "./i18n";
+import { CONFIGURE_DICTIONARIES } from "../configure/texts";
 
-const keys = (l: (typeof LANGS)[number]) => Object.keys(DICTIONARIES[l]).sort();
 const placeholders = (text: string) => [...text.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
 
-describe("dictionaries", () => {
+// The Explorer's texts, and the /configure page's (kept apart so the Explorer's bundle does not carry them).
+describe.each([["explorer", DICTIONARIES], ["configure", CONFIGURE_DICTIONARIES]] as [string, Record<string, Record<string, string>>][])("%s dictionaries", (_, dicts) => {
+  const keys = (l: (typeof LANGS)[number]) => Object.keys(dicts[l]).sort();
+
   it.each(LANGS)("%s has exactly the English keys and no empty text", (l) => {
     expect(keys(l)).toEqual(keys("en"));
-    for (const [key, text] of Object.entries(DICTIONARIES[l])) expect(text.trim(), key).not.toBe("");
+    for (const [key, text] of Object.entries(dicts[l])) expect(text.trim(), key).not.toBe("");
   });
 
   it.each(LANGS)("%s keeps every {placeholder} of the English text", (l) => {
-    for (const key of keys("en") as Key[]) expect(placeholders(DICTIONARIES[l][key]), `${l} ${key}`).toEqual(placeholders(DICTIONARIES.en[key]));
+    for (const key of keys("en")) expect(placeholders(dicts[l][key]), `${l} ${key}`).toEqual(placeholders(dicts.en[key]));
   });
 });
 

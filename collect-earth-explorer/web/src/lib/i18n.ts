@@ -14,8 +14,10 @@ export function pickLang(languages: readonly (string | undefined)[] | undefined)
 }
 
 const nav = typeof navigator === "undefined" ? undefined : navigator;
-/** The page's language, chosen once: the page reloads for every plot. */
-export const lang: Lang = pickLang(nav?.languages?.length ? nav.languages : [nav?.language]);
+// A host whose own interface language differs from the browser's (the dashboard, Collect Earth) passes its own.
+const asked = typeof location === "undefined" ? null : new URLSearchParams(location.search).get("lang");
+/** The page's language, chosen once (the page reloads for every plot): the address's `lang`, else the browser's. */
+export const lang: Lang = (LANGS as readonly string[]).includes(asked ?? "") ? (asked as Lang) : pickLang(nav?.languages?.length ? nav.languages : [nav?.language]);
 
 const en = {
   "plot.title": "Plot {id}",
@@ -842,13 +844,16 @@ const tr: Dict = {
 
 export const DICTIONARIES: Record<Lang, Dict> = { en, es, fr, pt, tr };
 
-type Params = Record<string, string | number>;
+export type Params = Record<string, string | number>;
 
 /** The text of `key` in `in_` (the page's language by default), each `{name}` replaced by `params.name`. */
 export function t(key: Key, params?: Params, in_: Lang = lang): string {
-  const text = DICTIONARIES[in_][key];
-  return params ? text.replace(/\{(\w+)\}/g, (m, name: string) => (name in params ? String(params[name]) : m)) : text;
+  return fill(DICTIONARIES[in_][key], params);
 }
+
+/** `text` with each `{name}` replaced by `params.name`. */
+export const fill = (text: string, params?: Params) =>
+  params ? text.replace(/\{(\w+)\}/g, (m, name: string) => (name in params ? String(params[name]) : m)) : text;
 
 /** `t` of `${base}.one` or `${base}.other`, by the language's plural rule for `n`, which is passed as `{n}`. */
 export function tn(base: "chart.unusual", n: number, in_: Lang = lang): string {
