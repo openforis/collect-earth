@@ -34,7 +34,6 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.CollectEarthSurveyContext;
-import org.openforis.collect.earth.app.EarthConstants;
 import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
 import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.earth.core.handlers.BalloonInputFieldsUtils;
@@ -53,8 +52,6 @@ import org.openforis.collect.model.NodeChangeSet;
 import org.openforis.collect.model.NodeDeleteChange;
 import org.openforis.collect.model.RecordFilter;
 import org.openforis.collect.model.RecordUpdater;
-import org.openforis.collect.model.RecordValidationReportGenerator;
-import org.openforis.collect.model.RecordValidationReportItem;
 import org.openforis.collect.model.validation.CollectEarthValidator;
 import org.openforis.collect.model.validation.ValidationMessageBuilder;
 import org.openforis.collect.persistence.RecordPersistenceException;
@@ -63,7 +60,6 @@ import org.openforis.idm.metamodel.CodeAttributeDefinition;
 import org.openforis.idm.metamodel.EntityDefinition;
 import org.openforis.idm.metamodel.ModelVersion;
 import org.openforis.idm.metamodel.NodeDefinition;
-import org.openforis.idm.metamodel.NodeLabel.Type;
 import org.openforis.idm.metamodel.Schema;
 import org.openforis.idm.metamodel.SurveyContext;
 import org.openforis.idm.model.Attribute;
@@ -351,41 +347,6 @@ public abstract class AbstractEarthSurveyService implements DisposableBean {
 	}
 
 	/**
-	* @deprecated Used for the 2013/14 versions of the surveys!
-	*/
-	@Deprecated
-	private void addValidationMessages(Map<String, String> parameters, CollectRecord ceRecord) {
-		// Validation
-		recordUpdater.validate(ceRecord);
-
-		final RecordValidationReportGenerator reportGenerator = new RecordValidationReportGenerator(ceRecord);
-		final List<RecordValidationReportItem> validationItems = reportGenerator.generateValidationItems();
-
-		for (final RecordValidationReportItem recordValidationReportItem : validationItems) {
-			String label = ""; //$NON-NLS-1$
-			if (recordValidationReportItem.getNodeId() != null) {
-				final Node<?> node = ceRecord.getNodeByInternalId(recordValidationReportItem.getNodeId());
-				label = node.getDefinition().getLabel(Type.INSTANCE,
-						localPropertiesService.getUiLanguage().name().toLowerCase());
-
-				String message = getAdaptedValidationMessage(recordValidationReportItem.getMessage());
-
-				parameters.put("validation_" + node.getDefinition().getName(), label + " - " + message); //$NON-NLS-1$ //$NON-NLS-2$
-
-			} else {
-				label = recordValidationReportItem.getPath();
-				parameters.put("validation_" + label, label + " - " + recordValidationReportItem.getMessage()); //$NON-NLS-1$ //$NON-NLS-2$
-			}
-
-		}
-
-		if (!validationItems.isEmpty()) {
-			parameters.put("valid_data", "false"); //$NON-NLS-1$ //$NON-NLS-2$
-		}
-
-	}
-
-	/**
 	 * Nothing in error, required questions included : getErrors leaves out the ones not answered (getMissingErrors), so a
 	 * plot was submitted with them empty while every form said it was not finished
 	 */
@@ -423,35 +384,6 @@ public abstract class AbstractEarthSurveyService implements DisposableBean {
 
 	protected String getIdmFilePath() {
 		return localPropertiesService.getImdFile();
-	}
-
-	public Map<String, String> getPlacemark(String[] keyAttributes, boolean validateRecord) {
-		CollectRecord record = loadRecord(keyAttributes, validateRecord);
-		Map<String, String> placemarkParameters = null;
-		if (record == null) {
-			placemarkParameters = new HashMap<>();
-			addResultParameter(placemarkParameters, false);
-		} else {
-			placemarkParameters = collectParametersHandler.getValuesByHtmlParameters(record.getRootEntity());
-
-			if ((placemarkParameters.get(COLLECT_CODE_CANOPY_COVER) != null) //$NON-NLS-1$
-					&& placemarkParameters.get(COLLECT_CODE_CANOPY_COVER).equals("0")) { //$NON-NLS-1$ //$NON-NLS-2$
-				placemarkParameters.put(COLLECT_CODE_CANOPY_COVER, //$NON-NLS-1$
-						"0;" + COLLECT_CODE_DEFORESTATION_REASON + "="
-								+ placemarkParameters.get(COLLECT_CODE_DEFORESTATION_REASON)); //$NON-NLS-1$
-			}
-			// For the PNG version with the old name
-			if ((placemarkParameters.get(COLLECT_CODE_CROWN_COVER) != null) //$NON-NLS-1$
-					&& placemarkParameters.get(COLLECT_CODE_CROWN_COVER).equals("0")) { //$NON-NLS-1$ //$NON-NLS-2$
-				placemarkParameters.put(COLLECT_CODE_CROWN_COVER, //$NON-NLS-1$
-						COLLECT_CODE_DEFORESTATION_REASON
-								+ placemarkParameters.get(COLLECT_CODE_DEFORESTATION_REASON)); //$NON-NLS-1$
-			}
-			addResultParameter(placemarkParameters, true);
-		}
-		addLocalProperties(placemarkParameters);
-
-		return placemarkParameters;
 	}
 
 	public synchronized PlacemarkLoadResult loadPlacemarkExpanded(String[] keyAttributeValues) {
@@ -552,40 +484,6 @@ public abstract class AbstractEarthSurveyService implements DisposableBean {
 		RecordFilter rf = new RecordFilter(getCollectSurvey(), ROOT_ENTITY_NAME);
 		rf.setModifiedSince(updatedSince);
 		return recordManager.loadSummaries(rf );
-	}
-
-	@Deprecated // nothing calls it since Collect Earth 2: it served Google Earth Pro's icon refresh
-	public String[] getPlacemarksId(List<CollectRecordSummary> listOfRecords) {
-		if (listOfRecords == null) {
-			return new String[0];
-		}
-		final String[] placemarkIds = new String[listOfRecords.size()];
-		for (int i = 0; i < listOfRecords.size(); i++) {
-			CollectRecordSummary recordSummary = listOfRecords.get(i);
-			// A record with no key values used to throw here : substring(0, -1)
-			placemarkIds[i] = String.join(",", recordSummary.getRootEntityKeyValues());
-		}
-
-		return placemarkIds;
-	}
-
-	/**
-	 * Return the list of the IDs of records that are already saved (completely
-	 * or partially) in the database.
-	 *
-	 * @return The list of the IDs of the records for the survey in the DB
-	 */
-	@Deprecated // nothing calls it since Collect Earth 2: it served Google Earth Pro's icon refresh
-	public String[] getRecordsSavedIDs() {
-		final List<CollectRecordSummary> recordsSavedForSurvey = recordManager.loadSummaries(
-				new RecordFilter(getCollectSurvey(),ROOT_ENTITY_NAME)
-		);
-
-		if ((recordsSavedForSurvey != null) && !recordsSavedForSurvey.isEmpty()) {
-			return getPlacemarksId(recordsSavedForSurvey);
-		} else {
-			return new String[]{};
-		}
 	}
 
 	/**
@@ -798,65 +696,6 @@ public abstract class AbstractEarthSurveyService implements DisposableBean {
 		}else {
 			return null;
 		}
-	}
-	@Deprecated
-	public synchronized boolean storePlacemarkOld(Map<String, String> parameters) {
-
-		String[] keys = new String[] { parameters.get(EarthConstants.PLACEMARK_ID_PARAMETER) };
-		RecordFilter rf = new RecordFilter(getCollectSurvey(), ROOT_ENTITY_NAME);
-		rf.setKeyValues(keys);
-		final List<CollectRecordSummary> summaries = recordManager.loadSummaries(rf); // $NON-NLS-1$
-		boolean success = false;
-
-		try {
-			// Add the operator to the collected data
-			parameters.put(OPERATOR_PARAMETER, localPropertiesService.getOperator());
-
-			CollectRecord ceRecord = null;
-			Entity plotEntity = null;
-
-			if ( !summaries.isEmpty() ) { // DELETE IF ALREADY PRESENT
-				recordManager.delete(summaries.get(0).getId());
-				ceRecord = createRecord();
-				plotEntity = ceRecord.getRootEntity();
-			} else {
-				// Create new record
-				ceRecord = createRecord();
-				plotEntity = ceRecord.getRootEntity();
-			}
-
-			boolean userClickOnSaveAndValidate = isPlacemarkSavedActively(parameters);
-
-			setPlacemarkSavedOn(parameters);
-
-			// Populate the data of the record using the HTTP parameters
-			// received
-			// This also generates the validation messages
-			collectParametersHandler.saveToEntity(parameters, plotEntity);
-
-			// Do not validate unless actively saved
-			if (userClickOnSaveAndValidate) {
-				addValidationMessages(parameters, ceRecord);
-
-				// Check that there is no validation errors so the tick doesn't
-				// turn green
-				if (!isComplete(ceRecord)) {
-					setPlacemarkSavedActively(parameters, false);
-					// Force saving again to remove the "actively saved"
-					// parameter!
-					collectParametersHandler.saveToEntity(parameters, plotEntity);
-				}
-			}
-
-			ceRecord.setModifiedDate(new Date());
-			recordManager.save(ceRecord);
-			notifyRecordSaved(ceRecord);
-
-			success = true;
-		} catch (Exception e) {
-			logger.error("Error while storing the record " + e.getMessage(), e); //$NON-NLS-1$
-		}
-		return success;
 	}
 
 	public synchronized PlacemarkLoadResult updatePlacemarkData(String[] plotKeyAttributes,
@@ -1219,25 +1058,6 @@ public abstract class AbstractEarthSurveyService implements DisposableBean {
 			}
 		}
 		return changedParameters;
-	}
-
-	public String[] getKeysInOrder(Map<String, String> receivedBalloonParamaters) {
-
-		List<AttributeDefinition> keyAttributeDefinitions = getRootEntityDefinition().getKeyAttributeDefinitions();
-		String[] keys = new String[keyAttributeDefinitions.size()];
-
-		BalloonInputFieldsUtils balloonInputFieldsUtils = new BalloonInputFieldsUtils();
-		int i = 0;
-		for (AttributeDefinition keyAttribute : keyAttributeDefinitions) {
-			String balloonName = balloonInputFieldsUtils.getCollectBalloonParamName(keyAttribute);
-			if (!receivedBalloonParamaters.containsKey(balloonName)) {
-				throw new IllegalArgumentException(
-						"The parameters received do not contain the mandatory parameter " + balloonName);
-			}
-			keys[i++] = receivedBalloonParamaters.get(balloonName);
-		}
-
-		return keys;
 	}
 
 	public String[] getKeyNamesForSurvey() {

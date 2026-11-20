@@ -70,7 +70,6 @@ import org.springframework.stereotype.Component;
 public class BalloonInputFieldsUtils {
 
 	public static final String PARAMETER_SEPARATOR = "===";
-	public static final String MULTIPLE_VALUES_SEPARATOR = ";";
 	private static final Pattern PARAMETER_PART_PATTERN = Pattern.compile("^(\\w+)(\\[(\\w+)\\])?$");
 	
 	private static final String NOT_APPLICABLE_ITEM_CODE = "-1";
