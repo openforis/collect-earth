@@ -19,7 +19,6 @@ import org.w3c.dom.NodeList;
 public class WebXmlTest {
 
 	private static final String OWN_PAGES = "ownPagesOnlyFilter";
-	private static final String OWN_PAGES_OR_GEP = "ownPagesOrGoogleEarthProFilter";
 
 	private static String child(Element element, String name) {
 		return element.getElementsByTagName(name).item(0).getTextContent().trim();
@@ -44,28 +43,15 @@ public class WebXmlTest {
 			}
 		}
 		for (String pattern : new String[] { "/api/*", "/googleEarthWeb/*", "/imagery/*", "/balloon", "/plotsGeoJson",
-				"/plotsIndex", "/plotDetail", "/plotStatuses", "/surveyForm/*", "/openAuxiliaryWindows", "/generated/*" }) {
+				"/plotsIndex", "/plotDetail", "/plotStatuses", "/surveyForm/*", "/openAuxiliaryWindows", "/generated/*",
+				// the plot's data, which Google Earth Pro's balloons had a looser guard for until 2.0
+				"/placemark-info-expanded", "/save-data-expanded", "/create-entity", "/delete-entity", "/plot-activity" }) {
 			assertTrue(patterns.get(OWN_PAGES).contains(pattern), pattern);
 		}
-		for (String pattern : new String[] { "/placemark-info-expanded", "/save-data-expanded",
-				"/create-entity", "/delete-entity", "/plot-activity" }) {
-			assertTrue(patterns.get(OWN_PAGES_OR_GEP).contains(pattern), pattern);
-		}
 		// before googleEarthHeaderFilter, which answers "*" for a missing Origin, and before cross-origin
-		for (String guard : new String[] { OWN_PAGES, OWN_PAGES_OR_GEP }) {
-			assertTrue(order.indexOf(guard) < order.indexOf("googleEarthHeaderFilter"), guard);
-			assertTrue(order.indexOf(guard) < order.indexOf("cross-origin"), guard);
-		}
-
-		boolean googleEarthProMode = false;
-		NodeList filters = webXml.getElementsByTagName("filter");
-		for (int i = 0; i < filters.getLength(); i++) {
-			Element filter = (Element) filters.item(i);
-			if (OWN_PAGES_OR_GEP.equals(child(filter, "filter-name"))) {
-				googleEarthProMode = OwnPagesOnlyFilter.ALLOW_GOOGLE_EARTH_PRO.equals(child(filter, "param-name"))
-						&& "true".equals(child(filter, "param-value"));
-			}
-		}
-		assertTrue(googleEarthProMode);
+		assertTrue(order.indexOf(OWN_PAGES) < order.indexOf("googleEarthHeaderFilter"));
+		assertTrue(order.indexOf(OWN_PAGES) < order.indexOf("cross-origin"));
+		// one guard, with no exception
+		assertTrue(!webXml.getDocumentElement().getTextContent().contains("allowGoogleEarthPro"));
 	}
 }

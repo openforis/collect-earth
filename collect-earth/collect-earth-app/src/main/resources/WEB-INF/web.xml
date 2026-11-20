@@ -28,15 +28,6 @@
 		<filter-name>ownPagesOnlyFilter</filter-name>
 		<filter-class>org.openforis.collect.earth.app.server.OwnPagesOnlyFilter</filter-class>
 	</filter>
-	<!-- The same for the endpoints Google Earth Pro's balloons call too, which may send an Origin that is no web address -->
-	<filter>
-		<filter-name>ownPagesOrGoogleEarthProFilter</filter-name>
-		<filter-class>org.openforis.collect.earth.app.server.OwnPagesOnlyFilter</filter-class>
-		<init-param>
-			<param-name>allowGoogleEarthPro</param-name>
-			<param-value>true</param-value>
-		</init-param>
-	</filter>
 	<!-- The API (server.api) answers only Collect Earth's own pages: see ApiHeaderFilter -->
 	<filter>
 		<filter-name>apiHeaderFilter</filter-name>
@@ -96,9 +87,7 @@
 		<url-pattern>/openAuxiliaryWindows</url-pattern>
 		<!-- applicationContext.xml, with the database password, is there; the rest is the balloon's, loaded by /balloon -->
 		<url-pattern>/generated/*</url-pattern>
-	</filter-mapping>
-	<filter-mapping>
-		<filter-name>ownPagesOrGoogleEarthProFilter</filter-name>
+		<!-- The plot's data, which the web form and a project's balloon (/balloon) read and save -->
 		<url-pattern>/placemark-info-expanded</url-pattern>
 		<url-pattern>/save-data-expanded</url-pattern>
 		<url-pattern>/create-entity</url-pattern>
