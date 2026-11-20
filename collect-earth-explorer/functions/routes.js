@@ -16,6 +16,10 @@ const { catalogue, paramOf } = require("./lib/catalogue");
 const { BadRequest } = require("./lib/errors");
 const { checkFormula, normaliseFormula } = require("./lib/formula");
 const defaultCache = require("./cache");
+const { createRateLimit, clientAddress } = require("./lib/rateLimit");
+
+// Generous on purpose: a classroom of interpreters shares one address. Counts computations only, not cache hits.
+const defaultRateLimit = createRateLimit();
 
 /** Cache lifetimes in seconds: tile URLs expire on the EE side after ~24 h, series results are stable. */
 const TTL = { tiles: 20 * 3600, series: 30 * 24 * 3600 };
@@ -24,12 +28,12 @@ const TTL = { tiles: 20 * 3600, series: 30 * 24 * 3600 };
  * Builds a cached POST handler. Order per request:
  *   1. parsePlotRequest(body) and the optional `validate(body)` hook: a 400 here never reaches the cache or EE;
  *   2. `extrasOf(body)` -> endpoint-specific parameters, part of the cache key and the third argument of compute;
- *   3. cache lookup; on a miss: eeAuth, then `compute(parsed, eeGeometry, extras)`.
+ *   3. cache lookup; on a miss: the client address's rate limit (429), eeAuth, then `compute(parsed, eeGeometry, extras)`.
  * `extrasOf` may itself throw a BadRequest (the scene and ccdc validators double as extras builders).
  * `ignore` drops from the cache key the dates the computation does not use, so one plot does not get one
  * entry per date: "start" (the Sentinel-2 composite) or "dates" (the Landsat composite and scenes).
  */
-function plotRoute(endpoint, ttlSeconds, extrasOf, compute, validate, cache = defaultCache, { ignore } = {}) {
+function plotRoute(endpoint, ttlSeconds, extrasOf, compute, validate, cache = defaultCache, { ignore, rateLimit = defaultRateLimit } = {}) {
   return asyncHandler(async (req, res) => {
     const parsed = parsePlotRequest(req.body);
     if (validate) validate(req.body);
@@ -38,6 +42,7 @@ function plotRoute(endpoint, ttlSeconds, extrasOf, compute, validate, cache = de
     const keyed = ignore === "dates" ? { ...parsed, start: null, end: null }
       : ignore === "start" ? { ...parsed, start: null, end: extras.end ? null : parsed.end } : parsed;
     const result = await cache.withCache(endpoint, keyed, extras, ttlSeconds, async () => {
+      rateLimit.take(clientAddress(req));
       await eeAuth();
       return compute(parsed, ee.Geometry(parsed.plot), extras);
     });
@@ -125,9 +130,12 @@ function differenceExtras(b) {
   return { left: side("left"), right: side("right") };
 }
 
-/** Registers the API routes; `cache` (an object with `withCache`) defaults to the Firestore-backed one. */
-function registerRoutes(app, { cache = defaultCache } = {}) {
-  const route = (endpoint, ttl, extrasOf, compute, validate, opts) => plotRoute(endpoint, ttl, extrasOf, compute, validate, cache, opts);
+/**
+ * Registers the API routes; `cache` (an object with `withCache`) defaults to the Firestore-backed one, `rateLimit`
+ * (lib/rateLimit.js) to this instance's.
+ */
+function registerRoutes(app, { cache = defaultCache, rateLimit = defaultRateLimit } = {}) {
+  const route = (endpoint, ttl, extrasOf, compute, validate, opts) => plotRoute(endpoint, ttl, extrasOf, compute, validate, cache, { ...opts, rateLimit });
   const noStart = { ignore: "start" };
   const noDates = { ignore: "dates" };
 

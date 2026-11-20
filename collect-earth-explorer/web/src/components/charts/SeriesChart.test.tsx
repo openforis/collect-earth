@@ -148,12 +148,19 @@ describe("SeriesChart", () => {
     expect(traces()).toHaveLength(1);
   });
 
+  /** One point a year: the first and last years get their value in six months too, so yearlyMedian keeps them whole. */
+  const padEnds = (pts: Point[]): Point[] => {
+    const six = (p: Point) =>
+      Array.from({ length: 6 }, (_, m) => ({ date: Date.UTC(new Date(p.date).getUTCFullYear(), m, 1), value: p.value })).filter((q) => q.date !== p.date);
+    return [...six(pts[0]), ...pts, ...six(pts[pts.length - 1])].sort((a, b) => a.date - b.date);
+  };
+
   it("adds a yearly median trace after trace 0 when the points span three calendar years", () => {
-    const pts: Point[] = [
+    const pts: Point[] = padEnds([
       { date: Date.UTC(2019, 2, 1), value: 0.2 },
       { date: Date.UTC(2020, 2, 1), value: 0.4 },
       { date: Date.UTC(2021, 2, 1), value: 0.6 },
-    ];
+    ]);
     render(<SeriesChart points={pts} name="NDVI" />);
     expect(traces()).toHaveLength(2);
     const m = traces()[1] as Trace & { text?: string[] };
@@ -164,7 +171,8 @@ describe("SeriesChart", () => {
   });
 
   // One point per year, 2010 to 2019, rising by 0.1 a year: a significant trend.
-  const RISING: Point[] = Array.from({ length: 10 }, (_, i) => ({ date: Date.UTC(2010 + i, 3, 1), value: i / 10 }));
+  const RISING_YEARS: Point[] = Array.from({ length: 10 }, (_, i) => ({ date: Date.UTC(2010 + i, 3, 1), value: i / 10 }));
+  const RISING = padEnds(RISING_YEARS);
   const names = () => traces().map((t) => t.name);
   const trendLabel = () => screen.queryByText(/^Trend: |^Trend needs 8 years/);
   const changeLabel = () => screen.queryByText(/^Change in|^Change year needs/);
@@ -173,7 +181,7 @@ describe("SeriesChart", () => {
   const ALL = ["Yearly median", "Trend", "Change year", "Unusual values", "Seasonal profile"];
 
   it("one Explain link, closed, shown whenever a result line is; it opens the numbers and the explanation", () => {
-    const stepped = Array.from({ length: 20 }, (_, i) => ({ date: Date.UTC(2010 + i, 3, 1), value: i < 10 ? 0.2 : 0.7 }));
+    const stepped = padEnds(Array.from({ length: 20 }, (_, i) => ({ date: Date.UTC(2010 + i, 3, 1), value: i < 10 ? 0.2 : 0.7 })));
     const { container, unmount } = render(<SeriesChart points={stepped} name="NDVI" />);
     expect(container.querySelector(".chart-help")).toBeNull();
     fireEvent.click(help()!);
@@ -185,7 +193,7 @@ describe("SeriesChart", () => {
     fireEvent.click(help()!);
     expect(container.querySelector(".chart-help")).toBeNull();
     unmount();
-    render(<SeriesChart points={RISING.slice(0, 7)} name="NDVI" />);
+    render(<SeriesChart points={padEnds(RISING_YEARS.slice(0, 7))} name="NDVI" />);
     ALL.forEach(untick);
     expect(help()).toBeNull();
     expect(trendLabel()).toBeNull();
@@ -194,8 +202,9 @@ describe("SeriesChart", () => {
   });
 
   // One point per year from 2010 on, `before` for the first `k` years and `after` for the rest.
-  const step = (k: number, n: number, before = 0.2, after = 0.7): Point[] =>
+  const stepYears = (k: number, n: number, before = 0.2, after = 0.7): Point[] =>
     Array.from({ length: n }, (_, i) => ({ date: Date.UTC(2010 + i, 3, 1), value: i < k ? before : after }));
+  const step = (k: number, n: number) => padEnds(stepYears(k, n));
 
   it("a significant change year: red dashed line at 1 January below the data, and its result line", () => {
     render(<SeriesChart points={step(10, 20)} name="NDVI" />);
@@ -223,7 +232,7 @@ describe("SeriesChart", () => {
 
   it("Scene before and Scene after pick the observation nearest its year's median, only with onClickPoint", () => {
     // Three observations a year (median = the June one): the last year before 2020 is 2019.
-    const pts = step(10, 20).flatMap((p) => {
+    const pts = stepYears(10, 20).flatMap((p) => {
       const y = new Date(p.date).getUTCFullYear();
       return [
         { date: Date.UTC(y, 2, 1), value: p.value - 0.05 },
@@ -397,14 +406,14 @@ describe("SeriesChart", () => {
 
   it("says when a trend is not significant, in grey", () => {
     // Up and down, drifting up a little.
-    const flat = [0.5, 0.3, 0.6, 0.4, 0.55, 0.35, 0.65, 0.45].map((value, i) => ({ date: Date.UTC(2010 + i, 3, 1), value }));
+    const flat = padEnds([0.5, 0.3, 0.6, 0.4, 0.55, 0.35, 0.65, 0.45].map((value, i) => ({ date: Date.UTC(2010 + i, 3, 1), value })));
     render(<SeriesChart points={flat} name="NDVI" />);
     expect(trendLabel()!.textContent).toBe("Trend: not significant");
     expect((traces()[2] as Trace & { line: { color: string } }).line.color).toBe("#8a857b");
   });
 
   it("says a trend needs 8 years when there are fewer, and draws none", () => {
-    render(<SeriesChart points={RISING.slice(0, 7)} name="NDVI" />);
+    render(<SeriesChart points={padEnds(RISING_YEARS.slice(0, 7))} name="NDVI" />);
     expect(trendLabel()!.textContent).toBe("Trend needs 8 years of data");
     expect(names()).toEqual(["NDVI", "Yearly median"]);
   });

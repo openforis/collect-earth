@@ -1,6 +1,7 @@
 const { ee } = require("./auth");
 const { getTileUrl, evaluate } = require("./promise");
 const { notFoundIfEmpty } = require("../lib/errors");
+const { sentinel1CompositeLabel } = require("../lib/labels");
 const { meanSeries, evaluateSeries } = require("./series");
 
 /** Fixed stretches in dB; `diff` is VV minus VH. */
@@ -34,7 +35,7 @@ async function sentinel1CompositeTiles(plot, year, { bands = "false-colour" } = 
   const { image, collection } = buildRadarComposite(plot, year);
   notFoundIfEmpty(await evaluate(collection.size()), `no Sentinel-1 scenes for ${year}`);
   const tileUrl = await getTileUrl(image.visualize(VIZ[bands]));
-  return { tileUrl, label: `Sentinel-1 ${year} radar composite` };
+  return { tileUrl, label: sentinel1CompositeLabel(year) };
 }
 
 /**

@@ -11,6 +11,7 @@ import { NO_PLOT, parsePlotUrl, type PlotParams } from "./lib/urlParams";
 import { resolveConfig } from "./lib/config";
 import type { CardProps } from "./lib/folds";
 import Summary from "./components/Summary";
+import ErrorBoundary from "./components/ErrorBoundary";
 import { t, type Key } from "./lib/i18n";
 
 // The chart cards pull in Plotly (several MB): loaded in a separate chunk after the
@@ -97,7 +98,9 @@ function Viewer() {
             return (
               Card && (
                 <div key={i} id={`chart-${i}`}>
-                  <Card params={c.params} index={i} />
+                  <ErrorBoundary fallback={<div className="chart-placeholder">{t("charts.failed")}</div>}>
+                    <Card params={c.params} index={i} />
+                  </ErrorBoundary>
                 </div>
               )
             );
@@ -119,6 +122,28 @@ const sampleHref = (name: string, lon: number, lat: number) =>
 
 // The latest year a configuration may name; read when the page loads (not during render, which must stay pure).
 const THIS_YEAR = new Date().getUTCFullYear();
+
+/** The page without a plot, or with one that cannot be read or shown. */
+function Welcome({ noPlot }: { noPlot: boolean }) {
+  return (
+    <div className="welcome">
+      <div className="welcome-box">
+        <img src="/logo.png" alt="Collect Earth · Open Foris" width="184" height="80" />
+        <h1>Explorer</h1>
+        <p>
+          {t(noPlot ? "welcome.noPlot" : "welcome.badPlot")} {t("welcome.try")}
+        </p>
+        <ul>
+          {SAMPLE_PLOTS.map(([key, lon, lat]) => (
+            <li key={key}>
+              <a href={sampleHref(t(key), lon, lat)}>{t(key)}</a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
 
 type Parsed =
   | { params: PlotParams; config: ReturnType<typeof resolveConfig>; error?: undefined }
@@ -146,29 +171,12 @@ export default function App() {
       void warm(next, params, config, pane?.width ?? 0, pane?.height ?? 0);
     });
   }, [parsed]);
-  if (parsed.error !== undefined) {
-    return (
-      <div className="welcome">
-        <div className="welcome-box">
-          <img src="/logo.png" alt="Collect Earth · Open Foris" width="184" height="80" />
-          <h1>Explorer</h1>
-          <p>
-            {t(parsed.error === NO_PLOT ? "welcome.noPlot" : "welcome.badPlot")} {t("welcome.try")}
-          </p>
-          <ul>
-            {SAMPLE_PLOTS.map(([key, lon, lat]) => (
-              <li key={key}>
-                <a href={sampleHref(t(key), lon, lat)}>{t(key)}</a>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
-    );
-  }
+  if (parsed.error !== undefined) return <Welcome noPlot={parsed.error === NO_PLOT} />;
   return (
-    <PlotProvider params={parsed.params} config={parsed.config}>
-      <Viewer />
-    </PlotProvider>
+    <ErrorBoundary fallback={<Welcome noPlot={false} />}>
+      <PlotProvider params={parsed.params} config={parsed.config}>
+        <Viewer />
+      </PlotProvider>
+    </ErrorBoundary>
   );
 }

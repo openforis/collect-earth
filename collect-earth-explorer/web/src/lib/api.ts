@@ -68,7 +68,14 @@ export async function postApi<T>(
   inFlight++;
   clearTimeout(idleTimer);
   try {
-    return await request<T>(path, body, signal);
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await request<T>(path, body, signal);
+      } catch (e) {
+        if (attempt >= RETRY_DELAYS.length || !busy(e)) throw e;
+        await wait(RETRY_DELAYS[attempt], signal);
+      }
+    }
   } finally {
     if (--inFlight <= 1 && onIdle) {
       clearTimeout(idleTimer);
@@ -79,6 +86,28 @@ export async function postApi<T>(
       }, 2000);
     }
   }
+}
+
+/** Pauses before the automatic retries of a busy answer: at most three attempts in all. */
+const RETRY_DELAYS = [2000, 5000];
+
+/** A refusal for load (the server's or Cloud Run's 429, a 503) or no answer at all: likely to pass by itself. */
+const busy = (e: unknown) => e instanceof ApiFailure && e.err.retryable && (e.status === 429 || e.status === 503 || e.err.code === "network");
+
+/** Resolves after `ms`, or rejects with the abort reason (as fetch does) as soon as `signal` aborts. */
+function wait(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) return reject(signal.reason);
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(signal!.reason);
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
 }
 
 async function request<T>(path: string, body: PlotBody & Record<string, unknown>, signal?: AbortSignal): Promise<T> {
@@ -126,7 +155,7 @@ export function isRetryable(error: unknown): boolean {
   return error instanceof ApiFailure ? error.err.retryable : true;
 }
 
-const ERROR_KEYS = { ee_busy: "err.ee_busy", not_found: "err.not_found", bad_request: "err.bad_request", internal: "err.internal", bad_json: "err.bad_json", network: "err.network" } as const;
+const ERROR_KEYS = { ee_busy: "err.ee_busy", rate_limited: "err.ee_busy", not_found: "err.not_found", bad_request: "err.bad_request", internal: "err.internal", bad_json: "err.bad_json", network: "err.network" } as const;
 
 /**
  * A failed request in the page's language: the API's known codes (app.js errorToResponse, lib/errors.js) and the

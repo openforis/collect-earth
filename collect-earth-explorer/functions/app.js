@@ -2,7 +2,6 @@ const express = require("express");
 const { corsOriginAllowed } = require("./lib/cors");
 
 const RETRYABLE = /timed out|too many concurrent|user memory limit|deadline|quota exceeded|too many requests|rate limit|service unavailable|internal error/i;
-const SECRETISH = /EE_KEY|private_key/;
 
 /** Maps any thrown error to the single JSON error shape of the API. */
 function errorToResponse(err) {
@@ -17,9 +16,8 @@ function errorToResponse(err) {
   const message = String((err && err.message) || err);
   const retryable = RETRYABLE.test(message);
   if (retryable) return { status: 503, body: { error: { code: "ee_busy", message, retryable: true } } };
-  // Never echo messages that may carry configuration secrets; the full error is still logged server-side.
-  const safeMessage = SECRETISH.test(message) ? "Internal error" : message;
-  return { status: 500, body: { error: { code: "internal", message: safeMessage, retryable: false } } };
+  // An unexpected error's text may carry configuration or internals; the full error is logged by the error middleware.
+  return { status: 500, body: { error: { code: "internal", message: "Internal error", retryable: false } } };
 }
 
 /**

@@ -26,6 +26,13 @@ describe("parsePlotUrl", () => {
     const empty = JSON.stringify({ type: "MultiLineString", coordinates: [[]] });
     expect(() => parsePlotUrl(`?geoJson=${encodeURIComponent(empty)}`)).toThrow("the plot has no outline");
   });
+  it("says a Polygon has no outline unless its first ring has three positions of finite numbers", () => {
+    for (const coordinates of [[], [[]], [[[0, 0], [1, 1]]], [[[0, 0], [1, 1], [1, "x"]]], [[[0, 0], [1, 1], [1]]], [[[0, 0], [1, 1], [1, null]]], "x", [[[0, 0], [1, 1], [Infinity, 0]]]])
+      expect(() => toPolygon({ type: "Polygon", coordinates }), JSON.stringify(coordinates)).toThrow("the plot has no outline");
+    expect(() => toPolygon({ type: "Polygon" } as never)).toThrow("the plot has no outline");
+    const ring = [[0, 0], [1, 0], [1, 1, 5], [0, 0]];
+    expect(toPolygon({ type: "Polygon", coordinates: [ring] })).toEqual({ type: "Polygon", coordinates: [ring] });
+  });
   it("throws when geoJson is missing", () => {
     expect(() => parsePlotUrl("?", new Date())).toThrow(/geoJson/);
   });

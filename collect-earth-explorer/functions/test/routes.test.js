@@ -4,6 +4,7 @@ const request = require("supertest");
 const { createApp } = require("../app");
 const { monthsBefore, mayBeEmpty } = require("../ee/sentinel2Composite");
 const { registerRoutes, TTL } = require("../routes");
+const { createRateLimit } = require("../lib/rateLimit");
 const { belize } = require("./fixtures");
 
 /**
@@ -23,8 +24,8 @@ function fakeCache(canned) {
 }
 
 /** Express app with the real routes and the given fake cache (never the Firestore one). */
-function appWith(cache = fakeCache()) {
-  return createApp((app) => registerRoutes(app, { cache }));
+function appWith(cache = fakeCache(), rateLimit) {
+  return createApp((app) => registerRoutes(app, { cache, rateLimit }));
 }
 
 /** Runs fn with console.error silenced; returns what was logged. */
@@ -552,5 +553,29 @@ test("POST /api/tiles/difference rejects a missing or bad side with a 400 before
     const { res, logged, cache } = await postWithoutKey("/api/tiles/difference", { plot: belize, ...body });
     assert400(res, re, cache);
     assert.equal(logged.length, 0);
+  }
+});
+
+test("computations, not cache hits, are limited per client address (the last X-Forwarded-For entry) with 429 rate_limited", async () => {
+  const saved = process.env.EE_KEY;
+  delete process.env.EE_KEY;
+  try {
+    const rateLimit = createRateLimit({ limit: 2, now: () => 0 });
+    const hits = request(appWith(fakeCache({ series: [] }), rateLimit));
+    for (let i = 0; i < 3; i++) assert.equal((await hits.post("/api/series/modis").set("X-Forwarded-For", "9.9.9.9").send({ plot: belize })).status, 200);
+    const app = request(appWith(fakeCache(), rateLimit));
+    const post = (xff) => app.post("/api/series/modis").set("X-Forwarded-For", xff).send({ plot: belize });
+    await quietly(async () => {
+      // Under the limit a computation goes on to EE auth (no key here: 500).
+      assert.equal((await post("6.6.6.6, 9.9.9.9")).status, 500);
+      assert.equal((await post("7.7.7.7, 9.9.9.9")).status, 500);
+      const res = await post("8.8.8.8, 9.9.9.9");
+      assert.equal(res.status, 429);
+      assert.equal(res.body.error.code, "rate_limited");
+      assert.equal(res.body.error.retryable, true);
+      assert.equal((await post("9.9.9.9, 1.2.3.4")).status, 500, "another address has its own count");
+    });
+  } finally {
+    if (saved !== undefined) process.env.EE_KEY = saved;
   }
 });

@@ -31,26 +31,28 @@ function createCache(db, { now = Date.now, warn = (...args) => console.warn(...a
     }
   }
 
-  function write(ref, endpoint, value, ttlSeconds) {
-    // Fire and forget: the response does not wait for Firestore.
-    const expiresAt = new Date(now() + ttlSeconds * 1000);
-    Promise.resolve()
-      .then(() => ref.set({ endpoint, value, expiresAt }))
-      .catch((err) => warn("cache write failed:", err && err.message ? err.message : String(err)));
+  async function write(ref, endpoint, value, ttlSeconds) {
+    // Awaited before the reply: Cloud Functions throttles the CPU once the response is sent, which can lose the write.
+    try {
+      await ref.set({ endpoint, value, expiresAt: new Date(now() + ttlSeconds * 1000) });
+    } catch (err) {
+      warn("cache write failed:", err && err.message ? err.message : String(err));
+    }
   }
 
   /** Computes in flight in this instance, by cache key: a second identical request waits for the first. */
   const inFlight = new Map();
 
   async function computeAndStore(ref, endpoint, ttlSeconds, compute) {
+    let value;
     try {
-      const value = await compute();
-      write(ref, endpoint, value, ttlSeconds);
-      return value;
+      value = await compute();
     } catch (err) {
-      if (err instanceof NotFound) write(ref, endpoint, { notFound: err.message }, NOT_FOUND_TTL);
+      if (err instanceof NotFound) await write(ref, endpoint, { notFound: err.message }, NOT_FOUND_TTL);
       throw err;
     }
+    await write(ref, endpoint, value, ttlSeconds);
+    return value;
   }
 
   /**

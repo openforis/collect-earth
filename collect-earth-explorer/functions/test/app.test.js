@@ -45,21 +45,18 @@ test("errorToResponse maps EE busy/quota errors to 503 ee_busy", () => {
   }
 });
 
-test("errorToResponse keeps ordinary failures as 500 internal with the message", () => {
-  const { status, body } = errorToResponse(new Error("plot ring needs at least 3 positions"));
-  assert.equal(status, 500);
-  assert.equal(body.error.code, "internal");
-  assert.equal(body.error.retryable, false);
-  assert.equal(body.error.message, "plot ring needs at least 3 positions");
-});
-
-test("errorToResponse hides messages that mention secrets", () => {
-  for (const message of ["EE_KEY secret is not set", "Unexpected token in private_key"]) {
+test("errorToResponse answers every unexpected non-retryable failure as 500 internal without its text", () => {
+  for (const message of ["plot ring needs at least 3 positions", "EE_KEY secret is not set", "Unexpected token in private_key", "x"]) {
     const { status, body } = errorToResponse(new Error(message));
     assert.equal(status, 500);
-    assert.equal(body.error.code, "internal");
-    assert.equal(body.error.message, "Internal error");
+    assert.deepEqual(body, { error: { code: "internal", message: "Internal error", retryable: false } });
   }
+  assert.equal(errorToResponse("a thrown string").body.error.message, "Internal error");
+});
+
+test("errorToResponse passes a RateLimited through as 429 rate_limited, retryable", () => {
+  const { RateLimited } = require("../lib/errors");
+  assert.deepEqual(errorToResponse(new RateLimited("slow down")), { status: 429, body: { error: { code: "rate_limited", message: "slow down", retryable: true } } });
 });
 
 test("errorToResponse passes through errors with status and code", () => {

@@ -13,7 +13,13 @@ export interface PlotParams {
 }
 
 export function toPolygon(g: AnyGeometry): Polygon {
-  if (g.type === "Polygon") return g as Polygon;
+  if (g.type === "Polygon") {
+    const ring: unknown = g.coordinates?.[0];
+    // At least two numbers per position, as the backend reads them (a third, an altitude, is ignored).
+    const isPosition = (c: unknown) => Array.isArray(c) && c.length >= 2 && Number.isFinite(c[0]) && Number.isFinite(c[1]);
+    if (!Array.isArray(ring) || ring.length < 3 || !ring.every(isPosition)) throw new Error("the plot has no outline");
+    return g as Polygon;
+  }
   if (g.type === "MultiLineString" || g.type === "LineString") {
     const ring: number[][] = g.type === "LineString" ? g.coordinates : g.coordinates[0];
     // Collect Earth sends empty coordinates for plots it holds only as a polygon (KML/WKT column, NFI tracts).

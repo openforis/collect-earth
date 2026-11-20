@@ -175,7 +175,7 @@ describe("previewUrl", () => {
     const point = '{"type":"Point","coordinates":[20.25,-3.5]}';
     const url = new URL(previewUrl("", point), "https://x.org");
     expect(url.pathname).toBe("/");
-    expect([...url.searchParams]).toEqual([["geoJson", point], ["plot_id", "Preview"]]);
+    expect([...url.searchParams]).toEqual([["geoJson", point], ["plot_id", "Preview"], ["preview", "1"]]);
     const full = new URL(previewUrl(serialiseDoc(everyType), point, "es"), "https://x.org");
     expect(full.searchParams.get("config")).toBe(serialiseDoc(everyType));
     expect(full.searchParams.get("lang")).toBe("es");

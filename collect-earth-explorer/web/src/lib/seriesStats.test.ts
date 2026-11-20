@@ -5,29 +5,43 @@ import type { Point } from "./csv";
 describe("yearlyMedian", () => {
   const at = (y: number, m: number, value: number): Point => ({ date: Date.UTC(y, m, 1), value });
   const july = (y: number) => Date.UTC(y, 6, 1);
+  /** One point in each of the first `months` months of `y`, all `value`. */
+  const months = (y: number, n: number, value = 0.5) => Array.from({ length: n }, (_, m) => at(y, m, value));
 
   it("gives one median per year with points, on 1 July UTC, for odd, even and single counts, skipping empty years", () => {
     const pts = [
-      at(2018, 0, 0.9), at(2018, 5, 0.1), at(2018, 9, 0.5), // odd: 0.5
+      at(2018, 0, 0.9), at(2018, 2, 0.1), at(2018, 4, 0.5), at(2018, 6, 0.3), at(2018, 8, 0.7), at(2018, 9, 0.6), at(2018, 11, 0.2), // odd: 0.5
       at(2019, 1, 0.2), at(2019, 3, 0.4), at(2019, 7, 0.8), at(2019, 11, 0.6), // even: (0.4 + 0.6) / 2
       // 2020 has no points
       at(2021, 4, 0.7), // a single point
+      ...months(2022, 6, 0.4),
     ];
     const m = yearlyMedian(pts);
-    expect(m.map((p) => p.date)).toEqual([july(2018), july(2019), july(2021)]);
+    expect(m.map((p) => p.date)).toEqual([july(2018), july(2019), july(2021), july(2022)]);
     expect(m[0].value).toBe(0.5);
     expect(m[1].value).toBeCloseTo(0.5);
     expect(m[2].value).toBe(0.7);
+    expect(m[3].value).toBe(0.4);
   });
 
-  it("gives nothing when the points span fewer than three calendar years", () => {
+  it("leaves out a first or last year seen in fewer than six months, keeping a sparse middle year", () => {
+    const pts = [...months(2015, 5), ...months(2016, 6), at(2017, 3, 0.5), ...months(2018, 12), ...months(2019, 5)];
+    expect(yearlyMedian(pts).map((p) => p.date)).toEqual([july(2016), july(2017), july(2018)]);
+    // Six points in only five months is still a part year.
+    const twice = [at(2015, 0, 0.5), ...months(2015, 5), ...months(2016, 6), ...months(2017, 6)];
+    expect(yearlyMedian(twice).map((p) => p.date)).toEqual([]);
+  });
+
+  it("gives nothing when the remaining years span fewer than three calendar years", () => {
     expect(yearlyMedian([])).toEqual([]);
-    expect(yearlyMedian([at(2020, 0, 0.1), at(2021, 11, 0.2)])).toEqual([]);
+    expect(yearlyMedian([...months(2020, 12), ...months(2021, 12)])).toEqual([]);
+    expect(yearlyMedian([...months(2019, 2), ...months(2020, 12), ...months(2021, 12), ...months(2022, 1)])).toEqual([]);
+    expect(yearlyMedian(months(2020, 3))).toEqual([]);
   });
 
-  it("reads the year in UTC", () => {
-    // 2018-12-31T23:30Z is 2018 in UTC whatever the local zone.
-    const m = yearlyMedian([{ date: Date.UTC(2018, 11, 31, 23, 30), value: 0.1 }, at(2020, 0, 0.2)]);
+  it("reads the year and month in UTC", () => {
+    // 2018-12-31T23:30Z is December 2018 in UTC whatever the local zone: 2018 has six months.
+    const m = yearlyMedian([...months(2018, 5), { date: Date.UTC(2018, 11, 31, 23, 30), value: 0.1 }, ...months(2020, 6)]);
     expect(m.map((p) => p.date)).toEqual([july(2018), july(2020)]);
   });
 });

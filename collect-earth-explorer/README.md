@@ -134,6 +134,8 @@ most 2000 characters; `valid` is false while a field is refused or the text is t
 should not save then.
 
 `lang` (any page) sets the interface language when the host's differs from the browser's.
+The preview opens the Explorer with `preview=1`, which keeps its remembered choices in memory only, so
+the person's own remembered view, folds and analysis switches are neither used nor changed.
 
 The address takes two forms. Query: `/?geoJson=…&startTime=…&endTime=…&plot_id=…&config=…`.
 Fragment, as Collect Earth builds it: `/#geoJson=…;plotId=…;startTime=…;endTime=…;config=…;`

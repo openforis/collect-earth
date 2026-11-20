@@ -54,6 +54,7 @@ const params: PlotParams = {
 
 const T0 = 1609459200000; // 2021-01-01T00:00:00Z
 const POINT: Point = { date: T0, value: 0.5, sensor: "LANDSAT_8", id: "x" };
+// Retryable but a 500: postApi retries a 503 or 429 by itself first (api.test.ts), which these tests do not wait for.
 const BUSY = { error: { code: "ee_busy", message: "busy", retryable: true } };
 
 const json = (body: unknown, status = 200) =>
@@ -399,7 +400,7 @@ describe("series cards", () => {
   });
 
   it("a survey's rainfall starts the Rain switch on, and a failed rainfall request leaves the MODIS chart", async () => {
-    fetchMock.mockImplementation(async (url: string) => (url.endsWith("modis") ? json({ ndvi: [{ date: T0, value: 0.4 }], fires: [] }) : json(BUSY, 503)));
+    fetchMock.mockImplementation(async (url: string) => (url.endsWith("modis") ? json({ ndvi: [{ date: T0, value: 0.4 }], fires: [] }) : json(BUSY, 500)));
     setup(<ModisCard params={paramsOf("modis", { rainfall: true })} />);
     expect((screen.getByRole("checkbox", { name: "Rainfall" }) as HTMLInputElement).checked).toBe(true);
     await screen.findByText("Rainfall unavailable");
@@ -429,8 +430,8 @@ describe("series cards", () => {
     }
   });
 
-  it("shows the error and a Retry button on a 503, and Retry re-fetches", async () => {
-    fetchMock.mockResolvedValueOnce(json(BUSY, 503)).mockResolvedValueOnce(json({ points: [POINT] }));
+  it("shows the error and a Retry button on a retryable error, and Retry re-fetches", async () => {
+    fetchMock.mockResolvedValueOnce(json(BUSY, 500)).mockResolvedValueOnce(json({ points: [POINT] }));
     setup(<LandsatNdviCard params={paramsOf("landsat-series")} />);
 
     const retry = await screen.findByRole("button", { name: "Retry" });

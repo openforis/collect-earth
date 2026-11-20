@@ -1,6 +1,7 @@
 const { ee } = require("./auth");
 const { getTileUrl, evaluate } = require("./promise");
 const { notFoundIfEmpty } = require("../lib/errors");
+const { sentinel2CompositeLabel } = require("../lib/labels");
 const { sentinel2Images, SENTINEL_FALSE_COLOUR_RENAMED, SENTINEL_TRUE_COLOUR_RENAMED } = require("./sentinel2");
 
 function sharpen(image) {
@@ -38,7 +39,7 @@ function mayBeEmpty(options = {}) {
 async function sentinel2CompositeImage(plot, end, options) {
   const { image, collection, start, viz } = buildComposite(plot, end, options);
   if (mayBeEmpty(options)) notFoundIfEmpty(await evaluate(collection.size()), `no Sentinel-2 scenes from ${start} to ${end}`);
-  return { image, start, viz, label: `Sentinel-2 composite ${start} to ${end}` };
+  return { image, start, viz, label: sentinel2CompositeLabel(start, end) };
 }
 
 /** Tile URL for the composite ending at `end`; options and 404 as sentinel2CompositeImage. */

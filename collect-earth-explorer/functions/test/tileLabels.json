@@ -1,0 +1,13 @@
+[
+  { "builder": "landsatCompositeLabel", "args": [["Landsat 5"], 1995], "label": "Landsat 5 1995 composite" },
+  { "builder": "landsatCompositeLabel", "args": [["Landsat 8", "Landsat 9"], 2023], "label": "Landsat 8/Landsat 9 2023 composite" },
+  { "builder": "landsatCompositeLabel", "args": [["Landsat 5", "Landsat 7"], 2011], "label": "Landsat 5/Landsat 7 2011 composite" },
+  { "builder": "sentinel2CompositeLabel", "args": ["2024-06-01", "2025-06-01"], "label": "Sentinel-2 composite 2024-06-01 to 2025-06-01" },
+  { "builder": "sentinel1CompositeLabel", "args": [2021], "label": "Sentinel-1 2021 radar composite" },
+  {
+    "builder": "differenceLabel",
+    "args": ["Landsat 8/Landsat 9 2022 composite", "Sentinel-2 composite 2024-01-01 to 2024-12-31"],
+    "label": "NDVI change: Landsat 8/Landsat 9 2022 composite → Sentinel-2 composite 2024-01-01 to 2024-12-31"
+  },
+  { "builder": "differenceLabel", "args": ["Landsat 7 2001 composite", "Landsat 8 2015 composite"], "label": "NDVI change: Landsat 7 2001 composite → Landsat 8 2015 composite" }
+]

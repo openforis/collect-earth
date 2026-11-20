@@ -140,7 +140,8 @@ describe("warm", () => {
     const pending: ((r: Response) => void)[] = [];
     fetchMock.mockImplementation((url: string) => {
       if (url.startsWith("https://ee/")) return Promise.resolve(new Response("img"));
-      return new Promise<Response>((resolve, reject) => pending.push(url.endsWith("ccdc") ? () => reject(new Error("down")) : resolve));
+      // CCDC fails with a 404, which postApi does not retry by itself.
+      return new Promise<Response>((resolve) => pending.push(url.endsWith("ccdc") ? () => resolve(new Response("{}", { status: 404 })) : resolve));
     });
     const done = warm(next, params, config(), 0, 0);
     const flush = () => new Promise((r) => setTimeout(r, 0));

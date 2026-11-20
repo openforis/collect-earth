@@ -1,4 +1,5 @@
 const { getTileUrl } = require("./promise");
+const { differenceLabel } = require("../lib/labels");
 
 /** Brown (loss) through near-white to teal (gain): ColorBrewer BrBG, safe for colour-blind readers. */
 const DIFFERENCE_VIZ = { min: -0.4, max: 0.4, palette: ["8c510a", "d8b365", "f5f5f5", "5ab4ac", "01665e"] };
@@ -10,7 +11,7 @@ const DIFFERENCE_VIZ = { min: -0.4, max: 0.4, palette: ["8c510a", "d8b365", "f5f
 async function differenceTiles(left, right) {
   const ndvi = (side) => side.image.normalizedDifference(side.nirRed || ["nir", "red"]);
   const tileUrl = await getTileUrl(ndvi(right).subtract(ndvi(left)).visualize(DIFFERENCE_VIZ));
-  return { tileUrl, label: `NDVI change: ${left.label} → ${right.label}` };
+  return { tileUrl, label: differenceLabel(left.label, right.label) };
 }
 
 module.exports = { differenceTiles, DIFFERENCE_VIZ };

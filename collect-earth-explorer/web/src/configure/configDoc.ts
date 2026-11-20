@@ -175,9 +175,12 @@ export function summarize(kind: Kind, entry: Entry): string[] {
   return out;
 }
 
-/** The Explorer at `/` on the plot `geoJson` with the stored configuration `config`, as Collect Earth opens it. */
+/**
+ * The Explorer at `/` on the plot `geoJson` with the stored configuration `config`, as Collect Earth opens it;
+ * `preview=1` keeps it off the person's stored choices (lib/prefs.ts).
+ */
 export function previewUrl(config: string, geoJson: string, lang?: string): string {
-  const q = new URLSearchParams({ geoJson, plot_id: "Preview" });
+  const q = new URLSearchParams({ geoJson, plot_id: "Preview", preview: "1" });
   if (config) q.set("config", config);
   if (lang) q.set("lang", lang);
   return `/?${q}`;

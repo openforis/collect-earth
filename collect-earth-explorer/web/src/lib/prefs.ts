@@ -1,11 +1,15 @@
 import { useCallback, useSyncExternalStore } from "react";
 
-/** Viewer preferences kept in localStorage, shared live by every component that reads the same key. */
+/**
+ * Viewer preferences kept in localStorage, shared live by every component that reads the same key. In the editor's
+ * preview (`preview=1`, same origin) only in memory, so it neither uses nor changes the person's remembered choices.
+ */
 
 type Value = boolean | string;
 const listeners = new Set<() => void>();
-// Used only when storage throws (private mode, blocked site data), so a choice still lasts the session.
+// Used when storage throws (private mode, blocked site data), so a choice still lasts the session; alone in the preview.
 const memory = new Map<string, Value>();
+const preview = typeof location !== "undefined" && new URLSearchParams(location.search).get("preview") === "1";
 
 function subscribe(listener: () => void) {
   listeners.add(listener);
@@ -17,6 +21,7 @@ export function readPref(key: string, initial: boolean): boolean;
 export function readPref(key: string, initial: string): string;
 export function readPref(key: string, initial: Value): Value;
 export function readPref(key: string, initial: Value): Value {
+  if (preview) return memory.get(key) ?? initial;
   try {
     const v = localStorage.getItem(key);
     if (v === null) return initial;
@@ -40,7 +45,7 @@ export function usePref(key: string, initial: Value): [Value, (v: never) => void
 export function writePref(key: string, v: Value) {
   memory.set(key, v);
   try {
-    localStorage.setItem(key, String(v));
+    if (!preview) localStorage.setItem(key, String(v));
   } catch {
     // storage unavailable: the in-memory value stands in
   }

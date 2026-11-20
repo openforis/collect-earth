@@ -1,0 +1,268 @@
+{
+  "_comment": "Run by functions/lib/sharedCases.test.js (lib/formula.js checkFormula, lib/catalogue.js paramOf) and web/src/lib/sharedCases.test.ts (config.ts formulaOk, check): both sides must agree.",
+  "formulas": [
+    {
+      "bands": "landsat-series",
+      "accepted": [
+        "(nir - red) / (nir + red)",
+        "2.5 * (nir - red) / (nir + 2.4 * red + 1)",
+        "nir * .5 + 0.25 + 3.",
+        "-nir + red * -2",
+        "sqrt(nir) + abs(red - nir) + min(nir, red) + max(nir, 0.1) + pow(nir, 2)",
+        "sqrt (nir)",
+        "  nir  ",
+        "--nir",
+        "nir + -red",
+        "-(nir)",
+        "min(max(nir, red), pow(swir1, 2))",
+        "nir\t-\nred",
+        "nir + red",
+        "nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir "
+      ],
+      "refused": [
+        "nir + ndvi",
+        "rededge1 - red",
+        "nir; red",
+        "'nir'",
+        "\"nir\"",
+        "nir[0]",
+        "b('nir')",
+        "nir(red)",
+        "exp(nir)",
+        "nir ** 2",
+        "nir % 2",
+        "nir > red ? 1 : 0",
+        "sqrt nir",
+        "nir.red",
+        "1e5 * nir",
+        "(nir - red",
+        "nir - red)",
+        "()",
+        "sqrt()",
+        "nir + * red",
+        "nir +",
+        "* nir",
+        "red 2",
+        "nir red",
+        "(nir)(red)",
+        "min(nir,)",
+        "nir, red",
+        "",
+        "   ",
+        "1 + 2",
+        "sqrt",
+        "nir sqrt(red)",
+        "min(nir, red",
+        "1.5.2 * nir",
+        "NIR - red",
+        "nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir+nir  ",
+        5,
+        null,
+        [
+          "nir"
+        ]
+      ]
+    },
+    {
+      "bands": "sentinel2-series",
+      "accepted": [
+        "(nir - rededge1) / (nir + rededge1)",
+        "rededge3 * 2",
+        "(nir - red) / (nir + red)"
+      ],
+      "refused": [
+        "rededge4 - red",
+        "B8 - B4",
+        "re1"
+      ]
+    }
+  ],
+  "params": [
+    {
+      "kind": "layers",
+      "type": "landsat",
+      "name": "bands",
+      "accepted": [
+        "false-colour",
+        "true-colour"
+      ],
+      "refused": [
+        "False-colour",
+        "",
+        null,
+        1,
+        true
+      ]
+    },
+    {
+      "kind": "charts",
+      "type": "landsat-series",
+      "name": "maxCloud",
+      "accepted": [
+        "any",
+        "40",
+        "10"
+      ],
+      "refused": [
+        40,
+        "50",
+        null
+      ]
+    },
+    {
+      "kind": "layers",
+      "type": "landsat",
+      "name": "maxCloud",
+      "accepted": [
+        1,
+        50,
+        100,
+        50.0
+      ],
+      "refused": [
+        0,
+        101,
+        50.5,
+        "50",
+        null,
+        true,
+        -1
+      ]
+    },
+    {
+      "kind": "layers",
+      "type": "sentinel2",
+      "name": "start",
+      "accepted": [
+        "2020-02-29",
+        "2021-12-31",
+        "1984-01-01"
+      ],
+      "refused": [
+        "2021-02-29",
+        "2021-13-01",
+        "2021-1-01",
+        "2021-01-01T00:00:00Z",
+        "20210101",
+        20210101,
+        "",
+        null
+      ]
+    },
+    {
+      "kind": "layers",
+      "type": "landsat",
+      "name": "year",
+      "maxYear": 2026,
+      "accepted": [
+        1984,
+        2000,
+        2026
+      ],
+      "refused": [
+        1983,
+        2027,
+        2000.5,
+        "2000",
+        null,
+        true
+      ]
+    },
+    {
+      "kind": "layers",
+      "type": "sentinel2",
+      "name": "years",
+      "maxYear": 2026,
+      "accepted": [
+        [
+          2016,
+          2026
+        ],
+        [
+          2020,
+          2020
+        ]
+      ],
+      "refused": [
+        [
+          2020,
+          2019
+        ],
+        [
+          2015,
+          2020
+        ],
+        [
+          2020,
+          2027
+        ],
+        [
+          2020
+        ],
+        [
+          2020,
+          2021,
+          2022
+        ],
+        "2020-2021",
+        [
+          2020,
+          "2021"
+        ],
+        null,
+        {
+          "0": 2020,
+          "1": 2021
+        }
+      ]
+    },
+    {
+      "kind": "charts",
+      "type": "ccdc",
+      "name": "collapsed",
+      "accepted": [
+        true,
+        false
+      ],
+      "refused": [
+        "true",
+        0,
+        1,
+        null
+      ]
+    },
+    {
+      "kind": "layers",
+      "type": "landsat",
+      "name": "label",
+      "accepted": [
+        "",
+        "Dry season 2019",
+        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "a & b \"quoted\""
+      ],
+      "refused": [
+        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "<b>",
+        "a>b",
+        5,
+        null
+      ]
+    },
+    {
+      "kind": "charts",
+      "type": "landsat-series",
+      "name": "formula",
+      "accepted": [
+        "nir",
+        "not checked here ;",
+        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      ],
+      "refused": [
+        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        5,
+        null
+      ]
+    }
+  ]
+}

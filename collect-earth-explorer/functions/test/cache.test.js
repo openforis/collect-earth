@@ -10,7 +10,7 @@ const parsed = { plot: { type: "Polygon", coordinates: [[[0, 0], [1, 0], [1, 1],
  * Minimal in-memory stand-in for the Firestore client surface cache.js uses:
  * db.collection(name).doc(id).get() / .set(data). Records every call.
  */
-function fakeDb({ docs = {}, getError, setError } = {}) {
+function fakeDb({ docs = {}, getError, setError, setGate } = {}) {
   const calls = { get: [], set: [], collections: [] };
   const db = {
     collection(name) {
@@ -26,6 +26,7 @@ function fakeDb({ docs = {}, getError, setError } = {}) {
             },
             async set(data) {
               calls.set.push({ id, data });
+              if (setGate) await setGate;
               if (setError) throw setError;
               docs[id] = data;
             },
@@ -37,7 +38,7 @@ function fakeDb({ docs = {}, getError, setError } = {}) {
   return { db, calls, docs };
 }
 
-/** Lets a fire-and-forget promise chain settle. */
+/** Lets pending promise chains settle. */
 const settle = () => new Promise((r) => setImmediate(r));
 
 test("cache hit returns the stored value with cached: true and does not run compute", async () => {
@@ -152,6 +153,27 @@ test("a NotFound is cached for an hour and thrown again on a hit without computi
   assert.equal(new Date(stored.expiresAt).getTime(), now + 3600 * 1000);
   await assert.rejects(withCache("tiles/scene", parsed, {}, 20 * 3600, compute), { status: 404, code: "not_found", message: "no landsat scene" });
   assert.equal(computed, 1);
+});
+
+test("the reply waits for the cache write, of a value and of a NotFound, so it is not lost once the response is sent", async () => {
+  let open;
+  const { db, calls } = fakeDb({ setGate: new Promise((r) => { open = r; }) });
+  const { withCache } = createCache(db);
+  let settled = 0;
+  const value = withCache("series/modis", parsed, {}, 60, async () => ({ series: [1] })).then((v) => { settled += 1; return v; });
+  const missing = withCache("tiles/scene", parsed, {}, 60, async () => { throw new NotFound("none"); }).catch((e) => { settled += 1; return e; });
+  await settle();
+  assert.equal(calls.set.length, 2);
+  assert.equal(settled, 0, "nothing answers before Firestore has the entries");
+  open();
+  assert.deepEqual(await value, { series: [1] });
+  assert.equal((await missing).status, 404);
+});
+
+test("a NotFound whose write fails is still thrown as the NotFound", async () => {
+  const { db } = fakeDb({ setError: new Error("permission denied") });
+  const { withCache } = createCache(db, { warn: () => {} });
+  await assert.rejects(withCache("tiles/scene", parsed, {}, 60, async () => { throw new NotFound("none"); }), { status: 404, message: "none" });
 });
 
 test("requiring cache.js does not initialise firebase-admin", () => {

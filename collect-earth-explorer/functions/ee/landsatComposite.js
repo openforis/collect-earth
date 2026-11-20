@@ -2,6 +2,7 @@ const { ee } = require("./auth");
 const { getTileUrl, evaluate } = require("./promise");
 const { SENSORS, sensorsForYear } = require("../lib/sensors");
 const { notFoundIfEmpty } = require("../lib/errors");
+const { landsatCompositeLabel } = require("../lib/labels");
 const { maskAndScale } = require("./landsat");
 
 /** Scenes with more cloud over land than this (percent) are dropped before compositing. */
@@ -50,7 +51,7 @@ function buildYearlyComposite(plot, year, options) {
 async function landsatCompositeImage(plot, year, options = {}) {
   const { image, collection, sensorNames } = buildYearlyComposite(plot, year, options);
   notFoundIfEmpty(await evaluate(collection.size()), `no Landsat scenes for ${year}`);
-  return { image, sensorNames, label: `${sensorNames.join("/")} ${year} composite` };
+  return { image, sensorNames, label: landsatCompositeLabel(sensorNames, year) };
 }
 
 /** Tile URL for the yearly Landsat composite; options and 404 as landsatCompositeImage. */

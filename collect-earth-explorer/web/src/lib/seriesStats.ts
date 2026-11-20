@@ -3,20 +3,26 @@ import type { Point } from "./csv";
 /** Pure statistics on a series of observations, computed in the browser. */
 
 /**
- * One point per calendar year (UTC) with values, the median of that year, dated 1 July;
- * nothing when the points span fewer than 3 calendar years.
+ * One point per calendar year (UTC) with values, the median of that year, dated 1 July; the first and the last year
+ * are left out when their points fall in fewer than 6 months. Nothing when the rest spans fewer than 3 calendar years.
  */
 export function yearlyMedian(points: Point[]): Point[] {
-  const byYear = new Map<number, number[]>();
+  const byYear = new Map<number, { values: number[]; months: Set<number> }>();
   for (const p of points) {
-    const year = new Date(p.date).getUTCFullYear();
-    const values = byYear.get(year);
-    if (values) values.push(p.value);
-    else byYear.set(year, [p.value]);
+    const d = new Date(p.date);
+    const year = d.getUTCFullYear();
+    const y = byYear.get(year) ?? { values: [], months: new Set<number>() };
+    y.values.push(p.value);
+    y.months.add(d.getUTCMonth());
+    byYear.set(year, y);
   }
   const years = [...byYear.keys()].sort((a, b) => a - b);
+  // A series starting or ending inside a year has only part of its seasons there: its median would be biased.
+  const partial = (year: number | undefined) => year !== undefined && byYear.get(year)!.months.size < 6;
+  if (partial(years[0])) years.shift();
+  if (partial(years[years.length - 1])) years.pop();
   if (years.length === 0 || years[years.length - 1] - years[0] < 2) return [];
-  return years.map((year) => ({ date: Date.UTC(year, 6, 1), value: median(byYear.get(year)!) }));
+  return years.map((year) => ({ date: Date.UTC(year, 6, 1), value: median(byYear.get(year)!.values) }));
 }
 
 export function median(values: number[]): number {

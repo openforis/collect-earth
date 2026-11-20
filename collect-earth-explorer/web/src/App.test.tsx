@@ -3,7 +3,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import App from "./App";
 
-vi.mock("./components/MapView", () => ({ default: (p: { tileUrl?: string }) => <div data-testid="map" data-tile={p.tileUrl} /> }));
+// What a test makes throw while rendering: the map, or the card of one chart type.
+const crash = vi.hoisted(() => ({ map: false, card: "" }));
+vi.mock("./components/MapView", () => ({
+  default: (p: { tileUrl?: string }) => {
+    if (crash.map) throw new Error("map broke");
+    return <div data-testid="map" data-tile={p.tileUrl} />;
+  },
+}));
 vi.mock("./components/CompareMap", () => ({
   default: (p: { leftTileUrl?: string; rightTileUrl?: string }) => (
     <div data-testid="compare-map" data-left={p.leftTileUrl} data-right={p.rightTileUrl} />
@@ -12,7 +19,10 @@ vi.mock("./components/CompareMap", () => ({
 // The series cards fetch and render Plotly; they have their own tests under components/charts.
 // Each probe shows the params its entry passed it.
 const card = (id: string) => ({
-  default: (p: { params: object }) => <div data-testid={`card-${id}`} data-params={JSON.stringify(p.params)} />,
+  default: (p: { params: object }) => {
+    if (crash.card === id) throw new Error("card broke");
+    return <div data-testid={`card-${id}`} data-params={JSON.stringify(p.params)} />;
+  },
 });
 vi.mock("./components/charts/CcdcCard", () => card("ccdc"));
 vi.mock("./components/charts/LandsatNdviCard", () => card("landsat"));
@@ -50,6 +60,8 @@ describe("App", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     window.history.replaceState({}, "", "/");
+    crash.map = false;
+    crash.card = "";
   });
 
   it("explains the missing geoJson parameter instead of rendering the viewer", () => {
@@ -251,13 +263,14 @@ describe("App", () => {
     expect(screen.getAllByRole("radio")).toHaveLength(2);
   });
 
-  it("shows a retryable (503) imagery error with a Retry button that re-requests the tiles", async () => {
+  // A 500 the server marks retryable: a 503 or 429 is retried by postApi itself first (api.test.ts).
+  it("shows a retryable imagery error with a Retry button that re-requests the tiles", async () => {
     window.history.replaceState({}, "", PLOT_URL);
     const busy = { error: { code: "busy", message: "Earth Engine is busy", retryable: true } };
     let sentinelCalls = 0;
     fetchMock.mockImplementation(async (url: string) => {
       if (url === "/api/tiles/landsat") return json(LANDSAT_TILE);
-      return ++sentinelCalls === 1 ? json(busy, 503) : json(TILE);
+      return ++sentinelCalls === 1 ? json(busy, 500) : json(TILE);
     });
     render(<App />);
 
@@ -362,5 +375,33 @@ describe("App", () => {
     expect(screen.getByTestId("compare-map")).toBeTruthy();
     expect(await screen.findByText(`Right: ${LANDSAT_TILE.label}`)).toBeTruthy();
     expect(callsTo(fetchMock, "/api/tiles/difference")).toHaveLength(1);
+  });
+
+  // After the tests above: rendering a card here loads the lazy chunks, and one above expects their fallback.
+  it("a Polygon without a usable outline ends on the welcome page's bad-plot text", () => {
+    window.history.replaceState({}, "", `/?geoJson=${encodeURIComponent('{"type":"Polygon","coordinates":[]}')}`);
+    render(<App />);
+    expect(screen.getByText(/The plot in the address cannot be read/)).toBeTruthy();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("a chart card that throws leaves a line in its place and the rest of the page", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    crash.card = "landsat";
+    window.history.replaceState({}, "", PLOT_URL);
+    render(<App />);
+    expect(await screen.findByText("This chart could not be shown.")).toBeTruthy();
+    expect(screen.getByTestId("card-ccdc")).toBeTruthy();
+    expect(screen.getByTestId("map")).toBeTruthy();
+    vi.mocked(console.error).mockRestore();
+  });
+
+  it("a viewer that throws shows the welcome page's bad-plot text instead of a blank page", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    crash.map = true;
+    window.history.replaceState({}, "", PLOT_URL);
+    render(<App />);
+    expect(screen.getByText(/The plot in the address cannot be read/)).toBeTruthy();
+    vi.mocked(console.error).mockRestore();
   });
 });
