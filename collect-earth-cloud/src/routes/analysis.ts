@@ -5,7 +5,7 @@ import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { gzipSync } from 'node:zlib';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { analysisModel, analysisTables, ATTRIBUTE_AREAS_CSV, csvTextOf, expansionFactors, recordId, REGION_AREAS_CSV, type AnalysisModel, type AnalysisRecord, type Factors } from '../analysis.js';
+import { analysisModel, analysisTables, answerId, ATTRIBUTE_AREAS_CSV, csvTextOf, expansionFactors, recordId, REGION_AREAS_CSV, type AnalysisModel, type AnalysisRecord, type Factors } from '../analysis.js';
 import { earlierTotalArea, strataFactors, strataOfFile, totalFactors, type AreaSettings } from '../areas.js';
 import { plotFileOf } from '../plotFileCache.js';
 import { fileKeyCount } from '../rounds.js';
@@ -16,6 +16,7 @@ import { requireProjectMembership } from '../plugins/projectAuth.js';
 import type { ProjectStateCache, ServedState } from '../projectState.js';
 import { remember } from '../qualityService.js';
 import { recordResolver } from '../quality.js';
+import { correctedStamp, loadCorrectedAnswers, type CorrectedAnswer } from '../corrections.js';
 import { periodSummaryKey, withPeriodColumns } from '../repeatSurvey.js';
 import type { Store } from '../store/store.js';
 import type { RecordRow, SharedAnalysisView } from '../types.js';
@@ -236,6 +237,12 @@ export async function registerAnalysisRoutes(app: FastifyInstance, store: Store,
       return out;
     };
 
+    // The expansion factors are the plots', from their answers (a plot's correction, else its first assessment): over the
+    // whole project, whoever asks
+    const { factors, firsts, mains } = await stateFactors(store, projectId, read, served, everyone ? { rows } : {});
+    // Which row is each plot's answer, told to coordinators (the column the views start filtered on)
+    const answers = everyone ? new Set([...firsts.values()].map((f) => answerId(f.recordKey, f.operator, f.correction === true))) : null;
+
     const records: AnalysisRecord[] = [];
     for (const r of rows) {
       if (r.deleted) continue;
@@ -249,13 +256,29 @@ export async function registerAnalysisRoutes(app: FastifyInstance, store: Store,
         submitted: r.activelySaved,
         modifiedOn: r.modifiedOn,
         summary: withEarlier(r.summary, round.plot),
+        answer: answers ? answers.has(answerId(r.recordKey, r.operator)) : null,
       });
     }
+    // The plots' corrections (coordinators): a row of their own, each its plot's answer
+    if (everyone) {
+      for (const c of (await loadCorrectedAnswers(store, projectId, context.reference)).values()) {
+        const { round } = resolve({ recordKey: c.recordKey, operator: c.operator });
+        records.push({
+          recordKey: c.recordKey,
+          operator: c.operator,
+          plot: c.plot,
+          round: round.round,
+          assessment: 'correction',
+          submitted: true,
+          modifiedOn: c.correctedAt,
+          summary: withEarlier(c.summary, round.plot),
+          answer: answers!.has(answerId(c.recordKey, c.operator, true)),
+        });
+      }
+    }
 
-    // The expansion factors are the plots', from their first assessments: over the whole project, whoever asks
-    const { factors, firsts } = await stateFactors(store, projectId, read, served, everyone ? { rows } : {});
-
-    const tables = analysisTables(model, records, factors ? factorsByRecord(factors, firsts) : null, { hideRounds: !everyone });
+    // A collector's own records are weighted as their first assessments: corrections are no records of theirs
+    const tables = analysisTables(model, records, factors ? factorsByRecord(factors, everyone ? firsts : mains) : null, { hideRounds: !everyone });
     return {
       model,
       scope: everyone ? 'project' : 'own',
@@ -317,8 +340,18 @@ export interface FirstAssessment {
   recordKey: string;
   operator: string;
   summary: Record<string, string>;
+  /** It is the plot's correction (src/corrections.ts), not a record */
+  correction?: boolean;
 }
-export function firstAssessments(rows: readonly RecordRow[], resolve: ReturnType<typeof recordResolver>): Map<string, FirstAssessment> {
+/**
+ * `corrected` (loadCorrectedAnswers): a plot's correction is its answer instead of its first assessment, so everything
+ * worked out from these (the areas, the uncertainty, the IPCC files, the export's weights) reads the corrections.
+ */
+export function firstAssessments(
+  rows: readonly RecordRow[],
+  resolve: ReturnType<typeof recordResolver>,
+  corrected: ReadonlyMap<string, CorrectedAnswer> = new Map(),
+): Map<string, FirstAssessment> {
   const firsts = new Map<string, FirstAssessment & { at: number }>();
   for (const r of rows) {
     if (r.deleted || !r.activelySaved) continue;
@@ -330,6 +363,7 @@ export function firstAssessments(rows: readonly RecordRow[], resolve: ReturnType
     if (had && (had.at < at || (had.at === at && recordId(had.recordKey, had.operator) <= recordId(r.recordKey, r.operator)))) continue;
     firsts.set(unit, { recordKey: r.recordKey, operator: r.operator, summary: r.summary, at });
   }
+  for (const c of corrected.values()) firsts.set(c.plot, { recordKey: c.recordKey, operator: c.operator, summary: c.summary, correction: true, at: c.correctedAt });
   return firsts;
 }
 
@@ -366,7 +400,10 @@ export async function projectFactors(
 /** What stateFactors gives: projectFactors', the plots' first assessments without their answers, and the plots' values of `columns`. */
 export interface StateFactors {
   factors: Factors | null;
-  firsts: Map<string, Pick<FirstAssessment, 'recordKey' | 'operator'>>;
+  /** Each plot's answer: its correction where it has one, else its first submitted assessment */
+  firsts: Map<string, Pick<FirstAssessment, 'recordKey' | 'operator' | 'correction'>>;
+  /** Each plot's first submitted assessment, corrections left aside (a collector's own records are weighted by these) */
+  mains: Map<string, Pick<FirstAssessment, 'recordKey' | 'operator'>>;
   /** Each first-assessed plot's values of the columns asked for, as strataValues gives them. */
   strata: Map<string, (string | undefined)[]>;
 }
@@ -404,21 +441,30 @@ export async function stateFactors(
 ): Promise<StateFactors> {
   const { state } = served;
   const columns = options.columns ?? [];
-  const [settings, total] = await Promise.all([store.getAreaSettings(projectId), earlierTotalArea(store, projectId)]);
+  // The plots' corrections are their answers (src/corrections.ts): a correction sent changes no record, so it is part of
+  // what the factors are kept by
+  const [settings, total, corrected] = await Promise.all([
+    store.getAreaSettings(projectId),
+    earlierTotalArea(store, projectId),
+    loadCorrectedAnswers(store, projectId, state.context.reference),
+  ]);
   const compute = async (): Promise<StateFactors> => {
     // only the answers the factors and the columns are read from: not every answer of every record
     const keys = [...new Set([...factorKeys(parsed, settings), ...summaryKeysOf(parsed.model, columns)])];
     const rows = options.rows ?? (await store.listRecordSummaries(projectId, { firstSubmissions: true, keys }));
     const { context } = state;
-    const firsts = firstAssessments(rows, recordResolver({ info: context.info, units: context.units, copyHolders: context.copyHolders }));
+    const resolve = recordResolver({ info: context.info, units: context.units, copyHolders: context.copyHolders });
+    const mains = firstAssessments(rows, resolve);
+    const firsts = corrected.size > 0 ? firstAssessments(rows, resolve, corrected) : mains;
     const plotFiles = plotFilesOf(store, projectId);
     const factors = await projectFactors(store, projectId, parsed, firsts, context.info, plotFiles);
     const strata = columns.length > 0 ? (await strataValues(plotFiles, parsed.model, context.info, columns, firsts)).values : new Map<string, (string | undefined)[]>();
-    return { factors, firsts: new Map([...firsts].map(([unit, f]) => [unit, { recordKey: f.recordKey, operator: f.operator }])), strata };
+    const ids = (from: Map<string, FirstAssessment>) => new Map([...from].map(([unit, f]) => [unit, { recordKey: f.recordKey, operator: f.operator, correction: f.correction }]));
+    return { factors, firsts: ids(firsts), mains: ids(mains), strata };
   };
   // A stale state keeps its factors too (as old as the rest of what it serves): with collectors syncing all day, a state
   // is stale most of the time, and working the factors out for each request read every first assessment each time.
-  const key = JSON.stringify([settings, total, columns]);
+  const key = JSON.stringify([settings, total, columns, correctedStamp(corrected)]);
   const kept = (state.factors ??= new Map());
   const had = kept.get(key);
   // (the same survey: modelOf gives one object per project file)
@@ -512,11 +558,11 @@ export async function plotFileValues(
 }
 
 /** The factors by the record that counts for each plot (its first assessment): what analysisTables writes. */
-export function factorsByRecord(factors: Factors, firsts: ReadonlyMap<string, Pick<FirstAssessment, 'recordKey' | 'operator'>>): Map<string, { factor: number; weight: number }> {
+export function factorsByRecord(factors: Factors, firsts: ReadonlyMap<string, Pick<FirstAssessment, 'recordKey' | 'operator' | 'correction'>>): Map<string, { factor: number; weight: number }> {
   const out = new Map<string, { factor: number; weight: number }>();
   for (const [unit, first] of firsts) {
     const f = factors.byPlot.get(unit);
-    if (f) out.set(recordId(first.recordKey, first.operator), f);
+    if (f) out.set(answerId(first.recordKey, first.operator, first.correction === true), f);
   }
   return out;
 }

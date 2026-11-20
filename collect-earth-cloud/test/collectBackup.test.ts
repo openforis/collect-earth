@@ -186,6 +186,18 @@ describe('planBackup: which records, one per key', () => {
     expect(plan).toMatchObject({ sameKey: 4, sameKeyExamples: ['1,1', '2,1', '3,1', '5,1'], drafts: 1 });
   });
 
+  it("a plot's correction takes the place of the record of its key, in both modes, and is written with its XML", async () => {
+    const records = [state('1,1', 'ana'), state('1,2', 'ben'), state('2,1', 'ana')];
+    const corrections = new Map([['1,1', { operator: 'maria', xml: '<plot>corrected</plot>' }]]);
+    for (const rounds of ['1', 'all'] as const) {
+      const plan = planBackup(input(records, { corrections }), rounds);
+      expect(plan.records.find((r) => r.recordKey === '1,1')).toEqual({ recordKey: '1,1', operator: 'maria', correction: { xml: '<plot>corrected</plot>' } });
+      expect(plan.corrected).toBe(1);
+      expect(plan.sameKey).toBe(0);
+    }
+    expect(planBackup(input(records, { corrections }), 'all').records.map((r) => r.recordKey)).toEqual(['1,1', '1,2', '2,1']);
+  });
+
   it('a record without XML never wins its key, and is counted', () => {
     const records = [state('1,1', 'ana', { modifiedOn: 900 }), state('1,1', 'ben', { modifiedOn: 100 }), state('2,1', 'ana')];
     const plan = planBackup(input(records, { hasXml: (r) => !(r.operator === 'ana') }), '1');

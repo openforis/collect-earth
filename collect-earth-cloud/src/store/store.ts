@@ -739,8 +739,11 @@ export interface Store {
   ): Promise<string[]>;
   /** False when the plot had no decision. */
   deleteQualityDecision(projectId: string, plot: string): Promise<boolean>;
-  /** The plots to correct and their corrections, by plot (docs/plans/2026-11-20-review-at-scale.md, B2); the XML and summary with `withRecords` */
-  listCorrections(projectId: string, options?: { withRecords?: boolean }): Promise<QualityCorrection[]>;
+  /**
+   * The plots to correct and their corrections, by plot (docs/plans/2026-11-20-review-at-scale.md, B2); `withRecords`:
+   * the corrected records' XML and summary (true), or their summary only ('summary')
+   */
+  listCorrections(projectId: string, options?: { withRecords?: boolean | 'summary' }): Promise<QualityCorrection[]>;
   /**
    * Assigns plots to people to correct (userId null: to nobody), in one transaction; a plot's correction already made is
    * kept. `by`: who assigned them (null for a project token).

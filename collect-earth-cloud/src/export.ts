@@ -1,4 +1,4 @@
-import { recordId, type AnalysisColumn, type AnalysisModel } from './analysis.js';
+import { answerId, type AnalysisColumn, type AnalysisModel } from './analysis.js';
 import type { RoundInfo } from './cep.js';
 import type { FinalAnswer } from './quality.js';
 import { copyUnitsByUser, recordRound, unitOfRecord, type RecordRound } from './rounds.js';
@@ -148,7 +148,7 @@ export function recordsTable(
       return labels[i] ? [value, value === '' ? '' : labels[i](value)] : [value];
     });
     // Only the record the analysis counts for its plot: a sum of the column counts each plot once.
-    const weight = weights?.get(recordId(r.recordKey, r.operator));
+    const weight = weights?.get(answerId(r.recordKey, r.operator, options.corrections?.has(r) === true));
     return [...fixed, ...answers, ...(weights ? (weight ? [String(weight.factor), String(weight.weight)] : ['', '']) : [])];
   });
   const answerColumns = summaryKeys.flatMap((k, i) => (labels[i] ? [k, `${k}_label`] : [k]));

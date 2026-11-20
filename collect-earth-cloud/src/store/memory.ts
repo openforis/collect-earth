@@ -2439,7 +2439,7 @@ export class InMemoryStore implements Store {
     return added;
   }
 
-  async listCorrections(projectId: string, options: { withRecords?: boolean } = {}): Promise<QualityCorrection[]> {
+  async listCorrections(projectId: string, options: { withRecords?: boolean | 'summary' } = {}): Promise<QualityCorrection[]> {
     const entry = this.projects.get(projectId);
     if (!entry) return [];
     const name = (id: string | null) => (id ? (this.users.get(id)?.username ?? null) : null);
@@ -2455,7 +2455,7 @@ export class InMemoryStore implements Store {
         correctedAt: c.correctedAt,
         baseOperator: c.baseOperator,
         recordKey: c.recordKey,
-        ...(options.withRecords ? { xml: c.xml, summary: c.summary ? { ...c.summary } : null } : {}),
+        ...(options.withRecords ? { xml: options.withRecords === 'summary' ? null : c.xml, summary: c.summary ? { ...c.summary } : null } : {}),
       }));
   }
 

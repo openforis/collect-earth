@@ -208,3 +208,22 @@ the local operator (`AbstractEarthSurveyService.updatePlacemarkData`). So correc
      it asks for the statuses at once.
    - The reviewer's comment showed twice (the panel, and the plot file's coordinator note): the note is left empty in
      `my-corrections.csv`. The refusal's text repeated itself: the reason alone is shown.
+
+## After the run (20 Nov 2026)
+
+Asked: "use the corrections for the analysis and all further works. make the refusal a warning instead."
+
+- **A plot's correction is its answer** everywhere the plots' answers are read (`src/corrections.ts`
+  `loadCorrectedAnswers`, `firstAssessments(rows, resolve, corrected)`): the Analysis page (a row of its own, assessment
+  "Correction"; a new column "Plot's answer", yes on the row each plot is counted by, which the views now start
+  filtered on instead of "Assessment = first assessment"), its summary, the areas and the uncertainty (`stateFactors`,
+  kept by the corrections too), the IPCC files, the export's `expansion_factor` (on the correction's row), the Collect
+  backup (the correction's XML in place of the record of its key, in both modes), and a repeat survey's earlier answers
+  and comparisons. A person who corrects a plot they answered is counted once (`answerId` tells the two rows apart).
+  The quality figures, the people's figures, the progress and the answers page still read the interpreters' records.
+- **A plot of one's own is a warning, never a refusal**: it stays in the queue and the list marked "yours" (the card
+  and the plot page say it is better decided by someone else), a decision on it goes through (`byAssessor` on the
+  decision, `own: true` in its audit entry), and a decision on many says how many of them are the person's own
+  (`own`, `ownCount`). Coordinators are warned the same way. Kept: a reviewer's copy not yet checked stays out of their
+  queue and its page is not shown until their check is submitted, as that check is to be made blind.
+

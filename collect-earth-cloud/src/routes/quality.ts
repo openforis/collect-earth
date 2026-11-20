@@ -96,12 +96,6 @@ export function publicDecision(d: QualityDecision, flags?: FlagTable | null): Pu
   return { ...rest, byAssessor: !!flags && d.decidedBy !== null && plotOperators(flags, d.plot).has(d.decidedBy) };
 }
 
-/** What a reviewer is told when deciding a plot they assessed. */
-const OWN_PLOT = {
-  error: 'own_plot',
-  reason: 'You made the first assessment or a check of this plot, so someone else decides it.',
-} as const;
-
 /** What a coordinator is told when deciding a reference plot (Task 14). */
 const REFERENCE_PLOT = {
   error: 'reference_plot',
@@ -375,9 +369,9 @@ export async function registerQualityRoutes(
   });
 
   /**
-   * The review queue as the asker may see it, with what it was made from (the queue and the list share it): a
-   * reviewer's own plots and copies left out (the 409's rule, Decision 10), reference plots hidden. Null when the
-   * figures' answer was sent instead (being worked out).
+   * The review queue as the asker may see it, with what it was made from (the queue and the list share it): reference
+   * plots hidden; the asker's own plots (a record of theirs, or a copy they hold) in it, marked: deciding one is a
+   * warning, never a refusal (decided 20 Nov 2026). Null when the figures' answer was sent instead (being worked out).
    */
   async function queueOf(request: FastifyRequest, reply: FastifyReply, person: string | null, kind: QueueKind | null) {
     const projectId = request.membership!.projectId;
@@ -396,15 +390,19 @@ export async function registerQualityRoutes(
     const flags = patternFlags(figures, decisions, { fastSeconds, person, kind: flagKind });
     // The person menu names everyone, whatever the filters: everyone's flags when filtered.
     const everyones = person !== null || flagKind !== null ? patternFlags(figures, decisions, { fastSeconds }).flags : flags.flags;
-    // A reviewer's queue leaves out the plots they assessed: someone else decides them (the 409's rule).
+    // The asker's own plots, marked (someone else had better decide them): those they assessed, and their copies,
+    // checked or not yet (a check to make blind is theirs, Decision 10)
     const { role, userId } = request.membership!;
-    const reviewerName = role === 'admin' || !userId ? null : ((await store.getUserById(userId))?.username ?? null);
-    // Their copies too, checked or not yet (Decision 10: a check to make blind is theirs).
-    const copies = reviewerName !== null ? await copiesHeld(store, projectId, userId!) : new Set<string>();
-    const excluded = reviewerName !== null ? new Set([...plotsOf(figures.flags, reviewerName), ...copies]) : null;
+    const askerName = userId ? ((await store.getUserById(userId))?.username ?? null) : null;
+    const reviewerName = role === 'admin' ? null : askerName;
+    const copies = askerName !== null ? await copiesHeld(store, projectId, userId!) : new Set<string>();
+    const assessed = askerName !== null ? plotsOf(figures.flags, askerName) : new Set<string>();
+    const own = new Set([...assessed, ...copies]);
+    // A reviewer's copy not checked yet stays out, as its page does: the check is to be made blind (Decision 10)
+    const unchecked = reviewerName !== null ? [...copies].filter((plot) => !assessed.has(plot)) : [];
     // Nor is a copy of theirs or a reference plot named as another flag's previous or first plot.
     const unnamed = reviewerName !== null ? new Set([...copies, ...figures.reference.byPlot.map((p) => p.plot)]) : null;
-    const hidden = new Set(figures.reference.byPlot.map((p) => p.plot));
+    const hidden = new Set([...figures.reference.byPlot.map((p) => p.plot), ...unchecked]);
     const queue = reviewQueue(
       {
         pairs: figures.report.pairs,
@@ -412,12 +410,11 @@ export async function registerQualityRoutes(
         everyonesFlags: everyones,
         resubmitted: resubmittedAfterRecheck(figures.flags, decisions),
         decided: new Map(decisions.map((d) => [d.plot, d.decision])),
-        ...(excluded !== null ? { excluded } : {}),
         hidden,
       },
       { person, kind },
     );
-    return { figures, decisions, settings, outline, members, queue, flags, everyones, excluded, hidden, unnamed };
+    return { figures, decisions, settings, outline, members, queue, flags, everyones, own, hidden, unnamed };
   }
 
   // The review queue (Task 7), for coordinators and reviewers (never collectors): differences
@@ -450,7 +447,7 @@ export async function registerQualityRoutes(
     if (!built) {
       return reply;
     }
-    const { figures, decisions, settings, outline, members, queue, flags, unnamed } = built;
+    const { figures, decisions, settings, outline, members, queue, flags, unnamed, own } = built;
     // Who can still submit a plot sent back: members now, not disabled.
     const active = new Set(members.filter((m) => !m.disabled).map((m) => m.username));
     const inQueue = askedPlots === null ? null : new Map(queue.items.map((item) => [item.plot, item]));
@@ -492,6 +489,7 @@ export async function registerQualityRoutes(
         resubmitted: item.resubmitted,
         ...waiting,
         decision: decision ? publicDecision(decision, figures.flags) : null,
+        ...(own.has(item.plot) ? { own: true } : {}),
       };
     });
     // The questions shown, by their labels and answer options ("Forest", not "F").
@@ -508,8 +506,6 @@ export async function registerQualityRoutes(
       counts: queue.counts,
       // the person filter's names: a coordinator's (a reviewer has no such filter)
       people: coordinatorAsks ? queue.people : [],
-      // A reviewer's own plots left out of the queue (0 for a coordinator).
-      excludedOwn: queue.excluded,
       // The flags looked at are the newest MAX_LISTED_FLAGS of those matching the filters.
       flagsCapped: flags.total > flags.flags.length,
       labels,
@@ -545,7 +541,7 @@ export async function registerQualityRoutes(
     if (!built) {
       return reply;
     }
-    const { figures, decisions, queue, everyones, excluded, hidden } = built;
+    const { figures, decisions, queue, everyones, own, hidden } = built;
     const byPlot = new Map(decisions.map((d) => [d.plot, d]));
     const { lines, total } = reviewList(
       {
@@ -554,19 +550,18 @@ export async function registerQualityRoutes(
         flags: everyones,
         decided: new Map(decisions.map((d) => [d.plot, { decision: d.decision, at: d.decidedAt }])),
         operatorsOf: (plot) => plotOperators(figures.flags, plot),
-        left: new Set([...(excluded ?? []), ...hidden]),
+        left: hidden,
       },
       { state, person, kind: kind as QueueKind | null, q: search, sort, descending, offset, limit },
     );
     return reply.send({
       lines: lines.map((line) => {
         const decision = byPlot.get(line.plot);
-        return { ...line, decision: decision ? publicDecision(decision, figures.flags) : null };
+        return { ...line, decision: decision ? publicDecision(decision, figures.flags) : null, ...(own.has(line.plot) ? { own: true } : {}) };
       }),
       total,
       offset,
       people: coordinatorAsks ? queue.people : [],
-      excludedOwn: queue.excluded,
       computedAt: figures.computedAt,
       stale: figures.stale,
     } satisfies ReviewListAnswer);
@@ -672,7 +667,7 @@ export async function registerQualityRoutes(
     if (!built) {
       return reply;
     }
-    const { figures, decisions, queue, everyones, excluded, hidden } = built;
+    const { figures, decisions, queue, everyones, own, hidden } = built;
     const { lines } = reviewList(
       {
         queue: queue.items,
@@ -680,7 +675,7 @@ export async function registerQualityRoutes(
         flags: everyones,
         decided: new Map(decisions.map((d) => [d.plot, { decision: d.decision, at: d.decidedAt }])),
         operatorsOf: (plot) => plotOperators(figures.flags, plot),
-        left: new Set([...(excluded ?? []), ...hidden]),
+        left: hidden,
       },
       { ...filter, sort: 'queue', descending: false, offset: 0, limit: Number.MAX_SAFE_INTEGER },
     );
@@ -696,7 +691,7 @@ export async function registerQualityRoutes(
       const line = listed.get(plot);
       if (!line) {
         // Why, as far as the asker may know it: a reviewer learns nothing of reference plots (Decision 10)
-        const reason: SkippedPlot['reason'] = excluded?.has(plot) ? 'own_plot' : coordinator && hidden.has(plot) ? 'reference_plot' : 'not_in_list';
+        const reason: SkippedPlot['reason'] = coordinator && hidden.has(plot) ? 'reference_plot' : 'not_in_list';
         skipped.push({ plot, reason });
       } else if (decision === 'check' && line.checks === 0) {
         skipped.push({ plot, reason: 'no_check' });
@@ -706,6 +701,8 @@ export async function registerQualityRoutes(
     }
     const plan = assign !== undefined ? await planAssignment(store, projectId, take, assign as string[]) : null;
     if (plan && 'reason' in plan) return reply.code(400).send(bad(plan.reason));
+    // The asker's own plots among them: said (the dialog's warning, the audit), never refused (decided 20 Nov 2026)
+    const ownTaken = take.filter((plot) => own.has(plot));
     const answer = (count: number, plots: string[], batch: string | null) =>
       reply.send({
         decision,
@@ -715,6 +712,8 @@ export async function registerQualityRoutes(
         skippedCount: skipped.length,
         dryRun,
         batch,
+        own: ownTaken.slice(0, MAX_BULK_LISTED),
+        ownCount: ownTaken.length,
         ...(plan ? { assignment: plan.preview } : {}),
       } satisfies ApplyDecisionsAnswer);
     if (dryRun || take.length === 0) {
@@ -730,7 +729,7 @@ export async function registerQualityRoutes(
       { replace: true },
     );
     if (decided.length > 0) {
-      await audit(store, request, 'decision.applied', { decision, count: decided.length, batch });
+      await audit(store, request, 'decision.applied', { decision, count: decided.length, batch, ...(ownTaken.length > 0 ? { own: ownTaken.length } : {}) });
     }
     if (plan && decided.length > 0) {
       await store.assignCorrections(projectId, plan.assignments, request.membership!.userId ?? null, Date.now());
@@ -843,7 +842,7 @@ export async function registerQualityRoutes(
     }
     // What the coordinator or reviewer decided on: the plot's records as the figures at hand show them
     // (never computed here for a coordinator), for "saved again after a decision" (pattern flags).
-    // A reviewer's own plot is a 409 first, so a reference plot answers them as no plot at all.
+    // (A plot of the asker's own is decided all the same, and noted.)
     const figures = await figuresForDecision(request, reply);
     if (figures === undefined) {
       return reply;
@@ -857,18 +856,19 @@ export async function registerQualityRoutes(
     if (!(await plotExists(projectId, plot, request.log))) {
       return reply.code(404).send(NO_SUCH_PLOT);
     }
-    const seen: DecisionSeen[] | null = figures ? seenOf(figures.flags, plot) : null;
+    const seen: DecisionSeen[] | null = figures.report ? seenOf(figures.report.flags, plot) : null;
     const decision = await store.setQualityDecision(projectId, plot, body.decision as DecisionKind, comment, request.membership!.userId ?? null, seen);
-    await audit(store, request, 'decision.set', { plot, decision: decision.decision });
-    return reply.send(publicDecision(decision, figures?.flags));
+    // A plot of the asker's own: decided all the same (a warning on the page, decided 20 Nov 2026), and noted
+    await audit(store, request, 'decision.set', { plot, decision: decision.decision, ...(figures.own ? { own: true } : {}) });
+    return reply.send(publicDecision(decision, figures.report?.flags));
   });
 
   /**
-   * The figures a decision route works with: those at hand (null when none). A reviewer may not
-   * decide (or undo) a plot they assessed (Decision 3): for them the figures are worked out when
-   * none are at hand, and a plot of theirs is a 409. Undefined when the answer was sent.
+   * The figures a decision route works with (those at hand; null when none, worked out for a reviewer), and whether the
+   * plot is the asker's own (a record of theirs, or a copy they hold): once refused (409, Decision 3), now decided all
+   * the same and noted (decided 20 Nov 2026). Undefined when the answer was sent.
    */
-  async function figuresForDecision(request: FastifyRequest, reply: FastifyReply): Promise<ServedReport | null | undefined> {
+  async function figuresForDecision(request: FastifyRequest, reply: FastifyReply): Promise<{ report: ServedReport | null; own: boolean } | undefined> {
     const { projectId, role, userId } = request.membership!;
     let figures: ServedReport | null = null;
     try {
@@ -876,21 +876,16 @@ export async function registerQualityRoutes(
     } catch (err) {
       request.log.warn({ err, projectId }, 'quality: the figures at hand could not be read for a decision');
     }
-    if (role === 'admin') {
-      return figures;
-    }
-    figures ??= await served(quality, projectId, request, reply);
-    if (!figures) {
-      return undefined;
+    if (role !== 'admin') {
+      figures ??= await served(quality, projectId, request, reply);
+      if (!figures) {
+        return undefined;
+      }
     }
     const user = userId ? await store.getUserById(userId) : null;
     const plot = plotOf(request)!;
-    // A record of theirs, or a copy they hold (a check to make blind, Decision 10).
-    if (user && (plotOperators(figures.flags, plot).has(user.username) || (await copiesHeld(store, projectId, user.id)).has(plot))) {
-      void reply.code(409).send(OWN_PLOT);
-      return undefined;
-    }
-    return figures;
+    const own = !!user && ((figures !== null && plotOperators(figures.flags, plot).has(user.username)) || (await copiesHeld(store, projectId, user.id)).has(plot));
+    return { report: figures, own };
   }
 
   /** Whether the plot is in a plot file of the project or has records (a plot in no file is a data problem the queue lists). */

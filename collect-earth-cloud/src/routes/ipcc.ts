@@ -3,6 +3,7 @@ import { audit } from '../activity.js';
 import { cell } from '../analysis.js';
 import { readCep } from '../cep.js';
 import { attachment } from '../download.js';
+import { loadCorrectedAnswers } from '../corrections.js';
 import {
   ghgiXml,
   ipccPlots,
@@ -81,7 +82,9 @@ export async function registerIpccRoutes(app: FastifyInstance, store: Store, sta
     if (survey.missing.length > 0) return { cep, survey, regions, plots: [] as IpccPlot[], areas: null };
     const [served, rows] = await Promise.all([states.get(projectId, request.log), store.listRecordSummaries(projectId, { firstSubmissions: true })]);
     const { context } = served.state;
-    const firsts = firstAssessments(rows, recordResolver({ info: context.info, units: context.units, copyHolders: context.copyHolders }));
+    // Each plot's answer: its correction where it has one, else its first assessment
+    const corrected = await loadCorrectedAnswers(store, projectId, context.reference);
+    const firsts = firstAssessments(rows, recordResolver({ info: context.info, units: context.units, copyHolders: context.copyHolders }), corrected);
     const factors = await projectFactors(store, projectId, parsed, firsts, context.info);
     const plots = ipccPlots(survey, [...firsts].map(([unit, f]) => ({ id: unit, summary: f.summary, area: factors?.byPlot.get(unit)?.factor ?? null })));
     return { cep, survey, regions, plots, areas: factors?.source ?? null };

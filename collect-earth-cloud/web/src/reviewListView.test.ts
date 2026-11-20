@@ -51,6 +51,5 @@ describe("the review list's view", () => {
 
   it("says why a plot was skipped", () => {
     expect(skippedText(t, { plot: "7", reason: "no_check" })).toBe("7: it has no check");
-    expect(skippedText(t, { plot: "8", reason: "own_plot" })).toBe("8: you answered it (someone else decides it)");
   });
 });

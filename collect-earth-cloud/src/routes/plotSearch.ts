@@ -233,8 +233,9 @@ export async function registerPlotSearchRoutes(
     const operators = new Set(all.filter((m) => assessesPlot(m.row, m.assessment)).map((m) => m.row.operator));
     const decided = decisions.find((d) => d.plot === plot) ?? null;
     const decision = decided ? { ...publicDecision(decided), byAssessor: decided.decidedBy !== null && operators.has(decided.decidedBy) } : null;
-    // A reviewer does not decide a plot they assessed (Decision 3); the decision route says so too.
-    const ownPlot = !coordinator && !!user && (operators.has(user.username) || holdsCopy);
+    // Whoever asks answered it (or holds a copy of it): someone else had better decide it, a warning, never a refusal
+    // (decided 20 Nov 2026; once Decision 3's 409)
+    const ownPlot = !!user && (operators.has(user.username) || holdsCopy || (coordinator && (copyHolders.get(plot)?.has(user.username) ?? false)));
 
     // Its flags and differing pairs, from the figures at hand.
     let flags: Flag[] | null = null;

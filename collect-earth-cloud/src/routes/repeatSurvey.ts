@@ -24,6 +24,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { audit } from '../activity.js';
 import { CepError, NOTE_SUMMARY_KEY, PERIOD_STATUS_KEY, addPeriodStatus, readCep } from '../cep.js';
 import { attachment } from '../download.js';
+import { loadCorrectedAnswers } from '../corrections.js';
 import { csvField } from '../export.js';
 import { finalAnswers, recordResolver } from '../quality.js';
 import { answerOptions } from '../qualityReports.js';
@@ -79,13 +80,26 @@ function outlineOf(cep: Buffer | null): Map<string, Question> | null {
   return surveyOutline(new TextDecoder().decode(files.entries.get(files.surveyPath)!));
 }
 
-/** This project's earlier record of each plot: the coordinator's final one, else the latest submitted first assessment. */
+/**
+ * This project's record of each plot, as a repeat survey takes it (the earlier answers of a new project, this period's
+ * in a comparison): its correction where it has one, else the coordinator's final one, else the latest submitted first
+ * assessment.
+ */
 async function earlierOf(store: Store, projectId: string, log: Log, keys?: readonly string[]): Promise<EarlierRecord[]> {
   const [records, context, decisions] = await Promise.all([store.listRecordSummaries(projectId, keys ? { keys } : {}), loadPlotContext(store, projectId, log), store.listQualityDecisions(projectId)]);
   const { info, units, copyHolders, reference } = context;
   const resolve = recordResolver({ info, units, copyHolders });
-  const finalOf = finalAnswers({ records, info, units, copyHolders }, new Map(decisions.filter((d) => !reference.has(d.plot)).map((d) => [d.plot, d.decision])));
-  return earlierRecords(records, (r) => resolve(r).round, finalOf);
+  const corrected = await loadCorrectedAnswers(store, projectId, reference);
+  const finalOf = finalAnswers({ records, info, units, copyHolders }, new Map(decisions.filter((d) => !reference.has(d.plot)).map((d) => [d.plot, d.decision])), new Set(corrected.keys()));
+  const chosen = earlierRecords(records, (r) => resolve(r).round, finalOf);
+  if (corrected.size === 0) return chosen;
+  // The corrections, by the plot as a repeat survey keeps it (the first assessment's)
+  const byPlot = new Map(chosen.map((r) => [r.plot, r]));
+  for (const c of corrected.values()) {
+    const plot = resolve({ recordKey: c.recordKey, operator: c.operator }).round.plot;
+    byPlot.set(plot, { plot, operator: c.operator, savedAt: c.correctedAt, answers: { ...c.summary } });
+  }
+  return [...byPlot.values()];
 }
 
 /** The body's newer project file, or the answer refusing it; undefined when none was given. */

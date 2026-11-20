@@ -241,6 +241,8 @@ function QueueCard({
           </Typography>
           <Chip size="small" variant="outlined" label={t(SECTION_LABEL[item.section])} />
         </Stack>
+        {/* A plot the asker answered: someone else had better decide it, but they may (a warning, not a refusal) */}
+        {item.own && <Alert severity="warning" data-testid="queue-own">{t("quality.ownPlot")}</Alert>}
         {place && (
           <Stack direction="row" spacing={2} useFlexGap sx={{ flexWrap: "wrap" }}>
             <Link href={googleEarthUrl(place.lat, place.lon)} target="_blank" rel="noopener noreferrer" sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
@@ -789,11 +791,6 @@ export function ReviewQueue({
                     {t("queue.refresh")}
                   </Button>
                 </Box>
-              )}
-              {data.excludedOwn > 0 && (
-                <Typography variant="body2" color="text.secondary">
-                  {t("queue.ownLeftOut", { n: formatNumber(data.excludedOwn, language) })}
-                </Typography>
               )}
               {data.flagsCapped && (
                 <Typography variant="body2" color="text.secondary">

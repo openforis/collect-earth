@@ -4,7 +4,9 @@
 // Collect Earth is given of a plot to correct (its answers and where they differ).
 import { createHash } from 'node:crypto';
 import { pairFields } from './quality.js';
+import type { Store } from './store/store.js';
 import type { Question } from './surveyOutline.js';
+import type { QualityCorrection, RecordRow } from './types.js';
 import type { CorrectionAnswer, CorrectionDifference, OwnAssignment } from './wire/review.js';
 
 /** The plots shared evenly between the people, in the order given (round robin); none: to nobody */
@@ -89,4 +91,77 @@ export function correctionPlacemarkId(unit: string, state: string | undefined, r
 /** The version of a person's plots to correct: Collect Earth asks again only when it changed */
 export function correctionsVersion(parts: unknown): string {
   return createHash('sha256').update(JSON.stringify(parts)).digest('hex').slice(0, 16);
+}
+
+/**
+ * A plot's correction as the plot's answer (asked 20 Nov 2026: "use the corrections for the analysis and all further
+ * works"): where a plot decided "correct" is corrected, its correction is what the analysis, the areas, the uncertainty,
+ * the IPCC files, the export's weights, the Collect backup and a repeat survey's earlier answers read of it, not its
+ * first assessment. The quality figures, the people's figures and the progress still read the interpreters' records: a
+ * correction is no interpretation.
+ */
+export interface CorrectedAnswer {
+  /** The plot unit */
+  plot: string;
+  /** The corrected record's key (the first assessment's) and who corrected it (its operator in the exports) */
+  recordKey: string;
+  operator: string;
+  correctedAt: number;
+  summary: Record<string, string>;
+  xml: string | null;
+}
+
+/**
+ * The corrections that are the plots' answers: of the plots decided "correct" (now: a decision changed since leaves the
+ * correction aside), corrected, reference plots left out (they are never decided).
+ */
+export function correctedAnswers(
+  decisions: readonly { plot: string; decision: string }[],
+  corrections: readonly QualityCorrection[],
+  reference: { has(plot: string): boolean } = new Set<string>(),
+): Map<string, CorrectedAnswer> {
+  const toCorrect = new Set(decisions.filter((d) => d.decision === 'correct' && !reference.has(d.plot)).map((d) => d.plot));
+  const out = new Map<string, CorrectedAnswer>();
+  for (const c of corrections) {
+    if (!toCorrect.has(c.plot) || c.correctedAt === null || c.recordKey === null) continue;
+    out.set(c.plot, { plot: c.plot, recordKey: c.recordKey, operator: c.correctedBy ?? '', correctedAt: c.correctedAt, summary: c.summary ?? {}, xml: c.xml ?? null });
+  }
+  return out;
+}
+
+/**
+ * The project's corrections that are plots' answers (correctedAnswers), read from the store; `xml`: with the corrected
+ * records' XML (the backup), else their answers only (up to 2 MB each otherwise)
+ */
+export async function loadCorrectedAnswers(
+  store: Pick<Store, 'listQualityDecisions' | 'listCorrections'>,
+  projectId: string,
+  reference: { has(plot: string): boolean } = new Set<string>(),
+  options: { xml?: boolean } = {},
+): Promise<Map<string, CorrectedAnswer>> {
+  const decisions = await store.listQualityDecisions(projectId);
+  if (!decisions.some((d) => d.decision === 'correct')) return new Map();
+  return correctedAnswers(decisions, await store.listCorrections(projectId, { withRecords: options.xml ? true : 'summary' }), reference);
+}
+
+/** A correction as a record row (the exports, the backup, a repeat survey's earlier answers): submitted, its corrector's */
+export function correctionRow(projectId: string, c: CorrectedAnswer): RecordRow {
+  return {
+    projectId,
+    recordKey: c.recordKey,
+    operator: c.operator,
+    modifiedOn: c.correctedAt,
+    receivedAt: c.correctedAt,
+    activelySaved: true,
+    step: 1,
+    xml: c.xml,
+    summary: c.summary,
+    deleted: false,
+    deletedOn: null,
+  };
+}
+
+/** What changes when a correction does: a stamp for the caches of what is worked out from the plots' answers */
+export function correctedStamp(corrected: ReadonlyMap<string, CorrectedAnswer>): string {
+  return [...corrected.values()].map((c) => `${c.plot}\u0000${c.correctedAt}`).sort().join('\u0001');
 }

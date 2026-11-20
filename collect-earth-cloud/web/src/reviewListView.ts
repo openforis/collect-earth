@@ -76,7 +76,6 @@ export function cardSequence(lines: readonly ReviewListLine[], from: string): st
 
 const SKIPPED_KEYS: Record<SkippedPlot["reason"], MessageKey> = {
   no_check: "reviewList.skipped.no_check",
-  own_plot: "reviewList.skipped.own_plot",
   not_in_list: "reviewList.skipped.not_in_list",
   reference_plot: "reviewList.skipped.reference_plot",
 };

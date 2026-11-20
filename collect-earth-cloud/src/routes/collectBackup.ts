@@ -20,6 +20,7 @@ import {
   type PlanInput,
 } from '../collectBackup.js';
 import type { Config } from '../config.js';
+import { loadCorrectedAnswers } from '../corrections.js';
 import { attachment } from '../download.js';
 import { holderHas } from '../holders.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
@@ -304,6 +305,9 @@ async function backupFacts(store: Store, projectId: string, log: FastifyBaseLogg
     return hit;
   };
   const noXml = new Set(withoutXml.map(id));
+  // The plots' corrections are their answers: in the backup in place of the record of their key
+  const corrected = await loadCorrectedAnswers(store, projectId, reference, { xml: true });
+  const corrections = new Map([...corrected.values()].filter((c) => c.xml).map((c) => [c.recordKey, { operator: c.operator, xml: c.xml! }]));
   const input: PlanInput = {
     records,
     roundOf: (r) => of(r).round,
@@ -313,6 +317,7 @@ async function backupFacts(store: Store, projectId: string, log: FastifyBaseLogg
       return unit !== null && holderHas(mainHolders.get(unit), r.operator);
     },
     hasXml: (r) => !noXml.has(id(r)),
+    corrections,
   };
   return {
     input,

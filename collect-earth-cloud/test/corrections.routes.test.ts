@@ -188,4 +188,44 @@ describe('corrections', () => {
     }
     expect((await ctx.store.listAudit(pid, { limit: 20, action: 'correction.saved' })).map((e) => [e.actor, e.details])).toEqual([['maria', { plot: '1' }]]);
   });
+
+  it('a correction is the plot\'s answer in the analysis, its summary, the areas and the export\'s weights; a person who corrects their own plot is counted once', async () => {
+    await call('PUT', '/areas', owner.token, { settings: { mode: 'total', area: 1000 } });
+    await call('POST', '/quality/decisions:apply', owner.token, { plots: ['1'], decision: 'correct', assign: [maria.userId] });
+    // plot 2 is rita's own first assessment: she may correct it (a warning, not a refusal)
+    await call('POST', '/quality/decisions:apply', owner.token, { plots: ['2'], decision: 'correct', assign: [rita.userId] });
+    const corrected = (landUse: string) => ({ xml: '<plot><id>x</id></plot>', summary: { [LAND_USE]: landUse, [FOREST]: '40', collect_code_round: '1' }, baseOperator: 'ana' });
+    expect((await call('PUT', '/corrections/1', maria.token, { recordKey: '1,1', ...corrected('C') })).statusCode).toBe(200);
+    expect((await call('PUT', '/corrections/2', rita.token, { recordKey: '2,1', ...corrected('W') })).statusCode).toBe(200);
+
+    // The analysis: the correction a row of its own, the plot's answer, with the area; the first assessment not
+    const analysis = (await call('GET', '/analysis', owner.token)).json();
+    const plot = analysis.tables.find((t: { name: string }) => t.name === 'plot');
+    const parse = (line: string) => [...line.matchAll(/("(?:[^"]|"")*"|[^,]*)(?:,|$)/g)].map((m) => m[1].replace(/^"|"$/g, '')).slice(0, -1);
+    const lines: string[][] = plot.csv.trim().split('\n').map(parse);
+    const col = (name: string) => lines[0].indexOf(name);
+    const row = (key: string, operator: string, assessment: string) =>
+      lines.find((l) => l[col('_record')] === key && l[col('_operator')] === operator && l[col('_assessment')] === assessment);
+    const of = (l: string[] | undefined) => (l ? [l[col('_answer')], l[col('expansion_factor')] !== '', l[col(analysis.model.tables[0].columns.find((c: { key: string }) => c.key === LAND_USE).name)]] : null);
+    expect(of(row('1,1', 'ana', 'main'))).toEqual(['false', false, 'F']);
+    expect(of(row('1,1', 'maria', 'correction'))).toEqual(['true', true, 'C']);
+    expect(of(row('2,1', 'rita', 'main'))).toEqual(['false', false, 'F']);
+    expect(of(row('2,1', 'rita', 'correction'))).toEqual(['true', true, 'W']);
+    expect(of(row('3,1', 'ana', 'main'))).toEqual(['true', true, 'F']);
+    // the area counted once a plot: 4 plots answered, 1000 ha
+    const areas = lines.slice(1).map((l) => Number(l[col('expansion_factor')] || 0)).reduce((a: number, b: number) => a + b, 0);
+    expect(areas).toBeCloseTo(1000);
+
+    // The summary (the Areas page's, the Analysis page's first look): plot 1 is C, plot 2 W
+    const name = analysis.model.tables[0].columns.find((c: { key: string }) => c.key === LAND_USE).name;
+    const summary = (await call('GET', `/analysis/summary?row=${encodeURIComponent(name)}`, owner.token)).json();
+    const count = (code: string) => summary.cells.find((c: { row: string }) => c.row === code)?.plots ?? 0;
+    expect([count('F'), count('C'), count('W')]).toEqual([2, 1, 1]);
+
+    // The export: the weights on the corrections' rows, not on the first assessments' (rita's own row and correction told apart)
+    const csv = (await call('GET', '/export.csv', owner.token)).body.replace(/^\uFEFF/, '').trim().split(/\r?\n/).map(parse);
+    const c2 = (n: string) => csv[0].indexOf(n);
+    const weighted = csv.slice(1).filter((r) => r[c2('expansion_factor')] !== '').map((r) => `${r[c2('record_key')]}:${r[c2('operator')]}:${r[c2('assessment')]}`).sort();
+    expect(weighted).toEqual(['1,1:maria:correction', '2,1:rita:correction', '3,1:ana:main', '4,1:ana:main']);
+  });
 });

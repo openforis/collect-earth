@@ -117,13 +117,13 @@ describe('reviewers (Decision 10) and decisions on plots that are not there (M-2
     expect(ritaDelRef.body).toBe(ritaDelNone.body);
   });
 
-  it('I-1: a reviewer who is a reference plot\'s assessor is told it is their own plot first', async () => {
+  it('I-1: a reference plot is decided by no one: its assessor, a reviewer, is answered as on a plot that is not there (their own plots are no longer a 409)', async () => {
     expect((await call('POST', '/reference/plots', owner.token, { csvFileId: fileId, assessorUserId: people.rita.userId, plots: ['1'] })).statusCode).toBe(200);
     await send('rita', 1, [1]);
     await settled('/quality/flags', owner.token);
     const res = await call('PUT', '/quality/decisions/1', people.rita.token, { decision: 'first' });
-    expect(res.statusCode).toBe(409);
-    expect(res.json().error).toBe('own_plot');
+    expect(res.statusCode).toBe(404);
+    expect(await ctx.store.listQualityDecisions(pid)).toEqual([]);
   });
 
   it('M-2: a decision on a plot in no plot file and without records is a 404 for everyone; one with records only is decided', async () => {
@@ -161,7 +161,7 @@ describe('reviewers (Decision 10) and decisions on plots that are not there (M-2
     expect((await call('GET', '/sampling', owner.token)).json().warning).toEqual({ code: 'checkers_not_blind', usernames: ['owner', 'rita'] });
   });
 
-  it('I-2: a reviewer holding a copy not yet checked: no plot page, not in their queue, no decision; once checked the page opens', async () => {
+  it('I-2: a reviewer holding a copy not yet checked: no plot page, not in their queue (the check is to be made blind); a decision is a warning, not a refusal; once checked the page opens', async () => {
     // rita holds a copy of maria's plot 3 (a check to make blind); maria and jose differ on 3? no: jose checks 4.
     await ctx.store.setDivision(pid, fileId, { mode: 'manual' }, [
       ...(await ctx.store.listPlotAssignments(pid, fileId)),
@@ -179,10 +179,10 @@ describe('reviewers (Decision 10) and decisions on plots that are not there (M-2
     expect((await call('GET', '/plots/4', people.rita.token)).statusCode).toBe(200);
     const ritaQueue = await settled('/quality/queue', people.rita.token);
     expect((ritaQueue.items as { plot: string }[]).map((i) => i.plot)).toEqual(['4']);
-    expect(ritaQueue.excludedOwn).toBe(1);
-    const refused = await call('PUT', '/quality/decisions/3', people.rita.token, { decision: 'first' });
-    expect(refused.statusCode).toBe(409);
-    expect(refused.json().error).toBe('own_plot');
+    const decided = await call('PUT', '/quality/decisions/3', people.rita.token, { decision: 'first' });
+    expect(decided.statusCode).toBe(200);
+    expect((await ctx.store.listAudit(pid, { limit: 1, action: 'decision.set' }))[0].details).toEqual({ plot: '3', decision: 'first', own: true });
+    expect((await call('DELETE', '/quality/decisions/3', people.rita.token)).statusCode).toBe(204);
     // maria saved 4 a moment after 3 (very fast): the coordinator's flag names 3, the reviewer's does not, nor lists 3's flags.
     type F = { kind: string; plot: string; details: { previousPlot?: string | null } };
     const fast = (list: F[]) => list.find((f) => f.kind === 'very_fast' && f.plot === '4');

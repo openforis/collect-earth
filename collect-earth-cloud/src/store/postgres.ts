@@ -3385,11 +3385,11 @@ export class PostgresStore implements Store {
     });
   }
 
-  async listCorrections(projectId: string, options: { withRecords?: boolean } = {}): Promise<QualityCorrection[]> {
+  async listCorrections(projectId: string, options: { withRecords?: boolean | 'summary' } = {}): Promise<QualityCorrection[]> {
     return this.withProject(projectId, async (client) => {
       const res = await client.query(
         `SELECT c.plot, c.assigned_to, t.username AS assigned_to_name, b.username AS assigned_by, c.assigned_at,
-                k.username AS corrected_by, c.corrected_at, c.base_operator, c.record_key${options.withRecords ? ', c.xml, c.summary' : ''}
+                k.username AS corrected_by, c.corrected_at, c.base_operator, c.record_key${options.withRecords === 'summary' ? ', c.summary' : options.withRecords ? ', c.xml, c.summary' : ''}
            FROM quality_corrections c
            LEFT JOIN users t ON t.id = c.assigned_to
            LEFT JOIN users b ON b.id = c.assigned_by
@@ -3408,7 +3408,7 @@ export class PostgresStore implements Store {
         correctedAt: r.corrected_at ? (r.corrected_at as Date).getTime() : null,
         baseOperator: (r.base_operator as string | null) ?? null,
         recordKey: (r.record_key as string | null) ?? null,
-        ...(options.withRecords ? { xml: (r.xml as string | null) ?? null, summary: (r.summary as Record<string, string> | null) ?? null } : {}),
+        ...(options.withRecords ? { xml: options.withRecords === 'summary' ? null : ((r.xml as string | null) ?? null), summary: (r.summary as Record<string, string> | null) ?? null } : {}),
       }));
     });
   }

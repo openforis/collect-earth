@@ -86,6 +86,7 @@ describe("the cube of a table", () => {
       "Collector",
       "Round",
       "Assessment",
+      "Plot's answer",
       "Submitted",
       "Saved on",
       "Month saved",
@@ -159,7 +160,7 @@ describe("the default view", () => {
       columns: ["Total area"],
       expressions: { "Total area": '"Area"' },
       aggregates: { "Total area": "sum" },
-      filter: [["Assessment", "==", "First assessment"]],
+      filter: [["Plot's answer", "==", "Yes"]],
       sort: [["Total area", "desc"]],
     });
   });

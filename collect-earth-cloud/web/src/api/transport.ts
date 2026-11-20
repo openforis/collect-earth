@@ -33,7 +33,6 @@ export function apiErrorFrom(status: number, body: unknown): ApiError {
 const CODE_MESSAGES: Record<string, MessageKey> = {
   [NETWORK_ERROR]: "error.network",
   invalid_credentials: "error.invalidCredentials",
-  own_plot: "quality.ownPlot",
   no_such_plot: "quality.noSuchPlot",
   reference_plot: "plot.referenceNoDecision",
   map_changed: "map.changed",

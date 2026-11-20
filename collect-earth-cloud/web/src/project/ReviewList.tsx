@@ -22,6 +22,7 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import WarningAmber from "@mui/icons-material/WarningAmberOutlined";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import {
   ApiError,
@@ -294,7 +295,15 @@ export function ReviewList({
                         )}
                       </TableCell>
                       <TableCell>{kindsText(t, line)}</TableCell>
-                      <TableCell>{line.people.join(", ")}</TableCell>
+                      <TableCell>
+                        {line.people.join(", ")}
+                        {line.own && (
+                          <Typography component="span" variant="body2" color="warning.main" sx={{ ml: 1, display: "inline-flex", alignItems: "center", gap: 0.5 }}>
+                            <WarningAmber fontSize="inherit" aria-hidden />
+                            {t("reviewList.ownMark")}
+                          </Typography>
+                        )}
+                      </TableCell>
                       <TableCell align="right">{formatNumber(line.checks, language)}</TableCell>
                       <TableCell>{decisionText(line)}</TableCell>
                     </TableRow>
@@ -433,6 +442,12 @@ function ApplyDialog({
           {dry && (
             <Stack spacing={1} role="status">
               <Typography variant="body2">{t("reviewList.willDecide", { n: formatNumber(dry.count, language) })}</Typography>
+              {dry.ownCount > 0 && (
+                <Alert severity="warning" data-testid="apply-own">
+                  <Typography variant="body2">{t("reviewList.ownApply", { n: formatNumber(dry.ownCount, language) })}</Typography>
+                  <Typography variant="body2">{dry.own.join(", ")}{dry.ownCount > dry.own.length ? " …" : ""}</Typography>
+                </Alert>
+              )}
               {dry.skippedCount > 0 && (
                 <Alert severity="warning">
                   <Typography variant="body2">{t("reviewList.skippedCount", { n: formatNumber(dry.skippedCount, language) })}</Typography>

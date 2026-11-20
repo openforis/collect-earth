@@ -99,7 +99,9 @@ export function analysisStructure(model: AnalysisModel, tableName: string, langu
   const t = COLLECTION[(language in COLLECTION ? language : 'en') as AiLanguage];
   columns.push(
     { id: '_operator', label: t.operator, type: 'text', source: 'collection' },
-    { id: '_assessment', label: t.assessment, type: 'code', source: 'collection', codes: [{ code: 'main', label: t.main, level: 0 }, { code: 'check', label: t.check, level: 0 }] },
+    { id: '_assessment', label: t.assessment, type: 'code', source: 'collection', codes: [{ code: 'main', label: t.main, level: 0 }, { code: 'check', label: t.check, level: 0 }, { code: 'correction', label: t.correction, level: 0 }] },
+    // Each plot once: its correction where it was corrected, else its first submitted assessment (the areas are on it)
+    { id: '_answer', label: t.answer, type: 'yes/no', source: 'collection' },
     { id: '_submitted', label: t.submitted, type: 'yes/no', source: 'collection' },
     { id: '_saved_on', label: t.savedOn, type: 'date', source: 'collection', time: true },
     { id: '_saved_month', label: t.month, type: 'text', source: 'collection', time: true },
@@ -130,12 +132,12 @@ export function analysisStructure(model: AnalysisModel, tableName: string, langu
 }
 
 /** The collection's columns' names, in the dashboard's language (as the page names them). */
-const COLLECTION: Record<AiLanguage, Record<'operator' | 'assessment' | 'main' | 'check' | 'submitted' | 'savedOn' | 'month' | 'week', string>> = {
-  en: { operator: 'Collector', assessment: 'Assessment', main: 'First assessment', check: 'Quality check', submitted: 'Submitted', savedOn: 'Saved on', month: 'Month saved', week: 'Week saved' },
-  es: { operator: 'Recolector', assessment: 'Evaluación', main: 'Primera evaluación', check: 'Control de calidad', submitted: 'Enviada', savedOn: 'Guardada el', month: 'Mes guardada', week: 'Semana guardada' },
-  fr: { operator: 'Collecteur', assessment: 'Évaluation', main: 'Première évaluation', check: 'Contrôle qualité', submitted: 'Envoyée', savedOn: 'Enregistrée le', month: 'Mois enregistré', week: 'Semaine enregistrée' },
-  pt: { operator: 'Coletor', assessment: 'Avaliação', main: 'Primeira avaliação', check: 'Controle de qualidade', submitted: 'Enviada', savedOn: 'Salva em', month: 'Mês salva', week: 'Semana salva' },
-  tr: { operator: 'Veri toplayıcı', assessment: 'Değerlendirme', main: 'İlk değerlendirme', check: 'Kalite kontrolü', submitted: 'Gönderildi', savedOn: 'Kaydedilme tarihi', month: 'Kaydedildiği ay', week: 'Kaydedildiği hafta' },
+const COLLECTION: Record<AiLanguage, Record<'operator' | 'assessment' | 'main' | 'check' | 'correction' | 'answer' | 'submitted' | 'savedOn' | 'month' | 'week', string>> = {
+  en: { operator: 'Collector', assessment: 'Assessment', main: 'First assessment', check: 'Quality check', correction: 'Correction', answer: "Plot's answer", submitted: 'Submitted', savedOn: 'Saved on', month: 'Month saved', week: 'Week saved' },
+  es: { operator: 'Recolector', assessment: 'Evaluación', main: 'Primera evaluación', check: 'Control de calidad', correction: 'Corrección', answer: 'Respuesta de la parcela', submitted: 'Enviada', savedOn: 'Guardada el', month: 'Mes guardada', week: 'Semana guardada' },
+  fr: { operator: 'Collecteur', assessment: 'Évaluation', main: 'Première évaluation', check: 'Contrôle qualité', correction: 'Correction', answer: 'Réponse de la parcelle', submitted: 'Envoyée', savedOn: 'Enregistrée le', month: 'Mois enregistré', week: 'Semaine enregistrée' },
+  pt: { operator: 'Coletor', assessment: 'Avaliação', main: 'Primeira avaliação', check: 'Controle de qualidade', correction: 'Correção', answer: 'Resposta da parcela', submitted: 'Enviada', savedOn: 'Salva em', month: 'Mês salva', week: 'Semana salva' },
+  tr: { operator: 'Veri toplayıcı', assessment: 'Değerlendirme', main: 'İlk değerlendirme', check: 'Kalite kontrolü', correction: 'Düzeltme', answer: 'Parselin yanıtı', submitted: 'Gönderildi', savedOn: 'Kaydedilme tarihi', month: 'Kaydedildiği ay', week: 'Kaydedildiği hafta' },
 };
 
 // --- what the model is asked, and the shape of its answer ---------------------------------------------------------

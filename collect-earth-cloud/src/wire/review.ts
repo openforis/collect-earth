@@ -44,6 +44,8 @@ export interface ReviewQueueItem {
   waiting?: string[];
   left?: string[];
   decision: PlotDecision | null;
+  /** The asker answered it (a record of theirs, or a copy they hold): someone else had better decide it (a warning) */
+  own?: boolean;
 }
 
 export interface ReviewQueueAnswer {
@@ -55,8 +57,6 @@ export interface ReviewQueueAnswer {
   counts: Record<QueueSection, number>;
   /** Everyone named in the whole queue, whatever the filters (for the person filter). */
   people: string[];
-  /** A reviewer's own plots left out of the queue (someone else decides them); 0 for a coordinator. */
-  excludedOwn: number;
   /** Only the newest flags (MAX_LISTED_FLAGS) were looked at. */
   flagsCapped: boolean;
   /** The labels of the questions shown, by key. */
@@ -101,6 +101,8 @@ export interface ReviewListLine {
   /** Its checks whose answers differ from the first assessment */
   checks: number;
   decision: PlotDecision | null;
+  /** The asker answered it: someone else had better decide it (a warning, never a refusal) */
+  own?: boolean;
 }
 
 export interface ReviewListAnswer {
@@ -110,8 +112,6 @@ export interface ReviewListAnswer {
   offset: number;
   /** Everyone named in the whole queue (the person filter's names: a coordinator's) */
   people: string[];
-  /** A reviewer's own plots left out (0 for a coordinator) */
-  excludedOwn: number;
   computedAt: number;
   stale: boolean;
 }
@@ -119,7 +119,7 @@ export interface ReviewListAnswer {
 /** A plot that could not take the decision, and why */
 export interface SkippedPlot {
   plot: string;
-  reason: 'not_in_list' | 'no_check' | 'own_plot' | 'reference_plot';
+  reason: 'not_in_list' | 'no_check' | 'reference_plot';
 }
 
 /** POST .../quality/decisions:apply (?dryRun=1 only counts) */
@@ -135,6 +135,9 @@ export interface ApplyDecisionsAnswer {
   dryRun: boolean;
   /** The run's id, kept with its decisions and in its audit entry (null for a dry run or nothing decided) */
   batch: string | null;
+  /** Of the plots taken, those the asker answered (up to MAX_BULK_LISTED), and how many: a warning, never a refusal */
+  own: string[];
+  ownCount: number;
   /** "Correct it in Collect Earth" with people to assign them to (`assign`): who gets how many, and their own plots */
   assignment?: AssignmentPreview;
 }
