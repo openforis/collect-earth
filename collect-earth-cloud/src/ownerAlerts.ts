@@ -10,10 +10,12 @@
 // (owner_alerts, migration 042): the server page shows their history and which were seen. The thresholds are server
 // settings (alert*). The same alert is raised at most once every six hours (a project's storage once a day), so a long
 // problem is not a flood. Counted per server instance, in memory, as the panel's counters are: a restart starts again.
+// The mail of "many server errors" carries the instance's recent warnings and errors as a file (src/errorLog.ts, at most
+// 500 KB, the newest), so the administrator sees what failed; the webhook's post does not (a chat channel is wider).
 import type { FastifyBaseLogger } from 'fastify';
 import { postWebhook, type Fetch } from './alertWebhook.js';
 import { fill, renderHtml, renderText, type MailLine } from './digestText.js';
-import type { Mailer } from './mail.js';
+import type { MailAttachment, Mailer } from './mail.js';
 import type { Store } from './store/store.js';
 import type { MailLanguage } from './types.js';
 import type { AlertSignal, AlertThresholds, OwnerAlertKind as AlertKind } from './wire/serverAdmin.js';
@@ -128,6 +130,7 @@ const en = {
   two_factor_keys: 'two-step sign-in cannot be checked',
   two_factor_keysText: 'The server cannot read the two-step sign-in of {count} accounts it checked when it started: those people can only sign in with a recovery code. Its key changed: put back the TWO_FACTOR_KEY it had (the server log names the keys missing), or turn their two-step sign-in off in the server panel.',
   footer: 'This mail goes to the administrators of {server}. The same alert is sent at most once every six hours.',
+  errorLogAttached: 'The server\'s most recent warnings and errors are attached ({file}, at most 500 KB, the newest last).',
 };
 type AlertTexts = typeof en;
 const es: AlertTexts = {
@@ -143,6 +146,7 @@ const es: AlertTexts = {
   two_factor_keys: 'no se puede comprobar la verificación en dos pasos',
   two_factor_keysText: 'El servidor no puede leer la verificación en dos pasos de {count} cuentas que comprobó al arrancar: esas personas solo pueden entrar con un código de recuperación. Su clave cambió: vuelva a poner la TWO_FACTOR_KEY que tenía (el registro del servidor indica las claves que faltan), o desactive su verificación en dos pasos en el panel del servidor.',
   footer: 'Este correo va a los administradores de {server}. La misma alerta se envía como mucho una vez cada seis horas.',
+  errorLogAttached: 'Se adjuntan las advertencias y errores más recientes del servidor ({file}, como mucho 500 KB, los más nuevos al final).',
 };
 const fr: AlertTexts = {
   subject: '{server} : {what}',
@@ -157,6 +161,7 @@ const fr: AlertTexts = {
   two_factor_keys: 'la validation en deux étapes ne peut pas être vérifiée',
   two_factor_keysText: 'Le serveur ne peut pas lire la validation en deux étapes de {count} comptes vérifiés à son démarrage : ces personnes ne peuvent se connecter qu\'avec un code de récupération. Sa clé a changé : remettez la TWO_FACTOR_KEY qu\'il avait (le journal du serveur nomme les clés manquantes), ou désactivez leur validation en deux étapes dans le panneau du serveur.',
   footer: 'Ce message va aux administrateurs de {server}. La même alerte est envoyée au plus une fois toutes les six heures.',
+  errorLogAttached: 'Les avertissements et erreurs les plus récents du serveur sont joints ({file}, 500 Ko au plus, les plus récents à la fin).',
 };
 const pt: AlertTexts = {
   subject: '{server}: {what}',
@@ -171,6 +176,7 @@ const pt: AlertTexts = {
   two_factor_keys: 'a verificação em duas etapas não pode ser conferida',
   two_factor_keysText: 'O servidor não consegue ler a verificação em duas etapas de {count} contas que conferiu ao iniciar: essas pessoas só conseguem entrar com um código de recuperação. A chave mudou: recoloque a TWO_FACTOR_KEY que ele tinha (o log do servidor indica as chaves que faltam), ou desative a verificação em duas etapas delas no painel do servidor.',
   footer: 'Este e-mail vai para os administradores de {server}. O mesmo alerta é enviado no máximo uma vez a cada seis horas.',
+  errorLogAttached: 'Os avisos e erros mais recentes do servidor estão em anexo ({file}, no máximo 500 KB, os mais novos no fim).',
 };
 const tr: AlertTexts = {
   subject: '{server}: {what}',
@@ -185,19 +191,32 @@ const tr: AlertTexts = {
   two_factor_keys: 'iki adımlı oturum açma doğrulanamıyor',
   two_factor_keysText: 'Sunucu, başlarken denetlediği {count} hesabın iki adımlı oturum açma bilgisini okuyamıyor: bu kişiler yalnızca bir kurtarma koduyla oturum açabilir. Anahtar değişti: sunucunun önceki TWO_FACTOR_KEY değerini geri koyun (eksik anahtarlar sunucu günlüğünde yazar) ya da bu kişilerin iki adımlı oturum açmasını sunucu panelinden kapatın.',
   footer: 'Bu e-posta {server} yöneticilerine gönderilir. Aynı uyarı en fazla altı saatte bir gönderilir.',
+  errorLogAttached: 'Sunucunun en son uyarıları ve hataları ektedir ({file}, en fazla 500 KB, en yeniler sonda).',
 };
 const TEXTS: Record<MailLanguage, AlertTexts> = { en, es, fr, pt, tr };
 
-/** The mail of an alert, in a language. */
-export function alertMail(alert: OwnerAlert, language: MailLanguage, server: string, projectName: string | null): { subject: string; text: string; html: string } {
+/** The mail of an alert, in a language; `attached`: the name of the error log sent with it (said in the mail). */
+export function alertMail(alert: OwnerAlert, language: MailLanguage, server: string, projectName: string | null, attached: string | null = null): { subject: string; text: string; html: string } {
   const t = TEXTS[language] ?? en;
   const body = t[`${alert.kind}Text` as keyof AlertTexts];
   const lines: MailLine[] = [
     { kind: 'para', text: fill(body, { count: String(alert.count), project: projectName ?? alert.projectId ?? '' }) },
+    ...(attached ? [{ kind: 'para' as const, text: fill(t.errorLogAttached, { file: attached }) }] : []),
     { kind: 'rule' },
     { kind: 'para', text: fill(t.footer, { server }) },
   ];
   return { subject: fill(t.subject, { server, what: t[alert.kind] }), text: renderText(lines, language), html: renderHtml(lines, language, server) };
+}
+
+/**
+ * The file a "many server errors" mail carries: the recent warnings and errors (src/errorLog.ts), named for the server
+ * and the time, or null when there is nothing to attach (another kind of alert, or no line kept).
+ */
+export function errorLogAttachment(alert: Pick<OwnerAlert, 'kind' | 'at'>, server: string, log: string | null): MailAttachment | null {
+  if (alert.kind !== 'server_errors' || !log) return null;
+  const name = server.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'server';
+  const when = new Date(alert.at).toISOString().slice(0, 16).replace(':', '-');
+  return { filename: `${name}-errors-${when}Z.log`, content: log, contentType: 'text/plain; charset=utf-8' };
 }
 
 /** An alert in words for a chat channel (the webhook): a project by its id only, never its name. */
@@ -213,7 +232,7 @@ export function alertForChannel(alert: Pick<OwnerAlert, 'kind' | 'count' | 'proj
  * What an alert does: a log line to be alerted on (always), kept for the server page (owner_alerts), a mail to every
  * enabled server administrator whose address is confirmed, in their language, and a post to the webhook when one is set.
  */
-export function ownerNotifier(store: Store, mailer: Mailer, log: FastifyBaseLogger, serverName: () => Promise<string>, fetchImpl?: Fetch) {
+export function ownerNotifier(store: Store, mailer: Mailer, log: FastifyBaseLogger, serverName: () => Promise<string>, fetchImpl?: Fetch, errorLog?: () => string | null) {
   return async (alert: OwnerAlert) => {
     log.error({ ownerAlert: alert.kind, count: alert.count, projectId: alert.projectId }, `owner alert: ${alert.kind}`);
     try {
@@ -235,11 +254,13 @@ export function ownerNotifier(store: Store, mailer: Mailer, log: FastifyBaseLogg
       const server = await serverName();
       const project = alert.projectId ? ((await store.getProject(alert.projectId).catch(() => null))?.name ?? null) : null;
       const admins = (await store.listUsers()).filter((u) => u.isPlatformAdmin && u.disabledAt === null);
+      // the log as it is when the alert is raised, the same file for every administrator
+      const attachment = errorLogAttachment(alert, server, alert.kind === 'server_errors' ? (errorLog?.() ?? null) : null);
       for (const admin of admins) {
         const mail = await store.getAccountMail(admin.userId);
         if (!mail?.email || !mail.emailConfirmedAt) continue;
-        const m = alertMail(alert, mail.language ?? 'en', server, project);
-        await mailer.send({ to: mail.email, ...m, tag: `owner.alert.${alert.kind}` });
+        const m = alertMail(alert, mail.language ?? 'en', server, project, attachment?.filename ?? null);
+        await mailer.send({ to: mail.email, ...m, tag: `owner.alert.${alert.kind}`, ...(attachment ? { attachments: [attachment] } : {}) });
       }
     } catch (err) {
       log.warn({ err }, 'owner alert: the mail could not be sent');

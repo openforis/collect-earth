@@ -21,6 +21,14 @@ export interface MailMessage {
   headers?: Record<string, string>;
   /** What kind of mail it is, for the log ('digest.coordinator', 'email.confirm'…). */
   tag: string;
+  /** Files sent with it (the server's error log with a "many server errors" alert, src/ownerAlerts.ts). */
+  attachments?: MailAttachment[];
+}
+
+export interface MailAttachment {
+  filename: string;
+  content: string;
+  contentType: string;
 }
 
 export interface Mailer {
@@ -55,6 +63,7 @@ export class LogMailer implements Mailer {
           textBytes: Buffer.byteLength(message.text),
           htmlBytes: Buffer.byteLength(message.html),
           headers: Object.keys(message.headers ?? {}),
+          attachmentBytes: (message.attachments ?? []).map((a) => Buffer.byteLength(a.content)),
         },
       },
       'mail not sent: no SMTP_URL is set (log transport)',
@@ -238,8 +247,17 @@ export function smtpMessage(from: string, message: MailMessage, emblem: Buffer) 
     text: message.text,
     html: message.html,
     headers: message.headers,
-    ...(message.html.includes(`cid:${EMBLEM_CID}`) ? { attachments: [{ filename: 'collect-earth.png', content: emblem, cid: EMBLEM_CID, contentType: 'image/png' }] } : {}),
+    ...attachmentsOf(message, emblem),
   };
+}
+
+/** The message's files (the error log of an alert), and the emblem when the HTML shows it; none: no attachments key. */
+function attachmentsOf(message: MailMessage, emblem: Buffer) {
+  const attachments: { filename: string; content: string | Buffer; contentType: string; cid?: string }[] = [
+    ...(message.html.includes(`cid:${EMBLEM_CID}`) ? [{ filename: 'collect-earth.png', content: emblem, cid: EMBLEM_CID, contentType: 'image/png' }] : []),
+    ...(message.attachments ?? []).map((a) => ({ filename: a.filename, content: a.content, contentType: a.contentType })),
+  ];
+  return attachments.length ? { attachments } : {};
 }
 
 /** SMTP through nodemailer, over TLS only, certificates checked. */

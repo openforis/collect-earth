@@ -68,7 +68,7 @@ async function api(method: string, path: string, token: string | null, body?: un
 
 /** A reviewer at work while the mapathon lasts: the progress, the map, the review queue, a decision on some plots */
 async function review(account: { username: string; password: string }, projectId: string, running: () => boolean) {
-  const stats = { looks: 0, decisions: 0, errors: [] as string[] };
+  const stats = { looks: 0, decisions: 0, differences: 0, errors: [] as string[] };
   let login = await api('POST', '/v1/auth/login', null, { username: account.username, password: account.password });
   for (let attempt = 0; login.status === 0 && attempt < 5; attempt++) {
     await sleep(10_000);
@@ -86,12 +86,17 @@ async function review(account: { username: string; password: string }, projectId
       const r = await api('GET', path, token);
       if (r.status !== 200) stats.errors.push(`${path.split('/').slice(-2).join('/')} ${r.status}`);
       else if (path.endsWith('/queue')) {
-        // The first one or two plots of the queue decided: the first assessment kept, as a reviewer mostly does
-        const items = (r.json().items ?? []) as { plot: string }[];
+        // The first one or two plots of the queue decided: of two people's differing answers (the plots the seed gave a
+        // second participant, OVERLAP), one or the other kept; a flagged plot's own answers kept. Never sent back to be
+        // done again ("recheck"): nobody is collecting to do it.
+        const items = (r.json().items ?? []) as { plot: string; section: string }[];
         for (const item of items.slice(0, 1 + Math.floor(Math.random() * 2))) {
-          const d = await api('PUT', `/v1/projects/${projectId}/quality/decisions/${encodeURIComponent(item.plot)}`, token, { decision: 'first', comment: null });
-          if (d.status === 200) stats.decisions++;
-          else stats.errors.push(`decision ${d.status}`);
+          const decision = item.section === 'difference' && Math.random() < 0.5 ? 'check' : 'first';
+          const d = await api('PUT', `/v1/projects/${projectId}/quality/decisions/${encodeURIComponent(item.plot)}`, token, { decision, comment: null });
+          if (d.status === 200) {
+            stats.decisions++;
+            if (item.section === 'difference') stats.differences++;
+          } else stats.errors.push(`decision ${d.status}`);
         }
       }
     }
@@ -134,7 +139,7 @@ for (const [n, projectId] of PROJECTS.entries()) {
   const code = await ended;
   const lines = readFileSync(deskLog, 'utf8').split('\n');
   const reviewed = await Promise.all(reviewing);
-  const reviewLines = reviewers.map((r, k) => `${r.username}: ${reviewed[k].looks} looks, ${reviewed[k].decisions} decisions${reviewed[k].errors.length ? `, errors: ${[...new Set(reviewed[k].errors)].join('; ')}` : ''}`);
+  const reviewLines = reviewers.map((r, k) => `${r.username}: ${reviewed[k].looks} looks, ${reviewed[k].decisions} decisions (${reviewed[k].differences} on differences)${reviewed[k].errors.length ? `, errors: ${[...new Set(reviewed[k].errors)].join('; ')}` : ''}`);
   summary.push(`${name} (project ${projectId}): Collect Earth run ${code === 0 ? 'passed its checks' : `ended with ${code}`}`, ...lines.filter((l) => /^(ok|FAIL|All instances|Collect Earth \d)/.test(l)).map((l) => `  ${l}`), ...reviewLines.map((l) => `  reviewer ${l}`));
   writeFileSync(join(OUT, 'summary.txt'), summary.join('\n') + '\n');
   log(`${name} over (exit ${code})\n${reviewLines.join('\n')}`);

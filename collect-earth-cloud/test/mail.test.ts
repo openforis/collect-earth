@@ -416,6 +416,12 @@ describe("the HTML mails' layout", () => {
     const message = { to: 'maria@example.org', subject: 's', text: 't', html: renderHtml(lines, 'en', 'Cloud'), tag: 'test', headers: { 'Auto-Submitted': 'auto-generated' } };
     expect(smtpMessage('a@example.org', message, emblem).attachments).toEqual([{ filename: 'collect-earth.png', content: emblem, cid: EMBLEM_CID, contentType: 'image/png' }]);
     expect(smtpMessage('a@example.org', { ...message, html: '<p>no image</p>' }, emblem)).not.toHaveProperty('attachments');
+    // a message's own file (an alert's error log) beside the emblem, or alone
+    const log = { filename: 'ce-errors-2026-11-20T01-23Z.log', content: '{"level":50}\n', contentType: 'text/plain; charset=utf-8' };
+    expect(smtpMessage('a@example.org', { ...message, attachments: [log] }, emblem).attachments).toEqual([
+      { filename: 'collect-earth.png', content: emblem, cid: EMBLEM_CID, contentType: 'image/png' }, log,
+    ]);
+    expect(smtpMessage('a@example.org', { ...message, html: '<p>no image</p>', attachments: [log] }, emblem).attachments).toEqual([log]);
     // As nodemailer writes it: the image beside the HTML (multipart/related), inline, under that Content-ID.
     const composer = createTransport({ streamTransport: true, buffer: true });
     const raw = ((await composer.sendMail(smtpMessage('a@example.org', message, emblem))).message as Buffer).toString();

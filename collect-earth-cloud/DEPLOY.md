@@ -731,7 +731,11 @@ Each alert is:
   `storage`);
 - **listed on the server panel** ("Alerts"), since that instance started;
 - **mailed to every server administrator whose email address is confirmed** (their account page), in their
-  language, when the server sends mail (`SMTP_URL`, "Weekly emails" below).
+  language, when the server sends mail (`SMTP_URL`, "Weekly emails" below). The server errors mail carries that
+  instance's recent warnings and errors as a file (`<server>-errors-<time>Z.log`, `src/errorLog.ts`): the log's own
+  lines (pino's JSON, as redacted as the log is), at most 500 KB, the newest kept. Each failed request is there twice:
+  its request line, at error level, and `request failed` with the error's name, message, code and stack (not a
+  database error's detail, which holds the values it was about). The webhook's post carries no file.
 
 The same alert is raised at most once every six hours (a project's storage once a day). Each Cloud Run instance
 counts its own, and a restart starts from zero, as the panel's counters do; the log-based alert below sees them all.
