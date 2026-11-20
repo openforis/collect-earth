@@ -1,6 +1,7 @@
 import { OPERATOR_SUMMARY_KEY, operatorXmlPattern } from '../anonymize.js';
 import pg from 'pg';
 import { DatabaseBusyError, isPoolWaitTimeout } from './busy.js';
+import { databaseVitals, type DatabaseVitals } from '../databaseVitals.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { gunzipSync, gzipSync } from 'node:zlib';
 import { isUuid } from '../accountRules.js';
@@ -155,6 +156,8 @@ export interface PostgresStoreOptions {
   statementTimeoutMs?: number;
   /** Called when an idle connection of the pool fails (the database restarts, the network drops); logged by default. */
   onPoolError?: (err: Error) => void;
+  /** Where the waits for a connection are counted (the owner's alerts tell them); the instance's own by default. */
+  vitals?: DatabaseVitals;
 }
 
 /** Clients whose connection failed while checked out: destroyed when released (PostgresStore.connect). */
@@ -164,6 +167,7 @@ export class PostgresStore implements Store {
   private readonly pool: pg.Pool;
   private readonly statementTimeout: string | null;
   private readonly onPoolError: (err: Error) => void;
+  private readonly vitals: DatabaseVitals;
 
   constructor(
     private readonly databaseUrl: string,
@@ -184,6 +188,7 @@ export class PostgresStore implements Store {
       });
     this.pool.on('error', onPoolError);
     this.onPoolError = onPoolError;
+    this.vitals = options.vitals ?? databaseVitals;
     this.statementTimeout = options.statementTimeoutMs ? String(Math.round(options.statementTimeoutMs)) : null;
   }
 
@@ -196,12 +201,15 @@ export class PostgresStore implements Store {
    */
   private async connect(): Promise<pg.PoolClient> {
     let client: pg.PoolClient;
+    const asked = performance.now();
     try {
       client = await this.pool.connect();
     } catch (err) {
+      // (counted as busy where it is answered: server.ts's error handler, which also sees the pool's own queries)
       if (isPoolWaitTimeout(err)) throw new DatabaseBusyError();
       throw err;
     }
+    this.vitals.noteWait(performance.now() - asked);
     const onError = (err: Error) => {
       if (!brokenClients.has(client)) brokenClients.set(client, err);
       this.onPoolError(err);

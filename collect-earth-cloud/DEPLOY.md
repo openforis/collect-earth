@@ -493,8 +493,10 @@ load on a database with a full CPU core of its own passed every phase, ten times
 
    Many routes slow together (syncs, the People tab, the map, the server info) point at the database. One route slow
    on its own points at that page: open it alone, outside a session, to see how long it takes.
-4. **The "Server errors" alert** ("Alerts for the server's owner" below): the busy answers are 503s and count
-   towards it.
+4. **The "Server errors" and "Records refused" alerts** ("Alerts for the server's owner" below): the busy answers
+   are 503s and count towards the first. When the database did not keep up in that hour, the alert says so: how
+   many requests were answered busy, how many waited more than a second for a connection and the longest wait, with a
+   pointer to this section.
 5. **The database's own graphs.** In the console, *SQL* → `ce-cloud-db` → *Overview*: CPU utilisation held near
    100 % for minutes during a session, or memory near the plan's size, means the plan is too small. *Query insights*
    (on the same page) lists the queries that took the time, which tells whether one feature is to blame or simply
@@ -840,6 +842,15 @@ Each alert is:
 
 The same alert is raised at most once every six hours (a project's storage once a day). Each Cloud Run instance
 counts its own, and a restart starts from zero, as the panel's counters do; the log-based alert below sees them all.
+
+**How the database kept up.** Each instance also counts, for the last hour, how long requests waited for a database
+connection and how many found none within `PG_CONNECT_TIMEOUT_MS` and were answered busy (`src/databaseVitals.ts`, a
+minute at a time in memory). When a "Server errors" or "Records refused" alert is raised and in that hour a request
+was answered busy or waited a second or more for a connection, the alert adds it: the mail and the webhook get a
+paragraph ("The database in the last hour... 17 requests found no free connection to the database within 10 s and
+were answered busy; 42 requests waited more than a second for a connection, the longest 9.9 s"), and the log line a
+`database` field (`waits`, `slow`, `busy`, `maxWaitMs`, `p95WaitMs`). Errors with the database keeping up say
+nothing of it: the errors are then something else. See "Is the database big enough?" above for what to do.
 
 **Two checks only Google Cloud can do** (in the console; a few minutes each):
 1. **The server is down.** *Monitoring* → *Uptime checks* → *Create uptime check*: protocol HTTPS, the server's host,

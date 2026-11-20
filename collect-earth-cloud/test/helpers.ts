@@ -30,6 +30,7 @@ export async function makeContext(
     mailLimits?: BuildServerOptions['mailLimits'];
     oidcKeys?: BuildServerOptions['oidcKeys'];
     webhookFetch?: BuildServerOptions['webhookFetch'];
+    databaseVitals?: BuildServerOptions['databaseVitals'];
   } = {},
 ): Promise<TestContext> {
   const store = new InMemoryStore();
@@ -55,6 +56,7 @@ export async function makeContext(
     ...(options.mailLimits ? { mailLimits: options.mailLimits } : {}),
     ...(options.oidcKeys ? { oidcKeys: options.oidcKeys } : {}),
     ...(options.webhookFetch ? { webhookFetch: options.webhookFetch } : {}),
+    ...(options.databaseVitals ? { databaseVitals: options.databaseVitals } : {}),
   });
   return { app, store };
 }
