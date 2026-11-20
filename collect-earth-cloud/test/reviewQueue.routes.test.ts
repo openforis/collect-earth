@@ -177,6 +177,87 @@ describe('the review queue: GET /quality/queue, decisions by reviewers, POST /qu
     ]);
   });
 
+  it('the list: one line per plot, searched, sorted and paged; the decided plots when asked; the queue\'s rules', async () => {
+    await fresh();
+    const list = async (query = '', token = owner.token) => {
+      const res = await call('GET', `/quality/review-list${query}`, token);
+      expect(res.statusCode, res.body).toBe(200);
+      return res.json();
+    };
+    const plots = (body: { lines: { plot: string }[] }) => body.lines.map((l) => l.plot);
+    const all = await list();
+    expect(plots(all)).toEqual(['1', '2', '3', '4', '6']);
+    expect(all).toMatchObject({ total: 5, offset: 0, excludedOwn: 0, people: ['ana', 'ben', 'owner', 'rita'] });
+    expect(all.lines[0]).toEqual({ plot: '1', section: 'difference', kinds: ['difference'], people: ['ana', 'ben'], checks: 1, decision: null });
+    expect(all.lines[4]).toMatchObject({ plot: '6', section: 'flag', kinds: ['very_fast'], people: ['ana'], checks: 0 });
+    // search (any case, part of the id), sort, pages
+    expect(plots(await list('?q=6'))).toEqual(['6']);
+    expect(plots(await list('?sort=plot&dir=desc'))).toEqual(['6', '4', '3', '2', '1']);
+    expect(await list('?limit=2&offset=2')).toMatchObject({ lines: [{ plot: '3' }, { plot: '4' }], total: 5, offset: 2 });
+    expect(plots(await list('?kind=very_fast'))).toEqual(['6']);
+    expect(plots(await list('?person=owner'))).toEqual(['4']);
+    // decided plots: only when asked, with their decision
+    await call('PUT', '/quality/decisions/1', owner.token, { decision: 'check', comment: 'G' });
+    expect(plots(await list())).toEqual(['2', '3', '4', '6']);
+    const decided = await list('?state=decided');
+    expect(decided.lines).toEqual([{ plot: '1', section: null, kinds: ['difference'], people: ['ana', 'ben'], checks: 1, decision: expect.objectContaining({ decision: 'check', comment: 'G', decidedBy: 'owner' }) }]);
+    expect(plots(await list('?state=all'))).toEqual(['2', '3', '4', '6', '1']);
+    // a reviewer: their own plots left out, no person filter; collectors: no list
+    const ritas = await list('?state=all', rita.token);
+    expect(plots(ritas)).toEqual(['4', '6', '1']);
+    expect(ritas).toMatchObject({ excludedOwn: 2, people: [] });
+    expect((await call('GET', '/quality/review-list?person=ana', rita.token)).statusCode).toBe(403);
+    expect((await call('GET', '/quality/review-list', maria.token)).statusCode).toBe(403);
+    // the list's page one at a time: the queue's items of those plots, in the order asked (decided or unknown ones left out)
+    const some = (await call('GET', '/quality/queue?plot=6&plot=3&plot=1&plot=99', owner.token)).json();
+    expect(some).toMatchObject({ total: 2, next: null });
+    expect(some.items.map((i: { plot: string }) => i.plot)).toEqual(['6', '3']);
+    expect((await call('GET', '/quality/queue?plot=1&after=difference::1', owner.token)).statusCode).toBe(400);
+    for (const bad of ['?state=some', '?sort=size', '?limit=0', '?limit=201', '?offset=-1', '?kind=odd']) {
+      expect((await call('GET', `/quality/review-list${bad}`, owner.token)).statusCode, bad).toBe(400);
+    }
+  });
+
+  it('one decision for many plots: picked or by the filters, a dry run first, plots that cannot take it skipped and named, one audit entry', async () => {
+    await fresh();
+    const apply = (payload: unknown, token = owner.token, dry = false) => call('POST', `/quality/decisions:apply${dry ? '?dryRun=1' : ''}`, token, payload);
+    const dry = await apply({ plots: ['1', '4', '6', '99'], decision: 'check' }, owner.token, true);
+    expect(dry.statusCode, dry.body).toBe(200);
+    expect(dry.json()).toEqual({
+      decision: 'check',
+      count: 2,
+      plots: ['1', '4'],
+      skipped: [
+        { plot: '6', reason: 'no_check' },
+        { plot: '99', reason: 'not_in_list' },
+      ],
+      skippedCount: 2,
+      dryRun: true,
+      batch: null,
+    });
+    expect(await ctx.store.listQualityDecisions(pid)).toEqual([]);
+    // A decision a plot has is replaced
+    await call('PUT', '/quality/decisions/1', owner.token, { decision: 'check' });
+    const done = await apply({ filter: { state: 'all', kind: 'difference' }, decision: 'first', comment: 'the first assessors were right' });
+    expect(done.statusCode, done.body).toBe(200);
+    expect(done.json()).toMatchObject({ decision: 'first', count: 4, plots: ['2', '3', '4', '1'], skippedCount: 0, dryRun: false, batch: expect.stringMatching(/^[0-9a-f-]{36}$/) });
+    const decisions = await ctx.store.listQualityDecisions(pid);
+    expect(decisions.map((d) => [d.plot, d.decision, d.comment, d.batch]).sort()).toEqual(
+      ['1', '2', '3', '4'].map((plot) => [plot, 'first', 'the first assessors were right', done.json().batch]),
+    );
+    expect(decisions.every((d) => d.seen && d.seen.length === 2)).toBe(true);
+    const audit = await ctx.store.listAudit(pid, { limit: 10, action: 'decision.applied' });
+    expect(audit.map((e) => [e.actor, e.details])).toEqual([['owner', { decision: 'first', count: 4, batch: done.json().batch }]]);
+    // A reviewer: their own plots are skipped (checks stay blind); no person filter; collectors cannot
+    const ritas = await apply({ plots: ['2', '6'], decision: 'recheck' }, rita.token);
+    expect(ritas.json()).toMatchObject({ count: 1, plots: ['6'], skipped: [{ plot: '2', reason: 'own_plot' }] });
+    expect((await apply({ filter: { person: 'ana' }, decision: 'first' }, rita.token)).statusCode).toBe(403);
+    expect((await apply({ plots: ['1'], decision: 'first' }, maria.token)).statusCode).toBe(403);
+    for (const payload of [{ decision: 'first' }, { plots: ['1'], filter: {}, decision: 'first' }, { plots: [], decision: 'first' }, { plots: ['1'], decision: 'maybe' }, { filter: { state: 'some' }, decision: 'first' }]) {
+      expect((await apply(payload)).statusCode, JSON.stringify(payload)).toBe(400);
+    }
+  });
+
   it('bulk: a dry run gives the count; the rule decides only plots without a decision, keeps what each saw, one audit entry; coordinators only', async () => {
     await fresh();
     const dry = await call('POST', '/quality/decisions:bulk?dryRun=1', owner.token, { rule: 'check_by_reviewer' });

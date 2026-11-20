@@ -20,7 +20,8 @@ import { MAX_CACHED_ANSWER_FILTERS, QualityService, remember, WorkerBusyError, W
 import type { Store } from '../store/store.js';
 import type { DecisionKind, GuidanceNoteInput, QualityDecision, QualitySettings } from '../types.js';
 import type { SurveyHealthAnswer } from '../wire/checks.js';
-import type { BulkDecisionAnswer, ReviewQueueAnswer } from '../wire/review.js';
+import type { ApplyDecisionsAnswer, BulkDecisionAnswer, ReviewListAnswer, ReviewQueueAnswer, SkippedPlot } from '../wire/review.js';
+import { MAX_REVIEW_LIST_LINES, REVIEW_LIST_SORTS, REVIEW_LIST_STATES, reviewList, type ReviewListSort, type ReviewListState } from '../reviewList.js';
 import type {
   AnswerColumnsAnswer,
   AnswersAnswer,
@@ -46,6 +47,8 @@ export const MIN_REVIEWER_PEOPLE = 2;
 export const MAX_QUEUE_ITEMS = 100;
 /** Plots a bulk decision names in its answer (the count is of all). */
 export const MAX_BULK_LISTED = 20;
+/** Plots one decision of the list may take at once (decisions:apply), asked by name or by the filters */
+export const MAX_APPLY_PLOTS = 2000;
 
 /** A differing pair's identity: its plot and its two records. */
 const pairId = (p: Pick<DifferingPairRef, 'plot' | 'first' | 'check'>) =>
@@ -370,25 +373,13 @@ export async function registerQualityRoutes(
     return reply.send({ ...surveyHealth(figures, decisions), computedAt: figures.computedAt, stale: figures.stale } satisfies SurveyHealthAnswer);
   });
 
-  // The review queue (Task 7), for coordinators and reviewers (never collectors): differences
-  // without a decision, then plots with flags, then plots submitted again after "both need
-  // another look", each plot once with what is known of it. Filters: person (anyone whose
-  // record is shown), kind (a part or a kind of flag); `after` (the cursor `next` of the page
-  // before) for the next plots, so plots decided meanwhile make none skipped. A plot beyond the
-  // report's listed differences has its two records read here (one read) for its answers.
-  app.get('/v1/projects/:pid/quality/queue', reviewer, async (request: FastifyRequest, reply: FastifyReply) => {
+  /**
+   * The review queue as the asker may see it, with what it was made from (the queue and the list share it): a
+   * reviewer's own plots and copies left out (the 409's rule, Decision 10), reference plots hidden. Null when the
+   * figures' answer was sent instead (being worked out).
+   */
+  async function queueOf(request: FastifyRequest, reply: FastifyReply, person: string | null, kind: QueueKind | null) {
     const projectId = request.membership!.projectId;
-    const q = (request.query ?? {}) as Record<string, unknown>;
-    const person = typeof q.person === 'string' && q.person !== '' ? q.person : null;
-    const kind = typeof q.kind === 'string' && q.kind !== '' ? q.kind : null;
-    const afterText = typeof q.after === 'string' && q.after !== '' ? q.after : null;
-    if (person !== null && person.length > MAX_NAME) return reply.code(400).send(bad(`person must be at most ${MAX_NAME} characters`));
-    if (kind !== null && !(QUEUE_KINDS as readonly string[]).includes(kind)) return reply.code(400).send(bad(`kind must be one of ${QUEUE_KINDS.join(', ')}`));
-    // Reviewers get no queue per person (Decision 10): its counts would be that person's differences and flags
-    const coordinatorAsks = request.membership!.role === 'admin';
-    if (person !== null && !coordinatorAsks) return reply.code(403).send({ error: 'forbidden', reason: 'only coordinators filter the review queue by person' });
-    const after = afterText === null ? null : afterText.length <= MAX_NAME + 40 ? parseCursor(afterText) : null;
-    if (afterText !== null && after === null) return reply.code(400).send(bad('after must be the cursor "next" of a page of the queue'));
     const [figures, decisions, settings, outline, members] = await Promise.all([
       served(quality, projectId, request, reply),
       store.listQualityDecisions(projectId),
@@ -397,10 +388,8 @@ export async function registerQualityRoutes(
       store.listMembers(projectId),
     ]);
     if (!figures) {
-      return reply;
+      return null;
     }
-    // Who can still submit a plot sent back: members now, not disabled.
-    const active = new Set(members.filter((m) => !m.disabled).map((m) => m.username));
     const fastSeconds = fastSecondsOf(settings);
     const flagKind = kind !== null && (FLAG_KINDS as readonly string[]).includes(kind) ? (kind as FlagKind) : null;
     const flags = patternFlags(figures, decisions, { fastSeconds, person, kind: flagKind });
@@ -414,6 +403,7 @@ export async function registerQualityRoutes(
     const excluded = reviewerName !== null ? new Set([...plotsOf(figures.flags, reviewerName), ...copies]) : null;
     // Nor is a copy of theirs or a reference plot named as another flag's previous or first plot.
     const unnamed = reviewerName !== null ? new Set([...copies, ...figures.reference.byPlot.map((p) => p.plot)]) : null;
+    const hidden = new Set(figures.reference.byPlot.map((p) => p.plot));
     const queue = reviewQueue(
       {
         pairs: figures.report.pairs,
@@ -422,12 +412,49 @@ export async function registerQualityRoutes(
         resubmitted: resubmittedAfterRecheck(figures.flags, decisions),
         decided: new Map(decisions.map((d) => [d.plot, d.decision])),
         ...(excluded !== null ? { excluded } : {}),
-        hidden: new Set(figures.reference.byPlot.map((p) => p.plot)),
+        hidden,
       },
-      { person, kind: kind as QueueKind | null },
+      { person, kind },
     );
-    const rest = after === null ? queue.items : itemsAfter(queue.items, after);
-    const page = rest.slice(0, MAX_QUEUE_ITEMS);
+    return { figures, decisions, settings, outline, members, queue, flags, everyones, excluded, hidden, unnamed };
+  }
+
+  // The review queue (Task 7), for coordinators and reviewers (never collectors): differences
+  // without a decision, then plots with flags, then plots submitted again after "both need
+  // another look", each plot once with what is known of it. Filters: person (anyone whose
+  // record is shown), kind (a part or a kind of flag); `after` (the cursor `next` of the page
+  // before) for the next plots, so plots decided meanwhile make none skipped. A plot beyond the
+  // report's listed differences has its two records read here (one read) for its answers.
+  app.get('/v1/projects/:pid/quality/queue', reviewer, async (request: FastifyRequest, reply: FastifyReply) => {
+    const projectId = request.membership!.projectId;
+    const q = (request.query ?? {}) as Record<string, unknown>;
+    const person = typeof q.person === 'string' && q.person !== '' ? q.person : null;
+    const kind = typeof q.kind === 'string' && q.kind !== '' ? q.kind : null;
+    const afterText = typeof q.after === 'string' && q.after !== '' ? q.after : null;
+    // `plot` (once or more, at most MAX_REVIEW_LIST_LINES): those plots of the queue only, in the order asked (the
+    // list's page worked through one at a time, docs/plans/2026-11-20-review-at-scale.md A1)
+    const askedPlots = q.plot === undefined ? null : (Array.isArray(q.plot) ? q.plot : [q.plot]).filter((x): x is string => typeof x === 'string' && x !== '');
+    if (askedPlots !== null && (askedPlots.length === 0 || askedPlots.length > MAX_REVIEW_LIST_LINES || askedPlots.some((x) => x.length > MAX_NAME))) {
+      return reply.code(400).send(bad(`plot must be given 1 to ${MAX_REVIEW_LIST_LINES} times`));
+    }
+    if (askedPlots !== null && afterText !== null) return reply.code(400).send(bad('send plot or after, not both'));
+    if (person !== null && person.length > MAX_NAME) return reply.code(400).send(bad(`person must be at most ${MAX_NAME} characters`));
+    if (kind !== null && !(QUEUE_KINDS as readonly string[]).includes(kind)) return reply.code(400).send(bad(`kind must be one of ${QUEUE_KINDS.join(', ')}`));
+    // Reviewers get no queue per person (Decision 10): its counts would be that person's differences and flags
+    const coordinatorAsks = request.membership!.role === 'admin';
+    if (person !== null && !coordinatorAsks) return reply.code(403).send({ error: 'forbidden', reason: 'only coordinators filter the review queue by person' });
+    const after = afterText === null ? null : afterText.length <= MAX_NAME + 40 ? parseCursor(afterText) : null;
+    if (afterText !== null && after === null) return reply.code(400).send(bad('after must be the cursor "next" of a page of the queue'));
+    const built = await queueOf(request, reply, person, kind as QueueKind | null);
+    if (!built) {
+      return reply;
+    }
+    const { figures, decisions, settings, outline, members, queue, flags, unnamed } = built;
+    // Who can still submit a plot sent back: members now, not disabled.
+    const active = new Set(members.filter((m) => !m.disabled).map((m) => m.username));
+    const inQueue = askedPlots === null ? null : new Map(queue.items.map((item) => [item.plot, item]));
+    const rest = inQueue !== null ? [...new Set(askedPlots)].flatMap((plot) => inQueue.get(plot) ?? []) : after === null ? queue.items : itemsAfter(queue.items, after);
+    const page = rest.slice(0, inQueue !== null ? MAX_REVIEW_LIST_LINES : MAX_QUEUE_ITEMS);
     const pairs = figures.report.pairs;
     // The answers of each pair shown: the report's listed difference, else its two records as
     // they are now, read at once. A pair whose answers no longer differ (or a record gone) is
@@ -475,7 +502,8 @@ export async function registerQualityRoutes(
       items,
       // The cursor of the next page (null: no more plots after this page).
       next: rest.length > page.length && page.length > 0 ? queueCursor(page[page.length - 1]) : null,
-      total: queue.items.length,
+      // (the plots asked for, when `plot` names them: the card counts through those)
+      total: inQueue !== null ? rest.length : queue.items.length,
       counts: queue.counts,
       // the person filter's names: a coordinator's (a reviewer has no such filter)
       people: coordinatorAsks ? queue.people : [],
@@ -488,6 +516,59 @@ export async function registerQualityRoutes(
       computedAt: figures.computedAt,
       stale: figures.stale,
     } satisfies ReviewQueueAnswer);
+  });
+
+  // The review queue as a list (docs/plans/2026-11-20-review-at-scale.md, A1): one line per plot, searched, sorted and
+  // paged, for coordinators and reviewers with the queue's rules; `state` adds the decided plots (or shows only them).
+  app.get('/v1/projects/:pid/quality/review-list', reviewer, async (request: FastifyRequest, reply: FastifyReply) => {
+    const q = (request.query ?? {}) as Record<string, unknown>;
+    const text = (name: string) => (typeof q[name] === 'string' && q[name] !== '' ? (q[name] as string) : null);
+    const person = text('person');
+    const kind = text('kind');
+    const search = text('q');
+    const state = (text('state') ?? 'waiting') as ReviewListState;
+    const sort = (text('sort') ?? 'queue') as ReviewListSort;
+    const descending = text('dir') === 'desc';
+    const offset = Number(text('offset') ?? '0');
+    const limit = Number(text('limit') ?? '100');
+    if (person !== null && person.length > MAX_NAME) return reply.code(400).send(bad(`person must be at most ${MAX_NAME} characters`));
+    if (search !== null && search.length > MAX_NAME) return reply.code(400).send(bad(`q must be at most ${MAX_NAME} characters`));
+    if (kind !== null && !(QUEUE_KINDS as readonly string[]).includes(kind)) return reply.code(400).send(bad(`kind must be one of ${QUEUE_KINDS.join(', ')}`));
+    if (!REVIEW_LIST_STATES.includes(state)) return reply.code(400).send(bad(`state must be one of ${REVIEW_LIST_STATES.join(', ')}`));
+    if (!REVIEW_LIST_SORTS.includes(sort)) return reply.code(400).send(bad(`sort must be one of ${REVIEW_LIST_SORTS.join(', ')}`));
+    if (!Number.isInteger(offset) || offset < 0) return reply.code(400).send(bad('offset must be a whole number of 0 or more'));
+    if (!Number.isInteger(limit) || limit < 1 || limit > MAX_REVIEW_LIST_LINES) return reply.code(400).send(bad(`limit must be from 1 to ${MAX_REVIEW_LIST_LINES}`));
+    const coordinatorAsks = request.membership!.role === 'admin';
+    if (person !== null && !coordinatorAsks) return reply.code(403).send({ error: 'forbidden', reason: 'only coordinators filter the review queue by person' });
+    const built = await queueOf(request, reply, person, kind as QueueKind | null);
+    if (!built) {
+      return reply;
+    }
+    const { figures, decisions, queue, everyones, excluded, hidden } = built;
+    const byPlot = new Map(decisions.map((d) => [d.plot, d]));
+    const { lines, total } = reviewList(
+      {
+        queue: queue.items,
+        pairs: figures.report.pairs,
+        flags: everyones,
+        decided: new Map(decisions.map((d) => [d.plot, { decision: d.decision, at: d.decidedAt }])),
+        operatorsOf: (plot) => plotOperators(figures.flags, plot),
+        left: new Set([...(excluded ?? []), ...hidden]),
+      },
+      { state, person, kind: kind as QueueKind | null, q: search, sort, descending, offset, limit },
+    );
+    return reply.send({
+      lines: lines.map((line) => {
+        const decision = byPlot.get(line.plot);
+        return { ...line, decision: decision ? publicDecision(decision, figures.flags) : null };
+      }),
+      total,
+      offset,
+      people: coordinatorAsks ? queue.people : [],
+      excludedOwn: queue.excluded,
+      computedAt: figures.computedAt,
+      stale: figures.stale,
+    } satisfies ReviewListAnswer);
   });
 
   // Bulk decisions (Task 7, coordinators): every differing plot without a decision where
@@ -533,6 +614,106 @@ export async function registerQualityRoutes(
       await audit(store, request, 'decision.bulk', { rule, decision, count: added.length, batch });
     }
     return reply.send({ rule: rule as BulkRule, decision, count: added.length, plots: added.slice(0, MAX_BULK_LISTED), dryRun: false, batch: added.length > 0 ? batch : null } satisfies BulkDecisionAnswer);
+  });
+
+  // One decision for many plots (docs/plans/2026-11-20-review-at-scale.md, A2): the plots picked in the list (`plots`)
+  // or every plot the list's filters show (`filter`), for coordinators and reviewers. Each must be in the asker's list
+  // (the queue's rules: a reviewer's own plots and reference plots are not); "check is right" only for a plot with a
+  // check. A decision a plot has is replaced. ?dryRun=1 only counts. One transaction, one batch id, one audit entry.
+  // (`::` is a literal colon for Fastify's router: `decisions:bulk` above is read as `decisions` and a parameter.)
+  app.post('/v1/projects/:pid/quality/decisions::apply', reviewer, async (request: FastifyRequest, reply: FastifyReply) => {
+    const projectId = request.membership!.projectId;
+    const body = (request.body ?? {}) as { plots?: unknown; filter?: unknown; decision?: unknown; comment?: unknown };
+    if (!DECISIONS.includes(body.decision as DecisionKind)) {
+      return reply.code(400).send(bad(`decision must be one of ${DECISIONS.join(', ')}`));
+    }
+    const decision = body.decision as DecisionKind;
+    let comment: string | null = null;
+    if (body.comment !== undefined && body.comment !== null) {
+      if (typeof body.comment !== 'string' || body.comment.trim().length > MAX_TEXT) {
+        return reply.code(400).send(bad(`comment must be text of at most ${MAX_TEXT} characters`));
+      }
+      comment = body.comment.trim() || null;
+    }
+    const byName = body.plots !== undefined;
+    if (byName === (body.filter !== undefined)) return reply.code(400).send(bad('send plots or filter, not both'));
+    let asked: string[] = [];
+    let filter: { state: ReviewListState; person: string | null; kind: QueueKind | null; q: string | null } = { state: 'all', person: null, kind: null, q: null };
+    if (byName) {
+      const plots = body.plots;
+      if (!Array.isArray(plots) || plots.length === 0 || plots.length > MAX_APPLY_PLOTS || !plots.every((x) => typeof x === 'string' && x.length > 0 && x.length <= MAX_NAME)) {
+        return reply.code(400).send(bad(`plots must be 1 to ${MAX_APPLY_PLOTS} plot ids`));
+      }
+      asked = [...new Set(plots as string[])];
+    } else {
+      const f = body.filter as Record<string, unknown> | null;
+      if (typeof f !== 'object' || f === null || Array.isArray(f)) return reply.code(400).send(bad('filter must be the list\'s filters'));
+      const text = (name: string) => (typeof f[name] === 'string' && f[name] !== '' ? (f[name] as string) : null);
+      const state = (text('state') ?? 'waiting') as ReviewListState;
+      const kind = text('kind');
+      if (!REVIEW_LIST_STATES.includes(state)) return reply.code(400).send(bad(`state must be one of ${REVIEW_LIST_STATES.join(', ')}`));
+      if (kind !== null && !(QUEUE_KINDS as readonly string[]).includes(kind)) return reply.code(400).send(bad(`kind must be one of ${QUEUE_KINDS.join(', ')}`));
+      filter = { state, person: text('person'), kind: kind as QueueKind | null, q: text('q') };
+      if (filter.person !== null && request.membership!.role !== 'admin') {
+        return reply.code(403).send({ error: 'forbidden', reason: 'only coordinators filter the review queue by person' });
+      }
+    }
+    const dryRunText = (request.query as { dryRun?: unknown } | undefined)?.dryRun;
+    const dryRun = dryRunText === '1' || dryRunText === 'true';
+    const built = await queueOf(request, reply, filter.person, filter.kind);
+    if (!built) {
+      return reply;
+    }
+    const { figures, decisions, queue, everyones, excluded, hidden } = built;
+    const { lines } = reviewList(
+      {
+        queue: queue.items,
+        pairs: figures.report.pairs,
+        flags: everyones,
+        decided: new Map(decisions.map((d) => [d.plot, { decision: d.decision, at: d.decidedAt }])),
+        operatorsOf: (plot) => plotOperators(figures.flags, plot),
+        left: new Set([...(excluded ?? []), ...hidden]),
+      },
+      { ...filter, sort: 'queue', descending: false, offset: 0, limit: Number.MAX_SAFE_INTEGER },
+    );
+    const listed = new Map(lines.map((l) => [l.plot, l]));
+    const candidates = byName ? asked : lines.map((l) => l.plot);
+    if (!byName && candidates.length > MAX_APPLY_PLOTS) {
+      return reply.code(400).send(bad(`the filters show ${candidates.length} plots: one decision takes at most ${MAX_APPLY_PLOTS}`));
+    }
+    const coordinator = request.membership!.role === 'admin';
+    const skipped: SkippedPlot[] = [];
+    const take: string[] = [];
+    for (const plot of candidates) {
+      const line = listed.get(plot);
+      if (!line) {
+        // Why, as far as the asker may know it: a reviewer learns nothing of reference plots (Decision 10)
+        const reason: SkippedPlot['reason'] = excluded?.has(plot) ? 'own_plot' : coordinator && hidden.has(plot) ? 'reference_plot' : 'not_in_list';
+        skipped.push({ plot, reason });
+      } else if (decision === 'check' && line.checks === 0) {
+        skipped.push({ plot, reason: 'no_check' });
+      } else {
+        take.push(plot);
+      }
+    }
+    const answer = (count: number, plots: string[], batch: string | null) =>
+      reply.send({ decision, count, plots: plots.slice(0, MAX_BULK_LISTED), skipped: skipped.slice(0, MAX_BULK_LISTED), skippedCount: skipped.length, dryRun, batch } satisfies ApplyDecisionsAnswer);
+    if (dryRun || take.length === 0) {
+      return answer(dryRun ? take.length : 0, dryRun ? take : [], null);
+    }
+    const batch = randomUUID();
+    const decided = await store.addQualityDecisions(
+      projectId,
+      take.map((plot) => ({ plot, decision, seen: seenOf(figures.flags, plot) })),
+      comment,
+      request.membership!.userId ?? null,
+      batch,
+      { replace: true },
+    );
+    if (decided.length > 0) {
+      await audit(store, request, 'decision.applied', { decision, count: decided.length, batch });
+    }
+    return answer(decided.length, decided, decided.length > 0 ? batch : null);
   });
 
   // The columns of a plot file and their values, to filter the answers by one (reviewers too).

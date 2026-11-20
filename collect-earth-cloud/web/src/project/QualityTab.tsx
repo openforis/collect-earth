@@ -7,6 +7,7 @@ import Button from "@mui/material/Button";
 import FormControl from "@mui/material/FormControl";
 import InputLabel from "@mui/material/InputLabel";
 import MenuItem from "@mui/material/MenuItem";
+import Link from "@mui/material/Link";
 import Paper from "@mui/material/Paper";
 import Select from "@mui/material/Select";
 import Stack from "@mui/material/Stack";
@@ -287,7 +288,7 @@ function Answer({ questionKey, value, options }: { questionKey: string; value: s
   );
 }
 
-function Confusions({ data, onWriteNote }: { data: QualityAnswer; onWriteNote: (draft: NoteDraft) => void }) {
+function Confusions({ projectId, data, onWriteNote }: { projectId: string; data: QualityAnswer; onWriteNote: (draft: NoteDraft) => void }) {
   const t = useT();
   const { language } = useApp();
   const label = labelMap(data.questions);
@@ -364,7 +365,14 @@ function Confusions({ data, onWriteNote }: { data: QualityAnswer; onWriteNote: (
                         </Stack>
                         {open === id && (
                           <Typography variant="body2" sx={{ mt: 1, wordBreak: "break-word" }}>
-                            {t("quality.plotsList", { plots: c.plots.join("; ") })}
+                            {/* Each plot a link to its page (docs/plans/2026-11-20-review-at-scale.md, A4) */}
+                            {t("quality.plotsList", { plots: "" })}
+                            {c.plots.map((plot, i) => (
+                              <span key={plot}>
+                                {i > 0 && "; "}
+                                <Link {...linkProps(pathFor({ name: "plot", projectId, plot }))}>{plot}</Link>
+                              </span>
+                            ))}
                           </Typography>
                         )}
                       </TableCell>
@@ -820,7 +828,7 @@ function TeamQualityTab({ projectId, view }: { projectId: string; view: ProjectV
           {data.plotsChecked > 0 && (
             <>
               <Questions projectId={projectId} data={data} onMargins={(margins) => (update((prev) => ({ settings: { ...prev.settings, margins } })), reload())} />
-              <Confusions data={data} onWriteNote={setNote} />
+              <Confusions projectId={projectId} data={data} onWriteNote={setNote} />
               <People data={data} />
               <Weeks data={data} />
             </>

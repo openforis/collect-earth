@@ -726,6 +726,7 @@ export interface Store {
   /**
    * Decides several plots at once (the bulk decisions), in one transaction: each plot only
    * when it has no decision yet (one made meanwhile is kept). Gives the plots decided.
+   * `replace`: a plot's decision is replaced too (one decision for plots picked in the list, decisions:apply).
    */
   addQualityDecisions(
     projectId: string,
@@ -733,6 +734,7 @@ export interface Store {
     comment: string | null,
     userId: string | null,
     batch: string,
+    options?: { replace?: boolean },
   ): Promise<string[]>;
   /** False when the plot had no decision. */
   deleteQualityDecision(projectId: string, plot: string): Promise<boolean>;

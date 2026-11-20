@@ -82,6 +82,62 @@ export interface BulkDecisionAnswer {
 }
 
 // ---------------------------------------------------------------------------
+// The review queue as a list (docs/plans/2026-11-20-review-at-scale.md, A1): GET /v1/projects/:pid/quality/review-list,
+// and one decision for many plots (A2): POST /v1/projects/:pid/quality/decisions:apply
+
+/** Which plots the list shows: those waiting (the queue), those decided, or both */
+export type ReviewListState = 'waiting' | 'decided' | 'all';
+export type ReviewListSort = 'queue' | 'plot' | 'person' | 'kind';
+
+/** One plot of the list */
+export interface ReviewListLine {
+  plot: string;
+  /** Its part of the queue; null: decided and no longer waiting */
+  section: QueueSection | null;
+  /** Why it is there: 'difference', its kinds of flags, 'resubmitted' */
+  kinds: string[];
+  /** Everyone whose record is in it */
+  people: string[];
+  /** Its checks whose answers differ from the first assessment */
+  checks: number;
+  decision: PlotDecision | null;
+}
+
+export interface ReviewListAnswer {
+  lines: ReviewListLine[];
+  /** Lines matching the query, on every page */
+  total: number;
+  offset: number;
+  /** Everyone named in the whole queue (the person filter's names: a coordinator's) */
+  people: string[];
+  /** A reviewer's own plots left out (0 for a coordinator) */
+  excludedOwn: number;
+  computedAt: number;
+  stale: boolean;
+}
+
+/** A plot that could not take the decision, and why */
+export interface SkippedPlot {
+  plot: string;
+  reason: 'not_in_list' | 'no_check' | 'own_plot' | 'reference_plot';
+}
+
+/** POST .../quality/decisions:apply (?dryRun=1 only counts) */
+export interface ApplyDecisionsAnswer {
+  decision: DecisionKind;
+  /** Plots decided (or, in a dry run, that would be) */
+  count: number;
+  /** The first of them (up to MAX_BULK_LISTED) */
+  plots: string[];
+  /** The plots asked for that cannot take it (up to MAX_BULK_LISTED), and how many in all */
+  skipped: SkippedPlot[];
+  skippedCount: number;
+  dryRun: boolean;
+  /** The run's id, kept with its decisions and in its audit entry (null for a dry run or nothing decided) */
+  batch: string | null;
+}
+
+// ---------------------------------------------------------------------------
 // Plot search (Task 8): GET /v1/projects/:pid/plots/search?q= and GET /v1/projects/:pid/plots/:plot
 
 export interface PlotMatch {

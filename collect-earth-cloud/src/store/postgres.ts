@@ -3348,17 +3348,22 @@ export class PostgresStore implements Store {
     comment: string | null,
     userId: string | null,
     batch: string,
+    options?: { replace?: boolean },
   ): Promise<string[]> {
     if (decisions.length === 0) {
       return [];
     }
     return this.withProject(projectId, async (client) => {
-      // One statement in the transaction: a plot decided meanwhile keeps its decision.
+      // One statement in the transaction: a plot decided meanwhile keeps its decision (unless `replace`).
+      const onConflict = options?.replace
+        ? `DO UPDATE SET decision = EXCLUDED.decision, comment = EXCLUDED.comment, decided_by = EXCLUDED.decided_by,
+             decided_at = EXCLUDED.decided_at, seen = EXCLUDED.seen, decided_batch = EXCLUDED.decided_batch`
+        : 'DO NOTHING';
       const res = await client.query(
         `INSERT INTO quality_decisions (project_id, plot, decision, comment, decided_by, decided_at, seen, decided_batch)
          SELECT $1, d.plot, d.decision, $5, $6, now(), d.seen::jsonb, $7::uuid
            FROM unnest($2::text[], $3::text[], $4::text[]) AS d(plot, decision, seen)
-         ON CONFLICT (project_id, plot) DO NOTHING
+         ON CONFLICT (project_id, plot) ${onConflict}
          RETURNING plot`,
         [
           projectId,

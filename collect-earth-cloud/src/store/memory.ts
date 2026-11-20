@@ -2407,13 +2407,14 @@ export class InMemoryStore implements Store {
     comment: string | null,
     userId: string | null,
     batch: string,
+    options?: { replace?: boolean },
   ): Promise<string[]> {
     const entry = this.requireProject(projectId);
     const decidedBy = this.requireUserOrNull(userId);
     const decidedAt = Date.now();
     const added: string[] = [];
     for (const d of decisions) {
-      if (entry.decisions.has(d.plot)) continue;
+      if (entry.decisions.has(d.plot) && !options?.replace) continue;
       entry.decisions.set(d.plot, { decision: d.decision, comment, decidedBy, decidedAt, seen: d.seen ? structuredClone(d.seen) : null, batch });
       added.push(d.plot);
     }

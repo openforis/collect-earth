@@ -11,6 +11,7 @@ import FormControlLabel from "@mui/material/FormControlLabel";
 import FormLabel from "@mui/material/FormLabel";
 import InputLabel from "@mui/material/InputLabel";
 import Link from "@mui/material/Link";
+import Pagination from "@mui/material/Pagination";
 import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Radio from "@mui/material/Radio";
@@ -46,7 +47,7 @@ import { ErrorAlert } from "../components/ErrorAlert";
 import { Explain, MoreInfo } from "../components/Explain";
 import { Loading } from "../components/Loading";
 import { formatDate, formatNumber } from "../format";
-import { useT } from "../i18n";
+import { useT, type MessageKey } from "../i18n";
 import { aboveHalf, accuracyText, disagreementText, mostDiffering, overallRate, parsePlotIds, refusalKey, sortedPeople, weakestQuestions } from "../referenceView";
 import { linkProps, pathFor } from "../router";
 import { useLoad } from "../useLoad";
@@ -476,12 +477,19 @@ function AddForm({ projectId, view, onDone }: { projectId: string; view: Referen
 }
 
 /** The reference plots, each removable, and each collector's progress through them. */
+/** Reference plots on a page of their list */
+const REFERENCE_PAGE = 50;
+
 function PlotList({ projectId, view, onDone }: { projectId: string; view: ReferenceSet; onDone: (next: ReferenceSet, removed: number) => void }) {
   const t = useT();
   const { language } = useApp();
   const n = (v: number) => formatNumber(v, language);
   const headingId = useId();
   const [confirm, setConfirm] = useState<{ plots: { csvFileId: string; plot: string }[] | "all"; count: number } | null>(null);
+  /** Pages of REFERENCE_PAGE plots (up to 500 listed: pages, not one long table) */
+  const [page, setPage] = useState(1);
+  const pages = Math.max(1, Math.ceil(view.plots.length / REFERENCE_PAGE));
+  const shownPage = Math.min(page, pages);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const remove = async () => {
@@ -529,7 +537,7 @@ function PlotList({ projectId, view, onDone }: { projectId: string; view: Refere
             </TableRow>
           </TableHead>
           <TableBody>
-            {view.plots.map((p) => (
+            {view.plots.slice((shownPage - 1) * REFERENCE_PAGE, shownPage * REFERENCE_PAGE).map((p) => (
               <TableRow key={`${p.csvFileId}\n${p.plot}`}>
                 <TableCell component="th" scope="row">
                   <Link {...linkProps(pathFor({ name: "plot", projectId, plot: p.plot }))}>{p.plot}</Link>
@@ -548,6 +556,14 @@ function PlotList({ projectId, view, onDone }: { projectId: string; view: Refere
           </TableBody>
         </Table>
       </TableContainer>
+      {pages > 1 && (
+        <Pagination
+          count={pages}
+          page={shownPage}
+          onChange={(_, p) => setPage(p)}
+          getItemAriaLabel={(type, p) => (type === "page" ? t("reviewList.page", { page: String(p) }) : t(`accounts.pageNav.${type}` as MessageKey))}
+        />
+      )}
       <Box>
         <Button size="small" color="warning" onClick={() => setConfirm({ plots: "all", count: view.plots.length })}>
           {t("reference.removeAll")}

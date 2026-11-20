@@ -14,6 +14,8 @@ import Paper from "@mui/material/Paper";
 import Select from "@mui/material/Select";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Typography from "@mui/material/Typography";
 import OpenInNew from "@mui/icons-material/OpenInNew";
 import visuallyHidden from "@mui/utils/visuallyHidden";
@@ -25,6 +27,7 @@ import {
   FLAG_KINDS,
   getPlotPlaces,
   getReviewQueue,
+  DEFAULT_LIST_QUERY,
   NO_QUEUE_FILTER,
   setQualityDecision,
   type BulkDecisionAnswer,
@@ -37,6 +40,7 @@ import {
   type QueueItem,
   type QueueKind,
   type QueueSection,
+  type ReviewListQuery,
   type ReviewQueueData,
 } from "../api";
 import { useApp } from "../appContext";
@@ -50,6 +54,11 @@ import { useT, type MessageKey } from "../i18n";
 import { googleEarthUrl } from "../qualityView";
 import { earthMapUrl, nextUndecided, queueKeyAction, stepIndex } from "../reviewQueueView";
 import { CheckAnswers } from "./QualityDifferences";
+import { ReviewList } from "./ReviewList";
+import { NO_SELECTION, type Selection } from "../reviewListView";
+
+/** The next page of the queue is asked for when this many loaded plots are left (no waiting on a button) */
+const PREFETCH_LEFT = 10;
 
 /** The select value for "everyone" / "every plot" (an empty value would leave the field looking blank). */
 const ALL = "__all__";
@@ -386,6 +395,12 @@ export function ReviewQueue({
   const t = useT();
   const { language } = useApp();
   const [filter, setFilter] = useState<QueueFilter>(NO_QUEUE_FILTER);
+  /** One at a time (the card) or the list (docs/plans/2026-11-20-review-at-scale.md); the list's query and selection kept across */
+  const [mode, setMode] = useState<"card" | "list">("card");
+  const [listQuery, setListQuery] = useState<ReviewListQuery>(DEFAULT_LIST_QUERY);
+  const [selection, setSelection] = useState<Selection>(NO_SELECTION);
+  /** The plots opened from the list, worked through in that order (null: the queue's own order and filters) */
+  const [sequence, setSequence] = useState<string[] | null>(null);
   const [data, setData] = useState<ReviewQueueData | null>(null);
   const [items, setItems] = useState<QueueItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -394,6 +409,8 @@ export function ReviewQueue({
   /** Decisions made or undone here (null: undone), by plot. */
   const [local, setLocal] = useState<Map<string, QualityDecision | null>>(new Map());
   const [decidedHere, setDecidedHere] = useState<Set<string>>(new Set());
+  const decidedRef = useRef(decidedHere);
+  decidedRef.current = decidedHere;
   const [comment, setComment] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -424,7 +441,7 @@ export function ReviewQueue({
       const call = ++latest.current;
       setLoading(true);
       setLoadError(null);
-      getReviewQueue(projectId, filter, after).then(
+      getReviewQueue(projectId, sequence ? NO_QUEUE_FILTER : filter, sequence ? null : after, sequence).then(
         (answer) => {
           if (call !== latest.current) return;
           setData(answer);
@@ -434,9 +451,9 @@ export function ReviewQueue({
             return [...prev, ...answer.items.filter((i) => !known.has(i.plot))];
           });
           if (after === null) {
-            setIndex(0);
-            setLocal(new Map());
-            setDecidedHere(new Set());
+            // Another filter (or plots from the list): the decisions made here are kept, and the card starts at the
+            // first plot not decided here
+            setIndex(Math.max(0, answer.items.findIndex((i) => !decidedRef.current.has(i.plot))));
             setComment("");
           }
           setLoading(false);
@@ -448,9 +465,14 @@ export function ReviewQueue({
         },
       );
     },
-    [projectId, filter],
+    [projectId, filter, sequence],
   );
   useEffect(() => load(null), [load]);
+  // The next page before the end is reached, so working through hundreds of plots never waits on a button (not
+  // again after a failure: its alert offers to try again)
+  useEffect(() => {
+    if (!loading && loadError === null && data?.next && items.length - index <= PREFETCH_LEFT) load(data.next);
+  }, [index, items.length, data?.next, loading, loadError, load]);
 
   const current = items[Math.min(index, Math.max(0, items.length - 1))] as QueueItem | undefined;
   const decisionOf = (item: QueueItem): QualityDecision | null => (local.has(item.plot) ? local.get(item.plot)! : item.decision);
@@ -566,7 +588,8 @@ export function ReviewQueue({
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLElement>) => {
-    if (!current) return;
+    // The keys are the card's: in the list they would decide a plot not shown
+    if (!current || mode === "list") return;
     const target = e.target instanceof HTMLElement ? e.target : null;
     const action = queueKeyAction({
       key: e.key,
@@ -610,14 +633,50 @@ export function ReviewQueue({
             {t("queue.title")}
           </Typography>
           <Explain text={t("queue.explain.short")} more={t("queue.explain")} />
-          <Box component="p" id="queue-keys" sx={{ display: { xs: "none", sm: "block" }, m: 0, p: 1.5, bgcolor: "action.hover", borderRadius: 1, typography: "body2" }}>
-            {t("queue.keys.short")}
-            <MoreInfo text={t("queue.keys")} />
-          </Box>
+          <ToggleButtonGroup
+            size="small"
+            exclusive
+            value={mode}
+            onChange={(_, value: "card" | "list" | null) => {
+              if (value === null) return;
+              // Back to the list: the queue's own order again
+              if (value === "list") setSequence(null);
+              setMode(value);
+            }}
+            aria-label={t("reviewList.view")}
+            sx={{ alignSelf: "flex-start" }}
+          >
+            <ToggleButton value="card">{t("reviewList.view.card")}</ToggleButton>
+            <ToggleButton value="list">{t("reviewList.view.list")}</ToggleButton>
+          </ToggleButtonGroup>
+          {mode === "card" && (
+            <Box component="p" id="queue-keys" sx={{ display: { xs: "none", sm: "block" }, m: 0, p: 1.5, bgcolor: "action.hover", borderRadius: 1, typography: "body2" }}>
+              {t("queue.keys.short")}
+              <MoreInfo text={t("queue.keys")} />
+            </Box>
+          )}
           {/* What was decided, said to screen readers (the page moves on by itself). */}
           <Box role="status" aria-live="polite" sx={visuallyHidden}>
             {announce}
           </Box>
+          {mode === "list" ? (
+            <ReviewList
+              projectId={projectId}
+              query={listQuery}
+              onQuery={setListQuery}
+              selection={selection}
+              onSelection={setSelection}
+              onOpen={(plots) => {
+                setSequence(plots);
+                setMode("card");
+              }}
+              onApplied={() => {
+                load(null);
+                onBulk?.();
+              }}
+            />
+          ) : (
+          <>
           {!data && loading && <Loading />}
           {busyFigures && (
             <Alert severity="info" role="status" action={<Button color="inherit" size="small" onClick={() => load(null)}>{t("common.retry")}</Button>}>
@@ -627,6 +686,20 @@ export function ReviewQueue({
           {loadError !== null && !busyFigures && <ErrorAlert error={loadError} onRetry={() => load(null)} />}
           {data && (
             <Stack spacing={2} sx={{ opacity: loading ? 0.6 : 1, transition: "opacity 120ms" }} aria-busy={loading}>
+              {sequence !== null && (
+                <Alert
+                  severity="info"
+                  action={
+                    <Button color="inherit" size="small" onClick={() => { setSequence(null); setMode("list"); }}>
+                      {t("reviewList.backToList")}
+                    </Button>
+                  }
+                >
+                  {t("reviewList.sequence", { n: formatNumber(data.total, language) })}
+                </Alert>
+              )}
+              {/* The queue's filters; plots from the list keep the list's (back to it to change them) */}
+              {sequence === null && (
               <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} useFlexGap sx={{ flexWrap: "wrap" }}>
                 {/* A reviewer's queue names nobody to filter by (the server sends no names) */}
                 {people.length > 0 && (
@@ -653,6 +726,7 @@ export function ReviewQueue({
                   </Button>
                 )}
               </Stack>
+              )}
               <Typography variant="body2" color="text.secondary">
                 {t(filtered ? "queue.countFiltered" : "queue.count", {
                   n: formatNumber(data.total, language),
@@ -725,6 +799,8 @@ export function ReviewQueue({
               )}
               {unsupportedSrs !== null && <Alert severity="info">{t("quality.placesUnsupported", { srs: unsupportedSrs })}</Alert>}
             </Stack>
+          )}
+          </>
           )}
         </Stack>
       </Paper>

@@ -221,6 +221,8 @@ export function logSentence(t: Translate, item: LogItem, page: Pick<ActivityPage
     case "decision.deleted":
       return t("activity.audit.undone", { actor, plot });
     case "decision.bulk":
+    // One decision for plots picked in the review list (decisions:apply): said as the bulk rules are
+    case "decision.applied":
       return t(d.count === 1 ? "activity.audit.bulkOne" : "activity.audit.bulk", { actor, count: num(d.count, language), decision: t(DECISION_KEYS[d.decision === "first" || d.decision === "check" ? d.decision : "recheck"]) });
     case "settings.changed":
       if (d.setting === "ai") return t(d.enabled === true ? "activity.audit.aiOn" : "activity.audit.aiOff", { actor });

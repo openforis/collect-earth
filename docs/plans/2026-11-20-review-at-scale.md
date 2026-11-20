@@ -1,6 +1,6 @@
 # Reviewing hundreds of plots, and correcting them in Collect Earth — design
 
-Date: 20 November 2026. Branch `claude/awesome-bell-s34gb0`. **Status: decided (below); being built, stage by stage.**
+Date: 20 November 2026. Branch `claude/awesome-bell-s34gb0`. **Status: decided (below); stage 1 (A1–A4) built, stages 2–4 to come.**
 
 ## What is asked
 
@@ -153,7 +153,9 @@ the local operator (`AbstractEarthSurveyService.updatePlacemarkData`). So correc
 
 ## Stages
 
-1. **A1–A4** (dashboard and its routes), with tests.
+1. **A1–A4** (dashboard and its routes), with tests. *Built 20 Nov 2026* (the card opens the list's page through
+   `GET /quality/queue?plot=…`; the flags' menu offers "first" and "both need another look", a flagged plot often
+   having no check).
 2. **B1–B4** (corrections on the server), with tests.
 3. **C** (Collect Earth), with tests.
 4. A real run: a coordinator decides plots "correct" in bulk and assigns them; a reviewer corrects them in a real

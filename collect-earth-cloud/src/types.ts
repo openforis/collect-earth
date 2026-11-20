@@ -722,6 +722,7 @@ export const AUDIT_ACTIONS = [
   'decision.set',
   'decision.deleted',
   'decision.bulk',
+  'decision.applied',
   'settings.changed',
   'export.downloaded',
   'survey.replaced',

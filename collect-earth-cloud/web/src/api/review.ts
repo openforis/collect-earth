@@ -11,7 +11,19 @@ import type {
   SamplingView,
   SurveyHealthAnswer,
 } from "../../../src/wire/checks";
-import type { BulkDecisionAnswer, BulkRule, PlotPageAnswer, PlotSearchAnswer, ReviewQueueAnswer, ReviewQueueItem } from "../../../src/wire/review";
+import type {
+  ApplyDecisionsAnswer,
+  BulkDecisionAnswer,
+  BulkRule,
+  DecisionKind,
+  PlotPageAnswer,
+  PlotSearchAnswer,
+  ReviewListAnswer,
+  ReviewListSort,
+  ReviewListState,
+  ReviewQueueAnswer,
+  ReviewQueueItem,
+} from "../../../src/wire/review";
 import { FLAG_KINDS } from "./quality";
 import { p, request, send, upload } from "./transport";
 
@@ -100,14 +112,56 @@ export interface QueueFilter {
 
 export const NO_QUEUE_FILTER: QueueFilter = { person: null, kind: null };
 
-/** The review queue (coordinators and reviewers), after the cursor `after` (a page's `next`). A 503 "busy" is thrown as ApiError code "busy". */
-export async function getReviewQueue(projectId: string, filter: QueueFilter, after: string | null): Promise<ReviewQueueData> {
+/**
+ * The review queue (coordinators and reviewers), after the cursor `after` (a page's `next`), or only the plots named
+ * (`plots`: a page of the list worked through one at a time, in that order). A 503 "busy" is thrown as ApiError code "busy".
+ */
+export async function getReviewQueue(projectId: string, filter: QueueFilter, after: string | null, plots: readonly string[] | null = null): Promise<ReviewQueueData> {
   const query = new URLSearchParams();
   if (filter.person) query.set("person", filter.person);
   if (filter.kind) query.set("kind", filter.kind);
   if (after) query.set("after", after);
+  for (const plot of plots ?? []) query.append("plot", plot);
   const q = query.toString();
   return request<ReviewQueueAnswer>("GET", `${p(projectId)}/quality/queue${q ? `?${q}` : ""}`);
+}
+
+// --- the review queue as a list (docs/plans/2026-11-20-review-at-scale.md) ----------
+
+export type { ApplyDecisionsAnswer, ReviewListAnswer, ReviewListLine, ReviewListSort, ReviewListState, SkippedPlot } from "../../../src/wire/review";
+
+/** What the list asks for: the queue's filters, which plots, a search, the order and the page */
+export interface ReviewListQuery extends QueueFilter {
+  state: ReviewListState;
+  q: string;
+  sort: ReviewListSort;
+  descending: boolean;
+  offset: number;
+  limit: number;
+}
+
+export const DEFAULT_LIST_QUERY: ReviewListQuery = { person: null, kind: null, state: "waiting", q: "", sort: "queue", descending: false, offset: 0, limit: 100 };
+
+/** One page of the list (coordinators and reviewers). A 503 "busy" is thrown as ApiError code "busy". */
+export function getReviewList(projectId: string, query: ReviewListQuery): Promise<ReviewListAnswer> {
+  const params = new URLSearchParams({ state: query.state, sort: query.sort, offset: String(query.offset), limit: String(query.limit) });
+  if (query.person) params.set("person", query.person);
+  if (query.kind) params.set("kind", query.kind);
+  if (query.q.trim()) params.set("q", query.q.trim());
+  if (query.descending) params.set("dir", "desc");
+  return request("GET", `${p(projectId)}/quality/review-list?${params.toString()}`);
+}
+
+/** Which plots one decision is for: those picked, or all those the list's filters show */
+export type ApplyTarget = { plots: string[] } | { filter: Pick<ReviewListQuery, "state" | "person" | "kind" | "q"> };
+
+/** One decision for many plots; `dryRun` only counts them and names those skipped. */
+export function applyDecisions(projectId: string, target: ApplyTarget, decision: DecisionKind, comment: string, dryRun: boolean): Promise<ApplyDecisionsAnswer> {
+  const body =
+    "plots" in target
+      ? { plots: target.plots }
+      : { filter: { state: target.filter.state, ...(target.filter.person ? { person: target.filter.person } : {}), ...(target.filter.kind ? { kind: target.filter.kind } : {}), ...(target.filter.q.trim() ? { q: target.filter.q.trim() } : {}) } };
+  return request("POST", `${p(projectId)}/quality/decisions:apply${dryRun ? "?dryRun=1" : ""}`, { json: { ...body, decision, ...(comment.trim() ? { comment: comment.trim() } : {}) } });
 }
 
 /** Bulk decisions (coordinators): `dryRun` only counts the plots the rule would decide. */
