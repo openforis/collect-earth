@@ -157,7 +157,7 @@ describe('the alerts on a running server', () => {
     expect(inv.statusCode).toBe(401);
   });
 
-  it('attach the server\'s recent errors to the server errors mail, as the log wrote them', async () => {
+  it('attach the server\'s recent errors to the server errors mail, as the log wrote them', { timeout: 60_000 }, async () => {
     const mailer = new TestMailer();
     const logged: string[] = [];
     const stream = new Writable({ write: (chunk, _e, cb) => { logged.push(chunk.toString()); cb(); } });
@@ -194,5 +194,5 @@ describe('the alerts on a running server', () => {
     }
     await new Promise((r) => setTimeout(r, 50));
     expect(mailer.sent.find((m) => m.tag === 'owner.alert.failed_logins')?.attachments).toBeUndefined();
-  }, { timeout: 60_000 });
+  });
 });
