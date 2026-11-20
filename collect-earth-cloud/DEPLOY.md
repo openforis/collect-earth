@@ -41,7 +41,7 @@ managed Postgres (Option B).
 | `PROJECT_FILES_CACHE_MB` | no | `96` | The project files people download (the collectors' copy, the coordinators' whole file), kept built per project: everyone joining a mapathon at 9:00 downloads it, and a project file is megabytes with its survey guide (8.6 MB for the IPCC demo survey). At most half of it for one file; a bigger one is read and built for each download |
 | `RECORDS_BATCH_CONCURRENCY` | no | `16` | Sync batches (`records:batch`) an instance takes at once; the others are answered 503 `busy` before their body is read, and Collect Earth sends them again later. A room of Collect Earths back online sends 50 records each at the same moment: taken all at once they waited in memory for a database connection until the heap ran out (load test, 17 Nov 2026). About the pool's size and a half; `0` takes every one |
 | `PG_STATEMENT_TIMEOUT_MS` | no | *(off)* | A statement of a project's transaction that runs longer is stopped, so a stuck query gives its connection back. At least 1000 |
-| `PG_POOL_MAX` | no | `10` | The most connections the server opens to PostgreSQL at once. Each sync (records:batch) holds one while it is written, so people syncing at the same moment wait for one beyond it: 20-30 suits a mapathon of 60 to 100 people, within the database's `max_connections` less its other clients' (Cloud SQL's smallest plans allow 25 to 50; keep a few for migrations and for you). With several server instances, each opens up to this many |
+| `PG_POOL_MAX` | no | `10` | The most connections the server opens to PostgreSQL at once. Each sync (records:batch) holds one while it is written, so people syncing at the same moment wait for one beyond it: 20-30 suits a mapathon of 60 to 100 people, within the database's `max_connections` less its other clients' (Cloud SQL's smallest plans allow 25 to 50; keep a few for migrations and for you). With several server instances, each opens up to this many. On a shared-core database (`db-f1-micro`, `db-g1-small`) a larger pool does not help once its CPU is full: see "Is the database big enough?" |
 | `PROJECT_STATES_KEPT`, `MAP_BUILDS_KEPT` | no | `3`, `4` | Projects whose Progress state, and maps whose next pages, each instance keeps; 6 and 8 with 1 GiB (see "Memory") |
 | `AI_VERTEX_API_KEY` | no | (secret) | Optional AI assistant: a Vertex AI API key, restricted to the Vertex AI API. Wins over `AI_VERTEX_PROJECT` when both are set. See "AI assistant (optional)" |
 | `AI_VERTEX_PROJECT` | no | `my-project` | Optional AI assistant without a key: the Google Cloud project whose Vertex AI the server's service account calls |
@@ -270,7 +270,7 @@ around US$8 to 10/month depending on the region, plus about US$2 to 3 for the
 10 GB SSD, backups and transaction logs. Cloud Run with `min-instances=0` stays
 inside the monthly free tier for typical use. Artifact Registry, Cloud Build and
 Secret Manager are cents. Total **about US$10 to 15/month**; with
-`db-g1-small` about US$30 to 40.
+`db-g1-small` about US$30 to 40. For many people working at once, see "Is the database big enough?" below.
 
 **Public access:** if an organisation policy (Domain restricted sharing) blocks
 the `allUsers` invoker binding, `--allow-unauthenticated` only warns. The script
@@ -443,6 +443,111 @@ worked and exits non-zero otherwise. The server needs outbound HTTPS to the Sent
   To rotate the database password: set a new one with
   `gcloud sql users set-password ce --instance=ce-cloud-db`, add it as a new
   version of `ce-database-url`, and redeploy (re-run the script).
+
+## Is the database big enough?
+
+Everything the server keeps is in PostgreSQL. The server itself (Cloud Run) holds nothing between requests and adds
+instances when it is busy; the database does not grow on its own. The script creates the cheapest plan,
+`db-f1-micro`: a share of one CPU core and 0.6 GB of memory. That is enough to try the server and for small teams;
+it is the first thing to run short when many people work at once.
+
+**What was measured** (load tests on cloud.collectearth.org in November 2026, `scripts/load-mapathon.mts` and
+`scripts/load-desktop.mts`: 10 mapathons of 20 people each with the IPCC survey, 10 of them in real Collect Earths,
+a training day and then the collection). On `db-f1-micro`, everyone starting at once, the training day and the
+steady pace (each person saving a plot every 45 to 90 seconds) passed. Ten times that pace filled the database:
+requests waited 10 to 20 seconds or were answered "busy", although the server itself answered in half a second. In
+a later run, with the data of 70 earlier test projects kept on the server, the steady pace slowed down too. The same
+load on a database with a full CPU core of its own passed every phase, ten times the pace included.
+
+### How to tell that the database is the limit
+
+1. **The server answers but its pages do not.** `/health` does not use the database; every project page does.
+   Compare the two while people are working:
+
+   ```bash
+   curl -s -o /dev/null -w "health %{time_total} s\n" https://<HOST>/health
+   curl -s -o /dev/null -w "server-info %{http_code} %{time_total} s\n" https://<HOST>/v1/server-info
+   ```
+
+   `/health` in well under a second while `/v1/server-info` takes several seconds, or answers 503: the requests are
+   waiting for the database. When `/health` is slow too, the server's instance is short of memory or CPU instead (see
+   "Memory" below), not the database.
+2. **"Busy" answers in the log.** A request that waits more than `PG_CONNECT_TIMEOUT_MS` (10 s) for a database
+   connection is answered 503 `{"error":"busy"}` with `Retry-After: 15`, and the server writes a warning. In
+   *Logging* → *Logs Explorer*:
+
+   ```
+   resource.type="cloud_run_revision" AND jsonPayload.msg="database busy: no connection of the pool came free in time"
+   ```
+
+   A handful when a whole room starts Collect Earth at the same minute is normal. A steady stream while people are
+   simply working means the database cannot keep up. (Not the same thing: syncs answered "busy" with
+   `Retry-After: 10`, "the records will be sent again in a moment". That is the instance's own limit on syncs taken
+   at once, `RECORDS_BATCH_CONCURRENCY`, expected when a room comes back online; Collect Earth sends them again.)
+3. **Slow requests on every page at once.** The server logs each request that takes more than a second
+   (`"request completed"` with `responseTime`):
+
+   ```
+   resource.type="cloud_run_revision" AND jsonPayload.msg="request completed" AND jsonPayload.responseTime>1000
+   ```
+
+   Many routes slow together (syncs, the People tab, the map, the server info) point at the database. One route slow
+   on its own points at that page: open it alone, outside a session, to see how long it takes.
+4. **The "Server errors" alert** ("Alerts for the server's owner" below): the busy answers are 503s and count
+   towards it.
+5. **The database's own graphs.** In the console, *SQL* → `ce-cloud-db` → *Overview*: CPU utilisation held near
+   100 % for minutes during a session, or memory near the plan's size, means the plan is too small. *Query insights*
+   (on the same page) lists the queries that took the time, which tells whether one feature is to blame or simply
+   everything together.
+
+**A bigger pool or a bigger database?** If the database's CPU stays low while busy answers appear, the server simply
+has too few connections: raise `PG_POOL_MAX` (20 to 30 for a large mapathon), keeping instances × `PG_POOL_MAX` + a
+few below `max_connections`. If the database's CPU is high, more connections only make more queries wait inside the
+database: move to a bigger plan.
+
+### Choosing a plan
+
+Rough list prices for one zonal instance; they differ by region and change, see
+[Cloud SQL pricing](https://cloud.google.com/sql/pricing). The guidance comes from the tests above, not from a
+guarantee.
+
+| Plan | CPU | Memory | About per month | Suits |
+| --- | --- | --- | --- | --- |
+| `db-f1-micro` (the script's) | a share of one core | 0.6 GB | US$8 to 10 | trying the server, small teams, a few dozen people at once |
+| `db-g1-small` | a larger share of one core | 1.7 GB | US$30 to 40 | several groups; still a shared core, slowed down when it stays busy |
+| `db-custom-1-3840` | 1 core of its own | 3.75 GB | about US$50 | mapathons of a few hundred people (the plan the tests above passed on) |
+| `db-custom-2-7680` | 2 cores of their own | 7.5 GB | about US$100 | several large mapathons at the same time, or the largest teams |
+
+Besides speed, a core of its own is never slowed down for using its share for too long, which is why a shared-core
+database can be fine at the start of a session and slow twenty minutes later. Google's Cloud SQL SLA does not cover
+the shared-core plans (`db-f1-micro`, `db-g1-small`). The data kept matters too: every project in use (its plots,
+records and project file) is read from memory when it fits and from disk when it does not, so deleting projects that
+are no longer needed (test runs, finished trials) keeps a small plan fast for longer.
+
+### Changing the plan
+
+```bash
+gcloud sql instances patch ce-cloud-db --tier=db-custom-1-3840 --project=<PROJECT>
+```
+
+The database restarts, which takes a few minutes: the server answers with errors meanwhile (Collect Earth keeps the
+plots and sends them afterwards), so do it outside a session. Its settings (`max_connections=50`, backups) stay as they were.
+Re-running the deploy script does not change the plan of an existing instance (`--db-tier` only applies when it
+creates one). On a core of its own, a larger pool helps (see above):
+
+```bash
+gcloud run services update collect-earth-cloud --region=<REGION> --update-env-vars=PG_POOL_MAX=20
+```
+
+with 4 instances × 20 + a few within `max_connections` (raise it with `--database-flags=max_connections=100` on
+the same `patch`, which also restarts the database; the flag replaces the instance's whole list of flags, so name
+any other flag set on it too). Going back to a smaller plan is the same command with the other
+tier, for example after a large event.
+
+**Before a large session**, a load test against a copy of the server (never the production server during real
+work: the scripts create accounts and projects on the server they are given) shows whether the plan holds:
+`scripts/load-mapathon.mts` simulates the people, `scripts/load-desktop.mts` runs real Collect Earths; both say
+their settings at the top of the file.
 
 ---
 
