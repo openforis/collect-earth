@@ -132,6 +132,10 @@ public class CorrectionService implements ApplicationListener<ContextRefreshedEv
 	private final Object checking = new Object();
 	/** The plots to correct as the server listed them last (from the file at a start, offline), by their placemark id */
 	private volatile Map<String, JsonNode> plots = Collections.emptyMap();
+	/** The list was read (from the server, or its file of the last check): until then {@link #listed} reads the file */
+	private volatile boolean listLoaded;
+	/** The person was told this run that they have plots to correct */
+	private volatile boolean told;
 	/** The records being corrected, by placemark id */
 	private final Map<String, CollectRecord> working = new HashMap<>();
 	/** The server has no corrections (an older one): not asked again until the next start */
@@ -252,7 +256,7 @@ public class CorrectionService implements ApplicationListener<ContextRefreshedEv
 			String version = answer.path("version").asText(""); //$NON-NLS-1$ //$NON-NLS-2$
 			JsonNode listed = answer.path("plots"); //$NON-NLS-1$
 			if (version.equals(state.getProperty("version")) && (listed.size() == 0 || file().isFile())) { //$NON-NLS-1$
-				if (plots.isEmpty() && listed.size() > 0) {
+				if (!listLoaded) {
 					remember(listed);
 				}
 				return false;
@@ -277,6 +281,14 @@ public class CorrectionService implements ApplicationListener<ContextRefreshedEv
 			Files.move(temp.toPath(), list.toPath(), StandardCopyOption.REPLACE_EXISTING);
 			state.setProperty("version", version); //$NON-NLS-1$
 			state.setProperty("keyColumns", answer.path("keyColumns").asText("1")); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+			// a plot refused before and listed again (given back by a coordinator): no longer refused, its draft kept
+			for (JsonNode plot : listed) {
+				String id = plot.path("placemarkId").asText(plot.path("plot").asText()); //$NON-NLS-1$ //$NON-NLS-2$
+				if (State.REFUSED.name().equals(state.getProperty("state." + id))) { //$NON-NLS-1$
+					state.setProperty("state." + id, State.DRAFT.name()); //$NON-NLS-1$
+					state.remove("reason." + id); //$NON-NLS-1$
+				}
+			}
 			writeState(state);
 			remember(listed);
 			logger.info("The plots to correct were downloaded: {} plots", listed.size()); //$NON-NLS-1$
@@ -285,9 +297,18 @@ public class CorrectionService implements ApplicationListener<ContextRefreshedEv
 		return false;
 	}
 
-	/** Offline: the list of the last check, once */
+	/**
+	 * The plots to correct: the list of the last check, read from its file when the server was not asked yet this run
+	 * (the first check comes some seconds after a start, and the plots list and the forms ask before) or cannot be
+	 */
+	private Map<String, JsonNode> listed() {
+		loadListed();
+		return plots;
+	}
+
+	/** Offline, or before the first check: the list of the last check, once */
 	private void loadListed() {
-		if (!plots.isEmpty()) {
+		if (listLoaded) {
 			return;
 		}
 		File list = new File(folder(), LIST);
@@ -309,6 +330,7 @@ public class CorrectionService implements ApplicationListener<ContextRefreshedEv
 			}
 		}
 		plots = byId;
+		listLoaded = true;
 		working.keySet().retainAll(byId.keySet());
 	}
 
@@ -324,7 +346,9 @@ public class CorrectionService implements ApplicationListener<ContextRefreshedEv
 		if (open && changed) {
 			reload.run();
 		}
-		if (!open && now > before && now > 0) {
+		// once a start (a reminder), and whenever more come
+		if (!open && now > 0 && (now > before || !told)) {
+			told = true;
 			say(Notice.INFO, Messages.getString("Corrections.waiting").replace("{0}", String.valueOf(now))); //$NON-NLS-1$ //$NON-NLS-2$
 		}
 	}
@@ -340,9 +364,8 @@ public class CorrectionService implements ApplicationListener<ContextRefreshedEv
 
 	/** The plots to correct made the plots file; false when there are none */
 	public boolean open() {
-		loadListed();
 		File file = file();
-		if (plots.isEmpty() || !file.isFile()) {
+		if (listed().isEmpty() || !file.isFile()) {
 			return false;
 		}
 		myPlots.openCorrections(file);
@@ -359,7 +382,7 @@ public class CorrectionService implements ApplicationListener<ContextRefreshedEv
 	public int toCorrect() {
 		Properties state = readState();
 		int n = 0;
-		for (Map.Entry<String, JsonNode> plot : plots.entrySet()) {
+		for (Map.Entry<String, JsonNode> plot : listed().entrySet()) {
 			State s = stateOf(plot.getKey(), plot.getValue(), state);
 			if (s != State.SENT && s != State.PENDING) {
 				n++;
@@ -370,9 +393,8 @@ public class CorrectionService implements ApplicationListener<ContextRefreshedEv
 
 	/** What the plots map and the Project menu show: how many, whether they are open */
 	public Map<String, Object> status() {
-		loadListed();
 		Map<String, Object> status = new LinkedHashMap<>();
-		status.put("plots", plots.size()); //$NON-NLS-1$
+		status.put("plots", listed().size()); //$NON-NLS-1$
 		status.put("toCorrect", toCorrect()); //$NON-NLS-1$
 		status.put("open", isOpen()); //$NON-NLS-1$
 		status.put("available", properties.isCloudSyncEnabled() && !olderServer); //$NON-NLS-1$
@@ -383,7 +405,7 @@ public class CorrectionService implements ApplicationListener<ContextRefreshedEv
 	public Map<String, String> statuses() {
 		Properties state = readState();
 		Map<String, String> out = new LinkedHashMap<>();
-		for (Map.Entry<String, JsonNode> plot : plots.entrySet()) {
+		for (Map.Entry<String, JsonNode> plot : listed().entrySet()) {
 			State s = stateOf(plot.getKey(), plot.getValue(), state);
 			out.put(plot.getKey(), s == State.SENT || s == State.PENDING ? "saved" : s == State.NONE ? "empty" : "partial"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 		}
@@ -411,8 +433,7 @@ public class CorrectionService implements ApplicationListener<ContextRefreshedEv
 	 * answers (without their XML) and where they differ, and its state here. Null for a plot not to correct.
 	 */
 	public Map<String, Object> plotInfo(String placemarkId) {
-		loadListed();
-		JsonNode plot = plots.get(placemarkId);
+		JsonNode plot = listed().get(placemarkId);
 		if (plot == null) {
 			return null;
 		}
@@ -439,12 +460,17 @@ public class CorrectionService implements ApplicationListener<ContextRefreshedEv
 			result.setMessage("Nothing to start from"); //$NON-NLS-1$
 			return result;
 		}
+		// Submitted only once on the server, or on its way: a submit refused and the plot given back again is a draft
+		State state = stateOf(placemarkId, listed().get(placemarkId), readState());
+		if (state != State.SENT && state != State.PENDING) {
+			surveys.startDetachedRecord(record);
+		}
 		return surveys.loadDetachedRecord(record);
 	}
 
 	/** The form's values applied to the plot's record, kept as a draft; submitted and complete, the correction is sent */
 	public CorrectionLoadResult save(String placemarkId, Map<String, String> values, boolean partial) {
-		JsonNode plot = plots.get(placemarkId);
+		JsonNode plot = listed().get(placemarkId);
 		if (plot == null) {
 			return refused(placemarkId);
 		}
@@ -480,7 +506,7 @@ public class CorrectionService implements ApplicationListener<ContextRefreshedEv
 	public synchronized PlacemarkLoadResult addEntity(String placemarkId, String entityName, Map<String, String> values) {
 		CollectRecord record = recordOf(placemarkId);
 		if (record == null) {
-			if (!plots.containsKey(placemarkId)) {
+			if (!listed().containsKey(placemarkId)) {
 				return refused(placemarkId);
 			}
 			record = surveys.newDetachedRecord(placemarkId.split(","), values); //$NON-NLS-1$
@@ -514,7 +540,7 @@ public class CorrectionService implements ApplicationListener<ContextRefreshedEv
 		result.setSuccess(false);
 		result.setMessage(Messages.getString("Corrections.notListed")); //$NON-NLS-1$
 		logger.info("A correction of {}, which is not to correct, was refused", placemarkId); //$NON-NLS-1$
-		return CorrectionLoadResult.of(result, State.REFUSED, null);
+		return CorrectionLoadResult.of(result, State.REFUSED, result.getMessage());
 	}
 
 	/** The plot's record kept apart: in memory, else its draft, else the first answer (made the correction's start) */
@@ -523,7 +549,7 @@ public class CorrectionService implements ApplicationListener<ContextRefreshedEv
 		if (record != null) {
 			return record;
 		}
-		JsonNode plot = plots.get(placemarkId);
+		JsonNode plot = listed().get(placemarkId);
 		if (plot == null) {
 			return null;
 		}
@@ -606,7 +632,7 @@ public class CorrectionService implements ApplicationListener<ContextRefreshedEv
 
 	/** Sends one correction: SENT, REFUSED (said why), or PENDING (to send again) */
 	private State send(Destination destination, String placemarkId) {
-		JsonNode plot = plots.get(placemarkId);
+		JsonNode plot = listed().get(placemarkId);
 		CollectRecord record;
 		String xml;
 		Map<String, String> summary;

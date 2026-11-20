@@ -13,9 +13,10 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { audit } from '../activity.js';
 import { assignmentCounts, correctionDifferences, correctionPlacemarkId, correctionsVersion, ownAssignments, shareEvenly } from '../corrections.js';
 import { attachment } from '../download.js';
+import { summaryOf } from './records.js';
 import { mergePlotFiles, type PlotFilePart } from '../myPlots.js';
 import { plotFileOf } from '../plotFileCache.js';
-import { buildPlotFile, noteText } from '../plots.js';
+import { buildPlotFile } from '../plots.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import { recordResolver } from '../quality.js';
 import { loadPlotContext, type QualityService } from '../qualityService.js';
@@ -229,9 +230,10 @@ export async function registerCorrectionRoutes(app: FastifyInstance, store: Stor
     const files = new Map((await store.listCsvFiles(projectId)).map((f) => [f.id, f]));
     const info = await store.getRoundInfo(projectId);
     // As the person's own plots are served: the round column of a first assessment (what the form starts from), and
-    // the reviewer's comment in the coordinator's note column when the survey has it
+    // the coordinator's note column when the survey has it, empty: the reviewer's comment is beside the form already
+    // (Collect Earth's correction panel), and twice was found confusing in the real run
     const round = roundColumnOf(info, new Set()) ?? undefined;
-    const note = noteColumnOf(info, new Map(mine.plots.map((p) => [p.plot, noteText(p.comment ?? '')])));
+    const note = noteColumnOf(info, new Map());
     const parts: PlotFilePart[] = [];
     for (const s of mine.sources) {
       const meta = files.get(s.csvFileId);
@@ -259,10 +261,11 @@ export async function registerCorrectionRoutes(app: FastifyInstance, store: Stor
     const body = (request.body ?? {}) as { recordKey?: unknown; xml?: unknown; summary?: unknown; baseOperator?: unknown };
     if (typeof body.recordKey !== 'string' || body.recordKey.length === 0 || body.recordKey.length > MAX_NAME) return reply.code(400).send(bad('recordKey must be the corrected record\'s key'));
     if (typeof body.xml !== 'string' || body.xml.length === 0 || body.xml.length > MAX_CORRECTION_XML) return reply.code(400).send(bad('xml must be the corrected record'));
-    const summary = body.summary;
-    if (typeof summary !== 'object' || summary === null || Array.isArray(summary) || !Object.values(summary).every((v) => typeof v === 'string')) {
-      return reply.code(400).send(bad('summary must be the record\'s answers by key (text)'));
+    // As records:batch reads one: a question left blank comes as null (Collect Earth's JSON), which is a blank
+    if (typeof body.summary !== 'object' || body.summary === null || Array.isArray(body.summary)) {
+      return reply.code(400).send(bad('summary must be the record\'s answers by key'));
     }
+    const summary = summaryOf(body.summary);
     const baseOperator = body.baseOperator === undefined || body.baseOperator === null ? null : body.baseOperator;
     if (baseOperator !== null && (typeof baseOperator !== 'string' || baseOperator.length > MAX_NAME)) return reply.code(400).send(bad('baseOperator must be the operator of the answer the form started from'));
     // Only a plot decided "Correct it in Collect Earth" and assigned to the person (another decision since, or someone
@@ -270,7 +273,7 @@ export async function registerCorrectionRoutes(app: FastifyInstance, store: Stor
     const decision = (await store.listQualityDecisions(projectId)).find((d) => d.plot === plot);
     if (decision?.decision !== 'correct') return reply.code(409).send({ error: 'not_to_correct', reason: 'This plot is no longer to be corrected: its decision changed.' });
     const at = Date.now();
-    const saved = await store.saveCorrection(projectId, plot, userId, { recordKey: body.recordKey, xml: body.xml, summary: summary as Record<string, string>, baseOperator: baseOperator as string | null, at });
+    const saved = await store.saveCorrection(projectId, plot, userId, { recordKey: body.recordKey, xml: body.xml, summary, baseOperator: baseOperator as string | null, at });
     if (saved === 'not_assigned') return reply.code(409).send({ error: 'not_assigned', reason: 'This plot is no longer assigned to you to correct.' });
     await audit(store, request, 'correction.saved', { plot });
     return reply.send({ plot, correctedAt: at } satisfies CorrectionSavedAnswer);

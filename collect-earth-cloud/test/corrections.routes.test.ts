@@ -157,7 +157,8 @@ describe('corrections', () => {
 
   it('a correction: kept by whom it is assigned to, the plot\'s final answer in the export; refused when no longer theirs or no longer to correct', async () => {
     await call('POST', '/quality/decisions:apply', owner.token, { plots: ['1', '4'], decision: 'correct', assign: [maria.userId] });
-    const correction = { recordKey: '1,1', xml: '<plot><id>1</id><by>maria</by></plot>', summary: { [LAND_USE]: 'C', [FOREST]: '40', collect_code_round: '1' }, baseOperator: 'ana' };
+    // A question left blank comes as null, as Collect Earth's JSON has it (found in the real run): a blank, not a refusal
+    const correction = { recordKey: '1,1', xml: '<plot><id>1</id><by>maria</by></plot>', summary: { [LAND_USE]: 'C', [FOREST]: '40', collect_code_round: '1', collect_text_notes: null }, baseOperator: 'ana' };
     expect((await call('PUT', '/corrections/1', rita.token, correction)).json()).toMatchObject({ error: 'not_assigned' });
     const saved = await call('PUT', '/corrections/1', maria.token, correction);
     expect(saved.statusCode, saved.body).toBe(200);
@@ -182,7 +183,7 @@ describe('corrections', () => {
     await call('PUT', '/quality/decisions/4', owner.token, { decision: 'first' });
     expect((await call('PUT', '/corrections/4', maria.token, { ...correction, recordKey: '4,1' })).json()).toMatchObject({ error: 'not_to_correct' });
     expect((await call('GET', '/my-corrections', maria.token)).json().plots.map((p: { plot: string }) => p.plot)).toEqual(['1']);
-    for (const bad of [{ ...correction, xml: '' }, { ...correction, summary: { a: 1 } }, { ...correction, recordKey: undefined }]) {
+    for (const bad of [{ ...correction, xml: '' }, { ...correction, summary: ['C'] }, { ...correction, recordKey: undefined }]) {
       expect((await call('PUT', '/corrections/1', maria.token, bad)).statusCode, JSON.stringify(bad)).toBe(400);
     }
     expect((await ctx.store.listAudit(pid, { limit: 20, action: 'correction.saved' })).map((e) => [e.actor, e.details])).toEqual([['maria', { plot: '1' }]]);

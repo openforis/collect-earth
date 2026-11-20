@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -168,7 +169,7 @@ public class CorrectionServiceTest {
 		PlacemarkLoadResult loaded = saved(false);
 		when(surveys.loadDetachedRecord(record)).thenReturn(loaded);
 		assertTrue(service.load("17,1").isSuccess());
-		verify(surveys).startDetachedRecord(record);
+		verify(surveys, atLeastOnce()).startDetachedRecord(record);
 
 		// a change: a draft, not sent
 		when(surveys.updateDetachedRecord(eq(record), anyMap(), anyBoolean())).thenReturn(saved(false));
@@ -191,6 +192,38 @@ public class CorrectionServiceTest {
 	}
 
 	@Test
+	public void afterARestartTheListAndTheDraftsAreThereBeforeTheFirstCheck() throws IOException {
+		// found in the real run: the first check comes some seconds after a start, and the plots list asks before
+		server("v1", "17", "18");
+		service.check();
+		service.open();
+		CollectRecord record = answerRecord();
+		when(surveys.updateDetachedRecord(eq(record), anyMap(), anyBoolean())).thenReturn(saved(false));
+		service.save("17,1", new HashMap<>(Collections.singletonMap("collect_code_lu", "G")), true);
+		when(surveys.parseDetachedRecord("<plot>corrected</plot>")).thenReturn(record);
+		when(surveys.loadDetachedRecord(record)).thenReturn(saved(false));
+
+		CorrectionService again = new CorrectionService(properties, api, surveys, myPlots, notices, reloads::incrementAndGet, new File(folder, "cloud"));
+		assertTrue(again.isOpen());
+		assertEquals("partial", again.statuses().get("17,1"));
+		assertEquals("empty", again.statuses().get("18,1"));
+		assertEquals(2, again.toCorrect());
+		assertTrue(again.load("17,1").isSuccess(), "its draft");
+		verify(surveys).parseDetachedRecord("<plot>corrected</plot>");
+	}
+
+	@Test
+	public void theReminderIsGivenOnceAStart() throws IOException {
+		server("v1", "17");
+		service.check();
+		service.check();
+		assertEquals(1, notices.pending().size());
+		CorrectionService again = new CorrectionService(properties, api, surveys, myPlots, notices, reloads::incrementAndGet, new File(folder, "cloud"));
+		again.check();
+		assertEquals(2, notices.pending().size(), "the next start reminds again");
+	}
+
+	@Test
 	public void aCorrectionTheServerRefusesIsSaidAndLeft() throws IOException {
 		server("v1", "17");
 		service.check();
@@ -201,6 +234,17 @@ public class CorrectionServiceTest {
 		assertEquals("REFUSED", refused.getCorrection());
 		assertNotNull(refused.getCorrectionReason());
 		assertEquals("REFUSED", service.plotInfo("17,1").get("state"));
+
+		// a coordinator gives it back (a new version of the list): no longer refused, the draft kept, to submit again
+		server("v2", "17");
+		service.check();
+		assertEquals("DRAFT", service.plotInfo("17,1").get("state"));
+		assertNull(service.plotInfo("17,1").get("reason"));
+		// and it opens as not submitted: the form asks for the submit again
+		when(surveys.loadDetachedRecord(record)).thenReturn(saved(false));
+		service.load("17,1");
+		// once as the correction started, once as it opens again a draft
+		verify(surveys, times(2)).startDetachedRecord(record);
 	}
 
 	@Test

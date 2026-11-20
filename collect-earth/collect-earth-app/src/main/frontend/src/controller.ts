@@ -193,6 +193,12 @@ export class MapController {
   // ---------- statuses ----------
   /** The next poll starts once this one is answered: on a slow server, polls on a timer piled up. */
   private async pollStatuses(): Promise<void> {
+    await this.refreshStatuses();
+    window.setTimeout(() => this.pollStatuses(), POLL_MILLIS);
+  }
+
+  /** The statuses asked for once (the polls, and at once after the list switched to another plot file) */
+  private async refreshStatuses(): Promise<void> {
     const version = this.plotsVersion;
     try {
       const data = await fetchStatuses(this.lastStatusPoll);
@@ -211,7 +217,6 @@ export class MapController {
       else if (this.state.repeat) this.set({ repeat: false, periods: byId() });
       this.applyStatuses(updates);
     } catch { /* transient - the next poll retries */ }
-    window.setTimeout(() => this.pollStatuses(), POLL_MILLIS);
   }
 
   private applyStatuses(updates: Record<string, PlotStatus>): void {
@@ -326,6 +331,8 @@ export class MapController {
     await (show ? openCorrections() : closeCorrections());
     if (this.state.activeId !== null) this.set({ activeId: null, formUrl: null });
     if (!this.loadingPlots) await this.loadPlots();
+    // their statuses now, not at the next poll: the plots corrected would show "not started" meanwhile
+    await this.refreshStatuses();
   };
 
   goToNextUnfinished = (): string | null => {

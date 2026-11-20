@@ -1,6 +1,6 @@
 # Reviewing hundreds of plots, and correcting them in Collect Earth — design
 
-Date: 20 November 2026. Branch `claude/awesome-bell-s34gb0`. **Status: decided (below); stages 1 (A1–A4), 2 (B1–B4) and 3 (C) built, stage 4 (the real run) to come.**
+Date: 20 November 2026. Branch `claude/awesome-bell-s34gb0`. **Status: built and run (stages 1–4, 20 Nov 2026).**
 
 ## What is asked
 
@@ -185,3 +185,26 @@ the local operator (`AbstractEarthSurveyService.updatePlacemarkData`). So correc
    - C5's previous/next is the list's own (N, the next unfinished): the plots to correct are the list while open.
 4. A real run: a coordinator decides plots "correct" in bulk and assigns them; a reviewer corrects them in a real
    Collect Earth; the export has the corrections as final.
+
+   *Run 20 Nov 2026*, on PostgreSQL (the app role, RLS) with the demo survey and real Collect Earth jars: Ana submitted
+   four plots in her Collect Earth and they synced; Ben's checks differed on three; the coordinator decided the three
+   "correct" in one go and gave them to Rita (a dry run giving them to Ana said "3 of hers", not refused); Rita's
+   Collect Earth found them by itself after its start and offered "Plots to correct (3)"; she opened them, the panel
+   showed the comment, "starts from ana's answer" and the forest type each gave (labels); she changed one to Ben's
+   answer, submitted one as it was, left one half done; nothing went into her local database nor into the cloud's
+   records; the server kept two corrections by her from Ana's answer; after a restart everything was as she left it;
+   the coordinator then decided the third "first answer", her submit was refused and said, and it left her list; the
+   export gave each corrected plot's correction as its final answer, the interpreters' answers beside it.
+
+   Found and fixed in the run:
+   - The server refused every correction (400): a question left blank comes as `null` in Collect Earth's JSON. The
+     route now reads the summary as `records:batch` does (`summaryOf`: null is a blank, anything else not text is left
+     out), which that route had learned the same way.
+   - For the seconds between a start and the first check the plots to correct were not read back from their file: the
+     list showed none started and a submit was refused. The list file is read on first use.
+   - A plot refused and then given back still said "refused", and opened as submitted: a refusal is cleared when the
+     server lists the plot again, and a correction not on the server never opens as submitted.
+   - After switching to the plots to correct the list showed every plot "not started" until its next poll (up to 10 s):
+     it asks for the statuses at once.
+   - The reviewer's comment showed twice (the panel, and the plot file's coordinator note): the note is left empty in
+     `my-corrections.csv`. The refusal's text repeated itself: the reason alone is shown.

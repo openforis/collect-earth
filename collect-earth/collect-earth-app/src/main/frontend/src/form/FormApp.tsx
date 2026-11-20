@@ -1302,7 +1302,7 @@ function CorrectionPanel({ state }: { state: FormState }) {
   const severity = c.state === "SENT" ? "success" : c.state === "REFUSED" ? "error" : "warning";
   const stateText = c.state === "SENT" || c.state === "PENDING" || c.state === "DRAFT"
     ? t(`correction.state.${c.state}` as MessageKey)
-    : c.state === "REFUSED" ? t("correction.state.REFUSED", { reason: c.reason ?? "" }) : null;
+    : c.state === "REFUSED" ? c.reason || t("correction.state.REFUSED") : null;
   return (
     <Alert severity={severity} icon={<EditOutlinedIcon />} data-testid="entry-correction" sx={{ ...BANNER_SX, alignItems: "flex-start", "& .MuiAlert-message": { width: "100%", minWidth: 0 } }}
       action={info && <Button color="inherit" size="small" onClick={() => setFolded(!folded)} data-testid="entry-correction-fold">{folded ? <ChevronRightIcon fontSize="small" /> : <ChevronLeftIcon fontSize="small" sx={{ transform: "rotate(-90deg)" }} />}</Button>}>
