@@ -396,7 +396,7 @@ Main desktop application and embedded web server. Contains:
 ### 3. collect-earth-sampler
 Geospatial utilities for sampling and plot geometry. Contains:
 - **Plot shapes**: Abstract `KmlGenerator` base class with implementations for different plot shapes (Circle, Square, Hexagon, Polygon, NFI layouts). Despite the name they compute the geometry the plots map, Google Earth Web, the imagery windows, the web form and the KML export all use (the cloud's `src/plotShape.ts` copies the formulas)
-- **Coordinate Transformations**: `GeoUtils` handles EPSG code conversions using GeoTools
+- **Coordinates**: plots are WGS84 latitude and longitude in decimal degrees (EPSG:4326) only, with no conversion from other systems: `GeoUtils` checks the survey's system and the range of degrees, and `NotWgs84Exception` says what is wrong (the user is told by `KmlGeneratorService.prepareProjectFiles`, `PlotFileIndex` and `SampleFileCheck`). `CoordinateUtils` (GeoTools' `GeodeticCalculator`) places the sample points
 - **Template Processing**: `FreemarkerTemplateUtils` for generating KML/HTML from templates
 
 ### 4. collect-earth-installer
@@ -505,7 +505,7 @@ The application supports 5 languages through resource bundles:
 ### Adding a New Plot Shape
 1. Create subclass of `KmlGenerator` in `collect-earth-sampler/.../processor`
 2. Implement `generatePoints()` method with geometric logic
-3. Use `GeoUtils` for coordinate transformations
+3. Use `CoordinateUtils` to place points at distances in metres: the plots are WGS84 degrees, never converted
 4. Add the shape option to `SettingsModel` (`collect-earth-app/.../service/settings`), which the settings page draws itself from
 
 ### Adding a New Attribute Handler

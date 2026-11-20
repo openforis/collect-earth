@@ -12,7 +12,9 @@ import org.slf4j.LoggerFactory;
 public abstract class AbstractCoordinateCalculation {
 
 	/**
-	 * The initial EPSG code for the plot coordinates ( which will be changed to WGS84 - used by Google Earth )
+	 * The project's coordinates_reference_system setting, as earlier project files carry it. Not used: the plots are
+	 * always WGS84 latitude and longitude in decimal degrees (EPSG:4326), and nothing converts them from another system
+	 * (GeoUtils). Kept so that the plot shapes are made with the same arguments as before.
 	 */
 	final String sourceEpsgCode;
 

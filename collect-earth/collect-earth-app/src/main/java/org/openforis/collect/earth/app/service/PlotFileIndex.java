@@ -8,9 +8,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.openforis.collect.earth.app.service.notices.Notice;
+import org.openforis.collect.earth.app.service.notices.NoticeService;
 import org.openforis.collect.earth.core.utils.CsvReaderUtils;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
+import org.openforis.collect.earth.sampler.utils.NotWgs84Exception;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,16 +32,23 @@ import com.opencsv.CSVReader;
 public class PlotFileIndex {
 
 	@Autowired
-	private EarthSurveyService earthSurveyService;
+	EarthSurveyService earthSurveyService;
 
 	@Autowired
-	private KmlGeneratorService kmlGeneratorService;
+	KmlGeneratorService kmlGeneratorService;
+
+	/** Where the plots of the file that are not WGS84 degrees are said; null in the tests that do not look */
+	@Autowired(required = false)
+	NoticeService notices;
 
 	private final Logger logger = LoggerFactory.getLogger(PlotFileIndex.class);
 	private final ObjectMapper json = new ObjectMapper();
 
 	/** The plot file read once, against its path, last change and the plot settings (see {@link #indexOf}). */
 	private volatile PlotIndex cachedIndex;
+
+	/** "path@stamp" of the plot file whose plots out of the WGS84 range were last said: said once per file, not per read */
+	private String notWgs84Said;
 
 	/**
 	 * "path@lastModified:length" of the plot file, "" when there is none (LeafletMapController.plotsVersion): a file
@@ -81,6 +91,9 @@ public class PlotFileIndex {
 		List<double[]> places = new java.util.ArrayList<>();
 		List<String[]> rows = new java.util.ArrayList<>();
 		Map<String, Integer> position = new java.util.HashMap<>();
+		// The plots whose coordinates cannot be WGS84 degrees (UTM metres, say): their number and the first ids
+		int notWgs84 = 0;
+		List<String> notWgs84Ids = new java.util.ArrayList<>();
 		String[] headerRow = null;
 		try (CSVReader reader = CsvReaderUtils.getCsvReader(csvFile)) {
 			String[] csvRow;
@@ -108,6 +121,16 @@ public class PlotFileIndex {
 					labels.add(label);
 					places.add(place);
 					rows.add(csvRow);
+				} catch (NotWgs84Exception notWgs84Error) {
+					// A survey in another system refuses every row: that is said once when the project's files are
+					// prepared (KmlGeneratorService.checkCoordinateSystem). A plot out of the range of degrees is said below
+					if (!notWgs84Error.isAboutTheSurvey()) {
+						notWgs84++;
+						if (notWgs84Ids.size() < KmlGeneratorService.NOT_WGS84_IDS_NAMED) {
+							notWgs84Ids.add(notWgs84Error.getPlotId());
+						}
+					}
+					logger.debug("Plot not in WGS84: {}", notWgs84Error.getMessage());
 				} catch (Exception rowError) {
 					// header row or malformed row - skipped
 					logger.debug("Skipping CSV row: {}", (Object) csvRow);
@@ -116,7 +139,21 @@ public class PlotFileIndex {
 		}
 		index = new PlotIndex(csvFile, stamp, settings, kmlGenerator, headerRow, ids, labels, places, rows, position, json);
 		cachedIndex = index;
+		sayNotWgs84(csvFile + "@" + stamp, notWgs84, notWgs84Ids);
 		return index;
+	}
+
+	/**
+	 * The plots left out of the plots map as their coordinates are not WGS84 degrees, said as a notice: once per plot
+	 * file (and change of it), not each time the plot settings make it read again, with a few of their ids.
+	 */
+	private void sayNotWgs84(String file, int count, List<String> someIds) {
+		if (count == 0 || notices == null || file.equals(notWgs84Said)) {
+			return;
+		}
+		notWgs84Said = file;
+		logger.warn("{} plots of {} are not WGS84 degrees and are not shown, among them {}", count, file, someIds); //$NON-NLS-1$
+		notices.post(new Notice("server", Notice.WARNING, "Collect Earth", KmlGeneratorService.notWgs84PlotsMessage(count, someIds, true)).html()); //$NON-NLS-1$ //$NON-NLS-2$
 	}
 
 	/** The plot file read: each plot's id, label, place and row, and the index's answer. */

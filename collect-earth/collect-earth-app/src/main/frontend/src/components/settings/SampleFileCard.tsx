@@ -42,6 +42,8 @@ export function SampleFileCard({ check, checking, checkError, ...field }: Props)
   return (
     <Stack spacing={2} data-testid="sample-file">
       <SettingField {...field} />
+      {/* Collect Earth takes no other coordinate system than WGS84 degrees, and converts none */}
+      <Typography variant="caption" color="text.secondary" data-testid="sample-file-wgs84">{s("SettingsPage.sampleFile.wgs84")}</Typography>
       {checking && <LinearProgress aria-label={s("SettingsPage.sampleFile.checking")} />}
       {checkError && <Alert severity="warning">{formatText(s("SettingsPage.sampleFile.checkFailed"), checkError)}</Alert>}
       {check && !checking && (

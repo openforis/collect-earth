@@ -13,8 +13,10 @@ import java.util.function.Supplier;
 
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
+import org.openforis.collect.earth.app.service.KmlGeneratorService;
 import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.earth.core.utils.CsvReaderUtils;
+import org.openforis.collect.earth.sampler.utils.GeoUtils;
 import org.openforis.collect.io.metadata.collectearth.CSVFileValidationResult;
 import org.openforis.collect.io.metadata.collectearth.CSVFileValidationResult.ErrorType;
 import org.openforis.collect.io.metadata.collectearth.CSVRowValidationResult;
@@ -50,6 +52,11 @@ public class SampleFileCheck {
 	private final Supplier<List<String>> expectedHeaders;
 	/** How many key columns come before the latitude and the longitude (the survey's key attributes, as KmlGenerator reads them) */
 	private final IntSupplier keyColumns;
+	/** The id of the survey's coordinate system (GeoUtils.getSurveySrsId), "" for none or no survey */
+	private final Supplier<String> surveySrsId;
+
+	/** The message Collect's own check gives a latitude or longitude out of range, which the check here says better */
+	private static final String COLLECT_RANGE_MESSAGE = "The latitude of a plot must be between"; //$NON-NLS-1$
 
 	@Autowired
 	public SampleFileCheck(EarthSurveyService surveys) {
@@ -69,7 +76,7 @@ public class SampleFileCheck {
 			// plot had the round as its latitude and the map drew them all on one line
 			CollectSurvey survey = surveys.getCollectSurvey();
 			return survey == null ? 1 : Math.max(1, survey.getSchema().getRootEntityDefinitions().get(0).getKeyAttributeDefinitions().size());
-		});
+		}, () -> GeoUtils.getSurveySrsId(surveys.getCollectSurvey()));
 	}
 
 	/** For the tests: the check of Collect and the expected headers stood in for, one key column. */
@@ -79,9 +86,16 @@ public class SampleFileCheck {
 
 	/** For the tests: with the number of key columns before the coordinates. */
 	public SampleFileCheck(Function<File, CSVFileValidationResult> validator, Supplier<List<String>> expectedHeaders, IntSupplier keyColumns) {
+		this(validator, expectedHeaders, keyColumns, () -> ""); //$NON-NLS-1$
+	}
+
+	/** For the tests: with the survey's coordinate system as well. */
+	public SampleFileCheck(Function<File, CSVFileValidationResult> validator, Supplier<List<String>> expectedHeaders, IntSupplier keyColumns,
+			Supplier<String> surveySrsId) {
 		this.validator = validator;
 		this.expectedHeaders = expectedHeaders;
 		this.keyColumns = keyColumns;
+		this.surveySrsId = surveySrsId;
 	}
 
 	/**
@@ -105,14 +119,21 @@ public class SampleFileCheck {
 			answer.put("problems", problems);
 			return answer;
 		}
-		read(file, answer, problems);
+		String srsId = StringUtils.defaultString(surveySrsId.get());
+		boolean wgs84Survey = GeoUtils.isUsingWGS84(srsId);
+		if (!wgs84Survey) {
+			// No plot file can be shown in this project: said once, rather than every plot as out of range
+			problems.add(problem("notWgs84Survey", KmlGeneratorService.notWgs84SurveyMessage(srsId, false), true, null));
+		}
+		boolean outOfRange = read(file, answer, problems, wgs84Survey);
 		CSVFileValidationResult validation = null;
 		try {
 			validation = validator.apply(file);
 		} catch (RuntimeException e) {
 			logger.error("The plots file could not be checked against the survey: " + file, e);
 		}
-		if (validation != null && !validation.isSuccessful() && !isAboutSize(validation)) {
+		if (validation != null && !validation.isSuccessful() && !isAboutSize(validation)
+				&& !(outOfRange && onlyAboutTheRange(validation))) {
 			problems.add(problemOf(validation));
 		}
 		Map<String, Object> tooMany = tooManyPlots(answer.get("plots") instanceof Integer ? (Integer) answer.get("plots") : 0);
@@ -123,13 +144,22 @@ public class SampleFileCheck {
 		return answer;
 	}
 
-	/** The rows, the points and the header; a file the CSV reader cannot read as one is a blocking problem. */
-	private void read(File file, Map<String, Object> answer, List<Map<String, Object>> problems) {
+	/**
+	 * The rows, the points and the header; a file the CSV reader cannot read as one is a blocking problem, and so are
+	 * plots whose latitude or longitude cannot be WGS84 degrees (checked when the survey is WGS84; otherwise its system
+	 * is the problem), named by their ids, a few at most, and marked in the rows shown.
+	 *
+	 * @return whether plots out of the range of degrees were found
+	 */
+	private boolean read(File file, Map<String, Object> answer, List<Map<String, Object>> problems, boolean checkRange) {
 		List<String> foundColumns = Collections.emptyList();
 		List<List<String>> rows = new ArrayList<>();
 		List<List<Double>> points = new ArrayList<>();
 		int plots = 0;
 		int lat = keyColumns.getAsInt();
+		int notWgs84 = 0;
+		List<String> notWgs84Ids = new ArrayList<>();
+		List<Map<String, Object>> notWgs84Cells = new ArrayList<>();
 		try (CSVReader reader = CsvReaderUtils.getCsvReader(file.getAbsolutePath())) {
 			String[] line;
 			boolean first = true;
@@ -147,11 +177,27 @@ public class SampleFileCheck {
 				if (rows.size() < PREVIEW_ROWS) {
 					rows.add(Arrays.asList(line));
 				}
-				if (points.size() < MAX_POINTS && line.length > lat + 1) {
+				if (line.length > lat + 1 && (checkRange || points.size() < MAX_POINTS)) {
 					Double latitude = number(line[lat]);
 					Double longitude = number(line[lat + 1]);
 					if (latitude != null && longitude != null) {
-						points.add(Arrays.asList(latitude, longitude));
+						if (points.size() < MAX_POINTS) {
+							points.add(Arrays.asList(latitude, longitude));
+						}
+						if (checkRange && !GeoUtils.isInWgs84Range(latitude, longitude)) {
+							notWgs84++;
+							if (notWgs84Ids.size() < KmlGeneratorService.NOT_WGS84_IDS_NAMED) {
+								notWgs84Ids.add(String.join(",", Arrays.copyOfRange(line, 0, Math.min(lat, line.length)))); //$NON-NLS-1$
+							}
+							if (plots <= PREVIEW_ROWS) {
+								if (latitude < -90 || latitude > 90) {
+									notWgs84Cells.add(cell(plots, lat + 1));
+								}
+								if (longitude < -180 || longitude > 180) {
+									notWgs84Cells.add(cell(plots, lat + 2));
+								}
+							}
+						}
 					}
 				}
 			}
@@ -165,10 +211,40 @@ public class SampleFileCheck {
 		if (plots == 0 && problems.isEmpty()) {
 			problems.add(problem("noRows", Messages.getString("JPlotCsvTable.noPlotInfo"), false, null));
 		}
+		if (notWgs84 > 0) {
+			problems.add(problem("notWgs84Plots", KmlGeneratorService.notWgs84PlotsMessage(notWgs84, notWgs84Ids, false), true, notWgs84Cells));
+		}
 		answer.put("plots", plots);
 		answer.put("foundColumns", foundColumns);
 		answer.put("rows", rows);
 		answer.put("points", points);
+		return notWgs84 > 0;
+	}
+
+	/** A cell for the page to mark in the rows it shows, row and column from 1 (as rowsOf gives them) */
+	private static Map<String, Object> cell(int row, int column) {
+		Map<String, Object> cell = new LinkedHashMap<>();
+		cell.put("row", row);
+		cell.put("column", column);
+		cell.put("message", null);
+		return cell;
+	}
+
+	/**
+	 * Whether all Collect found wrong is latitudes and longitudes out of range (which it checks for an EPSG:4326 survey,
+	 * in English): the problem said here already, with what to do
+	 */
+	private static boolean onlyAboutTheRange(CSVFileValidationResult validation) {
+		if (validation.getErrorType() != ErrorType.INVALID_VALUES_IN_CSV || validation.getRowValidations() == null
+				|| validation.getRowValidations().isEmpty()) {
+			return false;
+		}
+		for (CSVRowValidationResult row : validation.getRowValidations()) {
+			if (row.getMessage() == null || !row.getMessage().startsWith(COLLECT_RANGE_MESSAGE)) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	/** A first row whose latitude or longitude is not a number is the header, whatever its first cell says. */

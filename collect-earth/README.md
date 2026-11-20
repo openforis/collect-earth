@@ -16,6 +16,23 @@ Its user friendliness and smooth learning curve make it a perfect tool for perfo
  
 The data gathered through Collect Earth is exportable to commonly used formats, and can be analysed in a pivot table and charts (Tools > Analyse the data), also as a stand-alone file that opens in any browser.
 
+## Plot coordinates: WGS84 latitude and longitude only
+
+The plot file (the CSV with the plots to assess) gives each plot's id, then its latitude and longitude, then the other
+columns the survey expects. The latitude and longitude must be **WGS84 latitude and longitude in decimal degrees
+(EPSG:4326)**, for example `-1.2921` and `36.8219`: the latitude between -90 and 90, the longitude between -180 and 180,
+with a dot as the decimal separator. Collect Earth takes no other coordinate system and converts none (UTM, a national
+grid, degrees and minutes): Google Earth Web and the imagery Collect Earth opens beside it all use WGS84 degrees, so that
+is what the plots must be in.
+
+- Convert a plot file in another system before using it, in a GIS (QGIS: *Export > Save Features As...* with the CRS
+  EPSG:4326 and the geometry as `X`/`Y` columns, then rename them as the survey expects).
+- The survey's coordinate system must be EPSG:4326 too (Collect's survey designer, *Spatial reference systems*). A project
+  whose survey uses another one still opens, and Collect Earth says which system it uses and what to change instead of
+  showing its plots.
+- Plots whose latitude or longitude is out of range (UTM metres, say) are not shown: the settings page refuses such a plot
+  file, and the plots map says how many plots were left out, with some of their ids.
+
 ## Where to download the installer!
 
 If you are not interested in the code but rather on the Collect Earth features you might want to run it right away!

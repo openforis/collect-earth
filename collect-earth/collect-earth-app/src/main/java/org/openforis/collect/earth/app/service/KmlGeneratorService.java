@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.text.MessageFormat;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.io.FileUtils;
@@ -34,6 +35,7 @@ import org.openforis.collect.earth.sampler.processor.PolygonWktGenerator;
 import org.openforis.collect.earth.sampler.processor.SquareKmlGenerator;
 import org.openforis.collect.earth.sampler.processor.SquareWithCirclesKmlGenerator;
 import org.openforis.collect.earth.sampler.utils.FreemarkerTemplateUtils;
+import org.openforis.collect.earth.sampler.utils.GeoUtils;
 import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
 import org.openforis.collect.io.data.DataExportStatus;
 import org.openforis.collect.manager.process.AbstractProcess;
@@ -94,6 +96,56 @@ public class KmlGeneratorService {
 		checkPlotFile();
 		copyBalloonFiles(generatedFolder);
 		deleteOldGoogleEarthFiles(generatedFolder);
+		checkCoordinateSystem();
+	}
+
+	/**
+	 * A survey whose plots are in another coordinate system than WGS84 latitude and longitude (EPSG:4326) cannot show
+	 * its plots: Collect Earth converts none (GeoUtils). Said here, once each time the project is opened or its plots
+	 * loaded, rather than for every plot: the plots map shows none (KmlGenerator.getPlotObject refuses each of them).
+	 * The project still opens, as an older project file of another system did, with this message instead of plots.
+	 *
+	 * @throws KmlGenerationException with the message to show, as HTML
+	 */
+	private void checkCoordinateSystem() throws KmlGenerationException {
+		final String surveySrsId = earthSurveyService == null ? "" : GeoUtils.getSurveySrsId(earthSurveyService.getCollectSurvey());
+		if (!GeoUtils.isUsingWGS84(surveySrsId)) {
+			logger.warn("The survey uses the coordinate system {}, not WGS84: no plot is shown", surveySrsId); //$NON-NLS-1$
+			throw new KmlGenerationException(notWgs84SurveyMessage(surveySrsId, true));
+		}
+	}
+
+	/**
+	 * What the user is told of a survey in another coordinate system than WGS84: which one it is, that Collect Earth
+	 * takes only WGS84 latitude and longitude in decimal degrees, and what to do. As HTML (the id escaped, the line
+	 * break a {@code <br/>}) for a notice, or as plain text for the settings page.
+	 */
+	public static String notWgs84SurveyMessage(String surveySrsId, boolean html) {
+		return formatted("KmlGeneratorService.notWgs84Survey", html, surveySrsId); //$NON-NLS-1$
+	}
+
+	/** How many plot ids the message about plots that are not WGS84 degrees names at most */
+	public static final int NOT_WGS84_IDS_NAMED = 5;
+
+	/**
+	 * What the user is told of plots whose coordinates cannot be WGS84 degrees: how many, the ids given (followed by
+	 * "..." when there are more), and what to do. As HTML or as plain text, as {@link #notWgs84SurveyMessage}.
+	 */
+	public static String notWgs84PlotsMessage(int count, List<String> someIds, boolean html) {
+		String ids = String.join(", ", someIds) + (count > someIds.size() ? ", ..." : ""); //$NON-NLS-1$ //$NON-NLS-2$
+		return formatted("KmlGeneratorService.notWgs84Plots", html, count, ids); //$NON-NLS-1$
+	}
+
+	/** A text of Messages with its values, as HTML (the text values escaped) or as plain text (its {@code <br/>} a line break) */
+	private static String formatted(String key, boolean html, Object... values) {
+		Object[] shown = values.clone();
+		for (int i = 0; i < shown.length; i++) {
+			if (html && shown[i] instanceof String) {
+				shown[i] = StringEscapeUtils.escapeHtml4((String) shown[i]);
+			}
+		}
+		String text = MessageFormat.format(Messages.getString(key), shown);
+		return html ? text : text.replace("<br/>", "\n"); //$NON-NLS-1$ //$NON-NLS-2$
 	}
 
 	private void checkPlotFile() throws KmlGenerationException {
