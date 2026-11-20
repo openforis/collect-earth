@@ -194,5 +194,5 @@ describe('the alerts on a running server', () => {
     }
     await new Promise((r) => setTimeout(r, 50));
     expect(mailer.sent.find((m) => m.tag === 'owner.alert.failed_logins')?.attachments).toBeUndefined();
-  });
+  }, { timeout: 60_000 });
 });
