@@ -48,11 +48,17 @@
 				
 							
 				<dependency>
+			<!-- JTS (GeoUtils): gt-main, without gt-geometry's ISO geometry that nothing uses -->
 			<groupId>org.geotools</groupId>
-			<artifactId>gt-geometry</artifactId>
+			<artifactId>gt-main</artifactId>
 			<version>${geotools.version}</version>
 
 			<exclusions>
+				<!-- jts2geojson's newer one (1.18.1) is the one shipped, as when gt-main came through gt-geometry -->
+				<exclusion>
+					<groupId>org.locationtech.jts</groupId>
+					<artifactId>jts-core</artifactId>
+				</exclusion>
 				<exclusion>
 					<groupId>com.fasterxml.jackson.core</groupId>
 					<artifactId>jackson-core</artifactId>
