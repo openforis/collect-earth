@@ -100,7 +100,7 @@ export function analysisStructure(model: AnalysisModel, tableName: string, langu
   columns.push(
     { id: '_operator', label: t.operator, type: 'text', source: 'collection' },
     { id: '_assessment', label: t.assessment, type: 'code', source: 'collection', codes: [{ code: 'main', label: t.main, level: 0 }, { code: 'check', label: t.check, level: 0 }, { code: 'correction', label: t.correction, level: 0 }] },
-    // Each plot once: its correction where it was corrected, else its first submitted assessment (the areas are on it)
+    // Each plot once: its correction, else the record a coordinator's decision took, else its first submitted assessment (the areas are on it)
     { id: '_answer', label: t.answer, type: 'yes/no', source: 'collection' },
     { id: '_submitted', label: t.submitted, type: 'yes/no', source: 'collection' },
     { id: '_saved_on', label: t.savedOn, type: 'date', source: 'collection', time: true },

@@ -228,4 +228,31 @@ describe('corrections', () => {
     const weighted = csv.slice(1).filter((r) => r[c2('expansion_factor')] !== '').map((r) => `${r[c2('record_key')]}:${r[c2('operator')]}:${r[c2('assessment')]}`).sort();
     expect(weighted).toEqual(['1,1:maria:correction', '2,1:rita:correction', '3,1:ana:main', '4,1:ana:main']);
   });
+
+  it('the record a coordinator took is the plot\'s answer too: "check is right" counts the check, in the analysis, its summary and the export\'s weights', async () => {
+    await call('PUT', '/areas', owner.token, { settings: { mode: 'total', area: 400 } });
+    // plot 3: ana F, rita's check C; the coordinator takes the check
+    expect((await call('PUT', '/quality/decisions/3', owner.token, { decision: 'check' })).statusCode).toBe(200);
+    const parse = (line: string) => [...line.matchAll(/("(?:[^"]|"")*"|[^,]*)(?:,|$)/g)].map((m) => m[1].replace(/^"|"$/g, '')).slice(0, -1);
+    const analysis = (await call('GET', '/analysis', owner.token)).json();
+    const lines: string[][] = analysis.tables.find((t: { name: string }) => t.name === 'plot').csv.trim().split('\n').map(parse);
+    const col = (name: string) => lines[0].indexOf(name);
+    const of = (key: string, operator: string) => lines.filter((l) => l[col('_record')] === key && l[col('_operator')] === operator).map((l) => [l[col('_answer')], l[col('expansion_factor')] !== ''])[0];
+    expect(of('3,1', 'ana')).toEqual(['false', false]);
+    expect(of('3,2', 'rita')).toEqual(['true', true]);
+    // the others: their first assessments
+    expect(of('1,1', 'ana')).toEqual(['true', true]);
+    const name = analysis.model.tables[0].columns.find((c: { key: string }) => c.key === LAND_USE).name;
+    const summary = (await call('GET', `/analysis/summary?row=${encodeURIComponent(name)}`, owner.token)).json();
+    expect(summary.cells.map((c: { row: string; plots: number }) => [c.row, c.plots]).sort()).toEqual([['C', 1], ['F', 3]]);
+    const csv = (await call('GET', '/export.csv', owner.token)).body.replace(/^\uFEFF/, '').trim().split(/\r?\n/).map(parse);
+    const c2 = (n: string) => csv[0].indexOf(n);
+    const weighted = csv.slice(1).filter((r) => r[c2('expansion_factor')] !== '').map((r) => `${r[c2('record_key')]}:${r[c2('operator')]}:${r[c2('final')]}`).sort();
+    expect(weighted).toEqual(['1,1:ana:', '2,1:rita:', '3,2:rita:yes', '4,1:ana:']);
+    // "both need another look": no answer taken, the first assessment counts meanwhile
+    await call('PUT', '/quality/decisions/3', owner.token, { decision: 'recheck' });
+    const again = (await call('GET', `/analysis/summary?row=${encodeURIComponent(name)}`, owner.token)).json();
+    expect(again.cells.map((c: { row: string; plots: number }) => [c.row, c.plots])).toEqual([['F', 4]]);
+  });
 });
+

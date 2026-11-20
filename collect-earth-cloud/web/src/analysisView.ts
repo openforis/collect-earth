@@ -137,8 +137,8 @@ const FIXED: { id: string; key: MessageKey; sql: (alias: string, t: Translate) =
     rounds: true,
     values: (t) => ({ main: t("analysis.assessment.main"), check: t("analysis.assessment.check"), other: t("analysis.assessment.other"), correction: t("analysis.assessment.correction") }),
   },
-  // Whether the row is its plot's answer: its correction where a coordinator had it corrected, else its first submitted
-  // assessment (the row the areas are on): the views start filtered on it
+  // Whether the row is its plot's answer: its correction, else the record a coordinator's decision took, else its first
+  // submitted assessment (the row the areas are on): the views start filtered on it
   {
     id: "_answer",
     key: "analysis.col.answer",

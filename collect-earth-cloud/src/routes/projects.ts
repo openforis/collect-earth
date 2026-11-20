@@ -21,7 +21,7 @@ import type { ProjectCopyAnswer, ProjectRenameAnswer, ProjectStatusAnswer } from
 import type { NewProjectAnswer, OperatorProgress, Overview, ProjectInfo } from '../wire/projects.js';
 import { copyProject } from '../projectCopy.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
-import { factorsByRecord, firstAssessments, projectFactors } from './analysis.js';
+import { factorsByRecord, plotAnswers, projectFactors } from './analysis.js';
 import { surveyOf } from './areas.js';
 import { PlotPlaceReader } from './plotPlaces.js';
 
@@ -356,8 +356,11 @@ export async function registerProjectRoutes(
       }
       if (noPositions) for (const r of exported) for (const k of Object.keys(r.summary)) if (isPositionKey(k)) leaveOut.add(k);
       // The plots' expansion factors and weights, as the analysis has them: over every plot's answer (its correction, else
-      // its first assessment), on the row of that answer
-      const firsts = firstAssessments(all, resolve, corrected);
+      // the record a coordinator's decision took, else its first assessment), on the row of that answer
+      const firsts = plotAnswers(all, { info, units, copyHolders }, {
+        corrected,
+        decided: new Map(decisions.filter((d) => !reference.has(d.plot)).map((d) => [d.plot, d.decision])),
+      });
       const factors = await projectFactors(store, projectId, parsed, firsts, info);
       // The person's language (?lang=): the CSV's separators, and the labels of the answers when asked (?labels=include)
       const language = typeof query.lang === 'string' ? query.lang : 'en';

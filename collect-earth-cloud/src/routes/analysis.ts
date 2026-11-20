@@ -15,8 +15,8 @@ import { attachment } from '../download.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import type { ProjectStateCache, ServedState } from '../projectState.js';
 import { remember } from '../qualityService.js';
-import { recordResolver } from '../quality.js';
-import { correctedStamp, loadCorrectedAnswers, type CorrectedAnswer } from '../corrections.js';
+import { finalAnswers, recordResolver } from '../quality.js';
+import { choicesStamp, loadCorrectedAnswers, loadPlotChoices, type CorrectedAnswer, type PlotChoices } from '../corrections.js';
 import { periodSummaryKey, withPeriodColumns } from '../repeatSurvey.js';
 import type { Store } from '../store/store.js';
 import type { RecordRow, SharedAnalysisView } from '../types.js';
@@ -344,13 +344,15 @@ export interface FirstAssessment {
   correction?: boolean;
 }
 /**
- * `corrected` (loadCorrectedAnswers): a plot's correction is its answer instead of its first assessment, so everything
- * worked out from these (the areas, the uncertainty, the IPCC files, the export's weights) reads the corrections.
+ * `choices.taken`: the records a coordinator took for their plots (a decision "first" or "check": the export's final
+ * "yes"), each its plot's answer instead of its first assessment; `choices.corrected` (loadPlotChoices): a plot's
+ * correction, its answer before anything else. So everything worked out from these (the areas, the uncertainty, the
+ * IPCC files, the export's weights) reads what the coordinators chose. Without choices: the first assessments.
  */
 export function firstAssessments(
   rows: readonly RecordRow[],
   resolve: ReturnType<typeof recordResolver>,
-  corrected: ReadonlyMap<string, CorrectedAnswer> = new Map(),
+  choices: { corrected?: ReadonlyMap<string, CorrectedAnswer>; taken?: (r: RecordRow) => boolean } = {},
 ): Map<string, FirstAssessment> {
   const firsts = new Map<string, FirstAssessment & { at: number }>();
   for (const r of rows) {
@@ -363,8 +365,28 @@ export function firstAssessments(
     if (had && (had.at < at || (had.at === at && recordId(had.recordKey, had.operator) <= recordId(r.recordKey, r.operator)))) continue;
     firsts.set(unit, { recordKey: r.recordKey, operator: r.operator, summary: r.summary, at });
   }
-  for (const c of corrected.values()) firsts.set(c.plot, { recordKey: c.recordKey, operator: c.operator, summary: c.summary, correction: true, at: c.correctedAt });
+  if (choices.taken) {
+    for (const r of rows) {
+      if (r.deleted || !r.activelySaved || !choices.taken(r)) continue;
+      const { unit } = resolve(r);
+      if (unit !== null) firsts.set(unit, { recordKey: r.recordKey, operator: r.operator, summary: r.summary, at: r.firstSubmittedOn ?? r.modifiedOn });
+    }
+  }
+  for (const c of (choices.corrected ?? new Map<string, CorrectedAnswer>()).values()) {
+    firsts.set(c.plot, { recordKey: c.recordKey, operator: c.operator, summary: c.summary, correction: true, at: c.correctedAt });
+  }
   return firsts;
+}
+
+/**
+ * Each plot's answer as the coordinators chose it (PlotChoices): its correction, else the record a decision took ("first"
+ * or "check"), else its first submitted assessment.
+ */
+export function plotAnswers(rows: readonly RecordRow[], context: Parameters<typeof recordResolver>[0], choices: PlotChoices): Map<string, FirstAssessment> {
+  const resolve = recordResolver(context);
+  if (choices.decided.size === 0 && choices.corrected.size === 0) return firstAssessments(rows, resolve);
+  const finalOf = finalAnswers({ records: rows, ...context }, choices.decided, new Set(choices.corrected.keys()));
+  return firstAssessments(rows, resolve, { corrected: choices.corrected, taken: (r) => finalOf(r) === 'yes' });
 }
 
 /**
@@ -441,21 +463,21 @@ export async function stateFactors(
 ): Promise<StateFactors> {
   const { state } = served;
   const columns = options.columns ?? [];
-  // The plots' corrections are their answers (src/corrections.ts): a correction sent changes no record, so it is part of
-  // what the factors are kept by
-  const [settings, total, corrected] = await Promise.all([
+  // The coordinators' choices make the plots' answers (src/corrections.ts): a correction or a decision changes no record,
+  // so they are part of what the factors are kept by
+  const [settings, total, choices] = await Promise.all([
     store.getAreaSettings(projectId),
     earlierTotalArea(store, projectId),
-    loadCorrectedAnswers(store, projectId, state.context.reference),
+    loadPlotChoices(store, projectId, state.context.reference),
   ]);
   const compute = async (): Promise<StateFactors> => {
     // only the answers the factors and the columns are read from: not every answer of every record
     const keys = [...new Set([...factorKeys(parsed, settings), ...summaryKeysOf(parsed.model, columns)])];
     const rows = options.rows ?? (await store.listRecordSummaries(projectId, { firstSubmissions: true, keys }));
     const { context } = state;
-    const resolve = recordResolver({ info: context.info, units: context.units, copyHolders: context.copyHolders });
-    const mains = firstAssessments(rows, resolve);
-    const firsts = corrected.size > 0 ? firstAssessments(rows, resolve, corrected) : mains;
+    const resolverInput = { info: context.info, units: context.units, copyHolders: context.copyHolders };
+    const mains = firstAssessments(rows, recordResolver(resolverInput));
+    const firsts = choices.corrected.size > 0 || choices.decided.size > 0 ? plotAnswers(rows, resolverInput, choices) : mains;
     const plotFiles = plotFilesOf(store, projectId);
     const factors = await projectFactors(store, projectId, parsed, firsts, context.info, plotFiles);
     const strata = columns.length > 0 ? (await strataValues(plotFiles, parsed.model, context.info, columns, firsts)).values : new Map<string, (string | undefined)[]>();
@@ -464,7 +486,7 @@ export async function stateFactors(
   };
   // A stale state keeps its factors too (as old as the rest of what it serves): with collectors syncing all day, a state
   // is stale most of the time, and working the factors out for each request read every first assessment each time.
-  const key = JSON.stringify([settings, total, columns, correctedStamp(corrected)]);
+  const key = JSON.stringify([settings, total, columns, choicesStamp(choices)]);
   const kept = (state.factors ??= new Map());
   const had = kept.get(key);
   // (the same survey: modelOf gives one object per project file)

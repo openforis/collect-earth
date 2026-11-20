@@ -227,3 +227,12 @@ Asked: "use the corrections for the analysis and all further works. make the ref
   (`own`, `ownCount`). Coordinators are warned the same way. Kept: a reviewer's copy not yet checked stays out of their
   queue and its page is not shown until their check is submitted, as that check is to be made blind.
 
+
+Then asked: "use the coordinator marked plot". Each plot's answer is now, in this order: its correction; else the
+record a coordinator's decision took ("First is right" or "Check is right": the export's final "yes",
+`finalAnswers`); else its first submitted assessment (`plotAnswers` in `src/routes/analysis.ts`, with
+`loadPlotChoices`/`choicesStamp` in `src/corrections.ts`). "Both need another look" and a "correct" not corrected yet
+leave the first assessment until then. It is what the Analysis page's "Plot's answer", its summary, the areas, the
+uncertainty, the IPCC files and the export's weights read; a repeat survey already took it. The Collect backup's "first
+assessments only" still gives the round-1 records (with the corrections in their place): a check's record has its own
+round key there.

@@ -8,6 +8,7 @@ import type { Store } from './store/store.js';
 import type { Question } from './surveyOutline.js';
 import type { QualityCorrection, RecordRow } from './types.js';
 import type { CorrectionAnswer, CorrectionDifference, OwnAssignment } from './wire/review.js';
+import type { DecisionKind } from './wire/quality.js';
 
 /** The plots shared evenly between the people, in the order given (round robin); none: to nobody */
 export function shareEvenly(plots: readonly string[], people: readonly string[]): { plot: string; userId: string | null }[] {
@@ -164,4 +165,32 @@ export function correctionRow(projectId: string, c: CorrectedAnswer): RecordRow 
 /** What changes when a correction does: a stamp for the caches of what is worked out from the plots' answers */
 export function correctedStamp(corrected: ReadonlyMap<string, CorrectedAnswer>): string {
   return [...corrected.values()].map((c) => `${c.plot}\u0000${c.correctedAt}`).sort().join('\u0001');
+}
+
+/**
+ * What the coordinators chose for the plots (asked 20 Nov 2026: "use the coordinator marked plot"): the corrections
+ * (correctedAnswers) and the decisions by plot ("first", "check": the record they took is the plot's answer; "recheck"
+ * and a "correct" not corrected yet leave the first assessment). Reference plots are never decided.
+ */
+export interface PlotChoices {
+  corrected: Map<string, CorrectedAnswer>;
+  decided: Map<string, DecisionKind>;
+}
+
+/** The project's choices (PlotChoices), read from the store */
+export async function loadPlotChoices(
+  store: Pick<Store, 'listQualityDecisions' | 'listCorrections'>,
+  projectId: string,
+  reference: { has(plot: string): boolean } = new Set<string>(),
+  options: { xml?: boolean } = {},
+): Promise<PlotChoices> {
+  const decisions = (await store.listQualityDecisions(projectId)).filter((d) => !reference.has(d.plot));
+  const decided = new Map(decisions.map((d) => [d.plot, d.decision as DecisionKind]));
+  if (!decisions.some((d) => d.decision === 'correct')) return { corrected: new Map(), decided };
+  return { corrected: correctedAnswers(decisions, await store.listCorrections(projectId, { withRecords: options.xml ? true : 'summary' }), reference), decided };
+}
+
+/** What changes when a choice does: a stamp for the caches of what is worked out from the plots' answers */
+export function choicesStamp(choices: PlotChoices): string {
+  return `${correctedStamp(choices.corrected)}\u0002${[...choices.decided].map(([plot, d]) => `${plot}\u0000${d}`).sort().join('\u0001')}`;
 }

@@ -3,7 +3,7 @@ import { audit } from '../activity.js';
 import { cell } from '../analysis.js';
 import { readCep } from '../cep.js';
 import { attachment } from '../download.js';
-import { loadCorrectedAnswers } from '../corrections.js';
+import { loadPlotChoices } from '../corrections.js';
 import {
   ghgiXml,
   ipccPlots,
@@ -21,11 +21,10 @@ import {
 import { IPCC_COUNTRIES } from '../ipccCountries.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
 import type { ProjectStateCache } from '../projectState.js';
-import { recordResolver } from '../quality.js';
 import type { Store } from '../store/store.js';
 import type { IpccExports } from '../wire/data.js';
 import { xlsxOf } from '../xlsx.js';
-import { areasSource, firstAssessments, modelOf, projectFactors } from './analysis.js';
+import { areasSource, modelOf, plotAnswers, projectFactors } from './analysis.js';
 
 const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 const CSV = 'text/csv; charset=utf-8';
@@ -82,9 +81,9 @@ export async function registerIpccRoutes(app: FastifyInstance, store: Store, sta
     if (survey.missing.length > 0) return { cep, survey, regions, plots: [] as IpccPlot[], areas: null };
     const [served, rows] = await Promise.all([states.get(projectId, request.log), store.listRecordSummaries(projectId, { firstSubmissions: true })]);
     const { context } = served.state;
-    // Each plot's answer: its correction where it has one, else its first assessment
-    const corrected = await loadCorrectedAnswers(store, projectId, context.reference);
-    const firsts = firstAssessments(rows, recordResolver({ info: context.info, units: context.units, copyHolders: context.copyHolders }), corrected);
+    // Each plot's answer: its correction, else the record a coordinator's decision took, else its first assessment
+    const choices = await loadPlotChoices(store, projectId, context.reference);
+    const firsts = plotAnswers(rows, { info: context.info, units: context.units, copyHolders: context.copyHolders }, choices);
     const factors = await projectFactors(store, projectId, parsed, firsts, context.info);
     const plots = ipccPlots(survey, [...firsts].map(([unit, f]) => ({ id: unit, summary: f.summary, area: factors?.byPlot.get(unit)?.factor ?? null })));
     return { cep, survey, regions, plots, areas: factors?.source ?? null };
