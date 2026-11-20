@@ -733,8 +733,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 
 	/**
 	 * The imagery sources switched on, in the order of their tabs: Google Earth Web, and each source whose {@code openX}
-	 * method below would load the plot (the same checks). A source whose address is blank is left out, as the extra map
-	 * is: no tab, so no button on the plots map, rather than a tab that fails on every plot.
+	 * method below would load the plot (the same checks).
 	 */
 	public Set<ImagerySource> enabledImagerySources() {
 		Set<ImagerySource> sources = EnumSet.of(ImagerySource.GOOGLE_EARTH_WEB);
@@ -744,10 +743,10 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 		if (localPropertiesService.isPlanetMapsSupported()) {
 			sources.add(ImagerySource.PLANET);
 		}
-		if (isGEEAppOpen()) {
+		if (localPropertiesService.isGEEAppSupported()) {
 			sources.add(ImagerySource.GEE_APP);
 		}
-		if (isEarthMapOpen()) {
+		if (localPropertiesService.isEarthMapSupported()) {
 			sources.add(ImagerySource.EARTH_MAP);
 		}
 		if (localPropertiesService.isStreetViewSupported()) {
@@ -760,24 +759,6 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 			sources.add(ImagerySource.SECURE_WATCH);
 		}
 		return sources;
-	}
-
-	/**
-	 * Collect Earth Explorer (the Earth Engine app) opens when its switch (open_gee_app) is on and its address
-	 * (gee_app_url) is set. The installer's earth.properties_initial gives the address; a user folder made without it (a
-	 * run from elsewhere than the installation folder) has the switch on and no address. Blank, the plot would go as
-	 * the #fragment of the page the tab shows, reloaded on every plot.
-	 */
-	boolean isGEEAppOpen() {
-		return localPropertiesService.isGEEAppSupported() && StringUtils.isNotBlank(localPropertiesService.getGEEAppURL());
-	}
-
-	/**
-	 * Earth Map opens when its switch (open_earth_map) is on and its address (earth_map_url) is set, as for
-	 * {@link #isGEEAppOpen()}. Blank, the address would be "?polygon=...", which the browser refuses on every plot.
-	 */
-	boolean isEarthMapOpen() {
-		return localPropertiesService.isEarthMapSupported() && StringUtils.isNotBlank(localPropertiesService.getEarthMapURL());
 	}
 
 	/**
@@ -1010,7 +991,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	 * @param selection       the number of the plot selection, see {@link ImageryBrowser#loadLatest}
 	 */
 	public void openGEEAppURL(SimplePlacemarkObject placemarkObject, long selection) {
-		if (isGEEAppOpen()) {
+		if (localPropertiesService.isGEEAppSupported()) {
 			try {
 				CollectSurvey survey = earthSurveyService.getCollectSurvey();
 				loadInTab(ImagerySource.GEE_APP, selection, geeAppUrl(localPropertiesService.getGEEAppURL(), placemarkObject,
@@ -1106,7 +1087,7 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	 * @param selection       the number of the plot selection, see {@link ImageryBrowser#loadLatest}
 	 */
 	public void openEarthMapURL(SimplePlacemarkObject placemarkObject, long selection) {
-		if (isEarthMapOpen()) {
+		if (localPropertiesService.isEarthMapSupported()) {
 			try {
 				loadInTab(ImagerySource.EARTH_MAP, selection, earthMapUrl(localPropertiesService.getEarthMapURL(),
 						placemarkObject, visiblePlotIdOf(placemarkObject, earthSurveyService.getCollectSurvey()),
