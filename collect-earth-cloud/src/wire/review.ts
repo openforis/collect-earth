@@ -210,6 +210,8 @@ export interface CorrectionDifference {
 /** One plot to correct of the person's */
 export interface MyCorrection {
   plot: string;
+  /** The plot's id in my-corrections.csv (its keys joined by ","): the plot unit, with the round of a first assessment when the server added round */
+  placemarkId: string;
   /** The reviewer's comment, and who decided when */
   comment: string | null;
   decidedBy: string | null;

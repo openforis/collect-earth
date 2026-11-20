@@ -74,6 +74,18 @@ export function correctionDifferences(
   });
 }
 
+/**
+ * A plot's id in my-corrections.csv: its unit, with the round column a first assessment has inserted where the server
+ * added round to the survey (roundColumnOf: "1" after the first key), as Collect Earth reads the row's keys.
+ */
+export function correctionPlacemarkId(unit: string, state: string | undefined, roundIndex: number | null): string {
+  if (state !== 'added' || roundIndex === null) return unit;
+  const fields = unit.split(',');
+  if (roundIndex > fields.length) return unit;
+  fields.splice(roundIndex, 0, '1');
+  return fields.join(',');
+}
+
 /** The version of a person's plots to correct: Collect Earth asks again only when it changed */
 export function correctionsVersion(parts: unknown): string {
   return createHash('sha256').update(JSON.stringify(parts)).digest('hex').slice(0, 16);

@@ -144,7 +144,7 @@ public class AbstractPlacemarkDataController extends JsonPocessorServlet {
 	}
 
 
-	private Map<String, String> adjustParameters( PlacemarkUpdateRequest updateRequest )
+	protected Map<String, String> adjustParameters( PlacemarkUpdateRequest updateRequest )
 			throws UnsupportedEncodingException {
 		Map<String, String> originalCollectedData = updateRequest.getValues();
 		if (originalCollectedData == null) {

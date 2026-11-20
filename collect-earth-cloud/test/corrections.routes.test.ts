@@ -146,6 +146,9 @@ describe('corrections', () => {
     const csv = await ctx.app.inject({ method: 'GET', url: body.downloadPath, headers: bearer(maria.token) });
     expect(csv.statusCode, csv.body).toBe(200);
     expect(csv.body.trim().split(/\r?\n/).map((l) => l.split(',')[0])).toEqual(['id', '1', '3']);
+    // Each plot's id in that file is its keys there (Collect Earth finds the plot by it)
+    const rowIds = csv.body.trim().split(/\r?\n/).slice(1).map((l) => l.split(',').slice(0, body.keyColumns).join(','));
+    expect(body.plots.map((p: { placemarkId: string }) => p.placemarkId)).toEqual(rowIds);
     expect((await ctx.app.inject({ method: 'GET', url: `/v1/projects/${pid}/my-corrections.csv?v=old`, headers: bearer(maria.token) })).statusCode).toBe(409);
     // Someone else: none; a project token: no person
     expect((await call('GET', '/my-corrections', rita.token)).json().plots).toEqual([]);

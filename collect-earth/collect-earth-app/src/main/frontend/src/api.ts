@@ -31,7 +31,8 @@ export async function fetchPlotDetail(id: string): Promise<PlotDetail> {
 }
 
 /** The plots' statuses saved since `since`, with a repeat survey's period status of each ("" when not answered). */
-export async function fetchStatuses(since: number | null): Promise<{ now: number; statuses: Record<string, PlotStatus>; plots?: string; periods?: Record<string, string> }> {
+/** toCorrect: in a cloud project, how many plots the person has left to correct (CorrectionService) */
+export async function fetchStatuses(since: number | null): Promise<{ now: number; statuses: Record<string, PlotStatus>; plots?: string; periods?: Record<string, string>; toCorrect?: number }> {
   const r = await fetch(earthBase() + "plotStatuses" + (since ? "?since=" + since : ""));
   return r.json();
 }
@@ -41,11 +42,15 @@ export async function fetchStatuses(since: number | null): Promise<{ now: number
  * reads the plot file values itself), or the CEP's balloon, where /balloon substitutes the $[...]
  * tokens with the plot's properties.
  */
-/** training: the plot is a training set's, whose form asks for the feedback once submitted */
-export function formUrl(feature: PlotFeature, webForm = "generated", language = "en", training = false): string {
-  if (webForm !== "balloon") {
+/**
+ * training: the plot is a training set's, whose form asks for the feedback once submitted. correction: a plot someone
+ * else answered, which the person corrects (CorrectionService): always the generated form, which saves it apart from
+ * the local database (a project's own balloon would store it as the person's record)
+ */
+export function formUrl(feature: PlotFeature, webForm = "generated", language = "en", training = false, correction = false): string {
+  if (webForm !== "balloon" || correction) {
     return earthBase() + "form?id=" + encodeURIComponent(feature.properties.id) + "&lang=" + encodeURIComponent(language)
-      + (training ? "&training=1" : "");
+      + (training ? "&training=1" : "") + (correction ? "&correction=1" : "");
   }
   const params = Object.entries(feature.properties).map(
     ([k, v]) => encodeURIComponent(k) + "=" + encodeURIComponent(v ?? ""));

@@ -11,7 +11,7 @@
 // - PUT  /corrections/:plot          a correction (the record's XML and summary), only by whom it is assigned to
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { audit } from '../activity.js';
-import { assignmentCounts, correctionDifferences, correctionsVersion, ownAssignments, shareEvenly } from '../corrections.js';
+import { assignmentCounts, correctionDifferences, correctionPlacemarkId, correctionsVersion, ownAssignments, shareEvenly } from '../corrections.js';
 import { attachment } from '../download.js';
 import { mergePlotFiles, type PlotFilePart } from '../myPlots.js';
 import { plotFileOf } from '../plotFileCache.js';
@@ -183,6 +183,7 @@ export async function registerCorrectionRoutes(app: FastifyInstance, store: Stor
       const decision = byPlot.get(c.plot)!;
       return {
         plot: c.plot,
+        placemarkId: correctionPlacemarkId(c.plot, context.info?.state, keyShape(context.info).roundIndex),
         comment: decision.comment,
         decidedBy: decision.decidedBy,
         decidedAt: decision.decidedAt,

@@ -1,6 +1,6 @@
 # Reviewing hundreds of plots, and correcting them in Collect Earth — design
 
-Date: 20 November 2026. Branch `claude/awesome-bell-s34gb0`. **Status: decided (below); stages 1 (A1–A4) and 2 (B1–B4) built, stages 3–4 to come.**
+Date: 20 November 2026. Branch `claude/awesome-bell-s34gb0`. **Status: decided (below); stages 1 (A1–A4), 2 (B1–B4) and 3 (C) built, stage 4 (the real run) to come.**
 
 ## What is asked
 
@@ -163,6 +163,25 @@ the local operator (`AbstractEarthSurveyService.updatePlacemarkData`). So correc
    correct in Collect Earth" panel. Not yet: the analysis (areas, uncertainty) and the repeat survey's earlier answers
    still read the first assessments, not the corrections (to decide: should a correction replace the plot's answer
    there too?).
-3. **C** (Collect Earth), with tests.
+3. **C** (Collect Earth), with tests. *Built 20 Nov 2026*, as above, with these choices:
+   - `CorrectionService` (collect-earth-app `service/cloud`) holds the list (`to-correct.json`, read again offline), the
+     plot file, the states (`to-correct.properties`: draft, pending, sent, refused) and the drafts
+     (`corrections/<sha>.xml`, kept after the correction is sent: reopening it shows the correction, not the first
+     answer again).
+   - Records kept apart are core's `AbstractEarthSurveyService` `parseDetachedRecord`, `startDetachedRecord` (no longer
+     submitted, the person's operator), `updateDetachedRecord` (the stored path's update with its store left out, so
+     relevance and validation are the same), entity rows, `detachedRecordXml`/`Summary`. Collect reads a record with no
+     creator as one whose creator has no name, which it cannot write back: cleared after reading.
+   - The form calls `correction-info-expanded`, `correction-save-expanded`, `correction-create-entity`,
+     `correction-delete-entity`; the normal saves are refused while the plots to correct are open (a form of before).
+     A plot to correct always gets the generated form, even in a project with its own balloon. Its time is not counted
+     as the person's plot's, and the form's cloud-sync line is left out (the panel says where the correction is).
+   - A submit waits up to 8 s for the server; past that, or offline, the correction is pending and sent at the next
+     check. A 409 (`not_assigned`, `not_to_correct`) is said in the panel and as a notice.
+   - The server's `my-corrections` gives each plot's `placemarkId`, its id in `my-corrections.csv` (the round inserted
+     where the server added round), which Collect Earth goes by.
+   - The plots list: "Plots to correct (n)" while on the person's own plots (`toCorrect` in `/plotStatuses`), the
+     banner with "Back to my plots" while correcting; their statuses come from the service, not the local database.
+   - C5's previous/next is the list's own (N, the next unfinished): the plots to correct are the list while open.
 4. A real run: a coordinator decides plots "correct" in bulk and assigns them; a reviewer corrects them in a real
    Collect Earth; the export has the corrections as final.

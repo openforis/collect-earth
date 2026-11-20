@@ -109,7 +109,8 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
   const t = useT();
   const content = useRef<HTMLDivElement>(null);
   // What the footer says of the save: on this computer, and in a cloud project whether the plot was sent (cloud.ts)
-  const { cloud, sync } = useRecordSync(state.placemarkId, state.saveState);
+  // a correction is no record to sync: its panel says where it is
+  const { cloud, sync } = useRecordSync(state.correction ? "" : state.placemarkId, state.saveState);
   const saveShown = saveView(state.saveState, state.retrying, cloud, sync);
   const errorTabs = tabsWithErrors(model, state.infos);
   const left = neededByTab(errorList(model, state.infos), (n) => store.value(n));
@@ -592,6 +593,9 @@ function ReadyForm({ store, state, model }: { store: FormStore; state: FormState
       ) : state.alreadyFilled && (
         <Alert severity="info" onClose={store.dismissAlreadyFilled} data-testid="entry-already-filled" sx={BANNER_SX}>{t("entry.alreadyFilled")}</Alert>
       )}
+
+      {/* A plot to correct: the reviewer's comment, whose answer the form starts from, where the answers differ */}
+      <CorrectionPanel state={state} />
 
       {/* A learning plot just submitted (cloud training): the answers next to the golden ones, as the server scores them */}
       <TrainingFeedbackPanel store={store} state={state} />
@@ -1280,6 +1284,70 @@ function TrainingFeedbackPanel({ store, state }: { store: FormStore; state: Form
         ))}
       </Box>
       {plot.note && <Typography variant="body2" sx={{ mt: 0.5 }}><strong>{t("training.why")}</strong> {plot.note}</Typography>}
+    </Alert>
+  );
+}
+
+/**
+ * Beside the form of a plot to correct (CorrectionService), which others answered: the reviewer's comment and who decided,
+ * a warning when the person answered it themselves (never a refusal), whose answer the form starts from, where the
+ * answers differ, and whether the correction is on the server. Folded to one line on demand: the form is narrow.
+ */
+function CorrectionPanel({ state }: { state: FormState }) {
+  const t = useT();
+  const [folded, setFolded] = useState(false);
+  const c = state.correction;
+  if (!c) return null;
+  const info = c.info;
+  const severity = c.state === "SENT" ? "success" : c.state === "REFUSED" ? "error" : "warning";
+  const stateText = c.state === "SENT" || c.state === "PENDING" || c.state === "DRAFT"
+    ? t(`correction.state.${c.state}` as MessageKey)
+    : c.state === "REFUSED" ? t("correction.state.REFUSED", { reason: c.reason ?? "" }) : null;
+  return (
+    <Alert severity={severity} icon={<EditOutlinedIcon />} data-testid="entry-correction" sx={{ ...BANNER_SX, alignItems: "flex-start", "& .MuiAlert-message": { width: "100%", minWidth: 0 } }}
+      action={info && <Button color="inherit" size="small" onClick={() => setFolded(!folded)} data-testid="entry-correction-fold">{folded ? <ChevronRightIcon fontSize="small" /> : <ChevronLeftIcon fontSize="small" sx={{ transform: "rotate(-90deg)" }} />}</Button>}>
+      <Typography variant="body2" sx={{ fontWeight: 600 }}>{t("correction.title")}</Typography>
+      {stateText && <Typography variant="body2" data-testid="entry-correction-state" data-state={c.state}>{stateText}</Typography>}
+      {c.failed && <Typography variant="body2">{t("correction.loadFailed")}</Typography>}
+      {info && !folded && (
+        <Stack spacing={0.75} sx={{ mt: 0.75 }}>
+          {info.own && <Typography variant="body2" sx={{ fontWeight: 500 }} data-testid="entry-correction-own">{t("correction.own")}</Typography>}
+          {info.comment && (
+            <Box>
+              <Typography variant="caption" color="text.secondary">{t("correction.comment")}{info.decidedBy ? " · " + t("correction.decidedBy", { name: info.decidedBy }) : ""}</Typography>
+              <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }} data-testid="entry-correction-comment">{info.comment}</Typography>
+            </Box>
+          )}
+          <Typography variant="body2">{info.answers.length > 0 ? t("correction.startedFrom", { name: info.answers[0].operator }) : t("correction.startedEmpty")}</Typography>
+          {info.answers.length > 1 && (
+            <Box>
+              <Typography variant="caption" color="text.secondary">{t("correction.differences")}</Typography>
+              {info.differences.length === 0 ? (
+                <Typography variant="body2">{t("correction.noDifferences")}</Typography>
+              ) : (
+                <Box sx={{ maxHeight: 180, overflowY: "auto" }}>
+                  <Table size="small" data-testid="entry-correction-differences" sx={{ "& td, & th": { px: 0.75, py: 0.25, fontSize: "0.8rem", verticalAlign: "top" } }}>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell />
+                        {info.answers.map((a, i) => <TableCell key={i} sx={{ fontWeight: 600 }}>{a.operator}</TableCell>)}
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {info.differences.map((d) => (
+                        <TableRow key={d.key}>
+                          <TableCell component="th" scope="row">{d.question}</TableCell>
+                          {d.values.map((v, i) => <TableCell key={i}>{v.label || t("correction.empty")}</TableCell>)}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </Box>
+              )}
+            </Box>
+          )}
+        </Stack>
+      )}
     </Alert>
   );
 }

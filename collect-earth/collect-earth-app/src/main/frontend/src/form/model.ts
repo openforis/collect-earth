@@ -95,6 +95,10 @@ export interface LoadResult {
   currentStep?: string | null;
   deletedEntityDefName?: string | null;
   inputFieldInfoByParameterName?: Record<string, FieldInfo> | null;
+  /** A plot to correct's save (CorrectionService): the correction's state after it (DRAFT, PENDING, SENT, REFUSED) */
+  correction?: string | null;
+  /** Why the server would not take the correction */
+  correctionReason?: string | null;
 }
 
 export const ACTIVELY_SAVED = "collect_boolean_actively_saved";
