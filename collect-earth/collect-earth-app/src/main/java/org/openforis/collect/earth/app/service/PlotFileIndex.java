@@ -7,6 +7,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
 
 import org.openforis.collect.earth.app.service.notices.Notice;
 import org.openforis.collect.earth.app.service.notices.NoticeService;
@@ -199,10 +200,24 @@ public class PlotFileIndex {
 			this.json = mapper.writeValueAsString(answer);
 		}
 
-		/** The position of the plot after `id` in the plot file; null for the last plot or one not in the file. */
-		public Integer nextOf(String id) {
+		/**
+		 * The position of the plot the plots map goes to after `id` once it is submitted (nextUnfinished in the frontend's
+		 * plots.ts): the next one in the plot file that is not submitted, from the start again after the last. Null when
+		 * `id` is not in the file, or no other plot is unfinished among the first `maxChecks` looked at: each check may
+		 * read a record (`submitted`), and a project nearly done is not read through for a warm-up.
+		 */
+		public Integer nextUnfinishedOf(String id, Predicate<String> submitted, int maxChecks) {
 			Integer at = id == null ? null : position.get(id);
-			return at == null || at + 1 >= ids.length ? null : at + 1;
+			if (at == null) {
+				return null;
+			}
+			for (int step = 1; step < ids.length && step <= maxChecks; step++) {
+				int i = (at + step) % ids.length;
+				if (!submitted.test(ids[i])) {
+					return i;
+				}
+			}
+			return null;
 		}
 
 		/** The plots within `radiusMeters` of the plot at `at`, itself included, the nearest first, at most `limit`. */
