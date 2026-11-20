@@ -15,7 +15,6 @@ import org.openforis.idm.path.InvalidPathException;
 
 public class IPCCSurveyAdapter {
 
-	public static final String IPCC_ATTR_PARENT_SUFIX = "_parent";
 	public static final String IPCC_ATTR_PREFIX = "ipcc_";
 	public static final String IPCC_CATEGORY = "_category";
 	public static final String IPCC_SUBCATEGORY = "_subcategory";
@@ -25,7 +24,6 @@ public class IPCCSurveyAdapter {
 	public static final String ATTR_CURRENT_SUBDIVISION = IPCC_ATTR_PREFIX + "current_subdivision";
 	public static final String ATTR_OLDEST_CATEGORY = IPCC_ATTR_PREFIX + "oldest_category";
 	public static final String ATTR_PREVIOUS_CATEGORY = IPCC_ATTR_PREFIX + "previous_category";
-	public static final String ATTR_PREVIOUS_SUBDIVISION = IPCC_ATTR_PREFIX + "previous_subdivision";
 	private static final int IPCC_20_YEARS_RULE = 20;
 
 	public static final String PLOT_ENTITY = "plot";

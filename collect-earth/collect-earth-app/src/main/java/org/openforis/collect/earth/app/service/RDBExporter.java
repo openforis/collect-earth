@@ -12,7 +12,6 @@ import java.util.Map;
 
 import org.apache.commons.lang3.SystemUtils;
 import org.openforis.collect.earth.app.EarthConstants;
-import org.openforis.collect.earth.app.desktop.ServerController;
 import org.openforis.collect.earth.core.rdb.RelationalSchemaContext;
 import org.openforis.collect.model.CollectRecord.Step;
 import org.openforis.collect.relational.CollectRDBPublisher;
@@ -39,10 +38,6 @@ public class RDBExporter extends RDBConnector{
 		
 	private final Logger logger = LoggerFactory.getLogger(RDBExporter.class);
 	
-	public static final String COLLECT_EARTH_IPCC_DATABASE_RDB_DB = 
-			EarthConstants.COLLECT_EARTH_DATABASE_SQLITE_DB
-			+ ServerController.IPCC_RDB_SUFFIX;
-
 	private boolean userCancelledOperation = false;
 	
 	private void removeOldRdb( ) {

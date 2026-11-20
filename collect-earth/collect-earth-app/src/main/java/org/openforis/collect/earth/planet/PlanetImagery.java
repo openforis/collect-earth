@@ -8,13 +8,11 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.security.Security;
-import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import javax.net.ssl.HttpsURLConnection;
@@ -25,8 +23,6 @@ import javax.net.ssl.TrustManager;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.app.service.TrustAllCertificates;
-import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
-import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -58,14 +54,6 @@ public class PlanetImagery {
 		return dateFilter;
 	}
 
-	private Filter<FilterConfig> withinDaysFilter(Feature feature, int days) {
-		Date acquriredDate = feature.getProperties().getAcquired();
-		LocalDateTime localDateTime = DateUtils.asLocalDateTime(acquriredDate);
-		Date start = DateUtils.asDate(localDateTime.minusDays(days));
-		Date end = DateUtils.asDate(localDateTime.plusDays(days - 1));
-		return getDateFilter(start, end);
-	}
-
 	private Filter<FilterConfig> getGeometryFilter(GeoJson geoJson) {
 		Filter<FilterConfig> geoFilter = new Filter<>();
 		geoFilter.setType(FilterType.GEOMETRY);
@@ -94,16 +82,6 @@ public class PlanetImagery {
 		stringInFilter.setFieldName(fieldName);
 		stringInFilter.setConfig(strings);
 		return stringInFilter;
-	}
-
-	private int getQuality(Feature feature) {
-		FeatureProperties p = feature.getProperties();
-		Integer quality = p.getClearPercent();
-		if (quality != null)
-			return quality;
-		else {
-			return (int) ((1 - p.getCloudCover()) * 50);
-		}
 	}
 
 	private String sendRequest(URL url, Object jsonObject) throws IOException {
@@ -326,21 +304,5 @@ public class PlanetImagery {
 			}
 		}
 		return datesAvailable;
-	}
-
-	public String getLatestUrl(SimplePlacemarkObject placemarkObject) throws IOException {
-		LocalDateTime localDateTime = DateUtils.asLocalDateTime(new Date());
-		Date start = DateUtils.asDate(localDateTime.minusDays(30));
-
-		List<SimpleCoordinate> shape = placemarkObject.getMultiShape().get(0);
-
-		double[][][] polygon = new double[1][shape.size()][2];
-		int i = 0;
-		for (SimpleCoordinate simpleCoordinate : shape) {
-			polygon[0][i][1] = Double.parseDouble(simpleCoordinate.getLatitude());
-			polygon[0][i++][0] = Double.parseDouble(simpleCoordinate.getLongitude());
-		}
-		String[] itemTypes = {"PSScene"}; // Depreated --: "PSScene3Band", "PSScene4Band" 
-		return getLayerUrl(new PlanetRequestParameters(start, new Date(), polygon, itemTypes));
 	}
 }

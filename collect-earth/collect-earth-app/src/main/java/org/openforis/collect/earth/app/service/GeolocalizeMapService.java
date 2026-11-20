@@ -41,12 +41,7 @@ public class GeolocalizeMapService {
 	 * code.
 	 */
 
-	public static final String FREEMARKER_PLANET_MONTHLY_HTML_TEMPLATE = RESOURCES_FOLDER + File.separator + "collectPlanetMonthlyHtml.fmt";
-
 	public static final String FREEMARKER_PLANET_DAILY_HTML_TEMPLATE = RESOURCES_FOLDER + File.separator + "collectPlanetHtml.fmt";
-
-	public static final String FREEMARKER_PLANET_URL_TEMPLATE = RESOURCES_FOLDER + File.separator
-			+ "collectPlanetUrl.fmt";
 
 
 	public static final String FREEMARKER_STREET_VIEW_HTML_TEMPLATE = RESOURCES_FOLDER + File.separator
@@ -98,23 +93,6 @@ public class GeolocalizeMapService {
 		final Map<String, Object> data = new HashMap<>();
 		data.put("placemark", placemarkObject);
 		return data;
-	}
-
-	/**
-	 * Produces a temporary file with the necessary HTML code to show the plot in Earth Map
-	 *
-	 * @param placemarkObject
-	 *            The object containing information of the placemark.
-	 * @param freemarkerTemplate
-	 *            The path to the freemarker template that is used to produce the
-	 *            file.
-	 * @return The URL to the temporary file that can be used to load it in a
-	 *         browser.
-	 */
-	public URL getTemporaryUrl(SimplePlacemarkObject placemarkObject, String freemarkerTemplate) {
-		final Map<String, Object> data = getPlacemarkData(placemarkObject);
-		addDatesForImages(data);
-		return processTemplateWithData(freemarkerTemplate, data);
 	}
 
 	/**

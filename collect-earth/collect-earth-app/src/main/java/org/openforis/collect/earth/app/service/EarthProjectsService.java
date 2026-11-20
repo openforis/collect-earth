@@ -217,10 +217,6 @@ public class EarthProjectsService {
 		return new File( projectFolder.getAbsolutePath() + File.separator + PROJECT_PROPERTIES_FILE_NAME );
 	}
 
-	public File getSurveyStructureFile(File projectFolder) {
-		return new File( projectFolder.getAbsolutePath() + File.separator + PROJECT_PROPERTIES_FILE_NAME );
-	}
-
 	/**
 	 * @param cloudProject a cloud project's: the settings its server's project file leaves out are not those of the
 	 *        project loaded before it either (see {@link #keysClearedWhenLeftOut})
@@ -319,12 +315,6 @@ public class EarthProjectsService {
 			}
 		}
 		return success;
-	}
-
-
-	public boolean folderContainsProjectDefinition(File folder ) throws IOException{
-		File projectPropertiesFile = getProjectPropertiesFile( folder );
-		return validateProjectDefinitionFile(projectPropertiesFile);
 	}
 
 

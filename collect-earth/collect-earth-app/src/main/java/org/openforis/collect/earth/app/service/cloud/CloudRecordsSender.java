@@ -92,11 +92,6 @@ public class CloudRecordsSender implements ApplicationListener<ContextRefreshedE
 		}
 	}
 
-	/** The records of the loaded survey on this computer, those with nothing answered in them too. */
-	public int localRecordCount() {
-		return source.recordIds().size();
-	}
-
 	/** Remembers a name typed on this computer as the person's own (at a join), with those remembered before. */
 	public static void rememberLocalName(LocalPropertiesService properties, String name) {
 		String typed = StringUtils.trimToNull(name);
