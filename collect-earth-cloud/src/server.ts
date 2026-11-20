@@ -16,7 +16,7 @@ import { AiRunService, type AiRunServiceOptions } from './ai/service.js';
 import { DEFAULT_AI_MODEL, type Config } from './config.js';
 import { QualityService, QualityWorker } from './qualityService.js';
 import { RateLimiter } from './rateLimit.js';
-import { requestSerializer } from './logRedact.js';
+import { redactUrlsIn, requestSerializer } from './logRedact.js';
 import { mailerFrom, type Mailer } from './mail.js';
 import type { KeySource } from './oidc.js';
 import { ServerCounters } from './serverCounters.js';
@@ -33,6 +33,7 @@ import { twoFactorKey } from './twoFactor.js';
 import { checkTwoFactorKeys } from './twoFactorCheck.js';
 import { registerTwoFactorRoutes } from './routes/twoFactor.js';
 import { registerFormerMemberRoutes } from './routes/formerMembers.js';
+import { ErrorLog } from './errorLog.js';
 import { alertForChannel, OwnerAlerts, ownerNotifier, thresholdsOf } from './ownerAlerts.js';
 import { parseWebhookUrl, postWebhook, type Fetch } from './alertWebhook.js';
 import { logServerAction } from './serverActivity.js';
@@ -149,11 +150,14 @@ const ACCOUNT_LOGIN_WINDOW_MS = 15 * 60_000;
  */
 export async function buildServer(options: BuildServerOptions): Promise<FastifyInstance> {
   const { store, config } = options;
+  // The log's warnings and errors, also kept for the owner's "many server errors" mail (src/errorLog.ts)
+  const errorLog = new ErrorLog();
+  const loggerOptions = typeof options.logger === 'object' ? options.logger : {};
   const app = Fastify({
     // A token in an address (progress links, invitations, reset pages, backup downloads) is never
     // written to the server's log (src/logRedact.ts).
     logger: options.logger
-      ? { ...(typeof options.logger === 'object' ? options.logger : {}), serializers: { req: requestSerializer } }
+      ? { ...loggerOptions, stream: errorLog.tee(loggerOptions.stream ?? process.stdout), serializers: { req: requestSerializer } }
       : false,
     // One line per request, after it (the onResponse hook below), instead of Fastify's two; none for Collect Earth's
     // routine sync calls that went well (QUIET_ROUTES)
@@ -241,7 +245,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   // Alerts for the server's owner (src/ownerAlerts.ts): failed logins, server errors, records refused, storage. Not in
   // the local mode (one person, on their own computer: nobody else to tell).
   const ownerAlerts = new OwnerAlerts({
-    notify: local ? undefined : ownerNotifier(store, mailer, app.log, async () => (await store.getSettings()).serverName ?? 'Collect Earth Cloud', options.webhookFetch),
+    notify: local ? undefined : ownerNotifier(store, mailer, app.log, async () => (await store.getSettings()).serverName ?? 'Collect Earth Cloud', options.webhookFetch, () => errorLog.text()),
   });
   app.decorate('ownerAlerts', ownerAlerts);
   // The thresholds are server settings: read at start and every five minutes (another instance may change them; this
@@ -264,7 +268,9 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     // Every Collect Earth syncs every few seconds while its person works: hundreds of lines a minute in a mapathon, said
     // again by the activity they leave. Those are written only when they fail or are slow.
     if (reply.statusCode < 400 && ms < SLOW_REQUEST_MS && QUIET_ROUTES.has(`${request.method} ${request.routeOptions?.url ?? ''}`)) return;
-    request.log.info({ req: request, res: { statusCode: reply.statusCode }, responseTime: ms }, 'request completed');
+    // a server error at error level: what the owner's alert mail attaches (src/errorLog.ts), and what a log alert looks for
+    const level = reply.statusCode >= 500 ? 'error' : 'info';
+    request.log[level]({ req: request, res: { statusCode: reply.statusCode }, responseTime: ms }, 'request completed');
   });
   if (!local) {
     // Each project's storage against the server's limit, every hour
@@ -347,6 +353,12 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     // A plain error thrown by a handler has no status yet (the reply's is still 200): it is a 500.
     const status = (error as { statusCode?: number }).statusCode ?? 500;
     if (status >= 500) {
+      // What failed, with its stack: the request's own line says only that it did (request logging is off, so Fastify
+      // writes nothing of it)
+      // its name, message, code and stack only, as the error reports have it: not a database error's detail, which holds
+      // the values it was about (an address, a name)
+      const failure = { type: error.name, message: redactUrlsIn(error.message), code: (error as { code?: unknown }).code, stack: error.stack ? redactUrlsIn(error.stack) : undefined };
+      request.log.error({ failure, route: request.routeOptions?.url ?? 'unknown', method: request.method }, 'request failed');
       telemetry.captureError(error, { route: request.routeOptions?.url ?? 'unknown', method: request.method, project: request.membership?.projectId });
     }
   });

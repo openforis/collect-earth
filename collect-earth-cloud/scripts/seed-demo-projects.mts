@@ -1,7 +1,7 @@
 // Demonstration projects on a Collect Earth Cloud server: one per survey template (the demonstration survey, the
 // multipurpose one, the IPCC one), each handed to a coordinator, with participants and reviewers (new accounts,
-// the same ones in every project) and random plots over a country, divided evenly between the participants, and
-// published. Everything goes through the server's own API, as the dashboard would do it.
+// the same ones in every project) and random plots over a country, divided evenly between the participants (some of
+// them given to a second participant too, so the reviewers have differences to decide), and published. Everything goes through the server's own API, as the dashboard would do it.
 //
 //   BASE_URL=https://cloud.example.org COORDINATOR=sanchez_paus COUNTRY=KEN npx tsx scripts/seed-demo-projects.mts
 //
@@ -13,6 +13,8 @@
 //   COUNTRY       the country's ISO 3166 alpha-3 code (KEN, BOL, VNM…): the plots are random inside its border, from
 //                 the public boundaries of github.com/johan/world.geo.json (required)
 //   PARTICIPANTS  participants per project (10); REVIEWERS reviewers per project (2); PLOTS plots per project (3000)
+//   OVERLAP       the percent of the plots also given to a second participant (10, at most 50): what the review queue compares
+//                 (two people's answers of one plot); 0 for none, and the reviewers then have only flags to look at
 //   PREFIX        the projects' name and the accounts' prefix (Demo); LANGUAGE the surveys' language (en)
 //   YEARS         first and last year of the multipurpose and IPCC templates (2015-2024)
 //   OUT           where the accounts and their passwords are written (seed-demo-accounts.csv)
@@ -36,6 +38,8 @@ const COUNTRY = (env.COUNTRY ?? '').toUpperCase();
 const PARTICIPANTS = Number(env.PARTICIPANTS ?? 10);
 const REVIEWERS = Number(env.REVIEWERS ?? 2);
 const PLOTS = Number(env.PLOTS ?? 3000);
+const OVERLAP = Number(env.OVERLAP ?? 10);
+if (!Number.isFinite(OVERLAP) || OVERLAP < 0 || OVERLAP > 50) throw new Error(`OVERLAP is a percent from 0 to 50 (what the server allows), not "${env.OVERLAP}"`);
 const PREFIX = env.PREFIX ?? 'Demo';
 const LANGUAGE = env.LANGUAGE ?? 'en';
 const [FIRST_YEAR, LAST_YEAR] = (env.YEARS ?? '2015-2024').split('-').map(Number);
@@ -195,11 +199,13 @@ async function main(): Promise<void> {
     }
     console.log(`  people: ${PARTICIPANTS} participants, ${REVIEWERS} reviewers`);
 
-    // The plots divided evenly between the participants
+    // The plots divided evenly between the participants, OVERLAP percent of them given to a second one as well (the
+    // copies the review queue compares; with one participant there is nobody to share with)
     const participants = accounts.filter((a) => a.role === 'operator').map((a) => ids.get(a.username)!);
     if (participants.length > 0) {
-      expect('divide the plots', await call('PUT', `/v1/projects/${projectId}/csv-files/${fileId}/distribution`, ADMIN_TOKEN, { mode: 'even', people: participants, order: 'file' }));
-      console.log(`  plots divided: about ${Math.round(plots / participants.length)} each`);
+      const overlapPercent = participants.length > 1 ? OVERLAP : 0;
+      expect('divide the plots', await call('PUT', `/v1/projects/${projectId}/csv-files/${fileId}/distribution`, ADMIN_TOKEN, { mode: 'even', people: participants, order: 'file', overlapPercent }));
+      console.log(`  plots divided: about ${Math.round(plots / participants.length)} each${overlapPercent ? `, ${overlapPercent}% of them to a second participant too` : ''}`);
     }
 
     // Published, and handed to the coordinator

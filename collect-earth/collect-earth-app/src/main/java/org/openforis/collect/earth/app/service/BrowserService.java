@@ -153,7 +153,32 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	private static final String IMAGERY_FIREFOX_PROFILE_FOLDER = "browser_profiles" + File.separator + "imagery_firefox";
 	/** Firefox with its tabs, without address bar or bookmarks: see {@link #imageryFirefoxProfile()}. */
 	private static final String IMAGERY_FIREFOX_CSS = "#nav-bar, #PersonalToolbar { visibility: collapse !important; }\n";
-	private static final String IMAGERY_FIREFOX_USER_JS = "user_pref(\"toolkit.legacyUserProfileCustomizations.stylesheets\", true);\n";
+	private static final String IMAGERY_FIREFOX_USER_JS = "user_pref(\"toolkit.legacyUserProfileCustomizations.stylesheets\", true);\n"
+			+ imageryFirefoxMemoryPrefs();
+
+	/**
+	 * The preferences that keep the memory of the imagery window's Firefox within bounds over a day of plots, written to
+	 * its profile at each start (see {@link #imageryFirefoxProfile()}). None of them changes what the imagery tabs show:
+	 * <ul>
+	 * <li>no back-forward cache ({@code max_total_viewers} 0): each plot loads a new page in the tabs of the other
+	 * sources, and Firefox may keep up to 8 of the pages left, whole, for half an hour, for a Back button the window does
+	 * not have (its navigation bar is hidden, see {@link #IMAGERY_FIREFOX_CSS}). Google Earth Web's page is not one it
+	 * keeps;</li>
+	 * <li>10 entries of session history per tab instead of 50: every plot adds one or more (Google Earth Web's in-page
+	 * moves, the loads of the other sources), each kept in the main process and in the session store;</li>
+	 * <li>one spare content process kept ready instead of three, and none for the hidden "new tab" page Firefox preloads
+	 * in each window: the imagery window opens its tabs blank, never on that page.</li>
+	 * </ul>
+	 * Not the number of content processes ({@code dom.ipc.processCount}, {@code .webIsolated}): it does not grow with
+	 * the plots (one per site shown), and with one process for all blank tabs a hidden tab of a source not loaded yet
+	 * did not tell it was hidden, and loaded its plot for nobody (Firefox 160).
+	 */
+	static String imageryFirefoxMemoryPrefs() {
+		return "user_pref(\"browser.sessionhistory.max_total_viewers\", 0);\n"
+				+ "user_pref(\"browser.sessionhistory.max_entries\", 10);\n"
+				+ "user_pref(\"dom.ipc.processPrelaunch.fission.number\", 1);\n"
+				+ "user_pref(\"browser.newtab.preload\", false);\n";
+	}
 	private final Configuration freemarkerConfig = createFreemarkerConfiguration();
 
 	private volatile boolean isClosing = false;
@@ -659,7 +684,8 @@ public class BrowserService implements InitializingBean, DisposableBean, Applica
 	 * Loads the URL in the tab of the source, then runs {@code afterLoad} there, if any. Through
 	 * {@link ImageryBrowser#loadLatest}: when plots come faster than the source loads them, the ones in between are
 	 * skipped. The load is forced ({@code reload}) as {@link #navigateTo} did: Wayback and the Earth Engine app change
-	 * only the #fragment of their URL from plot to plot, which a navigation alone does not load again.
+	 * only the #fragment of their URL from plot to plot, which a navigation alone does not load again. Only then: a
+	 * navigation to another address loads the page by itself (see {@link ImageryTab#load}).
 	 * <p>
 	 * The load may run on the thread of another plot, so it handles its own errors. None of them is logged at ERROR,
 	 * which would open the error dialog on every plot: a slow site, a closed tab and a missing browser are not faults of
