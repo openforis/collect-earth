@@ -1138,13 +1138,6 @@ caches to the 1 GiB column (`gcloud run services update collect-earth-cloud --re
   034), deleted ones included, against the monthly limit times the projects they coordinate:
   deleting a project and making another does not give a fresh allowance. The usage on the
   Server page lists live projects only; the ledger keeps the deleted ones' share.
-- **Check the plot file before pressing Apply in Collect Earth's plot settings.** When the
-  settings open (or on Refresh), Collect Earth downloads the first plot file of the list and
-  also the one in use, at the same time, and shows whichever download ends last. Someone
-  working on a file that is not first in the list, such as "To check again – north.csv"
-  (plots sent back for another look, always listed after the others), can find "north.csv"
-  shown instead. Tell collectors to look at the plot file field and choose the file again
-  from the list if it is not the one they want, before pressing Apply.
 - **A plot sent back a second time shows the old comment in Collect Earth's form.** The
   form's header shows the comment the record was saved with before the one in the plot
   file, so after a second send-back with a new comment the collector reads the **first**

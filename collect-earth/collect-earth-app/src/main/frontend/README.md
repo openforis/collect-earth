@@ -14,14 +14,13 @@ and the data goes through the balloon endpoints (`/placemark-info-expanded`,
 `earth.properties` the panel shows the CEP balloon (`/balloon`) instead. See
 `docs/plans/2026-10-20-generated-web-form.md`.
 
-This app replaces the Swing main window (see `docs/plans/2026-10-28-html-ui-design.md`): the panel has an
-app bar (menus, operator, Quit) on top. The app bar talks to the JSON API under `/earth/api`
+This app is Collect Earth's user interface since 2.0, when it took over from the Swing window (see
+`docs/plans/2026-10-28-html-ui-design.md`): the panel has an app bar (menus, operator, Quit) on top. The app bar talks to the JSON API under `/earth/api`
 (`server.api` in the Java code): every call must send `X-Collect-Earth: 1`, which `apiClient.ts`
-does. Its texts are those of the Swing UI (`Messages*.properties`), read from `/earth/api/messages`
+does. Its texts are the desktop's (`Messages*.properties`, five languages), read from `/earth/api/messages`
 (`serverTexts.ts`).
 
-The Settings entry of the app bar opens the settings page (`src/components/settings/`), which replaces
-the Swing properties dialog. It draws itself from `GET /earth/api/settings` (`SettingsModel` in Java
+The Settings entry of the app bar opens the settings page (`src/components/settings/`). It draws itself from `GET /earth/api/settings` (`SettingsModel` in Java
 describes every setting, its type, when it is shown and its texts), validates what the user types through
 `POST /earth/api/settings/validate` while typing, and saves only the changes with `POST /earth/api/settings`,
 which restarts Collect Earth when a setting needs it. `src/settings.ts` holds the pure logic (the
@@ -29,8 +28,8 @@ visibility conditions, the changes, the search), `@shared/plotPreview` the drawi
 dashboard's Plot layout card), and
 `src/settingsApi.ts` the calls.
 
-The Data menu (`src/components/data/`) has the export dialog (one dialog for the formats and the records
-filters of the nine Swing entries), Import new data from ZIP and Update records from CSV. The long actions
+The Data menu (`src/components/data/`) has the export dialog (one dialog for every format and its records
+filters), Import new data from ZIP and Update records from CSV. The long actions
 run as jobs of the server (`POST /earth/api/jobs/export`, `importSummary`, `import`, `updateCsv`), which
 `JobPanel.tsx` follows through `GET /earth/api/jobs/{id}` (`src/jobs.ts`), with Cancel and, at the end,
 Open file / Open folder (`POST /earth/api/files/open`, `reveal`). The ZIP import reads the files first and
@@ -39,15 +38,15 @@ asks about the records already in the database before importing (`src/importDial
 The Tools and Utilities menus (`src/components/tools/`) open the dashboard's analysis page (Tools > Analyse the
 data, which downloads its stand-alone file too) and run the LULUCF package as jobs (`POST /earth/api/jobs/ipccPrepare`,
 `ipccOutputs`), asking first whether to generate the dataset again when `GET /earth/api/tools/analysis` says one exists; the LULUCF form of
-`IpccDialog.tsx` replaces the Swing wizard (`src/tools.ts` holds its logic). Load points from KML
+`IpccDialog.tsx` (`src/tools.ts` holds its logic). Load points from KML
 (`POST /earth/api/tools/loadKml`) restarts Collect Earth under the restart overlay. The utilities are jobs too
-(`missingPlots`, `divideCsv`, `deletePlots`), with the checks of the Swing dialogs made by the server first
+(`missingPlots`, `divideCsv`, `deletePlots`), with their checks made by the server first
 (`GET /earth/api/tools/divideCsv/columns`, `POST /earth/api/settings/sampleFile`,
 `POST /earth/api/tools/deletePlots/check`). Open data folder is a quick action
 (`POST /earth/api/actions/openDataFolder`).
 
 The Project menu (`src/components/project/`) imports a CEP (`POST /earth/api/projects/import`, then the restart
-overlay), joins a cloud project in the steps of the Swing menu (`POST /earth/api/cloud/preview`, `join`), shows the
+overlay), joins a cloud project step by step (`POST /earth/api/cloud/preview`, `join`), shows the
 cloud sync status (`GET /earth/api/cloud/status`, polled while open) and changes the language
 (`PUT /earth/api/app/language`, then the page reloads). In cloud mode with nobody logged in the app bar asks for the
 cloud login first (`POST /earth/api/cloud/login`). Next to the project's name the project chip says where it keeps its data,
@@ -86,7 +85,7 @@ npm run build      # rebuilds target/classes/leafletmap (reload Google Earth Web
 - `src/plots.ts` - pure list logic (filter, next unfinished, neighbours, counts)
 - `src/components/` - the virtualized plot list, the form panel and the app bar (`AppBar.tsx`)
 - `src/apiClient.ts`, `src/serverTexts.ts`, `src/appInfo.ts`, `src/menus.ts`, `src/appBar.ts` -
-  the API client, the Swing texts, `/api/app`, the menus and their pure logic
+  the API client, the desktop's texts (`Messages*.properties`), `/api/app`, the menus and their pure logic
 - `src/settings.ts`, `src/settingsApi.ts`, `@shared/plotPreview`, `src/components/settings/` - the
   settings page: its model, its calls, the plot preview and its components
 - `src/jobs.ts`, `src/dataApi.ts`, `src/exportDialog.ts`, `src/importDialog.ts`, `src/components/data/` -

@@ -471,11 +471,9 @@ Not built: argon2id for passwords (scrypt is used, `src/password.ts`), GCS for
 artifacts, undoing a bulk decision run, bounce handling for the weekly emails.
 
 Known limitations (details in DEPLOY.md, "Known limitations"):
-- **Desktop, plot settings** (Collect Earth's Swing dialog, not changed here): opening
-  it or pressing "Refresh assignments" can download two plot files at once, so the plot
-  file field may end on another file (and a download may fail its checksum); its preview
-  table shows the `round` column, so a collector who opens it can tell the drawn checks
-  apart.
+- **Desktop, plot settings** (Collect Earth's Settings › Project): the preview table of
+  the plot file shows the `round` column, so a collector who opens it can tell the drawn
+  checks apart.
 - **Desktop, form:** a plot sent back a second time shows the comment the record was
   saved with at the top of the form, not the new one (the balloon shows the new one).
 - **A comment that looks like a shape** (WKT or GeoJSON) becomes the plot's shape in

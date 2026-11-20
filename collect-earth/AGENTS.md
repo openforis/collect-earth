@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-Collect Earth is a multi-module Maven Java project. The root `pom.xml` defines the active reactor modules: `collect-earth-core`, `collect-earth-app`, `collect-earth-sampler`, and `collect-earth-installer`. Core domain and shared services live under `collect-earth-core/src/main/java`. The desktop application, embedded server, Swing UI, and runtime resources are in `collect-earth-app/src/main/java` and `collect-earth-app/src/main/resources`. Sampling and geospatial helpers are in `collect-earth-sampler/src/main/java`. Installer definitions, update metadata, and installer image assets are in `collect-earth-installer/src/main/resources`. Avoid editing generated `target/` content.
+Collect Earth is a multi-module Maven Java project. The root `pom.xml` defines the active reactor modules: `collect-earth-core`, `collect-earth-app`, `collect-earth-sampler`, `collect-earth-grid` (a developer tool that nothing ships), and `collect-earth-installer`. Core domain and shared services live under `collect-earth-core/src/main/java`. The desktop application, embedded server and runtime resources are in `collect-earth-app/src/main/java` and `collect-earth-app/src/main/resources`; its user interface is web pages (React and MUI, `collect-earth-app/src/main/frontend`) over a JSON API (`org.openforis.collect.earth.app.server.api`), shown in the browser Collect Earth drives beside Google Earth Web. Swing is left only for the file dialog, the splash, the tray icon and the messages shown when there is no server. Sampling and geospatial helpers are in `collect-earth-sampler/src/main/java`. Installer definitions, update metadata, and installer image assets are in `collect-earth-installer/src/main/resources`. Avoid editing generated `target/` content.
 
 ## Build, Test, and Development Commands
 
@@ -19,7 +19,7 @@ Follow the existing Java style: tabs for indentation in Java/XML files, braces o
 
 ## Testing Guidelines
 
-No dedicated `src/test` tree is currently checked in. For new testable behavior, add tests under the relevant module's `src/test/java` path and make sure they run with `mvn test` or `mvn clean verify`. Name test classes after the class or feature under test, for example `KmlGeneratorServiceTest`. For UI, installer, or Google Earth integration changes, document manual smoke-test steps in the pull request.
+Each module's tests are under its `src/test/java` (JUnit 5) and run with `mvn test` or `mvn clean verify`; the web UI's are beside its sources in `collect-earth-app/src/main/frontend` (Vitest, `npm test`). Add tests there for new testable behavior, and name test classes after the class or feature under test, for example `KmlGeneratorServiceTest`. For UI, installer, or Google Earth Web integration changes, document manual smoke-test steps in the pull request.
 
 ## Commit & Pull Request Guidelines
 
