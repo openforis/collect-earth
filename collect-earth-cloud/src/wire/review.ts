@@ -57,7 +57,7 @@ export interface ReviewQueueAnswer {
   counts: Record<QueueSection, number>;
   /** Everyone named in the whole queue, whatever the filters (for the person filter). */
   people: string[];
-  /** Only the newest flags (MAX_LISTED_FLAGS) were looked at. */
+  /** More flags than the queue takes (MAX_QUEUE_FLAGS): the newest of the plots still to decide were looked at. */
   flagsCapped: boolean;
   /** The labels of the questions shown, by key. */
   labels: Record<string, string>;
