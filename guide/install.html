@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap">
 <title>Try the Collect Earth 2 beta · Collect Earth</title>
-<meta name="description" content="Download and install the Collect Earth 2 beta on Windows, macOS or Linux, step by step: what is new, the first start, updates and how to send feedback.">
+<meta name="description" content="Download and install the Collect Earth 2 beta on Windows, macOS or Linux, step by step: what is new, the first start, what to do if it does not install or start on Windows, updates and how to send feedback.">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <link rel="icon" href="../favicon.ico" sizes="any">
 <link rel="stylesheet" href="../style.css">
@@ -36,7 +36,7 @@
   <div class="box">
     <p class="crumb"><a href="../">Collect Earth</a> › <a href="../#guides">Guides</a></p>
     <h1>Try the Collect Earth 2 beta</h1>
-    <p class="lead">Collect Earth 2 works inside Google Earth Web, in your browser, instead of Google Earth Desktop. It is the version these guides describe, and it is ready to try. Install it, use it on your own plots and tell us what works and what doesn't.</p>
+    <p class="lead">Collect Earth 2 is a program you install on your computer. It works inside Google Earth Web, in your browser, instead of Google Earth Desktop. It is the version these guides describe, and it is ready to try. Install it, use it on your own plots and tell us what works and what doesn't.</p>
   </div>
 </div>
 <div class="doc">
@@ -49,6 +49,7 @@
       <li><a href="#download">Download</a></li>
       <li><a href="#install">Install</a></li>
       <li><a href="#start">First start</a></li>
+      <li><a href="#windows-problems">If it does not install or start on Windows</a></li>
       <li><a href="#later">Updates, going back and removing it</a></li>
       <li><a href="#feedback">Tell us what you find</a></li>
     </ol>
@@ -116,11 +117,12 @@
 
   <h3 id="windows">Windows</h3>
   <ol class="steps">
-    <li>Double-click the <code>.exe</code> you downloaded.</li>
+    <li>Double-click the <code>.exe</code> you downloaded. Don't choose <span class="ui">Run as administrator</span>: Collect Earth installs for your own account.</li>
     <li>If Windows says it protected your PC, click <span class="ui">More info</span>, then <span class="ui">Run anyway</span>.</li>
-    <li>Choose your language, accept the licence and keep the folder it proposes, <code>C:\OpenForis\CollectEarth</code>.</li>
+    <li>Choose your language, accept the licence and keep the folder it proposes, <code>C:\OpenForis\CollectEarth</code>, unless your organisation does not allow programs there.</li>
     <li>When it finishes, start Collect Earth from the icon on your desktop or from the Start menu.</li>
   </ol>
+  <p>If the antivirus stops it, or Collect Earth does not open, see <a href="#windows-problems">If it does not install or start on Windows</a>.</p>
 
   <h3 id="macos">macOS</h3>
   <ol class="steps">
@@ -146,6 +148,64 @@
     <li>Type your name when asked. It is saved with every plot you assess.</li>
   </ol>
   <p>Collect Earth keeps running in the system tray (the menu bar on a Mac). From here, the <a href="interpreters.html">guide for interpreters</a> takes over: opening your project, assessing plots and joining a cloud project. Coordinators, see <a href="coordinators.html">Running a cloud project</a>.</p>
+
+  <h2 id="windows-problems">If it does not install or start on Windows</h2>
+  <p>Most problems on Windows come from security software or an office network, not from Collect Earth. These are the ones people report most often on the <a href="https://openforis.support/">Open Foris forum</a>, with what fixes them. Your data is not touched by any of these steps: it is in its own folder, <code>%APPDATA%\CollectEarth</code>, apart from the program.</p>
+
+  <h3 id="smartscreen">“Windows protected your PC”</h3>
+  <p>Windows SmartScreen shows this for programs it does not know yet, and the Collect Earth installer is not signed with a Microsoft certificate. Click <span class="ui">More info</span>, then <span class="ui">Run anyway</span>. If there is no <span class="ui">Run anyway</span>, your organisation has turned it off: ask your IT to allow the installer. To be sure the file is the one Open Foris published, <a href="#download">check the download</a> first.</p>
+
+  <h3 id="antivirus">The antivirus stops the installer, or “Problem running post-install step”</h3>
+  <p>Some antivirus programs, Kaspersky and Bitdefender among them, block the Collect Earth launcher while the installer sets it up, or move it to quarantine.</p>
+  <ol class="steps">
+    <li>Close the installer and delete the folder it left, <code>C:\OpenForis\CollectEarth</code> (or the folder you chose).</li>
+    <li>Pause the antivirus while you install, or add an exception for that folder. If the antivirus is managed by your IT, ask them to do it.</li>
+    <li>Install again with a double-click, not with <span class="ui">Run as administrator</span>.</li>
+    <li>Turn the antivirus back on. If it now blocks Collect Earth when it starts, keep the exception for the folder.</li>
+  </ol>
+
+  <h3 id="folder">Your organisation does not allow programs in <code>C:\OpenForis</code></h3>
+  <p>Some company rules let programs run only from certain folders. Install again and, when the installer proposes <code>C:\OpenForis\CollectEarth</code>, choose a folder you are allowed to use. Ask your IT which one.</p>
+
+  <h3 id="already-running">It closes after the start window, or says it is already running</h3>
+  <p>Collect Earth runs a small web server on your own computer, on port 8028, that the browser talks to. Start it while it is already running and the running one opens its window instead. If it says <span class="ui">Collect Earth is already running</span> and you don't see it:</p>
+  <ol class="steps">
+    <li>Open Task Manager (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Esc</kbd>), end any Collect Earth or Java task that is left (<span class="ui">Java</span>, <span class="ui">javaw</span> or <span class="ui">OpenJDK Platform binary</span>), and start Collect Earth again.</li>
+    <li>If it still says so, another program is using port 8028. Quit Collect Earth, open <code>%APPDATA%\CollectEarth\earth.properties</code> in Notepad, change the line <code>port=8028</code> to another number, for example <code>port=8125</code> (add the line if it is not there), save the file and start Collect Earth.</li>
+  </ol>
+
+  <h3 id="firewall">The browser opens but Collect Earth does not appear in it</h3>
+  <p>The browser reaches Collect Earth at an address on your own computer, <code>http://127.0.0.1:8028/earth/…</code>. Collect Earth listens only to your computer, not to the network, so Windows Firewall leaves it alone, but the web protection of some antivirus programs, or a firewall other than Windows', can still block it. In the antivirus, add <code>127.0.0.1</code> and <code>localhost</code> to the addresses its web protection leaves alone, and allow <code>C:\OpenForis\CollectEarth\CollectEarth-launcher.exe</code> (or ask your IT to).</p>
+
+  <h3 id="proxy">Your office reaches the internet through a proxy</h3>
+  <p>The imagery opens in your browser, which uses the office proxy by itself. Collect Earth's own connections (joining a cloud project and sending plots, checking for updates, getting the driver it uses to control the browser) use Java's proxy settings instead. Ask your IT for the proxy's address and port, and start Collect Earth from a small file that gives them to Java:</p>
+  <ol class="steps">
+    <li>Open Notepad and paste these lines, with your proxy's address and port in place of <code>proxy.example.org</code> and <code>8080</code> (and your installation folder, if you chose another):
+<pre class="cmd"><code>@echo off
+set "JAVA_TOOL_OPTIONS=-Dhttp.proxyHost=proxy.example.org -Dhttp.proxyPort=8080 -Dhttps.proxyHost=proxy.example.org -Dhttps.proxyPort=8080"
+start "" "C:\OpenForis\CollectEarth\CollectEarth-launcher.exe"</code></pre></li>
+    <li>Save it on your desktop as <code>Collect Earth (proxy).bat</code>, with <span class="ui">Save as type</span> set to <span class="ui">All files</span>.</li>
+    <li>Start Collect Earth by double-clicking that file from now on.</li>
+  </ol>
+  <p>Collect Earth's connections to your own computer (<code>localhost</code>, <code>127.0.0.1</code>) never go through the proxy.</p>
+
+  <h3 id="old-database">It does not start after installing over an older Collect Earth</h3>
+  <p>The beta opens Collect Earth 1's data as it is. If it stops while starting, the log (see below) may say it could not open the database. Please send us that log. To get working again:</p>
+  <ol class="steps">
+    <li>Quit Collect Earth and open <code>%APPDATA%\CollectEarth</code>.</li>
+    <li>Rename <code>collectEarthDatabase.db</code> to <code>collectEarthDatabase-old.db</code>. Don't delete it: it still holds your plots.</li>
+    <li>Start Collect Earth, open your project, and import the data you exported before installing (<span class="ui">Data Import/Export</span>).</li>
+  </ol>
+
+  <h3 id="log">Finding the log</h3>
+  <p>When Collect Earth runs, <span class="ui">Help › Open Application Log File</span> opens it. When it does not start, the log is <code>earth_error.log</code> in <code>%APPDATA%\CollectEarth</code>. That folder is hidden: type <code>%APPDATA%\CollectEarth</code> in the address bar of File Explorer and press <kbd>Enter</kbd>. Attach the log when you ask for help.</p>
+
+  <h3 id="many-computers">Installing on many computers</h3>
+  <p>For a training room or a whole office, the installer can run with no questions, in the default folder or the one you give it:</p>
+<pre class="cmd"><code>collect-earth-installer-VERSION-windows.exe --mode unattended --prefix "D:\Apps\CollectEarth"</code></pre>
+  <p>Each person's projects, data and settings stay in their own <code>%APPDATA%\CollectEarth</code>.</p>
+
+  <p>Something else? Search the <a href="https://openforis.support/">Open Foris forum</a> or ask there, saying which Windows and which antivirus you have, and attach the log.</p>
 
   <h2 id="later">Updates, going back and removing it</h2>
   <p><strong>A new beta.</strong> Install it over the one you have, in the same way. Your projects, data and settings stay.</p>

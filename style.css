@@ -97,6 +97,7 @@ nav .btn:hover { color: #fff; }
 
 /* ---------- Grids and cards ---------- */
 .grid { display: grid; gap: 24px; }
+.g2 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); }
 .g3 { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
 .g4 { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
 .card { background: var(--sand); border-radius: var(--radius); padding: 30px 28px; position: relative; }
@@ -204,7 +205,7 @@ figure.shot figcaption { font-size: .9rem; color: var(--muted); margin-top: 10px
 .data-band .lead { color: #DCE6E0; }
 .pillars { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-top: 40px; }
 .pillar { background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12); border-radius: 12px; padding: 26px 26px 24px; }
-.pillar .icon { width: 44px; height: 44px; padding: 10px; border-radius: 50%; background: var(--of-blue); stroke: #fff; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; margin-bottom: 14px; display: block; }
+.pillar .icon, .card .icon { width: 44px; height: 44px; padding: 10px; border-radius: 50%; background: var(--of-blue); stroke: #fff; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; margin-bottom: 14px; display: block; }
 .pillar h3 { color: #fff; font-size: 1.15rem; margin-bottom: .4em; }
 .pillar p { margin: 0; font-size: .95rem; color: #D2DED7; }
 .band-link { margin: 32px 0 0; }

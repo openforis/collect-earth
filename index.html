@@ -9,12 +9,12 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap">
 <title>Collect Earth · Land monitoring with satellite imagery</title>
-<meta name="description" content="Collect Earth is a free, open-source tool from Open Foris for assessing land use and land cover change on satellite imagery, alone or as a team with the Collect Earth Cloud dashboard.">
+<meta name="description" content="Collect Earth is a free, open-source desktop program from Open Foris, for Windows, macOS and Linux, for assessing land use and land cover change on satellite imagery. The Collect Earth Cloud dashboard coordinates team projects.">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="any">
 <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
 <meta property="og:title" content="Collect Earth">
-<meta property="og:description" content="Free, open-source land monitoring on satellite imagery, alone or as a team.">
+<meta property="og:description" content="A free, open-source desktop program for land monitoring on satellite imagery, alone or as a team.">
 <meta property="og:image" content="https://collectearth.org/img/emblem.png">
 <meta property="og:url" content="https://collectearth.org/">
 <link rel="stylesheet" href="style.css">
@@ -27,6 +27,7 @@
     <a class="brand" href="./"><img src="img/logo.png" alt="Collect Earth · Open Foris" width="1000" height="434"></a>
     <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Menu"><svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg></button>
     <nav id="site-nav" aria-label="Main">
+      <a href="#parts">Program and cloud</a>
       <a href="#data">Your data</a>
       <a href="#how">How it works</a>
       <a href="#setups">Ways to work</a>
@@ -43,12 +44,12 @@
     <div class="box">
       <p class="eyebrow"><img src="img/emblem.png" alt="" width="40" height="40">Collect Earth</p>
       <h1>Verifiable land use change data for forest and climate reporting</h1>
-      <p>Collect Earth is a free, open-source tool for assessing land use and land cover on satellite imagery, alone on your computer or as a whole team. You decide where the data lives, who sees it and where it goes next.</p>
+      <p>Collect Earth is a free, open-source program that you install on your computer to assess land use and land cover on satellite imagery. Work alone, or as a whole team coordinated online with Collect Earth Cloud. You decide where the data lives, who sees it and where it goes next.</p>
       <div class="actions">
-        <a class="btn green" href="guide/install.html">Try Collect Earth 2 beta</a>
-        <a class="btn ghost" href="https://cloud.collectearth.org">Open the dashboard</a>
+        <a class="btn green" href="guide/install.html">Install the Collect Earth 2 beta</a>
+        <a class="btn ghost" href="https://cloud.collectearth.org">Team dashboard</a>
       </div>
-      <p class="meta">Windows, macOS and Linux · Free and open source · Your data stays yours</p>
+      <p class="meta">Desktop program for Windows, macOS and Linux · Free and open source · Your data stays yours</p>
     </div>
   </div>
 </section>
@@ -67,6 +68,29 @@
       <li>Validating existing maps</li>
       <li>Spatially explicit socio-economic data</li>
     </ul>
+    </div>
+  </div>
+</section>
+
+<section id="parts">
+  <div class="wrap">
+    <h2>A program on your computer, a dashboard for teams</h2>
+    <p class="lead">Collect Earth is something you install, not a website. The plots are always assessed in the program, on each interpreter's own computer. Collect Earth Cloud is an optional extra for teams: it coordinates and manages projects spread over many people and places.</p>
+    <div class="grid g2" style="margin-top:32px">
+      <div class="card">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="11" rx="1.5"/><path d="M2 19h20"/></svg>
+        <h3>Collect Earth, on your computer</h3>
+        <p>Where the work is done. Install it on Windows, macOS or Linux: it opens Google Earth Web in your browser, with the plot list and the survey form beside the imagery, opens the other imagery sources next to it, and saves every answer at once in a database on your computer. Everyone who assesses plots installs it, whether they work alone or in a team.</p>
+        <p class="where"><strong>Who needs it:</strong> every interpreter. It is all you need to work alone, or as a small team with no server.</p>
+        <a class="more" href="guide/install.html">→ Download and install it</a>
+      </div>
+      <div class="card">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 4.5a3 3 0 0 1 0 6M21 20c0-2.6-1.6-4.8-4-5.6"/></svg>
+        <h3>Collect Earth Cloud, for coordinating teams</h3>
+        <p>A web dashboard for the coordinators of a distributed project: invite the team, give out the plots, follow progress, check quality and download the results. Plots are not assessed there. Each interpreter's Collect Earth sends the plots they save to the dashboard and receives the plots they are given, by itself.</p>
+        <p class="where"><strong>Who needs it:</strong> coordinators of team projects. Optional: FAO's free server, or your own.</p>
+        <a class="more" href="#cloud">→ What the dashboard does</a>
+      </div>
     </div>
   </div>
 </section>
@@ -114,11 +138,11 @@
 <section class="soft" id="how">
   <div class="wrap">
     <h2>How it works</h2>
-    <p class="lead">Every set-up uses the same desktop program and the same project file. Unless the team shares one PostgreSQL database, each plot is saved on the interpreter's own computer first.</p>
+    <p class="lead">Every set-up uses the same desktop program, installed on each interpreter's computer, and the same project file. Unless the team shares one PostgreSQL database, each plot is saved on the interpreter's own computer first.</p>
     <div class="grid g3" style="margin-top:32px">
       <div class="card"><div class="num">1</div><h3>Open the project</h3><p>A <code>.cep</code> project file holds the survey, its form, the plots and the settings. The plots come from a <a href="guide/sampling.html">sampling design</a>, such as the global SIGRID grid. Open it in Collect Earth, or join a cloud project with an invitation link.</p></div>
       <div class="card"><div class="num">2</div><h3>Assess each plot</h3><p>Collect Earth works inside Google Earth Web, with the plot list and the form in a panel beside the imagery. Look at the plot and answer the questions. Every answer is saved at once; press Submit when the plot is done and the next one opens.</p></div>
-      <div class="card"><div class="num">3</div><h3>Follow and use the results</h3><p>Follow progress on a dashboard, check quality, and export to CSV, Open Foris Collect, KML or a LULUCF reporting package.</p></div>
+      <div class="card"><div class="num">3</div><h3>Follow and use the results</h3><p>Follow progress on your own dashboard in Collect Earth or, for a team, on the Collect Earth Cloud dashboard, check quality, and export to CSV, Open Foris Collect, KML or a LULUCF reporting package.</p></div>
     </div>
     <figure class="shot"><img src="img/screens/desktop-gew.png" alt="Collect Earth inside Google Earth Web: the survey form in a panel beside the plot on the imagery" loading="lazy" width="1440" height="900"></figure>
   </div>
@@ -236,7 +260,7 @@
   <div class="wrap split">
     <div>
       <h2>Collect Earth Cloud</h2>
-      <p class="lead">A web dashboard for coordinators. Nobody installs a server: interpreters click an invitation link, choose <em>Join cloud project…</em> in Collect Earth, and every plot they save reaches the dashboard by itself. The plots they are given reach their Collect Earth the same way. On cloud.collectearth.org the administrators create the projects: ask FAO for one.</p>
+      <p class="lead">A web dashboard for coordinating and managing a project that many people work on, in many places. It does not replace Collect Earth: the interpreters still assess the plots in Collect Earth, installed on their own computers, and the cloud brings their work together. Nobody installs a server: interpreters click an invitation link, choose <em>Join cloud project…</em> in Collect Earth, and every plot they save reaches the dashboard by itself. The plots they are given reach their Collect Earth the same way. On cloud.collectearth.org the administrators create the projects: ask FAO for one.</p>
       <p style="margin-top:16px">Your project stays private: only the people you invite see it, each according to their role, and the coordinators can download everything, or delete the project, at any time.</p>
       <div class="actions" style="margin-top:28px"><a class="btn primary" href="https://cloud.collectearth.org">Open the dashboard</a> <a class="btn ghost" href="guide/coordinators.html">Read the guide</a></div>
     </div>
@@ -297,10 +321,10 @@
 <section class="cta">
   <div class="wrap">
     <h2>Start collecting</h2>
-    <p>Collect Earth 2, now in beta, works inside Google Earth Web on Windows, macOS and Linux. It is free and open source under the MIT licence.</p>
+    <p>Install Collect Earth 2, now in beta, on Windows, macOS or Linux: it works inside Google Earth Web, in your browser. When a team works together, its coordinator adds Collect Earth Cloud. Both are free and open source under the MIT licence.</p>
     <div class="actions">
-      <a class="btn green" href="guide/install.html">Try Collect Earth 2 beta</a>
-      <a class="btn ghost" href="https://cloud.collectearth.org">Open the dashboard</a>
+      <a class="btn green" href="guide/install.html">Install the Collect Earth 2 beta</a>
+      <a class="btn ghost" href="https://cloud.collectearth.org">Team dashboard</a>
     </div>
   </div>
 </section>
