@@ -36,15 +36,51 @@ public class LeftoverBrowsersTest {
 		started.forEach(Process::destroyForcibly);
 	}
 
+	/**
+	 * The arguments that keep a renamed copy of sleep waiting: {@code 60} for GNU sleep, or {@code sleep 60} where sleep
+	 * is a multi-call coreutils (uutils, the default from Ubuntu 25.10, so on GitHub's ubuntu-latest), which chooses what
+	 * to be by its own name and, under a name it does not know (chromedriver), by its first argument: given only
+	 * {@code 60}, it ends at once. Found once, with a copy under a name no coreutils program has.
+	 */
+	private static List<String> sleepArguments;
+
 	/** A process that looks like {@code name} by its program name: a copy of sleep, so Unix only. */
-	private Process run(String name) throws IOException {
+	private Process run(String name) throws IOException, InterruptedException {
+		return start(copyOfSleep(name), sleepArguments());
+	}
+
+	private Path copyOfSleep(String name) throws IOException {
 		File sleep = new File("/bin/sleep");
 		assumeTrue(sleep.canExecute(), "needs /bin/sleep");
 		Path program = folder.resolve(name);
 		if (!Files.exists(program)) {
 			Files.copy(sleep.toPath(), program, StandardCopyOption.COPY_ATTRIBUTES);
 		}
-		Process process = new ProcessBuilder(program.toString(), "60").start();
+		return program;
+	}
+
+	private List<String> sleepArguments() throws IOException, InterruptedException {
+		if (sleepArguments == null) {
+			Path probe = copyOfSleep("not-a-coreutils-program");
+			for (List<String> arguments : List.of(List.of("60"), List.of("sleep", "60"))) {
+				Process process = start(probe, arguments);
+				boolean ended = process.waitFor(300, TimeUnit.MILLISECONDS);
+				process.destroyForcibly();
+				if (!ended) {
+					sleepArguments = arguments;
+					break;
+				}
+			}
+			assumeTrue(sleepArguments != null, "a renamed copy of /bin/sleep does not keep running here");
+		}
+		return sleepArguments;
+	}
+
+	private Process start(Path program, List<String> arguments) throws IOException {
+		List<String> command = new ArrayList<>();
+		command.add(program.toString());
+		command.addAll(arguments);
+		Process process = new ProcessBuilder(command).start();
 		started.add(process);
 		return process;
 	}
@@ -99,7 +135,8 @@ public class LeftoverBrowsersTest {
 
 	@Test
 	public void anotherProgramIsLeftAlone() throws Exception {
-		Process other = run("sleep");
+		// not "sleep": a copy under the name of a coreutils program would be that program, and take "sleep 60" as a bad time
+		Process other = run("notepad");
 		write(endedOwner(), LeftoverBrowsers.line(other.toHandle()).orElseThrow());
 		assertEquals(0, new LeftoverBrowsers(folder.toFile()).endLeftovers());
 		assertTrue(other.isAlive());

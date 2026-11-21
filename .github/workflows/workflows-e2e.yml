@@ -23,8 +23,8 @@ jobs:
           - 55432:5432
         options: >-
           --health-cmd "pg_isready -U ce" --health-interval 5s --health-timeout 5s --health-retries 20
+    # The runner context is not available at the job's level, only in the steps: WF_DIR is set on the step that uses it
     env:
-      WF_DIR: ${{ runner.temp }}/ce-workflows
       WF_PG_PORT: '55432'
     steps:
       - uses: actions/checkout@v7
@@ -59,6 +59,8 @@ jobs:
           for i in $(seq 1 60); do curl -sf localhost:8080/health && break; sleep 1; done
       - name: The scenarios
         working-directory: collect-earth-cloud/scripts/workflows
+        env:
+          WF_DIR: ${{ runner.temp }}/ce-workflows
         run: node run.mjs
       - name: Keep the logs and the results
         if: always()
