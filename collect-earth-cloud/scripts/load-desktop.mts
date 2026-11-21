@@ -29,6 +29,9 @@
 // ATTACH=1: the instances are running already and in their project (a run that stopped): none is started or joined,
 // and each goes on after the last of its plots Collect Earth has sent (its plots are collected in their order).
 //
+// CHECKS=1 (with UNTIL_ALL): after its plots, each instance asks for the quality checks drawn meanwhile (the sampling of
+// load-mapathon.mts SAMPLING_PERCENT) and answers them; HANDOFF.finished then says every instance is done.
+//
 // Settings (environment): CE_APP (the collect-earth-app folder, where CollectEarth.jar is built and must run from),
 // CE_HOMES (where the instances' user folders go, emptied first), FIRST_PORT (8031), PACE_S ("20-40": seconds between
 // two plots of one person), XMX (1g), KEEP=1 to leave the instances running, OUT for the JSON report.
@@ -435,6 +438,37 @@ const watch = (async () => {
 writeFileSync(`${HANDOFF}.${TRAINING > 0 ? 'collecting' : 'ready'}`, new Date().toISOString());
 log('collecting until the load test ends');
 await Promise.all(instances.map(collect));
+
+// CHECKS=1 (with UNTIL_ALL): the quality checks the project's sampling drew while the person collected (copies of other
+// people's plots, with the round of a check) come to Collect Earth at its next check of the person's plots; each
+// instance asks for them now, as "Refresh now" does, and answers the ones it has not done, then the run goes on
+// (HANDOFF.finished tells load-mapathon.mts WAIT_DESKTOPS that every instance has done all it holds)
+const CHECKS = process.env.CHECKS === '1';
+const checksDone = new Map<number, number>();
+if (CHECKS) {
+  // "Draw now" by the coordinator first: the checks of plots submitted in the last moments too
+  for (const m of handoff.mapathons) {
+    const token = m.coordinatorToken ?? handoff.coordinatorToken;
+    const res = await fetch(`${handoff.base}/v1/projects/${m.pid}/sampling/draw`, { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: '{}' });
+    log(`${m.name}: the checks drawn now: ${res.status} ${(await res.text()).slice(0, 200)}`);
+  }
+  await Promise.all(instances.map(async (i) => {
+    await api(i, 'cloud/myPlots/refresh', {}).catch(() => undefined);
+    await sleep(8000);
+    const shown = await plotsShown(i);
+    const todo = shown.filter((p) => !i.completed.has(p) && !isTraining(p));
+    log(`instance ${i.n} (${i.username}): ${shown.length} plots now, ${todo.length} checks to answer`);
+    let n = 0;
+    for (const plot of todo) {
+      await sleep(between(PACE_LO * 1000, PACE_HI * 1000));
+      await fillPlot(i, plot);
+      if (i.completed.has(plot)) n += 1;
+    }
+    checksDone.set(i.n, n);
+  }));
+  log(`checks answered: ${instances.map((i) => `${i.username} ${checksDone.get(i.n) ?? 0}`).join(', ')}`);
+}
+if (UNTIL_ALL) writeFileSync(`${HANDOFF}.finished`, new Date().toISOString());
 
 // Everything saved goes out: each instance's queue empty (and a sync asked for, as the button does)
 log('waiting for each instance to send what it saved');

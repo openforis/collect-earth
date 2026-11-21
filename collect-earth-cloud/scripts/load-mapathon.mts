@@ -30,6 +30,10 @@
 //   BASE=https://staging.example.org ADMIN_USER=loadtest ADMIN_PASSWORD_FILE=~/.loadtest-password AUTH_PER_MINUTE=50 \
 //     CLEANUP=1 npx tsx scripts/load-mapathon.mts
 //
+// SAMPLING_PERCENT: that share of the plots checked by another person (the sampling, Setup › Quality), so the review
+// queue has differences; WAIT_DESKTOPS (minutes): with real Collect Earth instances collecting every plot they hold
+// (load-desktop.mts UNTIL_ALL), the run waits for them (HANDOFF.finished) before its end.
+//
 // Settings (environment): MAPATHONS (2), PEOPLE per mapathon (30), PLOTS per mapathon (3000), SCALE to shorten every
 // phase (1 = the durations below), PHASES to run only some ("1,2,3": without the burst and the ceiling), SERVER_PID to
 // sample the server's CPU and memory (a server of this computer), OUT for the JSON report.
@@ -81,6 +85,8 @@ const ADMIN_USER = process.env.ADMIN_USER;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD_FILE ? readFileSync(process.env.ADMIN_PASSWORD_FILE.replace(/^~/, process.env.HOME ?? ''), 'utf8').trim() : process.env.ADMIN_PASSWORD;
 if (ADMIN_USER && !ADMIN_PASSWORD) throw new Error('ADMIN_USER needs ADMIN_PASSWORD or ADMIN_PASSWORD_FILE');
 const AUTH_PER_MINUTE = Number(process.env.AUTH_PER_MINUTE ?? 0);
+const SAMPLING_PERCENT = Number(process.env.SAMPLING_PERCENT ?? 0);
+const WAIT_DESKTOPS = Number(process.env.WAIT_DESKTOPS ?? 0);
 const PHASES = new Set((process.env.PHASES ?? '1,2,3,4,5').split(',').map((x) => x.trim()));
 const CLEANUP = process.env.CLEANUP === '1';
 const SIGNUP = process.env.SIGNUP === '1';
@@ -652,6 +658,12 @@ if (TRAINING > 0) {
       trainingChecks.push({ what: `${m.name}: the coordinator finishes the training`, ok: fin.status === 200, detail: `${fin.status}` });
       const divided = await call('divide the project\'s plots', 'PUT', `/v1/projects/${m.pid}/plots/division`, m.token, { mode: 'even', people: m.people.map((p) => p.userId), order: 'file' });
       trainingChecks.push({ what: `${m.name}: the project's plots are divided between the ${m.people.length} people`, ok: divided.status === 200, detail: `${divided.status} ${divided.status === 200 ? '' : divided.text.slice(0, 120)}` });
+      // SAMPLING_PERCENT: a share of each person's submitted plots checked by another person (the quality checks the
+      // review queue is made of), drawn as the plots are first submitted
+      if (SAMPLING_PERCENT > 0) {
+        const rule = await call('quality checks: the sampling', 'PUT', `/v1/projects/${m.pid}/sampling`, m.token, { checkers: null, firstN: null, percent: SAMPLING_PERCENT });
+        trainingChecks.push({ what: `${m.name}: ${SAMPLING_PERCENT}% of the plots are checked by another person`, ok: rule.status === 200, detail: `${rule.status} ${rule.status === 200 ? '' : rule.text.slice(0, 160)}` });
+      }
     }
   });
   if (HANDOFF && DESKTOP > 0) writeFileSync(`${HANDOFF}.divided`, new Date().toISOString());
@@ -713,6 +725,9 @@ if (PHASES.has('5')) await runPhase('5 ceiling (no pause, batches of 10)', () =>
 ]));
 phase = 'check';
 if (HANDOFF && DESKTOP > 0) {
+  // WAIT_DESKTOPS (minutes): the Collect Earth instances collect every plot they hold (load-desktop.mts UNTIL_ALL), and
+  // the run ends when they have (HANDOFF.finished), not when the phases above do
+  if (WAIT_DESKTOPS > 0) await waitFor(`${HANDOFF}.finished`, 'the Collect Earth instances to collect every plot they hold', WAIT_DESKTOPS);
   writeFileSync(`${HANDOFF}.done`, new Date().toISOString());
   await waitFor(`${HANDOFF}.synced`, 'the Collect Earth instances to send their saves', 15);
 }
