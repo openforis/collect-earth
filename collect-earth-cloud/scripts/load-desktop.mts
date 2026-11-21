@@ -299,8 +299,10 @@ const TEXTS = ['checked', 'Forest edge', 'A', 'Seen on the imagery of the plot',
 const DATES = ['11/14/2026', '06/15/2020', '01/10/2015', '03/01/2024'];
 function answer(name: string, info: FieldInfo, tries = 0): string {
   const codes = (info.possibleCodedItems ?? []).map((c) => c.code).filter((c) => c !== '-1');
-  if (codes.length) return codes[Math.floor(Math.random() * codes.length)];
-  const type = fieldTypes?.get(name);
+  // A guess first, then each answer in turn: a rule that joins two fields (a land use's cover "na" when the plot has
+  // none of it) takes one answer only, which guesses alone may never hit
+  if (codes.length) return tries < 2 ? codes[Math.floor(Math.random() * codes.length)] : codes[tries % codes.length];
+  const type = fieldTypes?.get(name) ?? (name.startsWith('collect_boolean_') ? 'boolean' : undefined);
   if (type === 'boolean') return tries % 2 === 0 ? 'true' : 'false';
   if (type === 'integer' || type === 'real' || type === 'number' || type === 'range') return NUMBERS[tries % NUMBERS.length];
   if (type === 'date') return DATES[tries % DATES.length];
@@ -312,7 +314,7 @@ async function fillPlot(i: Instance, plot: string) {
   // No second land use change: the rarer branch with its own rules on the years
   const values: Record<string, string> = { collect_boolean_actively_saved: 'true', collect_boolean_second_lu_change: 'false', collect_boolean_land_use_subdivision_change: 'false' };
   const tries = new Map<string, number>();
-  for (let attempt = 0; attempt < 16; attempt++) {
+  for (let attempt = 0; attempt < 24; attempt++) {
     const body = new URLSearchParams({ placemarkId: plot, currentStep: '0', partialUpdate: 'false' });
     for (const [k, v] of Object.entries(values)) body.append(`values[${k}]`, v);
     const started = performance.now();
@@ -452,17 +454,23 @@ if (CHECKS) {
     const res = await fetch(`${handoff.base}/v1/projects/${m.pid}/sampling/draw`, { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: '{}' });
     log(`${m.name}: the checks drawn now: ${res.status} ${(await res.text()).slice(0, 200)}`);
   }
+  // Until a refresh brings nothing new: the checks of the plots the others completed while this one answered come too
   await Promise.all(instances.map(async (i) => {
-    await api(i, 'cloud/myPlots/refresh', {}).catch(() => undefined);
-    await sleep(8000);
-    const shown = await plotsShown(i);
-    const todo = shown.filter((p) => !i.completed.has(p) && !isTraining(p));
-    log(`instance ${i.n} (${i.username}): ${shown.length} plots now, ${todo.length} checks to answer`);
     let n = 0;
-    for (const plot of todo) {
-      await sleep(between(PACE_LO * 1000, PACE_HI * 1000));
-      await fillPlot(i, plot);
-      if (i.completed.has(plot)) n += 1;
+    const tried = new Set<string>();
+    for (let pass = 0; pass < 4; pass++) {
+      await api(i, 'cloud/myPlots/refresh', {}).catch(() => undefined);
+      await sleep(8000);
+      const shown = await plotsShown(i);
+      const todo = shown.filter((p) => !i.completed.has(p) && !isTraining(p) && !tried.has(p));
+      log(`instance ${i.n} (${i.username}): ${shown.length} plots now, ${todo.length} checks to answer`);
+      if (todo.length === 0) break;
+      for (const plot of todo) {
+        tried.add(plot);
+        await sleep(between(PACE_LO * 1000, PACE_HI * 1000));
+        await fillPlot(i, plot);
+        if (i.completed.has(plot)) n += 1;
+      }
     }
     checksDone.set(i.n, n);
   }));

@@ -4,7 +4,7 @@ import { hasPolygonColumn, plotOutline, visibleId } from '../plotShape.js';
 import { plotFileOf } from '../plotFileCache.js';
 import { isNumber } from '../plots.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
-import { fileKeyCount } from '../rounds.js';
+import { fileKeyCount, keyShape, splitKey } from '../rounds.js';
 import type { Store } from '../store/store.js';
 import type { PlotPlace, PlotPlaces } from '../wire/map.js';
 
@@ -97,6 +97,21 @@ export function placesOfPlotFile(file: Parameters<typeof plotFileOf>[0], keyCoun
   return { places, polygons };
 }
 
+/** A plot file's places by the plot without its round (the first round's place where rounds differ), made once per file read. */
+const unroundedPlaces = new WeakMap<ReadonlyMap<string, readonly [number, number]>, Map<string, readonly [number, number]>>();
+function withoutRound(places: ReadonlyMap<string, readonly [number, number]>, keyCount: number, roundIndex: number): Map<string, readonly [number, number]> {
+  let byPlot = unroundedPlaces.get(places);
+  if (!byPlot) {
+    byPlot = new Map();
+    for (const [id, at] of places) {
+      const { plot } = splitKey(id, keyCount, roundIndex);
+      if (!byPlot.has(plot)) byPlot.set(plot, at);
+    }
+    unroundedPlaces.set(places, byPlot);
+  }
+  return byPlot;
+}
+
 /** Least recently used out first. */
 function touch<K, V>(map: Map<K, V>, key: K, value: V): void {
   map.delete(key);
@@ -137,6 +152,10 @@ export class PlotPlaceReader {
     }
     const [info, files] = await Promise.all([this.store.getRoundInfo(projectId), this.store.listCsvFiles(projectId)]);
     const keyCount = fileKeyCount(info);
+    // A survey whose key holds the round, with the round in the plot file too: the file names its plots with their
+    // round ("1,1"), the export and the analysis without it ("1"). A plot is where it is in every round.
+    const { roundIndex } = keyShape(info);
+    const unrounded = roundIndex !== null && roundIndex < keyCount;
     const found = new Map<string, PlotPlace>();
     // A plot file with polygons: Collect Earth draws those, not the survey's shape.
     let polygons = false;
@@ -146,8 +165,9 @@ export class PlotPlaceReader {
       }
       const file = await this.placesOfFile(projectId, meta.id, meta.checksum, keyCount, log);
       polygons ||= file?.polygons ?? false;
+      const byPlot = file && unrounded ? withoutRound(file.places, keyCount, roundIndex) : undefined;
       for (const plot of wanted) {
-        const at = found.has(plot) ? undefined : file?.places.get(plot);
+        const at = found.has(plot) ? undefined : (file?.places.get(plot) ?? byPlot?.get(plot));
         if (at) {
           found.set(plot, { plot, lat: at[0], lon: at[1], name: visibleId(plot, facts.hidden) });
         }

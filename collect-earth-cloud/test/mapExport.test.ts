@@ -2,7 +2,7 @@ import { strFromU8, unzipSync } from 'fflate';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { geojsonOf, kmlOf, plotGeometry, rowGeometries, shapefileOf } from '../src/mapExport.js';
 import { dbfFieldNames, signedArea2, writeShp, type Geometry } from '../src/shapefile.js';
-import { idOnlyCep } from './fixtures/cep.js';
+import { demoCep, idOnlyCep } from './fixtures/cep.js';
 import { batchRequest, bearer, createProject, envelope, makeContext, type TestContext } from './helpers.js';
 
 const table = {
@@ -208,5 +208,46 @@ describe('GET export.geojson / export.kml / export.shp.zip', () => {
     const invite = await ctx.app.inject({ method: 'POST', url: `/v1/projects/${pid}/invites`, headers: bearer(admin), payload: { role: 'reviewer', maxUses: 1 } });
     const rita = await ctx.app.inject({ method: 'POST', url: '/v1/auth/register', payload: { username: 'rita', password: 'password12', inviteToken: invite.json().inviteToken } });
     expect((await get('export.kml', rita.json().token)).statusCode).toBe(403);
+  });
+});
+
+describe('map files of a survey whose key holds the round', () => {
+  let ctx: TestContext;
+  afterEach(async () => {
+    await ctx.app.close();
+  });
+
+  it('places each row, main and check, at its plot of the file (which names it with its round)', async () => {
+    ctx = await makeContext();
+    const project = await createProject(ctx.app, 'Rounds');
+    const pid = project.projectId;
+    const admin = project.adminToken;
+    await ctx.app.inject({ method: 'PUT', url: `/v1/projects/${pid}/cep`, headers: { ...bearer(admin), 'content-type': 'application/zip' }, payload: demoCep() });
+    await ctx.app.inject({
+      method: 'PUT',
+      url: `/v1/projects/${pid}/csv-files/plots.csv`,
+      headers: { ...bearer(admin), 'content-type': 'text/csv' },
+      payload: 'id,round,YCoordinate,XCoordinate\n1,1,-5,151\n2,1,-5.1,151.2\n',
+    });
+    const invite = await ctx.app.inject({ method: 'POST', url: `/v1/projects/${pid}/invites`, headers: bearer(admin), payload: { role: 'operator', maxUses: 2 } });
+    const maria = await ctx.app.inject({ method: 'POST', url: '/v1/auth/register', payload: { username: 'maria', password: 'password12', inviteToken: invite.json().inviteToken } });
+    const joao = await ctx.app.inject({ method: 'POST', url: '/v1/auth/register', payload: { username: 'joao', password: 'password12', inviteToken: invite.json().inviteToken } });
+    await batchRequest(ctx.app, pid, maria.json().token, [
+      envelope({ recordKey: '1,1', operator: 'maria', summary: { collect_code_land_use: 'F' } }),
+      envelope({ recordKey: '2,1', operator: 'maria', summary: { collect_code_land_use: 'C' } }),
+    ]);
+    await batchRequest(ctx.app, pid, joao.json().token, [envelope({ recordKey: '1,2', operator: 'joao', summary: { collect_code_land_use: 'G' } })]);
+    const res = await ctx.app.inject({ method: 'GET', url: `/v1/projects/${pid}/export.geojson`, headers: bearer(admin) });
+    expect(res.statusCode).toBe(200);
+    const features = res.json().features as { properties: Record<string, string>; geometry: { type: string; coordinates: number[][][] } | null }[];
+    expect(features.map((f) => [f.properties.record_key, f.properties.plot, f.properties.round])).toEqual([['1,1', '1', '1'], ['1,2', '1', '2'], ['2,1', '2', '1']]);
+    expect(features.every((f) => f.geometry?.type === 'Polygon')).toBe(true);
+    const lon = (f: (typeof features)[number]) => f.geometry!.coordinates[0][0][0];
+    // The check stands where its plot does
+    expect(lon(features[1])).toBe(lon(features[0]));
+    expect(Math.abs(lon(features[2]) - 151.2)).toBeLessThan(0.001);
+    // The Quality tab's places, by the file's own names, are as they were
+    const quality = await ctx.app.inject({ method: 'POST', url: `/v1/projects/${pid}/quality/places`, headers: bearer(admin), payload: { plots: ['1,1', '2'] } });
+    expect(quality.json().places.map((p: { plot: string }) => p.plot)).toEqual(['1,1', '2']);
   });
 });
