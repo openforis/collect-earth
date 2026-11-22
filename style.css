@@ -47,13 +47,18 @@ header.top { position: sticky; top: 0; z-index: 50; background: #fff; box-shadow
 header.top .wrap { display: flex; align-items: center; justify-content: space-between; height: 84px; gap: 16px; position: relative; }
 header.top .brand img { height: 56px; width: auto; display: block; }
 nav { display: flex; align-items: center; }
-nav a { padding: 8px 14px; color: var(--menu); font-size: 15px; font-weight: 500; border-radius: 4px; }
+nav a { padding: 8px 14px; color: var(--menu); font-size: 15px; font-weight: 500; border-radius: 4px; white-space: nowrap; }
 nav a:hover { color: var(--of-blue); text-decoration: none; }
 nav a[aria-current="page"] { color: var(--of-blue); }
 nav .btn { margin-left: 12px; padding: 9px 18px; font-size: 15px; }
 nav .btn:hover { color: #fff; }
 .menu-toggle { display: none; background: none; border: 0; padding: 8px; cursor: pointer; color: var(--of-blue); }
 .menu-toggle svg { display: block; }
+/* seven links on the guide pages: tighter between the collapsed menu and the full width */
+@media (min-width: 1041px) and (max-width: 1260px) {
+  nav a { padding: 8px 9px; font-size: 14.5px; }
+  nav .btn { margin-left: 8px; padding: 9px 14px; }
+}
 
 @media (max-width: 1040px) {
   .js .menu-toggle { display: block; }

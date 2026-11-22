@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#ffffff">
+<script>document.documentElement.classList.add("js")</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap">
+<title>Running a Mapathon · Collect Earth</title>
+<meta name="description" content="An operations manual for organisers of Collect Earth Mapathons: purpose, survey and sampling design, organising the event, training, giving out plots, collection, quality control, analysis, effort and keeping the data.">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../favicon.ico" sizes="any">
+<link rel="stylesheet" href="../style.css">
+<script src="../analytics.js" defer></script>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="../"><img src="../img/logo.png" alt="Collect Earth · Open Foris" width="1000" height="434"></a>
+    <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Menu"><svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg></button>
+    <nav id="site-nav" aria-label="Main">
+      <a href="choose.html">Which set-up?</a>
+      <a href="sampling.html">Sampling</a>
+      <a href="interpreters.html">Interpreters</a>
+      <a href="coordinators.html">Coordinators</a>
+      <a href="mapathon.html" aria-current="page">Mapathons</a>
+      <a href="own-server.html">Own server</a>
+      <a class="btn primary" href="https://cloud.collectearth.org">Open the dashboard</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<div class="page-title">
+  <div class="box">
+    <p class="crumb"><a href="../">Collect Earth</a> › <a href="../#guides">Guides</a></p>
+    <h1>Running a Mapathon</h1>
+    <p class="lead">A Mapathon brings a group of people together, in one room or online, to assess a set of plots on satellite imagery with Collect Earth in a few days. This manual takes the organiser through every phase: why the data is collected, the survey and the sample, the event itself, the checks, the analysis and keeping the data.</p>
+  </div>
+</div>
+<div class="doc">
+
+  <div class="toc">
+    <strong>On this page</strong>
+    <ol>
+      <li><a href="#purpose">Purpose and audience</a></li>
+      <li><a href="#survey">Survey design</a></li>
+      <li><a href="#sampling">Sampling design</a></li>
+      <li><a href="#organise">Organising the event</a></li>
+      <li><a href="#prepare-training">Preparing the training</a></li>
+      <li><a href="#training">Training days</a></li>
+      <li><a href="#plots">Giving out the plots</a></li>
+      <li><a href="#collection">Collection days</a></li>
+      <li><a href="#quality">Quality control after the event</a></li>
+      <li><a href="#analysis">Analysis and presenting results</a></li>
+      <li><a href="#effort">Effort and duration</a></li>
+      <li><a href="#keeping">Keeping the data</a></li>
+      <li><a href="#checklists">Checklists</a></li>
+    </ol>
+  </div>
+
+  <div class="note">This manual builds on <a href="https://openknowledge.fao.org/handle/20.500.14283/cb2714en"><em>Mapping together: A guide to monitoring forest and landscape restoration using Collect Earth mapathons</em></a> (FAO and WRI, 2021), cited below as “FAO and WRI, p.&nbsp;…”. That guide, with its case studies from El Salvador, Ethiopia, India and Rwanda, remains the reference for the method. Its software steps describe Collect Earth 1 with Google Earth Pro; here they are replaced by Collect Earth 2 and the Collect Earth Cloud dashboard.</div>
+
+  <h2 id="overview">The Mapathon at a glance</h2>
+  <p>Every interpreter works in Collect Earth, installed on the computer in front of them, where each plot is assessed and saved first. The organiser coordinates the event on <a href="https://cloud.collectearth.org">Collect Earth Cloud</a>, a web dashboard to set up the project, give out the plots, follow progress and check quality. A Mapathon without a server is possible too (see <a href="choose.html">Which set-up?</a>), but the cloud makes the checks during the event much easier.</p>
+  <figure>
+    <div style="overflow-x:auto">
+    <svg viewBox="0 0 760 304" role="img" aria-label="A Mapathon runs in six phases, from planning to archive" style="display:block;width:100%;min-width:600px;height:auto" font-family="Poppins, sans-serif" font-size="13">
+      <defs><marker id="mp-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#9A9488"/></marker></defs>
+      <text x="24" y="28" font-size="15" font-weight="600" fill="#161922">A Mapathon runs in six phases, from planning to archive</text>
+      <g fill="none" stroke="#9A9488" stroke-width="1.25">
+        <path d="M248 112H280" marker-end="url(#mp-arrow)"/>
+        <path d="M480 112H512" marker-end="url(#mp-arrow)"/>
+        <path d="M380 76V60H148V76" marker-end="url(#mp-arrow)"/>
+        <path d="M612 148V204" marker-end="url(#mp-arrow)"/>
+        <path d="M512 240H480" marker-end="url(#mp-arrow)"/>
+        <path d="M280 240H248" marker-end="url(#mp-arrow)"/>
+        <path d="M48 240H28V112H48" stroke-dasharray="4 4" marker-end="url(#mp-arrow)"/>
+      </g>
+      <g fill="#fff" stroke="#9A9488" stroke-width="1.25">
+        <rect x="48" y="76" width="200" height="72" rx="8" fill="#EFECE6"/>
+        <rect x="280" y="76" width="200" height="72" rx="8"/>
+        <rect x="512" y="76" width="200" height="72" rx="8"/>
+        <rect x="512" y="204" width="200" height="72" rx="8"/>
+        <rect x="280" y="204" width="200" height="72" rx="8"/>
+        <rect x="48" y="204" width="200" height="72" rx="8"/>
+      </g>
+      <g text-anchor="middle">
+        <text x="148" y="100" font-weight="600" fill="#161922">Plan and prepare · 1–5</text>
+        <text x="148" y="120" font-size="11.5" fill="#626262">Purpose, survey, sample,</text>
+        <text x="148" y="136" font-size="11.5" fill="#626262">venue, training material</text>
+        <text x="380" y="100" font-weight="600" fill="#161922">Train · 6</text>
+        <text x="380" y="120" font-size="11.5" fill="#626262">Calibrate on plot copies,</text>
+        <text x="380" y="136" font-size="11.5" fill="#626262">agree the key, then finish</text>
+        <text x="612" y="100" font-weight="600" fill="#161922">Collect · 7–8</text>
+        <text x="612" y="120" font-size="11.5" fill="#626262">Real plots, blind checks,</text>
+        <text x="612" y="136" font-size="11.5" fill="#626262">daily progress and review</text>
+        <text x="612" y="228" font-weight="600" fill="#161922">Check · 9</text>
+        <text x="612" y="248" font-size="11.5" fill="#626262">Decide disagreements,</text>
+        <text x="612" y="264" font-size="11.5" fill="#626262">field checks if possible</text>
+        <text x="380" y="228" font-weight="600" fill="#161922">Analyse · 10</text>
+        <text x="380" y="248" font-size="11.5" fill="#626262">Areas and uncertainty,</text>
+        <text x="380" y="264" font-size="11.5" fill="#626262">results for each audience</text>
+        <text x="148" y="228" font-weight="600" fill="#161922">Keep · 12</text>
+        <text x="148" y="248" font-size="11.5" fill="#626262">Archive in open formats,</text>
+        <text x="148" y="264" font-size="11.5" fill="#626262">close the project</text>
+      </g>
+      <text x="264" y="54" text-anchor="middle" font-size="11.5" fill="#626262">fix the survey or layout</text>
+      <text x="620" y="180" font-size="11.5" fill="#626262">when all are in</text>
+      <text x="36" y="180" font-size="11.5" fill="#626262">next round, same plots</text>
+    </svg>
+    </div>
+    <figcaption>Training sends problems back to the survey before the real work; the archive lets a later round repeat the survey on the same plots. Effort and duration (section 11) are planned across all of it.</figcaption>
+  </figure>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Role</th><th>What they do</th><th>In the dashboard</th></tr></thead>
+      <tbody>
+        <tr><td>Organiser (coordinator)</td><td>Plans the event, designs the survey and the sample, sets up the project, gives out plots, decides on disagreements, analyses and keeps the data</td><td>Everything</td></tr>
+        <tr><td>Experts (reviewers)</td><td>Train the group, answer questions in the room, check quality. At least two, or one for every 10 interpreters (FAO and WRI, p.&nbsp;62)</td><td>Quality figures, no figures per person</td></tr>
+        <tr><td>Interpreters (collectors)</td><td>Assess the plots given to them</td><td>Only their own work</td></tr>
+        <tr><td>IT support</td><td>Computers, network and installation, on site for the whole event (p.&nbsp;53)</td><td>None</td></tr>
+        <tr><td>Decision-makers, funders</td><td>Use the results; ideally help shape the survey and the area (p.&nbsp;23)</td><td>A read-only progress link with no names</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>For a sense of scale: the four Mapathons in the FAO and WRI case studies lasted 4 to 5 days with about 20 people each, and assessed between 2,410 and 6,750 plots (p.&nbsp;17).</p>
+
+  <h2 id="purpose">1. Purpose and audience</h2>
+  <p>Decide who will use the data, and for what, before designing anything: the survey, the sample and the way results are presented all follow from it.</p>
+  <p><strong>A data use plan.</strong> Answer five questions in writing and share them with the partners (FAO and WRI, p.&nbsp;22):</p>
+  <ol class="steps">
+    <li>Who is the audience, by organisation and by position, and how will they use the data? Rank them.</li>
+    <li>Which mandated output, plan or report will the data feed (a national report, a restoration target, an IPCC inventory)?</li>
+    <li>What will show that the Mapathon succeeded?</li>
+    <li>What monitoring already exists, and how will this data complement it?</li>
+    <li>How will the results reach the audience: which channel (a workshop, a technical working group, one-on-one meetings) and which format (a one-page summary, a report, slides, maps)? (p.&nbsp;23)</li>
+  </ol>
+  <p><strong>Involve decision-makers early.</strong> Their support makes it easier to find interpreters and a venue, and their questions make the results used. Where possible, design the survey, the plots and the area with them (p.&nbsp;52).</p>
+  <p><strong>Indicators you can see.</strong> Turn each target into something an interpreter can see on imagery: land use and its change, tree cover, number of trees, trees on farm boundaries. For example, tree cover on cropland reports on an agroforestry target (p.&nbsp;30–31). Leave out what imagery cannot show, or plan field work for it.</p>
+  <p><strong>The area of interest.</strong> Choose it at the scale where decisions are made: a district, a landscape, a country. When unsure whether to include a land use, include it: data not collected cannot be added later (p.&nbsp;31).</p>
+
+  <h2 id="survey">2. Survey design</h2>
+  <p>Settle and test the survey before anyone is trained: every change after training means retraining, and every change after collection starts touches plots already assessed.</p>
+  <p><strong>Ask only what the results need.</strong> Every question costs seconds on every plot. Start from the indicators of section 1, and from one of Collect Earth's templates (demonstration, multipurpose or IPCC) when it fits.</p>
+  <p><strong>Build it in the dashboard.</strong> In Collect Earth Cloud, create the project with <span class="ui">New survey</span>, then <span class="ui">Setup › Survey form › Edit the survey</span> (see <a href="coordinators.html#designer">Running a cloud project</a>):</p>
+  <ul>
+    <li>Group the questions on cards in the order an interpreter looks at a plot.</li>
+    <li>Prefer lists of answers to free text, with an “Other” answer where needed: free text made the data slow to clean in the Indian case (FAO and WRI, p.&nbsp;37, 40).</li>
+    <li>Make the key questions <span class="ui">Required</span>, show questions only when they apply, and add rules that stop contradictions (forest with 0% tree cover) (p.&nbsp;37, 62).</li>
+    <li>Consider a “how sure are you?” question on hard plots, as Ethiopia did, so they can be checked first (p.&nbsp;38–39).</li>
+    <li>Use the official national definitions, word for word, in the questions' help texts.</li>
+    <li>Add the team's languages, in the dashboard or with <span class="ui">Download the texts</span> for translators.</li>
+  </ul>
+  <p><strong>Pilot it.</strong> Have two or three people, some new to Collect Earth, assess 10 to 20 real plots each. Note the time per plot: it sets the length of the event (section 11). Fix what confused them (p.&nbsp;53–54).</p>
+  <p><strong>Freeze it before training.</strong> Agree a version and change it only for errors found during training. <span class="ui">Earlier versions</span> keeps each version; a later change shows what it does to the plots already collected, and every Collect Earth from 2.0 offers the new survey within ten minutes.</p>
+
+  <h2 id="sampling">3. Sampling design</h2>
+  <p>The sample decides how precise the results can be and how much work the Mapathon is. Choose the number of plots from the precision you need and the effort the team can give (section 11). <a href="sampling.html">Designing the sample</a> explains each tool.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Design</th><th>When to use it</th><th>How to make it</th></tr></thead>
+      <tbody>
+        <tr><td>Systematic grid</td><td>National and landscape assessments; most Collect Earth projects. Even coverage, easy to repeat, plots can be shown as a map</td><td>SIGRID in the dashboard, or the Grid Generator on Earth Engine</td></tr>
+        <tr><td>Random</td><td>A quick estimate or a validation sample</td><td><span class="ui">Design the plots › At random</span>, or the Grid Generator</td></tr>
+        <tr><td>Stratified random</td><td>More plots where it matters: rare classes, restoration sites, districts. Ethiopia used at least 30 plots per district (FAO and WRI, p.&nbsp;46)</td><td><span class="ui">At random within strata</span>, the same number in each or shared by area</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <ul>
+    <li><strong>Reuse what exists.</strong> A national forest inventory grid, or an earlier Collect Earth assessment, gives comparable results and trained people (p.&nbsp;44). SIGRID plots keep their ids when the grid is made finer later.</li>
+    <li><strong>Plot size</strong> follows the national forest definition: 0.5&nbsp;ha matches FAO's Forest Resources Assessment; Rwanda used 0.25&nbsp;ha (p.&nbsp;44). Set it once for everyone in <span class="ui">Setup › Plot layout &amp; imagery</span>, with the sampling points and the imagery windows, before training.</li>
+    <li><strong>A map as an output?</strong> Decide it now: it calls for a denser systematic grid (p.&nbsp;48).</li>
+    <li><strong>Extra columns.</strong> District, elevation, slope or ecological zone in the plot file let the results be summarised by them without GIS work (p.&nbsp;37); the Grid Generator adds them.</li>
+    <li><strong>The plot file</strong> has one row per plot, coordinates in WGS84 decimal degrees only, a text plot id for SIGRID ids, and the same columns in every file of the project.</li>
+    <li><strong>Areas.</strong> Give the area of each stratum, or one total, in <span class="ui">Setup › Areas</span>, so the analysis turns plots into hectares.</li>
+  </ul>
+
+  <h2 id="organise">4. Organising the event</h2>
+  <p>Start several weeks ahead (FAO and WRI, p.&nbsp;51): finding interpreters and a venue with good internet takes longer than setting up the project.</p>
+  <h3 id="people">The people</h3>
+  <ul>
+    <li>Look in universities, local NGOs, government offices and the communities of the area. Give priority to women, youth and marginalised groups: they read the landscape from different experience (p.&nbsp;52).</li>
+    <li>No GIS skills are needed. Basic computer literacy and reading maps are the minimum; knowing the area is strongly preferred (p.&nbsp;52).</li>
+    <li>Pair community members with interpreters experienced in Collect Earth, as in India, to bring local knowledge into the answers (p.&nbsp;52).</li>
+    <li>A daily stipend and a certificate help people set aside their usual work (p.&nbsp;52, 54).</li>
+    <li>Universities can bring participants, a computer lab and continuity: lecturers can repeat the exercise with their students (p.&nbsp;52).</li>
+  </ul>
+  <h3 id="venue">Venue and equipment</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th></th><th>What is needed</th></tr></thead>
+      <tbody>
+        <tr><td>Venue</td><td>Accessible to participants, a strong internet connection, space for every computer. A computer lab is best (p.&nbsp;53).</td></tr>
+        <tr><td>Required</td><td>A 64-bit Windows, macOS or Linux computer per interpreter, with Chrome, Edge or Firefox; a projector or large screen for training (p.&nbsp;53).</td></tr>
+        <tr><td>Recommended</td><td>A second screen per interpreter: Collect Earth lays Google Earth Web and the other imagery out over two screens by itself. A spare internet connection.</td></tr>
+        <tr><td>Support</td><td>Someone from IT on site for the whole event (p.&nbsp;53).</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Install Collect Earth on every computer before the event and start it once to check it (p.&nbsp;53). It needs no administrator rights and brings its own Java; with antivirus rules, restricted folders or a proxy, see <a href="install.html#windows-problems">If it does not install or start on Windows</a>. Unlike Collect Earth 1, interpreters need no Google Earth Engine account: Collect Earth Explorer reaches Earth Engine through the server.</p>
+  <h3 id="project-setup">The cloud project</h3>
+  <p>Ask FAO for a project on cloud.collectearth.org, or use your own server. Then work through <span class="ui">Setup</span> (see <a href="coordinators.html">Running a cloud project</a>): the survey, the plot files (not given out yet), the areas, the plot layout and imagery, the quality rules (section 8) and the schedule with its deadline.</p>
+  <h3 id="invitation">The invitation</h3>
+  <p>Send it two weeks ahead, with (FAO and WRI, p.&nbsp;54):</p>
+  <ul>
+    <li>why the Mapathon is held, what it will produce and what participants will learn;</li>
+    <li>the venue, the agenda, and who pays for travel, lodging and meals;</li>
+    <li>whether to bring a laptop, and if so the link to <a href="install.html">install Collect Earth</a> before coming;</li>
+    <li>the Collect Earth Cloud invitation link (<span class="ui">People › Invite people</span>, role <span class="ui">Collector</span>, as many people as will come, <span class="ui">None: I give them plots later</span>), sent again the day before.</li>
+  </ul>
+  <p>A short webinar a week before, on the objectives, the landscape and the survey, confirms that people have read the material and starts building the group (p.&nbsp;53). Prepare a short form for the start and the end of the event: experience and expectations before, what was learned and what to improve after (p.&nbsp;54).</p>
+
+  <h2 id="prepare-training">5. Preparing the training</h2>
+  <p>Training is where the consistency of the data is won: teach how to read the imagery, not only how to use the program (FAO and WRI, p.&nbsp;58).</p>
+  <ul>
+    <li><strong>An interpretation key.</strong> The definitions the group applies (forest, its canopy cover and height thresholds, the land use classes, following the IPCC hierarchy), each illustrated with screenshots of example plots (p.&nbsp;60). Include the hard cases: seasonal changes, plantations, trees on farm boundaries, degraded land.</li>
+    <li><strong>Field photos beside the imagery.</strong> Photos of known places shown next to their satellite image, or a short field visit, connect what people know on the ground with what they see from above (p.&nbsp;61).</li>
+    <li><strong>Training sets in the dashboard.</strong> On <span class="ui">Training › Add a training set</span>: kind <span class="ui">Calibration</span>, <span class="ui">Copies of plots of a plot file of the project</span>, 20 plots per day, <span class="ui">Everyone in the project, and whoever joins</span>. The copies carry ids of their own, so nothing done in training reaches the real data. A second set from the same file gets other plots.</li>
+    <li><strong>Reference plots.</strong> Have an expert assess a set of plots in advance. Every collector gets them blind on top of their own plots, which measures each person's accuracy during the whole event.</li>
+    <li><strong>Experts in the room.</strong> At least two, or one for every 10 interpreters (p.&nbsp;62).</li>
+  </ul>
+
+  <h2 id="training">6. Training days</h2>
+  <p>Plan at least two full days of training: in Ethiopia and Rwanda, 1.5 days for 20 people proved too little (FAO and WRI, p.&nbsp;52–53). Do not start the real collection until the group agrees on the questions that drive the results.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>When</th><th>Day 1</th><th>Day 2</th></tr></thead>
+      <tbody>
+        <tr><td>Morning</td><td>Welcome, the purpose and the audience (section 1), the start-of-event form. Everyone joins the project from Collect Earth with the link; the training plots open by themselves. Install and network problems solved now</td><td>Second calibration set, alone. Then the plots where answers still differ, together</td></tr>
+        <tr><td>Late morning</td><td>The survey and the interpretation key, plot by plot on the projector</td><td><span class="ui">Use the proposed answers as golden</span> and <span class="ui">Use as learning plots</span>: each person sees the agreed answer after each plot, and a score</td></tr>
+        <tr><td>Afternoon</td><td>First calibration set (20 plots), each person alone, without discussing. Follow the agreement on the set's page</td><td>A quiz on the hard cases; fix any last survey problem; finish the training (below)</td></tr>
+        <tr><td>End of day</td><td>The plots where answers differ, on the screen, together. Each rule agreed goes into <span class="ui">Quality › Notes</span></td><td>Give out the real plots (section 7)</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Days of about eight hours, with a 15-minute break every two hours; short quizzes and a look at the first results keep attention up (p.&nbsp;53–54).</p>
+  <p><strong>Closing the training.</strong> Print or save the report of each set (the only place where the answers plot by plot stay), then press <span class="ui">Finish the training</span>. The answers are deleted from the server and, at the next sync, from every Collect Earth; scores, agreement and golden answers are kept. The project's progress and quality figures then start from zero.</p>
+
+  <h2 id="plots">7. Giving out the plots</h2>
+  <p>Give out the real plots in one step after training, with the blind quality-check share included. Each person's plots reach their Collect Earth within five minutes, with no files to send.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>In <span class="ui">Setup › Plots › Divide the project's plots</span></th><th>Use it when</th></tr></thead>
+      <tbody>
+        <tr><td><span class="ui">Evenly between people</span></td><td>The group has similar experience and time</td></tr>
+        <tr><td><span class="ui">Give each person a share in percent</span></td><td>Some work part-time; under 100% keeps plots in reserve</td></tr>
+        <tr><td><span class="ui">By a column</span> (district, stratum)</td><td>People know a region; or pair local knowledge with its region</td></tr>
+        <tr><td><span class="ui">Mix them</span></td><td>Each person's plots spread over the whole area, so quality figures are not biased by region</td></tr>
+        <tr><td><span class="ui">Quality check</span></td><td>Always: some plots also go to a second person, blind, so differences can be found and discussed (FAO and WRI, p.&nbsp;62)</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>During the event, <span class="ui">Share again what is left</span> (by pace), <span class="ui">Move plots…</span> and <span class="ui">Select plots</span> on the map rebalance the work; what someone has submitted always stays theirs.</p>
+
+  <h2 id="collection">8. Collection days</h2>
+  <p>Catch problems on the first day, while they are cheap to fix, and put precision before speed (FAO and WRI, p.&nbsp;63).</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>When</th><th>Where</th><th>What to look for</th></tr></thead>
+      <tbody>
+        <tr><td>Morning</td><td><span class="ui">Progress</span></td><td>Plots submitted, <span class="ui">Needs attention</span>, <span class="ui">When will it be done?</span> against the deadline</td></tr>
+        <tr><td>Morning</td><td><span class="ui">People › How they are doing</span></td><td>Speed, last sync and agreement per person</td></tr>
+        <tr><td>Through the day</td><td>In the room</td><td>Experts answer questions at the computers; a question asked twice becomes a guidance note</td></tr>
+        <tr><td>Midday</td><td><span class="ui">Quality › Review</span></td><td>New disagreements on blind checks: decide them, or discuss them with the two people</td></tr>
+        <tr><td>End of day</td><td><span class="ui">Quality › Plots worth a look</span></td><td>Plots done very fast, identical answers in a row, missing required answers</td></tr>
+        <tr><td>End of day</td><td><span class="ui">Data › Open the analysis</span></td><td>Contradictions and outliers: forest with 0% tree cover, 90% tree cover on bare land, answers outside the national definition (p.&nbsp;62–63)</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <ul>
+    <li><strong>The first day counts most.</strong> Set <span class="ui">Setup › Quality rules</span> to copy each person's first plots to an expert, and talk to anyone who drifts from the key before they repeat it on hundreds of plots.</li>
+    <li><strong>Re-measure the pace after day 1</strong>: the plots per person per day tell whether the plan holds (p.&nbsp;63). If <span class="ui">When will it be done?</span> passes the deadline, move plots or add people now.</li>
+    <li><strong>Interpreters check their own work.</strong> Give them a list of checks for their own plots (<span class="ui">My work</span> in the dashboard); Ethiopia spent a day on it, and people become more careful when they correct their own errors (p.&nbsp;63).</li>
+    <li><strong>Time per plot</strong> is visible only to the organiser; very quick plots are flagged.</li>
+    <li><strong>Partners</strong> can follow progress through a read-only link with no names (<span class="ui">Setup › Sharing</span>).</li>
+  </ul>
+
+  <h2 id="quality">9. Quality control after the event</h2>
+  <p>The data is final when every disagreement has a decision and the quality figures are written down.</p>
+  <ul>
+    <li><strong>Decide the disagreements</strong> in <span class="ui">Quality › Review</span>: <span class="ui">First is right</span>, <span class="ui">Check is right</span> or <span class="ui">Both need another look</span>. The organiser's decision is the plot's final answer in every download.</li>
+    <li><strong>Correct or reassess</strong> plots with errors rather than dropping them: dropping plots can bias the sample or leave it too small (FAO and WRI, p.&nbsp;66).</li>
+    <li><strong>Read the figures.</strong> <span class="ui">Agreement by question</span> shows which definitions need work; <span class="ui">Agreement by person</span> who needs support; <span class="ui">Mixed-up answers</span> which classes are confused; reference plots give each person's accuracy.</li>
+    <li><strong>Field checks (groundtruthing).</strong> Visit a random set of plots, leaving out places that need long permits, and note that this narrows the sample (p.&nbsp;66–68). Take local officials along: in Rwanda the district forest officer joined the 14 visits in one day; in India, 35 field points matched the Mapathon data better than the official map (p.&nbsp;67–68). Record for each plot: date, plot id, photo, land cover expected from Collect Earth and observed, trees and shrubs present and how many, disturbance, land management and tenure (p.&nbsp;69).</li>
+    <li><strong>Write it down</strong>: the share checked blind, the agreement, the reference-plot accuracy, how disagreements were decided and what the field checks found. It belongs in the methods of every report.</li>
+  </ul>
+
+  <h2 id="analysis">10. Analysis and presenting results</h2>
+  <p>Analyse for the audience and the questions of section 1, not for everything the data could show (FAO and WRI, p.&nbsp;72).</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>On the <span class="ui">Data</span> tab</th><th>Use it for</th></tr></thead>
+      <tbody>
+        <tr><td><span class="ui">Open the analysis</span>, and its stand-alone file</td><td>Tables and charts by any question or column (district, ecological zone), shared with people who have no account</td></tr>
+        <tr><td><span class="ui">Uncertainty (IPCC)</span></td><td>The area of each land use with its confidence interval</td></tr>
+        <tr><td>IPCC exports</td><td>Land use change matrices, land uses year by year, a file for the IPCC Inventory Software</td></tr>
+        <tr><td><span class="ui">Download the data</span></td><td>CSV with the final decisions, answer labels and each plot's expansion factor; GeoJSON, KML or shapefile for maps</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <ul>
+    <li>Report areas with their uncertainty, and say how many plots were assessed and checked.</li>
+    <li>Summarise by the units decision-makers manage, such as districts (p.&nbsp;72).</li>
+    <li>Show the plots on a map: a systematic grid of assessed plots already reads as a map (p.&nbsp;77).</li>
+    <li>Fit the product to each audience of the data use plan: a one-page summary, a briefing, a report, a validation workshop with the people who will use the figures (p.&nbsp;23).</li>
+    <li>Leave the coordinates out (<span class="ui">Leave out where the plots are</span>) when plot locations are sensitive.</li>
+  </ul>
+
+  <h2 id="effort">11. Effort and duration</h2>
+  <p>A trained interpreter assesses about 100 plots a day at about five minutes a plot with the default survey (FAO and WRI, p.&nbsp;53). Measure your own rate in the pilot (section 2) and again after day 1: a longer survey is slower.</p>
+  <div class="note"><strong>Collection days</strong> = plots × (1 + share checked twice) ÷ (plots per person per day × interpreters), plus the reference plots each person assesses.<br>Example: 4,000 plots, 10% checked twice, 100 plots per person per day and 20 interpreters give 4,000 × 1.1 ÷ 2,000 = 2.2 days. With two days of training and a margin, that is a week, the minimum the guide recommends; large areas take two weeks or more (p.&nbsp;53).</div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Phase</th><th>Who</th><th>How long</th></tr></thead>
+      <tbody>
+        <tr><td>Purpose, indicators, survey and sample</td><td>Organiser, experts, decision-makers</td><td>Several weeks before</td></tr>
+        <tr><td>Venue, invitations, installing, project set-up</td><td>Organiser, IT</td><td>In parallel, from 2 to 3 weeks before</td></tr>
+        <tr><td>Training</td><td>Everyone</td><td>At least 2 days</td></tr>
+        <tr><td>Collection</td><td>Interpreters, experts</td><td>From the formula above</td></tr>
+        <tr><td>Review and field checks</td><td>Organiser, experts, officials</td><td>Days to weeks after</td></tr>
+        <tr><td>Analysis and presentation</td><td>Organiser, analyst</td><td>1 to 2 weeks</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>The case-study events cost between 4,000 and 30,000 US$ (p.&nbsp;17): mostly venue, travel, meals and stipends. Collect Earth and FAO's Collect Earth Cloud are free; your own server costs about 10 to 15 US$ a month.</p>
+
+  <h2 id="keeping">12. Keeping the data</h2>
+  <p>The data is worth more over time: the same plots assessed again in later years measure change. Keep an archive that can rebuild the project without the server, in open formats, in two places.</p>
+  <ul>
+    <li><strong>During the event</strong> each answer is saved first on the interpreter's computer, which keeps its last ten backups, and reaches the server within seconds. Download a <span class="ui">Collect Earth backup</span> at the end of each day.</li>
+    <li><strong>The archive</strong>: the project file (.cep), the plot files, a Collect Earth backup of every round, the answers as CSV with labels and final decisions, a map file, the IPCC outputs, the training reports, the agreement figures, the guidance notes, the interpretation key, the field-check forms, and a short readme (dates, area, survey version, team, contact).</li>
+    <li><strong>Close the project</strong> in <span class="ui">Setup › Project</span> once the archive is safe; delete it from the server only then. For the next round, <span class="ui">Setup › Next round › Repeat this survey</span> uses the same plots and keeps this round as an earlier period.</li>
+    <li><strong>Protect it.</strong> Only invited people see the project. Remove people who left, use <span class="ui">Sign out everywhere</span> for a lost laptop, and run your own server when the data must not leave your organisation.</li>
+    <li><strong>Share it.</strong> Open data and published results let others build on the work (FAO and WRI, p.&nbsp;82–83).</li>
+  </ul>
+  <p>To keep the capacity, not only the data: the people trained are what makes the next round possible. Universities and government units that took part can repeat the exercise (p.&nbsp;52, 81).</p>
+
+  <h2 id="checklists">13. Checklists</h2>
+  <h3>Weeks before</h3>
+  <ul>
+    <li>Data use plan written; decision-makers involved</li>
+    <li>Indicators and area of interest agreed</li>
+    <li>Survey built, translated and piloted; time per plot measured; version frozen</li>
+    <li>Sample designed; plot files checked; plot size, layout, imagery and areas set</li>
+    <li>Interpreters found; venue, computers, second screens, internet and IT support booked</li>
+    <li>Collect Earth installed and started on every computer</li>
+    <li>Interpretation key, field photos, training sets and reference plots ready</li>
+    <li>Invitations sent with the cloud link; webinar held; evaluation forms ready</li>
+  </ul>
+  <h3>During the event</h3>
+  <ul>
+    <li>At least two days of training; rules agreed written as guidance notes</li>
+    <li>Training reports saved and training finished; real plots given out with the check share</li>
+    <li>First plots of every interpreter checked on day 1; pace re-measured</li>
+    <li>Progress, flagged plots, contradictions and disagreements looked at every day</li>
+    <li>Backup downloaded every day; end-of-event form filled; certificates given</li>
+  </ul>
+  <h3>After the event</h3>
+  <ul>
+    <li>Every disagreement decided; errors corrected or plots reassessed</li>
+    <li>Field checks done where possible</li>
+    <li>Quality figures written down for the methods</li>
+    <li>Analysis, uncertainty and products for each audience</li>
+    <li>Archive stored in two places; project closed; lessons written for the next round</li>
+  </ul>
+
+  <div class="next">
+    <a href="coordinators.html">← Running a cloud project</a>
+    <a href="own-server.html">Your own server →</a>
+  </div>
+</div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <img src="../img/logo-white.png" alt="Collect Earth · Open Foris" width="1000" height="434">
+      <p>Collect Earth is part of Open Foris: free and open-source solutions for forest and land monitoring.</p>
+      <a class="btn dark" href="https://github.com/openforis/collect-earth">Source code on GitHub</a>
+      <p class="fineprint">This site counts visits with Google Analytics, as openforis.org does. <a href="https://www.fao.org/contact-us/data-protection-and-privacy/en">FAO data protection and privacy notice</a></p>
+    </div>
+    <div class="links">
+      <h4>Guides</h4>
+      <a href="../guide/choose.html">Which set-up?</a>
+      <a href="../guide/sampling.html">Designing the sample</a>
+      <a href="../guide/install.html">Try the Collect Earth 2 beta</a>
+      <a href="../guide/interpreters.html">Collect Earth for interpreters</a>
+      <a href="../guide/coordinators.html">Running a cloud project</a>
+      <a href="../guide/mapathon.html">Running a Mapathon</a>
+      <a href="../guide/own-server.html">Your own server</a>
+    </div>
+    <div class="links">
+      <h4>Open Foris</h4>
+      <a href="https://www.openforis.org/">Open Foris</a>
+      <a href="https://www.openforis.org/collect-earth/">Collect Earth on openforis.org</a>
+      <a href="https://openforis.support/">User forum</a>
+      <a href="https://www.openforis.org/support-and-resources/">Support and resources</a>
+      <a href="https://cloud.collectearth.org">Collect Earth Cloud</a>
+    </div>
+  </div>
+</footer>
+<script>
+(function(){var h=document.querySelector("header.top"),b=h&&h.querySelector(".menu-toggle");if(!b)return;function set(o){h.classList.toggle("open",o);b.setAttribute("aria-expanded",o)}b.addEventListener("click",function(){set(!h.classList.contains("open"))});h.querySelectorAll("nav a").forEach(function(a){a.addEventListener("click",function(){set(false)})});})();
+</script>
+</body>
+</html>
