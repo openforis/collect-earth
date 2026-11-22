@@ -266,7 +266,9 @@ export function logSentence(t: Translate, item: LogItem, page: Pick<ActivityPage
     }
     case "export.downloaded":
       if (typeof d.kind === "string" && EXPORT_KEYS[d.kind]) {
-        return t(d.completed === false ? "activity.audit.downloadStopped" : "activity.audit.download", { actor, what: t(exportKey(d)) });
+        // an IPCC export is named by its file (five of them read the same in a row)
+        const what = d.kind === "ipcc" && typeof d.name === "string" && d.name !== "" ? t("ipcc.loggedFile", { file: d.name }) : t(exportKey(d));
+        return t(d.completed === false ? "activity.audit.downloadStopped" : "activity.audit.download", { actor, what });
       }
       if (d.coordinates === false) return t("activity.audit.downloadDataNoPositions", { actor, count: num(d.records, language) });
       return t(byCount(d.records, "activity.audit.downloadDataOne", "activity.audit.downloadData"), { actor, count: num(d.records, language) });

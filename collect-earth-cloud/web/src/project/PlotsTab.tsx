@@ -375,7 +375,7 @@ export function PlotsTab({ projectId, onGo }: { projectId: string; onGo: (tab: P
             {t("projectPlots.title")}
           </Typography>
           <Typography color="text.secondary" sx={{ mb: 2 }}>
-            {t("projectPlots.summary", { count: formatNumber(total, language), files: formatNumber(data.files.length, language) })}
+            {t(data.files.length === 1 ? "projectPlots.summaryOneFile" : "projectPlots.summary", { count: formatNumber(total, language), files: formatNumber(data.files.length, language) })}
           </Typography>
           {broken.length > 0 && (
             <Alert severity="warning" sx={{ mb: 2 }}>

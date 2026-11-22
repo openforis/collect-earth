@@ -53,5 +53,6 @@ export const STEP_PLACE: Record<StepId, { tab: ProjectTab; view?: string }> = {
   plotFiles: { tab: "setup", view: "plots" },
   invite: { tab: "people" },
   assign: { tab: "setup", view: "plots" },
-  progress: { tab: "data" },
+  // the step is "Follow the progress": its button opens Progress (it opened Data, as "See the data")
+  progress: { tab: "progress" },
 };

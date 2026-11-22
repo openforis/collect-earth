@@ -16,7 +16,7 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import ArrowBack from "@mui/icons-material/ArrowBack";
 import Calculate from "@mui/icons-material/Calculate";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ApiError, getAnalysis, getProject, getProjectAi, proposeAnalysisViews, type AnalysisAnswer, type ProposedView } from "../api";
 import { useApp } from "../appContext";
 import { AppShell } from "../components/AppShell";
@@ -77,6 +77,28 @@ import { getAnalysisViews, storeAnalysisViews } from "../storage";
 import { useLoad } from "../useLoad";
 
 type EngineModule = typeof import("../analysisEngine");
+
+/**
+ * One of the analysis's actions: its icon and, where the screen is wide enough, its name beside it (five icons in a row
+ * said nothing to someone new to the page); the tip keeps the longer explanation.
+ */
+function ToolAction({ label, icon, active, ...rest }: { label: string; icon: ReactNode; active?: boolean; "aria-label"?: string; onClick: () => void; disabled?: boolean }) {
+  return (
+    <Button
+      size="small"
+      color={active ? "primary" : "inherit"}
+      startIcon={icon}
+      aria-label={rest["aria-label"] ?? label}
+      onClick={rest.onClick}
+      disabled={rest.disabled}
+      sx={{ minWidth: 0, px: 1, textTransform: "none", color: active ? undefined : "text.secondary", "& .MuiButton-startIcon": { mr: { xs: 0, lg: 0.75 }, ml: 0 }, "& .MuiButton-startIcon > *:nth-of-type(1)": { fontSize: 22 } }}
+    >
+      <Box component="span" sx={{ display: { xs: "none", lg: "inline" } }}>
+        {label}
+      </Box>
+    </Button>
+  );
+}
 
 /** The analysis of the collected data: a pivot table and charts over the survey's own tables (what replaces Saiku). */
 export function AnalysisPage({ projectId }: { projectId: string }) {
@@ -687,41 +709,31 @@ export function Pivot({ projectId, projectName, role, data, language, standalone
         )}
         <Tooltip title={t("analysis.download")}>
           <span>
-            <IconButton aria-label={t("analysis.download")} onClick={() => void download()} disabled={!ready}>
-              <Download />
-            </IconButton>
+            <ToolAction label={t("analysis.btn.download")} aria-label={t("analysis.download")} onClick={() => void download()} disabled={!ready} icon={<Download />} />
           </span>
         </Tooltip>
         {/* The file to take away is the coordinators' (and a collector's, of their own plots): the server refuses a reviewer */}
         {!standalone && role !== "reviewer" && (
           <Tooltip title={t("analysis.standalone")}>
             <span>
-              <IconButton aria-label={t("analysis.standalone")} onClick={() => setPackOpen(true)} disabled={packing}>
-                {packing ? <CircularProgress size={20} /> : <OfflineShare />}
-              </IconButton>
+              <ToolAction label={t("analysis.btn.standalone")} aria-label={t("analysis.standalone")} onClick={() => setPackOpen(true)} disabled={packing} icon={packing ? <CircularProgress size={20} /> : <OfflineShare />} />
             </span>
           </Tooltip>
         )}
         {!local && (
           <Tooltip title={t("analysis.linkCopy")}>
             <span>
-              <IconButton aria-label={t("analysis.linkCopy")} onClick={() => void copyLink()} disabled={!ready}>
-                <LinkIcon />
-              </IconButton>
+              <ToolAction label={t("analysis.btn.link")} aria-label={t("analysis.linkCopy")} onClick={() => void copyLink()} disabled={!ready} icon={<LinkIcon />} />
             </span>
           </Tooltip>
         )}
         <Tooltip title={t(config?.settings ? "analysis.panelHide" : "analysis.panelShow")}>
           <span>
-            <IconButton aria-label={t("analysis.panelShow")} onClick={() => void togglePanel()} disabled={!ready} color={config?.settings ? "primary" : "default"}>
-              <Tune />
-            </IconButton>
+            <ToolAction label={t("analysis.btn.options")} aria-label={t("analysis.panelShow")} onClick={() => void togglePanel()} disabled={!ready} active={Boolean(config?.settings)} icon={<Tune />} />
           </span>
         </Tooltip>
         <Tooltip title={t(fullScreen ? "analysis.fullScreenExit" : "analysis.fullScreen")}>
-          <IconButton aria-label={t(fullScreen ? "analysis.fullScreenExit" : "analysis.fullScreen")} onClick={() => setFullScreen((f) => !f)}>
-            {fullScreen ? <FullscreenExit /> : <Fullscreen />}
-          </IconButton>
+          <ToolAction label={t(fullScreen ? "analysis.fullScreenExit" : "analysis.fullScreen")} onClick={() => setFullScreen((f) => !f)} icon={fullScreen ? <FullscreenExit /> : <Fullscreen />} />
         </Tooltip>
       </Box>
       {shown && question && narrow && (
