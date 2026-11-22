@@ -166,7 +166,7 @@ describe("the CSV in other languages, and the remove dialog", () => {
     expect(removalText(t, { plots: 0, copies: 0 }, "en")).toEqual([]);
     const [plots, copies] = removalText(t, { plots: 1200, copies: 1 }, "en");
     expect(plots.startsWith("1,200 plots that only they hold")).toBe(true);
-    expect(copies.startsWith("1 copy to compare")).toBe(true);
+    expect(copies.startsWith("1 check")).toBe(true);
     expect(removalText(translator("fr"), { plots: 1, copies: 0 }, "fr")[0].startsWith("1 parcelle")).toBe(true);
   });
 });
@@ -257,9 +257,9 @@ describe("the workload board", () => {
     expect(workloadLine(t, w, "en", (d) => d)).toBe("27 left to do · 0.7 a day · about 2026-12-22");
     expect(workloadLine(t, { ...w, pace: null, daysLeft: null, finish: null }, "en", (d) => d)).toBe("27 left to do · Nothing submitted in the last 7 days");
     expect(workloadLine(t, { ...w, left: 0, daysLeft: 0, finish: null }, "en", (d) => d)).toBe("0 left to do · Finished");
-    expect(checksLeftText(t, 3, "en")).toBe("and 3 copies to compare");
-    expect(checksLeftText(t, 1, "en")).toBe("and 1 copy to compare");
-    expect(checksLeftText(translator("es"), 1, "es")).toBe("y 1 copia para comparar");
+    expect(checksLeftText(t, 3, "en")).toBe("and 3 checks to make");
+    expect(checksLeftText(t, 1, "en")).toBe("and 1 check to make");
+    expect(checksLeftText(translator("es"), 1, "es")).toBe("y 1 control por hacer");
     const day = (d: string) => `<${d}>`;
     expect(finishPhrase(t, { left: 5, finish: "2026-12-01" }, day)).toBe("finishing about <2026-12-01>");
     expect(finishPhrase(t, { left: 5, finish: null }, day)).toBe("nothing submitted in the last 7 days");

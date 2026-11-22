@@ -325,6 +325,7 @@ export function Pivot({ projectId, projectName, role, data, language, standalone
   // DuckDB and Perspective start with the page (their code is loaded only now); a link may bring a view (#view=…)
   useEffect(() => {
     let closed = false;
+    let counterWatch: MutationObserver | null = null;
     (async () => {
       try {
         const mod = await import("../analysisEngine");
@@ -339,6 +340,21 @@ export function Pivot({ projectId, projectName, role, data, language, standalone
         v.style.width = "100%";
         host.current?.appendChild(v);
         viewer.current = v;
+        // Perspective's own counter above the table ("6 (3,350) / 6 (273)": rows and columns shown, and in all) says
+        // nothing to someone new to it; the page says the records in words. It lives in the tab's shadow root.
+        const quiet = () => {
+          for (const tab of v.querySelectorAll("perspective-viewer-tab")) {
+            const root = tab.shadowRoot;
+            if (!root || root.querySelector("style[data-collect-earth]")) continue;
+            const style = document.createElement("style");
+            style.dataset.collectEarth = "1";
+            style.textContent = "#rows { display: none; }";
+            root.appendChild(style);
+          }
+        };
+        counterWatch = new MutationObserver(quiet);
+        counterWatch.observe(v, { childList: true, subtree: true });
+        quiet();
         // Perspective's panel and the bars are one view: what changes in the panel shows in the bars
         v.addEventListener("perspective-config-update", () => {
           void v.save().then((c) => setConfig(c));

@@ -110,7 +110,7 @@ describe("attention cards", () => {
       const text = attentionText(t, item({ kind, level: "nearlyFull" }), "en");
       expect(text.title, kind).not.toMatch(/^attention\./);
       expect(text.text.length, kind).toBeGreaterThan(0);
-      expect(attentionAction(t, kind).label, kind).toMatch(/^Go to /);
+      expect(attentionAction(t, kind).label, kind).toMatch(/^(Go to |Open the review queue$)/);
     }
     expect(attentionAction(t, "notAssigned")).toMatchObject({ tab: "setup", view: "plots" });
     expect(attentionAction(t, "differencesWaiting").tab).toBe("quality");
