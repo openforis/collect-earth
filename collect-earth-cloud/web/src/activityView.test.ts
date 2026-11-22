@@ -39,6 +39,10 @@ describe("the log's sentences", () => {
     expect(logSentenceParts(t, record("created"), page, "en")).toEqual({ before: "maria started plot ", plot: "17", after: " (saved, not submitted)" });
     expect(logSentenceParts(t, audit("invite.revoked", {}), page, "en").plot).toBeNull();
   });
+  it("an IPCC export is named by its file (an older entry, without the name, as before)", () => {
+    expect(logSentence(t, audit("export.downloaded", { kind: "ipcc", file: "matrix", name: "LU_Matrixes.xlsx", plots: 2 }), page, "en")).toBe("ana downloaded the IPCC export LU_Matrixes.xlsx");
+    expect(logSentence(t, audit("export.downloaded", { kind: "ipcc", file: "matrix", plots: 2 }), page, "en")).toBe("ana downloaded an IPCC export");
+  });
   it("a correction names its plot and says where it was made, and opens the plot's page as a decision does", () => {
     const corrected = audit("correction.saved", { plot: "2968,1" }, "omar");
     expect(logSentenceParts(t, corrected, page, "en")).toEqual({ before: "omar corrected plot ", plot: "2968,1", after: " in Collect Earth" });

@@ -370,7 +370,7 @@ export function Pivot({ projectId, projectName, role, data, language, standalone
             if (!root || root.querySelector("style[data-collect-earth]")) continue;
             const style = document.createElement("style");
             style.dataset.collectEarth = "1";
-            style.textContent = "#rows { display: none; }";
+            style.textContent = "#rows { display: none !important; }";
             root.appendChild(style);
           }
         };

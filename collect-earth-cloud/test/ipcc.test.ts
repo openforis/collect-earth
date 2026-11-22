@@ -200,7 +200,7 @@ describe('the IPCC export routes', () => {
     expect((await get('/timeseries')).body).toContain('<areaHa>500.0</areaHa>');
     const log = await ctx.store.listAudit(pid, { limit: 10, action: 'export.downloaded' });
     expect(log.map((e) => e.details.file)).toEqual(['timeseries', 'land-units', 'plots', 'matrix-strata', 'matrix']);
-    expect(log[0].details).toEqual({ kind: 'ipcc', file: 'timeseries', plots: 2 });
+    expect(log[0].details).toEqual({ kind: 'ipcc', file: 'timeseries', name: 'LU_Timeseries.xml', plots: 2 });
   });
 
   it("count the plots the files are made of without reading the records; none when the survey lacks the IPCC's questions", async () => {
@@ -248,6 +248,6 @@ describe('the IPCC export routes', () => {
     expect(res.body).toContain('<settlementTypeId>9</settlementTypeId>');
     expect(res.body).toContain('<perennialCrops>false</perennialCrops>');
     expect(res.body).toContain('<name>Madrid</name>');
-    expect((await ctx.store.listAudit(pid, { limit: 1, action: 'export.downloaded' }))[0].details).toEqual({ kind: 'ipcc', file: 'ghgi', plots: 2 });
+    expect((await ctx.store.listAudit(pid, { limit: 1, action: 'export.downloaded' }))[0].details).toEqual({ kind: 'ipcc', file: 'ghgi', name: 'GHGi_tool_data.xml', plots: 2 });
   });
 });
