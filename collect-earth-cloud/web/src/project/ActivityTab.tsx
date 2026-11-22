@@ -17,7 +17,7 @@ import visuallyHidden from "@mui/utils/visuallyHidden";
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { ApiError, getActivity, type ActivityPage, type ExportKind, type LogItem, type LogKind } from "../api";
 import { useApp, useLocalMode } from "../appContext";
-import { COORDINATOR_LOG_KINDS, dayAfterMs, dayStartMs, LOG_KIND_LABELS, logSentenceParts, RECORD_LOG_KINDS } from "../activityView";
+import { COORDINATOR_LOG_KINDS, dayAfterMs, dayStartMs, LOG_KIND_LABELS, logPlotOf, logSentenceParts, RECORD_LOG_KINDS } from "../activityView";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Explain, MoreInfo } from "../components/Explain";
 import { Loading } from "../components/Loading";
@@ -66,7 +66,7 @@ function LogRow({ projectId, item, page }: { projectId: string; item: LogItem; p
   const { language } = useApp();
   const local = useLocalMode();
   const parts = logSentenceParts(t, item, page, language, { local });
-  const plot = item.type === "record" ? item.plot : item.action.startsWith("decision.") && typeof item.details.plot === "string" ? item.details.plot : null;
+  const plot = logPlotOf(item);
   const link = (text: string) =>
     plot !== null && (
       <Link variant="body2" aria-label={t("activity.openPlotLabel", { plot: text })} {...linkProps(pathFor({ name: "plot", projectId, plot }))}>
@@ -81,10 +81,11 @@ function LogRow({ projectId, item, page }: { projectId: string; item: LogItem; p
       </Typography>
       <Typography variant="body2" sx={{ minWidth: 0, flex: 1, overflowWrap: "anywhere" }}>
         {/* The plot named in the sentence is the link to its page (or, when the sentence names none, a link after it). */}
-        {plot !== null && parts.plot !== null ? (
+        {parts.plot !== null ? (
+          // the whole sentence always: the plot as plain text when the row has no page to open
           <>
             {parts.before}
-            {link(parts.plot)}
+            {plot !== null ? link(parts.plot) : parts.plot}
             {parts.after}
           </>
         ) : (

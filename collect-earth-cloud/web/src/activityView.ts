@@ -153,6 +153,16 @@ export function logSentenceParts(
   return { before: clean(text.slice(0, start)), plot: clean(text.slice(start + 1, end)), after: clean(text.slice(end + 1)) };
 }
 
+/**
+ * The plot a row of the log opens (its page), or null when the row is about none: a record's plot, and the plot an
+ * action names (a decision, a correction). Until 22 Nov 2026 only decisions were taken, and the row then showed the
+ * sentence up to the plot: "rev-omar corrected plot" with neither the plot nor what follows it.
+ */
+export function logPlotOf(item: LogItem): string | null {
+  if (item.type === "record") return item.plot;
+  return typeof item.details.plot === "string" && item.details.plot !== "" ? item.details.plot : null;
+}
+
 export function logSentence(t: Translate, item: LogItem, page: Pick<ActivityPage, "people" | "files">, language: string, options: { local?: boolean } = {}): string {
   const local = options.local === true;
   if (item.type === "record") {

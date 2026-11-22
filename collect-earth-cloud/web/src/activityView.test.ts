@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ActivityPage, LogItem } from "./api";
-import { answerLabel, dailyCsv, dayAfterMs, dayStartMs, decisionsCsv, differencesCsv, isIsoWeek, isoWeekOf, logSentence, logSentenceParts, shiftWeek, weekMonday, weekRangeText, weeklyNotForRole } from "./activityView";
+import { answerLabel, dailyCsv, dayAfterMs, dayStartMs, decisionsCsv, differencesCsv, isIsoWeek, isoWeekOf, logPlotOf, logSentence, logSentenceParts, shiftWeek, weekMonday, weekRangeText, weeklyNotForRole } from "./activityView";
 import { ApiError, errorMessageKey } from "./api";
 import { csvText } from "./csv";
 import { translator } from "./i18n";
@@ -38,6 +38,14 @@ describe("the log's sentences", () => {
     expect(logSentenceParts(t, record("submitted"), page, "en")).toEqual({ before: "maria submitted plot ", plot: "17", after: "" });
     expect(logSentenceParts(t, record("created"), page, "en")).toEqual({ before: "maria started plot ", plot: "17", after: " (saved, not submitted)" });
     expect(logSentenceParts(t, audit("invite.revoked", {}), page, "en").plot).toBeNull();
+  });
+  it("a correction names its plot and says where it was made, and opens the plot's page as a decision does", () => {
+    const corrected = audit("correction.saved", { plot: "2968,1" }, "omar");
+    expect(logSentenceParts(t, corrected, page, "en")).toEqual({ before: "omar corrected plot ", plot: "2968,1", after: " in Collect Earth" });
+    expect(logPlotOf(corrected)).toBe("2968,1");
+    expect(logPlotOf(audit("decision.set", { plot: "17", decision: "check" }))).toBe("17");
+    expect(logPlotOf(record("submitted"))).toBe("17");
+    expect(logPlotOf(audit("invite.revoked", {}))).toBeNull();
   });
   it("what Collect Earth did, with the id the collector sees; checks named for coordinators", () => {
     expect(logSentence(t, record("submitted"), page, "en")).toBe("maria submitted plot 17");
