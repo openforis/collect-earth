@@ -11,6 +11,8 @@ import Link from "@mui/material/Link";
 import Paper from "@mui/material/Paper";
 import Select from "@mui/material/Select";
 import Stack from "@mui/material/Stack";
+import Tab from "@mui/material/Tab";
+import Tabs from "@mui/material/Tabs";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
@@ -27,10 +29,9 @@ import { ApiError, getQuality, saveQualityMargins, type AnswerOptions, type Guid
 import { useApp, useLocalMode } from "../appContext";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Explain, MoreInfo } from "../components/Explain";
-import { SectionNav } from "../components/SectionNav";
 import { Loading } from "../components/Loading";
 import { formatDate, formatNumber } from "../format";
-import { useT } from "../i18n";
+import { useT, type MessageKey } from "../i18n";
 import {
   answerText,
   barPercent,
@@ -702,6 +703,17 @@ function LocalQualityTab({ projectId }: { projectId: string }) {
 }
 
 /** The Quality tab; in the local mode, LocalQualityTab. */
+/** The sections of Quality › Figures, shown one at a time. */
+type FiguresSection = "overview" | "confusions" | "people" | "weeks" | "answers" | "health" | "problems";
+const FIGURES_LABELS: Record<Exclude<FiguresSection, "problems">, MessageKey> = {
+  overview: "quality.questionsTitle",
+  confusions: "quality.confusionsTitle",
+  people: "quality.peopleTitle",
+  weeks: "quality.weeksTitle",
+  answers: "answers.title",
+  health: "health.title",
+};
+
 export function QualityTab({ projectId, view = "review" }: { projectId: string; view?: ProjectView<"quality"> }) {
   return useLocalMode() ? <LocalQualityTab projectId={projectId} /> : <TeamQualityTab projectId={projectId} view={view} />;
 }
@@ -717,6 +729,8 @@ function TeamQualityTab({ projectId, view }: { projectId: string; view: ProjectV
   const quality = useLoad(["project", projectId, "getQuality"], () => getQuality(projectId));
   const { data, error, loading, reload, setData } = quality;
   const [note, setNote] = useState<NoteDraft | null>(null);
+  const [figures, setFigures] = useState<FiguresSection>("overview");
+  const { language } = useApp();
   /** Bumped after decisions, so the plots to correct are read again */
   const [correctionsRefresh, setCorrectionsRefresh] = useState(0);
   const sectionsRef = useRef<HTMLDivElement>(null);
@@ -794,6 +808,9 @@ function TeamQualityTab({ projectId, view }: { projectId: string; view: ProjectV
     update((prev) => ({ decisions: withDecision(prev.decisions, plot, decision) }));
     setCorrectionsRefresh((n) => n + 1);
   };
+  // The sections of Figures there are now (those of the checks only once a plot is checked; the data problems with none last)
+  const figuresSections: FiguresSection[] = ["overview", ...(data.plotsChecked > 0 ? (["confusions", "people", "weeks"] as const) : []), "answers", "health", ...(data.problemsTotal === 0 ? (["problems"] as const) : [])];
+  const figuresShown: FiguresSection = figuresSections.includes(figures) ? figures : "overview";
   const reports = (
     <>
       <Button variant="outlined" size="small" {...linkProps(pathFor({ name: "teamReport", projectId }))}>
@@ -833,25 +850,39 @@ function TeamQualityTab({ projectId, view }: { projectId: string; view: ProjectV
           <QualityFlags projectId={projectId} canEdit folded />
         </>
       )}
-      {/* How many plots are checked twice is set in Setup's Quality rules; the reference plots stay here with their figures */}
-      {view === "checks" && <QualityReference projectId={projectId} canEdit />}
+      {/* How many plots are checked twice, and which plots are reference plots, is set in Setup's Quality rules; their results are here */}
+      {view === "checks" && <QualityReference projectId={projectId} canEdit forms={false} onSetup={() => navigate(pathFor({ name: "project", projectId, tab: "setup", view: "quality" }))} />}
       {view === "figures" && (
         <>
-          <SectionNav root={sectionsRef} label={t("quality.onThisPage")} prefix="quality-section" />
-          {/* Data problems to fix come first; with none, last (folded, "Data problems: 0"). */}
-          {data.problemsTotal > 0 && <Problems data={data} />}
-          <Counts projectId={projectId} data={data} stillWorking={busy} />
-          {data.plotsChecked > 0 && (
+          {/* One section at a time: together they made a page of some 12,000 px (10,900 words on the mapathon run of 21 Nov 2026) */}
+          <Tabs
+            value={figuresShown}
+            onChange={(_, value: FiguresSection) => setFigures(value)}
+            variant="scrollable"
+            scrollButtons="auto"
+            allowScrollButtonsMobile
+            aria-label={t("quality.onThisPage")}
+            className="no-print"
+            sx={{ borderBottom: 1, borderColor: "divider", minHeight: 40, "& .MuiTab-root": { minHeight: 40, textTransform: "none" } }}
+          >
+            {figuresSections.map((id) => (
+              <Tab key={id} value={id} label={id === "problems" ? t("quality.problemsTitle", { count: formatNumber(data.problemsTotal, language) }) : t(FIGURES_LABELS[id])} />
+            ))}
+          </Tabs>
+          {figuresShown === "overview" && (
             <>
-              <Questions projectId={projectId} data={data} onMargins={(margins) => (update((prev) => ({ settings: { ...prev.settings, margins } })), reload())} />
-              <Confusions projectId={projectId} data={data} onWriteNote={setNote} />
-              <People data={data} />
-              <Weeks data={data} />
+              {/* Data problems to fix come first */}
+              {data.problemsTotal > 0 && <Problems data={data} />}
+              <Counts projectId={projectId} data={data} stillWorking={busy} />
+              {data.plotsChecked > 0 && <Questions projectId={projectId} data={data} onMargins={(margins) => (update((prev) => ({ settings: { ...prev.settings, margins } })), reload())} />}
             </>
           )}
-          <QualityAnswers projectId={projectId} />
-          <QualitySurvey projectId={projectId} />
-          {data.problemsTotal === 0 && <Problems data={data} />}
+          {figuresShown === "confusions" && <Confusions projectId={projectId} data={data} onWriteNote={setNote} />}
+          {figuresShown === "people" && <People data={data} />}
+          {figuresShown === "weeks" && <Weeks data={data} />}
+          {figuresShown === "answers" && <QualityAnswers projectId={projectId} />}
+          {figuresShown === "health" && <QualitySurvey projectId={projectId} />}
+          {figuresShown === "problems" && <Problems data={data} />}
         </>
       )}
       {view === "notes" && (

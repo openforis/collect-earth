@@ -24,6 +24,7 @@ import { PlotFilePage } from "./PlotFilePage";
 import { PlotLayoutCard } from "./PlotLayoutCard";
 import { PlotsTab } from "./PlotsTab";
 import { QualityChecks } from "./QualityChecks";
+import { QualityReference } from "./QualityReference";
 import { FastSecondsField } from "./QualityFlags";
 import { RepeatCard } from "./RepeatSurvey";
 import { CopyCard, AiCard, DeleteCard, ProgressCard, RenameCard, StatusCard } from "./SettingsTab";
@@ -103,6 +104,8 @@ export function SetupTab({ projectId, name, status, section, fileId, onGo }: {
     quality: (
       <Stack spacing={3}>
         {!local && <QualityChecks projectId={projectId} />}
+        {/* Choosing the reference plots is setting up (it was a form among the Quality tab's daily pages) */}
+        {!local && <QualityReference projectId={projectId} canEdit />}
         <FastSecondsCard projectId={projectId} />
         {!local && (
           <Typography component="div" variant="body2" color="text.secondary">

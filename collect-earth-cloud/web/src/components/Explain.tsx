@@ -43,7 +43,8 @@ export function MoreInfo({ text, label }: { text: ReactNode; label?: string }) {
             aria-label={label ?? t("common.moreInfo")}
             onPointerDown={(event) => (touched.current = event.pointerType !== "mouse")}
             onClick={() => setOpen(true)}
-            sx={{ p: 0.25, ml: 0.25, mt: "-2px", color: "text.secondary", verticalAlign: "middle" }}
+            // 24 px across at least: a finger finds it (it was 21)
+            sx={{ p: 0.5, ml: 0, mt: "-2px", color: "text.secondary", verticalAlign: "middle" }}
           >
             <InfoOutlined sx={{ fontSize: "1.05rem" }} />
           </IconButton>

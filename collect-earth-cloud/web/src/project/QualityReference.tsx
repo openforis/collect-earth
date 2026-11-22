@@ -622,7 +622,14 @@ function PlotList({ projectId, view, onDone }: { projectId: string; view: Refere
  * plots and their assessor and see who has done them; coordinators and reviewers see the accuracy
  * against the reference, per person and per question. Never on My work.
  */
-export function QualityReference({ projectId, canEdit }: { projectId: string; canEdit: boolean }) {
+export function QualityReference({ projectId, canEdit, forms = true, onSetup }: {
+  projectId: string;
+  canEdit: boolean;
+  /** False where only the results belong (the Quality tab): the plots are chosen in Setup › Quality rules (`onSetup` goes there). */
+  forms?: boolean;
+  onSetup?: () => void;
+}) {
+  const editing = canEdit && forms;
   const t = useT();
   const { language } = useApp();
   const { data, error, loading, reload, setData } = useLoad(["project", projectId, "getReference"], () => getReference(projectId));
@@ -650,6 +657,11 @@ export function QualityReference({ projectId, canEdit }: { projectId: string; ca
         </Typography>
         <Explain text={t(canEdit ? "reference.explain.short" : "reference.reviewerExplain.short")} more={t(canEdit ? "reference.explain" : "reference.reviewerExplain")} />
         {canEdit && <Explain variant="body2" text={t("reference.blind.short")} more={t("reference.blind")} />}
+        {canEdit && !forms && onSetup && (
+          <Alert severity="info" action={<Button color="inherit" size="small" onClick={onSetup}>{t("reference.setUp")}</Button>}>
+            {t("reference.setUpWhere")}
+          </Alert>
+        )}
         {!data && loading && <Loading />}
         {busy && (
           <Alert severity="info" role="status" action={<Button color="inherit" size="small" onClick={reload}>{t("common.retry")}</Button>}>
@@ -666,14 +678,14 @@ export function QualityReference({ projectId, canEdit }: { projectId: string; ca
           <Box sx={{ opacity: loading ? 0.6 : 1, transition: "opacity 120ms" }} aria-busy={loading}>
             <Stack spacing={3}>
               {/* With none, the coordinator's list below says so already. */}
-              {!(data.count === 0 && canEdit && data.coordinator) && (
+              {!(data.count === 0 && editing && data.coordinator) && (
                 <Typography variant="body2" color="text.secondary">
                   {data.count === 0 ? t("reference.none") : t("reference.count", { count: n(data.count), max: n(data.max) })}
                   {data.count > 0 && ` ${t(data.figures.stale ? "answers.asOfStale" : "answers.asOf", { time: formatDate(data.figures.computedAt, language) })}`}
                 </Typography>
               )}
               {data.count > 0 && <Accuracy figures={data.figures} />}
-              {canEdit && data.coordinator && data.files.length === 0 && data.plots.length === 0 ? (
+              {editing && data.coordinator && data.files.length === 0 && data.plots.length === 0 ? (
                 // Nothing can be done here before a plot file is divided: one notice, the way to Setup › Plots.
                 <>
                   <Alert
@@ -691,9 +703,9 @@ export function QualityReference({ projectId, canEdit }: { projectId: string; ca
                   {data.external.count > 0 && <ExternalReference projectId={projectId} figures={data.figures} set={data} onChanged={(text) => (setMessage(text), reload())} />}
                 </>
               ) : (
-                <ExternalReference projectId={projectId} figures={data.figures} set={canEdit && data.coordinator ? data : null} onChanged={(text) => (setMessage(text), reload())} />
+                <ExternalReference projectId={projectId} figures={data.figures} set={editing && data.coordinator ? data : null} onChanged={(text) => (setMessage(text), reload())} />
               )}
-              {canEdit && data.coordinator && (data.files.length > 0 || data.plots.length > 0) && (
+              {editing && data.coordinator && (data.files.length > 0 || data.plots.length > 0) && (
                 <>
                   <PlotList projectId={projectId} view={data} onDone={(next, removed) => changed(next, t("reference.removed", { count: n(removed) }))} />
                   <AddForm projectId={projectId} view={data} onDone={(next, marked) => changed(next, t("reference.added", { count: n(marked) }))} />

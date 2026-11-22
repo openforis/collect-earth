@@ -55,7 +55,7 @@ function Symbol({ status, label }: { status: MapStatus; label?: string }) {
   );
 }
 
-/** The legend on a phone, right under the map: per status its checkbox, symbol, short name and count. */
+/** The legend right above the map: per status its checkbox, symbol, short name and count (two columns on a phone, a row on a wider screen). */
 function CompactLegend({ statuses, shown, counts, onToggle }: {
   statuses: readonly MapStatus[];
   shown: ReadonlySet<MapStatus>;
@@ -66,7 +66,7 @@ function CompactLegend({ statuses, shown, counts, onToggle }: {
   const { language } = useApp();
   const local = useLocalMode();
   return (
-    <Box component="ul" aria-label={t("map.legend")} sx={{ display: { xs: "grid", sm: "none" }, gridTemplateColumns: "1fr 1fr", columnGap: 1, m: 0, p: 0, listStyle: "none" }}>
+    <Box component="ul" aria-label={t("map.legend")} sx={{ display: { xs: "grid", sm: "flex" }, flexWrap: "wrap", gridTemplateColumns: "1fr 1fr", columnGap: { xs: 1, sm: 2 }, m: 0, mb: 1, p: 0, listStyle: "none" }}>
       {statuses.map((status) => (
         <Box component="li" key={status} sx={{ display: "flex", alignItems: "center", gap: 0.5, minWidth: 0 }}>
           <Checkbox
@@ -775,6 +775,8 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
             {data.total > 0 && (
               <>
                 {colourBy === "change" && <ErrorAlert error={change.error} onRetry={change.reload} />}
+                {/* What the colours mean, in view with the map (the table of the statuses is a screen below it) */}
+                {!paint && <CompactLegend statuses={legendStatuses(local, data.counts)} shown={shown} counts={data.counts} onToggle={toggle} />}
                 <PlotMap
                   projectId={projectId}
                   data={data}
@@ -790,7 +792,6 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
                   onArea={addArea}
                   viewRef={viewRef}
                 />
-                {!paint && <CompactLegend statuses={legendStatuses(local, data.counts)} shown={shown} counts={data.counts} onToggle={toggle} />}
                 {/* Alone there are no checks to differ from: the quality figures do not matter here. */}
                 {!local && data.figures === null && (
                   <Typography variant="body2" color="text.secondary">
@@ -837,7 +838,7 @@ export function MapTab({ projectId, coordinator }: { projectId: string; coordina
           <Typography variant="h2" id={tableId} gutterBottom>
             {t("map.legend")}
           </Typography>
-          {/* On a phone the statuses are under the map (CompactLegend). */}
+          {/* The statuses are above the map too (CompactLegend). */}
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1, display: { xs: "none", sm: "block" } }}>
             {t("map.legendHelp")}
           </Typography>
