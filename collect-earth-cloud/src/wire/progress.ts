@@ -73,6 +73,8 @@ export type AttentionItem =
   | { kind: 'notAssigned'; count: number }
   | { kind: 'oldUnsentWork'; count: number; people: AttentionPerson[] }
   | { kind: 'differencesWaiting'; count: number }
+  /** Plots worth a look (answered very fast, the same answers as the plot before...) and plots submitted again, with no decision: the rest of the review queue. */
+  | { kind: 'worthALook'; count: number }
   | { kind: 'storage'; count: number; level: 'nearlyFull' | 'over'; usedBytes: number; limitBytes: number }
   | { kind: 'oldProjectFile'; count: number; people: AttentionPerson[] }
   | { kind: 'oldCollectEarth'; count: number; unknownVersion: number; people: AttentionPerson[] }

@@ -358,6 +358,10 @@ describe('needs attention', () => {
   it('differences waiting, and storage near or over its limit', () => {
     expect(base({ differencesWaiting: 3 }).find((i) => i.kind === 'differencesWaiting')).toEqual({ kind: 'differencesWaiting', count: 3 });
     expect(base({ differencesWaiting: 0 }).find((i) => i.kind === 'differencesWaiting')).toBeUndefined();
+    // the rest of the review queue: plots worth a look, with no decision
+    expect(base({ worthALookWaiting: 1470 }).find((i) => i.kind === 'worthALook')).toEqual({ kind: 'worthALook', count: 1470 });
+    expect(base({ worthALookWaiting: 0 }).find((i) => i.kind === 'worthALook')).toBeUndefined();
+    expect(base({ worthALookWaiting: null }).find((i) => i.kind === 'worthALook')).toBeUndefined();
     expect(base({ storage: { usedBytes: 89, limitBytes: 100 } }).find((i) => i.kind === 'storage')).toBeUndefined();
     expect(base({ storage: { usedBytes: 90, limitBytes: 100 } }).find((i) => i.kind === 'storage')).toMatchObject({ level: 'nearlyFull' });
     expect(base({ storage: { usedBytes: 101, limitBytes: 100 } }).find((i) => i.kind === 'storage')).toMatchObject({ level: 'over' });

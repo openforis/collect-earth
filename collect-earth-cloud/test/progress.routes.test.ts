@@ -116,6 +116,32 @@ describe('GET /progress and the progress settings', () => {
     expect((await kinds()).find((i) => i.kind === 'differencesWaiting')).toEqual({ kind: 'differencesWaiting', count: 1 });
   });
 
+  it('the rest of the review queue is a card too: plots worth a look with no decision, gone once decided', async () => {
+    const LAND_USE = 'collect_code_land_use_category';
+    const t0 = Date.UTC(2026, 9, 1, 9);
+    // maria answers plot 5 five seconds after plot 4: very fast, worth a look (no check on either)
+    await batchRequest(ctx.app, pid, maria.token, [
+      envelope({ recordKey: '4,1', operator: 'maria', modifiedOn: t0, summary: { [LAND_USE]: 'F' } }),
+      envelope({ recordKey: '5,1', operator: 'maria', modifiedOn: t0 + 5000, summary: { [LAND_USE]: 'C' } }),
+    ]);
+    const cards = async () => ((await call('GET', '/progress', owner.token)).json().attention as { kind: string; count: number }[]);
+    // no figures at hand yet: no card
+    expect((await cards()).find((i) => i.kind === 'worthALook')).toBeUndefined();
+    const queue = async () => {
+      for (let i = 0; i < 200; i++) {
+        const body = (await call('GET', '/quality/queue', owner.token)).json();
+        if (!body.stale) return body;
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+      throw new Error('the figures stayed stale');
+    };
+    const waiting = await queue();
+    expect(waiting.counts.flag).toBeGreaterThan(0);
+    expect((await cards()).find((i) => i.kind === 'worthALook')).toEqual({ kind: 'worthALook', count: waiting.counts.flag });
+    for (const item of waiting.items) expect((await call('PUT', `/quality/decisions/${item.plot}`, owner.token, { decision: 'first' })).statusCode).toBe(200);
+    expect((await cards()).find((i) => i.kind === 'worthALook')).toBeUndefined();
+  });
+
   it('cards: never downloaded, and a project file replaced since a download', async () => {
     const moreId = (await call('PUT', '/csv-files/more.csv', owner.token, 'id,lat,lon\n5,0,0\n6,0,0\n', { 'content-type': 'text/csv' })).json().id;
     const jose = await join('jose', 'operator');

@@ -106,7 +106,7 @@ describe("a progress link's quality figure", () => {
 
 describe("attention cards", () => {
   it("each kind has a title, a sentence and a place to fix it", () => {
-    for (const kind of ["quiet", "neverDownloaded", "notAssigned", "oldUnsentWork", "differencesWaiting", "storage", "oldProjectFile", "oldCollectEarth"] as const) {
+    for (const kind of ["quiet", "neverDownloaded", "notAssigned", "oldUnsentWork", "differencesWaiting", "worthALook", "storage", "oldProjectFile", "oldCollectEarth"] as const) {
       const text = attentionText(t, item({ kind, level: "nearlyFull" }), "en");
       expect(text.title, kind).not.toMatch(/^attention\./);
       expect(text.text.length, kind).toBeGreaterThan(0);
@@ -114,6 +114,7 @@ describe("attention cards", () => {
     }
     expect(attentionAction(t, "notAssigned")).toMatchObject({ tab: "setup", view: "plots" });
     expect(attentionAction(t, "differencesWaiting").tab).toBe("quality");
+    expect(attentionAction(t, "worthALook")).toEqual({ tab: "quality", view: undefined, label: "Open the review queue" });
     expect(attentionAction(t, "storage").tab).toBe("setup");
   });
 
