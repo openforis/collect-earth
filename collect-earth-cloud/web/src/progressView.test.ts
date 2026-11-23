@@ -118,6 +118,21 @@ describe("attention cards", () => {
     expect(attentionAction(t, "storage").tab).toBe("setup");
   });
 
+  it("the reference plots: who is under the accuracy target, and reference answers in doubt, both lead to Early warning", () => {
+    const people = [{ username: "ana" }, { username: "ben" }];
+    expect(attentionText(t, { kind: "belowAccuracy", count: 2, target: 85, people }, "en")).toEqual({
+      title: "Below the accuracy target",
+      text: ["2 people are under the 85% accuracy target on the reference plots, margin of error included."],
+    });
+    expect(attentionText(t, { kind: "belowAccuracy", count: 1, target: 80, people: [people[0]] }, "en").text[0]).toBe("One person is under the 80% accuracy target on the reference plots, margin of error included.");
+    expect(attentionText(t, { kind: "doubtfulReference", count: 3 }, "en")).toEqual({
+      title: "Reference answers in doubt",
+      text: ["3 reference answers are contradicted by most collectors: the reference may be wrong."],
+    });
+    expect(attentionText(t, { kind: "doubtfulReference", count: 1 }, "en").text[0]).toBe("One reference answer is contradicted by most collectors: the reference may be wrong.");
+    for (const kind of ["belowAccuracy", "doubtfulReference"] as const) expect(attentionAction(t, kind)).toEqual({ tab: "quality", view: "warnings", label: "Open Early warning" });
+  });
+
   it("one and many, people and days", () => {
     expect(attentionText(t, item({ count: 1 }), "en").text[0]).toBe("One person with plots left has neither synced nor downloaded plots for more than 3 days.");
     expect(attentionText(t, item({ count: 1, quietDays: 1 }), "en")).toEqual({

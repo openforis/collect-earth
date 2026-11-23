@@ -1,3 +1,5 @@
+import { accuracyTargetOf } from '../accuracy.js';
+import { judgedReference } from '../reference.js';
 import { finishedTrainees } from './training.js';
 import type { FastifyBaseLogger, FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { audit } from '../activity.js';
@@ -150,7 +152,7 @@ export function attentionReader(store: Store, quality: QualityService) {
         return [];
       }),
     ]);
-    return { members: served.members, activity, unsentDelays, cep, storage, differencesWaiting: waiting.differences, worthALookWaiting: waiting.worthALook, trainingFinished };
+    return { members: served.members, activity, unsentDelays, cep, storage, differencesWaiting: waiting.differences, worthALookWaiting: waiting.worthALook, accuracy: waiting.accuracy, trainingFinished };
   };
 }
 
@@ -159,6 +161,7 @@ export function attentionReader(store: Store, quality: QualityService) {
  * tab, the bell and the weekly mail never wait for them nor start or refresh them (an out-of-date report counts until
  * the Quality tab brings it up to date). `differences`: differing plots without a decision, for a project with checks
  * (`checks`); `worthALook`: the queue's other plots (worth a look, submitted again), as the queue itself counts them.
+ * `accuracy`: the reference plots' people under the target and answers in doubt (src/accuracy.ts, src/reference.ts).
  * Null when there are no figures yet (nobody opened the Quality tab) or they cannot be had: the card is left out.
  */
 async function waitingDecisions(
@@ -167,14 +170,15 @@ async function waitingDecisions(
   projectId: string,
   request: { log: FastifyBaseLogger },
   checks: boolean,
-): Promise<{ differences: number | null; worthALook: number | null }> {
+): Promise<{ differences: number | null; worthALook: number | null; accuracy: AttentionInput['accuracy'] }> {
   try {
     const served = await quality.peek(projectId, request.log, { refresh: false });
     if (!served) {
-      return { differences: null, worthALook: null };
+      return { differences: null, worthALook: null, accuracy: null };
     }
     const [decisions, settings] = await Promise.all([store.listQualityDecisions(projectId), store.getQualitySettings(projectId)]);
     const decided = new Map(decisions.map((d) => [d.plot, d.decision]));
+    const target = accuracyTargetOf(settings);
     const flags = patternFlags(served, decisions, { fastSeconds: fastSecondsOf(settings), limit: MAX_QUEUE_FLAGS });
     const queue = reviewQueue(
       { pairs: served.report.pairs, flags: flags.flags, resubmitted: resubmittedAfterRecheck(served.flags, decisions), decided, hidden: new Set(served.reference.byPlot.map((p) => p.plot)) },
@@ -183,9 +187,17 @@ async function waitingDecisions(
     return {
       differences: checks ? differencesWaiting(served.report, new Set(decided.keys())) : null,
       worthALook: queue.counts.flag + queue.counts.resubmitted,
+      // The reference plots: who is under the accuracy target for certain, and the reference answers in doubt
+      accuracy: {
+        target,
+        below: judgedReference(served.reference, target)
+          .people.filter((p) => p.verdict === 'below')
+          .map((p) => p.username),
+        doubtful: served.reference.doubtfulTotal,
+      },
     };
   } catch (err) {
     request.log.warn({ err, projectId }, 'progress: the quality figures could not be had for the review cards');
-    return { differences: null, worthALook: null };
+    return { differences: null, worthALook: null, accuracy: null };
   }
 }

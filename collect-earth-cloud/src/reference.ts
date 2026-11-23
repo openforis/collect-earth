@@ -9,14 +9,16 @@
 // Pure functions; the routes (src/routes/reference.ts) load the inputs and store the changes,
 // and the quality worker works out the figures in the same job as the report (qualityFigures).
 import { isPlotUnit } from './progress.js';
-import { compareAnswers, keyRule, later, MIN_PLOTS, plotOrder, recordResolver, type KeyRule, type QualityInput, type QualityRecord, type Rate } from './quality.js';
+import { choiceText, compareAnswers, isBlankAnswer, keyRule, later, MIN_PLOTS, plotOrder, recordResolver, shownText, type KeyRule, type QualityInput, type QualityRecord, type Rate } from './quality.js';
+import { fleissKappa } from './training.js';
 import { recordKeysOfUnit } from './rounds.js';
 import { parsePlotFile } from './plots.js';
 import type { Question } from './surveyOutline.js';
 import { priority } from './sampling.js';
 import type { RoundInfo } from './cep.js';
 import type { Member, PlotAssignment, PlotHoldingKey, ReferencePlot } from './types.js';
-import type { ExternalReferenceFigures, ReferenceFigures, ReferencePerson } from './wire/checks.js';
+import { judge, trendOf, worst } from './accuracy.js';
+import type { ExternalReferenceFigures, Judged, JudgedPerson, ReferenceDoubt, ReferenceFigures, ReferencePerson, ReferenceQuestion, Tally } from './wire/checks.js';
 
 export type { ReferenceFigures } from './wire/checks.js';
 
@@ -25,7 +27,14 @@ export const MAX_REFERENCE_PLOTS = 500;
 /** At most this many plots named in one request (mark or unmark). */
 export const MAX_PLOTS_PER_REQUEST = 500;
 
-export const NO_REFERENCE: ReferenceFigures = { plots: 0, assessed: 0, checks: 0, questions: [], people: [], byPlot: [] };
+/** A person's trend compares the answers of their latest this many checks with those of the checks before. */
+export const RECENT_CHECKS = 10;
+/** A reference answer is in doubt from this many collectors answering the question on the plot. */
+export const MIN_DOUBT = 3;
+/** At most this many reference answers in doubt are listed (the total is counted). */
+export const MAX_DOUBTFUL = 100;
+
+export const NO_REFERENCE: ReferenceFigures = { plots: 0, assessed: 0, checks: 0, questions: [], people: [], byPlot: [], among: [], doubtful: [], doubtfulTotal: 0 };
 
 const rateOf = (compared: number, agreeing: number): Rate => ({ compared, agreeing, rate: compared >= MIN_PLOTS ? agreeing / compared : null });
 
@@ -71,18 +80,72 @@ export function referenceFigures(input: QualityInput): ReferenceFigures {
   };
   const margins = input.margins ?? {};
   const questions = new Map<string, { kind: 'choice' | 'number'; compared: number; agreeing: number }>();
-  const people = new Map<string, { compared: number; agreeing: number; questions: Map<string, { compared: number; agreeing: number }> }>();
+  const people = new Map<string, { compared: number; agreeing: number; questions: Map<string, Tally>; checks: (Tally & { at: number })[] }>();
+  // The collectors among themselves, per choice question: the pairs of answers on a plot that are the same (counted
+  // from the answers' groups, not pair by pair), and each plot's answers for Fleiss' kappa.
+  const among = new Map<string, { plots: number; compared: number; agreeing: number; kappaPlots: string[][] }>();
+  const doubts: ReferenceDoubt[] = [];
   const byPlot: ReferenceFigures['byPlot'] = [];
   let assessed = 0;
   let checks = 0;
   for (const [plot, p] of plots) {
-    byPlot.push({ plot, assessor: reference.get(plot)!, assessed: p.main !== null, checks: p.checks.size });
+    const row = { plot, assessor: reference.get(plot)!, assessed: p.main !== null, checks: p.checks.size, agreeing: 0 };
+    byPlot.push(row);
+    // What the collectors answered to each choice question of this plot, grouped as answers are compared (by their
+    // codes): measured with or without the reference assessment, which may come later.
+    const given = new Map<string, Map<string, { shown: string; count: number }>>();
+    for (const check of p.checks.values()) {
+      for (const key of Object.keys(check.summary)) {
+        const value = check.summary[key];
+        if (typeof value !== 'string' || isBlankAnswer(value)) continue;
+        const rule = ruleOf(key);
+        if (!rule.compare || rule.kind !== 'choice') continue;
+        let groups = given.get(key);
+        if (!groups) given.set(key, (groups = new Map()));
+        const id = choiceText(value);
+        const group = groups.get(id);
+        if (group) group.count += 1;
+        else groups.set(id, { shown: shownText(value), count: 1 });
+      }
+    }
+    for (const [key, groups] of given) {
+      let answered = 0;
+      let same = 0;
+      const answers: string[] = [];
+      let top: { id: string; shown: string; count: number } | null = null;
+      let tied = false;
+      for (const [id, g] of groups) {
+        answered += g.count;
+        same += (g.count * (g.count - 1)) / 2;
+        for (let i = 0; i < g.count; i++) answers.push(id);
+        if (!top || g.count > top.count) {
+          top = { id, ...g };
+          tied = false;
+        } else if (g.count === top.count) tied = true;
+      }
+      if (answered >= 2) {
+        let a = among.get(key);
+        if (!a) among.set(key, (a = { plots: 0, compared: 0, agreeing: 0, kappaPlots: [] }));
+        a.plots += 1;
+        a.compared += (answered * (answered - 1)) / 2;
+        a.agreeing += same;
+        a.kappaPlots.push(answers);
+      }
+      // In doubt: most collectors gave one same answer, and the reference says something else.
+      if (p.main && top && !tied && answered >= MIN_DOUBT && top.count * 2 > answered) {
+        const ref = Object.hasOwn(p.main.summary, key) && typeof p.main.summary[key] === 'string' ? p.main.summary[key] : '';
+        if (choiceText(ref) !== top.id) {
+          doubts.push({ plot, assessor: row.assessor, key, label: key, reference: isBlankAnswer(ref) ? '' : shownText(ref), majority: top.shown, count: top.count, of: answered });
+        }
+      }
+    }
     if (!p.main) continue;
     assessed += 1;
     for (const [operator, check] of p.checks) {
       let person = people.get(operator);
       let all = true;
       let compared = 0;
+      let agreeing = 0;
       compareAnswers(p.main.summary, check.summary, ruleOf, margins, (key, kind, agrees) => {
         let q = questions.get(key);
         if (!q) {
@@ -90,7 +153,7 @@ export function referenceFigures(input: QualityInput): ReferenceFigures {
           questions.set(key, q);
         }
         if (!person) {
-          person = { compared: 0, agreeing: 0, questions: new Map() };
+          person = { compared: 0, agreeing: 0, questions: new Map(), checks: [] };
           people.set(operator, person);
         }
         let pq = person.questions.get(key);
@@ -104,6 +167,7 @@ export function referenceFigures(input: QualityInput): ReferenceFigures {
         if (agrees) {
           q.agreeing += 1;
           pq.agreeing += 1;
+          agreeing += 1;
         } else {
           all = false;
         }
@@ -112,7 +176,11 @@ export function referenceFigures(input: QualityInput): ReferenceFigures {
       if (compared === 0 || !person) continue;
       checks += 1;
       person.compared += 1;
-      if (all) person.agreeing += 1;
+      person.checks.push({ at: check.firstSubmittedOn ?? check.modifiedOn, compared, agreeing });
+      if (all) {
+        person.agreeing += 1;
+        row.agreeing += 1;
+      }
     }
   }
 
@@ -135,13 +203,45 @@ export function referenceFigures(input: QualityInput): ReferenceFigures {
       .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
       .map((username) => {
         const person = people.get(username)!;
+        // Their checks in the order they were submitted: the latest RECENT_CHECKS against the ones before.
+        const inOrder = [...person.checks].sort((a, b) => a.at - b.at);
+        const sum = (list: readonly Tally[]): Tally => list.reduce((t, c) => ({ compared: t.compared + c.compared, agreeing: t.agreeing + c.agreeing }), { compared: 0, agreeing: 0 });
+        const before = inOrder.slice(0, Math.max(0, inOrder.length - RECENT_CHECKS));
         return {
           username,
           plots: rateOf(person.compared, person.agreeing),
+          answers: sum(inOrder),
+          recent: sum(inOrder.slice(before.length)),
+          earlier: before.length > 0 ? sum(before) : null,
           questions: [...person.questions.keys()].sort(byOutline).map((key) => ({ key, label: labelOf(key), ...rateOf(person.questions.get(key)!.compared, person.questions.get(key)!.agreeing) })),
         };
       }),
     byPlot: byPlot.sort((a, b) => plotOrder(a.plot, b.plot)),
+    among: [...among.keys()].sort(byOutline).map((key) => {
+      const a = among.get(key)!;
+      return { key, label: labelOf(key), plots: a.plots, compared: a.compared, agreeing: a.agreeing, kappa: fleissKappa(a.kappaPlots) };
+    }),
+    // The most contradicted first: the larger share of collectors against the reference, then the more collectors.
+    doubtful: doubts
+      .sort((a, b) => b.count / b.of - a.count / a.of || b.count - a.count || plotOrder(a.plot, b.plot) || byOutline(a.key, b.key))
+      .slice(0, MAX_DOUBTFUL)
+      .map((d) => ({ ...d, label: labelOf(d.key) })),
+    doubtfulTotal: doubts.length,
+  };
+}
+
+/**
+ * The figures with every share judged against the target (percent, the project's quality settings): each question,
+ * and each person by the most worrying of their questions, with their trend. The figures themselves do not depend on
+ * the target, so changing it needs nothing worked out again.
+ */
+export function judgedReference(f: Pick<ReferenceFigures, 'questions' | 'people'>, target: number): { questions: (ReferenceQuestion & Judged)[]; people: JudgedPerson[] } {
+  return {
+    questions: f.questions.map((q) => ({ ...q, ...judge(q.compared, q.agreeing, target) })),
+    people: f.people.map((p) => {
+      const questions = p.questions.map((q) => ({ ...q, ...judge(q.compared, q.agreeing, target) }));
+      return { ...p, answers: { ...p.answers, ...judge(p.answers.compared, p.answers.agreeing, target) }, questions, verdict: worst(questions.map((q) => q.verdict)), trend: trendOf(p.earlier, p.recent) };
+    }),
   };
 }
 

@@ -362,6 +362,13 @@ describe('needs attention', () => {
     expect(base({ worthALookWaiting: 1470 }).find((i) => i.kind === 'worthALook')).toEqual({ kind: 'worthALook', count: 1470 });
     expect(base({ worthALookWaiting: 0 }).find((i) => i.kind === 'worthALook')).toBeUndefined();
     expect(base({ worthALookWaiting: null }).find((i) => i.kind === 'worthALook')).toBeUndefined();
+    // the reference plots: who is under the accuracy target for certain, and the reference answers most collectors contradict
+    const accuracy = base({ accuracy: { target: 85, below: ['bo', 'ana'], doubtful: 4 } });
+    expect(accuracy.find((i) => i.kind === 'belowAccuracy')).toEqual({ kind: 'belowAccuracy', count: 2, target: 85, people: [{ username: 'ana' }, { username: 'bo' }] });
+    expect(accuracy.find((i) => i.kind === 'doubtfulReference')).toEqual({ kind: 'doubtfulReference', count: 4 });
+    const fine = base({ accuracy: { target: 80, below: [], doubtful: 0 } });
+    expect(fine.some((i) => i.kind === 'belowAccuracy' || i.kind === 'doubtfulReference')).toBe(false);
+    expect(base({ accuracy: null }).some((i) => i.kind === 'belowAccuracy' || i.kind === 'doubtfulReference')).toBe(false);
     expect(base({ storage: { usedBytes: 89, limitBytes: 100 } }).find((i) => i.kind === 'storage')).toBeUndefined();
     expect(base({ storage: { usedBytes: 90, limitBytes: 100 } }).find((i) => i.kind === 'storage')).toMatchObject({ level: 'nearlyFull' });
     expect(base({ storage: { usedBytes: 101, limitBytes: 100 } }).find((i) => i.kind === 'storage')).toMatchObject({ level: 'over' });

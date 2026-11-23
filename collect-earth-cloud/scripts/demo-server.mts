@@ -169,7 +169,11 @@ await call('PUT', `${P}/csv-files/borgou_densification.csv`, coordinator.token, 
 const collectors = COLLECTORS.map((n) => people[n]);
 await call('PUT', `${P}/csv-files/${fileId}/distribution`, coordinator.token, { mode: 'even', people: collectors.map((c) => c.userId), order: 'mixed', overlapPercent: 25, seed: 7 });
 // Reference plots answered by the coordinator; every collector gets a blind copy.
-const referenceIds = [12, 57, 101, 166, 230, 288, 341, 402, 465, 533].map((i) => plots[i].id);
+// Thirty of them, spread over the grid: enough for Quality › Early warning to say something of each collector.
+const referenceIds = Array.from({ length: 30 }, (_, i) => plots[7 + i * 19].id);
+// Two the coordinator gets wrong (most collectors then contradict the reference), and three that are hard for everyone.
+const wrongReference = new Set([referenceIds[4], referenceIds[17]]);
+const hardPlots = new Set([referenceIds[9], referenceIds[21], referenceIds[26]]);
 await call('POST', `${P}/reference/plots`, coordinator.token, { csvFileId: fileId, assessorUserId: coordinator.userId, plots: referenceIds });
 
 // Training: a calibration set of 12 plots outside the grid, answered by everyone in the first days.
@@ -201,7 +205,7 @@ const habits: Record<string, { accuracy: number; seconds: number; chance: number
   'amara.diallo': { accuracy: 0.95, seconds: 140, chance: 0.75, perDay: [10, 18] },
   'kofi.mensah': { accuracy: 0.93, seconds: 170, chance: 0.7, perDay: [8, 15] },
   'lucia.ferreira': { accuracy: 0.97, seconds: 210, chance: 0.65, perDay: [7, 13] },
-  'ravi.patel': { accuracy: 0.87, seconds: 95, chance: 0.6, perDay: [10, 20] },
+  'ravi.patel': { accuracy: 0.62, seconds: 95, chance: 0.6, perDay: [10, 20] },
   'sofia.nowak': { accuracy: 0.94, seconds: 160, chance: 0.6, perDay: [6, 12], stopsAt: 17 },
   'tomas.lindqvist': { accuracy: 0.92, seconds: 185, chance: 0.5, perDay: [5, 11] },
   'yuki.tanaka': { accuracy: 0.95, seconds: 150, chance: 0.55, perDay: [6, 14] },
@@ -244,7 +248,7 @@ for (let d = 0; d <= 22; d++) {
       clock += s * 1000 + between(10, 60) * 1000;
       const { plot, round } = queues[c.username].shift()!;
       // A few saved but not submitted yet.
-      await send(pid, c, plot, round, h.accuracy, s, rnd() > 0.03);
+      await send(pid, c, plot, round, hardPlots.has(plot.id) ? 0.45 : h.accuracy, s, rnd() > 0.03);
     }
   }
 }
@@ -253,7 +257,7 @@ for (let d = 0; d <= 22; d++) {
 clock = startDay + 1 * DAY + 15 * 3_600_000;
 for (const id of referenceIds) {
   clock += 240_000;
-  await send(pid, { ...coordinator, username: 'elena.marquez' }, plots.find((p) => p.id === id)!, '1', 1, between(150, 300));
+  await send(pid, { ...coordinator, username: 'elena.marquez' }, plots.find((p) => p.id === id)!, '1', wrongReference.has(id) ? 0 : 1, between(150, 300));
 }
 // Golden answers from the calibration's consensus.
 clock = startDay + 3 * DAY + 9 * 3_600_000;

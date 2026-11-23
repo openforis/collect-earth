@@ -83,17 +83,17 @@ describe('GET /quality/flags, the threshold, and the person page', () => {
 
   it('the threshold is a project setting, audited, applied without working the figures out again', async () => {
     const computedAt = (await call('GET', '/quality/flags', owner.token)).json().computedAt;
-    const put = await call('PUT', '/quality/settings', owner.token, { fastSeconds: 25 });
+    const put = await call('PUT', '/quality/settings', owner.token, { fastSeconds: 25, accuracyTarget: 80 });
     expect(put.statusCode, put.body).toBe(200);
-    expect(put.json()).toEqual({ margins: {}, fastSeconds: 25 });
+    expect(put.json()).toEqual({ margins: {}, fastSeconds: 25, accuracyTarget: 80 });
     const body = (await call('GET', '/quality/flags', owner.token)).json();
     expect(body.fastSeconds).toBe(25);
     expect(body.flags.filter((f: { kind: string }) => f.kind === 'very_fast').map((f: { plot: string }) => f.plot)).toEqual(['3', '2']);
     expect(body.stale).toBe(false);
     expect(body.computedAt).toBe(computedAt);
     // The margins stay as they were, and the threshold stays when the margins are saved.
-    expect((await call('PUT', '/quality/settings', owner.token, { margins: {} })).json()).toEqual({ margins: {}, fastSeconds: 25 });
-    expect((await call('GET', '/quality', owner.token)).json().settings).toEqual({ margins: {}, fastSeconds: 25 });
+    expect((await call('PUT', '/quality/settings', owner.token, { margins: {} })).json()).toEqual({ margins: {}, fastSeconds: 25, accuracyTarget: 80 });
+    expect((await call('GET', '/quality', owner.token)).json().settings).toEqual({ margins: {}, fastSeconds: 25, accuracyTarget: 80 });
     const audit = await ctx.store.listAudit(pid, { limit: 10, action: 'settings.changed' });
     expect(audit.map((e) => e.details)).toEqual([{ setting: 'quality' }, { setting: 'quality' }]);
     for (const fastSeconds of [0, 121, 2.5, '15', null]) {
@@ -106,7 +106,7 @@ describe('GET /quality/flags, the threshold, and the person page', () => {
       call('PUT', '/quality/settings', owner.token, { margins: { collect_integer_forest_percentage: 5 } }),
       call('PUT', '/quality/settings', owner.token, { fastSeconds: 40 }),
     ]);
-    expect((await call('GET', '/quality', owner.token)).json().settings).toEqual({ margins: { collect_integer_forest_percentage: 5 }, fastSeconds: 40 });
+    expect((await call('GET', '/quality', owner.token)).json().settings).toEqual({ margins: { collect_integer_forest_percentage: 5 }, fastSeconds: 40, accuracyTarget: 80 });
   });
 
   it('edited after a decision: from the decisions as they are now', async () => {
@@ -162,7 +162,7 @@ describe('GET /quality/flags, the threshold, and the person page', () => {
     expect(after.quality.flags).toEqual({ very_fast: 1, same_as_before: 0, required_empty: 1, edited_after_decision: 0, two_main: 0, no_plot: 0 });
     // The page's speed counts "very fast" as the flags do: the same plots, order and threshold.
     expect(after.speed.veryFast).toBe(1);
-    await call('PUT', '/quality/settings', owner.token, { fastSeconds: 25 });
+    await call('PUT', '/quality/settings', owner.token, { fastSeconds: 25, accuracyTarget: 80 });
     const at25 = (await call('GET', `/people/${anaId}`, owner.token)).json();
     expect(at25.quality.flags.very_fast).toBe(2);
     expect(at25.speed.veryFast).toBe(2);

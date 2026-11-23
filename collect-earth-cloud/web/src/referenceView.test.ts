@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import type { ReferenceFiguresAnswer } from "./api";
 import { CATALOGUES, translator } from "./i18n";
 import { accuracyText, parsePlotIds, refusalKey, sortedPeople, weakestQuestions } from "./referenceView";
 
@@ -28,7 +27,7 @@ describe("the Reference plots section", () => {
   });
 
   it("lists the lowest accuracy first, too few plots last; the weakest questions", () => {
-    const figures: ReferenceFiguresAnswer = {
+    const figures = {
       plots: 2,
       assessed: 2,
       checks: 3,
@@ -54,6 +53,6 @@ describe("the Reference plots section", () => {
     expect(sortedPeople(figures).map((p) => p.username)).toEqual(["ben", "zoe", "ana"]);
     expect(weakestQuestions(figures.people![2]).map((q) => q.key)).toEqual(["c", "b", "d"]);
     // A reviewer's figures name nobody.
-    expect(sortedPeople({ ...figures, people: undefined })).toEqual([]);
+    expect(sortedPeople({})).toEqual([]);
   });
 });

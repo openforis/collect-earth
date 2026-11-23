@@ -25,7 +25,7 @@ import { PlotLayoutCard } from "./PlotLayoutCard";
 import { PlotsTab } from "./PlotsTab";
 import { QualityChecks } from "./QualityChecks";
 import { QualityReference } from "./QualityReference";
-import { FastSecondsField } from "./QualityFlags";
+import { AccuracyTargetField, FastSecondsField } from "./QualityFlags";
 import { RepeatCard } from "./RepeatSurvey";
 import { CopyCard, AiCard, DeleteCard, ProgressCard, RenameCard, StatusCard } from "./SettingsTab";
 import { ShareLinksCard } from "./ShareLinks";
@@ -51,6 +51,30 @@ function FastSecondsCard({ projectId }: { projectId: string }) {
           fastSeconds={settings.data.fastSeconds}
           onSaved={(fastSeconds) => settings.setData((prev) => ({ ...prev, fastSeconds }))}
         />
+      )}
+    </CardFrame>
+  );
+}
+
+/** The accuracy target the reference plots are judged against, on its own card. */
+function AccuracyTargetCard({ projectId }: { projectId: string }) {
+  const t = useT();
+  const settings = useLoad(["project", projectId, "getQualitySettings"], () => getQualitySettings(projectId));
+  return (
+    <CardFrame title={t("setup.accuracyTitle")}>
+      {settings.loading && !settings.data ? (
+        <Loading />
+      ) : settings.error || !settings.data ? (
+        <ErrorAlert error={settings.error} onRetry={settings.reload} />
+      ) : (
+        <Stack spacing={2}>
+          <Explain variant="body2" text={t("setup.accuracyExplain.short")} more={t("setup.accuracyExplain")} />
+          <AccuracyTargetField
+            projectId={projectId}
+            target={settings.data.accuracyTarget}
+            onSaved={(accuracyTarget) => settings.setData((prev) => ({ ...prev, accuracyTarget }))}
+          />
+        </Stack>
       )}
     </CardFrame>
   );
@@ -106,6 +130,7 @@ export function SetupTab({ projectId, name, status, section, fileId, onGo }: {
         {!local && <QualityChecks projectId={projectId} />}
         {/* Choosing the reference plots is setting up (it was a form among the Quality tab's daily pages) */}
         {!local && <QualityReference projectId={projectId} canEdit />}
+        {!local && <AccuracyTargetCard projectId={projectId} />}
         <FastSecondsCard projectId={projectId} />
         {!local && (
           <Typography component="div" variant="body2" color="text.secondary">

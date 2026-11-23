@@ -165,6 +165,16 @@ export interface PostgresStoreOptions {
 /** Clients whose connection failed while checked out: destroyed when released (PostgresStore.connect). */
 const brokenClients = new WeakMap<pg.PoolClient, Error>();
 
+/** A project's quality settings as stored (quality_settings, jsonb): the margins, and what else is set. */
+function storedQualitySettings(stored: QualitySettings | null | undefined): QualitySettings {
+  const { fastSeconds, accuracyTarget } = stored ?? {};
+  return {
+    margins: { ...(stored?.margins ?? {}) },
+    ...(typeof fastSeconds === 'number' ? { fastSeconds } : {}),
+    ...(typeof accuracyTarget === 'number' ? { accuracyTarget } : {}),
+  };
+}
+
 export class PostgresStore implements Store {
   private readonly pool: pg.Pool;
   private readonly statementTimeout: string | null;
@@ -3305,8 +3315,7 @@ export class PostgresStore implements Store {
     return this.withProject(projectId, async (client) => {
       const res = await client.query('SELECT quality_settings FROM projects WHERE id = $1', [projectId]);
       const stored = res.rows[0]?.quality_settings as QualitySettings | null | undefined;
-      const fastSeconds = stored?.fastSeconds;
-      return { margins: { ...(stored?.margins ?? {}) }, ...(typeof fastSeconds === 'number' ? { fastSeconds } : {}) };
+      return storedQualitySettings(stored);
     });
   }
 
@@ -3318,8 +3327,7 @@ export class PostgresStore implements Store {
         [projectId, JSON.stringify(patch)],
       );
       const stored = res.rows[0]?.quality_settings as QualitySettings | null | undefined;
-      const fastSeconds = stored?.fastSeconds;
-      return { margins: { ...(stored?.margins ?? {}) }, ...(typeof fastSeconds === 'number' ? { fastSeconds } : {}) };
+      return storedQualitySettings(stored);
     });
   }
 

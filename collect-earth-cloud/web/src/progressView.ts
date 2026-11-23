@@ -142,6 +142,9 @@ export const ATTENTION_PLACE: Record<AttentionKind, { tab: ProjectTab; view?: st
   oldProjectFile: PEOPLE,
   oldCollectEarth: PEOPLE,
   trainingFinished: { tab: "training", go: "tab.training" },
+  // The reference plots: who is under the accuracy target, and reference answers most collectors contradict
+  belowAccuracy: { tab: "quality", view: "warnings", go: "progress.goWarnings" },
+  doubtfulReference: { tab: "quality", view: "warnings", go: "progress.goWarnings" },
 };
 
 export function attentionAction(t: Translate, kind: AttentionKind): { tab: ProjectTab; view?: string; label: string } {
@@ -195,6 +198,10 @@ export function attentionText(t: Translate, item: AttentionItem, language: strin
     }
     case "trainingFinished":
       return { title: t("attention.trainingTitle"), text: [t(one ? "attention.trainingOne" : "attention.training", { count })] };
+    case "belowAccuracy":
+      return { title: t("attention.belowAccuracyTitle"), text: [t(one ? "attention.belowAccuracyOne" : "attention.belowAccuracy", { count, target: item.target })] };
+    case "doubtfulReference":
+      return { title: t("attention.doubtfulTitle"), text: [t(one ? "attention.doubtfulOne" : "attention.doubtful", { count })] };
   }
 }
 

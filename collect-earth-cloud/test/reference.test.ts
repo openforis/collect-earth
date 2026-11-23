@@ -8,6 +8,7 @@ import {
   MAX_REFERENCE_PLOTS,
   NO_REFERENCE,
   parsePlotList,
+  judgedReference,
   personAccuracy,
   pickReference,
   splitListedPlots,
@@ -81,6 +82,11 @@ describe('referenceFigures: accuracy against the reference', () => {
       {
         username: 'ana',
         plots: { compared: 20, agreeing: 15, rate: 0.75 },
+        // Their answers, not their plots: two questions on each of 20 plots, five land uses wrong.
+        answers: { compared: 40, agreeing: 35 },
+        // All submitted at the same time: the order of the records, so the last ten are r11..r20.
+        recent: { compared: 20, agreeing: 15 },
+        earlier: { compared: 20, agreeing: 20 },
         questions: [
           { key: 'collect_code_land_use', label: 'Land use', compared: 20, agreeing: 15, rate: 0.75 },
           { key: 'collect_real_canopy', label: 'Canopy', compared: 20, agreeing: 20, rate: 1 },
@@ -113,9 +119,9 @@ describe('referenceFigures: accuracy against the reference', () => {
     const figures = referenceFigures({ ...input, records });
     expect(figures).toMatchObject({ plots: 3, assessed: 2, checks: 1 });
     expect(figures.byPlot).toEqual([
-      { plot: 'r1', assessor: 'coord', assessed: false, checks: 1 },
-      { plot: 'r2', assessor: 'coord', assessed: true, checks: 0 },
-      { plot: 'r3', assessor: 'coord', assessed: true, checks: 1 },
+      { plot: 'r1', assessor: 'coord', assessed: false, checks: 1, agreeing: 0 },
+      { plot: 'r2', assessor: 'coord', assessed: true, checks: 0, agreeing: 0 },
+      { plot: 'r3', assessor: 'coord', assessed: true, checks: 1, agreeing: 1 },
     ]);
   });
 
@@ -186,6 +192,129 @@ describe('referenceFigures: accuracy against the reference', () => {
 
   it('is empty without reference plots', () => {
     expect(referenceFigures(project(0, 0, 3))).toEqual(NO_REFERENCE);
+  });
+});
+
+/**
+ * Reference plots r1..rn assessed by coord as forest, canopy 50, each checked by every collector of `answers`:
+ * `answers[name](i)` is that collector's land use on plot i (1-based), or null for no check of it.
+ */
+function shared(n: number, answers: Record<string, (i: number) => string | null>, reference: (i: number) => string | null = () => 'forest'): QualityInput {
+  const records: QualityRecord[] = [];
+  const units = new Set<string>();
+  const marked = new Map<string, string>();
+  for (let i = 1; i <= n; i++) {
+    units.add(`r${i}`);
+    marked.set(`r${i}`, 'coord');
+    const ref = reference(i);
+    if (ref !== null) records.push(rec(`r${i},1`, 'coord', { collect_code_land_use: ref, collect_real_canopy: '50' }));
+    for (const [name, answer] of Object.entries(answers)) {
+      const value = answer(i);
+      // Submitted one minute after the other, plot after plot: the order of "their latest checks".
+      if (value !== null) records.push(rec(`r${i},2`, name, { collect_code_land_use: value, collect_real_canopy: '50' }, { firstSubmittedOn: day + i * 60_000 }));
+    }
+  }
+  return { records, info: added, units, copyHolders: new Map(), outline, margins: {}, reference: marked };
+}
+
+describe('referenceFigures: the collectors among themselves on the reference plots', () => {
+  it('counts the pairs of collectors giving the same answer, per choice question, with Fleiss\' kappa', () => {
+    // Four plots, three collectors: all the same on r1 and r2, two against one on r3, all different on r4.
+    const figures = referenceFigures(
+      shared(4, {
+        ana: (i) => (i === 4 ? 'cropland' : 'forest'),
+        ben: (i) => (i === 4 ? 'wetland' : 'forest'),
+        cleo: (i) => (i <= 2 ? 'forest' : 'grassland'),
+      }),
+    );
+    // Numbers are not answers one can agree on by naming them: only the choice question is there.
+    expect(figures.among.map((a) => a.key)).toEqual(['collect_code_land_use']);
+    // 3 pairs a plot: 3 + 3 same, 1 of 3, 0 of 3.
+    expect(figures.among[0]).toMatchObject({ label: 'Land use', plots: 4, compared: 12, agreeing: 7 });
+    expect(figures.among[0].kappa).not.toBeNull();
+    expect(figures.among[0].kappa!).toBeGreaterThan(0);
+    expect(figures.among[0].kappa!).toBeLessThan(7 / 12);
+  });
+
+  it('is measured before the reference is assessed, and not with a single collector on a plot', () => {
+    const figures = referenceFigures(shared(3, { ana: () => 'forest', ben: (i) => (i === 3 ? null : 'forest') }, () => null));
+    expect(figures.assessed).toBe(0);
+    expect(figures.people).toEqual([]);
+    // r3 has ana alone: no pair
+    expect(figures.among[0]).toMatchObject({ plots: 2, compared: 2, agreeing: 2 });
+    expect(figures.doubtful).toEqual([]);
+  });
+
+  it('puts a reference answer in doubt when more than half of at least three collectors give one other answer', () => {
+    const figures = referenceFigures(
+      shared(5, {
+        // r1: all three say grassland against forest. r2: two of three. r3: one of three (the reference stands).
+        // r4: a tie of two answers among four (no majority). r5: two collectors only (too few).
+        ana: (i) => (i === 5 ? 'grassland' : i === 3 ? 'forest' : 'grassland'),
+        ben: (i) => (i === 1 || i === 2 || i === 5 ? 'grassland' : i === 4 ? 'grassland' : 'forest'),
+        cleo: (i) => (i === 5 ? null : i === 1 ? 'grassland' : i === 4 ? 'cropland' : i === 3 ? 'grassland' : 'forest'),
+        dan: (i) => (i === 4 ? 'cropland' : null),
+      }),
+    );
+    expect(figures.doubtful).toEqual([
+      { plot: 'r1', assessor: 'coord', key: 'collect_code_land_use', label: 'Land use', reference: 'forest', majority: 'grassland', count: 3, of: 3 },
+      { plot: 'r2', assessor: 'coord', key: 'collect_code_land_use', label: 'Land use', reference: 'forest', majority: 'grassland', count: 2, of: 3 },
+    ]);
+    expect(figures.doubtfulTotal).toBe(2);
+    // How many checks of each plot agree with the reference on everything.
+    expect(figures.byPlot.map((p) => [p.plot, p.checks, p.agreeing])).toEqual([
+      ['r1', 3, 0],
+      ['r2', 3, 1],
+      ['r3', 3, 2],
+      ['r4', 4, 0],
+      ['r5', 2, 0],
+    ]);
+  });
+
+  it('a majority agreeing with the reference is no doubt, nor one the reference left blank where they all agree on it', () => {
+    const agreed = referenceFigures(shared(1, { ana: () => 'forest', ben: () => 'forest', cleo: () => 'cropland' }));
+    expect(agreed.doubtful).toEqual([]);
+    const blank = referenceFigures(shared(1, { ana: () => 'forest', ben: () => 'forest', cleo: () => 'forest' }, () => ''));
+    expect(blank.doubtful).toEqual([expect.objectContaining({ plot: 'r1', reference: '', majority: 'forest', count: 3, of: 3 })]);
+  });
+});
+
+describe('referenceFigures: each person over time, and judgedReference', () => {
+  it('splits each person\'s answers into their latest ten checks and the ones before', () => {
+    // ana: wrong on the first 15, right on the last 10. ben: 8 checks only.
+    const figures = referenceFigures(shared(25, { ana: (i) => (i <= 15 ? 'cropland' : 'forest'), ben: (i) => (i <= 8 ? 'forest' : null) }));
+    const ana = personAccuracy(figures, 'ana')!;
+    expect(ana.answers).toEqual({ compared: 50, agreeing: 35 });
+    expect(ana.recent).toEqual({ compared: 20, agreeing: 20 });
+    expect(ana.earlier).toEqual({ compared: 30, agreeing: 15 });
+    const ben = personAccuracy(figures, 'ben')!;
+    expect(ben.recent).toEqual({ compared: 16, agreeing: 16 });
+    expect(ben.earlier).toBeNull();
+  });
+
+  it('judges each question and each person against the target, with the margin, under MIN_PLOTS too', () => {
+    const figures = referenceFigures(shared(25, { ana: (i) => (i <= 15 ? 'cropland' : 'forest'), ben: (i) => (i <= 8 ? 'forest' : null), cleo: (i) => (i <= 3 ? 'forest' : null) }));
+    const judged = judgedReference(figures, 80);
+    const [ana, ben, cleo] = judged.people;
+    // 10 of 25 land uses right: 23% to 59%, all under 80%. Her canopy is fine: the worst of the two counts.
+    expect(ana.questions[0]).toMatchObject({ key: 'collect_code_land_use', compared: 25, agreeing: 10, verdict: 'below' });
+    expect(ana.questions[0].high!).toBeLessThan(0.8);
+    expect(ana.questions[1].verdict).toBe('ok');
+    expect(ana.verdict).toBe('below');
+    // All her answers together: 35 of 50, whose margin (56% to 81%) reaches the target.
+    expect(ana.answers).toMatchObject({ compared: 50, agreeing: 35, verdict: 'watch' });
+    expect(ana.trend).toBe('better');
+    // 8 plots is under MIN_PLOTS (no rate shown), yet enough for a verdict with its margin.
+    expect(ben.plots.rate).toBeNull();
+    expect(ben).toMatchObject({ verdict: 'ok', trend: null });
+    expect(ben.questions[0].low!).toBeCloseTo(0.676, 3);
+    // 3 right of 3: too few to say.
+    expect(cleo.verdict).toBe('early');
+    // The questions over everyone: 21 of 36 land uses
+    expect(judged.questions[0]).toMatchObject({ compared: 36, agreeing: 21, verdict: 'below' });
+    expect(judged.questions[1]).toMatchObject({ compared: 36, agreeing: 36, verdict: 'ok', high: 1 });
+    // A stricter target changes the verdicts, not the figures.
+    expect(judgedReference(figures, 50).people[0].verdict).toBe('watch');
   });
 });
 

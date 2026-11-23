@@ -18,7 +18,10 @@ import {
   pickReference,
   referenceCopyPlan,
   type MarkRefusal,
+  judgedReference,
 } from '../reference.js';
+import { accuracyTargetOf } from '../accuracy.js';
+import { answerOptions } from '../qualityReports.js';
 import type { Store } from '../store/store.js';
 import type { Member, PlotAssignment, ReferencePlot } from '../types.js';
 import { served } from './quality.js';
@@ -50,11 +53,22 @@ function recordsOf(state: ProjectState): (username: string, unit: string) => boo
 }
 
 /** What the figures say of the reference plots, for the page: everything for coordinators, no plot list for reviewers. */
-function figuresOf(f: ServedReport, coordinator: boolean): ReferenceFiguresAnswer {
-  const { byPlot, people, external, ...rest } = f.reference;
-  // Reviewers: the figures per question only (Decision 3: no one's accuracy by name, no plot list).
+function figuresOf(f: ServedReport, coordinator: boolean, target: number, outline: Parameters<typeof answerOptions>[0] = null): ReferenceFiguresAnswer {
+  const { byPlot, people: _people, questions: _questions, doubtful, external, ...rest } = f.reference;
+  // Every share against the project's accuracy target, with its margin of error (src/accuracy.ts).
+  const judged = judgedReference(f.reference, target);
+  // Reviewers: the figures per question only (Decision 3: no one's accuracy by name, no plot list;
+  // the reference answers in doubt name plots and their assessor, so reviewers get their number).
   const ext = external && !coordinator ? (({ byPlot: _b, people: _p, ...e }) => e)(external) : external;
-  return { ...rest, ...(coordinator ? { byPlot, people } : {}), ...(ext ? { external: ext } : {}), computedAt: f.computedAt, stale: f.stale };
+  return {
+    ...rest,
+    target,
+    questions: judged.questions,
+    ...(coordinator ? { byPlot, people: judged.people, doubtful, options: answerOptions(outline, doubtful.map((d) => d.key)) } : {}),
+    ...(ext ? { external: ext } : {}),
+    computedAt: f.computedAt,
+    stale: f.stale,
+  };
 }
 
 /**
@@ -167,12 +181,15 @@ export async function registerReferenceRoutes(app: FastifyInstance, store: Store
   app.get('/v1/projects/:pid/reference', reviewer, async (request: FastifyRequest, reply: FastifyReply) => {
     const projectId = request.membership!.projectId;
     const coordinator = request.membership!.role === 'admin';
-    const figures = await served(quality, projectId, request, reply);
+    const [figures, settings] = await Promise.all([served(quality, projectId, request, reply), store.getQualitySettings(projectId)]);
     if (!figures) return reply;
+    const target = accuracyTargetOf(settings);
     if (!coordinator) {
-      return reply.send({ coordinator: false, count: figures.reference.plots, max: MAX_REFERENCE_PLOTS, figures: figuresOf(figures, false) } satisfies ReferenceAnswer);
+      return reply.send({ coordinator: false, count: figures.reference.plots, max: MAX_REFERENCE_PLOTS, figures: figuresOf(figures, false, target) } satisfies ReferenceAnswer);
     }
-    return reply.send({ coordinator: true, ...(await view(projectId, request, figures)), figures: figuresOf(figures, true) } satisfies ReferenceAnswer);
+    // The answers in doubt are shown by their labels ("Forest", not "F"): the survey's options of those questions.
+    const outline = figures.reference.doubtful.length > 0 ? await quality.outline(projectId, request.log) : null;
+    return reply.send({ coordinator: true, ...(await view(projectId, request, figures)), figures: figuresOf(figures, true, target, outline) } satisfies ReferenceAnswer);
   });
 
   // Reference answers from a file (coordinators): a CSV (text/csv: the plot id, then a column per

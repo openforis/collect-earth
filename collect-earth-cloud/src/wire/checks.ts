@@ -1,6 +1,7 @@
 // The Quality tab's automatic checks (their sampling rule), reference plots and survey health, as the
 // server sends them. Types only: see README.md in this folder.
 import type { Rate } from './progress.js';
+import type { AnswerOptions } from './quality.js';
 
 // ---------------------------------------------------------------------------
 // Automatic checks (Task 13): GET/PUT /v1/projects/:pid/sampling, POST .../sampling/draw
@@ -120,12 +121,70 @@ export interface ReferenceQuestion extends Rate {
   kind: 'choice' | 'number';
 }
 
+/** Answers compared and how many of them match. */
+export interface Tally {
+  compared: number;
+  agreeing: number;
+}
+
 export interface ReferencePerson {
   username: string;
   /** Reference plots they checked (one check per plot, their latest); agreeing = every compared answer matches. */
   plots: Rate;
+  /** Every answer of those checks compared with the reference's, all questions together. */
+  answers: Tally;
+  /**
+   * Those answers split by when the check was submitted: the answers of their latest RECENT_CHECKS checks, and of the
+   * checks before them; `earlier` is null while they have no more checks than that. For a trend ("getting better").
+   */
+  recent: Tally;
+  earlier: Tally | null;
   /** Per question, in the survey's order: their answers compared with the reference's. */
   questions: { key: string; label: string; compared: number; agreeing: number; rate: number | null }[];
+}
+
+/**
+ * How a share stands against the project's accuracy target (src/accuracy.ts): `below` when even the top of its margin
+ * is under the target, `watch` when it is under the target but the margin reaches it, `ok` at the target or above,
+ * `early` when at the target or above with too few compared to say.
+ */
+export type Verdict = 'ok' | 'watch' | 'below' | 'early';
+
+/** A share's 95% margin of error (0..1) and its verdict against the target; all null with nothing compared. */
+export interface Judged {
+  low: number | null;
+  high: number | null;
+  verdict: Verdict | null;
+}
+
+/**
+ * How much the collectors agree among themselves on the reference plots, for a choice question, whatever the reference
+ * says: of every pair of collectors' answers on a plot, how many are the same, and Fleiss' kappa (the agreement
+ * corrected for chance: 1 is full agreement, 0 what chance alone gives; null when it cannot be worked out).
+ */
+export interface ReferenceAmong extends Tally {
+  key: string;
+  label: string;
+  /** Reference plots that two or more collectors answered. */
+  plots: number;
+  kappa: number | null;
+}
+
+/**
+ * A reference plot whose reference answer is in doubt: most of the collectors who checked it gave one same answer,
+ * and it is not the reference's. The reference assessor may be the one who is wrong.
+ */
+export interface ReferenceDoubt {
+  plot: string;
+  assessor: string;
+  key: string;
+  label: string;
+  /** The reference's answer and the collectors' most given one, as shown (codes without qualifier). */
+  reference: string;
+  majority: string;
+  /** Collectors who gave that answer, of those who answered the question on this plot. */
+  count: number;
+  of: number;
 }
 
 export interface ReferenceFigures {
@@ -138,8 +197,13 @@ export interface ReferenceFigures {
   questions: ReferenceQuestion[];
   /** Everyone with a check measured, by name. */
   people: ReferencePerson[];
-  /** Each reference plot (plot order): its assessor, whether the reference is submitted, and how many checks of it are. */
-  byPlot: { plot: string; assessor: string; assessed: boolean; checks: number }[];
+  /** Each reference plot (plot order): its assessor, whether the reference is submitted, how many checks of it are, and how many of them match the reference on every question. */
+  byPlot: { plot: string; assessor: string; assessed: boolean; checks: number; agreeing: number }[];
+  /** The collectors' agreement among themselves, per choice question, in the survey's order. */
+  among: ReferenceAmong[];
+  /** Reference answers in doubt, the most contradicted first; at most MAX_DOUBTFUL, `doubtfulTotal` counts them all. */
+  doubtful: ReferenceDoubt[];
+  doubtfulTotal: number;
   /** Against the reference answers a coordinator uploaded (externalReferenceFigures); absent without them. */
   external?: ExternalReferenceFigures;
 }
@@ -153,7 +217,7 @@ export interface ExternalReferenceFigures {
   /** Per question, everyone's answers together, in the survey's order: agreeing = the same as the reference. */
   questions: ReferenceQuestion[];
   /** Per person, by name: `answers` every compared answer (its share differing is their disagreement), `plots` all agreeing. */
-  people: (ReferencePerson & { answers: Rate })[];
+  people: (Pick<ReferencePerson, 'username' | 'plots' | 'questions'> & { answers: Rate })[];
   /** Per plot (plot order): records compared, and their answers compared and agreeing. */
   byPlot: { plot: string; records: number; compared: number; agreeing: number }[];
 }
@@ -163,12 +227,32 @@ export interface ExternalReferenceFigures {
  * per question only (Decision 3: no one's accuracy by name, no plot list), so `byPlot` and
  * `people` are left out, of the external figures too.
  */
-export interface ReferenceFiguresAnswer extends Omit<ReferenceFigures, 'byPlot' | 'people' | 'external'> {
+export interface ReferenceFiguresAnswer extends Omit<ReferenceFigures, 'byPlot' | 'people' | 'external' | 'questions' | 'doubtful'> {
+  /** The project's accuracy target, in percent (its quality settings): what the verdicts are judged against. */
+  target: number;
+  /** Per question, with its margin of error and its verdict against the target. */
+  questions: (ReferenceQuestion & Judged)[];
   byPlot?: ReferenceFigures['byPlot'];
-  people?: ReferencePerson[];
+  /** Coordinators only: each person, with their verdict (the most worrying of their questions') and their trend. */
+  people?: JudgedPerson[];
+  /** Coordinators only (plots and an assessor's name); reviewers get `doubtfulTotal`. */
+  doubtful?: ReferenceDoubt[];
+  /** Coordinators only: the answer options of the questions in doubt, so their answers are shown by their labels. */
+  options?: AnswerOptions;
   external?: Omit<ExternalReferenceFigures, 'byPlot' | 'people'> & Partial<Pick<ExternalReferenceFigures, 'byPlot' | 'people'>>;
   computedAt: number;
   stale: boolean;
+}
+
+/** A person's accuracy as served: every question judged, the person by the most worrying of them. */
+export interface JudgedPerson extends Omit<ReferencePerson, 'questions' | 'answers'> {
+  /** All their answers together, with the margin and the verdict of that share. */
+  answers: Tally & Judged;
+  questions: (ReferencePerson['questions'][number] & Judged)[];
+  /** The most worrying verdict of their questions; null when nothing of theirs is compared. */
+  verdict: Verdict | null;
+  /** Their latest answers against their earlier ones; null while there are too few on either side. */
+  trend: 'better' | 'worse' | 'same' | null;
 }
 
 /** A reference plot as coordinators list it. */

@@ -5,6 +5,7 @@ import { audit } from '../activity.js';
 import { answerStats, type AnswerFilter, type AnswerStats } from '../answerStats.js';
 import { isDate, isTimeZone } from '../days.js';
 import { FLAG_KINDS, fastSecondsOf, type Flag, MAX_FAST_SECONDS, MAX_QUEUE_FLAGS, MIN_FAST_SECONDS, patternFlags, plotOperators, plotsOf, resubmittedAfterRecheck, seenOf, type DecisionSeen, type FlagKind, type FlagTable } from '../flags.js';
+import { accuracyTargetOf, MAX_ACCURACY_TARGET, MIN_ACCURACY_TARGET } from '../accuracy.js';
 import { columnValues, MAX_LISTED_VALUES, plotColumns, plotsWithValue } from '../plotColumns.js';
 import { plotFileOf, plotIdsOf } from '../plotFileCache.js';
 import { unitIndex } from '../plotSearch.js';
@@ -149,7 +150,7 @@ function teamOnly(stats: AnswerStats): AnswerStats {
 
 /** The quality settings as sent: the margins, and the "very fast" threshold in force (the default when none is set). */
 function settingsAnswer(settings: QualitySettings): QualitySettingsAnswer {
-  return { margins: settings.margins, fastSeconds: fastSecondsOf(settings) };
+  return { margins: settings.margins, fastSeconds: fastSecondsOf(settings), accuracyTarget: accuracyTargetOf(settings) };
 }
 
 /** The plot of a decision route, or null when it is not 1-MAX_NAME characters. */
@@ -797,8 +798,9 @@ export async function registerQualityRoutes(
   });
 
   // Number margins (percent, 0-100), only for the number questions of the served survey,
-  // and the "very fast" flag's threshold (whole seconds, MIN_FAST_SECONDS-MAX_FAST_SECONDS).
-  // Either may be left out: the one left out stays as it is.
+  // the "very fast" flag's threshold (whole seconds, MIN_FAST_SECONDS-MAX_FAST_SECONDS) and the
+  // accuracy target (whole percent, MIN_ACCURACY_TARGET-MAX_ACCURACY_TARGET, src/accuracy.ts).
+  // Any may be left out: what is left out stays as it is.
   // The settings alone (Setup's Quality rules): read from the store, with no figures to work out.
   app.get('/v1/projects/:pid/quality/settings', admin, async (request: FastifyRequest, reply: FastifyReply) => {
     return reply.send(settingsAnswer(await store.getQualitySettings(request.membership!.projectId)));
@@ -806,9 +808,9 @@ export async function registerQualityRoutes(
 
   app.put('/v1/projects/:pid/quality/settings', admin, async (request: FastifyRequest, reply: FastifyReply) => {
     const projectId = request.membership!.projectId;
-    const body = (request.body ?? {}) as { margins?: unknown; fastSeconds?: unknown };
-    if (typeof body !== 'object' || Array.isArray(body) || (body.margins === undefined && body.fastSeconds === undefined)) {
-      return reply.code(400).send(bad('send margins, fastSeconds or both'));
+    const body = (request.body ?? {}) as { margins?: unknown; fastSeconds?: unknown; accuracyTarget?: unknown };
+    if (typeof body !== 'object' || Array.isArray(body) || (body.margins === undefined && body.fastSeconds === undefined && body.accuracyTarget === undefined)) {
+      return reply.code(400).send(bad('send margins, fastSeconds, accuracyTarget or several of them'));
     }
     const patch: Partial<QualitySettings> = {};
     if (body.margins !== undefined) {
@@ -824,6 +826,13 @@ export async function registerQualityRoutes(
         return reply.code(400).send(bad(`fastSeconds must be whole seconds from ${MIN_FAST_SECONDS} to ${MAX_FAST_SECONDS}`));
       }
       patch.fastSeconds = f;
+    }
+    if (body.accuracyTarget !== undefined) {
+      const a = body.accuracyTarget;
+      if (typeof a !== 'number' || !Number.isInteger(a) || a < MIN_ACCURACY_TARGET || a > MAX_ACCURACY_TARGET) {
+        return reply.code(400).send(bad(`accuracyTarget must be a whole percentage from ${MIN_ACCURACY_TARGET} to ${MAX_ACCURACY_TARGET}`));
+      }
+      patch.accuracyTarget = a;
     }
     // One write that keeps what is not sent: a margins save and a threshold save at the same time both stay.
     const saved = await store.patchQualitySettings(projectId, patch);

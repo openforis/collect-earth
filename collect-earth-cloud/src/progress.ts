@@ -60,6 +60,11 @@ export interface AttentionInput {
   worthALookWaiting?: number | null;
   /** People who submitted every plot of a learning set in their current attempt. */
   trainingFinished?: readonly { username: string; set: string; passed: boolean | null }[];
+  /**
+   * From the reference plots' figures at hand (null or absent without them): who is below the accuracy target for
+   * certain (verdict `below`), the target in percent, and how many reference answers are in doubt.
+   */
+  accuracy?: { target: number; below: readonly string[]; doubtful: number } | null;
 }
 
 export interface ProgressInput {
@@ -417,6 +422,10 @@ function attentionOf(input: ProgressInput, a: AttentionInput, plotsOf: PlotUnits
   if (late.length > 0) items.push({ kind: 'oldUnsentWork', count: late.length, people: capped(late) });
   if (a.differencesWaiting !== null && a.differencesWaiting > 0) items.push({ kind: 'differencesWaiting', count: a.differencesWaiting });
   if ((a.worthALookWaiting ?? 0) > 0) items.push({ kind: 'worthALook', count: a.worthALookWaiting! });
+  if (a.accuracy && a.accuracy.below.length > 0) {
+    items.push({ kind: 'belowAccuracy', count: a.accuracy.below.length, target: a.accuracy.target, people: capped(a.accuracy.below.map((username) => ({ username }))) });
+  }
+  if (a.accuracy && a.accuracy.doubtful > 0) items.push({ kind: 'doubtfulReference', count: a.accuracy.doubtful });
   const s = a.storage;
   if (s && s.limitBytes !== null && s.limitBytes > 0 && s.usedBytes >= s.limitBytes * NEARLY_FULL) {
     items.push({ kind: 'storage', count: 1, level: s.usedBytes > s.limitBytes ? 'over' : 'nearlyFull', usedBytes: s.usedBytes, limitBytes: s.limitBytes });

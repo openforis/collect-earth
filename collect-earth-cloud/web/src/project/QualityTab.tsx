@@ -61,6 +61,7 @@ import { QualityAnswers } from "./QualityAnswers";
 import { QualityFlags } from "./QualityFlags";
 import { QualitySurvey } from "./QualitySurvey";
 import { QualityReference } from "./QualityReference";
+import { QualityWarnings } from "./QualityWarnings";
 import { QualityAssistant } from "./QualityAssistant";
 import { QualityDifferences, type PlotFocus } from "./QualityDifferences";
 import { NoteDialog, QualityNotes, type NoteDraft } from "./QualityNotes";
@@ -850,6 +851,8 @@ function TeamQualityTab({ projectId, view }: { projectId: string; view: ProjectV
           <QualityFlags projectId={projectId} canEdit folded />
         </>
       )}
+      {/* What the reference plots say of the collection so far, by layer (the reference, the questions, the people, the plots) */}
+      {view === "warnings" && <QualityWarnings projectId={projectId} />}
       {/* How many plots are checked twice, and which plots are reference plots, is set in Setup's Quality rules; their results are here */}
       {view === "checks" && <QualityReference projectId={projectId} canEdit forms={false} onSetup={() => navigate(pathFor({ name: "project", projectId, tab: "setup", view: "quality" }))} />}
       {view === "figures" && (
