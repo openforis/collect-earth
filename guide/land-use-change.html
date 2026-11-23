@@ -116,30 +116,38 @@
   <ul>
     <li><strong>Zoom out first.</strong> Look at a few hundred metres around the plot: the pattern of fields, the road, the river, the forest edge tell the land use better than the plot alone.</li>
     <li><strong>Then zoom in</strong> and read the sampling points: trees, shrubs, crops, bare soil, water, buildings. Tree crowns cast shadows; crops sit in fields with straight edges; plantations stand in rows.</li>
-    <li><strong>Check the image's date.</strong> The current image may be several years old in some places, and from a dry or a wet season. If it is old or unclear, the latest Sentinel-2 in Explorer (<span class="ui">Sentinel-2, last 12 months</span>) or Planet shows whether anything changed since.</li>
+    <li><strong>Check the image's date.</strong> Google Earth Web shows it at the bottom of the window. The current image may be several years old in some places, and from a dry or a wet season. If it is old or unclear, the latest Sentinel-2 in Explorer (<span class="ui">Sentinel-2, last 12 months</span>) or Planet shows whether anything changed since.</li>
     <li><strong>Land cover is not land use.</strong> A recently harvested forest with no trees is still forest land use if it will grow back; a field left fallow for a year is still cropland. Decide the use from the context and the history, not from the cover alone.</li>
   </ul>
+
+  <figure><img src="../img/screens/desktop-gew.png" alt="Collect Earth inside Google Earth Web: the plot list and form in a panel on the left, the plot drawn on the imagery" loading="lazy" width="1440" height="900"><figcaption>Collect Earth inside Google Earth Web: the plot and its sampling points on the current image.</figcaption></figure>
+  <figure><img src="../img/screens/luc-gew-seasons.jpg" alt="The same pasture and forest edge in Rondônia, Brazil, green on 15 March 2025 in the wet season and brown on 25 September 2026 in the dry season" loading="lazy" width="1456" height="700"><figcaption>The same land in two seasons (Rondônia, Brazil): the pasture is green in the wet season and brown in the dry season, while the evergreen forest stays the same. Compare images of the same season before deciding that something changed.</figcaption></figure>
 
   <h2 id="history">4. Going back in Google Earth Web</h2>
   <p>Google Earth Web keeps the earlier VHR images of most places. Open them with its <span class="ui">Historical imagery</span> control (<a href="https://developers.google.com/maps/documentation/earth/historical-imagery">Google's help</a>):</p>
   <ol class="steps">
     <li>In the Google Earth Web toolbar, click <span class="ui">Historical imagery</span>, or <span class="ui">View › Historical imagery</span>. The base map must be <span class="ui">Satellite</span>.</li>
-    <li>A timeline appears at the top right. Years with images are marked by dots, and smaller dots mark more images in a year. Click a year, or use <span class="ui">Previous</span> and <span class="ui">Next</span> to step through the images.</li>
+    <li>A bar opens under the toolbar: the date of the image shown, with <span class="ui">Previous</span> and <span class="ui">Next</span> arrows, and a timeline with a dot for each image of this place (larger dots mark the years). Click a dot, or step through the images with the arrows.</li>
     <li>Go to the image closest to your survey's reference date, then step forward image by image to see when the land changed between two of them.</li>
-    <li>To come back to the latest image, click <span class="ui">Last page</span>; click <span class="ui">Historical imagery</span> again to close the timeline. While it is open, 3D buildings are switched off.</li>
+    <li>To come back to the latest image, click the button beside the arrows (<span class="ui">Last page</span>, ⇥); click <span class="ui">Historical imagery</span> again to close the timeline. While it is open, 3D buildings are switched off.</li>
   </ol>
+  <figure><img src="../img/screens/luc-gew-history.jpg" alt="Google Earth Web with the Historical Imagery bar open: the date Sep 25, 2026 with Previous and Next arrows, and a timeline of image dates from 2018 to 2026" loading="lazy" width="1440" height="900"><figcaption>Historical imagery in Google Earth Web: the date of the image shown, the Previous and Next arrows, and the timeline with a dot for each image of this place (here 2018 to 2026).</figcaption></figure>
   <ul>
     <li><strong>Coverage varies.</strong> Some places have many dates, others one or two, and the dates differ from one area to the next. Note the date of the image you used.</li>
     <li><strong>Neighbouring tiles can differ in date</strong>: half the plot may be on one image and half on another. Look at the seam before deciding that something changed.</li>
     <li><strong>The history brackets the change</strong>: forest on the 2009 image and fields on the 2016 image say the change happened between those dates, not when. Explorer narrows it down (section 6).</li>
   </ul>
 
+  <figure><img src="../img/screens/luc-gew-2018.jpg" alt="Google Earth Web on 7 August 2018, the oldest image of this place: the left part of the view comes from a greener image of another date" loading="lazy" width="1440" height="900"><figcaption>The oldest image here, 7 August 2018. The left part of the view is a different, greener image: tiles of different dates sit side by side. History in Google Earth Web reaches only 2018 at this place.</figcaption></figure>
+
   <h2 id="gaps">5. Filling the gaps: Wayback and Planet</h2>
   <p>When Google Earth Web has no image near the date you need, the other VHR sources may have one. Switch them on in Collect Earth's <span class="ui">Settings › Imagery</span> (in a cloud project the coordinator does it); each opens on the plot with a button at the top of the panel.</p>
   <ul>
-    <li><strong>ESRI Wayback</strong> holds every version of Esri's World Imagery since 2014. Its versions are release dates, not the dates the images were taken, and many versions show the same image in a given place: compare those where the image of the plot actually changed.</li>
+    <li><strong>ESRI Wayback</strong> holds every version of Esri's World Imagery since 2014. Tick <span class="ui">Only versions with local changes</span> to list only the versions where the image of this place changed. A version's date is its release, not the date the image was taken: click the map for <span class="ui">imagery details</span>, which give the capture date, the satellite and the resolution. Older versions often hold images years older than their release.</li>
     <li><strong>Planet</strong>, with your own key in <span class="ui">Settings › Imagery › Planet API key</span>: <span class="ui">Daily images</span> to see exactly when something happened, or <span class="ui">Monthly mosaics</span>, one cloud-free picture a month, to follow a change month by month.</li>
   </ul>
+
+  <figure><img src="../img/screens/luc-wayback.jpg" alt="ESRI Wayback with the 2014-02-20 version selected: a black-and-white image and its details, DigitalGlobe WV01 image captured on 2010-07-27, 0.50 metre pixels" loading="lazy" width="1440" height="900"><figcaption>ESRI Wayback at the same place: the version released on 2014-02-20 holds an image taken on 27 July 2010, at 0.5&nbsp;m. That is eight years before Google Earth Web's oldest image here.</figcaption></figure>
 
   <h2 id="explorer">6. Dating the change in Explorer</h2>
   <p>Collect Earth Explorer shows the plot on satellite imagery from Google Earth Engine, with charts of the plot over the years. It opens on each plot with the dates your project set, and already loads the next plot while you work.</p>
@@ -149,6 +157,7 @@
     <li><span class="ui">Compare with</span> puts a second layer beside the first, <span class="ui">Left</span> and <span class="ui">Right</span>: the plot in 2000 against 2020, for example. Between two images of the same sensor, <span class="ui">Difference (NDVI change)</span> colours the loss and the gain of vegetation.</li>
     <li>Click a point in a chart to see that scene on the map (<span class="ui">Scene</span>): the image behind an odd value.</li>
   </ul>
+  <figure><img src="../img/screens/explorer-compare.jpg" alt="The Explorer comparing Landsat 2004 on the left with Landsat 2006 on the right, split by a handle across the plot" loading="lazy" width="1440" height="900"><figcaption>Compare with in Explorer: Landsat 2004 on the left, 2006 on the right, around the change year 2005 of this plot.</figcaption></figure>
   <h3 id="explorer-charts">The charts</h3>
   <p>The charts follow a vegetation index over time (NDVI by default: high for dense green vegetation, low for bare soil). A lasting drop means vegetation was removed; a slow rise means it grew back.</p>
   <ul>
@@ -160,6 +169,8 @@
     <li><strong>CCDC</strong> fits segments to the plot's Landsat history (NDFI or NDVI): a break between segments marks a change, found without choosing dates.</li>
   </ul>
   <p>A line above the charts sums up each series: the trend, a significant change year, and the date of the last image. Everything the Explorer shows, how to set it up and how to read each chart: <a href="explorer.html">Collect Earth Explorer</a>.</p>
+
+  <figure class="narrow"><img src="../img/screens/explorer-chart-change.png" alt="The Landsat NDVI chart with Trend and Change year on: a falling trend and a change in 2005, significant" loading="lazy" width="746" height="836"><figcaption>The Landsat NDVI chart of the same plot: a significant decrease since 1984, and a significant change in 2005.</figcaption></figure>
 
   <h2 id="ancillary">7. Ancillary data</h2>
   <p>Ancillary data explain a change the images show, and stop a false one from being recorded.</p>
@@ -176,6 +187,8 @@
       </tbody>
     </table>
   </div>
+
+  <figure class="narrow"><img src="../img/screens/explorer-chart-modis.png" alt="The MODIS NDVI chart with monthly rainfall bars underneath and the seasonal profile" loading="lazy" width="746" height="1180"><figcaption>MODIS NDVI with rainfall under it: the dry season (lowest in August) returns every year with the rains; a lasting drop that the rain does not explain is a change of land.</figcaption></figure>
 
   <h2 id="decide">8. Deciding and recording</h2>
   <ul>
@@ -212,6 +225,15 @@
     <li><strong>Why:</strong> no burned month in the MODIS chart and normal rainfall in 2011: a clearing for agriculture, not a fire or a drought.</li>
     <li><strong>Recorded:</strong> forest in 2000, cropland now, converted in 2011; sure, with the 2005 and current images and the Landsat change year as evidence.</li>
   </ol>
+
+  <h3 id="real-plot">A real plot: the one in the screenshots</h3>
+  <p>The screenshots on this page show one place, at a forest edge in Rondônia, Brazil (10°&nbsp;S, 63°&nbsp;W), and it shows why the sources are used together:</p>
+  <ul>
+    <li><strong>Now:</strong> Google Earth Web shows pasture with scattered trees beside the forest.</li>
+    <li><strong>Then, on VHR:</strong> Google Earth Web's history starts in August 2018, already pasture; Wayback's oldest version holds an image of July 2010, also pasture. No VHR image shows the land before it.</li>
+    <li><strong>When, on Landsat:</strong> Explorer's Landsat NDVI falls significantly over the period, with a significant change in 2005; comparing Landsat 2004 and 2006, and their NDVI difference, shows vegetation lost over the plot.</li>
+    <li><strong>So:</strong> the plot was most likely forest until about 2005 and pasture since. Only Landsat dates the change; the VHR images confirm the pasture from 2010 on. A survey asking for the land use in 2000 needs Landsat for that year here.</li>
+  </ul>
 
   <h2 id="organisers">11. For organisers</h2>
   <ul>
