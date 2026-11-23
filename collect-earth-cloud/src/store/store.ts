@@ -1,3 +1,4 @@
+import type { UploadInfo } from '../uploads.js';
 import type {
   AiRunEnd,
   AiRunProgress,
@@ -402,6 +403,18 @@ export interface Store {
   consumePasswordReset(token: string, now: number): Promise<string | null>;
   /** Whether a reset token would be taken now (known, not used, not expired), without using it. */
   checkPasswordReset(token: string, now: number): Promise<boolean>;
+
+  // --- A large file sent in parts (src/uploads.ts): an account's, never a project's ---
+  /** A new upload of this account, which replaces the ones it had; the expired ones of anyone (made before `expiredBefore`) go too. Its id. */
+  createUpload(userId: string, input: { bytes: number; partBytes: number; name: string }, expiredBefore: number): Promise<string>;
+  /** An upload of this account with the parts it has so far; null when it is not theirs or not there. */
+  getUpload(uploadId: string, userId: string): Promise<UploadInfo | null>;
+  /** Stores (or replaces) part `n` of an upload of this account; false when the upload is not theirs or not there. */
+  putUploadPart(uploadId: string, userId: string, n: number, data: Buffer): Promise<boolean>;
+  /** One part's bytes; null when it is not there. */
+  readUploadPart(uploadId: string, n: number): Promise<Buffer | null>;
+  /** Deletes an upload of this account with its parts (nothing when it is not theirs or not there). */
+  deleteUpload(uploadId: string, userId: string): Promise<void>;
 
   // --- Memberships (Phase A, tenancy model §4b) ---
 

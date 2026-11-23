@@ -1,3 +1,4 @@
+import type { UploadInfo } from '../uploads.js';
 import { renameOperatorInSummary, renameOperatorInXml } from '../anonymize.js';
 import { randomUUID } from 'node:crypto';
 import { generateShareToken, generateToken, hashToken, SESSION_IDLE_MS, SESSION_TOUCH_MS } from '../auth.js';
@@ -268,6 +269,7 @@ export class InMemoryStore implements Store {
   private readonly excludedMembers = new Map<string, { at: number; reason: string | null }>();
   private readonly invites = new Map<string, InviteEntry>(); // invite token hash -> entry
   private readonly resets = new Map<string, ResetEntry>(); // reset token hash -> entry
+  private readonly uploads = new Map<string, { userId: string; bytes: number; partBytes: number; name: string; createdAt: number; parts: Map<number, Buffer> }>(); // upload id -> a file in parts
   /** Progress links (share_links): token hash -> link. */
   private readonly shareLinks = new Map<string, ShareLinkEntry>();
   /** Email digests (Task 19): userId -> confirmation and the mails' language and zone. */
@@ -1605,6 +1607,34 @@ export class InMemoryStore implements Store {
     }
     user.isPlatformAdmin = on;
     return 'ok';
+  }
+
+  async createUpload(userId: string, input: { bytes: number; partBytes: number; name: string }, expiredBefore: number): Promise<string> {
+    for (const [id, u] of this.uploads) if (u.userId === userId || u.createdAt < expiredBefore) this.uploads.delete(id);
+    const id = randomUUID();
+    this.uploads.set(id, { userId, ...input, createdAt: Date.now(), parts: new Map() });
+    return id;
+  }
+
+  async getUpload(uploadId: string, userId: string): Promise<UploadInfo | null> {
+    const u = this.uploads.get(uploadId);
+    if (!u || u.userId !== userId) return null;
+    return { id: uploadId, bytes: u.bytes, partBytes: u.partBytes, name: u.name, parts: [...u.parts].map(([n, data]) => ({ n, bytes: data.length })).sort((a, b) => a.n - b.n) };
+  }
+
+  async putUploadPart(uploadId: string, userId: string, n: number, data: Buffer): Promise<boolean> {
+    const u = this.uploads.get(uploadId);
+    if (!u || u.userId !== userId) return false;
+    u.parts.set(n, Buffer.from(data));
+    return true;
+  }
+
+  async readUploadPart(uploadId: string, n: number): Promise<Buffer | null> {
+    return this.uploads.get(uploadId)?.parts.get(n) ?? null;
+  }
+
+  async deleteUpload(uploadId: string, userId: string): Promise<void> {
+    if (this.uploads.get(uploadId)?.userId === userId) this.uploads.delete(uploadId);
   }
 
   async createPasswordReset(userId: string, expiresAt: number): Promise<string | null> {

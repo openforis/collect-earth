@@ -52,6 +52,7 @@ import { PlotIndexCache, registerPlotSearchRoutes } from './routes/plotSearch.js
 import { registerPlotsGeoRoutes } from './routes/plotsGeo.js';
 import { registerProgressRoutes } from './routes/progress.js';
 import { registerBackupImportRoutes } from './routes/backupImport.js';
+import { registerUploadRoutes } from './routes/uploads.js';
 import { registerCeoImportRoutes } from './routes/ceoImport.js';
 import { registerRepeatSurveyRoutes } from './routes/repeatSurvey.js';
 import { registerPlotLayoutRoutes } from './routes/plotLayout.js';
@@ -388,6 +389,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   await registerProjectRoutes(app, store, config, places);
   await registerCeoImportRoutes(app, store);
   await registerBackupImportRoutes(app, store);
+  await registerUploadRoutes(app, store);
   await registerRepeatSurveyRoutes(app, store);
   await registerCeoShapesRoutes(app, store);
   await registerCollectImportRoutes(app, store);

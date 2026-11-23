@@ -13,7 +13,7 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { useState, type FormEvent } from "react";
-import { base64Of, importBackup, mergeGridFiles, previewBackupImport, zipCsvFiles, type BackupFiles, type BackupImportPreview, type PlotLayout } from "../api";
+import { importBackup, sendInParts, mergeGridFiles, previewBackupImport, zipCsvFiles, type BackupFiles, type BackupImportPreview, type PlotLayout } from "../api";
 import { useApp } from "../appContext";
 import { csvText, layoutProblem, layoutSize, MAX_BACKUP_BYTES, megabytes, round2 } from "../backupImportView";
 import { ErrorAlert } from "../components/ErrorAlert";
@@ -31,6 +31,8 @@ export function BackupImportDialog({ onClose }: { onClose: () => void }) {
   const t = useT();
   const { refreshMe } = useApp();
   const [files, setFiles] = useState<BackupFiles | null>(null);
+  /** How far the backup is sent, 0..1, while it is */
+  const [sending, setSending] = useState<number | null>(null);
   const [preview, setPreview] = useState<BackupImportPreview | null>(null);
   const [name, setName] = useState("");
   const [layout, setLayout] = useState<PlotLayout | null>(null);
@@ -72,19 +74,21 @@ export function BackupImportDialog({ onClose }: { onClose: () => void }) {
       return;
     }
     return working(async () => {
-      const backup = base64Of(new Uint8Array(await file.arrayBuffer()));
+      // in parts, each a request of its own: the import then names the upload
+      setSending(0);
+      const upload = await sendInParts(file, file.name, setSending).finally(() => setSending(null));
       // Collect's own backup (.collect, .collect-backup) holds the survey's grids: they are the plot file, joined as a project file's are
       const grids = await zipCsvFiles(file, "files/ce_grid/");
       const { merged, separate } = grids.length > 0 ? await mergeGridFiles(grids, file.name.replace(/\.[^.]*$/, "") + "_plots.csv") : { merged: null, separate: [] };
       const grid = merged ?? (separate.length === 1 ? separate[0] : null);
       setGridsLeftOut(merged ? separate.length : grid ? 0 : grids.length);
-      if (!grid) return show({ backup, plotFile: null, plotFileName: null });
+      if (!grid) return show({ upload, plotFile: null, plotFileName: null });
       try {
-        await show({ backup, plotFile: csvText(new Uint8Array(await grid.arrayBuffer())), plotFileName: grid.name });
+        await show({ upload, plotFile: csvText(new Uint8Array(await grid.arrayBuffer())), plotFileName: grid.name });
       } catch (err) {
         // the grids cannot be used (not in latitude and longitude, say): the backup without them, and why
         setGridsLeftOut(grids.length);
-        await show({ backup, plotFile: null, plotFileName: null });
+        await show({ upload, plotFile: null, plotFileName: null });
         setError(err);
       }
     });
@@ -150,7 +154,8 @@ export function BackupImportDialog({ onClose }: { onClose: () => void }) {
               <Typography variant="body2" color="text.secondary">
                 {t("backupImport.how")}
               </Typography>
-              <FileDrop label={t("backupImport.drop")} buttonLabel={t("backupImport.choose")} accept=".zip,.collect,.collect-backup,application/zip" disabled={busy} onFiles={readBackup} />
+              <FileDrop label={t("backupImport.drop")} buttonLabel={t("backupImport.choose")} accept=".zip,.collect,.collect-backup,.collect-data,application/zip" disabled={busy} onFiles={readBackup} />
+              {sending !== null && <Typography role="status">{t("backupImport.sending", { percent: Math.round(sending * 100) })}</Typography>}
               {tooLarge !== null && <Alert severity="error">{t("backupImport.tooLarge", { size: megabytes(tooLarge), max: megabytes(MAX_BACKUP_BYTES) })}</Alert>}
               {busy && <LinearProgress aria-label={t("backupImport.reading")} />}
             </Stack>

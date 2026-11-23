@@ -106,18 +106,33 @@ export function importCeoProject(
 }
 
 export type { BackupImportAnswer, BackupImportPreview, PlotLayout } from "../../../src/wire/projects";
+import type { UploadStarted } from "../../../src/wire/projects";
 
-/** A backup and the project's original plot file, as sent: the zip in base64, the plot file as text. */
+/** A backup and the project's original plot file, as sent: the upload that holds the zip (sendInParts), the plot file as text. */
 export interface BackupFiles {
-  backup: string;
+  upload: string;
   plotFile: string | null;
   plotFileName: string | null;
 }
 
 const backupBody = (files: BackupFiles) => ({
-  backup: files.backup,
+  upload: files.upload,
   ...(files.plotFile !== null ? { plotFile: files.plotFile, plotFileName: files.plotFileName ?? undefined } : {}),
 });
+
+/**
+ * Sends a file in parts, each a request of its own (a backup is larger than one request holds), and gives the upload's
+ * id for an import to name. The server keeps one upload per account, for a few hours, until an import uses it.
+ */
+export async function sendInParts(file: Blob, name: string, onProgress?: Progress): Promise<string> {
+  const started = await request<UploadStarted>("POST", "/v1/uploads", { json: { bytes: file.size, name } });
+  for (let n = 0; n < started.parts; n++) {
+    const part = file.slice(n * started.partBytes, (n + 1) * started.partBytes);
+    await upload<void>("PUT", `/v1/uploads/${started.uploadId}/parts/${n}`, part, "application/octet-stream", (f) => onProgress?.((n + f) / started.parts));
+  }
+  onProgress?.(1);
+  return started.uploadId;
+}
 
 /** A file's bytes in base64, read in pieces (String.fromCharCode takes a limited number of arguments). */
 export function base64Of(bytes: Uint8Array): string {
@@ -239,12 +254,15 @@ export function uploadProjectFile(projectId: string, file: Blob, onProgress?: Pr
 export type { CollectImportPreview, CollectImportResult } from "../../../src/wire/projects";
 
 /** `query`: collectImportQuery, the accounts the coordinator named for the operators. */
-export function previewCollectImport(projectId: string, file: Blob, query: string, onProgress?: Progress): Promise<CollectImportPreview> {
-  return upload<CollectImportPreview>("POST", `${p(projectId)}/records/import/preview${query}`, file, "application/zip", onProgress);
+/** `uploadId`: the backup, sent in parts before (sendInParts). */
+const importQuery = (uploadId: string, query: string) => `?upload=${encodeURIComponent(uploadId)}${query.replace(/^\?/, "&")}`;
+
+export function previewCollectImport(projectId: string, uploadId: string, query: string): Promise<CollectImportPreview> {
+  return request("POST", `${p(projectId)}/records/import/preview${importQuery(uploadId, query)}`);
 }
 
-export function importCollectData(projectId: string, file: Blob, query: string, onProgress?: Progress): Promise<CollectImportResult> {
-  return upload<CollectImportResult>("POST", `${p(projectId)}/records/import${query}`, file, "application/zip", onProgress);
+export function importCollectData(projectId: string, uploadId: string, query: string): Promise<CollectImportResult> {
+  return request("POST", `${p(projectId)}/records/import${importQuery(uploadId, query)}`);
 }
 
 /** What the server did about round in the current project file; null before any upload. */

@@ -4,10 +4,11 @@ import type { MessageKey } from "./i18n";
 import type { PlotLayout } from "./api";
 
 /**
- * The largest backup sent in one go: it travels in base64 (a third larger) inside a request of at most 32 MB, with the
- * plot file beside it.
+ * The largest backup the server takes (src/uploads.ts MAX_UPLOAD_BYTES): it is sent in parts, each a request of its own
+ * (api sendInParts), and the import names the upload. In one request it was 23 MB at most (base64 inside 32 MB): a
+ * country's data did not fit.
  */
-export const MAX_BACKUP_BYTES = 23 * 1024 * 1024;
+export const MAX_BACKUP_BYTES = 70 * 1024 * 1024;
 
 /** Megabytes, one decimal, as the message shows them. */
 export const megabytes = (bytes: number) => (bytes / (1024 * 1024)).toFixed(1);

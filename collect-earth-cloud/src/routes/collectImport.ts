@@ -5,11 +5,14 @@
 //
 // - POST /v1/projects/:pid/records/import/preview (zip body) -> counts, operators, problems
 // - POST /v1/projects/:pid/records/import (zip body) -> { stored, kept, ... }
+// Either takes `?upload=<id>` in place of the body: the backup sent in parts before (POST /v1/uploads), for one larger
+// than a request holds; the import deletes the upload.
 // Both take `?operators={"Anna Perez":"anna"}`: the account to keep an operator's records under (it becomes a member,
 // as the CEO import does with the accounts the coordinator names). An operator not named keeps the name Collect Earth
 // wrote, as a sync with a project token keeps it.
 import type { FastifyReply, FastifyRequest, FastifyInstance } from 'fastify';
 import { audit } from '../activity.js';
+import { assembleUpload } from '../uploads.js';
 import { BackupError, openBackup, stepOf, type BackupZip } from '../backupImport.js';
 import { CepError, readCep, type ZipEntryReader } from '../cep.js';
 import { backupReader, surveyUriOf, type ImportedRecord } from '../collectImport.js';
@@ -43,7 +46,23 @@ const id = (recordKey: string, operator: string) => `${recordKey}\u0000${operato
 /** The backup read against the project, or null when the reply already refuses it. */
 async function prepare(store: Store, request: FastifyRequest, reply: FastifyReply): Promise<Prepared | null> {
   const projectId = request.membership!.projectId;
-  const zip = request.body;
+  // The backup: the request's body, or the upload ?upload= names (sent in parts before, POST /v1/uploads: a backup
+  // larger than one request holds), which must be the asker's own
+  const uploadId = (request.query as { upload?: unknown } | null)?.upload;
+  let zip: unknown = request.body;
+  if (typeof uploadId === 'string' && uploadId !== '') {
+    const userId = request.membership!.userId;
+    if (!userId) {
+      void reply.code(400).send({ error: 'bad_request', reason: 'an upload is an account\'s: sign in to import one' });
+      return null;
+    }
+    const sent = await assembleUpload(store, uploadId, userId);
+    if ('error' in sent) {
+      void reply.code(sent.error === 'upload_not_found' ? 404 : 409).send(sent);
+      return null;
+    }
+    zip = sent.file;
+  }
   if (!Buffer.isBuffer(zip) || zip.length === 0) {
     void reply.code(400).send({ error: 'bad_request', reason: 'expected the backup zip as the body' });
     return null;
@@ -209,6 +228,10 @@ export async function registerCollectImportRoutes(app: FastifyInstance, store: S
     const result: CollectImportResult = { ...counts(prepared), stored, kept: prepared.records.length - stored };
     await audit(store, request, 'project.imported', { source: 'collect-earth', records: stored, kept: result.kept, problems: prepared.problemCount, operators: prepared.operators.length });
     request.log.info({ projectId, stored, kept: result.kept }, 'records imported from a Collect Earth backup');
+    const uploadId = (request.query as { upload?: unknown } | null)?.upload;
+    if (typeof uploadId === 'string' && uploadId !== '' && request.membership!.userId) {
+      await store.deleteUpload(uploadId, request.membership!.userId).catch((err: unknown) => request.log.warn({ err }, 'the upload could not be deleted'));
+    }
     return reply.send(result);
   });
 }

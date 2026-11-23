@@ -18,6 +18,7 @@ import { backupReader } from '../collectImport.js';
 import { madeProjectFile } from '../ceo/projectFile.js';
 import type { PlotLayout } from '../ceo/plots.js';
 import { checkUploadFits } from '../limits.js';
+import { assembleUpload } from '../uploads.js';
 import { applyLww, recordEventOf } from '../lww.js';
 import { plotFileCsv, type DesignedPlot } from '../plotDesign.js';
 import { isNumber, parsePlotFile } from '../plots.js';
@@ -29,8 +30,10 @@ import { plotFileFormat, type PlotFileFormat } from './plotDesign.js';
 import { creationRefusal, IMPORT_CHUNK, teamAccount } from './projects.js';
 
 interface ImportBody {
-  /** the backup zip, in base64 */
+  /** the backup zip, in base64: a small one, in the request itself */
   backup?: unknown;
+  /** or the id of an upload that holds it, sent in parts before (POST /v1/uploads): a backup of up to MAX_UPLOAD_BYTES */
+  upload?: unknown;
   /** the project's original plot file (CSV), as text: the plots without records come from it */
   plotFile?: unknown;
   /** its name, for the stored plot file */
@@ -69,14 +72,24 @@ function readAll(zip: BackupZip): ReadBackup {
   return { zip, records, unreadable };
 }
 
-/** The body's backup, opened and read, or the answer refusing it */
-function backupOf(body: ImportBody, reply: FastifyReply): ReadBackup | null {
-  if (typeof body.backup !== 'string' || body.backup === '') {
-    void reply.code(400).send({ error: 'bad_request', reason: 'backup must be the zip of the backup, in base64' });
+/** The body's backup (in it, or the upload it names, which must be the asker's), opened and read, or the answer refusing it */
+async function backupOf(store: Store, userId: string, body: ImportBody, reply: FastifyReply): Promise<ReadBackup | null> {
+  let zip: Buffer;
+  if (typeof body.upload === 'string' && body.upload !== '') {
+    const sent = await assembleUpload(store, body.upload, userId);
+    if ('error' in sent) {
+      void reply.code(sent.error === 'upload_not_found' ? 404 : 409).send(sent);
+      return null;
+    }
+    zip = sent.file;
+  } else if (typeof body.backup === 'string' && body.backup !== '') {
+    zip = Buffer.from(body.backup, 'base64');
+  } else {
+    void reply.code(400).send({ error: 'bad_request', reason: 'backup must be the zip of the backup, in base64, or upload the id of the upload that holds it' });
     return null;
   }
   try {
-    return readAll(openBackup(Buffer.from(body.backup, 'base64')));
+    return readAll(openBackup(zip));
   } catch (e) {
     if (e instanceof BackupError) {
       void reply.code(e.code === 'too_large' ? 413 : 400).send({ error: e.code === 'too_large' ? 'backup_too_large' : 'backup_unreadable', reason: e.message });
@@ -211,7 +224,7 @@ function preview(read: ReadBackup, plotFile: GivenPlotFile | null, firstRound: s
 export async function registerBackupImportRoutes(app: FastifyInstance, store: Store): Promise<void> {
   app.post('/v1/projects/from-backup/preview', { preHandler: requireSession(store) }, async (request: FastifyRequest, reply: FastifyReply) => {
     const body = (request.body ?? {}) as ImportBody;
-    const read = backupOf(body, reply);
+    const read = await backupOf(store, request.userId!, body, reply);
     if (!read) return reply;
     // The survey's own keys, as the project would have them (a survey without round gets one: id only in the file)
     const survey = read.zip.survey;
@@ -228,7 +241,7 @@ export async function registerBackupImportRoutes(app: FastifyInstance, store: St
     const refused = await creationRefusal(store, user);
     if (refused) return reply.code(403).send(refused);
     const body = (request.body ?? {}) as ImportBody;
-    const read = backupOf(body, reply);
+    const read = await backupOf(store, request.userId!, body, reply);
     if (!read) return reply;
     const original = read.zip.survey;
     let layout: PlotLayout = suggestedLayout(original);
@@ -419,6 +432,8 @@ export async function registerBackupImportRoutes(app: FastifyInstance, store: St
         request.log.error({ err }, 'audit log write failed');
       }
       request.log.info({ projectId, records, round: info.state }, 'project made from a Collect Earth backup');
+      // the upload did its work: its parts are not kept (an upload nobody imports goes by itself in a few hours)
+      if (typeof body.upload === 'string' && body.upload !== '') await store.deleteUpload(body.upload, user.id).catch((err: unknown) => request.log.warn({ err }, 'the upload could not be deleted'));
       return reply.code(201).send({
         projectId,
         name,
