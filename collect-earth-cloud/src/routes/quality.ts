@@ -4,7 +4,7 @@ import { isUuid } from '../accountRules.js';
 import { audit } from '../activity.js';
 import { answerStats, type AnswerFilter, type AnswerStats } from '../answerStats.js';
 import { isDate, isTimeZone } from '../days.js';
-import { FLAG_KINDS, fastSecondsOf, type Flag, MAX_FAST_SECONDS, MIN_FAST_SECONDS, patternFlags, plotOperators, plotsOf, resubmittedAfterRecheck, seenOf, type DecisionSeen, type FlagKind, type FlagTable } from '../flags.js';
+import { FLAG_KINDS, fastSecondsOf, type Flag, MAX_FAST_SECONDS, MAX_QUEUE_FLAGS, MIN_FAST_SECONDS, patternFlags, plotOperators, plotsOf, resubmittedAfterRecheck, seenOf, type DecisionSeen, type FlagKind, type FlagTable } from '../flags.js';
 import { columnValues, MAX_LISTED_VALUES, plotColumns, plotsWithValue } from '../plotColumns.js';
 import { plotFileOf, plotIdsOf } from '../plotFileCache.js';
 import { unitIndex } from '../plotSearch.js';
@@ -220,8 +220,8 @@ export async function registerQualityRoutes(
     }
     // The answer options of the questions shown, so the tab shows "Forest", not "F".
     const options = answerOptions(outline, [...figures.report.questions.map((q) => q.key), ...notes.map((n) => n.questionKey)]);
-    // Every differing pair is for the review queue and the bulk decisions only.
-    const { pairs: _pairs, ...report } = figures.report;
+    // Every differing pair and every data problem are for the review queue and the bulk decisions only.
+    const { pairs: _pairs, everyProblem: _everyProblem, ...report } = figures.report;
     // The people left out of these figures (a coordinator's choice), with why.
     const excluded = members.filter((m) => m.excluded).map((m) => ({ username: m.username, reason: m.excluded!.reason }));
     const answer: QualityAnswer = {
@@ -387,9 +387,18 @@ export async function registerQualityRoutes(
     }
     const fastSeconds = fastSecondsOf(settings);
     const flagKind = kind !== null && (FLAG_KINDS as readonly string[]).includes(kind) ? (kind as FlagKind) : null;
-    const flags = patternFlags(figures, decisions, { fastSeconds, person, kind: flagKind });
+    // Every flag, not a listing's newest 500: the plots of the others were never shown, and the queue read empty once
+    // those 500 were decided. Beyond MAX_QUEUE_FLAGS, the newest of the plots still to decide (the queue's own rule:
+    // no decision, or saved again after it), so deciding some brings the next.
+    const decidedPlots = new Set(decisions.map((d) => d.plot));
+    const waiting = (f: Flag) => !decidedPlots.has(f.plot) || f.kind === 'edited_after_decision';
+    const queueFlags = (who: string | null, which: FlagKind | null) => {
+      const all = patternFlags(figures, decisions, { fastSeconds, person: who, kind: which, limit: MAX_QUEUE_FLAGS });
+      return all.flags.length < MAX_QUEUE_FLAGS ? all : patternFlags(figures, decisions, { fastSeconds, person: who, kind: which, limit: MAX_QUEUE_FLAGS, listed: waiting });
+    };
+    const flags = queueFlags(person, flagKind);
     // The person menu names everyone, whatever the filters: everyone's flags when filtered.
-    const everyones = person !== null || flagKind !== null ? patternFlags(figures, decisions, { fastSeconds }).flags : flags.flags;
+    const everyones = person !== null || flagKind !== null ? queueFlags(null, null).flags : flags.flags;
     // The asker's own plots, marked (someone else had better decide them): those they assessed, and their copies,
     // checked or not yet (a check to make blind is theirs, Decision 10)
     const { role, userId } = request.membership!;
@@ -506,8 +515,8 @@ export async function registerQualityRoutes(
       counts: queue.counts,
       // the person filter's names: a coordinator's (a reviewer has no such filter)
       people: coordinatorAsks ? queue.people : [],
-      // The flags looked at are the newest MAX_LISTED_FLAGS of those matching the filters.
-      flagsCapped: flags.total > flags.flags.length,
+      // More flags than the queue takes (MAX_QUEUE_FLAGS): the newest of the plots still to decide are in it.
+      flagsCapped: flags.flags.length >= MAX_QUEUE_FLAGS,
       labels,
       options: answerOptions(outline, keys),
       computedAt: figures.computedAt,

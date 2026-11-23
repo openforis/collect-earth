@@ -364,6 +364,15 @@ function QueueCard({
             </Button>
           ))}
         </Stack>
+        {/* What the four buttons do, for someone new to the queue; the keys as a hint, not a heading (the buttons carry their numbers) */}
+        <Typography variant="body2" color="text.secondary" component="p" sx={{ m: 0 }}>
+          {t("queue.decisionsHint")}
+          <MoreInfo text={t("queue.decisionsHelp")} />
+          <Box component="span" id="queue-keys" sx={{ display: { xs: "none", sm: "inline" }, ml: 2 }}>
+            {t("queue.keysHint")}
+            <MoreInfo text={t("queue.keys")} />
+          </Box>
+        </Typography>
         <Stack direction="row" spacing={1}>
           <Button size="small" onClick={() => onMove(-1)} disabled={!canMoveBack} aria-keyshortcuts="K">
             {t("queue.previous")}
@@ -636,7 +645,7 @@ export function ReviewQueue({
           <Typography variant="h2" id="queue-title">
             {t("queue.title")}
           </Typography>
-          <Explain text={t("queue.explain.short")} more={t("queue.explain")} />
+          <Explain text={t(mode === "list" ? "queue.explainList.short" : "queue.explain.short")} more={t("queue.explain")} />
           <ToggleButtonGroup
             size="small"
             exclusive
@@ -653,12 +662,6 @@ export function ReviewQueue({
             <ToggleButton value="card">{t("reviewList.view.card")}</ToggleButton>
             <ToggleButton value="list">{t("reviewList.view.list")}</ToggleButton>
           </ToggleButtonGroup>
-          {mode === "card" && (
-            <Box component="p" id="queue-keys" sx={{ display: { xs: "none", sm: "block" }, m: 0, p: 1.5, bgcolor: "action.hover", borderRadius: 1, typography: "body2" }}>
-              {t("queue.keys.short")}
-              <MoreInfo text={t("queue.keys")} />
-            </Box>
-          )}
           {/* What was decided, said to screen readers (the page moves on by itself). */}
           <Box role="status" aria-live="polite" sx={visuallyHidden}>
             {announce}

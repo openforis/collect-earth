@@ -135,7 +135,8 @@ export const ATTENTION_PLACE: Record<AttentionKind, { tab: ProjectTab; view?: st
   neverDownloaded: PEOPLE,
   notAssigned: { tab: "setup", view: "plots", go: "progress.goPlots" },
   oldUnsentWork: PEOPLE,
-  differencesWaiting: { tab: "quality", go: "progress.goQuality" },
+  differencesWaiting: { tab: "quality", go: "progress.goQueue" },
+  worthALook: { tab: "quality", go: "progress.goQueue" },
   // The space used is on Setup's overview
   storage: { tab: "setup", go: "progress.goSetup" },
   oldProjectFile: PEOPLE,
@@ -171,6 +172,8 @@ export function attentionText(t: Translate, item: AttentionItem, language: strin
       return { title: t("attention.lateTitle"), text: [t(one ? "attention.lateOne" : "attention.late", { count })] };
     case "differencesWaiting":
       return { title: t("attention.differencesTitle"), text: [t(one ? "attention.differencesOne" : "attention.differences", { count })] };
+    case "worthALook":
+      return { title: t("attention.worthALookTitle"), text: [t(one ? "attention.worthALookOne" : "attention.worthALook", { count })] };
     case "storage":
       return {
         title: t(item.level === "over" ? "attention.storageOverTitle" : "attention.storageTitle"),

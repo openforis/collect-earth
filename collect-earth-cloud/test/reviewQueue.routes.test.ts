@@ -324,6 +324,49 @@ describe('the review queue: GET /quality/queue, decisions by reviewers, POST /qu
     expect(body.items.find((i: { plot: string }) => i.plot === '505').differences[0]).toMatchObject({ fields: [], changed: true });
   });
 
+  it('every flagged plot is in the queue, beyond the 500 flags a listing shows; one decision by the filter takes them all', async () => {
+    // 700 plots a person answered 5 s apart: 699 very fast (the full mapathon run of 21 Nov 2026 had 2,154; its
+    // reviewers were shown the newest 500 and then an empty queue)
+    const csv = ['id,lat,lon', ...Array.from({ length: 800 }, (_, i) => `${i + 1},0,0`)].join('\n');
+    await call('PUT', '/csv-files/plots.csv', owner.token, csv, { 'content-type': 'text/csv' });
+    const records = [];
+    for (let i = 100; i < 800; i++) records.push(main(i, 'zoe', 10_000 + i * 5));
+    expect((await batchRequest(ctx.app, pid, projectToken, records)).statusCode).toBe(200);
+    const queue = await fresh('/quality/queue?kind=very_fast&person=zoe');
+    expect(queue.total).toBe(699);
+    expect(queue.flagsCapped).toBe(false);
+    // the oldest of them too (a listing's 500 newest end at plot 300)
+    const oldest = await fresh('/quality/review-list?state=waiting&kind=very_fast&q=101');
+    expect(oldest.lines.map((l: { plot: string }) => l.plot)).toContain('101');
+    // ana's plot 6 with them
+    expect((await fresh('/quality/review-list?state=waiting&kind=very_fast&limit=1')).total).toBe(700);
+    // a listing of the flags is still its newest 500, counted in all
+    const listing = (await call('GET', '/quality/flags?kind=very_fast', owner.token)).json();
+    expect(listing.flags).toHaveLength(500);
+    expect(listing.total).toBe(700);
+    const done = await call('POST', '/quality/decisions:apply', owner.token, { filter: { state: 'waiting', kind: 'very_fast' }, decision: 'first' });
+    expect(done.statusCode, done.body).toBe(200);
+    expect(done.json().count).toBe(700);
+    expect((await fresh('/quality/queue?kind=very_fast')).total).toBe(0);
+    // decided, they keep their flag in the list of the decided plots
+    const decided = await fresh('/quality/review-list?state=decided&kind=very_fast&limit=1');
+    expect(decided.total).toBe(700);
+  });
+
+  it('every record of a plot in no plot file is in the queue, beyond the 500 problems the report lists', async () => {
+    const records = [];
+    for (let i = 1000; i < 1600; i++) records.push(main(i, 'zoe', 100_000 + i * 100));
+    expect((await batchRequest(ctx.app, pid, projectToken, records)).statusCode).toBe(200);
+    const queue = await fresh('/quality/queue?kind=no_plot');
+    expect(queue.total).toBe(600);
+    const report = (await call('GET', '/quality', owner.token)).json();
+    expect(report.problems).toHaveLength(500);
+    expect(report.problemsTotal).toBe(600);
+    // what the queue is made from is not sent
+    expect(report.everyProblem).toBeUndefined();
+    expect(report.pairs).toBeUndefined();
+  });
+
   it('pages by cursor: plots decided meanwhile by someone else make no plot skipped', async () => {
     const csv = ['id,lat,lon', ...Array.from({ length: 120 }, (_, i) => `${i + 1},0,0`)].join('\n');
     await call('PUT', '/csv-files/plots.csv', owner.token, csv, { 'content-type': 'text/csv' });

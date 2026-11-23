@@ -38,6 +38,12 @@ export const MIN_SAME_RUN = 3;
 export const MIN_SAME_ANSWERS = 3;
 /** Flags listed in one answer, newest first (the counts are of all of them). */
 export const MAX_LISTED_FLAGS = 500;
+/**
+ * Flags the review queue is made from (as many as the differing pairs it takes, MAX_PAIRS): every flag of a project
+ * but the very largest. With the 500 of a listing, a project of 2,154 flags showed its reviewers 500 plots and
+ * then an empty queue (the full mapathon run of 21 Nov 2026).
+ */
+export const MAX_QUEUE_FLAGS = 200_000;
 /** Required questions a table keeps (more are left out). */
 const MAX_REQUIRED = 65_000;
 
@@ -421,6 +427,10 @@ export interface FlagOptions {
    * assessor's quick saves would say so).
    */
   hidden?: ReadonlySet<string> | null;
+  /** Most flags listed (default MAX_LISTED_FLAGS, what an answer sends; the review queue takes MAX_QUEUE_FLAGS). */
+  limit?: number;
+  /** Only the flags passing this are listed (the counts stay of all): the queue's, of plots still to decide, when there are more than it takes. */
+  listed?: ((flag: Flag) => boolean) | null;
 }
 
 /** A decision as the flags read it; `seen`: the records of its plot when it was made (null: not kept). */
@@ -464,11 +474,15 @@ export function patternFlags(
     }
     return c;
   };
+  const listed = options.listed ?? null;
+  const list = (flag: Flag) => {
+    if (listed === null || listed(flag)) all.push(flag);
+  };
   const add = (flag: Flag) => {
     if (when !== null && (flag.at === null || !when(flag.at))) return;
     if (hidden !== null && hidden.has(flag.plot)) return;
     countFor(flag.operator)[flag.kind] += 1;
-    if ((person === null || flag.operator === person) && (kind === null || flag.kind === kind) && (onlyPlot === null || flag.plot === onlyPlot)) all.push(flag);
+    if ((person === null || flag.operator === person) && (kind === null || flag.kind === kind) && (onlyPlot === null || flag.plot === onlyPlot)) list(flag);
   };
   const plotOf = (row: number) => t.units[t.unit[row]];
   // A plot the viewer may not see is not named in another plot's flag either (Decision 10).
@@ -552,14 +566,15 @@ export function patternFlags(
   for (const c of when === null ? (report.problemsByPerson ?? []) : []) {
     if (c.kind === 'two_main' || c.kind === 'no_plot') countFor(c.operator)[c.kind] += c.count;
   }
-  // Hidden plots' problems out of those counts: the listed ones (the report lists up to
-  // MAX_PROBLEMS in plot order; beyond them a hidden plot's problem stays counted).
+  // Hidden plots' problems out of those counts (every problem the report kept: beyond MAX_PAIRS of them a hidden
+  // plot's problem stays counted).
+  const problems = report.everyProblem ?? report.problems;
   if (hidden !== null && when === null) {
-    for (const p of report.problems) {
+    for (const p of problems) {
       if ((p.kind === 'two_main' || p.kind === 'no_plot') && hidden.has(p.plot)) countFor(p.operator)[p.kind] -= 1;
     }
   }
-  const groupsForTimes = report.problems.length > 0 ? groupIndexOf(f) : null;
+  const groupsForTimes = problems.length > 0 ? groupIndexOf(f) : null;
   const savedAt = (plot: string, operator: string): number | null => {
     const g = groupsForTimes?.get(plot);
     if (g === undefined) return null;
@@ -569,11 +584,11 @@ export function patternFlags(
     }
     return at;
   };
-  for (const p of when === null ? report.problems : []) {
+  for (const p of when === null ? problems : []) {
     if (p.kind !== 'two_main' && p.kind !== 'no_plot') continue;
     if (hidden !== null && hidden.has(p.plot)) continue;
     if ((person !== null && p.operator !== person) || (kind !== null && p.kind !== kind) || (onlyPlot !== null && p.plot !== onlyPlot)) continue;
-    all.push({ kind: p.kind, plot: p.plot, operator: p.operator, at: savedAt(p.plot, p.operator), details: { recordKey: p.recordKey } });
+    list({ kind: p.kind, plot: p.plot, operator: p.operator, at: savedAt(p.plot, p.operator), details: { recordKey: p.recordKey } });
   }
 
   const counts = noCounts();
@@ -596,7 +611,7 @@ export function patternFlags(
     counts,
     people,
     total,
-    flags: all.slice(0, MAX_LISTED_FLAGS),
+    flags: all.slice(0, options.limit ?? MAX_LISTED_FLAGS),
     requiredQuestions: f.required.keys.length,
   };
 }

@@ -98,7 +98,7 @@ export async function registerIpccRoutes(app: FastifyInstance, store: Store, sta
     if (loaded.survey.missing.length > 0) return reply.code(409).send({ error: 'survey_not_ipcc', missing: loaded.survey.missing });
     if (loaded.plots.length === 0) return reply.code(409).send({ error: 'no_plots', message: 'No plot has a submitted first assessment yet.' });
     const body = make();
-    await audit(store, request, 'export.downloaded', { kind: 'ipcc', file, plots: loaded.plots.length });
+    await audit(store, request, 'export.downloaded', { kind: 'ipcc', file, name: spec.name, plots: loaded.plots.length });
     return reply
       .header('cache-control', 'no-store')
       .header('content-type', spec.type)

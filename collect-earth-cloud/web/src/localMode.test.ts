@@ -177,13 +177,14 @@ describe("local mode: Map", () => {
     expect(legendStatuses(false, counts())).toEqual(MAP_STATUSES);
   });
 
-  it("says who holds no plot, and Submitted without 'no decision'", () => {
+  it("says who holds no plot, and Submitted", () => {
     const plain = localMapPlots(map());
     expect(plain.people).toBeNull();
     expect(plotPopup(plain, 0, "p1").people).toBeNull();
     expect(plotPopup(map(), 0, "p1").people).toEqual(["ana"]);
     expect(t(statusLabelKey("submitted", true))).toBe("Submitted");
-    expect(t(statusLabelKey("submitted"))).toBe("Submitted, no decision");
+    // with a team too, since 22 Nov 2026: "no decision" read as work waiting, on the normal end of a plot
+    expect(t(statusLabelKey("submitted"))).toBe("Submitted");
     expect(statusLabelKey("started", true)).toBe("map.status.started");
   });
 });

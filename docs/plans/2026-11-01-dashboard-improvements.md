@@ -1284,8 +1284,11 @@ keyboard handling helper.
      answer to "another look"; going through the tabs alone leaves it unsubmitted). Without
      `seen`: submitted and saved after. Task 12 will bring these in by itself.
   Filters: person (anyone whose record is shown) and kind (`difference`, a flag kind,
-  `resubmitted`). The flags looked at are `patternFlags`' newest 500 for the filters
-  (`flagsCapped` says when there were more).
+  `resubmitted`). The flags looked at are every flag for the filters, up to `MAX_QUEUE_FLAGS`
+  (200,000; beyond that the newest of the plots still to decide, and `flagsCapped` says so), and
+  every data problem the report kept (`everyProblem`). Until 21 Nov 2026 they were `patternFlags`'
+  newest 500 and the report's first 500 problems: a project with more showed 500 plots, then an
+  empty queue (found by the full mapathon run: 2,154 flags, 1,470 plots never shown).
 - **`GET /v1/projects/:pid/quality/queue?person=&kind=&offset=`** (coordinators and
   reviewers, collectors 403, never My work) → `{ items (100 from offset: plot, section,
   people, differences [Difference with fields], flags, resubmitted, decision (no seen)),

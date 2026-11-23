@@ -197,7 +197,12 @@ export function ProjectPage({
   // tabs are the coordinators'.
   if (info.role === "reviewer" && (REVIEWER_TABS as readonly ProjectTab[]).includes(tab)) {
     return (
-      <AppShell>
+      // The same frame as a coordinator's (the side menu, with a reviewer's sections): a reviewer who becomes a
+      // coordinator, or works beside one, finds the same page
+      <AppShell wide>
+       <Box sx={{ display: "flex", gap: 4 }}>
+        <ProjectNav projectId={projectId} tab={tab} view={undefined} tabs={REVIEWER_TABS} labels={TAB_LABELS} />
+        <Box sx={{ flex: 1, minWidth: 0 }}>
         <Header projectId={projectId} name={info.name} role={info.role} />
         <StatusNote status={info.status} />
         <Box sx={{ mb: 3, display: "flex", gap: 1, flexWrap: "wrap" }}>
@@ -211,7 +216,7 @@ export function ProjectPage({
             {t("analysis.title")}
           </Button>
         </Box>
-        <Tabs value={tab} onChange={(_, value: ProjectTab) => go(value)} aria-label={t("project.sections")} sx={{ mb: 3, borderBottom: 1, borderColor: "divider" }}>
+        <Tabs value={tab} onChange={(_, value: ProjectTab) => go(value)} variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile aria-label={t("project.sections")} sx={{ mb: 3, borderBottom: 1, borderColor: "divider", display: { md: "none" } }}>
           {REVIEWER_TABS.map((id) => (
             <Tab key={id} value={id} label={t(TAB_LABELS[id])} id={`tab-${id}`} aria-controls={`panel-${id}`} onClick={plot && id === tab ? () => go(id) : undefined} />
           ))}
@@ -219,7 +224,10 @@ export function ProjectPage({
         <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
           {tab === "progress" ? (
             <Stack spacing={2}>
-              <Explain text={t("roles.reviewerProgress")} />
+              {/* A reviewer's own part is the review queue: one click from where they land */}
+              <Alert severity="info" action={<Button onClick={() => go("quality")}>{t("progress.goQueue")}</Button>}>
+                {t("roles.reviewerProgress")}
+              </Alert>
               <ProgressTab projectId={projectId} onGo={go} />
             </Stack>
           ) : tab === "map" ? (
@@ -242,6 +250,8 @@ export function ProjectPage({
             </Stack>
           )}
         </div>
+        </Box>
+       </Box>
       </AppShell>
     );
   }

@@ -72,6 +72,17 @@ describe('pattern flags: very fast', () => {
     expect(of(flags(records, { fastSeconds: 16 }).flags, 'very_fast').map((f) => f.plot)).toEqual(['3', '2']);
   });
 
+  it('how many are listed, and which: the review queue takes more than a listing, and past its own limit the plots still to decide', () => {
+    const records = [1, 2, 3, 4, 5].map((n) => rec(`${n},1`, 'ana', t0 + s(n * 5), answers(n)));
+    // newest first: plots 5, 4, 3, 2
+    expect(flags(records, { limit: 2 }).flags.map((f) => f.plot)).toEqual(['5', '4']);
+    const waiting = flags(records, { limit: 2, listed: (f) => f.plot !== '5' && f.plot !== '4' });
+    expect(waiting.flags.map((f) => f.plot)).toEqual(['3', '2']);
+    // counted all the same
+    expect(waiting.counts.very_fast).toBe(4);
+    expect(waiting.total).toBe(4);
+  });
+
   it('by first submission: a plot corrected and submitted again later is not "very fast" after the plot before its correction', () => {
     const records = [
       rec('1,1', 'ana', t0 + s(68), answers(1), { firstSubmittedOn: t0 }), // A, corrected at 68 s

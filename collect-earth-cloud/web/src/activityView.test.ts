@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ActivityPage, LogItem } from "./api";
-import { answerLabel, dailyCsv, dayAfterMs, dayStartMs, decisionsCsv, differencesCsv, isIsoWeek, isoWeekOf, logSentence, logSentenceParts, shiftWeek, weekMonday, weekRangeText, weeklyNotForRole } from "./activityView";
+import { answerLabel, dailyCsv, dayAfterMs, dayStartMs, decisionsCsv, differencesCsv, isIsoWeek, isoWeekOf, logPlotOf, logSentence, logSentenceParts, shiftWeek, weekMonday, weekRangeText, weeklyNotForRole } from "./activityView";
 import { ApiError, errorMessageKey } from "./api";
 import { csvText } from "./csv";
 import { translator } from "./i18n";
@@ -38,6 +38,18 @@ describe("the log's sentences", () => {
     expect(logSentenceParts(t, record("submitted"), page, "en")).toEqual({ before: "maria submitted plot ", plot: "17", after: "" });
     expect(logSentenceParts(t, record("created"), page, "en")).toEqual({ before: "maria started plot ", plot: "17", after: " (saved, not submitted)" });
     expect(logSentenceParts(t, audit("invite.revoked", {}), page, "en").plot).toBeNull();
+  });
+  it("an IPCC export is named by its file (an older entry, without the name, as before)", () => {
+    expect(logSentence(t, audit("export.downloaded", { kind: "ipcc", file: "matrix", name: "LU_Matrixes.xlsx", plots: 2 }), page, "en")).toBe("ana downloaded the IPCC export LU_Matrixes.xlsx");
+    expect(logSentence(t, audit("export.downloaded", { kind: "ipcc", file: "matrix", plots: 2 }), page, "en")).toBe("ana downloaded an IPCC export");
+  });
+  it("a correction names its plot and says where it was made, and opens the plot's page as a decision does", () => {
+    const corrected = audit("correction.saved", { plot: "2968,1" }, "omar");
+    expect(logSentenceParts(t, corrected, page, "en")).toEqual({ before: "omar corrected plot ", plot: "2968,1", after: " in Collect Earth" });
+    expect(logPlotOf(corrected)).toBe("2968,1");
+    expect(logPlotOf(audit("decision.set", { plot: "17", decision: "check" }))).toBe("17");
+    expect(logPlotOf(record("submitted"))).toBe("17");
+    expect(logPlotOf(audit("invite.revoked", {}))).toBeNull();
   });
   it("what Collect Earth did, with the id the collector sees; checks named for coordinators", () => {
     expect(logSentence(t, record("submitted"), page, "en")).toBe("maria submitted plot 17");
@@ -119,7 +131,7 @@ describe("the log's sentences", () => {
     expect(logSentence(t, audit("sampling.drawn", { automatic: true, drawn: 1 }, null), page, "en")).toBe("1 plot drawn automatically for checks");
     expect(logSentence(t, audit("csv.uploaded", { csvFileId: "f1", plots: 1 }), page, "en")).toBe("ana uploaded the plot file north.csv (1 plot)");
     expect(logSentence(t, audit("reference.changed", { csvFileId: "f1", added: 1, removed: 0 }), page, "en")).toBe("ana marked 1 plot of north.csv as a reference plot");
-    expect(logSentence(t, audit("training.changed", { setId: "s1", change: "golden", name: "Week 1" }), page, "en")).toBe("ana set the golden answers of the training set Week 1");
+    expect(logSentence(t, audit("training.changed", { setId: "s1", change: "golden", name: "Week 1" }), page, "en")).toBe("ana set the expected answers of the training set Week 1");
     expect(logSentence(t, audit("training.synced", { records: 3 }), page, "en")).toBe("ana's Collect Earth sent training plots (3)");
     expect(logSentence(t, audit("export.downloaded", { kind: "training_scores", completed: true }), page, "en")).toBe("ana downloaded the scores of a training set");
     expect(logSentence(t, audit("training.changed", { setId: "s1", change: "odd", name: "Week 1" }), page, "en")).toBe("ana changed the training set Week 1");

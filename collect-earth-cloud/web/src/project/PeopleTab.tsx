@@ -555,7 +555,8 @@ function WorkloadSection({ projectId, data, onMoved }: { projectId: string; data
       ) : (
         <>
           <Stack spacing={1} sx={{ mb: 2 }}>
-            {!anyLeft && <Alert severity="success">{t("peopleTable.title.workloadAllDone")}</Alert>}
+            {/* "Nobody has plots left" was said with checks still to make (the table's "and 1 check to make") */}
+            {!anyLeft && <Alert severity={all.some((w) => w.checksLeft > 0) ? "info" : "success"}>{t(all.some((w) => w.checksLeft > 0) ? "peopleTable.title.workloadChecksOnly" : "peopleTable.title.workloadAllDone")}</Alert>}
             {last && (
               <Typography>
                 {t("peopleTable.title.workloadSummary", { date: dayText(last.date, language), name: last.last.username })}

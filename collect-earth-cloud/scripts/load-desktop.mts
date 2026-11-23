@@ -29,6 +29,9 @@
 // ATTACH=1: the instances are running already and in their project (a run that stopped): none is started or joined,
 // and each goes on after the last of its plots Collect Earth has sent (its plots are collected in their order).
 //
+// CHECKS=1 (with UNTIL_ALL): after its plots, each instance asks for the quality checks drawn meanwhile (the sampling of
+// load-mapathon.mts SAMPLING_PERCENT) and answers them; HANDOFF.finished then says every instance is done.
+//
 // Settings (environment): CE_APP (the collect-earth-app folder, where CollectEarth.jar is built and must run from),
 // CE_HOMES (where the instances' user folders go, emptied first), FIRST_PORT (8031), PACE_S ("20-40": seconds between
 // two plots of one person), XMX (1g), KEEP=1 to leave the instances running, OUT for the JSON report.
@@ -296,8 +299,10 @@ const TEXTS = ['checked', 'Forest edge', 'A', 'Seen on the imagery of the plot',
 const DATES = ['11/14/2026', '06/15/2020', '01/10/2015', '03/01/2024'];
 function answer(name: string, info: FieldInfo, tries = 0): string {
   const codes = (info.possibleCodedItems ?? []).map((c) => c.code).filter((c) => c !== '-1');
-  if (codes.length) return codes[Math.floor(Math.random() * codes.length)];
-  const type = fieldTypes?.get(name);
+  // A guess first, then each answer in turn: a rule that joins two fields (a land use's cover "na" when the plot has
+  // none of it) takes one answer only, which guesses alone may never hit
+  if (codes.length) return tries < 2 ? codes[Math.floor(Math.random() * codes.length)] : codes[tries % codes.length];
+  const type = fieldTypes?.get(name) ?? (name.startsWith('collect_boolean_') ? 'boolean' : undefined);
   if (type === 'boolean') return tries % 2 === 0 ? 'true' : 'false';
   if (type === 'integer' || type === 'real' || type === 'number' || type === 'range') return NUMBERS[tries % NUMBERS.length];
   if (type === 'date') return DATES[tries % DATES.length];
@@ -309,7 +314,7 @@ async function fillPlot(i: Instance, plot: string) {
   // No second land use change: the rarer branch with its own rules on the years
   const values: Record<string, string> = { collect_boolean_actively_saved: 'true', collect_boolean_second_lu_change: 'false', collect_boolean_land_use_subdivision_change: 'false' };
   const tries = new Map<string, number>();
-  for (let attempt = 0; attempt < 16; attempt++) {
+  for (let attempt = 0; attempt < 24; attempt++) {
     const body = new URLSearchParams({ placemarkId: plot, currentStep: '0', partialUpdate: 'false' });
     for (const [k, v] of Object.entries(values)) body.append(`values[${k}]`, v);
     const started = performance.now();
@@ -435,6 +440,43 @@ const watch = (async () => {
 writeFileSync(`${HANDOFF}.${TRAINING > 0 ? 'collecting' : 'ready'}`, new Date().toISOString());
 log('collecting until the load test ends');
 await Promise.all(instances.map(collect));
+
+// CHECKS=1 (with UNTIL_ALL): the quality checks the project's sampling drew while the person collected (copies of other
+// people's plots, with the round of a check) come to Collect Earth at its next check of the person's plots; each
+// instance asks for them now, as "Refresh now" does, and answers the ones it has not done, then the run goes on
+// (HANDOFF.finished tells load-mapathon.mts WAIT_DESKTOPS that every instance has done all it holds)
+const CHECKS = process.env.CHECKS === '1';
+const checksDone = new Map<number, number>();
+if (CHECKS) {
+  // "Draw now" by the coordinator first: the checks of plots submitted in the last moments too
+  for (const m of handoff.mapathons) {
+    const token = m.coordinatorToken ?? handoff.coordinatorToken;
+    const res = await fetch(`${handoff.base}/v1/projects/${m.pid}/sampling/draw`, { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: '{}' });
+    log(`${m.name}: the checks drawn now: ${res.status} ${(await res.text()).slice(0, 200)}`);
+  }
+  // Until a refresh brings nothing new: the checks of the plots the others completed while this one answered come too
+  await Promise.all(instances.map(async (i) => {
+    let n = 0;
+    const tried = new Set<string>();
+    for (let pass = 0; pass < 4; pass++) {
+      await api(i, 'cloud/myPlots/refresh', {}).catch(() => undefined);
+      await sleep(8000);
+      const shown = await plotsShown(i);
+      const todo = shown.filter((p) => !i.completed.has(p) && !isTraining(p) && !tried.has(p));
+      log(`instance ${i.n} (${i.username}): ${shown.length} plots now, ${todo.length} checks to answer`);
+      if (todo.length === 0) break;
+      for (const plot of todo) {
+        tried.add(plot);
+        await sleep(between(PACE_LO * 1000, PACE_HI * 1000));
+        await fillPlot(i, plot);
+        if (i.completed.has(plot)) n += 1;
+      }
+    }
+    checksDone.set(i.n, n);
+  }));
+  log(`checks answered: ${instances.map((i) => `${i.username} ${checksDone.get(i.n) ?? 0}`).join(', ')}`);
+}
+if (UNTIL_ALL) writeFileSync(`${HANDOFF}.finished`, new Date().toISOString());
 
 // Everything saved goes out: each instance's queue empty (and a sync asked for, as the button does)
 log('waiting for each instance to send what it saved');

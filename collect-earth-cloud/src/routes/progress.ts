@@ -4,7 +4,9 @@ import { audit } from '../activity.js';
 import { isDate, isTimeZone } from '../days.js';
 import { storageLimitBytes } from '../limits.js';
 import { requireProjectMembership } from '../plugins/projectAuth.js';
+import { fastSecondsOf, MAX_QUEUE_FLAGS, patternFlags, resubmittedAfterRecheck } from '../flags.js';
 import { differencesWaiting, PACE_DAYS, progressReport, type AttentionInput } from '../progress.js';
+import { reviewQueue } from '../reviewQueue.js';
 import type { ProjectStateCache, ServedState } from '../projectState.js';
 import { remember, type QualityService } from '../qualityService.js';
 import type { Store } from '../store/store.js';
@@ -142,33 +144,48 @@ export function attentionReader(store: Store, quality: QualityService) {
       store.unsentDelays(projectId, at - UNSENT_WINDOW_DAYS * DAY_MS),
       store.getCepInfo(projectId),
       storageOf(projectId, served.state.version),
-      context.copyHolders.size > 0 || (context.info?.reassessmentCode ?? null) !== null ? waitingDecisions(store, quality, projectId, request) : null,
+      waitingDecisions(store, quality, projectId, request, context.copyHolders.size > 0 || (context.info?.reassessmentCode ?? null) !== null),
       finishedTrainees(store, projectId, (pid, log) => quality.outline(pid, log), request.log).catch((err: unknown) => {
         request.log.warn({ err, projectId }, 'progress: the training sets could not be read for the attention cards');
         return [];
       }),
     ]);
-    return { members: served.members, activity, unsentDelays, cep, storage, differencesWaiting: waiting, trainingFinished };
+    return { members: served.members, activity, unsentDelays, cep, storage, differencesWaiting: waiting.differences, worthALookWaiting: waiting.worthALook, trainingFinished };
   };
 }
 
 /**
- * Differing plots without a decision, from the quality figures this server has at hand
- * (QualityService.peek): the Progress tab, the bell and the weekly mail never wait for them
- * nor start or refresh them (an out-of-date report counts until the Quality tab brings it up
- * to date). Null when there are none yet (nobody opened the Quality tab) or they cannot be
- * had: the card is left out.
+ * What waits in the review queue, from the quality figures this server has at hand (QualityService.peek): the Progress
+ * tab, the bell and the weekly mail never wait for them nor start or refresh them (an out-of-date report counts until
+ * the Quality tab brings it up to date). `differences`: differing plots without a decision, for a project with checks
+ * (`checks`); `worthALook`: the queue's other plots (worth a look, submitted again), as the queue itself counts them.
+ * Null when there are no figures yet (nobody opened the Quality tab) or they cannot be had: the card is left out.
  */
-async function waitingDecisions(store: Store, quality: QualityService, projectId: string, request: { log: FastifyBaseLogger }): Promise<number | null> {
+async function waitingDecisions(
+  store: Store,
+  quality: QualityService,
+  projectId: string,
+  request: { log: FastifyBaseLogger },
+  checks: boolean,
+): Promise<{ differences: number | null; worthALook: number | null }> {
   try {
     const served = await quality.peek(projectId, request.log, { refresh: false });
     if (!served) {
-      return null;
+      return { differences: null, worthALook: null };
     }
-    const decisions = await store.listQualityDecisions(projectId);
-    return differencesWaiting(served.report, new Set(decisions.map((d) => d.plot)));
+    const [decisions, settings] = await Promise.all([store.listQualityDecisions(projectId), store.getQualitySettings(projectId)]);
+    const decided = new Map(decisions.map((d) => [d.plot, d.decision]));
+    const flags = patternFlags(served, decisions, { fastSeconds: fastSecondsOf(settings), limit: MAX_QUEUE_FLAGS });
+    const queue = reviewQueue(
+      { pairs: served.report.pairs, flags: flags.flags, resubmitted: resubmittedAfterRecheck(served.flags, decisions), decided, hidden: new Set(served.reference.byPlot.map((p) => p.plot)) },
+      {},
+    );
+    return {
+      differences: checks ? differencesWaiting(served.report, new Set(decided.keys())) : null,
+      worthALook: queue.counts.flag + queue.counts.resubmitted,
+    };
   } catch (err) {
-    request.log.warn({ err, projectId }, 'progress: the quality figures could not be had for the differences card');
-    return null;
+    request.log.warn({ err, projectId }, 'progress: the quality figures could not be had for the review cards');
+    return { differences: null, worthALook: null };
   }
 }

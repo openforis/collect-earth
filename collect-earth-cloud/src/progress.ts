@@ -52,6 +52,12 @@ export interface AttentionInput {
   storage: { usedBytes: number; limitBytes: number | null } | null;
   /** Differing plots without a decision; null when the project has no checks or no figures are at hand. */
   differencesWaiting: number | null;
+  /**
+   * Plots of the review queue beyond those differences (worth a look, or submitted again), without a decision; null or
+   * absent when no figures are at hand. Until 22 Nov 2026 they were on no card: the Progress tab said "Nothing needs
+   * your attention now" with 1,470 plots waiting in the queue.
+   */
+  worthALookWaiting?: number | null;
   /** People who submitted every plot of a learning set in their current attempt. */
   trainingFinished?: readonly { username: string; set: string; passed: boolean | null }[];
 }
@@ -410,6 +416,7 @@ function attentionOf(input: ProgressInput, a: AttentionInput, plotsOf: PlotUnits
   const late = a.unsentDelays.filter((d) => d.medianMs > OLD_UNSENT_MS).map((d) => ({ username: d.operator, medianDelayMs: d.medianMs }));
   if (late.length > 0) items.push({ kind: 'oldUnsentWork', count: late.length, people: capped(late) });
   if (a.differencesWaiting !== null && a.differencesWaiting > 0) items.push({ kind: 'differencesWaiting', count: a.differencesWaiting });
+  if ((a.worthALookWaiting ?? 0) > 0) items.push({ kind: 'worthALook', count: a.worthALookWaiting! });
   const s = a.storage;
   if (s && s.limitBytes !== null && s.limitBytes > 0 && s.usedBytes >= s.limitBytes * NEARLY_FULL) {
     items.push({ kind: 'storage', count: 1, level: s.usedBytes > s.limitBytes ? 'over' : 'nearlyFull', usedBytes: s.usedBytes, limitBytes: s.limitBytes });

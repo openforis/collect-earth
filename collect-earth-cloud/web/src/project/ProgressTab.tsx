@@ -474,13 +474,15 @@ export function ProgressTab({ projectId, onGo }: { projectId: string; onGo: (tab
       <AsOf asOf={data.asOf} />
       {data.totals.plots === 0 ? (
         // Only coordinators can open Setup (reviewers get no cards either); Collect Earth sends the local mode's plot files.
-        <Alert severity="info" action={!local && data.attention !== null ? <Button onClick={() => onGo("setup", "plots")}>{t("tab.plots")}</Button> : undefined}>
-          {t(local ? "progress.noPlotsLocal" : "progress.noPlots")}
+        // A coordinator is sent to the checklist, which says what is missing first (the survey, then the plots)
+        <Alert severity="info" action={!local && data.attention !== null ? <Button onClick={() => onGo("setup")}>{t("overview.checklistTitle")}</Button> : undefined}>
+          {t(local ? "progress.noPlotsLocal" : data.attention !== null ? "progress.notSetUp" : "progress.noPlots")}
         </Alert>
       ) : (
         <Totals data={data} local={local} />
       )}
-      {attention !== null && <Attention items={attention} onGo={onGo} />}
+      {/* Without plots the project is not set up: "Nothing needs your attention now" would not be true */}
+      {attention !== null && (data.totals.plots > 0 || attention.length > 0) && <Attention items={attention} onGo={onGo} />}
       {/* A coordinator (who gets the cards) or the one person of the local mode sets the deadline and target */}
       <ForecastSection data={data} local={local} onSchedule={local || attention !== null ? () => onGo("setup", "schedule") : undefined} />
       <OverTime data={data} />

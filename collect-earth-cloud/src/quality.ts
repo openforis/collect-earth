@@ -184,6 +184,12 @@ export interface QualityReport extends QualityReportFigures {
    * 53 MB as objects.
    */
   pairs: DifferingPairs;
+  /**
+   * Every data problem (up to MAX_PAIRS), in the order of `problems`, which lists the first MAX_PROBLEMS of them: for
+   * the review queue and a plot's page, where a plot beyond those listed is flagged too. Not sent with GET /quality.
+   * Absent when `problems` lists them all.
+   */
+  everyProblem?: DataProblem[];
 }
 
 export type Kind = 'choice' | 'number';
@@ -557,6 +563,7 @@ export function qualityReport(input: QualityInput, onCheckedPlot?: (plot: string
     differences,
     pairs: pairs.done(),
     problems: problems.slice(0, MAX_PROBLEMS),
+    everyProblem: problems.length > MAX_PROBLEMS ? problems.slice(0, MAX_PAIRS) : undefined,
     problemsTotal: problems.length,
     problemsByPerson: problemCounts(problems),
     beyondOutline: { count: beyond.size, keys: [...beyond].sort(order).slice(0, MAX_BEYOND_OUTLINE_KEYS) },

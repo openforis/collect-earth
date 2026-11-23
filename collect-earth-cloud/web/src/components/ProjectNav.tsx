@@ -47,6 +47,8 @@ function useDoneSections(projectId: string): Set<string> {
   const done = new Set<string>();
   if (!overview.data) return done;
   const steps = stepsOf(overview.data);
+  // The ticks guide the first set-up; once every step is done they go (two ticked sections of ten read as eight not done)
+  if (steps.every((s) => s.done)) return done;
   for (const section of new Set(steps.map((s) => STEP_PLACE[s.id].view).filter((v): v is string => !!v))) {
     if (steps.every((s) => STEP_PLACE[s.id].view !== section || s.done)) done.add(section);
   }
