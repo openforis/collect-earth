@@ -78,7 +78,11 @@ export type AttentionItem =
   | { kind: 'storage'; count: number; level: 'nearlyFull' | 'over'; usedBytes: number; limitBytes: number }
   | { kind: 'oldProjectFile'; count: number; people: AttentionPerson[] }
   | { kind: 'oldCollectEarth'; count: number; unknownVersion: number; people: AttentionPerson[] }
-  | { kind: 'trainingFinished'; count: number; people: AttentionPerson[] };
+  | { kind: 'trainingFinished'; count: number; people: AttentionPerson[] }
+  /** People whose accuracy on the reference plots is under the project's target (percent), margin of error included (src/accuracy.ts). */
+  | { kind: 'belowAccuracy'; count: number; target: number; people: AttentionPerson[] }
+  /** Reference answers that most collectors contradict with one same answer: the reference may be wrong (src/reference.ts). */
+  | { kind: 'doubtfulReference'; count: number };
 
 export interface Progress {
   timeZone: string;

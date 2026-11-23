@@ -156,7 +156,66 @@ describe('reference plots: marking, copies for every collector, accuracy against
     expect(forRita.figures.byPlot).toBeUndefined();
     // Decision 3: the figures per question only, no one's accuracy by name.
     expect(forRita.figures.people).toBeUndefined();
-    expect(Object.keys(forRita.figures).sort()).toEqual(['assessed', 'checks', 'computedAt', 'plots', 'questions', 'stale']);
+    // The collectors' agreement among themselves is per question too; of the reference answers in doubt, their number.
+    expect(Object.keys(forRita.figures).sort()).toEqual(['among', 'assessed', 'checks', 'computedAt', 'doubtfulTotal', 'plots', 'questions', 'stale', 'target']);
+    expect(forRita.figures.doubtful).toBeUndefined();
+  });
+
+  it('the accuracy target: verdicts with their margin, reference answers in doubt, and the two cards of Progress', async () => {
+    const six = [1, 2, 3, 4, 5, 6];
+    // Marked before anyone assesses them: maria holds these, so the owner takes them over as the assessor.
+    expect((await mark({ csvFileId: fileId, assessorUserId: owner.userId, plots: six.map(String) })).statusCode).toBe(200);
+    await send('owner', 1, six);
+    // ana: every land use wrong. maria: plot 1 wrong. jose: plot 1 wrong too, so all three say G where the reference says F.
+    await send('ana', 2, six, () => 'G');
+    await send('maria', 2, six, (p) => (p === 1 ? 'G' : 'F'));
+    await send('jose', 2, six, (p) => (p === 1 ? 'G' : 'F'));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const got = await settled<any>(() => call('GET', '/reference', owner.token), (b) => b.figures.checks === 18);
+    const verdicts = (body: { figures: { people: { username: string; verdict: string }[] } }) => Object.fromEntries(body.figures.people.map((p) => [p.username, p.verdict]));
+    // 0 of 6 is under 80% whatever the margin (it ends at 39%); 5 of 6 is above it.
+    expect(verdicts(got)).toEqual({ ana: 'below', jose: 'ok', maria: 'ok' });
+    const ana = got.figures.people.find((p: { username: string }) => p.username === 'ana');
+    expect(ana.questions[0]).toMatchObject({ compared: 6, agreeing: 0, rate: null, low: 0, verdict: 'below' });
+    expect(ana.questions[0].high).toBeCloseTo(0.39, 2);
+    expect(got.figures.doubtful).toEqual([{ plot: '1', assessor: 'owner', key: LAND_USE, label: expect.any(String), reference: 'F', majority: 'G', count: 3, of: 3 }]);
+    expect(got.figures.doubtfulTotal).toBe(1);
+    // With the options of the question in doubt, so the page says the answers by their labels.
+    expect(got.figures.options[LAND_USE].map((o: { code: string }) => o.code)).toEqual(expect.arrayContaining(['F', 'G']));
+    // Among the three collectors: plot 1 all the same, the other five two against one.
+    expect(got.figures.among[0]).toMatchObject({ plots: 6, compared: 18, agreeing: 8 });
+    // The reviewer: the number in doubt, not which plots; no one by name.
+    const forRita = await reference(people.rita.token);
+    expect(forRita.figures).toMatchObject({ target: 80, doubtfulTotal: 1 });
+    expect(forRita.figures.doubtful).toBeUndefined();
+    expect(forRita.figures.options).toBeUndefined();
+    expect(forRita.figures.people).toBeUndefined();
+    expect(JSON.stringify(forRita.figures)).not.toMatch(/ana|maria|jose/);
+
+    // Progress says it without opening Quality: who is under the target, and the reference answers to look at again.
+    const cards = async () => (await call('GET', '/progress', owner.token)).json().attention as { kind: string }[];
+    expect((await cards()).filter((c) => c.kind === 'belowAccuracy' || c.kind === 'doubtfulReference')).toEqual([
+      { kind: 'belowAccuracy', count: 1, target: 80, people: [{ username: 'ana' }] },
+      { kind: 'doubtfulReference', count: 1 },
+    ]);
+
+    // The target is the coordinators' to set, in whole percent from 50 to 100.
+    for (const accuracyTarget of [49, 101, 80.5, '90', null]) {
+      const res = await call('PUT', '/quality/settings', owner.token, { accuracyTarget });
+      expect(res.statusCode, String(accuracyTarget)).toBe(400);
+    }
+    expect((await call('PUT', '/quality/settings', people.rita.token, { accuracyTarget: 90 })).statusCode).toBe(403);
+    expect((await call('GET', '/quality/settings', owner.token)).json().accuracyTarget).toBe(80);
+    const put = await call('PUT', '/quality/settings', owner.token, { accuracyTarget: 90 });
+    expect(put.statusCode, put.body).toBe(200);
+    expect(put.json().accuracyTarget).toBe(90);
+    // It changes the verdicts at once, with no new figures: 5 of 6 is now under the target, within its margin.
+    const stricter = await reference();
+    expect(stricter.figures.target).toBe(90);
+    expect(verdicts(stricter)).toEqual({ ana: 'below', jose: 'watch', maria: 'watch' });
+    expect((await cards()).find((c) => c.kind === 'belowAccuracy')).toMatchObject({ count: 1, target: 90 });
+    // The other settings keep it.
+    expect((await call('PUT', '/quality/settings', owner.token, { fastSeconds: 30 })).json()).toMatchObject({ fastSeconds: 30, accuracyTarget: 90 });
   });
 
   it('refuses a collector as assessor, a whole file, unknown plots, plots someone else assessed first; picks free plots at random', async () => {
@@ -196,15 +255,24 @@ describe('reference plots: marking, copies for every collector, accuracy against
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const got = await settled<any>(() => call('GET', '/reference', owner.token), (b) => b.figures.checks === 4);
     expect(got.figures).toMatchObject({ plots: 3, assessed: 2, checks: 4 });
+    // One land use right of two: under the default target of 80%, but two answers are too few to say "below".
+    const one = { key: LAND_USE, label: expect.any(String), compared: 2, agreeing: 1, rate: null, low: expect.any(Number), high: expect.any(Number), verdict: 'watch' };
+    const each = { plots: { compared: 2, agreeing: 1, rate: null }, answers: { compared: 2, agreeing: 1, low: expect.any(Number), high: expect.any(Number), verdict: 'watch' }, recent: { compared: 2, agreeing: 1 }, earlier: null, questions: [one], verdict: 'watch', trend: null };
     expect(got.figures.people).toEqual([
-      { username: 'ana', plots: { compared: 2, agreeing: 1, rate: null }, questions: [{ key: LAND_USE, label: expect.any(String), compared: 2, agreeing: 1, rate: null }] },
-      { username: 'jose', plots: { compared: 2, agreeing: 1, rate: null }, questions: [{ key: LAND_USE, label: expect.any(String), compared: 2, agreeing: 1, rate: null }] },
+      { username: 'ana', ...each },
+      { username: 'jose', ...each },
     ]);
+    expect(got.figures.target).toBe(80);
+    expect(got.figures.questions).toEqual([{ key: LAND_USE, label: expect.any(String), kind: 'choice', compared: 4, agreeing: 2, rate: null, low: expect.any(Number), high: expect.any(Number), verdict: 'watch' }]);
     expect(got.figures.byPlot).toEqual([
-      { plot: '1', assessor: 'owner', assessed: true, checks: 2 },
-      { plot: '2', assessor: 'owner', assessed: true, checks: 2 },
-      { plot: '3', assessor: 'owner', assessed: false, checks: 2 },
+      { plot: '1', assessor: 'owner', assessed: true, checks: 2, agreeing: 1 },
+      { plot: '2', assessor: 'owner', assessed: true, checks: 2, agreeing: 1 },
+      { plot: '3', assessor: 'owner', assessed: false, checks: 2, agreeing: 0 },
     ]);
+    // ana and jose among themselves: the same land use on plot 3 only (measured without its reference).
+    expect(got.figures.among).toEqual([{ key: LAND_USE, label: expect.any(String), plots: 3, compared: 3, agreeing: 1, kappa: expect.any(Number) }]);
+    // Two collectors are too few to put a reference answer in doubt.
+    expect(got.figures).toMatchObject({ doubtful: [], doubtfulTotal: 0 });
     expect(got.plots.map((p: { plot: string; assessed: boolean; checked: number }) => [p.plot, p.assessed, p.checked])).toEqual([
       ['1', true, 2],
       ['2', true, 2],

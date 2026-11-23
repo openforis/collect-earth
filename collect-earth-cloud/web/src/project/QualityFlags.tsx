@@ -26,7 +26,10 @@ import {
   MAX_FAST_SECONDS,
   MIN_FAST_SECONDS,
   NO_FLAGS_FILTER,
+  saveAccuracyTarget,
   saveFastSeconds,
+  MAX_ACCURACY_TARGET,
+  MIN_ACCURACY_TARGET,
   setQualityDecision,
   type DecisionKind,
   type FlagKind,
@@ -180,6 +183,61 @@ export function FastSecondsField({ projectId, fastSeconds, onSaved }: { projectI
       {saved && (
         <Typography variant="body2" role="status">
           {t("flags.fastSaved")}
+        </Typography>
+      )}
+      {error !== null && <ErrorAlert error={error} />}
+    </Stack>
+  );
+}
+
+/** The accuracy target of the reference plots (Setup's Quality rules): saved, the verdicts of every screen follow. */
+export function AccuracyTargetField({ projectId, target, onSaved }: { projectId: string; target: number; onSaved: (target: number) => void }) {
+  const t = useT();
+  const [text, setText] = useState(String(target));
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  useEffect(() => setText(String(target)), [target]);
+  const value = parseSeconds(text, MIN_ACCURACY_TARGET, MAX_ACCURACY_TARGET);
+  const range = { min: MIN_ACCURACY_TARGET, max: MAX_ACCURACY_TARGET };
+  const save = async () => {
+    if (saving || value === null || value === target) return;
+    setSaving(true);
+    setError(null);
+    setSaved(false);
+    try {
+      onSaved(await saveAccuracyTarget(projectId, value));
+      // The verdicts are worked out from the figures at hand: the pages showing them ask again.
+      void queryClient.invalidateQueries({ queryKey: ["project", projectId, "getReference"] });
+      void queryClient.invalidateQueries({ queryKey: ["project", projectId, "getProgress"] });
+      setSaved(true);
+    } catch (err) {
+      setError(err);
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <Stack spacing={1}>
+      <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ alignItems: { sm: "flex-start" } }}>
+        <TextField
+          size="small"
+          label={t("accuracy.targetLabel")}
+          value={text}
+          onChange={(e) => (setText(e.target.value), setSaved(false))}
+          error={value === null}
+          helperText={value === null ? t("accuracy.targetInvalid", range) : t("accuracy.targetHelp", range)}
+          slotProps={{ htmlInput: { inputMode: "numeric" } }}
+          sx={{ maxWidth: { sm: 420 } }}
+        />
+        {/* Never disabled (a disabled button drops the keyboard focus once saved): it does nothing until there is a new value. */}
+        <Button variant="contained" onClick={() => void save()} aria-disabled={saving || value === null || value === target} sx={{ mt: { sm: 0.25 } }}>
+          {t("flags.fastSave")}
+        </Button>
+      </Stack>
+      {saved && (
+        <Typography variant="body2" role="status">
+          {t("accuracy.targetSaved")}
         </Typography>
       )}
       {error !== null && <ErrorAlert error={error} />}

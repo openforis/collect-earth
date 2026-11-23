@@ -153,6 +153,8 @@ export interface QualitySettings {
   margins: Record<string, number>;
   /** The "very fast" flag's threshold in whole seconds (Task 5); absent: DEFAULT_FAST_SECONDS (15). */
   fastSeconds?: number;
+  /** The accuracy target in whole percent (src/accuracy.ts); absent: DEFAULT_ACCURACY_TARGET (80). */
+  accuracyTarget?: number;
 }
 
 /**
@@ -162,6 +164,8 @@ export interface QualitySettings {
 export interface QualitySettingsAnswer {
   margins: Record<string, number>;
   fastSeconds: number;
+  /** The accuracy target in force, in percent (the default when the project has not set one). */
+  accuracyTarget: number;
 }
 
 /** GET /v1/projects/:pid/quality: the figures with the decisions, notes, settings and answer options. */

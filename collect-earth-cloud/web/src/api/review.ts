@@ -59,6 +59,12 @@ export function drawSamplingNow(projectId: string): Promise<SamplingDrawAnswer> 
 
 export type {
   ExternalReferenceFigures,
+  Judged,
+  JudgedPerson,
+  ReferenceAmong,
+  ReferenceDoubt,
+  Tally,
+  Verdict,
   ReferenceAnswer,
   ReferenceAnswersReport,
   ReferenceChangeAnswer,

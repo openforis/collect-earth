@@ -520,7 +520,7 @@ describe("the quality figures", () => {
       beyondOutline: { count: 0, keys: [] },
       decisions: [{ plot: "21", decision: "check", comment: null, decidedBy: "boss", decidedAt: 1000, batch: null, byAssessor: false }],
       notes: [{ id: "n1", questionKey: "collect_code_land_use", firstValue: "F", checkValue: null, text: "Look at the canopy", updatedBy: null, updatedAt: 2000 }],
-      settings: { margins: { "collect_entity_tree[*].real_height": 5 }, fastSeconds: 15 },
+      settings: { margins: { "collect_entity_tree[*].real_height": 5 }, fastSeconds: 15, accuracyTarget: 80 },
       options: { collect_code_land_use: [{ code: "F", label: "Forest" }] },
       excluded: [{ username: "ben", reason: null }],
       computedAt: 3000,

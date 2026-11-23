@@ -15,7 +15,7 @@ export type ProjectTab = (typeof PROJECT_TABS)[number];
  * address. A tab not listed has one page.
  */
 export const PROJECT_VIEWS = {
-  quality: ["review", "checks", "figures", "notes"],
+  quality: ["review", "warnings", "checks", "figures", "notes"],
   people: ["members", "team"],
   setup: ["overview", "survey", "plots", "areas", "layout", "quality", "schedule", "sharing", "next", "project"],
 } as const satisfies Partial<Record<ProjectTab, readonly string[]>>;

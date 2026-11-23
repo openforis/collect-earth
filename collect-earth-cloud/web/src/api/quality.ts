@@ -61,6 +61,15 @@ export async function saveFastSeconds(projectId: string, fastSeconds: number): P
   return (await request<QualitySettingsAnswer>("PUT", `${p(projectId)}/quality/settings`, { json: { fastSeconds } })).fastSeconds;
 }
 
+/** The range the accuracy target may take, in whole percent (as the server's, src/accuracy.ts). */
+export const MIN_ACCURACY_TARGET = 50;
+export const MAX_ACCURACY_TARGET = 100;
+
+/** Sets the accuracy target of the reference plots (whole percent); returns it as saved. The other settings stay. */
+export async function saveAccuracyTarget(projectId: string, accuracyTarget: number): Promise<number> {
+  return (await request<QualitySettingsAnswer>("PUT", `${p(projectId)}/quality/settings`, { json: { accuracyTarget } })).accuracyTarget;
+}
+
 /** Replaces the number margins (percent, by margin key); returns them as saved. */
 export async function saveQualityMargins(projectId: string, margins: Record<string, number>): Promise<Record<string, number>> {
   return (await request<QualitySettingsAnswer>("PUT", `${p(projectId)}/quality/settings`, { json: { margins } })).margins;

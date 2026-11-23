@@ -52,7 +52,7 @@ export function refusalKey(code: unknown): MessageKey | null {
 }
 
 /** People with the lowest accuracy first (those with a rate), then those with too few plots, by name. */
-export function sortedPeople(figures: { people?: readonly ReferencePerson[] }): ReferencePerson[] {
+export function sortedPeople<P extends Pick<ReferencePerson, "username" | "plots">>(figures: { people?: readonly P[] }): P[] {
   return [...(figures.people ?? [])].sort((a, b) => {
     const ra = a.plots.rate;
     const rb = b.plots.rate;
@@ -63,7 +63,7 @@ export function sortedPeople(figures: { people?: readonly ReferencePerson[] }): 
 }
 
 /** A person's weakest questions: those with a rate, lowest first, at most `max`; then (none with a rate) the most often missed. */
-export function weakestQuestions(person: ReferencePerson, max = 3): ReferencePerson["questions"] {
+export function weakestQuestions<Q extends Rate & { key: string }>(person: { questions: readonly Q[] }, max = 3): Q[] {
   return person.questions
     .filter((q) => q.agreeing < q.compared)
     .sort((a, b) => {

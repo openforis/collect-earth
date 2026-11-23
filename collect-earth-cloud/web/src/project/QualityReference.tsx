@@ -43,6 +43,7 @@ import {
 } from "../api";
 import { FileDrop } from "../components/FileDrop";
 import { useApp } from "../appContext";
+import { MarginBar, TrendMark, VerdictChip } from "../components/Accuracy";
 import { ErrorAlert } from "../components/ErrorAlert";
 import { Explain, MoreInfo } from "../components/Explain";
 import { Loading } from "../components/Loading";
@@ -53,17 +54,20 @@ import { linkProps, pathFor } from "../router";
 import { useLoad } from "../useLoad";
 import { onceVisibleAfter } from "../visibility";
 import { wholeNumber } from "../checksView";
+import { formatRate } from "../qualityView";
+import { kappaText } from "../trainingView";
 
 /** Tables fit a phone: they scroll inside their own frame. */
 const tableFrame = { border: 1, borderColor: "divider", borderRadius: 1, overflowX: "auto" } as const;
 
 /** The accuracy figures: per person (lowest first) and per question. */
-function Accuracy({ figures }: { figures: ReferenceFiguresAnswer }) {
+function Accuracy({ projectId, figures }: { projectId: string; figures: ReferenceFiguresAnswer }) {
   const people = figures.people ?? [];
   const t = useT();
   const { language } = useApp();
   const n = (v: number) => formatNumber(v, language);
   const labels = new Map(figures.questions.map((q) => [q.key, q.label]));
+  const among = new Map(figures.among.map((a) => [a.key, a]));
   return (
     <Stack spacing={2}>
       <Typography variant="h3" sx={{ fontSize: "1.1rem", fontWeight: 600 }}>
@@ -91,6 +95,8 @@ function Accuracy({ figures }: { figures: ReferenceFiguresAnswer }) {
                 <TableRow>
                   <TableCell>{t("reference.col.person")}</TableCell>
                   <TableCell>{t("reference.col.accuracy")}</TableCell>
+                  <TableCell>{t("warn.p.col.answers")}</TableCell>
+                  <TableCell>{t("warn.col.verdict")}</TableCell>
                   <TableCell>{t("reference.col.weakest")}</TableCell>
                 </TableRow>
               </TableHead>
@@ -99,10 +105,19 @@ function Accuracy({ figures }: { figures: ReferenceFiguresAnswer }) {
                   const weakest = weakestQuestions(person);
                   return (
                     <TableRow key={person.username} sx={{ verticalAlign: "top" }}>
-                      <TableCell component="th" scope="row" sx={{ wordBreak: "break-word" }}>
+                      <TableCell component="th" scope="row" sx={{ wordBreak: "break-word", minWidth: 130 }}>
                         {person.username}
                       </TableCell>
                       <TableCell sx={{ minWidth: 180 }}>{accuracyText(t, person.plots, language)}</TableCell>
+                      <TableCell>
+                        <MarginBar tally={person.answers} target={figures.target} />
+                      </TableCell>
+                      <TableCell>
+                        <Stack spacing={0.5} sx={{ alignItems: "flex-start" }}>
+                          <VerdictChip verdict={person.verdict} />
+                          <TrendMark trend={person.trend} />
+                        </Stack>
+                      </TableCell>
                       <TableCell sx={{ minWidth: 180, wordBreak: "break-word" }}>
                         {weakest.length === 0
                           ? "–"
@@ -126,6 +141,8 @@ function Accuracy({ figures }: { figures: ReferenceFiguresAnswer }) {
                 <TableRow>
                   <TableCell>{t("reference.col.question")}</TableCell>
                   <TableCell>{t("reference.col.questionMatch")}</TableCell>
+                  <TableCell>{t("warn.col.verdict")}</TableCell>
+                  <TableCell>{t("warn.q.col.among")}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -134,12 +151,40 @@ function Accuracy({ figures }: { figures: ReferenceFiguresAnswer }) {
                     <TableCell component="th" scope="row" sx={{ wordBreak: "break-word" }}>
                       {q.label}
                     </TableCell>
-                    <TableCell sx={{ minWidth: 180 }}>{accuracyText(t, q, language)}</TableCell>
+                    <TableCell>
+                      <MarginBar tally={q} target={figures.target} />
+                    </TableCell>
+                    <TableCell>
+                      <VerdictChip verdict={q.verdict} />
+                    </TableCell>
+                    <TableCell sx={{ minWidth: 190, fontVariantNumeric: "tabular-nums" }}>
+                      {among.get(q.key) && among.get(q.key)!.compared > 0
+                        ? t("reference.amongPairs", {
+                            pct: formatRate(among.get(q.key)!.agreeing / among.get(q.key)!.compared, language),
+                            agreeing: n(among.get(q.key)!.agreeing),
+                            count: n(among.get(q.key)!.compared),
+                            kappa: kappaText(among.get(q.key)!.kappa, language),
+                          })
+                        : "–"}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </TableContainer>
+          <Explain variant="body2" text={t("reference.verdictNote.short", { target: formatRate(figures.target / 100, language) })} more={t("reference.verdictNote")} />
+          {figures.doubtfulTotal > 0 && (
+            <Alert
+              severity="warning"
+              action={
+                <Button color="inherit" size="small" {...linkProps(pathFor({ name: "project", projectId, tab: "quality", view: "warnings" }))}>
+                  {t("progress.goWarnings")}
+                </Button>
+              }
+            >
+              {t(figures.doubtfulTotal === 1 ? "attention.doubtfulOne" : "attention.doubtful", { count: n(figures.doubtfulTotal) })}
+            </Alert>
+          )}
         </>
       )}
     </Stack>
@@ -684,7 +729,7 @@ export function QualityReference({ projectId, canEdit, forms = true, onSetup }: 
                   {data.count > 0 && ` ${t(data.figures.stale ? "answers.asOfStale" : "answers.asOf", { time: formatDate(data.figures.computedAt, language) })}`}
                 </Typography>
               )}
-              {data.count > 0 && <Accuracy figures={data.figures} />}
+              {data.count > 0 && <Accuracy projectId={projectId} figures={data.figures} />}
               {editing && data.coordinator && data.files.length === 0 && data.plots.length === 0 ? (
                 // Nothing can be done here before a plot file is divided: one notice, the way to Setup › Plots.
                 <>
