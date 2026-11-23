@@ -5,7 +5,8 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { useState } from "react";
-import { importCollectData, previewCollectImport, type CollectImportPreview, type CollectImportResult } from "../api";
+import { importCollectData, previewCollectImport, sendInParts, type CollectImportPreview, type CollectImportResult } from "../api";
+import { MAX_BACKUP_BYTES, megabytes } from "../backupImportView";
 import { useApp } from "../appContext";
 import { collectImportQuery } from "../collectImportView";
 import { ErrorAlert } from "../components/ErrorAlert";
@@ -23,11 +24,13 @@ export function CollectImport({ projectId }: { projectId: string }) {
   const t = useT();
   const { language } = useApp();
   const n = (value: number) => formatNumber(value, language);
-  const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<CollectImportPreview | null>(null);
   const [result, setResult] = useState<CollectImportResult | null>(null);
   const [accounts, setAccounts] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+  const [uploadId, setUploadId] = useState<string | null>(null);
+  const [sending, setSending] = useState<number | null>(null);
+  const [tooLarge, setTooLarge] = useState<number | null>(null);
   const [error, setError] = useState<unknown>(null);
 
   const run = async (work: () => Promise<void>) => {
@@ -43,17 +46,25 @@ export function CollectImport({ projectId }: { projectId: string }) {
   };
   const read = (files: File[]) => {
     const chosen = files[0];
-    setFile(chosen);
     setPreview(null);
     setResult(null);
     setAccounts({});
-    void run(async () => setPreview(await previewCollectImport(projectId, chosen, "")));
+    setTooLarge(chosen.size > MAX_BACKUP_BYTES ? chosen.size : null);
+    if (chosen.size > MAX_BACKUP_BYTES) return;
+    void run(async () => {
+      // in parts, each a request of its own (a backup is larger than one request holds): the import names the upload
+      setSending(0);
+      const id = await sendInParts(chosen, chosen.name, setSending).finally(() => setSending(null));
+      setUploadId(id);
+      setPreview(await previewCollectImport(projectId, id, ""));
+    });
   };
   const confirm = () => {
-    if (file) void run(async () => setResult(await importCollectData(projectId, file, collectImportQuery(accounts))));
+    if (uploadId) void run(async () => setResult(await importCollectData(projectId, uploadId, collectImportQuery(accounts))));
   };
   const again = () => {
-    setFile(null);
+    setUploadId(null);
+    setTooLarge(null);
     setPreview(null);
     setResult(null);
     setError(null);
@@ -67,9 +78,10 @@ export function CollectImport({ projectId }: { projectId: string }) {
           {t("import.desktop")}
         </Typography>
         {!preview && !result && (
-          <FileDrop label={t("import.drop")} buttonLabel={t("import.choose")} accept=".zip,application/zip" disabled={busy} onFiles={read} />
+          <FileDrop label={t("import.drop")} buttonLabel={t("import.choose")} accept=".zip,.collect,.collect-backup,.collect-data,application/zip" disabled={busy} onFiles={read} />
         )}
-        {busy && !preview && <Typography role="status">{t("import.reading")}</Typography>}
+        {tooLarge !== null && <Alert severity="error">{t("backupImport.tooLarge", { size: megabytes(tooLarge), max: megabytes(MAX_BACKUP_BYTES) })}</Alert>}
+        {busy && !preview && <Typography role="status">{sending !== null && sending < 1 ? t("backupImport.sending", { percent: Math.round(sending * 100) }) : t("import.reading")}</Typography>}
         {preview && !result && (
           <Stack spacing={1}>
             <Typography>{t("import.summary", { records: n(preview.records), submitted: n(preview.submitted), drafts: n(preview.drafts) })}</Typography>

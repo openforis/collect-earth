@@ -1109,6 +1109,11 @@ caches to the 1 GiB column (`gcloud run services update collect-earth-cloud --re
 
 ## Known limitations
 
+- **A backup to import is 70 MB at most** (`MAX_UPLOAD_BYTES`, `src/uploads.ts`). The dashboard sends it in parts of
+  4 MB (a request holds 32 MB at most, Cloud Run's limit for HTTP/1 too), kept in the database (`uploads`,
+  `upload_parts`, migration 053) until the import reads them: three hours at most, one upload per account. A 63.7 MB
+  backup of 20,000 plots took 356 MB of the instance's memory at the most (heap 224 MB): it fits a 512 MiB instance,
+  with little to spare; give the server `MEMORY=1Gi` before importing several such backups at once.
 - **Plot ids are read as UTF-8.** In a plot file saved as Latin-1 (ISO-8859-1), an
   id with an accented letter does not match the record key Collect Earth sends, so
   its records are listed as "plot in no file". Save plot files as UTF-8.

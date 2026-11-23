@@ -1,5 +1,6 @@
 import { OPERATOR_SUMMARY_KEY, operatorXmlPattern } from '../anonymize.js';
 import pg from 'pg';
+import type { UploadInfo } from '../uploads.js';
 import { DatabaseBusyError, isPoolWaitTimeout } from './busy.js';
 import { databaseVitals, type DatabaseVitals } from '../databaseVitals.js';
 import { createHash, randomUUID } from 'node:crypto';
@@ -1889,6 +1890,40 @@ export class PostgresStore implements Store {
     } finally {
       client.release();
     }
+  }
+
+  async createUpload(userId: string, input: { bytes: number; partBytes: number; name: string }, expiredBefore: number): Promise<string> {
+    // the account's earlier uploads and everyone's expired ones go (their parts with them: ON DELETE CASCADE)
+    await this.pool.query(`DELETE FROM uploads WHERE user_id = $1 OR created_at < $2`, [userId, new Date(expiredBefore)]);
+    const res = await this.pool.query<{ id: string }>(`INSERT INTO uploads (user_id, bytes, part_bytes, name) VALUES ($1, $2, $3, $4) RETURNING id`, [userId, input.bytes, input.partBytes, input.name]);
+    return res.rows[0].id;
+  }
+
+  async getUpload(uploadId: string, userId: string): Promise<UploadInfo | null> {
+    const res = await this.pool.query<{ bytes: string; part_bytes: number; name: string }>(`SELECT bytes, part_bytes, name FROM uploads WHERE id = $1 AND user_id = $2`, [uploadId, userId]);
+    if (res.rowCount === 0) return null;
+    // the sizes only: a part's bytes are read one part at a time (readUploadPart)
+    const parts = await this.pool.query<{ n: number; bytes: number }>(`SELECT n, octet_length(data) AS bytes FROM upload_parts WHERE upload_id = $1 ORDER BY n`, [uploadId]);
+    return { id: uploadId, bytes: Number(res.rows[0].bytes), partBytes: res.rows[0].part_bytes, name: res.rows[0].name, parts: parts.rows.map((r) => ({ n: r.n, bytes: r.bytes })) };
+  }
+
+  async putUploadPart(uploadId: string, userId: string, n: number, data: Buffer): Promise<boolean> {
+    const res = await this.pool.query(
+      `INSERT INTO upload_parts (upload_id, n, data)
+       SELECT id, $3, $4 FROM uploads WHERE id = $1 AND user_id = $2
+       ON CONFLICT (upload_id, n) DO UPDATE SET data = EXCLUDED.data`,
+      [uploadId, userId, n, data],
+    );
+    return (res.rowCount ?? 0) > 0;
+  }
+
+  async readUploadPart(uploadId: string, n: number): Promise<Buffer | null> {
+    const res = await this.pool.query<{ data: Buffer }>(`SELECT data FROM upload_parts WHERE upload_id = $1 AND n = $2`, [uploadId, n]);
+    return res.rows[0]?.data ?? null;
+  }
+
+  async deleteUpload(uploadId: string, userId: string): Promise<void> {
+    await this.pool.query(`DELETE FROM uploads WHERE id = $1 AND user_id = $2`, [uploadId, userId]);
   }
 
   async createPasswordReset(userId: string, expiresAt: number): Promise<string | null> {

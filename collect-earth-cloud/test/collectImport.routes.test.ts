@@ -95,6 +95,21 @@ describe('importing a Collect Earth backup', () => {
     expect(audit?.details).toMatchObject({ source: 'collect-earth', records: 3, kept: 1, problems: 1 });
   });
 
+  it('takes the backup from an upload sent in parts (?upload=), the asker\'s own, and deletes it once imported', async () => {
+    const file = zip();
+    const started = await ctx.app.inject({ method: 'POST', url: '/v1/uploads', headers: bearer(token), payload: { bytes: file.length, name: 'moved.collect-data' } });
+    const { uploadId } = started.json() as { uploadId: string };
+    expect((await ctx.app.inject({ method: 'PUT', url: `/v1/uploads/${uploadId}/parts/0`, headers: { ...bearer(token), 'content-type': 'application/octet-stream' }, payload: file })).statusCode).toBe(204);
+    const viaUpload = (path: string, auth = token) => ctx.app.inject({ method: 'POST', url: `/v1/projects/${pid}/records/import${path}`, headers: bearer(auth) });
+    const preview = await viaUpload(`/preview?upload=${uploadId}`);
+    expect(preview.statusCode, preview.body).toBe(200);
+    expect(preview.json()).toEqual((await post('/preview', file)).json());
+    const done = await viaUpload(`?upload=${uploadId}`);
+    expect(done.statusCode, done.body).toBe(200);
+    expect(done.json().stored).toBe(preview.json().records);
+    expect((await viaUpload(`/preview?upload=${uploadId}`)).statusCode).toBe(404);
+  });
+
   it('keeps an operator under the account the coordinator names, one of the project; never anyone else, nor makes members', async () => {
     await account('bob');
     const named = encodeURIComponent(JSON.stringify({ 'Bob Smith': 'bob' }));

@@ -440,6 +440,13 @@ export interface PlotLayout {
   pointSide: number;
 }
 
+/** POST /v1/uploads: a file to send in parts (PUT /v1/uploads/:id/parts/:n, each of partBytes but the last), then named by an import. */
+export interface UploadStarted {
+  uploadId: string;
+  partBytes: number;
+  parts: number;
+}
+
 /** POST /v1/projects/from-backup/preview: what a Collect Earth backup (its "Export data to XML (ZIP)") would become; nothing is stored. */
 export interface BackupImportPreview {
   name: string;
