@@ -534,8 +534,16 @@ create_database() {
   fi
 }
 
+# Only Google Cloud's NOT_FOUND answers "not there". Any other failure stops the deployment: "not there" makes a new
+# database password and sets it on the database user, and a passing gcloud error once did that over the stored one,
+# so that no new server instance could log in to migrate.
 secret_exists() {
-  gq secrets describe "$1" --format='value(name)' >/dev/null
+  if $DRY_RUN; then gq secrets describe "$1" --format='value(name)'; return 1; fi
+  local pf err; pf="$(project_flag)"
+  if err="$("$GCLOUD" secrets describe "$1" --format='value(name)' ${pf:+"$pf"} 2>&1 >/dev/null)"; then return 0; fi
+  [[ "$err" == *NOT_FOUND* ]] && return 1
+  fail "Google Cloud could not say whether the secret $1 is stored:" "$err" \
+    "Nothing was changed. It is safe to run the same command again."
 }
 
 create_secrets() {
