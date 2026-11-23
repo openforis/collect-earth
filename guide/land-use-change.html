@@ -145,7 +145,7 @@
   <p>Collect Earth Explorer shows the plot on satellite imagery from Google Earth Engine, with charts of the plot over the years. It opens on each plot with the dates your project set, and already loads the next plot while you work.</p>
   <h3 id="explorer-layers">The images</h3>
   <ul>
-    <li>The <span class="ui">Layers</span> panel lists the images: Sentinel-2 composites (the last 12 months, or a year since 2016), Landsat yearly composites since 1984, and Sentinel-1 radar since 2015. Each has a year slider and a band choice: <span class="ui">True colour</span> looks like a photograph; <span class="ui">False colour</span> shows vegetation in strong colour and separates it from bare soil and water.</li>
+    <li>The <span class="ui">Layers</span> panel lists the images: Sentinel-2 composites (the last 12 months, or a year since 2016), Landsat yearly composites since 1984, and Sentinel-1 radar since 2015. Each has a year slider and a band choice: <span class="ui">True colour</span> looks like a photograph; <span class="ui">False colour</span> (near infrared, shortwave infrared, red) shows dense forest in orange to red-brown, grassland and crops in yellow to yellow-green, and bare soil in pale green: it tells vegetation types apart better than true colour.</li>
     <li><span class="ui">Compare with</span> puts a second layer beside the first, <span class="ui">Left</span> and <span class="ui">Right</span>: the plot in 2000 against 2020, for example. Between two images of the same sensor, <span class="ui">Difference (NDVI change)</span> colours the loss and the gain of vegetation.</li>
     <li>Click a point in a chart to see that scene on the map (<span class="ui">Scene</span>): the image behind an odd value.</li>
   </ul>
@@ -153,7 +153,7 @@
   <p>The charts follow a vegetation index over time (NDVI by default: high for dense green vegetation, low for bare soil). A lasting drop means vegetation was removed; a slow rise means it grew back.</p>
   <ul>
     <li><span class="ui">Trend</span> (on when the chart opens) tests whether the index rose or fell over the period, and says if it is significant. It needs 8 years of data.</li>
-    <li><span class="ui">Change year</span> finds the year where the yearly values shift most, with the median before and after. <span class="ui">Compare years</span> then shows the composites of the year before and after on the map, and <span class="ui">Compare scenes</span> the least cloudy scene of the 3 months before and after: look at them to confirm the change is real.</li>
+    <li><span class="ui">Change year</span> finds the year where the yearly values shift most, with the median before and after. <span class="ui">Compare years</span> then shows the composites of the year before and after on the map, and, on Sentinel-2 charts, <span class="ui">Compare scenes</span> the least cloudy scene of the 3 months before and after; <span class="ui">Scene before</span> and <span class="ui">Scene after</span> show one image each. Look at them to confirm the change is real.</li>
     <li><span class="ui">Unusual values</span> marks observations far below the usual for their month. A single mark is often cloud or shadow; a run of marks suggests a real drop.</li>
     <li><span class="ui">Seasonal profile</span> shows the usual value for each month and one year drawn over it. A strong, regular swing is typical of crops or deciduous vegetation; a flat, high line of evergreen forest. A change of profile between years is a change of use.</li>
     <li>The cloud filter removes observations from cloudy scenes; <span class="ui">Explain</span> describes each analysis; <span class="ui">Download CSV</span> gives the values.</li>
@@ -207,7 +207,7 @@
   <p>A plot that is now cropland, in a survey asking for the land use in 2000 and now, and the year of any change. The values are illustrative.</p>
   <ol class="steps">
     <li><strong>Now:</strong> Google Earth Web shows fields with straight edges and scattered trees on their boundaries. The Sentinel-2 seasonal profile swings strongly every year: cropland.</li>
-    <li><strong>Then:</strong> Google Earth Web's history has an image from 2005 with closed tree crowns over the plot. The Landsat composite of 2000 in Explorer, in false colour, shows the same dense vegetation as the forest around it: forest in 2000.</li>
+    <li><strong>Then:</strong> Google Earth Web's history has an image from 2005 with closed tree crowns over the plot. The Landsat composite of 2000 in Explorer, in false colour, shows the plot in the same orange as the forest around it: forest in 2000.</li>
     <li><strong>When:</strong> the Landsat NDVI chart drops and stays low; <span class="ui">Change year</span> says 2011, significant. <span class="ui">Compare years</span> shows forest in 2010 and bare soil in 2012. The history in Google Earth Web has no image between 2005 and 2016, which is consistent.</li>
     <li><strong>Why:</strong> no burned month in the MODIS chart and normal rainfall in 2011: a clearing for agriculture, not a fire or a drought.</li>
     <li><strong>Recorded:</strong> forest in 2000, cropland now, converted in 2011; sure, with the 2005 and current images and the Landsat change year as evidence.</li>

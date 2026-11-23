@@ -64,24 +64,49 @@
     <li><strong>The standard window</strong> has three imagery layers (Sentinel-2, Landsat, Sentinel-1 radar) and six charts: a Landsat index, a Sentinel-2 index, CCDC change, MODIS with burned areas, and, folded, Sentinel-1 radar and rainfall. A survey can change all of it (section 2).</li>
   </ul>
 
+  <figure><img src="../img/screens/explorer-window.jpg" alt="Collect Earth Explorer on a plot in Rondônia, Brazil: the Layers panel and a Sentinel-2 false-colour image on the left, the summary line and the Landsat and Sentinel-2 NDVI charts on the right" loading="lazy" width="1440" height="900"><figcaption>The Explorer on a plot at a forest edge in Rondônia, Brazil: Sentinel-2 in false colour, with forest in orange and pasture in yellow-green. The summary reads: Landsat NDVI, significant decrease, change in 2005.</figcaption></figure>
+
   <h2 id="setup">2. Setting it up</h2>
-  <p>The Explorer is set up once per project. In a cloud project the coordinator does it on the dashboard and everyone's Collect Earth applies it within minutes; collectors cannot change it. On a project of your own, you do it in Collect Earth's settings.</p>
+  <p>The Explorer is set up once per project, before training: which period its charts cover, which imagery layers and charts it shows, in what order and with which options. In a cloud project the coordinator does it on the dashboard, and everyone's Collect Earth applies it within minutes; collectors cannot change it. On a project of your own, you do it in Collect Earth's settings. Both open the same editor.</p>
+
+  <h3 id="setup-decide">Before you start: four questions</h3>
   <div class="table-wrap">
     <table>
-      <thead><tr><th></th><th>Cloud project (coordinator)</th><th>Project on one computer</th></tr></thead>
+      <thead><tr><th>Question</th><th>What it sets</th></tr></thead>
       <tbody>
-        <tr><td>Where</td><td>Dashboard: <span class="ui">Setup › Plot layout &amp; imagery › Imagery windows</span></td><td>Collect Earth: <span class="ui">Settings › Imagery</span></td></tr>
-        <tr><td>On or off</td><td><span class="ui">Collect Earth Explorer (no sign-in)</span></td><td>The same, on by default</td></tr>
-        <tr><td>The period</td><td><span class="ui">Start date of the Explorer</span>, <span class="ui">End date of the Explorer</span> (blank: 1984 to today)</td><td><span class="ui">Start date in Collect Earth Explorer</span>, <span class="ui">End date…</span></td></tr>
-        <tr><td>Layers and charts</td><td><span class="ui">Explorer window › Customize…</span>, then <span class="ui">Save</span> on the card</td><td><span class="ui">Explorer window: layers and charts › Customize…</span></td></tr>
+        <tr><td>Which years does the survey ask about?</td><td>The period: start it several years before the earliest reference year, because the trend and the change year need 8 years of data. Landsat's slider can start on the reference year.</td></tr>
+        <tr><td>What change are you looking for?</td><td>The starting point and the index: forest loss, fire, crops, drylands (see <a href="#indices">Choosing an index</a>).</td></tr>
+        <tr><td>Is the area often cloudy?</td><td>The radar layer and chart, and the cloud limits.</td></tr>
+        <tr><td>Does a season matter?</td><td>A Sentinel-2 layer fixed on that season (a dry or a wet season), so everyone compares the same time of year.</td></tr>
       </tbody>
     </table>
   </div>
-  <p><strong>The period</strong> is what the charts cover. Start it a few years before the survey's reference date, so a change around that date has years before it to compare with: the trend and the change year need 8 years of data.</p>
 
-  <h3 id="editor">The editor</h3>
-  <p><span class="ui">Customize…</span> opens <span class="ui">Customize the Explorer window</span>: the imagery layers and the charts, in order, with a live <span class="ui">Preview</span> on a sample plot (a forest edge in Rondônia, Brazil). Press <span class="ui">Use this setup</span> to keep it; <span class="ui">Back to the standard window</span> undoes everything.</p>
-  <p><strong>Start from a starting point</strong>, then adjust it. Each one replaces the whole setup:</p>
+  <h3 id="setup-cloud">In a cloud project, step by step</h3>
+  <figure><img src="../img/screens/explorer-imagery-card.png" alt="The Imagery windows card of the dashboard: the Collect Earth Explorer switch, its start and end dates, the Explorer window with its Customize button, and the other imagery windows" loading="lazy" width="984" height="809"><figcaption>Setup › Plot layout &amp; imagery › Imagery windows: the Explorer, its period and its window.</figcaption></figure>
+  <ol class="steps">
+    <li>On the dashboard, open your project's <span class="ui">Setup › Plot layout &amp; imagery</span> and scroll to the <span class="ui">Imagery windows</span> card.</li>
+    <li>Check that <span class="ui">Collect Earth Explorer (no sign-in)</span> is on.</li>
+    <li>Fill in <span class="ui">Start date of the Explorer</span> and <span class="ui">End date of the Explorer</span>, or leave them blank: the charts then cover 1984 to today.</li>
+    <li>Under <span class="ui">Explorer window</span>, press <span class="ui">Customize…</span>. The editor opens, with a live preview on one of the project's plots.</li>
+    <li>Choose a <span class="ui">Starting point</span> (below), then adjust the layers and the charts.</li>
+    <li>Watch the <span class="ui">Preview</span>: it shows the window as the collectors will see it, about a second after each change.</li>
+    <li>Press <span class="ui">Use this setup</span>. The card now sums up the setup (for example “4 layers, 5 charts”) and says it is not saved yet.</li>
+    <li>Press <span class="ui">Save</span> at the bottom of the card. Within a few minutes, every collector's Collect Earth applies it by itself and says what changed.</li>
+    <li>Open a plot in your own Collect Earth to check the result. To undo everything, <span class="ui">Back to the standard window</span>, then <span class="ui">Save</span>.</li>
+  </ol>
+  <figure><img src="../img/screens/explorer-customize.jpg" alt="The Customize the Explorer window dialog: starting points and imagery layers on the left, a live preview of the Explorer on a plot of the project on the right, and Use this setup at the bottom" loading="lazy" width="1440" height="900"><figcaption>The editor: starting points, layers and charts on the left; the preview on a plot of the project on the right.</figcaption></figure>
+
+  <h3 id="setup-desktop">On a project on one computer</h3>
+  <ol class="steps">
+    <li>In Collect Earth, open <span class="ui">Settings › Imagery</span>.</li>
+    <li>Check <span class="ui">Collect Earth Explorer (no sign-in)</span> (on by default), and set <span class="ui">Start date in Collect Earth Explorer</span> and <span class="ui">End date in Collect Earth Explorer</span> if needed.</li>
+    <li>Under <span class="ui">Explorer window: layers and charts</span>, press <span class="ui">Customize…</span>: the same editor opens, with a preview on a sample plot (a forest edge in Rondônia, Brazil). Press <span class="ui">Use this setup</span>, then save the settings.</li>
+  </ol>
+  <p>In a cloud project these settings show <span class="ui">Set by the project coordinator on the dashboard</span> and cannot be changed. Under <span class="ui">Advanced</span>, the setup appears as a short text: copy it to give another project the same window.</p>
+
+  <h3 id="setup-start">Starting points</h3>
+  <p>Each starting point replaces the whole setup; adjust it afterwards. <span class="ui">Undo</span> brings back what you had.</p>
   <div class="table-wrap">
     <table>
       <thead><tr><th>Starting point</th><th>What it gives</th><th>For</th></tr></thead>
@@ -94,29 +119,61 @@
       </tbody>
     </table>
   </div>
-  <p><strong>Layers</strong> (<span class="ui">Add layer</span>, move, remove; the first opens first; at least one):</p>
+
+  <h3 id="setup-layers">The layers and their options</h3>
+  <p>The layers are the images on the map, listed in the order of the <span class="ui">Layers</span> panel; the first opens first, and the map needs at least one. <span class="ui">Add layer</span> adds one; the arrows move it; the cross removes it. A layer can be added twice with different options, for example Sentinel-2 in the dry and in the wet season. Click a layer to open its options:</p>
+  <figure><img src="../img/screens/explorer-editor-options.png" alt="The editor with a Sentinel-2 layer opened (colours, period shown, year shown first, more options) and a Landsat index chart opened (index, analyses shown when the chart opens, start folded, more options)" loading="lazy" width="1744" height="915"><figcaption>A layer's options (left) and a chart's options (right).</figcaption></figure>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Option</th><th>Layers</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><span class="ui">Colours</span></td><td>All</td><td>False colour (near infrared, shortwave infrared and red: see <a href="#map">reading the colours</a>) or true colour; for radar, the false-colour mix of VV and VH, or VV or VH alone</td></tr>
+        <tr><td><span class="ui">Period shown</span></td><td>Sentinel-2</td><td><span class="ui">Year slider</span>, a year at a time, ending with the last 12 months; or <span class="ui">Fixed period</span>, <span class="ui">From</span> and <span class="ui">To</span>, at most 3 years</td></tr>
+        <tr><td><span class="ui">Year shown first</span></td><td>All with a slider</td><td>The year the slider starts on: the reference year, for example; left on <span class="ui">Automatic</span>, the most recent</td></tr>
+        <tr><td><span class="ui">Name in the layers panel</span></td><td>All (More options)</td><td>A name people recognise, such as “Dry season 2019”; without one, a fixed period is named by its dates</td></tr>
+        <tr><td><span class="ui">Years on the slider</span></td><td>All with a slider (More options)</td><td>The first and last year people can choose: Landsat from 1984, Sentinel-1 from 2015, Sentinel-2 from 2016</td></tr>
+        <tr><td><span class="ui">Most cloud cover allowed (%)</span></td><td>Sentinel-2, Landsat (More options)</td><td>Leaves out cloudier images from the composite; lower it for a cleaner picture, raise it where images are few</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 id="setup-charts">The charts and their options</h3>
+  <p>The charts are listed in the order they appear beside the map. <span class="ui">Add chart</span> adds one; a type can be added twice, for example a Landsat NDVI chart and a Landsat NBR chart. With no charts at all, the window shows only the map.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Option</th><th>Charts</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><span class="ui">Index</span></td><td>Landsat, Sentinel-2, MODIS, CCDC</td><td>What the chart follows: NDVI by default (see <a href="#indices">Choosing an index</a>); MODIS NDVI or EVI; CCDC NDFI or NDVI</td></tr>
+        <tr><td><span class="ui">Custom formula…</span></td><td>Landsat, Sentinel-2</td><td>Your own index, with its <span class="ui">Name of your formula</span>. Bands <code>blue green red nir swir1 swir2</code>, and on Sentinel-2 <code>rededge1 rededge2 rededge3</code>, as reflectance from 0 to 1; numbers, <code>+ - * /</code>, brackets, <code>sqrt abs min max pow</code>. Example: <code>(nir - rededge1) / (nir + rededge1)</code></td></tr>
+        <tr><td><span class="ui">Analyses shown when the chart opens</span></td><td>Landsat, Sentinel-2, MODIS, radar, rainfall</td><td>Which of <span class="ui">Yearly median</span>, <span class="ui">Trend</span>, <span class="ui">Change year</span>, <span class="ui">Unusual values</span> and <span class="ui">Seasonal profile</span> are on at first (section 5). People can still switch them</td></tr>
+        <tr><td><span class="ui">Index</span> (radar)</td><td>Sentinel-1</td><td>VH (more from vegetation, the default) or VV (more from the ground)</td></tr>
+        <tr><td><span class="ui">Show rainfall under the chart</span></td><td>MODIS</td><td>Monthly rainfall drawn as bars under the index</td></tr>
+        <tr><td><span class="ui">Start folded</span></td><td>All</td><td>The chart loads only when someone opens it: the window is faster. Fold the charts people need only now and then</td></tr>
+        <tr><td><span class="ui">Most cloud cover allowed</span></td><td>Landsat, Sentinel-2 (More options)</td><td>The scene cloud limit the chart starts with (40 % by default)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 id="setup-examples">Examples</h3>
   <ul>
-    <li><span class="ui">Sentinel-2 composite</span>: 10&nbsp;m, from 2016. <span class="ui">Year slider</span> (with the <span class="ui">Last 12 months</span>) or a <span class="ui">Fixed period</span> of up to 3 years, for example a dry season: name it (<span class="ui">Name in the layers panel</span>) so people know what it shows.</li>
-    <li><span class="ui">Landsat yearly composite</span>: 30&nbsp;m, one picture a year back to 1984. Limit <span class="ui">Years on the slider</span> and choose the <span class="ui">Year shown first</span>, for example the reference year.</li>
-    <li><span class="ui">Sentinel-1 radar composite</span>: yearly, from 2015; sees through cloud.</li>
-    <li>Each takes its <span class="ui">Colours</span> (<span class="ui">False colour</span>, vegetation in green, or <span class="ui">True colour</span>; for radar VV or VH) and, for optical ones, <span class="ui">Most cloud cover allowed (%)</span>.</li>
+    <li><strong>A survey of forest change since 2000</strong>: period from 1995; <span class="ui">Deforestation</span> starting point; the Landsat layer's <span class="ui">Year shown first</span> 2000.</li>
+    <li><strong>A dry-season comparison</strong>: add a second Sentinel-2 layer with a <span class="ui">Fixed period</span> on the dry months of one year, named “Dry season 2019”.</li>
+    <li><strong>Fires in a savanna</strong>: <span class="ui">Fire</span> starting point; add <span class="ui">Seasonal profile</span> to the MODIS chart's analyses to tell the burning season from the growing season.</li>
+    <li><strong>A faster window for a big Mapathon</strong>: keep the charts people use on every plot open, and <span class="ui">Start folded</span> the others.</li>
   </ul>
-  <p><strong>Charts</strong> (<span class="ui">Add chart</span>, move, remove; none at all shows only the map):</p>
-  <ul>
-    <li>Each index chart takes an <span class="ui">Index</span> from the list (section 6) or a <span class="ui">Custom formula…</span> with its name, the <span class="ui">Analyses shown when the chart opens</span>, a cloud limit, and <span class="ui">Start folded</span>: a folded chart loads only when someone opens it, which keeps the window fast.</li>
-    <li>A custom formula uses the bands <code>blue green red nir swir1 swir2</code> (Sentinel-2 also <code>rededge1 rededge2 rededge3</code>), as reflectance from 0 to 1, with numbers, <code>+ - * /</code>, brackets and <code>sqrt abs min max pow</code>. Example: <code>(nir - rededge1) / (nir + rededge1)</code>.</li>
-    <li>The MODIS chart can start with <span class="ui">Show rainfall under the chart</span>.</li>
-  </ul>
-  <p>A setup is saved as a short text of at most 2,000 characters: the editor counts it, and warns when an item must be removed. Under <span class="ui">Advanced</span>, Collect Earth's settings show that text, to copy a setup from one project to another.</p>
+  <p><strong>Limits.</strong> A setup is saved as a short text of at most 2,000 characters; the editor counts it and says when an item must go. Fields in red must be fixed before the preview and the save work. If the window later shows <span class="ui">This survey's Explorer settings were partly ignored</span>, an item was skipped: open the editor and correct it.</p>
 
   <h2 id="map">3. The map and its layers</h2>
   <ul>
-    <li>The <span class="ui">Layers</span> panel lists the survey's layers. Each has its colours and a year slider: slide it to see the plot in another year. A Sentinel-2 slider ends with <span class="ui">Last 12 months</span>.</li>
-    <li><strong>False colour</strong> shows vegetation in strong green and separates it from bare soil, water and built-up land better than true colour. <strong>True colour</strong> looks as the eye sees it. On radar, VV is bright on buildings and rough ground, VH on forest and dense vegetation.</li>
-    <li><strong>Compare.</strong> <span class="ui">Compare with</span> splits the map with a handle you drag: one layer on the <span class="ui">Left</span>, another on the <span class="ui">Right</span>, each at its own year. The plot in 2000 on the left and in 2024 on the right shows a change at a glance.</li>
-    <li><strong>Difference.</strong> While comparing two images of the same sensor, <span class="ui">Difference (NDVI change)</span> replaces the split with one map of the change in vegetation, right minus left, with a legend from <span class="ui">loss</span> to <span class="ui">gain</span>. It is not available for radar.</li>
-    <li><strong>A scene.</strong> Click a point in a Landsat or Sentinel-2 chart: the map shows that single image (<span class="ui">Scene</span>). Use it to see what lies behind an odd value: a cloud, a fire scar, a harvested field.</li>
+    <li>The <span class="ui">Layers</span> panel lists the survey's layers. Each has its colours and a year slider: slide it to see the plot in another year. A Sentinel-2 slider ends with <span class="ui">Last 12 months</span>. The label at the bottom left names the image shown.</li>
+    <li><strong>Reading the colours.</strong> <span class="ui">True colour</span> looks as the eye sees it. <span class="ui">False colour</span> shows near infrared as red, shortwave infrared as green and red as blue: dense forest appears orange to red-brown, grassland, pasture and crops yellow to yellow-green, bare soil and built-up land pale green to cyan, water dark blue to black. It tells vegetation types apart better than true colour.</li>
+    <li><strong>Radar.</strong> VV is bright on buildings and rough ground, VH on forest and dense vegetation; the false-colour mix shows both.</li>
+    <li><strong>Compare.</strong> <span class="ui">Compare with</span> splits the map with a handle you drag: the layer ticked above on the <span class="ui">Left</span>, the one you choose on the <span class="ui">Right</span>, each at its own year. <span class="ui">Compare years</span> on a chart does it for you around a change year.</li>
+    <li><strong>Difference.</strong> While comparing two images of the same sensor, <span class="ui">Difference (NDVI change)</span> replaces the split with one map of the change in vegetation, right minus left, from <span class="ui">loss</span> (brown) to <span class="ui">gain</span> (blue-green). It is not available for radar.</li>
+    <li><strong>A scene.</strong> Click a point in a Landsat or Sentinel-2 chart, or <span class="ui">Scene before</span> and <span class="ui">Scene after</span> beside a change year: the map shows that single image (<span class="ui">Scene</span>). Use it to see what lies behind an odd value: a cloud, a fire scar, a harvested field.</li>
   </ul>
+  <figure><img src="../img/screens/explorer-compare.jpg" alt="The Explorer comparing Landsat 2004 on the left with Landsat 2006 on the right, split by a handle across the plot" loading="lazy" width="1440" height="900"><figcaption>Compare years around the change year 2005: Landsat 2004 on the left, 2006 on the right, split by a handle you drag across the plot.</figcaption></figure>
+  <figure><img src="../img/screens/explorer-difference.jpg" alt="The NDVI difference between Landsat 2004 and 2006: the plot and the land around it in dark brown, loss of vegetation" loading="lazy" width="1440" height="900"><figcaption>Difference (NDVI change) between the same two years: the plot falls in a patch of dark brown, a loss of vegetation.</figcaption></figure>
 
   <h2 id="charts">4. The charts</h2>
   <p>Each chart follows the plot over time. A line above the charts sums up each Landsat and Sentinel-2 chart: its trend, a significant change year, and the date of the last image; click a line to go to its chart.</p>
@@ -134,6 +191,7 @@
     </table>
   </div>
   <p>On every chart: <span class="ui">1y</span>, <span class="ui">5y</span> and <span class="ui">All</span> set the time shown; drag to zoom, <span class="ui">Reset axes</span> to go back; <span class="ui">Fold chart</span> hides it; <span class="ui">Download CSV</span> gives its values. On Landsat and Sentinel-2 charts the cloud filter (<span class="ui">Any cloud</span>, <span class="ui">max 40 %</span>…) leaves out images from cloudy scenes; the limit is for the whole satellite scene, and cloudy pixels over the plot are masked anyway.</p>
+  <figure class="narrow"><img src="../img/screens/explorer-chart-ccdc.png" alt="The CCDC chart on NDFI: grey observations and one green fitted segment with its seasonal waves from 1999 to today" loading="lazy" width="746" height="666"><figcaption>CCDC on NDFI for the same plot: one segment, so no abrupt break was found, while its level slowly declines.</figcaption></figure>
 
   <h2 id="analyses">5. Reading the analyses</h2>
   <p>The Landsat, Sentinel-2, MODIS and Sentinel-1 charts carry five analyses, each with a switch. <span class="ui">Explain</span> describes them on the chart. Your choice of switches applies to all charts and stays for the next plots.</p>
@@ -143,12 +201,15 @@
       <tbody>
         <tr><td><span class="ui">Yearly median</span></td><td>The middle value of each calendar year (years with images in fewer than 6 months are left out)</td><td>The year-to-year level, without the noise of single images</td></tr>
         <tr><td><span class="ui">Trend</span> (on when the chart opens)</td><td>Whether the yearly medians rise or fall, with the change per year. Needs 8 years</td><td><span class="ui">Trend: significant increase</span> or <span class="ui">decrease</span> when its p-value is below 0.05, the chance of seeing it if there were no real trend: regrowth, or slow degradation. <span class="ui">not significant</span>: stable, or too noisy to tell</td></tr>
-        <tr><td><span class="ui">Change year</span></td><td>The year where the yearly medians shift most, with the median before and after. Needs 8 years</td><td><span class="ui">Change in 2011: significant</span> marks a likely event. Confirm it with <span class="ui">Compare years</span> (the composites of the year before and after) or <span class="ui">Compare scenes</span> (the least cloudy scene of the 3 months before and after)</td></tr>
+        <tr><td><span class="ui">Change year</span></td><td>The year where the yearly medians shift most, with the median before and after. Needs 8 years</td><td><span class="ui">Change in 2011: significant</span> marks a likely event. Confirm it with <span class="ui">Compare years</span> (the composites of the year before and after) or, on Sentinel-2, <span class="ui">Compare scenes</span> (the least cloudy scene of the 3 months before and after); <span class="ui">Scene before</span> and <span class="ui">Scene after</span> show one image each</td></tr>
         <tr><td><span class="ui">Unusual values</span></td><td>Observations far below what is usual for their month, in red. Needs 24 observations</td><td>A single red point is often cloud or shadow the mask missed; a run of red points is a real drop: a clearing, a fire, a flood</td></tr>
         <tr><td><span class="ui">Seasonal profile</span></td><td>The usual value of each month (line) and the range of half the observations (band), with one year drawn over it (<span class="ui">Usual year</span> against a year you pick)</td><td><span class="ui">Highest in</span> and <span class="ui">lowest in</span> a month, and the seasonal swing: a strong, regular swing is crops or deciduous vegetation; a flat, high line is evergreen forest. A year that leaves the band behaved unusually</td></tr>
       </tbody>
     </table>
   </div>
+  <figure class="narrow"><img src="../img/screens/explorer-chart-change.png" alt="The Landsat NDVI chart with Trend and Change year on: a red dashed trend line falling, a dashed vertical line at 2005, the text Change in 2005: significant, with Scene before, Scene after and Compare years" loading="lazy" width="746" height="836"><figcaption>Trend and Change year on Landsat NDVI: a significant decrease, and a significant change in 2005, with buttons to see the images around it.</figcaption></figure>
+  <figure class="narrow"><img src="../img/screens/explorer-chart-season.png" alt="The Sentinel-2 NDVI chart with its seasonal profile: highest in January, lowest in August, seasonal swing 0.40, and the usual year in green against 2026 in black" loading="lazy" width="746" height="1290"><figcaption>The Seasonal profile on Sentinel-2: the usual year (green line, band of half the observations) against 2026 (black). A regular dry-season dip in August.</figcaption></figure>
+  <figure class="narrow"><img src="../img/screens/explorer-chart-modis.png" alt="The MODIS NDVI chart with monthly rainfall bars underneath, its trend, change year and seasonal profile" loading="lazy" width="746" height="1180"><figcaption>MODIS NDVI with <span class="ui">Rain</span> on: monthly rainfall as bars under the index, to tell a dry year from a change of land.</figcaption></figure>
   <ul>
     <li><strong>Trend and change year together.</strong> A gradual trend also produces a change year. A sharp step with no trend after it is an event; a steady slope with a change year in the middle is a slow process.</li>
     <li><strong>A drop that comes back</strong> within a year or two to the same seasonal pattern is a disturbance (a harvest, a fire, a dry year), not a change of land use.</li>
