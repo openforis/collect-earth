@@ -54,8 +54,11 @@ The zip Collect's `XMLDataExportProcess` writes, and the one the cloud's own Col
   when that person, signed in, saves the plot again, the record moves to their account (`routes/records.ts`).
 - The dashboard: "From a Collect Earth backup" on the projects page (`pages/BackupImportDialog.tsx`,
   `backupImportView.ts`): the backup, then the counts, the plot file, the layout (with the side and area it comes to),
-  the collectors and the name. A backup larger than 23 MB is refused before it is sent (it travels in base64 within the
-  32 MB request limit), with how to bring it in parts.
+  the collectors and the name. A backup is sent in parts of 4 MB, each a request of its own (`POST /v1/uploads`, since 23 Nov 2026), and the
+  import names the upload: up to 70 MB (a larger one is refused before it is sent, with how to bring it in parts). Until then
+  it travelled in base64 within the 32 MB request limit: 23 MB at most, which refused a country's data (Zambia's).
+  A 63.7 MB `.collect-data` of 20,000 plots (60,000 record files) was previewed in 9 s and imported in 30 s on PostgreSQL,
+  the server's heap held to 224 MB as on a 512 MiB instance: 356 MB at the most.
 
 ## Checked
 
@@ -68,8 +71,8 @@ The zip Collect's `XMLDataExportProcess` writes, and the one the cloud's own Col
 
 ## Not done
 
-- A backup larger than one request (about 23 MB of zip: several thousand records, about 7,000 like the real one's) must come in parts; records can also
-  come later through Collect Earth's sync.
+- A backup larger than 70 MB must come in parts (one round, or one collector, at a time); records can also come later
+  through Collect Earth's sync. A much larger backup needs more memory than a 512 MiB instance has (DEPLOY.md, Memory).
 - The original plot file must be in latitude and longitude; the cloud does not reproject.
 - The imagery and viewer settings of the original project are not in the backup: the project file gets Collect Earth's
   defaults.
