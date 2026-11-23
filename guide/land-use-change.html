@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#ffffff">
+<script>document.documentElement.classList.add("js")</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap">
+<title>Reading land use change · Collect Earth</title>
+<meta name="description" content="How to assess land use and land use change on a plot with Collect Earth: very high resolution historical imagery in Google Earth Web, ESRI Wayback and Planet, the time series of Collect Earth Explorer, and ancillary data such as rainfall, fire and radar.">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../favicon.ico" sizes="any">
+<link rel="stylesheet" href="../style.css">
+<script src="../analytics.js" defer></script>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="../"><img src="../img/logo.png" alt="Collect Earth · Open Foris" width="1000" height="434"></a>
+    <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Menu"><svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg></button>
+    <nav id="site-nav" aria-label="Main">
+      <a href="choose.html">Which set-up?</a>
+      <a href="sampling.html">Sampling</a>
+      <a href="interpreters.html">Interpreters</a>
+      <a href="coordinators.html">Coordinators</a>
+      <a href="mapathon.html">Mapathons</a>
+      <a href="own-server.html">Own server</a>
+      <a class="btn primary" href="https://cloud.collectearth.org">Open the dashboard</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<div class="page-title">
+  <div class="box">
+    <p class="crumb"><a href="../">Collect Earth</a> › <a href="../#guides">Guides</a></p>
+    <h1>Reading land use change</h1>
+    <p class="lead">A change of land use is rarely visible in one image. This guide shows how to put the evidence together on each plot: the very high resolution images of Google Earth Web and its history to see what is there and what was there, Collect Earth Explorer's time series to date the change, and ancillary data to explain it.</p>
+  </div>
+</div>
+<div class="doc">
+
+  <div class="toc">
+    <strong>On this page</strong>
+    <ol>
+      <li><a href="#approach">The approach</a></li>
+      <li><a href="#sources">The sources and the years they cover</a></li>
+      <li><a href="#now">The land today</a></li>
+      <li><a href="#history">Going back in Google Earth Web</a></li>
+      <li><a href="#gaps">Filling the gaps: Wayback and Planet</a></li>
+      <li><a href="#explorer">Dating the change in Explorer</a></li>
+      <li><a href="#ancillary">Ancillary data</a></li>
+      <li><a href="#decide">Deciding and recording</a></li>
+      <li><a href="#pitfalls">Common pitfalls</a></li>
+      <li><a href="#example">An example</a></li>
+      <li><a href="#organisers">For organisers</a></li>
+    </ol>
+  </div>
+
+  <h2 id="approach">1. The approach</h2>
+  <p>Assess each plot from what is certain to what is not: first the land as it is now, on the sharpest imagery; then the land at the start of the period; then, if the two differ, when and why it changed. No single source answers all three, so each answer rests on two or more sources that agree.</p>
+  <ol class="steps">
+    <li><strong>Now.</strong> The land cover and land use today, on very high resolution (VHR) imagery: Google Earth Web, where you can tell trees, crops, buildings and bare soil apart.</li>
+    <li><strong>Then.</strong> The same plot at the survey's reference date, on the historical VHR images of Google Earth Web, ESRI Wayback or Planet; before those, on Landsat in Explorer.</li>
+    <li><strong>When.</strong> If then and now differ, the year of the change, from Explorer's time series (Landsat since 1984, Sentinel-2 since 2016), checked on the images just before and after.</li>
+    <li><strong>Why.</strong> What the change was: clearing, fire, flooding, a drought, a harvest followed by regrowth. Ancillary data (rainfall, burned area, radar, the seasonal cycle, the plot file's columns) tell them apart.</li>
+  </ol>
+  <p>Your survey decides which of these it asks for (for example, the land use at the start and at the end of the period and the year of change). This guide is about finding the evidence, whatever the questions.</p>
+
+  <h2 id="sources">2. The sources and the years they cover</h2>
+  <p>Pick the source by the date you need and the detail you need: VHR images show what is on the ground but are taken on few, irregular dates; satellite time series are coarser but cover every year.</p>
+  <figure>
+    <div style="overflow-x:auto">
+    <svg viewBox="0 0 760 352" role="img" aria-label="Landsat covers every year since 1984; very high resolution images cover a few dates per place" style="display:block;width:100%;min-width:600px;height:auto" font-family="Poppins, sans-serif" font-size="12.5">
+      <text x="24" y="28" font-size="15" font-weight="600" fill="#161922">Landsat covers every year since 1984; VHR images only a few dates per place</text>
+      <g stroke="#E2DDD3" stroke-width="1"><line x1="240" y1="52" x2="240" y2="318"/><line x1="301" y1="52" x2="301" y2="318"/><line x1="361" y1="52" x2="361" y2="318"/><line x1="422" y1="52" x2="422" y2="318"/><line x1="482" y1="52" x2="482" y2="318"/><line x1="542" y1="52" x2="542" y2="318"/><line x1="603" y1="52" x2="603" y2="318"/><line x1="663" y1="52" x2="663" y2="318"/><line x1="724" y1="52" x2="724" y2="318"/></g>
+      <g font-size="11.5" fill="#626262" text-anchor="middle"><text x="240" y="336">1985</text><text x="301" y="336">1990</text><text x="361" y="336">1995</text><text x="422" y="336">2000</text><text x="482" y="336">2005</text><text x="542" y="336">2010</text><text x="603" y="336">2015</text><text x="663" y="336">2020</text><text x="724" y="336">2025</text></g>
+      <g font-size="12.5" fill="#161922">
+        <text x="24" y="76">Google Earth Web history</text>
+        <text x="24" y="110">ESRI Wayback</text>
+        <text x="24" y="144">Planet (your key)</text>
+        <text x="24" y="178">Landsat, 30 m</text>
+        <text x="24" y="212">CCDC on Landsat</text>
+        <text x="24" y="246">MODIS, burned area</text>
+        <text x="24" y="280">Sentinel-1 and 2</text>
+        <text x="24" y="314">Rainfall (ERA5-Land)</text>
+      </g>
+      <g><rect x="228" y="64" width="508" height="16" rx="8" fill="#4A9CD5" fill-opacity=".18" stroke="#4A9CD5" stroke-dasharray="4 3"/><rect x="591" y="98" width="145" height="16" rx="8" fill="#4A9CD5" fill-opacity=".18" stroke="#4A9CD5"/><rect x="615" y="132" width="121" height="16" rx="8" fill="#4A9CD5" fill-opacity=".18" stroke="#4A9CD5"/><rect x="228" y="166" width="508" height="16" rx="8" fill="#587F2E" fill-opacity=".18" stroke="#587F2E"/><rect x="409" y="200" width="327" height="16" rx="8" fill="#587F2E" fill-opacity=".18" stroke="#587F2E"/><rect x="422" y="234" width="314" height="16" rx="8" fill="#587F2E" fill-opacity=".18" stroke="#587F2E"/><rect x="603" y="268" width="133" height="16" rx="8" fill="#587F2E" fill-opacity=".18" stroke="#587F2E"/><rect x="228" y="302" width="508" height="16" rx="8" fill="#9A9488" fill-opacity=".18" stroke="#9A9488"/></g>
+      <g font-size="11.5" fill="#626262"><text x="482" y="76" text-anchor="middle">a few dates per place, which vary</text><text x="585" y="110" text-anchor="end">2014 on</text><text x="609" y="144" text-anchor="end">recent years</text><text x="403" y="212" text-anchor="end">1999 on</text><text x="416" y="246" text-anchor="end">2000 on</text><text x="597" y="280" text-anchor="end">2015 and 2016 on</text></g>
+    </svg>
+    </div>
+    <figcaption>Blue: very high resolution images, a few dates per place. Green: satellite time series in Collect Earth Explorer, every year. Grey: climate. Google Earth Web's history reaches back decades in some places and only a few years in others.</figcaption>
+  </figure>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Source</th><th>Detail</th><th>Dates</th><th>Best for</th></tr></thead>
+      <tbody>
+        <tr><td>Google Earth Web</td><td>Very high: single trees, fields, houses</td><td>The latest image; its history on a few dates, which vary by place</td><td>The land today; the land at past dates; counting trees</td></tr>
+        <tr><td>ESRI Wayback</td><td>Very high</td><td>Every version of Esri's World Imagery since 2014</td><td>Another VHR date when Google Earth Web has none near the one you need</td></tr>
+        <tr><td>Planet (your own key)</td><td>About 3 to 5 m</td><td>Daily images, or monthly cloud-free mosaics of the tropics</td><td>Recent changes, dated to the month</td></tr>
+        <tr><td>Explorer: Landsat</td><td>30 m: a 0.5 ha plot is about five pixels</td><td>Yearly composites and every scene since 1984</td><td>Land use before VHR; dating a change by year</td></tr>
+        <tr><td>Explorer: Sentinel-2</td><td>10 m: a 0.5 ha plot is about 50 pixels</td><td>Composites since 2016, the last 12 months, every scene</td><td>Recent changes; the seasonal cycle of the plot</td></tr>
+        <tr><td>Explorer: Sentinel-1 radar</td><td>Yearly composites and every acquisition</td><td>Since 2015</td><td>Places where clouds hide the optical images</td></tr>
+        <tr><td>Explorer: MODIS</td><td>250 m, 16-day</td><td>Since 2000, with burned area</td><td>Fire, and the seasonal behaviour of the area</td></tr>
+        <tr><td>Explorer: CCDC</td><td>Landsat 7, 8 and 9</td><td>Since 1999</td><td>Breaks in the plot's history, found automatically</td></tr>
+        <tr><td>Explorer: rainfall</td><td>About 11 km, monthly</td><td>The whole period</td><td>Telling a drought from a land use change</td></tr>
+        <tr><td>Earth Map, Street View, the plot file</td><td>Maps, ground photos, columns</td><td>Varies</td><td>Context: climate, soil, elevation, existing maps, what it looks like from the road</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2 id="now">3. The land today</h2>
+  <p>Start with the current image in Google Earth Web, which Collect Earth flies to with the plot's outline and sampling points drawn on it.</p>
+  <ul>
+    <li><strong>Zoom out first.</strong> Look at a few hundred metres around the plot: the pattern of fields, the road, the river, the forest edge tell the land use better than the plot alone.</li>
+    <li><strong>Then zoom in</strong> and read the sampling points: trees, shrubs, crops, bare soil, water, buildings. Tree crowns cast shadows; crops sit in fields with straight edges; plantations stand in rows.</li>
+    <li><strong>Check the image's date.</strong> The current image may be several years old in some places, and from a dry or a wet season. If it is old or unclear, the latest Sentinel-2 in Explorer (<span class="ui">Sentinel-2, last 12 months</span>) or Planet shows whether anything changed since.</li>
+    <li><strong>Land cover is not land use.</strong> A recently harvested forest with no trees is still forest land use if it will grow back; a field left fallow for a year is still cropland. Decide the use from the context and the history, not from the cover alone.</li>
+  </ul>
+
+  <h2 id="history">4. Going back in Google Earth Web</h2>
+  <p>Google Earth Web keeps the earlier VHR images of most places. Open them with its <span class="ui">Historical imagery</span> control (<a href="https://developers.google.com/maps/documentation/earth/historical-imagery">Google's help</a>):</p>
+  <ol class="steps">
+    <li>In the Google Earth Web toolbar, click <span class="ui">Historical imagery</span>, or <span class="ui">View › Historical imagery</span>. The base map must be <span class="ui">Satellite</span>.</li>
+    <li>A timeline appears at the top right. Years with images are marked by dots, and smaller dots mark more images in a year. Click a year, or use <span class="ui">Previous</span> and <span class="ui">Next</span> to step through the images.</li>
+    <li>Go to the image closest to your survey's reference date, then step forward image by image to see when the land changed between two of them.</li>
+    <li>To come back to the latest image, click <span class="ui">Last page</span>; click <span class="ui">Historical imagery</span> again to close the timeline. While it is open, 3D buildings are switched off.</li>
+  </ol>
+  <ul>
+    <li><strong>Coverage varies.</strong> Some places have many dates, others one or two, and the dates differ from one area to the next. Note the date of the image you used.</li>
+    <li><strong>Neighbouring tiles can differ in date</strong>: half the plot may be on one image and half on another. Look at the seam before deciding that something changed.</li>
+    <li><strong>The history brackets the change</strong>: forest on the 2009 image and fields on the 2016 image say the change happened between those dates, not when. Explorer narrows it down (section 6).</li>
+  </ul>
+
+  <h2 id="gaps">5. Filling the gaps: Wayback and Planet</h2>
+  <p>When Google Earth Web has no image near the date you need, the other VHR sources may have one. Switch them on in Collect Earth's <span class="ui">Settings › Imagery</span> (in a cloud project the coordinator does it); each opens on the plot with a button at the top of the panel.</p>
+  <ul>
+    <li><strong>ESRI Wayback</strong> holds every version of Esri's World Imagery since 2014. Its versions are release dates, not the dates the images were taken, and many versions show the same image in a given place: compare those where the image of the plot actually changed.</li>
+    <li><strong>Planet</strong>, with your own key in <span class="ui">Settings › Imagery › Planet API key</span>: <span class="ui">Daily images</span> to see exactly when something happened, or <span class="ui">Monthly mosaics</span>, one cloud-free picture a month, to follow a change month by month.</li>
+  </ul>
+
+  <h2 id="explorer">6. Dating the change in Explorer</h2>
+  <p>Collect Earth Explorer shows the plot on satellite imagery from Google Earth Engine, with charts of the plot over the years. It opens on each plot with the dates your project set, and already loads the next plot while you work.</p>
+  <h3 id="explorer-layers">The images</h3>
+  <ul>
+    <li>The <span class="ui">Layers</span> panel lists the images: Sentinel-2 composites (the last 12 months, or a year since 2016), Landsat yearly composites since 1984, and Sentinel-1 radar since 2015. Each has a year slider and a band choice: <span class="ui">True colour</span> looks like a photograph; <span class="ui">False colour</span> shows vegetation in strong colour and separates it from bare soil and water.</li>
+    <li><span class="ui">Compare with</span> puts a second layer beside the first, <span class="ui">Left</span> and <span class="ui">Right</span>: the plot in 2000 against 2020, for example. Between two images of the same sensor, <span class="ui">Difference (NDVI change)</span> colours the loss and the gain of vegetation.</li>
+    <li>Click a point in a chart to see that scene on the map (<span class="ui">Scene</span>): the image behind an odd value.</li>
+  </ul>
+  <h3 id="explorer-charts">The charts</h3>
+  <p>The charts follow a vegetation index over time (NDVI by default: high for dense green vegetation, low for bare soil). A lasting drop means vegetation was removed; a slow rise means it grew back.</p>
+  <ul>
+    <li><span class="ui">Trend</span> (on when the chart opens) tests whether the index rose or fell over the period, and says if it is significant. It needs 8 years of data.</li>
+    <li><span class="ui">Change year</span> finds the year where the yearly values shift most, with the median before and after. <span class="ui">Compare years</span> then shows the composites of the year before and after on the map, and <span class="ui">Compare scenes</span> the least cloudy scene of the 3 months before and after: look at them to confirm the change is real.</li>
+    <li><span class="ui">Unusual values</span> marks observations far below the usual for their month. A single mark is often cloud or shadow; a run of marks suggests a real drop.</li>
+    <li><span class="ui">Seasonal profile</span> shows the usual value for each month and one year drawn over it. A strong, regular swing is typical of crops or deciduous vegetation; a flat, high line of evergreen forest. A change of profile between years is a change of use.</li>
+    <li>The cloud filter removes observations from cloudy scenes; <span class="ui">Explain</span> describes each analysis; <span class="ui">Download CSV</span> gives the values.</li>
+    <li><strong>CCDC</strong> fits segments to the plot's Landsat history (NDFI or NDVI): a break between segments marks a change, found without choosing dates.</li>
+  </ul>
+  <p>A line above the charts sums up each series: the trend, a significant change year, and the date of the last image.</p>
+
+  <h2 id="ancillary">7. Ancillary data</h2>
+  <p>Ancillary data explain a change the images show, and stop a false one from being recorded.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Question</th><th>Where to look</th></tr></thead>
+      <tbody>
+        <tr><td>Was the drop a drought, not a clearing?</td><td>Explorer's rainfall chart, or <span class="ui">Rain</span> under the MODIS chart: a dry year lowers the index everywhere and it recovers; a clearing stays low whatever the rain</td></tr>
+        <tr><td>Was it a fire?</td><td>The MODIS chart marks burned months (MCD64A1). A fire followed by regrowth is not a change of land use</td></tr>
+        <tr><td>Clouds hide the optical images</td><td>Sentinel-1 radar layer and chart: radar sees through cloud; a clearing changes the backscatter</td></tr>
+        <tr><td>Crops, or natural vegetation?</td><td>The <span class="ui">Seasonal profile</span>, the field pattern on VHR, Street View photos from nearby roads (with their own history)</td></tr>
+        <tr><td>What does the area's context say?</td><td>The plot file's columns shown beside the plot (elevation, slope, climate, soil, ecological zone, district); Earth Map's layers and statistics for the area</td></tr>
+        <tr><td>What do existing maps say?</td><td>Earth Map or your project's extra map: national and global land cover maps, for comparison only; the imagery decides</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2 id="decide">8. Deciding and recording</h2>
+  <ul>
+    <li><strong>Agreement of sources.</strong> Record a change when two independent sources agree: a VHR image before and after, and the time series showing when. One source alone is a doubt, not a change.</li>
+    <li><strong>Follow the definitions</strong> of the interpretation key word for word: thresholds of tree cover, height and area, and how temporary changes are treated.</li>
+    <li><strong>Persistence.</strong> A change of land use lasts. If the index drops and recovers within a year or two to the same seasonal pattern, it was a disturbance (a harvest, a fire, a drought), not a change of use.</li>
+    <li><strong>Say how sure you are</strong>, where the survey asks, and note the dates of the images you relied on when it has a field for it. Plots marked uncertain are the ones the reviewers look at first.</li>
+    <li><strong>When in doubt, ask.</strong> In a Mapathon, an expert in the room; in a cloud project, the team's guidance notes, where the rules agreed for hard cases are kept.</li>
+  </ul>
+
+  <h2 id="pitfalls">9. Common pitfalls</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Looks like</th><th>Often is</th><th>Check</th></tr></thead>
+      <tbody>
+        <tr><td>Deforestation on a dry-season image</td><td>Deciduous forest without leaves</td><td>An image of the wet season; the <span class="ui">Seasonal profile</span> swings every year</td></tr>
+        <tr><td>A change between two VHR images</td><td>Two tiles of different dates, or a shift between images</td><td>The seam of the tiles; landmarks such as roads and houses</td></tr>
+        <tr><td>A sudden drop in a chart</td><td>Cloud or shadow missed by the mask</td><td><span class="ui">Unusual values</span>: one mark or a run of marks; click the point to see the scene</td></tr>
+        <tr><td>Forest lost</td><td>A plantation harvested, to be replanted</td><td>The history: rows of trees before, regrowth after</td></tr>
+        <tr><td>Grassland turned to cropland</td><td>A fallow field cultivated again</td><td>The longer history: fields in earlier images</td></tr>
+        <tr><td>Vegetation loss across the area</td><td>A drought year</td><td>Rainfall; recovery the next year</td></tr>
+        <tr><td>No change in Landsat</td><td>A change smaller than its 30&nbsp;m pixels</td><td>VHR and Sentinel-2 (10 m)</td></tr>
+        <tr><td>A change year on a slow trend</td><td>Gradual degradation or growth, not a single event</td><td>Look at <span class="ui">Trend</span> and <span class="ui">Change year</span> together</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2 id="example">10. An example</h2>
+  <p>A plot that is now cropland, in a survey asking for the land use in 2000 and now, and the year of any change. The values are illustrative.</p>
+  <ol class="steps">
+    <li><strong>Now:</strong> Google Earth Web shows fields with straight edges and scattered trees on their boundaries. The Sentinel-2 seasonal profile swings strongly every year: cropland.</li>
+    <li><strong>Then:</strong> Google Earth Web's history has an image from 2005 with closed tree crowns over the plot. The Landsat composite of 2000 in Explorer, in false colour, shows the same dense vegetation as the forest around it: forest in 2000.</li>
+    <li><strong>When:</strong> the Landsat NDVI chart drops and stays low; <span class="ui">Change year</span> says 2011, significant. <span class="ui">Compare years</span> shows forest in 2010 and bare soil in 2012. The history in Google Earth Web has no image between 2005 and 2016, which is consistent.</li>
+    <li><strong>Why:</strong> no burned month in the MODIS chart and normal rainfall in 2011: a clearing for agriculture, not a fire or a drought.</li>
+    <li><strong>Recorded:</strong> forest in 2000, cropland now, converted in 2011; sure, with the 2005 and current images and the Landsat change year as evidence.</li>
+  </ol>
+
+  <h2 id="organisers">11. For organisers</h2>
+  <ul>
+    <li><strong>Choose the imagery for everyone</strong> in the dashboard's <span class="ui">Setup › Plot layout &amp; imagery</span>: which windows open (Explorer, Earth Map, ESRI Wayback, Planet, an extra map), Explorer's dates, and its layers and charts, for example a Landsat chart of NBR for fire, a dry-season Sentinel-2 window, or the radar chart opened for cloudy regions. <span class="ui">Preview</span> tries it on a plot.</li>
+    <li><strong>Match the dates to the survey</strong>: the Explorer period should start before the survey's reference year, so the change year can be found.</li>
+    <li><strong>Build the interpretation key on this method</strong>: for each type of change in your area, a plot with its VHR before and after, its chart and the answer. Use them as the training plots of the <a href="mapathon.html#prepare-training">Mapathon</a>.</li>
+    <li><strong>Watch the hard cases</strong> in the dashboard: <span class="ui">Mixed-up answers</span> shows which classes the team confuses, often the pitfalls above; turn each settled case into a guidance note.</li>
+  </ul>
+
+  <div class="next">
+    <a href="interpreters.html">← Collect Earth for interpreters</a>
+    <a href="coordinators.html">Running a cloud project →</a>
+  </div>
+</div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <img src="../img/logo-white.png" alt="Collect Earth · Open Foris" width="1000" height="434">
+      <p>Collect Earth is part of Open Foris: free and open-source solutions for forest and land monitoring.</p>
+      <a class="btn dark" href="https://github.com/openforis/collect-earth">Source code on GitHub</a>
+      <p class="fineprint">This site counts visits with Google Analytics, as openforis.org does. <a href="https://www.fao.org/contact-us/data-protection-and-privacy/en">FAO data protection and privacy notice</a></p>
+    </div>
+    <div class="links">
+      <h4>Guides</h4>
+      <a href="../guide/choose.html">Which set-up?</a>
+      <a href="../guide/sampling.html">Designing the sample</a>
+      <a href="../guide/install.html">Try the Collect Earth 2 beta</a>
+      <a href="../guide/interpreters.html">Collect Earth for interpreters</a>
+      <a href="../guide/land-use-change.html">Reading land use change</a>
+      <a href="../guide/coordinators.html">Running a cloud project</a>
+      <a href="../guide/mapathon.html">Running a Mapathon</a>
+      <a href="../guide/own-server.html">Your own server</a>
+    </div>
+    <div class="links">
+      <h4>Open Foris</h4>
+      <a href="https://www.openforis.org/">Open Foris</a>
+      <a href="https://www.openforis.org/collect-earth/">Collect Earth on openforis.org</a>
+      <a href="https://openforis.support/">User forum</a>
+      <a href="https://www.openforis.org/support-and-resources/">Support and resources</a>
+      <a href="https://cloud.collectearth.org">Collect Earth Cloud</a>
+    </div>
+  </div>
+</footer>
+<script>
+(function(){var h=document.querySelector("header.top"),b=h&&h.querySelector(".menu-toggle");if(!b)return;function set(o){h.classList.toggle("open",o);b.setAttribute("aria-expanded",o)}b.addEventListener("click",function(){set(!h.classList.contains("open"))});h.querySelectorAll("nav a").forEach(function(a){a.addEventListener("click",function(){set(false)})});})();
+</script>
+</body>
+</html>
