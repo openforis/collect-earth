@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#ffffff">
+<script>document.documentElement.classList.add("js")</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap">
+<title>Collect Earth Explorer · Collect Earth</title>
+<meta name="description" content="Collect Earth Explorer, the Google Earth Engine window beside each plot: how to set up its layers and charts, how to read its images, and how to use its charts and analyses (trend, change year, unusual values, seasonal profile, CCDC) to assess a plot.">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../favicon.ico" sizes="any">
+<link rel="stylesheet" href="../style.css">
+<script src="../analytics.js" defer></script>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="../"><img src="../img/logo.png" alt="Collect Earth · Open Foris" width="1000" height="434"></a>
+    <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Menu"><svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg></button>
+    <nav id="site-nav" aria-label="Main">
+      <a href="choose.html">Which set-up?</a>
+      <a href="sampling.html">Sampling</a>
+      <a href="interpreters.html">Interpreters</a>
+      <a href="coordinators.html">Coordinators</a>
+      <a href="mapathon.html">Mapathons</a>
+      <a href="own-server.html">Own server</a>
+      <a class="btn primary" href="https://cloud.collectearth.org">Open the dashboard</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<div class="page-title">
+  <div class="box">
+    <p class="crumb"><a href="../">Collect Earth</a> › <a href="../#guides">Guides</a></p>
+    <h1>Collect Earth Explorer</h1>
+    <p class="lead">Collect Earth Explorer is the window that opens beside each plot with satellite imagery and charts from Google Earth Engine: Landsat back to 1984, Sentinel-2, radar, MODIS and rainfall. This guide shows how to set it up for a survey, how to read its images, and how to use its charts to tell what happened on a plot and when.</p>
+  </div>
+</div>
+<div class="doc">
+
+  <div class="toc">
+    <strong>On this page</strong>
+    <ol>
+      <li><a href="#what">What it is</a></li>
+      <li><a href="#setup">Setting it up</a></li>
+      <li><a href="#map">The map and its layers</a></li>
+      <li><a href="#charts">The charts</a></li>
+      <li><a href="#analyses">Reading the analyses</a></li>
+      <li><a href="#indices">Choosing an index</a></li>
+      <li><a href="#recipes">What to use for which question</a></li>
+      <li><a href="#problems">When something goes wrong</a></li>
+    </ol>
+  </div>
+
+  <h2 id="what">1. What it is</h2>
+  <ul>
+    <li><strong>One click per plot.</strong> Collect Earth opens the Explorer in its imagery window with the plot drawn on the map; its button is at the top of the panel, and <kbd>Alt</kbd>+<kbd>1</kbd>…<kbd>9</kbd> brings each imagery source to the front. It needs no account or sign-in: the computations run on Google Earth Engine through the Explorer's server.</li>
+    <li><strong>Faster on the next plot.</strong> While you work on a plot, the Explorer already loads the next unfinished one: the charts you keep open and the map as you left it.</li>
+    <li><strong>It remembers your view.</strong> The layer you looked at, its year and colours, a comparison, which charts are folded and which analyses are on stay the same from one plot to the next, on that computer.</li>
+    <li><strong>The standard window</strong> has three imagery layers (Sentinel-2, Landsat, Sentinel-1 radar) and six charts: a Landsat index, a Sentinel-2 index, CCDC change, MODIS with burned areas, and, folded, Sentinel-1 radar and rainfall. A survey can change all of it (section 2).</li>
+  </ul>
+
+  <h2 id="setup">2. Setting it up</h2>
+  <p>The Explorer is set up once per project. In a cloud project the coordinator does it on the dashboard and everyone's Collect Earth applies it within minutes; collectors cannot change it. On a project of your own, you do it in Collect Earth's settings.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th></th><th>Cloud project (coordinator)</th><th>Project on one computer</th></tr></thead>
+      <tbody>
+        <tr><td>Where</td><td>Dashboard: <span class="ui">Setup › Plot layout &amp; imagery › Imagery windows</span></td><td>Collect Earth: <span class="ui">Settings › Imagery</span></td></tr>
+        <tr><td>On or off</td><td><span class="ui">Collect Earth Explorer (no sign-in)</span></td><td>The same, on by default</td></tr>
+        <tr><td>The period</td><td><span class="ui">Start date of the Explorer</span>, <span class="ui">End date of the Explorer</span> (blank: 1984 to today)</td><td><span class="ui">Start date in Collect Earth Explorer</span>, <span class="ui">End date…</span></td></tr>
+        <tr><td>Layers and charts</td><td><span class="ui">Explorer window › Customize…</span>, then <span class="ui">Save</span> on the card</td><td><span class="ui">Explorer window: layers and charts › Customize…</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p><strong>The period</strong> is what the charts cover. Start it a few years before the survey's reference date, so a change around that date has years before it to compare with: the trend and the change year need 8 years of data.</p>
+
+  <h3 id="editor">The editor</h3>
+  <p><span class="ui">Customize…</span> opens <span class="ui">Customize the Explorer window</span>: the imagery layers and the charts, in order, with a live <span class="ui">Preview</span> on a sample plot (a forest edge in Rondônia, Brazil). Press <span class="ui">Use this setup</span> to keep it; <span class="ui">Back to the standard window</span> undoes everything.</p>
+  <p><strong>Start from a starting point</strong>, then adjust it. Each one replaces the whole setup:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Starting point</th><th>What it gives</th><th>For</th></tr></thead>
+      <tbody>
+        <tr><td><span class="ui">Standard</span></td><td>All three imagery layers, the main charts open</td><td>Most surveys</td></tr>
+        <tr><td><span class="ui">Deforestation</span></td><td>The CCDC change chart first, the change year on the index charts</td><td>Forest loss and its year</td></tr>
+        <tr><td><span class="ui">Fire</span></td><td>The NBR burn index with its change year, and MODIS with burned areas</td><td>Burns and recovery</td></tr>
+        <tr><td><span class="ui">Cloudy tropics</span></td><td>The Sentinel-1 radar layer first and its chart open</td><td>Places where clouds hide most optical images</td></tr>
+        <tr><td><span class="ui">Drylands</span></td><td>MODIS with rain and seasons, the rainfall chart open, SAVI for sparse vegetation</td><td>Savannas, rangelands, drought years</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p><strong>Layers</strong> (<span class="ui">Add layer</span>, move, remove; the first opens first; at least one):</p>
+  <ul>
+    <li><span class="ui">Sentinel-2 composite</span>: 10&nbsp;m, from 2016. <span class="ui">Year slider</span> (with the <span class="ui">Last 12 months</span>) or a <span class="ui">Fixed period</span> of up to 3 years, for example a dry season: name it (<span class="ui">Name in the layers panel</span>) so people know what it shows.</li>
+    <li><span class="ui">Landsat yearly composite</span>: 30&nbsp;m, one picture a year back to 1984. Limit <span class="ui">Years on the slider</span> and choose the <span class="ui">Year shown first</span>, for example the reference year.</li>
+    <li><span class="ui">Sentinel-1 radar composite</span>: yearly, from 2015; sees through cloud.</li>
+    <li>Each takes its <span class="ui">Colours</span> (<span class="ui">False colour</span>, vegetation in green, or <span class="ui">True colour</span>; for radar VV or VH) and, for optical ones, <span class="ui">Most cloud cover allowed (%)</span>.</li>
+  </ul>
+  <p><strong>Charts</strong> (<span class="ui">Add chart</span>, move, remove; none at all shows only the map):</p>
+  <ul>
+    <li>Each index chart takes an <span class="ui">Index</span> from the list (section 6) or a <span class="ui">Custom formula…</span> with its name, the <span class="ui">Analyses shown when the chart opens</span>, a cloud limit, and <span class="ui">Start folded</span>: a folded chart loads only when someone opens it, which keeps the window fast.</li>
+    <li>A custom formula uses the bands <code>blue green red nir swir1 swir2</code> (Sentinel-2 also <code>rededge1 rededge2 rededge3</code>), as reflectance from 0 to 1, with numbers, <code>+ - * /</code>, brackets and <code>sqrt abs min max pow</code>. Example: <code>(nir - rededge1) / (nir + rededge1)</code>.</li>
+    <li>The MODIS chart can start with <span class="ui">Show rainfall under the chart</span>.</li>
+  </ul>
+  <p>A setup is saved as a short text of at most 2,000 characters: the editor counts it, and warns when an item must be removed. Under <span class="ui">Advanced</span>, Collect Earth's settings show that text, to copy a setup from one project to another.</p>
+
+  <h2 id="map">3. The map and its layers</h2>
+  <ul>
+    <li>The <span class="ui">Layers</span> panel lists the survey's layers. Each has its colours and a year slider: slide it to see the plot in another year. A Sentinel-2 slider ends with <span class="ui">Last 12 months</span>.</li>
+    <li><strong>False colour</strong> shows vegetation in strong green and separates it from bare soil, water and built-up land better than true colour. <strong>True colour</strong> looks as the eye sees it. On radar, VV is bright on buildings and rough ground, VH on forest and dense vegetation.</li>
+    <li><strong>Compare.</strong> <span class="ui">Compare with</span> splits the map with a handle you drag: one layer on the <span class="ui">Left</span>, another on the <span class="ui">Right</span>, each at its own year. The plot in 2000 on the left and in 2024 on the right shows a change at a glance.</li>
+    <li><strong>Difference.</strong> While comparing two images of the same sensor, <span class="ui">Difference (NDVI change)</span> replaces the split with one map of the change in vegetation, right minus left, with a legend from <span class="ui">loss</span> to <span class="ui">gain</span>. It is not available for radar.</li>
+    <li><strong>A scene.</strong> Click a point in a Landsat or Sentinel-2 chart: the map shows that single image (<span class="ui">Scene</span>). Use it to see what lies behind an odd value: a cloud, a fire scar, a harvested field.</li>
+  </ul>
+
+  <h2 id="charts">4. The charts</h2>
+  <p>Each chart follows the plot over time. A line above the charts sums up each Landsat and Sentinel-2 chart: its trend, a significant change year, and the date of the last image; click a line to go to its chart.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Chart</th><th>What each point is</th><th>Use it for</th></tr></thead>
+      <tbody>
+        <tr><td><span class="ui">Landsat index over time</span></td><td>The plot's mean index on one Landsat image, since 1984, clouds masked</td><td>The long history; dating changes before 2016</td></tr>
+        <tr><td><span class="ui">Sentinel-2 index over time</span></td><td>The same on Sentinel-2, since 2016, in more detail (10&nbsp;m)</td><td>Recent changes; small plots; the seasonal cycle</td></tr>
+        <tr><td><span class="ui">Change over time (CCDC segmentation)</span></td><td>Every Landsat 7, 8 and 9 image, with lines fitted between breaks (<span class="ui">Segment</span> 1, 2…)</td><td>When the land changed, found without choosing dates; NDFI for forest, or NDVI</td></tr>
+        <tr><td><span class="ui">MODIS 16-day index and burned area</span></td><td>NDVI or EVI every 16 days since 2000 at 250&nbsp;m, burned months marked; <span class="ui">Rain</span> adds monthly rainfall under it</td><td>Fires; the seasons of the area; droughts</td></tr>
+        <tr><td><span class="ui">Sentinel-1 radar signal over time</span></td><td>The radar backscatter in dB at each pass, VH or VV, since 2015</td><td>Changes under persistent cloud</td></tr>
+        <tr><td><span class="ui">Monthly rainfall</span></td><td>Rainfall in mm per month (ERA5-Land, about 11&nbsp;km: the area's, not the plot's)</td><td>Telling a dry year from a land use change</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>On every chart: <span class="ui">1y</span>, <span class="ui">5y</span> and <span class="ui">All</span> set the time shown; drag to zoom, <span class="ui">Reset axes</span> to go back; <span class="ui">Fold chart</span> hides it; <span class="ui">Download CSV</span> gives its values. On Landsat and Sentinel-2 charts the cloud filter (<span class="ui">Any cloud</span>, <span class="ui">max 40 %</span>…) leaves out images from cloudy scenes; the limit is for the whole satellite scene, and cloudy pixels over the plot are masked anyway.</p>
+
+  <h2 id="analyses">5. Reading the analyses</h2>
+  <p>The Landsat, Sentinel-2, MODIS and Sentinel-1 charts carry five analyses, each with a switch. <span class="ui">Explain</span> describes them on the chart. Your choice of switches applies to all charts and stays for the next plots.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Analysis</th><th>What it shows</th><th>How to read it</th></tr></thead>
+      <tbody>
+        <tr><td><span class="ui">Yearly median</span></td><td>The middle value of each calendar year (years with images in fewer than 6 months are left out)</td><td>The year-to-year level, without the noise of single images</td></tr>
+        <tr><td><span class="ui">Trend</span> (on when the chart opens)</td><td>Whether the yearly medians rise or fall, with the change per year. Needs 8 years</td><td><span class="ui">Trend: significant increase</span> or <span class="ui">decrease</span> when its p-value is below 0.05, the chance of seeing it if there were no real trend: regrowth, or slow degradation. <span class="ui">not significant</span>: stable, or too noisy to tell</td></tr>
+        <tr><td><span class="ui">Change year</span></td><td>The year where the yearly medians shift most, with the median before and after. Needs 8 years</td><td><span class="ui">Change in 2011: significant</span> marks a likely event. Confirm it with <span class="ui">Compare years</span> (the composites of the year before and after) or <span class="ui">Compare scenes</span> (the least cloudy scene of the 3 months before and after)</td></tr>
+        <tr><td><span class="ui">Unusual values</span></td><td>Observations far below what is usual for their month, in red. Needs 24 observations</td><td>A single red point is often cloud or shadow the mask missed; a run of red points is a real drop: a clearing, a fire, a flood</td></tr>
+        <tr><td><span class="ui">Seasonal profile</span></td><td>The usual value of each month (line) and the range of half the observations (band), with one year drawn over it (<span class="ui">Usual year</span> against a year you pick)</td><td><span class="ui">Highest in</span> and <span class="ui">lowest in</span> a month, and the seasonal swing: a strong, regular swing is crops or deciduous vegetation; a flat, high line is evergreen forest. A year that leaves the band behaved unusually</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <ul>
+    <li><strong>Trend and change year together.</strong> A gradual trend also produces a change year. A sharp step with no trend after it is an event; a steady slope with a change year in the middle is a slow process.</li>
+    <li><strong>A drop that comes back</strong> within a year or two to the same seasonal pattern is a disturbance (a harvest, a fire, a dry year), not a change of land use.</li>
+    <li><strong>CCDC</strong>: each segment is a stable period with its own level and seasons; a break between segments is a change. A short segment between two similar ones is often a disturbance and recovery.</li>
+    <li><strong>MODIS burned areas</strong> mark the months the area burned (MCD64A1, 500&nbsp;m): useful to explain a drop, too coarse to say the plot itself burned.</li>
+    <li><strong>Radar</strong> backscatter falls when trees are cleared (VH especially), but is also affected by soil moisture after rain: read it with the rainfall.</li>
+  </ul>
+
+  <h2 id="indices">6. Choosing an index</h2>
+  <p>NDVI suits most surveys. Choose another when the question needs it.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Index</th><th>Formula</th><th>Rises with</th><th>Use it for</th></tr></thead>
+      <tbody>
+        <tr><td>NDVI</td><td><code>(nir-red)/(nir+red)</code></td><td>Green vegetation</td><td>The default: forest, crops, vegetation loss and gain</td></tr>
+        <tr><td>EVI, EVI2</td><td>NIR, red (and blue)</td><td>Green vegetation, without saturating as fast</td><td>Dense forest, where NDVI stays near its top</td></tr>
+        <tr><td>SAVI, MSAVI</td><td>NIR, red, with a soil term</td><td>Vegetation over bright soil</td><td>Drylands, sparse trees and shrubs</td></tr>
+        <tr><td>GNDVI</td><td><code>(nir-green)/(nir+green)</code></td><td>Chlorophyll</td><td>Crop vigour</td></tr>
+        <tr><td>NDMI</td><td><code>(nir-swir1)/(nir+swir1)</code></td><td>Water in the leaves</td><td>Selective logging, degradation, drought stress</td></tr>
+        <tr><td>NBR, NBR2</td><td><code>(nir-swir2)/(nir+swir2)</code>, <code>(swir1-swir2)/(swir1+swir2)</code></td><td>Unburned vegetation</td><td>Fires and recovery after them</td></tr>
+        <tr><td>NDWI, MNDWI</td><td><code>(green-nir)/(green+nir)</code>, <code>(green-swir1)/(green+swir1)</code></td><td>Open water</td><td>Wetlands, flooding, reservoirs</td></tr>
+        <tr><td>NDBI</td><td><code>(swir1-nir)/(swir1+nir)</code></td><td>Built-up surfaces</td><td>Settlements, roads</td></tr>
+        <tr><td>BSI</td><td>SWIR, red, NIR and blue</td><td>Bare soil</td><td>Cleared land, mining, erosion</td></tr>
+        <tr><td>NDSI</td><td><code>(green-swir1)/(green+swir1)</code></td><td>Snow</td><td>Mountains, to tell snow from bare ground</td></tr>
+        <tr><td>NDFI (CCDC only)</td><td>From the fractions of green vegetation, dry vegetation, soil and shade in each pixel</td><td>Intact forest canopy</td><td>Forest degradation and loss in the tropics</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2 id="recipes">7. What to use for which question</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Question</th><th>Look at</th></tr></thead>
+      <tbody>
+        <tr><td>Was the forest cleared, and when?</td><td>CCDC (NDFI) for the break; Landsat NDVI with <span class="ui">Change year</span> and <span class="ui">Compare years</span>; the Landsat layer compared left and right, with <span class="ui">Difference</span></td></tr>
+        <tr><td>Is the forest degraded, not cleared?</td><td>NDMI or NDFI: a lasting <span class="ui">Trend</span> down, or a shallow step, with the canopy still closed on VHR</td></tr>
+        <tr><td>Did it burn?</td><td>MODIS burned months; NBR with <span class="ui">Change year</span>; the scene after the fire for the scar; recovery in the years after</td></tr>
+        <tr><td>Is it cropland?</td><td>Sentinel-2 NDVI with <span class="ui">Seasonal profile</span>: one or two strong peaks a year, bare between them</td></tr>
+        <tr><td>Did trees grow back, or were they planted?</td><td><span class="ui">Trend: significant increase</span>; CCDC's last segment rising; rows of young trees on VHR</td></tr>
+        <tr><td>Was it only a dry year?</td><td><span class="ui">Monthly rainfall</span>, or <span class="ui">Rain</span> under MODIS; whether the index recovers the next year</td></tr>
+        <tr><td>Clouds hide everything</td><td>The Sentinel-1 layer and chart; the <span class="ui">Cloudy tropics</span> starting point</td></tr>
+        <tr><td>Water, wetland or flooding?</td><td>MNDWI; the Sentinel-2 layer in false colour</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>The Explorer dates a change; very high resolution imagery shows what the land is. Use both: see <a href="land-use-change.html">Reading land use change</a>.</p>
+
+  <h2 id="problems">8. When something goes wrong</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>You see</th><th>What to do</th></tr></thead>
+      <tbody>
+        <tr><td><span class="ui">Computing…</span> for a long time</td><td>The first time anyone opens a plot, CCDC and the long series take longest; the results are kept, so the plot opens quickly afterwards, and the next plot is loaded while you work. Fold the charts you do not need</td></tr>
+        <tr><td><span class="ui">Earth Engine is busy. Try again in a moment.</span></td><td>The Explorer retries by itself; then press <span class="ui">Retry</span></td></tr>
+        <tr><td><span class="ui">No images for this plot and period.</span></td><td>The period or the cloud limit leaves nothing: widen the period, or raise <span class="ui">Most cloud cover allowed</span></td></tr>
+        <tr><td><span class="ui">Trend needs 8 years of data</span></td><td>The period is too short, or the cloud filter leaves too few years: start the period earlier, or loosen the filter</td></tr>
+        <tr><td><span class="ui">This survey's Explorer settings were partly ignored</span></td><td>An item of the setup is not understood and was skipped; the coordinator corrects it in the editor</td></tr>
+        <tr><td>The plot is refused</td><td>The Explorer takes plots of up to 100&nbsp;ha and 0.1° across</td></tr>
+        <tr><td>Nothing opens</td><td>Check that <span class="ui">Collect Earth Explorer</span> is on in the settings and that the computer is online</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="next">
+    <a href="land-use-change.html">← Reading land use change</a>
+    <a href="coordinators.html">Running a cloud project →</a>
+  </div>
+</div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <img src="../img/logo-white.png" alt="Collect Earth · Open Foris" width="1000" height="434">
+      <p>Collect Earth is part of Open Foris: free and open-source solutions for forest and land monitoring.</p>
+      <a class="btn dark" href="https://github.com/openforis/collect-earth">Source code on GitHub</a>
+      <p class="fineprint">This site counts visits with Google Analytics, as openforis.org does. <a href="https://www.fao.org/contact-us/data-protection-and-privacy/en">FAO data protection and privacy notice</a></p>
+    </div>
+    <div class="links">
+      <h4>Guides</h4>
+      <a href="../guide/choose.html">Which set-up?</a>
+      <a href="../guide/sampling.html">Designing the sample</a>
+      <a href="../guide/install.html">Try the Collect Earth 2 beta</a>
+      <a href="../guide/interpreters.html">Collect Earth for interpreters</a>
+      <a href="../guide/land-use-change.html">Reading land use change</a>
+      <a href="../guide/explorer.html">Collect Earth Explorer</a>
+      <a href="../guide/coordinators.html">Running a cloud project</a>
+      <a href="../guide/mapathon.html">Running a Mapathon</a>
+      <a href="../guide/own-server.html">Your own server</a>
+    </div>
+    <div class="links">
+      <h4>Open Foris</h4>
+      <a href="https://www.openforis.org/">Open Foris</a>
+      <a href="https://www.openforis.org/collect-earth/">Collect Earth on openforis.org</a>
+      <a href="https://openforis.support/">User forum</a>
+      <a href="https://www.openforis.org/support-and-resources/">Support and resources</a>
+      <a href="https://cloud.collectearth.org">Collect Earth Cloud</a>
+    </div>
+  </div>
+</footer>
+<script>
+(function(){var h=document.querySelector("header.top"),b=h&&h.querySelector(".menu-toggle");if(!b)return;function set(o){h.classList.toggle("open",o);b.setAttribute("aria-expanded",o)}b.addEventListener("click",function(){set(!h.classList.contains("open"))});h.querySelectorAll("nav a").forEach(function(a){a.addEventListener("click",function(){set(false)})});})();
+</script>
+</body>
+</html>
