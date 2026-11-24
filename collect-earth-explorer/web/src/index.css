@@ -115,8 +115,13 @@ input[type="radio"], input[type="checkbox"], input[type="range"] { accent-color:
 
 /* Opened without a plot: the logo and the sample plots in a box on sand. */
 .welcome { min-height: 100%; box-sizing: border-box; display: flex; align-items: center; justify-content: center; padding: 24px; background: var(--sand); border-top: 8px solid var(--of-blue); }
-.welcome-box { max-width: 460px; padding: 32px 36px; background: #fff; border-radius: 16px; font-size: 15px; line-height: 1.7; }
+.welcome-box { max-width: 540px; padding: 32px 36px; background: #fff; border-radius: 16px; font-size: 15px; line-height: 1.7; }
 .welcome-box img { display: block; height: 80px; width: auto; }
 .welcome-box h1 { margin: 12px 0 8px; font-size: 26px; line-height: 1.2; }
 .welcome-box p { margin: 0 0 8px; }
-.welcome-box ul { margin: 0; padding-left: 20px; }
+.welcome-box ul, .welcome-box ol { margin: 0; padding-left: 20px; }
+.welcome-help { margin-top: 24px; padding-top: 8px; border-top: 1px solid var(--line); font-size: 14px; line-height: 1.6; }
+.welcome-help h2 { margin: 16px 0 4px; font-size: 15px; }
+.welcome-help li { margin-bottom: 4px; }
+.welcome-help p { margin-top: 12px; }
+@media (max-width: 480px) { .welcome { padding: 16px; } .welcome-box { padding: 24px 20px; } }

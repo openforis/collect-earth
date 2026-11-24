@@ -1,6 +1,6 @@
 import { parsePlotUrl } from "./lib/urlParams";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import App from "./App";
 
 // What a test makes throw while rendering: the map, or the card of one chart type.
@@ -75,9 +75,17 @@ describe("App", () => {
   it("offers sample plots whose links are valid plot URLs", () => {
     window.history.replaceState({}, "", "/?");
     render(<App />);
-    const links = screen.getAllByRole("link");
+    const links = within(screen.getAllByRole("list")[0]).getAllByRole("link");
     expect(links.length).toBe(3);
     for (const a of links) expect(parsePlotUrl(a.getAttribute("href")!).plotId).toBe(a.textContent);
+  });
+
+  it("shows, below the sample plots, help with links to the dashboard and the setup page", async () => {
+    window.history.replaceState({}, "", "/?");
+    render(<App />);
+    expect(await screen.findByRole("heading", { name: "How it fits together" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "cloud.collectearth.org" }).getAttribute("href")).toBe("https://cloud.collectearth.org");
+    expect(screen.getByRole("link", { name: "Try the setup page" }).getAttribute("href")).toBe("/configure?lang=en");
   });
 
   it("renders the map, plot heading and the sentinel-2 tile label for a valid URL", async () => {

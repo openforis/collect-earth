@@ -1,5 +1,6 @@
-// The /configure page's texts in the five languages, apart from lib/i18n.ts so that the Explorer's own bundle,
-// loaded for every plot, does not carry them. The same rules apply; i18n.test.ts checks these dictionaries too.
+// The /configure page's texts, and the landing page's help (`help.*`, components/WelcomeHelp.tsx), in the five languages,
+// apart from lib/i18n.ts so that the Explorer's own bundle, loaded for every plot, does not carry them. The same rules
+// apply; i18n.test.ts checks these dictionaries too.
 import { fill, lang, type Lang, type Params } from "../lib/i18n";
 
 const en = {
@@ -119,6 +120,22 @@ const en = {
   "error.window": "The fixed period can be at most 3 years (1,096 days)",
   "error.yearOrWindow": "A fixed period cannot have years as well: clear the years, or choose the year slider above",
   "error.indexOrFormula": "Use either an index or your own formula, not both: choose one in the list above",
+  "help.fitTitle": "How it fits together",
+  "help.fit1": "A survey is set up in the Collect Earth dashboard or in Collect Earth on the computer.",
+  "help.fit2": "Collect Earth opens this window for every plot, with the plot's shape and dates in the address.",
+  "help.fit3": "The survey's choice of layers and charts travels in the same address; without one, the standard window is shown.",
+  "help.useTitle": "Using the window",
+  "help.use1": "Choose an imagery layer in the Layers panel and move its year slider.",
+  "help.use2": "Click a point in a chart to see that day's image on the map.",
+  "help.use3": "“Compare with” shows two images side by side with a swipe, or their NDVI difference.",
+  "help.use4": "The lines above the charts give the trend and a year of change.",
+  "help.use5": "“Redraw polygon” analyses another shape or a point; it is not saved to Collect Earth.",
+  "help.use6": "Each chart can be folded, and its data downloaded as CSV.",
+  "help.setupTitle": "Choosing layers and charts for a survey",
+  "help.dashboard": "In the dashboard: open the project, then in the “Imagery windows” card, under “Explorer window”, press “Customize…”.",
+  "help.desktop": "In Collect Earth: open Settings, find “Explorer window: layers and charts” and press “Customize…”.",
+  "help.try": "Try the setup page",
+  "help.notSaved": "Changes made there are not saved: saving happens in the dashboard or in Collect Earth.",
 };
 
 export type CKey = keyof typeof en;
@@ -241,6 +258,22 @@ const es: Dict = {
   "error.window": "El periodo fijo puede durar como máximo 3 años (1096 días)",
   "error.yearOrWindow": "Un periodo fijo no admite también años: borre los años, o elija arriba el deslizador de años",
   "error.indexOrFormula": "Use un índice o una fórmula propia, no ambos: elija uno en la lista de arriba",
+  "help.fitTitle": "Cómo encaja todo",
+  "help.fit1": "Una encuesta se prepara en el panel de Collect Earth o en Collect Earth en el ordenador.",
+  "help.fit2": "Collect Earth abre esta ventana para cada parcela, con la forma y las fechas de la parcela en la dirección.",
+  "help.fit3": "La elección de capas y gráficos de la encuesta viaja en la misma dirección; si no hay ninguna, se muestra la ventana estándar.",
+  "help.useTitle": "Uso de la ventana",
+  "help.use1": "Elija una capa de imágenes en el panel Capas y mueva su deslizador de años.",
+  "help.use2": "Haga clic en un punto de un gráfico para ver la imagen de ese día en el mapa.",
+  "help.use3": "«Comparar con» muestra dos imágenes lado a lado con una cortina deslizante, o su diferencia de NDVI.",
+  "help.use4": "Las líneas sobre los gráficos indican la tendencia y un año de cambio.",
+  "help.use5": "«Redibujar polígono» analiza otra forma o un punto; no se guarda en Collect Earth.",
+  "help.use6": "Cada gráfico se puede plegar y sus datos se pueden descargar en CSV.",
+  "help.setupTitle": "Elegir capas y gráficos para una encuesta",
+  "help.dashboard": "En el panel: abra el proyecto y, en la tarjeta «Ventanas de imágenes», bajo «Ventana del Explorer», pulse «Personalizar…».",
+  "help.desktop": "En Collect Earth: abra Ajustes, busque «Ventana del Explorer: capas y gráficos» y pulse «Personalizar…».",
+  "help.try": "Probar la página de configuración",
+  "help.notSaved": "Los cambios hechos allí no se guardan: se guardan en el panel o en Collect Earth.",
 };
 
 const fr: Dict = {
@@ -360,6 +393,22 @@ const fr: Dict = {
   "error.window": "La période fixe peut durer 3 ans au plus (1096 jours)",
   "error.yearOrWindow": "Une période fixe ne peut pas avoir aussi des années : effacez les années, ou choisissez le curseur des années plus haut",
   "error.indexOrFormula": "Utilisez un indice ou une formule personnelle, pas les deux : choisissez-en un dans la liste plus haut",
+  "help.fitTitle": "Comment tout s'articule",
+  "help.fit1": "Une enquête se prépare sur le tableau de bord de Collect Earth ou dans Collect Earth sur l'ordinateur.",
+  "help.fit2": "Collect Earth ouvre cette fenêtre pour chaque parcelle, avec la forme et les dates de la parcelle dans l'adresse.",
+  "help.fit3": "Le choix de couches et de graphiques de l'enquête passe par la même adresse ; sans lui, la fenêtre standard s'affiche.",
+  "help.useTitle": "Utiliser la fenêtre",
+  "help.use1": "Choisissez une couche d'images dans le panneau Couches et déplacez son curseur d'années.",
+  "help.use2": "Cliquez sur un point d'un graphique pour voir l'image de ce jour sur la carte.",
+  "help.use3": "« Comparer avec » montre deux images côte à côte avec un rideau, ou leur différence de NDVI.",
+  "help.use4": "Les lignes au-dessus des graphiques donnent la tendance et une année de changement.",
+  "help.use5": "« Redessiner le polygone » analyse une autre forme ou un point ; rien n'est enregistré dans Collect Earth.",
+  "help.use6": "Chaque graphique peut être replié et ses données téléchargées en CSV.",
+  "help.setupTitle": "Choisir les couches et les graphiques d'une enquête",
+  "help.dashboard": "Sur le tableau de bord : ouvrez le projet puis, dans la carte « Fenêtres d'imagerie », sous « Fenêtre de l'Explorer », appuyez sur « Personnaliser… ».",
+  "help.desktop": "Dans Collect Earth : ouvrez Paramètres, trouvez « Fenêtre Explorer : couches et graphiques » et appuyez sur « Personnaliser… ».",
+  "help.try": "Essayer la page de réglage",
+  "help.notSaved": "Les changements faits là-bas ne sont pas enregistrés : l'enregistrement se fait sur le tableau de bord ou dans Collect Earth.",
 };
 
 const pt: Dict = {
@@ -479,6 +528,22 @@ const pt: Dict = {
   "error.window": "O período fixo pode durar no máximo 3 anos (1096 dias)",
   "error.yearOrWindow": "Um período fixo não pode ter também anos: apague os anos, ou escolha acima o controle deslizante de anos",
   "error.indexOrFormula": "Use um índice ou uma fórmula própria, não os dois: escolha um na lista acima",
+  "help.fitTitle": "Como tudo se encaixa",
+  "help.fit1": "Uma pesquisa é configurada no painel do Collect Earth ou no Collect Earth no computador.",
+  "help.fit2": "O Collect Earth abre esta janela para cada parcela, com a forma e as datas da parcela no endereço.",
+  "help.fit3": "A escolha de camadas e gráficos da pesquisa vai no mesmo endereço; sem ela, é mostrada a janela padrão.",
+  "help.useTitle": "Usar a janela",
+  "help.use1": "Escolha uma camada de imagens no painel Camadas e mova o seu controle de anos.",
+  "help.use2": "Clique num ponto de um gráfico para ver a imagem desse dia no mapa.",
+  "help.use3": "“Comparar com” mostra duas imagens lado a lado com uma cortina deslizante, ou a diferença de NDVI entre elas.",
+  "help.use4": "As linhas acima dos gráficos indicam a tendência e um ano de mudança.",
+  "help.use5": "“Redesenhar polígono” analisa outra forma ou um ponto; nada é salvo no Collect Earth.",
+  "help.use6": "Cada gráfico pode ser recolhido e os seus dados baixados em CSV.",
+  "help.setupTitle": "Escolher camadas e gráficos para uma pesquisa",
+  "help.dashboard": "No painel: abra o projeto e, no cartão “Janelas de imagens”, em “Janela do Explorer”, clique em “Personalizar…”.",
+  "help.desktop": "No Collect Earth: abra Configurações, encontre “Janela do Explorer: camadas e gráficos” e clique em “Personalizar…”.",
+  "help.try": "Experimentar a página de configuração",
+  "help.notSaved": "As mudanças feitas lá não são salvas: isso é feito no painel ou no Collect Earth.",
 };
 
 const tr: Dict = {
@@ -598,6 +663,22 @@ const tr: Dict = {
   "error.window": "Sabit dönem en fazla 3 yıl (1096 gün) olabilir",
   "error.yearOrWindow": "Sabit bir dönemde yıllar da olamaz: yılları silin ya da yukarıda yıl kaydırıcısını seçin",
   "error.indexOrFormula": "Ya bir indeks ya da kendi formülünüzü kullanın, ikisini birden değil: yukarıdaki listeden birini seçin",
+  "help.fitTitle": "Parçalar nasıl birleşir",
+  "help.fit1": "Bir anket Collect Earth panosunda ya da bilgisayardaki Collect Earth'te hazırlanır.",
+  "help.fit2": "Collect Earth bu pencereyi her parsel için açar; parselin şekli ve tarihleri adreste yer alır.",
+  "help.fit3": "Anketin seçtiği katmanlar ve grafikler aynı adresle gelir; seçim yoksa standart pencere gösterilir.",
+  "help.useTitle": "Pencereyi kullanma",
+  "help.use1": "Katmanlar panelinden bir görüntü katmanı seçin ve yıl kaydırıcısını hareket ettirin.",
+  "help.use2": "O günün görüntüsünü haritada görmek için bir grafikte bir noktaya tıklayın.",
+  "help.use3": "“Şununla karşılaştır” iki görüntüyü kaydırmalı bir perdeyle yan yana ya da NDVI farkı olarak gösterir.",
+  "help.use4": "Grafiklerin üstündeki satırlar eğilimi ve bir değişim yılını gösterir.",
+  "help.use5": "“Çokgeni yeniden çiz” başka bir şekli ya da bir noktayı inceler; Collect Earth'e kaydedilmez.",
+  "help.use6": "Her grafik katlanabilir ve verileri CSV olarak indirilebilir.",
+  "help.setupTitle": "Bir anket için katmanları ve grafikleri seçme",
+  "help.dashboard": "Panoda: projeyi açın, “Görüntü pencereleri” kartında “Explorer penceresi” altındaki “Özelleştir…” düğmesine basın.",
+  "help.desktop": "Collect Earth'te: Ayarlar'ı açın, “Explorer penceresi: tabakalar ve grafikler” alanını bulun ve “Özelleştir…” düğmesine basın.",
+  "help.try": "Ayar sayfasını deneyin",
+  "help.notSaved": "Orada yapılan değişiklikler kaydedilmez: kaydetme panoda ya da Collect Earth'te yapılır.",
 };
 
 export const CONFIGURE_DICTIONARIES: Record<Lang, Dict> = { en, es, fr, pt, tr };

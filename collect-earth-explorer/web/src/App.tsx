@@ -28,6 +28,8 @@ const CARDS: Record<string, ComponentType<CardProps>> = {
   "sentinel1-series": lazy(() => import("./components/charts/Sentinel1Card")),
   precipitation: lazy(() => import("./components/charts/PrecipitationCard")),
 };
+// The landing page is rare: its help and texts stay out of this chunk.
+const WelcomeHelp = lazy(() => import("./components/WelcomeHelp"));
 
 /** One line of the map status box: loading / error (with Retry when retryable) / the layer label. */
 function TileStatus({ side, tiles }: { side?: string; tiles: ApiState<TileResponse> }) {
@@ -146,6 +148,9 @@ function Welcome({ noPlot }: { noPlot: boolean }) {
             </li>
           ))}
         </ul>
+        <Suspense fallback={null}>
+          <WelcomeHelp />
+        </Suspense>
       </div>
     </div>
   );
