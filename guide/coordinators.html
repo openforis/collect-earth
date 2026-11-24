@@ -170,19 +170,24 @@
   <p>Set the checks once in <span class="ui">Setup › Quality rules</span>:</p>
   <ul>
     <li><span class="ui">Automatic checks</span>: copy the first plots each person submits, or a share of all their plots, to chosen checkers as blind second assessments. Press <span class="ui">Draw now</span> to start at once.</li>
+    <li><span class="ui">Reference plots</span>: choose plots and the expert who assesses them. Every collector also gets them blind, mixed in with their own plots.</li>
+    <li><span class="ui">Accuracy target</span>: how often a collector's answers should match the reference plots (80% unless you change it). Changing it updates every verdict at once.</li>
     <li><span class="ui">Very fast plots</span>: how many seconds on a plot is too fast, so such plots are flagged.</li>
   </ul>
   <p>The <span class="ui">Quality</span> tab then compares the answers of plots that two people assessed blind:</p>
   <ul>
     <li><span class="ui">Review</span>: for each plot where the answers differ, decide <span class="ui">First is right</span>, <span class="ui">Check is right</span>, <span class="ui">Both need another look</span> or <span class="ui">Correct it in Collect Earth</span>: the plot then goes to someone you assign, who corrects it from a <span class="ui">To correct</span> list in their own Collect Earth, with the first answer filled in. <span class="ui">Decide many plots at once</span> speeds this up.</li>
-    <li><span class="ui">Reference plots</span>: plots an expert has assessed. Every collector also gets them blind, which measures each person's accuracy.</li>
+    <li><span class="ui">Early warning</span>: what the reference plots say of the collection so far, in five layers read from the top: is the data coming in, can the reference be trusted, is a question the problem, is it someone in particular, are some plots hard for everyone. Each layer says how it stands, what was found and what to do, and the page names the layer to start with. It is meant for the first days: each share comes with its margin of error and a verdict (<span class="ui">Below target</span>, <span class="ui">Watch</span>, <span class="ui">On target</span>, <span class="ui">Too early to say</span>), so a few plots are enough to read it. The <a href="mapathon.html#early-warning">Mapathon guide</a> explains each layer.</li>
+    <li><span class="ui">Reference plots</span>: each person's and each question's accuracy against the expert's answers, with the margin of error, the verdict and whether the person is improving, and how often collectors agree with each other.</li>
     <li><span class="ui">Figures</span>: <span class="ui">Agreement by question</span>, <span class="ui">Agreement by person</span>, <span class="ui">Mixed-up answers</span> and <span class="ui">Over time</span> show where the team disagrees. <span class="ui">Plots worth a look</span> lists plots done very fast, with the same answers as before, with required answers missing, or edited after a decision.</li>
     <li><span class="ui">Notes</span>: <span class="ui">Guidance notes</span> share decisions with the team, so everyone answers the same way next time.</li>
   </ul>
+  <figure><img src="../img/screens/mp-early-warning.png" alt="Quality Early warning: the layer to start with and how each of the five layers stands" loading="lazy"><figcaption><span class="ui">Quality › Early warning</span>: where to start, and how each layer stands.</figcaption></figure>
   <figure><img src="../img/screens/quality.png" alt="The Quality tab" loading="lazy"><figcaption>Agreement between first assessments and checks.</figcaption></figure>
+  <p><span class="ui">Progress › Needs attention</span> tells you when someone is below the accuracy target or a reference answer is in doubt, with a button to <span class="ui">Early warning</span>.</p>
   <p>Collectors don't need the dashboard to work, but they can follow their own progress, quality and training on <span class="ui">My work</span>.</p>
   <figure><img src="../img/screens/my-work.png" alt="A collector's My work page" loading="lazy"><figcaption>What a collector sees: their own work only.</figcaption></figure>
-  <p>Reviewers can help with the review: their decisions are kept with their name, and their own plots go to someone else. They also see plots worth a look, the team's answers and the accuracy against reference plots, but no figures per person and no decisions on many plots at once.</p>
+  <p>Reviewers can help with the review: their decisions are kept with their name, and their own plots go to someone else. They also see plots worth a look, the team's answers and the accuracy against reference plots, but no figures per person and no decisions on many plots at once. <span class="ui">Early warning</span> is for coordinators.</p>
 
   <h2 id="training">Training the team</h2>
   <p>A training set is a set of plots kept apart from the project's data: nothing done on them counts in progress, quality figures or downloads. On <span class="ui">Training</span>, press <span class="ui">Add a training set</span> and choose:</p>

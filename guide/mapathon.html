@@ -228,11 +228,12 @@
     <li><strong>An interpretation key.</strong> The definitions the group applies (forest, its canopy cover and height thresholds, the land use classes, following the IPCC hierarchy), each illustrated with screenshots of example plots (p.&nbsp;60). Include the hard cases: seasonal changes, plantations, trees on farm boundaries, degraded land. <a href="land-use-change.html">Reading land use change</a> describes the method to teach.</li>
     <li><strong>Field photos beside the imagery.</strong> Photos of known places shown next to their satellite image, or a short field visit, connect what people know on the ground with what they see from above (p.&nbsp;61).</li>
     <li><strong>Training sets in the dashboard.</strong> On <span class="ui">Training › Add a training set</span>: kind <span class="ui">Calibration</span>, <span class="ui">Copies of plots of a plot file of the project</span>, 20 plots per day, <span class="ui">Everyone in the project, and whoever joins</span>. The copies carry ids of their own, so nothing done in training reaches the real data. A second set from the same file gets other plots.</li>
-    <li><strong>Reference plots.</strong> Have an expert assess a set of plots in advance. Every collector gets them blind on top of their own plots, which measures each person's accuracy during the whole event.</li>
+    <li><strong>Reference plots.</strong> Have an expert assess a set of plots in advance. Every collector gets them blind on top of their own plots, which measures each person's accuracy during the whole event. Mark them in <span class="ui">Setup › Quality rules › Reference plots</span> with the expert as their assessor, have the expert finish them before the event, and set the <span class="ui">Accuracy target</span> on the same page (80% unless you change it). 30 or more is a good start.</li>
     <li><strong>Experts in the room.</strong> At least two, or one for every 10 interpreters (p.&nbsp;62).</li>
   </ul>
 
   <figure><img src="../img/screens/training.png" alt="Adding a training set" loading="lazy" width="1440" height="900"><figcaption>Adding a training set: calibration, copies of 20 of the project's plots, everyone in the project.</figcaption></figure>
+  <figure><img src="../img/screens/mp-accuracy-target.png" alt="Setup Quality rules: marking reference plots at random or by plot id, and the Accuracy target card under it set to 80" loading="lazy" width="1440" height="900"><figcaption><span class="ui">Setup › Quality rules</span>: mark the reference plots, then set the <span class="ui">Accuracy target</span> every person and question is judged against.</figcaption></figure>
 
   <h2 id="training">6. Training days</h2>
   <p>Plan at least two full days of training: in Ethiopia and Rwanda, 1.5 days for 20 people proved too little (FAO and WRI, p.&nbsp;52–53). Do not start the real collection until the group agrees on the questions that drive the results.</p>
@@ -278,6 +279,7 @@
     <table>
       <thead><tr><th>When</th><th>Where</th><th>What to look for</th></tr></thead>
       <tbody>
+        <tr><td>Morning</td><td><span class="ui">Quality › Early warning</span></td><td>The layer it says to start with: the reference, a question, a person or a plot (<a href="#early-warning">below</a>)</td></tr>
         <tr><td>Morning</td><td><span class="ui">Progress</span></td><td>Plots submitted, <span class="ui">Needs attention</span>, <span class="ui">When will it be done?</span> against the deadline</td></tr>
         <tr><td>Morning</td><td><span class="ui">People › How they are doing</span></td><td>Speed, last sync and agreement per person</td></tr>
         <tr><td>Through the day</td><td>In the room</td><td>Experts answer questions at the computers; a question asked twice becomes a guidance note</td></tr>
@@ -288,6 +290,7 @@
     </table>
   </div>
   <ul>
+    <li><strong>Find where a problem comes from before talking to anyone.</strong> <span class="ui">Quality › Early warning</span> tells a wrong reference and an unclear question apart from a person who needs help (<a href="#early-warning">below</a>).</li>
     <li><strong>The first day counts most.</strong> Set <span class="ui">Setup › Quality rules</span> to copy each person's first plots to an expert, and talk to anyone who drifts from the key before they repeat it on hundreds of plots.</li>
     <li><strong>Re-measure the pace after day 1</strong>: the plots per person per day tell whether the plan holds (p.&nbsp;63). If <span class="ui">When will it be done?</span> passes the deadline, move plots or add people now.</li>
     <li><strong>Interpreters check their own work.</strong> Give them a list of checks for their own plots (<span class="ui">My work</span> in the dashboard); Ethiopia spent a day on it, and people become more careful when they correct their own errors (p.&nbsp;63).</li>
@@ -299,14 +302,44 @@
   <figure><img src="../img/screens/people.png" alt="Who finishes when, on the People tab" loading="lazy" width="1440" height="900"><figcaption><span class="ui">Who finishes when</span>: the plots each person has left, their pace and the day they would finish; move plots to someone ahead.</figcaption></figure>
   <figure><img src="../img/screens/mp-quality-rules.png" alt="Setup Quality rules: check the first 10 plots each person submits and a 10% share of each person's plots, given to every collector" loading="lazy" width="1440" height="900"><figcaption><span class="ui">Setup › Quality rules</span>: the first plots of each person and a share of all their plots go to a second person, blind.</figcaption></figure>
 
+  <h3 id="early-warning">Early warning: where a problem comes from</h3>
+  <p>From the first reference plots, <span class="ui">Quality › Early warning</span> compares every collector's answers with the reference and with each other, and sorts what it finds into five layers. Read them from the top: a problem in one layer explains problems in the ones under it. A wrong reference makes everyone look wrong, and an unclear question makes each person look wrong, so settle the upper layers first. The top of the page names the layer to start with.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Layer</th><th>What it shows</th><th>What to do</th></tr></thead>
+      <tbody>
+        <tr><td><strong>1. Is the data coming in?</strong></td><td>People who are quiet or have not downloaded their plots, work that is not sent, an old project file or an old Collect Earth, plots given to nobody</td><td>The button on each line goes to <span class="ui">People</span> or <span class="ui">Setup › Plots</span></td></tr>
+        <tr><td><strong>2. Can the reference be trusted?</strong></td><td>Reference plots the expert has not assessed yet, and reference answers that more than half of at least three collectors contradict with one same answer</td><td>Open each plot with its assessor. If the reference is wrong, the assessor corrects it in Collect Earth and sends it again, and every figure follows. If it is right, most people share a misunderstanding: write a guidance note and say it in the room</td></tr>
+        <tr><td><strong>3. Is a question the problem?</strong></td><td>Each question against the target, how often two collectors gave the same answer on the same plot (with kappa), and what that suggests: the wrong answers are mostly a few people's; collectors agree with each other but not with the reference; or they disagree with each other too, so the question is unclear</td><td>Fix the question for everyone first: a guidance note with examples, a clearer interpretation key</td></tr>
+        <tr><td><strong>4. Is it someone in particular?</strong></td><td>Who is below the target, who to watch, the question they are weak on, whether they are improving, and how many reference plots they have done</td><td>Talk to the people below target the same day, with a few of their reference plots open</td></tr>
+        <tr><td><strong>5. Are some plots hard for everyone?</strong></td><td>Reference plots that fewer than half of the collectors get right, and the plots worth a look waiting in the review queue</td><td>Go through them with the whole group: they are the borderline cases the key should cover</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <figure><img src="../img/screens/mp-early-warning.png" alt="Quality Early warning: Start with layer 2, Can the reference be trusted, and the five layers with how each stands" loading="lazy" width="1440" height="900"><figcaption><span class="ui">Quality › Early warning</span>: where to start, and how each of the five layers stands (<span class="ui">Problem</span>, <span class="ui">To look at</span>, <span class="ui">Nothing stands out</span>, <span class="ui">Too early to say</span>).</figcaption></figure>
+
+  <p><strong>Reading it with few plots.</strong> Nothing is hidden for being few: each share is shown as a count, such as 9 of 18, with a bar.</p>
+  <ul>
+    <li><strong>The bar.</strong> The dot is the share of answers that match the reference. The band around it is the margin of error: wide with few answers, narrow with many. The tick is the accuracy target.</li>
+    <li><span class="ui">Below target</span>: the whole band is under the tick, so it is not chance. It is never said with fewer than 5 answers compared.</li>
+    <li><span class="ui">Watch</span>: under the target so far, but the band still reaches it. More plots will tell.</li>
+    <li><span class="ui">On target</span>: at the target or above. <span class="ui">Too early to say</span>: right so far, with fewer than 5 answers.</li>
+    <li><span class="ui">Improving</span> and <span class="ui">Getting worse</span> compare a person's latest 10 reference plots with the ones before, and appear only when the change is 10 points or more and beyond chance.</li>
+  </ul>
+  <p><span class="ui">Progress › Needs attention</span> shows <span class="ui">Below the accuracy target</span> and <span class="ui">Reference answers in doubt</span> when there is something to see, each with <span class="ui">Open Early warning</span>. Collectors are never told which plots are reference plots, and never see this accuracy.</p>
+
+  <figure><img src="../img/screens/mp-early-warning-reference.png" alt="Layer 2, Can the reference be trusted: plots where the reference says one answer and most collectors say another, with how many" loading="lazy" width="1440" height="900"><figcaption>Layer 2: the reference answers most collectors contradict, with what the reference says, what most collectors say and how many. Layer 3 follows with each question and what its wrong answers suggest.</figcaption></figure>
+  <figure><img src="../img/screens/mp-early-warning-people.png" alt="Layer 3 with each question against the target, and layer 4 with each person: their answers with the margin bar, their verdict, the questions they are weak on and the reference plots done" loading="lazy" width="1440" height="900"><figcaption>Layers 3 and 4: each question and each person against the target, with the margin of error, the verdict, the weak questions and the reference plots done.</figcaption></figure>
+
   <h2 id="quality">9. Quality control after the event</h2>
   <p>The data is final when every disagreement has a decision and the quality figures are written down.</p>
   <ul>
     <li><strong>Decide the disagreements</strong> in <span class="ui">Quality › Review</span>, one plot at a time: <span class="ui">First is right</span>, <span class="ui">Check is right</span>, <span class="ui">Both need another look</span>, or <span class="ui">Correct it in Collect Earth</span>, which sends the plot to someone you choose to correct in their own Collect Earth. The organiser's decision is the plot's final answer in every download.</li>
     <li><strong>Correct or reassess</strong> plots with errors rather than dropping them: dropping plots can bias the sample or leave it too small (FAO and WRI, p.&nbsp;66).</li>
-    <li><strong>Read the figures.</strong> <span class="ui">Agreement by question</span> shows which definitions need work; <span class="ui">Agreement by person</span> who needs support; <span class="ui">Mixed-up answers</span> which classes are confused; reference plots give each person's accuracy.</li>
+    <li><strong>Read the figures.</strong> <span class="ui">Agreement by question</span> shows which definitions need work; <span class="ui">Agreement by person</span> who needs support; <span class="ui">Mixed-up answers</span> which classes are confused. <span class="ui">Reference plots</span> gives each person's accuracy with its margin of error, and how often collectors agree with each other; <span class="ui">Early warning</span> should end the event with no reference answer in doubt.</li>
     <li><strong>Field checks (groundtruthing).</strong> Visit a random set of plots, leaving out places that need long permits, and note that this narrows the sample (p.&nbsp;66–68). Take local officials along: in Rwanda the district forest officer joined the 14 visits in one day; in India, 35 field points matched the Mapathon data better than the official map (p.&nbsp;67–68). Record for each plot: date, plot id, photo, land cover expected from Collect Earth and observed, trees and shrubs present and how many, disturbance, land management and tenure (p.&nbsp;69).</li>
-    <li><strong>Write it down</strong>: the share checked blind, the agreement, the reference-plot accuracy, how disagreements were decided and what the field checks found. It belongs in the methods of every report.</li>
+    <li><strong>Write it down</strong>: the share checked blind, the agreement, the accuracy target and the reference-plot accuracy with its margin, the reference answers that were corrected, how disagreements were decided and what the field checks found. It belongs in the methods of every report.</li>
   </ul>
 
   <figure><img src="../img/screens/mp-review.png" alt="The Quality Review queue: plot BOR-0014,1 where the first assessment and the check differ, with the buttons First is right, Check is right, Both need another look and Correct it in Collect Earth" loading="lazy" width="1440" height="900"><figcaption>The review queue: each plot where the two assessments differ, one at a time, with the four decisions (keys 1 to 4).</figcaption></figure>
@@ -377,7 +410,8 @@
     <li>Sample designed; plot files checked; plot size, layout, imagery and areas set</li>
     <li>Interpreters found; venue, computers, second screens, internet and IT support booked</li>
     <li>Collect Earth installed and started on every computer</li>
-    <li>Interpretation key, field photos, training sets and reference plots ready</li>
+    <li>Interpretation key, field photos and training sets ready</li>
+    <li>Reference plots marked and assessed by the expert; accuracy target set</li>
     <li>Invitations sent with the cloud link; webinar held; evaluation forms ready</li>
   </ul>
   <h3>During the event</h3>
@@ -385,6 +419,7 @@
     <li>At least two days of training; rules agreed written as guidance notes</li>
     <li>Training reports saved and training finished; real plots given out with the check share</li>
     <li>First plots of every interpreter checked on day 1; pace re-measured</li>
+    <li>Early warning opened every morning, starting with the layer it names</li>
     <li>Progress, flagged plots, contradictions and disagreements looked at every day</li>
     <li>Backup downloaded every day; end-of-event form filled; certificates given</li>
   </ul>
