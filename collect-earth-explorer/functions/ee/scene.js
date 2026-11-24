@@ -3,11 +3,18 @@ const { getTileUrl, evaluate } = require("./promise");
 const { landsatSceneCollection } = require("./landsat");
 const { LANDSAT_VIZ } = require("./landsatComposite");
 const { sentinel2SceneCollection, SENTINEL_FALSE_COLOUR } = require("./sentinel2");
+const { hlsSceneCollection, HLS_FALSE_COLOUR } = require("./hls");
 const { BadRequest } = require("../lib/plotRequest");
 const { notFoundIfEmpty } = require("../lib/errors");
 
-/** Request sensor names (not the Landsat sensor table of lib/sensors.js). */
-const SCENE_SENSORS = ["landsat", "sentinel2"];
+/** Per request sensor (not the Landsat sensor table of lib/sensors.js): the scenes at an instant, their visualisation, label prefix and near-infrared/red band names. */
+const SCENES = {
+  landsat: { collection: landsatSceneCollection, viz: LANDSAT_VIZ, name: "Landsat", nirRed: ["nir", "red"] },
+  // The Sentinel-2 scene keeps the product's band names.
+  sentinel2: { collection: sentinel2SceneCollection, viz: SENTINEL_FALSE_COLOUR, name: "Sentinel-2", nirRed: ["B8", "B4"] },
+  hls: { collection: hlsSceneCollection, viz: HLS_FALSE_COLOUR, name: "HLS", nirRed: ["nir", "red"] },
+};
+const SCENE_SENSORS = Object.keys(SCENES);
 
 /**
  * Pure validation of the scene request fields. `timeStart` is epoch
@@ -26,8 +33,8 @@ function validateSceneRequest(body) {
  * Tile URL for one false-colour scene identified by its system:time_start, as
  * returned in the NDVI series or the CCDC observed points: an unmasked Landsat
  * scene from any Landsat sensor (no per-sensor date windows, since the CCDC
- * collection has none: see landsatSceneCollection), or the Sentinel-2 scene
- * (SR when available). `start` and `end` are not used for the lookup: the
+ * collection has none: see landsatSceneCollection), the Sentinel-2 scene
+ * (SR when available) or the HLS L30 or S30 scene. `start` and `end` are not used for the lookup: the
  * scene is identified by its instant alone. Rejects with a 404 not_found when
  * no scene has that system:time_start, so getMap is never asked to visualise
  * an empty first().
@@ -39,21 +46,16 @@ async function sceneTiles(plot, start, end, sensor, timeStart) {
 
 /**
  * The unvisualised scene sceneTiles shows, its visualisation and label, and `nirRed`, the names of its
- * near-infrared and red bands (the Sentinel-2 scene keeps the product's band names). 404 as sceneTiles.
+ * near-infrared and red bands. 404 as sceneTiles.
  */
 async function sceneImage(plot, sensor, timeStart) {
   const v = validateSceneRequest({ sensor, timeStart });
   const iso = new Date(v.timeStart).toISOString();
   const date = iso.slice(0, 10);
-  const landsat = v.sensor === "landsat";
-  const collection = landsat ? landsatSceneCollection(plot, v.timeStart) : sentinel2SceneCollection(plot, v.timeStart);
-  notFoundIfEmpty(await evaluate(collection.size()), `no ${v.sensor} scene at ${iso}`);
-  return {
-    image: ee.Image(collection.first()),
-    viz: landsat ? LANDSAT_VIZ : SENTINEL_FALSE_COLOUR,
-    label: landsat ? `Landsat ${date}` : `Sentinel-2 ${date}`,
-    nirRed: landsat ? ["nir", "red"] : ["B8", "B4"],
-  };
+  const { collection, viz, name, nirRed } = SCENES[v.sensor];
+  const scenes = collection(plot, v.timeStart);
+  notFoundIfEmpty(await evaluate(scenes.size()), `no ${v.sensor} scene at ${iso}`);
+  return { image: ee.Image(scenes.first()), viz, label: `${name} ${date}`, nirRed };
 }
 
 module.exports = { sceneTiles, sceneImage, validateSceneRequest };

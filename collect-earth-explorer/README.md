@@ -96,22 +96,26 @@ used. Example:
   11 km, so it is the rainfall of the area rather than of the plot), as bars. It takes the analysis
   switches below, all off by default, and `collapsed`; it is in the standard configuration,
   collapsed.
+- `hls-series` (not in the standard configuration) charts an index from NASA's Harmonized Landsat
+  Sentinel-2: Landsat 8/9 and Sentinel-2 combined into one consistent 30 m series, an image every
+  2-3 days since 2015 (Landsat only from 2013). It takes the same parameters as `landsat-series`;
+  "Compare years" uses the configuration's Landsat layer and is left out without one.
 - `modis` also takes `rainfall` (true or false, default false): whether the chart starts with the
   monthly rainfall drawn as bars under it. The chart's Rain switch turns it on and off, remembered
   like the analyses.
 - An entry that is not understood is skipped and a notice is shown; the rest still works.
 - Types, parameters, allowed values and defaults: `functions/catalogue.json`, served at
   `GET /api/catalogue`.
-- The Landsat, Sentinel-2, MODIS and Sentinel-1 charts take `median`, `trend`, `change`, `unusual` and
+- The Landsat, Sentinel-2, HLS, MODIS and Sentinel-1 charts take `median`, `trend`, `change`, `unusual` and
   `season` (true or false): which analyses are switched on when the chart opens. Only `trend` is on
-  by default (none on the rainfall chart). The Landsat and Sentinel-2 ones also take `maxCloud` (`"any"`, `"80"`, `"60"`, `"40"`,
+  by default (none on the rainfall chart). The Landsat, Sentinel-2 and HLS ones also take `maxCloud` (`"any"`, `"80"`, `"60"`, `"40"`,
   `"20"`, `"10"`; default `"40"`), the scene cloud limit the chart starts with. The user can still
   change all of these; the browser remembers the choice, separately for a survey that sets its own
   start value.
 - Index charts take a named `index` (NDVI, EVI, EVI2, SAVI, MSAVI, GNDVI, NDMI, NBR, NBR2, NDWI,
   MNDWI, NDSI, NDBI, BSI) or a `formula` with a `name`. A formula may use numbers, `+ - * /`,
   parentheses, `sqrt abs min max pow` and the bands `blue green red nir swir1 swir2` as 0 to 1
-  reflectance; Sentinel-2 adds `rededge1 rededge2 rededge3`. Landsat is surface reflectance and
+  reflectance; Sentinel-2 adds `rededge1 rededge2 rededge3`. Landsat and HLS are surface reflectance and
   Sentinel-2 is top of atmosphere, so the same index reads somewhat differently on the two.
 
 Ready-made documents ("starting points": deforestation, fire, cloudy tropics, drylands) are in

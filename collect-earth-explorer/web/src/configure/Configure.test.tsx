@@ -110,6 +110,20 @@ describe("Configure", () => {
     expect(row(/4\. Sentinel-1 radar composite/)).toHaveAttribute("aria-expanded", "true");
   });
 
+  it("adds the HLS chart, which takes the six Landsat bands in a formula", () => {
+    const post = vi.fn();
+    const parent = vi.spyOn(window, "parent", "get").mockReturnValue({ postMessage: post } as unknown as Window);
+    open('{"charts":[{"type":"ccdc"}]}');
+    fireEvent.click(screen.getByRole("button", { name: "+ Add chart" }));
+    fireEvent.click(screen.getByRole("button", { name: /Landsat and Sentinel-2 \(HLS\) index over time Landsat and Sentinel-2 combined/ }));
+    expect(lastConfig(post).config).toContain('{"type":"hls-series"}');
+    fireEvent.change(screen.getByLabelText("Index"), { target: { value: "*custom" } });
+    fireEvent.change(screen.getByLabelText("Formula"), { target: { value: "(nir - rededge1) / (nir + rededge1)" } });
+    expect(screen.getByLabelText("Formula")).toHaveAccessibleDescription(/Bands: blue, green, red, nir, swir1, swir2 \(/);
+    expect(lastConfig(post).valid).toBe(false);
+    parent.mockRestore();
+  });
+
   it("warns that saving drops what it does not know", () => {
     open('{"layers":[{"type":"planet"},{"type":"landsat"}]}');
     expect(screen.getByRole("alert")).toHaveTextContent("Saving will remove them.");

@@ -5,6 +5,7 @@ import {
   ScaleControl,
   type StyleSpecification,
   type RasterTileSource,
+  type GeoJSONSource,
   setWorkerUrl,
 } from "maplibre-gl";
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
@@ -63,8 +64,10 @@ export function setImagery(map: MlMap, tileUrl: string | undefined) {
   map.addLayer({ id: IMAGERY_SOURCE, type: "raster", source: IMAGERY_SOURCE }, OUTLINE_LAYER);
 }
 
+const outline = (plot: Polygon) => ({ type: "Feature" as const, geometry: plot, properties: {} });
+
 export function addPlotOutline(map: MlMap, plot: Polygon) {
-  map.addSource("plot", { type: "geojson", data: { type: "Feature", geometry: plot, properties: {} } });
+  map.addSource("plot", { type: "geojson", data: outline(plot) });
   // A dark line one pixel wider on each side, under the yellow one, so the outline shows on bright imagery.
   // It is the lower of the two, so it is the layer the imagery is inserted under.
   map.addLayer({ id: OUTLINE_LAYER, type: "line", source: "plot", paint: { "line-color": "#161922", "line-width": 4 } });
@@ -74,7 +77,8 @@ export function addPlotOutline(map: MlMap, plot: Polygon) {
 interface Props {
   plot: Polygon;
   tileUrl?: string;
-  onMap?: (m: MlMap) => void;
+  /** Called with the map once its style has loaded, and with null when it is removed. */
+  onMap?: (m: MlMap | null) => void;
 }
 
 export default function MapView({ plot, tileUrl, onMap }: Props) {
@@ -84,9 +88,10 @@ export default function MapView({ plot, tileUrl, onMap }: Props) {
   // whatever is current when the style finishes loading.
   const tileUrlRef = useRef(tileUrl);
   tileUrlRef.current = tileUrl;
+  const plotRef = useRef(plot);
+  plotRef.current = plot;
 
-  // The map is created once per mount; `plot` and `onMap` are fixed for the
-  // lifetime of the viewer (they come from the URL), so they are read once here.
+  // The map is created once per mount and does not follow a new `plot` (the outline does, below); `onMap` is read once.
   /* oxlint-disable react-hooks/exhaustive-deps */
   useEffect(() => {
     let disposed = false;
@@ -103,7 +108,7 @@ export default function MapView({ plot, tileUrl, onMap }: Props) {
       // Under StrictMode the first map is removed before its style loads; a
       // late "load" must not touch the removed map or steal mapRef.
       if (disposed) return;
-      addPlotOutline(map, plot);
+      addPlotOutline(map, plotRef.current);
       mapRef.current = map;
       onMap?.(map);
       setImagery(map, tileUrlRef.current);
@@ -111,6 +116,7 @@ export default function MapView({ plot, tileUrl, onMap }: Props) {
     return () => {
       disposed = true;
       mapRef.current = null;
+      onMap?.(null);
       map.remove();
     };
   }, []);
@@ -122,6 +128,11 @@ export default function MapView({ plot, tileUrl, onMap }: Props) {
   useEffect(() => {
     if (mapRef.current) setImagery(mapRef.current, tileUrl);
   }, [tileUrl]);
+
+  // A redrawn plot moves the outline; the view stays where the user is looking.
+  useEffect(() => {
+    mapRef.current?.getSource<GeoJSONSource>("plot")?.setData(outline(plot));
+  }, [plot]);
 
   return <div ref={el} style={{ position: "absolute", inset: 0 }} />;
 }

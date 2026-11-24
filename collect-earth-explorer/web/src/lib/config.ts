@@ -122,6 +122,7 @@ const CHART_PATHS: Record<string, string> = {
   ccdc: "ccdc",
   "landsat-series": "series/landsat",
   "sentinel2-series": "series/sentinel2",
+  "hls-series": "series/hls",
   modis: "series/modis",
   "sentinel1-series": "series/sentinel1",
   precipitation: "series/precipitation",
@@ -137,7 +138,7 @@ export function chartRequest(entry: ChartEntry, p: PlotBody): { path: string; bo
   return { path: CHART_PATHS[entry.type], body: { ...p, ...extra } };
 }
 
-/** What a Landsat or Sentinel-2 series chart is called after its sensor: the index, or the custom formula's name, else `custom`. */
+/** What a Landsat, Sentinel-2 or HLS series chart is called after its sensor: the index, or the custom formula's name, else `custom`. */
 export const indexLabel = (params: ChartEntry["params"], custom = t("config.customIndex")) =>
   params.formula === undefined ? (params.index as string) : (params.name as string | undefined) || custom;
 

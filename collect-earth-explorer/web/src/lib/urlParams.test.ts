@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parsePlotUrl, toPolygon } from "./urlParams";
+import { parsePlotUrl, shapeProblem, toPolygon } from "./urlParams";
 
 const ring = [[30.169231, -2.066067], [30.16986, -2.066067], [30.16986, -2.0667], [30.169231, -2.0667], [30.169231, -2.066067]];
 const geoJson = JSON.stringify({ type: "MultiLineString", coordinates: [ring] });
@@ -102,5 +102,26 @@ describe("toPolygon", () => {
   });
   it("still rejects unsupported geometries", () => {
     expect(() => toPolygon({ type: "MultiPolygon", coordinates: [] })).toThrow(/unsupported geometry MultiPolygon/);
+  });
+});
+
+// The shapes functions/lib/plotRequest.test.js refuses (and accepts), so the two checks agree.
+describe("shapeProblem", () => {
+  const poly = (ring: number[][]) => toPolygon({ type: "Polygon", coordinates: [ring] });
+  it("refuses what the server refuses", () => {
+    expect(shapeProblem(poly([[0, 0], [0.02, 0], [0.02, 0.02], [0, 0.02], [0, 0]]))).toBe("tooLarge"); // ~490 ha
+    expect(shapeProblem(poly([[0, 0], [10, 10], [10, 0], [0, 10], [0, 0]]))).toBe("tooWide");
+    expect(shapeProblem(poly([[0, 0], [0.01, 0.01], [0.01, 0], [0, 0.01], [0, 0]]))).toBe("crosses");
+    expect(shapeProblem(poly([[0, 0], [0.01, 0], [0, 0]]))).toBe("noArea");
+    const many = Array.from({ length: 501 }, (_, i) => [0.001 * Math.cos(i / 80), 0.001 * Math.sin(i / 80)]);
+    expect(shapeProblem(poly([...many, many[0]]))).toBe("tooMany");
+    expect(shapeProblem(poly([...many.slice(0, 500), many[0]]))).toBeUndefined();
+  });
+  it("accepts a plot and the square of a point; the area is measured as the server's @turf/area does", () => {
+    expect(shapeProblem(poly(ring))).toBeUndefined();
+    expect(shapeProblem(toPolygon({ type: "Point", coordinates: [-88.76, 17.25] }))).toBeUndefined();
+    // 0.009° square at the equator is ~100.2 ha (just over), 0.0089° ~98 ha.
+    expect(shapeProblem(poly([[0, 0], [0.009, 0], [0.009, 0.009], [0, 0.009], [0, 0]]))).toBe("tooLarge");
+    expect(shapeProblem(poly([[0, 0], [0.0089, 0], [0.0089, 0.0089], [0, 0.0089], [0, 0]]))).toBeUndefined();
   });
 });

@@ -3,10 +3,10 @@ import { indexLabel } from "../lib/config";
 import { useFolds } from "../lib/folds";
 import { t } from "../lib/i18n";
 
-const SUMMARY_SENSORS: Record<string, string> = { "landsat-series": "Landsat", "sentinel2-series": "Sentinel-2" };
+const SUMMARY_SENSORS: Record<string, string> = { "landsat-series": "Landsat", "sentinel2-series": "Sentinel-2", "hls-series": "HLS" };
 
 /**
- * One line per open Landsat/Sentinel-2 series chart with its verdict, from what the card publishes (no request of its
+ * One line per open Landsat/Sentinel-2/HLS series chart with its verdict, from what the card publishes (no request of its
  * own); a line from the first render, so the charts below do not jump. Each scrolls to its card.
  */
 export default function Summary() {

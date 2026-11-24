@@ -26,3 +26,10 @@ test("sentinelWindow is null when the clamped start is not before the end", () =
   assert.equal(sentinelWindow("2020-05-01", "2020-05-01"), null);
   assert.equal(sentinelWindow("2020-05-02", "2020-05-01"), null);
 });
+
+test("sentinelWindow clamps to another first day when given one (HLS)", () => {
+  const { HLS_START } = require("../ee/hls");
+  assert.equal(HLS_START, "2013-04-11");
+  assert.deepEqual(sentinelWindow("2000-01-01", "2014-01-01", HLS_START), { start: "2013-04-11", end: "2014-01-01" });
+  assert.equal(sentinelWindow("2000-01-01", "2013-04-11", HLS_START), null);
+});

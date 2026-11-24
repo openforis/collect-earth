@@ -80,3 +80,32 @@ export function polygonBounds(p: Polygon): [[number, number], [number, number]] 
   const xs = p.coordinates[0].map((c) => c[0]), ys = p.coordinates[0].map((c) => c[1]);
   return [[Math.min(...xs), Math.min(...ys)], [Math.max(...xs), Math.max(...ys)]];
 }
+
+/** Why the server would refuse this plot, or undefined. */
+export type ShapeProblem = "tooMany" | "tooWide" | "crosses" | "noArea" | "tooLarge";
+
+/**
+ * Mirrors functions/lib/plotRequest.js checkShape and its area limit (the server is the authority: change both together),
+ * so a redrawn shape is refused before it is sent. The area is @turf/area's spherical ring formula.
+ */
+export function shapeProblem(p: Polygon): ShapeProblem | undefined {
+  const ring = p.coordinates[0]; // closed
+  const n = ring.length - 1;
+  if (n > 500) return "tooMany";
+  const [[x0, y0], [x1, y1]] = polygonBounds(p);
+  if (x1 - x0 > 0.1 || y1 - y0 > 0.1) return "tooWide";
+  const side = (a: number[], b: number[], c: number[]) => Math.sign((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]));
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 2; j < n; j++) {
+      if (i === 0 && j === n - 1) continue; // first and last edges share the closing vertex
+      const [a, b, c, d] = [ring[i], ring[i + 1], ring[j], ring[j + 1]];
+      if (side(a, b, c) * side(a, b, d) < 0 && side(c, d, a) * side(c, d, b) < 0) return "crosses";
+    }
+  }
+  const rad = Math.PI / 180;
+  let sum = 0;
+  if (n > 2) for (let i = 0; i < n; i++) sum += (ring[(i + 2) % n][0] - ring[i][0]) * rad * Math.sin(ring[(i + 1) % n][1] * rad);
+  const ha = (Math.abs(sum) * 6371008.8 ** 2) / 2 / 10000;
+  if (!(ha > 0)) return "noArea";
+  if (ha > 100) return "tooLarge";
+}

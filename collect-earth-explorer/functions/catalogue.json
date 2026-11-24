@@ -71,6 +71,21 @@
         "collapsed": { "type": "bool", "default": false }
       }
     },
+    "hls-series": {
+      "title": "Harmonized Landsat Sentinel-2 index series",
+      "params": {
+        "index": { "type": "choice", "values": ["NDVI", "EVI", "EVI2", "SAVI", "MSAVI", "GNDVI", "NDMI", "NBR", "NBR2", "NDWI", "MNDWI", "NDSI", "NDBI", "BSI"], "default": "NDVI" },
+        "formula": { "type": "formula", "max": 200 },
+        "name": { "type": "text", "max": 30 },
+        "median": { "type": "bool", "default": false },
+        "trend": { "type": "bool", "default": true },
+        "change": { "type": "bool", "default": false },
+        "unusual": { "type": "bool", "default": false },
+        "season": { "type": "bool", "default": false },
+        "maxCloud": { "type": "choice", "values": ["any", "80", "60", "40", "20", "10"], "default": "40" },
+        "collapsed": { "type": "bool", "default": false }
+      }
+    },
     "modis": {
       "title": "MODIS 16-day index and burned area",
       "params": {
@@ -126,7 +141,8 @@
   },
   "bands": {
     "landsat-series": ["blue", "green", "red", "nir", "swir1", "swir2"],
-    "sentinel2-series": ["blue", "green", "red", "nir", "swir1", "swir2", "rededge1", "rededge2", "rededge3"]
+    "sentinel2-series": ["blue", "green", "red", "nir", "swir1", "swir2", "rededge1", "rededge2", "rededge3"],
+    "hls-series": ["blue", "green", "red", "nir", "swir1", "swir2"]
   },
   "standard": {
     "v": 1,

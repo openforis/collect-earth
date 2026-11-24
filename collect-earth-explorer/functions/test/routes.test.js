@@ -305,7 +305,7 @@ test("POST /api/series/landsat with a valid plot but no EE_KEY reaches the auth 
 });
 
 test("POST /api/series/landsat and series/sentinel2 key the cache with the index only when it is not NDVI", async () => {
-  for (const path of ["/api/series/landsat", "/api/series/sentinel2"]) {
+  for (const path of ["/api/series/landsat", "/api/series/sentinel2", "/api/series/hls"]) {
     assert.deepEqual(await extrasFor(path, {}), {}, "no index: the same key as before");
     assert.deepEqual(await extrasFor(path, { index: "NDVI" }), {}, "explicit NDVI equals absent");
     for (const index of ["NDMI", "NBR", "EVI"]) assert.deepEqual(await extrasFor(path, { index }), { index });
@@ -313,7 +313,7 @@ test("POST /api/series/landsat and series/sentinel2 key the cache with the index
 });
 
 test("POST /api/series/landsat and series/sentinel2 reject an unknown index with a 400 before the cache", async () => {
-  for (const path of ["/api/series/landsat", "/api/series/sentinel2"]) {
+  for (const path of ["/api/series/landsat", "/api/series/sentinel2", "/api/series/hls"]) {
     for (const index of ["ndvi", "NDFI", 1]) {
       const cache = fakeCache();
       const res = await request(appWith(cache)).post(path).send({ plot: belize, index });
@@ -323,7 +323,7 @@ test("POST /api/series/landsat and series/sentinel2 reject an unknown index with
 });
 
 test("POST /api/series/landsat and series/sentinel2 key the cache with the new named indices and with a whitespace-free formula", async () => {
-  for (const path of ["/api/series/landsat", "/api/series/sentinel2"]) {
+  for (const path of ["/api/series/landsat", "/api/series/sentinel2", "/api/series/hls"]) {
     for (const index of ["EVI2", "MSAVI", "BSI"]) assert.deepEqual(await extrasFor(path, { index }), { index });
     const a = await extrasFor(path, { formula: "(nir - red) / (nir + red)" });
     assert.deepEqual(a, { formula: "(nir-red)/(nir+red)" });
@@ -337,7 +337,7 @@ test("POST /api/series/landsat and series/sentinel2 key the cache with the new n
 });
 
 test("POST /api/series/landsat and series/sentinel2 reject a bad formula, or a formula with another index, with a 400 before the cache", async () => {
-  for (const path of ["/api/series/landsat", "/api/series/sentinel2"]) {
+  for (const path of ["/api/series/landsat", "/api/series/sentinel2", "/api/series/hls"]) {
     for (const [body, re] of [
       [{ formula: "nir; red" }, /;/],
       [{ formula: "ndvi * 2" }, /ndvi/],
@@ -382,6 +382,19 @@ test("POST /api/series/sentinel2 with a valid plot but no EE_KEY reaches the aut
   assert.equal(cache.calls[0].ttlSeconds, TTL.series);
 });
 
+test("POST /api/series/hls with a valid plot but no EE_KEY reaches the auth step and fails as JSON 500", async () => {
+  const { res, logged, cache } = await postWithoutKey("/api/series/hls", { plot: belize, start: "2022-01-01", end: "2022-07-01" });
+  assertEeKeyMissing500(res, logged);
+  assert.equal(cache.calls[0].endpoint, "series/hls");
+  assert.equal(cache.calls[0].ttlSeconds, TTL.series);
+});
+
+test("POST /api/series/hls refuses a red-edge formula: HLS has the six Landsat bands only", async () => {
+  const cache = fakeCache();
+  const res = await request(appWith(cache)).post("/api/series/hls").send({ plot: belize, formula: "(nir - rededge1) / (nir + rededge1)" });
+  assert400(res, /rededge1/, cache);
+});
+
 test("POST /api/tiles/scene without a body is a 400 bad_request", async () => {
   const cache = fakeCache();
   const res = await request(appWith(cache)).post("/api/tiles/scene");
@@ -406,6 +419,13 @@ test("POST /api/tiles/scene with a valid plot, sensor and timeStart but no EE_KE
   assert.equal(cache.calls[0].endpoint, "tiles/scene");
   assert.equal(cache.calls[0].ttlSeconds, TTL.tiles);
   assert.deepEqual(cache.calls[0].extras, { sensor: "sentinel2", timeStart: 1609459200000 }, "extras carry the normalised scene parameters");
+});
+
+test("POST /api/tiles/difference accepts an HLS scene side", async () => {
+  const cache = fakeCache({ x: 1 });
+  const res = await request(appWith(cache)).post("/api/tiles/difference").send({ plot: belize, left: { path: "tiles/landsat", year: 2020 }, right: { path: "tiles/scene", sensor: "hls", timeStart: 1 } });
+  assert.equal(res.status, 200);
+  assert.deepEqual(cache.calls[0].extras.right, { path: "tiles/scene", sensor: "hls", timeStart: 1 });
 });
 
 test("POST /api/ccdc without a body is a 400 bad_request", async () => {

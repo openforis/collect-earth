@@ -27,6 +27,7 @@ test("validateSceneRequest rejects a non-finite timeStart as a 400", () => {
 test("validateSceneRequest accepts a known sensor with a numeric timeStart", () => {
   assert.deepEqual(validateSceneRequest({ sensor: "landsat", timeStart: 1609459200000 }), { sensor: "landsat", timeStart: 1609459200000 });
   assert.deepEqual(validateSceneRequest({ sensor: "sentinel2", timeStart: 1609459200000 }), { sensor: "sentinel2", timeStart: 1609459200000 });
+  assert.deepEqual(validateSceneRequest({ sensor: "hls", timeStart: 1609459200000 }), { sensor: "hls", timeStart: 1609459200000 });
 });
 
 test("validateSceneRequest coerces a numeric string timeStart", () => {

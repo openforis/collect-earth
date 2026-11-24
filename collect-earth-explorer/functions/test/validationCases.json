@@ -75,6 +75,17 @@
         "B8 - B4",
         "re1"
       ]
+    },
+    {
+      "bands": "hls-series",
+      "accepted": [
+        "(nir - swir2) / (nir + swir2)",
+        "(nir - red) / (nir + red)"
+      ],
+      "refused": [
+        "(nir - rededge1) / (nir + rededge1)",
+        "B8A - B4"
+      ]
     }
   ],
   "params": [

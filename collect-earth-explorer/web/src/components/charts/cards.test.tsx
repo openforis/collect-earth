@@ -8,6 +8,7 @@ import * as csv from "../../lib/csv";
 import type { Point } from "../../lib/csv";
 import LandsatNdviCard from "./LandsatNdviCard";
 import Sentinel2NdviCard from "./Sentinel2NdviCard";
+import HlsCard from "./HlsCard";
 import ModisCard from "./ModisCard";
 import Sentinel1Card from "./Sentinel1Card";
 import PrecipitationCard from "./PrecipitationCard";
@@ -83,9 +84,9 @@ function setup(card: ReactNode) {
   );
 }
 
-/** The standard entry's parameters for a chart type, with `over` applied. */
+/** The standard entry's parameters for a chart type (the defaults for one not in it), with `over` applied. */
 const paramsOf = (type: string, over: Record<string, unknown> = {}) => ({
-  ...resolveConfig(undefined, 2026).charts.find((c) => c.type === type)!.params,
+  ...(resolveConfig(undefined, 2026).charts.find((c) => c.type === type) ?? resolveConfig(JSON.stringify({ v: 1, charts: [{ type }] }), 2026).charts[0]).params,
   ...over,
 });
 
@@ -150,6 +151,38 @@ describe("series cards", () => {
       timeStart: T0,
       label: "Sentinel-2 2021-01-01",
     });
+  });
+
+  it("HlsCard posts to /api/series/hls, a click selects the scene with its HLS sensor, years compare on the Landsat layer, the CSV keeps sensor and cloud", async () => {
+    fetchMock.mockResolvedValue(json({ points: [{ date: T0, value: 0.5, sensor: "HLS S30", cloud: 5, id: "x" }] }));
+    const download = vi.spyOn(csv, "downloadText").mockImplementation(() => {});
+    setup(<HlsCard params={paramsOf("hls-series")} />);
+    expect(screen.getByRole("heading", { name: /HLS NDVI/ })).toBeTruthy();
+
+    const chart = await screen.findByTestId("series-chart");
+    expectPlotPost("/api/series/hls");
+    expect(Object.keys(lastRequest().body).sort()).toEqual(["end", "plot", "start"]);
+    fireEvent.click(chart);
+    expect(JSON.parse(screen.getByTestId("scene").textContent!)).toEqual({ sensor: "hls", timeStart: T0, label: "HLS S30 2021-01-01" });
+    expect(chart.getAttribute("data-selected")).toBe(String(T0));
+    // The standard layers: Landsat is entry 1.
+    fireEvent.doubleClick(chart);
+    expect(screen.getByTestId("compare").textContent).toBe("1@2019 | 1@2021");
+    fireEvent.click(screen.getByRole("button", { name: "Download CSV" }));
+    expect(download.mock.calls.at(-1)).toEqual(["demo-hls-ndvi.csv", "date,value,sensor,cloud\n2021-01-01,0.5,HLS S30,5\n"]);
+    download.mockRestore();
+  });
+
+  it("HlsCard offers no Compare years without a Landsat layer", async () => {
+    fetchMock.mockResolvedValue(json({ points: [POINT] }));
+    render(
+      <PlotProvider params={params} config={resolveConfig(JSON.stringify({ v: 1, layers: [{ type: "sentinel2" }], charts: [{ type: "hls-series" }] }), 2026)}>
+        <HlsCard params={paramsOf("hls-series")} />
+        <Probe />
+      </PlotProvider>,
+    );
+    fireEvent.doubleClick(await screen.findByTestId("series-chart"));
+    expect(screen.getByTestId("compare").textContent).toBe("");
   });
 
   it("ModisCard posts to /api/series/modis and passes the NDVI points plus fire markers", async () => {
@@ -276,6 +309,7 @@ describe("series cards", () => {
     for (const [Card, type, url, title, file] of [
       [LandsatNdviCard, "landsat-series", "/api/series/landsat", "Landsat NDMI", "demo-landsat-ndmi.csv"],
       [Sentinel2NdviCard, "sentinel2-series", "/api/series/sentinel2", "Sentinel-2 NDMI", "demo-sentinel2-ndmi.csv"],
+      [HlsCard, "hls-series", "/api/series/hls", "HLS NDMI", "demo-hls-ndmi.csv"],
     ] as const) {
       fetchMock.mockClear();
       const { unmount } = render(
@@ -301,6 +335,7 @@ describe("series cards", () => {
     for (const [Card, type, url, sensor, file] of [
       [LandsatNdviCard, "landsat-series", "/api/series/landsat", "Landsat", "landsat"],
       [Sentinel2NdviCard, "sentinel2-series", "/api/series/sentinel2", "Sentinel-2", "sentinel2"],
+      [HlsCard, "hls-series", "/api/series/hls", "HLS", "hls"],
     ] as const) {
       for (const [name, label, csvName] of [["NDRE", "NDRE", "ndre"], [undefined, "Custom index", "custom-index"]] as const) {
         fetchMock.mockClear();
@@ -414,7 +449,7 @@ describe("series cards", () => {
 
   it("a collapsed card requests nothing until Show chart is pressed, then loads as usual", async () => {
     fetchMock.mockImplementation(async (url: string) => json(url.endsWith("modis") ? { ndvi: [POINT], fires: [] } : { points: [POINT] }));
-    for (const [Card, type] of [[LandsatNdviCard, "landsat-series"], [Sentinel2NdviCard, "sentinel2-series"], [ModisCard, "modis"], [Sentinel1Card, "sentinel1-series"], [PrecipitationCard, "precipitation"]] as const) {
+    for (const [Card, type] of [[LandsatNdviCard, "landsat-series"], [Sentinel2NdviCard, "sentinel2-series"], [HlsCard, "hls-series"], [ModisCard, "modis"], [Sentinel1Card, "sentinel1-series"], [PrecipitationCard, "precipitation"]] as const) {
       fetchMock.mockClear();
       const { unmount } = render(
         <PlotProvider params={params} config={resolveConfig(undefined, 2026)}>
@@ -561,6 +596,15 @@ describe("the summary above the charts", () => {
       </PlotProvider>,
     );
     expect(lines()).toEqual(["Landsat NDVI: loading…", "Sentinel-2 NDVI: loading…"]);
+  });
+
+  it("has a line for an HLS chart too", () => {
+    render(
+      <PlotProvider params={params} config={resolveConfig(JSON.stringify({ v: 1, charts: [{ type: "hls-series", index: "NBR" }] }), 2026)}>
+        <Summary />
+      </PlotProvider>,
+    );
+    expect(lines()).toEqual(["HLS NBR: loading…"]);
   });
 
   it("reads the trend, the change year only when significant, and the last image's date", async () => {

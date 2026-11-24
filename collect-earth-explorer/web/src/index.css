@@ -42,7 +42,7 @@ input[type="radio"], input[type="checkbox"], input[type="range"] { accent-color:
 .summary-significant { color: var(--error); }
 
 /* Translucent rounded boxes over the imagery, like the site's hero box. */
-.layers-panel, .map-status { position: absolute; z-index: 2; left: 8px; background: rgba(255, 255, 255, 0.9); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); color: var(--heading); }
+.layers-panel, .map-status, .redraw { position: absolute; z-index: 2; left: 8px; background: rgba(255, 255, 255, 0.9); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); color: var(--heading); }
 .layers-panel { top: 8px; padding: 10px 12px; border-radius: 12px; width: 320px; display: flex; flex-direction: column; gap: 4px; }
 .layers-panel strong { font-weight: 600; }
 .layer-row { display: flex; gap: 6px; align-items: center; }
@@ -63,6 +63,12 @@ input[type="radio"], input[type="checkbox"], input[type="range"] { accent-color:
 /* Above the map's attribution line. */
 .map-status { bottom: 32px; padding: 4px 10px; border-radius: 8px; font-size: 12px; }
 .map-status button { margin-left: 8px; }
+/* Left of the zoom buttons; its hint and error wrap under the buttons. */
+.redraw { top: 8px; left: auto; right: 48px; max-width: 240px; padding: 6px; border-radius: 8px; font-size: 12px; }
+.redraw-buttons { display: flex; gap: 6px; justify-content: flex-end; }
+.redraw button:disabled { opacity: 0.5; cursor: default; background: var(--of-green); }
+.redraw p { margin: 6px 2px 0; }
+.redraw-error { color: var(--error); }
 /* The Layers button only exists on narrow screens; wide ones always show the panel. */
 .layers-toggle { display: none; }
 @media (max-width: 900px) {

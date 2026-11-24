@@ -1,8 +1,10 @@
-import { lazy, Suspense, useEffect, useMemo, type ComponentType } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState, type ComponentType } from "react";
+import type { Map as MlMap } from "maplibre-gl";
 import { PlotProvider, usePlot } from "./state/PlotContext";
 import MapView from "./components/MapView";
 import CompareMap from "./components/CompareMap";
 import LayersPanel from "./components/LayersPanel";
+import RedrawControl from "./components/RedrawControl";
 import { differenceBlocked, useDifferenceTiles, useLayerTiles } from "./components/LayerSources";
 import type { ApiState } from "./hooks/useApi";
 import { errorText, isRetryable, tileLabel, whenIdle, type TileResponse } from "./lib/api";
@@ -21,6 +23,7 @@ const CARDS: Record<string, ComponentType<CardProps>> = {
   ccdc: lazy(() => import("./components/charts/CcdcCard")),
   "landsat-series": lazy(() => import("./components/charts/LandsatNdviCard")),
   "sentinel2-series": lazy(() => import("./components/charts/Sentinel2NdviCard")),
+  "hls-series": lazy(() => import("./components/charts/HlsCard")),
   modis: lazy(() => import("./components/charts/ModisCard")),
   "sentinel1-series": lazy(() => import("./components/charts/Sentinel1Card")),
   precipitation: lazy(() => import("./components/charts/PrecipitationCard")),
@@ -57,6 +60,8 @@ function Viewer() {
   // comparing a different layer, so a plain page load costs one tile request, not two.
   const rightOwn = useLayerTiles(compareLayer, { enabled: compare && !sameLayer && !showDifference }, { year: compareYear, scene: compareScene });
   const right = sameLayer ? tiles : rightOwn;
+  // The single map, once loaded: Redraw polygon is offered there only, not while comparing.
+  const [map, setMap] = useState<MlMap | null>(null);
   return (
     <div className="viewer">
       <div className="map-pane">
@@ -65,9 +70,10 @@ function Viewer() {
         ) : compare ? (
           <CompareMap key="compare" plot={plot} leftTileUrl={tiles.data?.tileUrl} rightTileUrl={right.data?.tileUrl} />
         ) : (
-          <MapView key="single" plot={plot} tileUrl={tiles.data?.tileUrl} />
+          <MapView key="single" plot={plot} tileUrl={tiles.data?.tileUrl} onMap={setMap} />
         )}
         <LayersPanel />
+        {map && !compare && <RedrawControl map={map} />}
         <div className="map-status">
           {showDifference ? (
             <TileStatus tiles={change} />

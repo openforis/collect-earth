@@ -1,9 +1,10 @@
 import { vi } from "vitest";
 
-type Handler = () => void;
+type Handler = (e?: unknown) => void;
 
 export class FakeSource {
   setTiles = vi.fn();
+  setData = vi.fn();
 }
 
 /**
@@ -53,7 +54,13 @@ export class FakeMap {
     (this.handlers[ev] ??= []).push(h);
     return this;
   });
-  off = vi.fn(() => this);
+  off = vi.fn((ev: string, h: Handler) => {
+    this.handlers[ev] = (this.handlers[ev] ?? []).filter((x) => x !== h);
+    return this;
+  });
+  canvas = document.createElement("canvas");
+  getCanvas = () => this.canvas;
+  doubleClickZoom = { enable: vi.fn(), disable: vi.fn() };
   remove = vi.fn(() => {
     this.removed = true;
   });
@@ -65,8 +72,12 @@ export class FakeMap {
     this.calls.push(name);
     if (this.removed) this.callsAfterRemove.push(name);
   }
-  fire(ev: string) {
-    for (const h of this.handlers[ev] ?? []) h();
+  fire(ev: string, e?: unknown) {
+    for (const h of this.handlers[ev] ?? []) h(e);
+  }
+  /** A map click at a position, as MapLibre passes it to "click" handlers. */
+  click(lng: number, lat: number) {
+    this.fire("click", { lngLat: { lng, lat } });
   }
 }
 

@@ -87,12 +87,18 @@ test("formula is a string no longer than max; its content is checked by lib/form
 test("both series types list exactly the named indices of the catalogue, NDVI first and default", () => {
   const names = Object.keys(catalogue.indices);
   assert.deepEqual(names, ["NDVI", "EVI", "EVI2", "SAVI", "MSAVI", "GNDVI", "NDMI", "NBR", "NBR2", "NDWI", "MNDWI", "NDSI", "NDBI", "BSI"]);
-  for (const type of ["landsat-series", "sentinel2-series"]) {
+  for (const type of ["landsat-series", "sentinel2-series", "hls-series"]) {
     assert.deepEqual(catalogue.charts[type].params.index.values, names, type);
     assert.equal(paramOf("charts", type, "index"), "NDVI");
   }
   assert.deepEqual(catalogue.bands["landsat-series"], ["blue", "green", "red", "nir", "swir1", "swir2"]);
   assert.deepEqual(catalogue.bands["sentinel2-series"], ["blue", "green", "red", "nir", "swir1", "swir2", "rededge1", "rededge2", "rededge3"]);
+  assert.deepEqual(catalogue.bands["hls-series"], catalogue.bands["landsat-series"]);
+  assert.deepEqual(catalogue.charts["hls-series"].params, catalogue.charts["landsat-series"].params, "the HLS chart takes the Landsat chart's parameters");
+});
+
+test("the HLS chart is opt-in: not in the standard configuration or any preset", () => {
+  for (const doc of [catalogue.standard, ...Object.values(catalogue.presets)]) assert.ok(!doc.charts.some((c) => c.type === "hls-series"));
 });
 
 test("an unknown kind, type or parameter name is a 400", () => {

@@ -8,6 +8,7 @@ import { foldsKey, type CardProps } from "./folds";
 import CcdcCard from "../components/charts/CcdcCard";
 import LandsatNdviCard from "../components/charts/LandsatNdviCard";
 import Sentinel2NdviCard from "../components/charts/Sentinel2NdviCard";
+import HlsCard from "../components/charts/HlsCard";
 import ModisCard from "../components/charts/ModisCard";
 import Sentinel1Card from "../components/charts/Sentinel1Card";
 import PrecipitationCard from "../components/charts/PrecipitationCard";
@@ -24,6 +25,7 @@ const CARDS: Record<string, ComponentType<CardProps>> = {
   ccdc: CcdcCard,
   "landsat-series": LandsatNdviCard,
   "sentinel2-series": Sentinel2NdviCard,
+  "hls-series": HlsCard,
   modis: ModisCard,
   "sentinel1-series": Sentinel1Card,
   precipitation: PrecipitationCard,
@@ -73,6 +75,7 @@ describe("warmRequests", () => {
       config(),
       config({ v: 1, layers: [{ type: "landsat", bands: "true-colour" }], charts: [{ type: "ccdc", band: "NDVI" }, { type: "landsat-series", index: "NDMI" }, { type: "sentinel2-series", formula: " nir / red ", name: "x" }, { type: "modis", index: "EVI" }] }),
       config({ v: 1, layers: [{ type: "sentinel2", year: 2020, maxCloud: 30 }] }),
+      config({ v: 1, charts: [{ type: "hls-series" }, { type: "hls-series", index: "NBR" }] }),
       config({ v: 1, layers: [{ type: "sentinel1", bands: "vh" }], charts: [{ type: "sentinel1-series" }, { type: "sentinel1-series", band: "VV" }, { type: "precipitation" }] }),
     ])
       same(cfg);

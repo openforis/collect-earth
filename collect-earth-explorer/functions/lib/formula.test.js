@@ -78,7 +78,7 @@ test("normaliseFormula removes all whitespace", () => {
 });
 
 test("every named index in the catalogue passes the check with both sensors' bands", () => {
-  for (const type of ["landsat-series", "sentinel2-series"]) {
+  for (const type of ["landsat-series", "sentinel2-series", "hls-series"]) {
     for (const [name, formula] of Object.entries(catalogue.indices)) {
       assert.doesNotThrow(() => checkFormula(formula, catalogue.bands[type]), `${type} ${name}`);
     }

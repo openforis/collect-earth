@@ -30,8 +30,8 @@ export default function CompareMap({ plot, leftTileUrl, rightTileUrl }: Props) {
   const rightUrlRef = useRef(rightTileUrl);
   rightUrlRef.current = rightTileUrl;
 
-  // Both maps are created once per mount; `plot` is fixed for the lifetime of
-  // the viewer (it comes from the URL), so it is read once here.
+  // Both maps are created once per mount and `plot` is read once: it cannot change
+  // while comparing (Redraw polygon is only offered on the single map).
   /* oxlint-disable react-hooks/exhaustive-deps */
   useEffect(() => {
     let disposed = false;

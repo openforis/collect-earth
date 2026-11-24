@@ -9,17 +9,17 @@ const SENTINEL_START = "2015-06-23";
  * Clamps a "YYYY-MM-DD" start date to the first Sentinel-2 acquisition so an
  * earlier plot range does not request years of empty collection. Pure.
  */
-function clampSentinelStart(start) {
-  return start < SENTINEL_START ? SENTINEL_START : start;
+function clampSentinelStart(start, first = SENTINEL_START) {
+  return start < first ? first : start;
 }
 
 /**
  * The [start, end) window actually requested from Sentinel-2 for a plot range:
  * the start clamped to SENTINEL_START, or null when nothing of the range falls
- * on or after the first acquisition (so callers skip Earth Engine). Pure.
+ * on or after the first acquisition (so callers skip Earth Engine). `first` is another collection's first day (HLS). Pure.
  */
-function sentinelWindow(start, end) {
-  const s = clampSentinelStart(start);
+function sentinelWindow(start, end, first) {
+  const s = clampSentinelStart(start, first);
   return s < end ? { start: s, end } : null;
 }
 

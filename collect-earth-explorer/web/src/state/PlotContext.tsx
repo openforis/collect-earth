@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import type { PlotParams } from "../lib/urlParams";
+import type { PlotParams, Polygon } from "../lib/urlParams";
 import { yearRange, type ChartEntry, type LayerEntry, type resolveConfig } from "../lib/config";
 import { writePref } from "../lib/prefs";
 import type { Status } from "../hooks/useApi";
@@ -13,7 +13,7 @@ export const LAST_12_MONTHS = "last-12-months";
 export type Year = number | typeof LAST_12_MONTHS;
 
 export interface Scene {
-  sensor: "landsat" | "sentinel2";
+  sensor: "landsat" | "sentinel2" | "hls";
   timeStart: number;
   label: string;
 }
@@ -51,9 +51,13 @@ export interface PlotState extends PlotParams {
   /** While comparing: one map of the NDVI change from the left side to the right instead of the swipe. */
   difference: boolean;
   setDifference: (d: boolean) => void;
-  /** What each open Landsat/Sentinel-2 series card publishes for the summary above the charts, by chart position. */
+  /** What each open Landsat/Sentinel-2/HLS series card publishes for the summary above the charts, by chart position. */
   summaries: Record<number, SeriesSummary | undefined>;
   setSummary: (i: number, s: SeriesSummary | undefined) => void;
+  /** Whether `plot` is a shape drawn on the map instead of the address's. */
+  redrawn: boolean;
+  /** Analyses `p` instead of the address's plot (undefined returns to it); in memory only. Clears the scenes, which belong to the old shape's series. */
+  setPlot: (p?: Polygon) => void;
 }
 
 export interface SeriesSummary {
@@ -95,6 +99,7 @@ export function PlotProvider({
   const [compareYear, setCompareYear] = useState<number>();
   const [compareScene, setCompareScene] = useState<Scene>();
   const [difference, setDifference] = useState(view.difference);
+  const [drawn, setDrawn] = useState<Polygon>();
   const [summaries, setSummaries] = useState<Record<number, SeriesSummary | undefined>>({});
   const setSummary = useCallback((i: number, s: SeriesSummary | undefined) => setSummaries((all) => ({ ...all, [i]: s })), []);
   // Remembers the view for the next plot; a scene is this plot's own, so the last entry layer is stored instead.
@@ -162,9 +167,19 @@ export function PlotProvider({
     },
     [setYear],
   );
+  const setPlot = useCallback((p?: Polygon) => {
+    setDrawn(p);
+    setSceneState(undefined);
+    setCompareScene(undefined);
+    setActiveLayer((l) => (l === "scene" ? lastEntry.current.active : l));
+    setCompareLayerState((l) => (l === "scene" ? lastEntry.current.compareLayer : l));
+  }, []);
   const value = useMemo<PlotState>(
     () => ({
       ...params,
+      plot: drawn ?? params.plot,
+      redrawn: drawn !== undefined,
+      setPlot,
       ...config,
       activeLayer,
       setActiveLayer,
@@ -189,7 +204,7 @@ export function PlotProvider({
       summaries,
       setSummary,
     }),
-    [params, config, activeLayer, yearOf, setYear, selectYear, bandsOf, setBands, scene, setScene, compare, setCompare, compareLayer, setCompareLayer, compareYear, canCompareAround, compareAround, compareScene, compareScenes, difference, summaries, setSummary],
+    [params, drawn, setPlot, config, activeLayer, yearOf, setYear, selectYear, bandsOf, setBands, scene, setScene, compare, setCompare, compareLayer, setCompareLayer, compareYear, canCompareAround, compareAround, compareScene, compareScenes, difference, summaries, setSummary],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

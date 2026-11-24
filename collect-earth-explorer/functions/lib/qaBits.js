@@ -20,4 +20,12 @@ function landsatClearMaskBits() {
   return (1 << DILATED_CLOUD) | (1 << CLOUD) | (1 << CLOUD_SHADOW) | (1 << SNOW);
 }
 
-module.exports = { landsatClearMaskBits };
+/**
+ * HLS v2 Fmask bits: 0 cirrus (unused), 1 cloud, 2 adjacent to cloud/shadow, 3 cloud shadow, 4 snow/ice, 5 water,
+ * 6-7 aerosol level. Bitmask of the bits that must all be zero for a clear pixel (= 30).
+ */
+function hlsClearMaskBits() {
+  return (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4);
+}
+
+module.exports = { landsatClearMaskBits, hlsClearMaskBits };

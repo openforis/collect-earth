@@ -7,6 +7,7 @@ const { landsatCompositeTiles, landsatCompositeImage } = require("./ee/landsatCo
 const { modisSeries } = require("./ee/modisSeries");
 const { landsatSeries } = require("./ee/landsatSeries");
 const { sentinel2Series } = require("./ee/sentinel2Series");
+const { hlsSeries } = require("./ee/hls");
 const { sentinel1CompositeTiles, sentinel1Series } = require("./ee/sentinel1");
 const { precipitationSeries } = require("./ee/precipitation");
 const { sceneTiles, sceneImage, validateSceneRequest } = require("./ee/scene");
@@ -170,6 +171,7 @@ function registerRoutes(app, { cache = defaultCache, rateLimit = defaultRateLimi
   // are not served; their URLs, bodies and every other endpoint's key are unchanged.
   app.post("/api/series/landsat", route("series/landsat@cloud", TTL.series, seriesExtras("landsat-series"), (p, g, x) => landsatSeries(g, p.start, p.end, x.index, x.formula)));
   app.post("/api/series/sentinel2", route("series/sentinel2@cloud", TTL.series, seriesExtras("sentinel2-series"), (p, g, x) => sentinel2Series(g, p.start, p.end, x.index, x.formula)));
+  app.post("/api/series/hls", route("series/hls", TTL.series, seriesExtras("hls-series"), (p, g, x) => hlsSeries(g, p.start, p.end, x.index, x.formula)));
   app.post("/api/series/sentinel1", route("series/sentinel1", TTL.series, (b) => nonDefault("charts", "sentinel1-series", b, ["band"]), (p, g, x) => sentinel1Series(g, p.start, p.end, x.band)));
   app.post("/api/series/precipitation", route("series/precipitation", TTL.series, null, (p, g) => precipitationSeries(g, p.start, p.end)));
   app.post(
