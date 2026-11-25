@@ -14,6 +14,20 @@ const clock = (start = 1_800_000_000_000) => {
 };
 
 describe('the database vitals', () => {
+  it('say whether the database was busy this minute or the one before', () => {
+    const c = clock();
+    const v = new DatabaseVitals(c.now);
+    expect(v.busyLately()).toBe(false);
+    v.noteWait(SLOW_WAIT_MS * 3);
+    expect(v.busyLately()).toBe(false);
+    v.noteBusy();
+    expect(v.busyLately()).toBe(true);
+    c.advance(60_000);
+    expect(v.busyLately()).toBe(true);
+    c.advance(60_000);
+    expect(v.busyLately()).toBe(false);
+  });
+
   it('count the last hour\'s waits, the slow ones and the busy answers, a minute at a time', () => {
     const c = clock();
     const v = new DatabaseVitals(c.now);

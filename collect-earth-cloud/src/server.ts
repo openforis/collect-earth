@@ -252,7 +252,14 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   const setupCode = config.setupCode ?? generateSetupCode();
 
   // Members' activity (member_activity), coalesced; written when the app closes too.
-  registerActivity(app, new ActivityRecorder(store, { onError: (err) => app.log.error({ err }, 'member activity write failed') }));
+  // No timers on Cloud Run, whose CPU is throttled once an answer is sent; nothing written while the database is busy.
+  // A passing trouble of the database is a warning: what was noted is kept and written with the member's next call.
+  registerActivity(app, new ActivityRecorder(store, {
+    timers: !process.env.K_SERVICE,
+    deferWhile: () => vitals.busyLately(),
+    onError: (err, transient) =>
+      transient ? app.log.warn({ err }, 'member activity write postponed: the database did not answer in time (kept for the next one)') : app.log.error({ err }, 'member activity write failed'),
+  }));
   // The answers compressed for the clients that ask; not in local mode, where Collect Earth's dashboard is on the same computer
   if (!config.localMode) registerCompression(app);
 

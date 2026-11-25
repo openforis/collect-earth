@@ -41,13 +41,21 @@ interface Pending {
  * the store's upsert adds them up, so several instances still count right.
  *
  * On Cloud Run (request-based billing) the CPU is throttled once an answer is sent, so
- * nothing relies on work after it: a timer also writes what is pending a minute after
- * the last write, but only as a best effort, and close() (the app's onClose) writes
- * what is left. A member who stops calling may leave up to a minute unwritten until
- * then.
+ * nothing relies on work after it, and there (`timers: false`) nothing is even tried:
+ * a write started by a timer after the answer found no CPU to open its connection and
+ * failed ("Connection terminated due to connection timeout"). Elsewhere a timer writes
+ * what is pending a minute after the last write, as a best effort. close() (the app's
+ * onClose) writes what is left. A member who stops calling may leave up to a minute
+ * unwritten until then.
  *
- * A write never fails a request: errors go to `onError`, and the patch is kept for the
- * next write.
+ * While the database is busy (`deferWhile`: a request was answered busy lately), no write
+ * is made: what is noted waits in memory for the next call after it. Writing then would
+ * hold the answer, already worked out, up to the pool's wait for a connection, and add
+ * to the load.
+ *
+ * A write never fails a request: errors go to `onError`, with whether they are a passing
+ * trouble of the database (`transient`: no connection in time, a connection dropped),
+ * and the patch is kept for the next write.
  */
 export class ActivityRecorder {
   private readonly pending = new Map<string, Pending>();
@@ -55,17 +63,30 @@ export class ActivityRecorder {
   private readonly intervalMs: number;
   private readonly pruneAbove: number;
   private readonly now: () => number;
-  private readonly onError: (err: unknown) => void;
+  private readonly onError: (err: unknown, transient: boolean) => void;
+  private readonly timers: boolean;
+  private readonly deferWhile: () => boolean;
   private lastPruneAt = -Infinity;
 
   constructor(
     private readonly store: Pick<Store, 'touchMemberActivity'>,
-    options: { intervalMs?: number; pruneAbove?: number; now?: () => number; onError?: (err: unknown) => void } = {},
+    options: {
+      intervalMs?: number;
+      pruneAbove?: number;
+      now?: () => number;
+      onError?: (err: unknown, transient: boolean) => void;
+      /** Whether a timer writes what is pending a minute after the last write (not on Cloud Run) */
+      timers?: boolean;
+      /** While true, nothing is written: the database is busy */
+      deferWhile?: () => boolean;
+    } = {},
   ) {
     this.intervalMs = options.intervalMs ?? ACTIVITY_WRITE_INTERVAL_MS;
     this.pruneAbove = options.pruneAbove ?? PRUNE_ABOVE;
     this.now = options.now ?? (() => Date.now());
     this.onError = options.onError ?? (() => {});
+    this.timers = options.timers ?? true;
+    this.deferWhile = options.deferWhile ?? (() => false);
   }
 
   /**
@@ -84,10 +105,12 @@ export class ActivityRecorder {
     entry.patch = mergePatch(entry.patch, patchOf(note, now));
     const wait = entry.lastWriteAt + this.intervalMs - now;
     if (wait <= 0) {
+      // kept for a call once the database has room again
+      if (this.deferWhile()) return;
       await this.write(entry);
       return;
     }
-    if (entry.timer === null) {
+    if (this.timers && entry.timer === null) {
       const due = entry;
       due.timer = setTimeout(() => {
         due.timer = null;
@@ -147,12 +170,24 @@ export class ActivityRecorder {
       .catch((err) => {
         // Kept, under what came meanwhile, for the next write.
         entry.patch = entry.patch === null ? patch : mergePatch(patch, entry.patch);
-        this.onError(err);
+        this.onError(err, isTransientDatabaseError(err));
       })
       .finally(() => this.writes.delete(write));
     this.writes.add(write);
     return write;
   }
+}
+
+/**
+ * A passing trouble of the database, not a fault of the write: no connection of the pool came free in time (the
+ * store's busy error, pg-pool's own timeout), or a connection that could not be opened or was dropped.
+ */
+export function isTransientDatabaseError(err: unknown): boolean {
+  const e = err as { code?: unknown; name?: unknown; message?: unknown } | null;
+  if (!e || typeof e !== 'object') return false;
+  if (e.code === 'busy' || e.name === 'DatabaseBusyError') return true;
+  const message = typeof e.message === 'string' ? e.message : '';
+  return /timeout exceeded when trying to connect|Connection terminated|connection timeout|ECONNRESET|ECONNREFUSED/i.test(message);
 }
 
 function patchOf(note: ActivityNote, now: number): MemberActivityPatch {

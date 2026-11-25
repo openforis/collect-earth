@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ActivityRecorder, clientAgentOf, MAX_CLIENT_AGENT_CHARS } from '../src/activity.js';
+import { ActivityRecorder, clientAgentOf, isTransientDatabaseError, MAX_CLIENT_AGENT_CHARS } from '../src/activity.js';
 import { recordChange, recordEventOf } from '../src/lww.js';
 import { InMemoryStore } from '../src/store/memory.js';
 import { InvalidCursorError } from '../src/store/store.js';
@@ -202,6 +202,54 @@ describe('ActivityRecorder: at most one write per member per minute, inside the 
     await flaky.note('p', 'u', { sync: { records: 1 } });
     expect(patches).toEqual([{ lastSeenAt: 1_090_000, lastSyncAt: 1_090_000, syncs: 2, recordsReceived: 3, clientAgent: 'CE/1' }]);
     await flaky.close();
+  });
+
+  it('on Cloud Run (no timers) nothing is written after the answer: what is pending waits for the next call or close', async () => {
+    const cloudRun = new ActivityRecorder(store, { timers: false });
+    await cloudRun.note('p', 'u', {});
+    vi.setSystemTime(1_010_000);
+    await cloudRun.note('p', 'u', { sync: { records: 1 } });
+    await vi.advanceTimersByTimeAsync(300_000);
+    expect(writes).toHaveLength(1);
+    vi.setSystemTime(1_400_000);
+    await cloudRun.note('p', 'u', {});
+    expect(writes).toHaveLength(2);
+    expect(writes[1].patch).toMatchObject({ syncs: 1, lastSeenAt: 1_400_000 });
+    await cloudRun.close();
+  });
+
+  it('while the database is busy nothing is written, and the answer does not wait: the next call after it writes it all', async () => {
+    let busy = true;
+    const calm = new ActivityRecorder(store, { deferWhile: () => busy });
+    await calm.note('p', 'u', { sync: { records: 2 } });
+    await calm.note('p', 'v', {});
+    expect(writes).toEqual([]);
+    busy = false;
+    vi.setSystemTime(1_005_000);
+    await calm.note('p', 'u', { sync: { records: 1 } });
+    expect(writes).toEqual([{ projectId: 'p', userId: 'u', patch: { lastSeenAt: 1_005_000, lastSyncAt: 1_005_000, syncs: 2, recordsReceived: 3 } }]);
+    await calm.close();
+    expect(writes.map((w) => w.userId)).toEqual(['u', 'v']);
+  });
+
+  it('says whether a failure is a passing trouble of the database', async () => {
+    const seen: boolean[] = [];
+    const errors = [
+      Object.assign(new Error('The server is busy: try again in a moment.'), { name: 'DatabaseBusyError', code: 'busy' }),
+      new Error('timeout exceeded when trying to connect'),
+      new Error('Connection terminated due to connection timeout'),
+      new Error('Connection terminated unexpectedly'),
+      new Error('duplicate key value violates unique constraint'),
+    ];
+    for (const err of errors) {
+      const failing = new ActivityRecorder({ touchMemberActivity: async () => { throw err; } }, { onError: (_e, transient) => seen.push(transient) });
+      await failing.note('p', 'u', {});
+      await failing.close();
+    }
+    // close() tries once more: two reports per error
+    expect(seen).toEqual([true, true, true, true, true, true, true, true, false, false]);
+    expect(isTransientDatabaseError(null)).toBe(false);
+    expect(isTransientDatabaseError('Connection terminated')).toBe(false);
   });
 
   it('forgets idle members once it holds many, scanning at most once a minute', async () => {
