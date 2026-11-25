@@ -73,8 +73,6 @@ export function madeProjectFile(o: MadeProjectFile, date: Date): Buffer {
     ['placemark.idm.xml', utf8(o.idml)],
     ['project_definition.properties', utf8(properties)],
     ['kml_template.fmt', utf8(template)],
-    // Collect Earth copies this folder beside the KML it makes (KmlGeneratorService), and fails without it
-    ['earthFiles/README.txt', utf8('Files for the KML of this project, which Collect Earth copies beside it.\n')],
     ...[...(o.files ?? new Map<string, string>())].map(([path, text]) => [path, utf8(text)] as [string, Uint8Array]),
   ]);
   return zipCep(entries, date);

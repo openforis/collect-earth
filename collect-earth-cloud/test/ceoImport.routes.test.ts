@@ -97,7 +97,8 @@ describe('a new project from a Collect Earth Online project', () => {
     expect(entries['balloon.html']).toBeUndefined();
     expect(strFromU8(entries['project_definition.properties'])).not.toMatch(/^balloon/m);
     expect(strFromU8(entries['kml_template.fmt'])).toContain('<Data name="EXTRA_round">');
-    expect(entries['earthFiles/README.txt']).toBeDefined();
+    // nor the folder of a balloon's files
+    expect(Object.keys(entries).filter((name) => name.startsWith('earthFiles/'))).toEqual([]);
     expect(strFromU8(entries['project_definition.properties'])).toMatch(/sample_shape=CIRCLE/);
 
     // the report stays with the project: in its project file and, counted, in its log
