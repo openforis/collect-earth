@@ -45,6 +45,7 @@ section.soft { background: var(--sand); }
 /* ---------- Header ---------- */
 header.top { position: sticky; top: 0; z-index: 50; background: #fff; box-shadow: 0 2px 5px rgba(0,0,0,.08); }
 header.top .wrap { display: flex; align-items: center; justify-content: space-between; height: 84px; gap: 16px; position: relative; }
+header.top .brand { margin-right: auto; }
 header.top .brand img { height: 56px; width: auto; display: block; }
 nav { display: flex; align-items: center; }
 nav a { padding: 8px 14px; color: var(--menu); font-size: 15px; font-weight: 500; border-radius: 4px; white-space: nowrap; }
@@ -55,18 +56,46 @@ nav .btn:hover { color: #fff; }
 .menu-toggle { display: none; background: none; border: 0; padding: 8px; cursor: pointer; color: var(--of-blue); }
 .menu-toggle svg { display: block; }
 /* seven links on the guide pages: tighter between the collapsed menu and the full width */
-@media (min-width: 1041px) and (max-width: 1260px) {
+@media (min-width: 1101px) and (max-width: 1260px) {
   nav a { padding: 8px 9px; font-size: 14.5px; }
   nav .btn { margin-left: 8px; padding: 9px 14px; }
 }
 
-@media (max-width: 1040px) {
-  .js .menu-toggle { display: block; }
+@media (max-width: 1100px) {
+  .js .menu-toggle { display: block; order: 1; }
   .js header.top nav { display: none; position: absolute; top: 100%; left: 0; right: 0; flex-direction: column; align-items: stretch; background: #fff; padding: 8px 16px 18px; box-shadow: 0 10px 20px rgba(1,7,39,.08); }
   .js header.top.open nav { display: flex; }
   .js header.top nav a { padding: 12px 10px; border-bottom: 1px solid #F2F2F2; }
   .js header.top nav .btn { margin: 14px 0 0; justify-content: center; border-bottom: 0; }
   html:not(.js) nav { flex-wrap: wrap; justify-content: flex-end; }
+}
+
+/* Search (search.js): a magnifier in the header that opens into a field over the menu while it
+   has the focus; the results drop below the header. Hidden without JavaScript. */
+.site-search { flex: none; width: 40px; height: 40px; }
+html:not(.js) .site-search { display: none; }
+.site-search label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.site-search input { -webkit-appearance: none; appearance: none; width: 40px; height: 40px; margin: 0; padding: 0 0 0 36px; border: 1.5px solid transparent; border-radius: 6px; background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%234A9CD5' d='M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z'/%3E%3C/svg%3E") 8px 50% / 24px no-repeat; font: 400 16px/1.2 var(--font); color: var(--heading); cursor: pointer; }
+.site-search input:hover { background-color: var(--sand); }
+.site-search:not(:focus-within) input, .site-search:not(:focus-within) input::placeholder { color: transparent; }
+.site-search:not(:focus-within) input::-webkit-search-cancel-button { display: none; }
+.site-search:focus-within input { position: absolute; top: 22px; right: 24px; width: min(420px, calc(100% - 48px)); padding: 0 12px 0 40px; background-color: #fff; border-color: #CFC8BA; box-shadow: 0 4px 12px rgba(0,0,0,.08); cursor: text; }
+.search-results { display: none; position: absolute; top: 100%; right: 24px; width: min(480px, calc(100% - 48px)); max-height: calc(100vh - 100px); overflow-y: auto; background: #fff; border-radius: 0 0 var(--radius) var(--radius); box-shadow: 0 10px 20px rgba(1,7,39,.12); padding: 6px 0; }
+.site-search:focus-within input:not(:placeholder-shown) ~ .search-results { display: block; }
+.search-status { margin: 0; padding: 4px 18px 8px; font-size: .85rem; color: var(--muted); }
+.search-results ul { list-style: none; margin: 0; padding: 0; }
+.search-results a { display: block; padding: 10px 18px; border-top: 1px solid #F2F2F2; color: var(--text); font-size: .9rem; line-height: 1.5; }
+.search-results a:hover, .search-results a:focus { background: var(--sand); text-decoration: none; }
+.search-results a:focus-visible { outline-offset: -3px; }
+.search-results strong { display: block; color: var(--heading); font-size: 1rem; font-weight: 500; }
+.search-page { display: block; font-size: .78rem; font-weight: 500; color: var(--of-green); }
+.search-results mark { background: #E3ECD8; color: var(--heading); border-radius: 3px; padding: 0 1px; }
+@media (max-width: 1100px) { .site-search:focus-within input { right: 76px; } } /* the menu button stays free */
+@media (max-width: 640px) {
+  .site-search:focus-within input { left: 16px; width: auto; }
+  header.top:has(.site-search:focus-within) .brand { visibility: hidden; }
+  .search-results { left: 0; right: 0; width: auto; border-radius: 0; }
+  .search-status, .search-results a { padding-left: 16px; padding-right: 16px; }
 }
 
 /* ---------- Buttons ---------- */

@@ -19,6 +19,7 @@
 <meta property="og:url" content="https://collectearth.org/">
 <link rel="stylesheet" href="style.css">
 <script src="analytics.js" defer></script>
+<script src="search.js" defer></script>
 </head>
 <body>
 
@@ -35,6 +36,14 @@
       <a href="#guides">Guides</a>
       <a class="btn primary" href="https://cloud.collectearth.org">Open the dashboard</a>
     </nav>
+    <div class="site-search" role="search">
+      <label for="search-q">Search this site</label>
+      <input id="search-q" type="search" placeholder="Search this site" autocomplete="off" spellcheck="false">
+      <div class="search-results">
+        <p class="search-status" aria-live="polite"></p>
+        <ul></ul>
+      </div>
+    </div>
   </div>
 </header>
 
