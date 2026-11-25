@@ -39,6 +39,8 @@ vi.mock('pg', async () => {
           if (sql.includes('FROM records WHERE')) return { rows: [{ bytes: '10' }], rowCount: 1 };
           // Training sets and records (025): none in these projects.
           if (sql.includes('FROM training_sets WHERE')) return { rows: [{ bytes: '0' }], rowCount: 1 };
+          // The survey guide (054): none in these projects.
+          if (sql.includes('FROM survey_guides WHERE')) return { rows: [{ bytes: '0' }], rowCount: 1 };
           // Was the record submitted before (asked by itself when it has no row yet).
           if (sql.includes('AS submitted_before') && !sql.includes('FROM records')) return { rows: [{ submitted_before: true }], rowCount: 1 };
           return { rows: [], rowCount: 0 };
@@ -357,7 +359,7 @@ describe('PostgresStore pool', () => {
     let current: unknown = null;
     for (const q of queries) {
       current = projectSetBy(q) ?? current;
-      for (const table of ['member_activity', 'record_events', 'records', 'csv_files', 'project_ceps', 'training_sets', 'training_records']) {
+      for (const table of ['member_activity', 'record_events', 'records', 'csv_files', 'project_ceps', 'training_sets', 'training_records', 'survey_guides']) {
         if (q.sql.includes(`FROM ${table} WHERE`)) {
           expect(q.params![0]).toBe(current);
         }

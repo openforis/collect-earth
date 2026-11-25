@@ -57,6 +57,15 @@ there, with Sign out (`POST /earth/api/cloud/signOut`), and the form says a plot
 `GET /earth/api/cloud/recordSync` does. The Help menu (`src/components/help/`) opens the survey guide, the
 manual, the support site and the updater as actions, shows the disclaimer and the log (`GET /earth/api/help/text`),
 About (from `/earth/api/app`) and switches the showing of the errors logged (`PUT /earth/api/help/errorsShown`).
+The introduction to the interface (`src/components/intro/`, rules in `src/intro.ts`) shows three things, each once: the
+map of the screen (`IntroMap.tsx`: the panel dimmed, its controls numbered and one legend, for the plot list and for the
+first form opened, whose controls it measures inside the form's frame), tips beside a control the first time it matters
+(`IntroTip.tsx`, one at a time), and "What changed from Collect Earth 1" (`ChangesDialog.tsx`, for an installation that was
+in use before the introduction existed). `Intro.tsx` decides what is due and waits until nothing is open over the page;
+what was shown is kept by the server (`intro` of `GET /earth/api/app`, `PUT /earth/api/app/intro`), not by the browser,
+which may be another one the next time. The map is not a MUI dialog: a dialog widens the panel's frame
+(`panelDialogs.ts`) and would move what it points at. Help has Show me around, What changed and the switch of the tips.
+A control the map or a tip points at is found by a selector listed in `intro.ts`: renaming its `data-testid` there too.
 The notices of the server (`src/components/notices/NoticeDialog.tsx`: announcements, the update offer, the errors
 logged, the server's warnings) are polled from `GET /earth/api/notices` every few seconds and answered with
 `POST /earth/api/notices/{id}/answer`. A file dropped on the page is uploaded (`POST /earth/api/files/upload`) and

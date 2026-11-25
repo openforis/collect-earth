@@ -8,6 +8,7 @@ describe('secrets in the request log (Task 18 review)', () => {
   it('redactUrl hides the token segment of every link that carries one', () => {
     expect(redactUrl('/v1/public/progress/AbC_9-x?tz=Europe/Rome')).toBe('/v1/public/progress/<redacted>?tz=Europe/Rome');
     expect(redactUrl('/p/AbC_9-x')).toBe('/p/<redacted>');
+    expect(redactUrl('/guide/327db2ed-beef-439b-993b-916b49bcd8b4/AbC_9-xAbC_9-xAbC_9-x')).toBe('/guide/<redacted>');
     expect(redactUrl('/v1/join/tok123')).toBe('/v1/join/<redacted>');
     expect(redactUrl('/join/tok123')).toBe('/join/<redacted>');
     expect(redactUrl('/reset/tok123')).toBe('/reset/<redacted>');

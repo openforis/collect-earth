@@ -14,7 +14,7 @@ describe("appMenus", () => {
     // Cloud sync status is a cloud project's (see "cloud and local projects")
     expect(enabled).toEqual(["importCep", "projects", "joinCloud", "language", "quit", "export", "import",
       "analyse", "lulucf", "loadKml", "dataFolder", "myDashboard", "missingPlots", "divideCsv", "deletePlots", "properties",
-      "manual", "support", "log", "showExceptions", "updates", "disclaimer", "about"]);
+      "showAround", "whatChanged", "manual", "support", "log", "showExceptions", "tips", "updates", "disclaimer", "about"]);
     // The survey guide only when the survey has one, as the Swing menu showed it
     expect(appMenus({ surveyGuide: true }).find((m) => m.id === "help")?.items[0].id).toBe("surveyGuide");
   });
@@ -22,7 +22,9 @@ describe("appMenus", () => {
   it("has Show exception errors in Help, as a toggle, disabled until it is built", () => {
     const help = appMenus({}).find((m) => m.id === "help")!;
     const toggles = appMenus({}).flatMap((m) => m.items).filter((i) => i.kind === "toggle");
-    expect(toggles.map((i) => i.id)).toEqual(["showExceptions"]);
+    // ...and the tips of the introduction (intro.ts)
+    expect(toggles.map((i) => i.id)).toEqual(["showExceptions", "tips"]);
+    expect(help.items).toContainEqual({ id: "tips", label: "Intro.tips", enabled: true, kind: "toggle" });
     expect(help.items).toContainEqual({ id: "showExceptions", label: "CollectEarthMenu.9", enabled: true, kind: "toggle" });
   });
 

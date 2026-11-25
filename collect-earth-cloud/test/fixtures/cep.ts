@@ -13,18 +13,31 @@ export const FIXTURE_DATE = new Date(Date.UTC(2026, 0, 2, 3, 4, 6));
 
 let demoEntries:Record<string, Uint8Array> | null = null;
 
-/** The demo CEP's entries, read once, without the 8 MB survey guide. */
+/** The balloons the demo CEP had until Collect Earth 2 made its form from the survey alone (test/fixtures/demo-balloons) */
+const BALLOONS = ['balloon.html', 'balloon_web.html'];
+
+/**
+ * The demo CEP's entries, read once, without the 8 MB survey guide and with its two balloons put back, as a project
+ * file of Collect's survey designer has them: the server changes a file's balloons with its survey (the round, the
+ * coordinator's note). The file as it ships, with no balloon, is realDemoCep().
+ */
 function demoFiles(): Record<string, Uint8Array> {
   if (!demoEntries) {
     const all = unzipSync(readFileSync(DEMO_PATH));
     delete all['survey_guide.pdf'];
+    let properties = strFromU8(all['project_definition.properties'], true);
+    for (const balloon of BALLOONS) {
+      all[balloon] = new Uint8Array(readFileSync(fileURLToPath(new URL(`./demo-balloons/${balloon}`, import.meta.url))));
+      properties += `${balloon.replace('.html', '')}=\${project_path}/${balloon}\n`;
+    }
+    all['project_definition.properties'] = strToU8(properties, true);
     demoEntries = all;
   }
   // A fresh copy of the map, so callers can change entries without touching the cache.
   return { ...demoEntries };
 }
 
-/** The demo CEP exactly as the desktop app ships it (made by Java), survey guide included. */
+/** The demo CEP exactly as the desktop app ships it, survey guide included; it has no balloon. */
 export function realDemoCep(): Buffer {
   return readFileSync(DEMO_PATH);
 }
@@ -43,7 +56,7 @@ function mustReplace(text: string, pattern: RegExp, replacement: string, what: s
   return text.replace(pattern, replacement);
 }
 
-/** The demo CEP, without `survey_guide.pdf`. Its survey has two keys: `id` and `round`. */
+/** The demo CEP with its balloons (see demoFiles), without `survey_guide.pdf`. Its survey has two keys: `id` and `round`. */
 export function demoCep(): Buffer {
   return zip(demoFiles());
 }

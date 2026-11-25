@@ -20,7 +20,7 @@ const LAND_USE_OPTIONS = [
   { code: 'G', label: 'Grassland' },
   { code: 'S', label: 'Settlement' },
   { code: 'W', label: 'Wetland' },
-  { code: 'O', label: 'Otherland' },
+  { code: 'O', label: 'Other land' },
 ];
 /** When the checks were made: must not appear in the personal report. */
 const CHECK_TIME = Date.UTC(2026, 9, 28, 13, 37, 42, 123);

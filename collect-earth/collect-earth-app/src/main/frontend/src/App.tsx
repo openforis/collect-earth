@@ -19,6 +19,10 @@ import { AppBar } from "./components/AppBar";
 import { useServerTexts } from "./serverTexts";
 import { formWindow, imageryKey, imageryNumber, isFormMessage, keyOfMessage, type PanelKey } from "./shortcuts";
 import { SettingsPage } from "./components/settings/SettingsPage";
+import { Intro, type IntroAsk } from "./components/intro/Intro";
+import { operatorRequired } from "./appBar";
+import { saveIntro } from "./projectApi";
+import { withTips, type IntroInfo } from "./intro";
 
 /** Narrower than this, the settings page is laid out for a narrow window (the panel is, until a dialog widens it). */
 const COMPACT_BAR_WIDTH = 760;
@@ -53,6 +57,18 @@ export function App({ controller }: { controller: MapController }) {
   // "Same as previous plot" offers the answers of the plot before to the operator who gave them only
   useEffect(() => { if (info) controller.setOperator(info.operator); }, [info, controller]);
   const texts = useServerTexts(state.language);
+  // The introduction to the interface (intro.ts): what the server remembers of it, then what is shown here since
+  const [intro, setIntro] = useState<IntroInfo | null>(null);
+  useEffect(() => { if (info?.intro) setIntro((now) => now ?? info.intro!); }, [info]);
+  const [introAsk, setIntroAsk] = useState<IntroAsk | null>(null);
+  const onIntroAsk = useCallback((ask: "showAround" | "whatChanged" | "tips") => {
+    if (ask !== "tips") { setIntroAsk((before) => ({ what: ask, key: (before?.key ?? 0) + 1 })); return; }
+    setIntro((now) => {
+      if (!now) return now;
+      saveIntro({ tips: !now.tips }).catch(() => { /* switched in this session all the same */ });
+      return withTips(now, !now.tips);
+    });
+  }, []);
   // The title of the window, as the Swing window set it
   useEffect(() => {
     if (!texts) return;
@@ -63,7 +79,11 @@ export function App({ controller }: { controller: MapController }) {
     <I18nContext.Provider value={t}>
     <Box sx={{ display: "flex", flexDirection: "column", height: "100vh", bgcolor: "background.default" }}>
     {/* Once /api/app and the texts are read: until then the bar would have no project or operator, and no labels */}
-    {info && texts && <AppBar info={info} texts={texts} reload={reloadInfo} onSettings={() => setPage("settings")} />}
+    {info && texts && <AppBar info={info} texts={texts} reload={reloadInfo} onSettings={() => setPage("settings")}
+      tips={intro?.tips ?? false} onIntro={onIntroAsk} />}
+    {/* Once the page is the user's: a project, a name (or the sign-in of a cloud project), the plots' page */}
+    <Intro intro={intro} onIntro={setIntro} pane={listPane ? "list" : "form"} state={state} cloud={info?.cloud ?? false} ask={introAsk}
+      usable={info != null && texts != null && info.project != null && !operatorRequired(info) && !info.cloudLoginNeeded && page === "main"} />
     <Box sx={{ flex: 1, minHeight: 0, position: "relative" }}>
     {/* A modal dialog in the middle of the page, over the list and the form (the whole window when narrow) */}
     {page === "settings" && (

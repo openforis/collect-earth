@@ -1,3 +1,5 @@
+import { GUIDE_ENTRY, guideAddress, withoutBundledGuide } from '../surveyGuide.js';
+import { cepWithGuide } from './surveyGuide.js';
 import type { FastifyBaseLogger, FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { invitePlotsRefusal } from '../invitePlots.js';
 import type { InvitePlots } from '../types.js';
@@ -392,13 +394,13 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
       if (!Buffer.isBuffer(cep) || cep.length === 0) {
         return reply.code(400).send({ error: 'bad_request', reason: 'expected a non-empty zip body' });
       }
-      const accepted = await acceptCep(store, projectId, cep, request.log);
+      const accepted = await acceptCep(store, projectId, cep, request.log, { guideBase: publicBaseUrl(config, request), by: request.membership!.userId ?? null });
       if (!accepted.ok) return reply.code(accepted.status).send(accepted.body);
-      const { info, noteColumnChanged, removedSettings, keyInExtraMap } = accepted;
+      const { info, noteColumnChanged, removedSettings, keyInExtraMap, guideMoved } = accepted;
       await audit(store, request, 'cep.replaced', { bytes: cep.length });
       return reply.send({
         ok: true, bytes: cep.length, round: info, ...(noteColumnChanged ? { noteColumnChanged } : {}),
-        ...(removedSettings.length > 0 ? { removedSettings } : {}), ...(keyInExtraMap ? { keyInExtraMap } : {}),
+        ...(removedSettings.length > 0 ? { removedSettings } : {}), ...(keyInExtraMap ? { keyInExtraMap } : {}), ...(guideMoved ? { guideMoved } : {}),
       } satisfies CepUploadAnswer);
     },
   );
@@ -599,7 +601,7 @@ export async function registerPlatformRoutes(app: FastifyInstance, store: Store,
 
 /** What storing an uploaded project file came to: the round information, or the refusal to answer. */
 export type CepAcceptance =
-  | { ok: true; info: RoundInfo; noteColumnChanged?: { from: number; to: number }; removedSettings: string[]; keyInExtraMap: boolean }
+  | { ok: true; info: RoundInfo; noteColumnChanged?: { from: number; to: number }; removedSettings: string[]; keyInExtraMap: boolean; guideMoved?: { bytes: number; url: string } }
   | { ok: false; status: number; body: object };
 
 /**
@@ -607,7 +609,14 @@ export type CepAcceptance =
  * round added before collection or the key shape kept once records exist, the coordinator's note, the project file's own
  * plot file given their columns, the space limit. A refusal is returned, not thrown, for the caller to answer.
  */
-export async function acceptCep(store: Store, projectId: string, uploaded: Buffer, log: FastifyBaseLogger): Promise<CepAcceptance> {
+export async function acceptCep(
+  store: Store,
+  projectId: string,
+  uploaded: Buffer,
+  log: FastifyBaseLogger,
+  /** `guideBase`: the server's public address, where the guide a project file brings inside (survey_guide.pdf) is then served from; without it, that guide stays inside. */
+  options: { guideBase?: string; by?: string | null } = {},
+): Promise<CepAcceptance> {
   const refuse = (status: number, body: object): CepAcceptance => ({ ok: false, status, body });
   const previous = await store.getRoundInfo(projectId);
   const date = new Date();
@@ -639,6 +648,16 @@ export async function acceptCep(store: Store, projectId: string, uploaded: Buffe
         'decimal degrees (EPSG:4326). Set the survey\'s spatial reference system to EPSG:4326 and give the plot files ' +
         'their latitude and longitude, then upload it again',
     });
+  }
+  // The survey guide inside (megabytes, which every person would download with the project file and the server keep
+  // twice) is kept apart and served from an address the project file then carries (src/surveyGuide.ts)
+  let bundledGuide: Buffer | null = null;
+  if (options.guideBase !== undefined) {
+    try {
+      ({ cep, guide: bundledGuide } = withoutBundledGuide(cep, date));
+    } catch (e) {
+      if (!(e instanceof CepError)) throw e;
+    }
   }
   let served = cep;
   let original: Buffer | null = null;
@@ -727,9 +746,26 @@ export async function acceptCep(store: Store, projectId: string, uploaded: Buffe
       });
     }
   }
-  const over = await checkUploadFits(store, projectId, { kind: 'cep' }, served.length + (original?.length ?? 0));
+  // The project's guide: the one this file brought (it replaces the one there was), else the one the project had
+  const guideBefore = await store.getSurveyGuide(projectId);
+  const over = await checkUploadFits(store, projectId, { kind: 'cep' }, served.length + (original?.length ?? 0) + Math.max(0, (bundledGuide?.length ?? 0) - (guideBefore?.bytes ?? 0)));
   if (over) {
     return refuse(413, over);
+  }
+  let guide = guideBefore;
+  if (bundledGuide !== null) {
+    const base = options.guideBase!;
+    guide = await store.setSurveyGuide(projectId, { kind: 'file', filename: GUIDE_ENTRY, data: bundledGuide, urlOf: (token) => guideAddress(base, projectId, token) }, options.by ?? null);
+    log.info({ projectId, bytes: bundledGuide.length }, 'project file: its survey guide is kept apart, served from an address');
+  }
+  if (guide !== null) {
+    try {
+      const withGuide = cepWithGuide(served, guide.url, date);
+      if (original !== null) original = cepWithGuide(original, guide.url, date);
+      served = withGuide;
+    } catch (err) {
+      log.warn({ err, projectId }, "cep: the survey guide's address could not be written into the project file");
+    }
   }
   await store.putCep(projectId, served, info, original);
   // The survey designer's versions were of the file before: restoring one would bring its survey into this one
@@ -737,5 +773,5 @@ export async function acceptCep(store: Store, projectId: string, uploaded: Buffe
   if (keyCountBefore !== keyCountAfter) {
     await store.recountPlots(projectId, keyCountAfter);
   }
-  return { ok: true, info, ...(noteColumnChanged ? { noteColumnChanged } : {}), removedSettings, keyInExtraMap };
+  return { ok: true, info, ...(noteColumnChanged ? { noteColumnChanged } : {}), removedSettings, keyInExtraMap, ...(bundledGuide !== null ? { guideMoved: { bytes: bundledGuide.length, url: guide!.url } } : {}) };
 }

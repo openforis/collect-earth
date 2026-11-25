@@ -846,10 +846,8 @@ export function addRound(
   // Every file is edited as bytes read one to one (latin1), and only ASCII is inserted, so
   // whatever the files' encoding, every byte not inserted stays as it was.
   const read = (path: string) => latin1(files.entries.get(path)!);
-  const balloons: string[] = [];
-  if (!files.balloonPath) return none('balloon_missing', keyCount);
-  balloons.push(files.balloonPath);
-  if (files.balloonWebPath) balloons.push(files.balloonWebPath);
+  // A project file with no balloon (Collect Earth 2 makes its form from the survey) has none to change
+  const balloons = [files.balloonPath, files.balloonWebPath].filter((p): p is string => p !== null);
   for (const path of balloons) {
     const refusal = balloonRefusal(read(path));
     if (refusal) return none(refusal, keyCount);
@@ -1308,10 +1306,8 @@ export function addNote(
   // A template that already reads a note the survey does not have: the files do not agree.
   if (template !== null && template.includes('<Data name="EXTRA_coordinator_note">')) return none('note_mismatch');
 
-  const balloons: string[] = [];
-  if (!files.balloonPath) return none('balloon_missing');
-  balloons.push(files.balloonPath);
-  if (files.balloonWebPath) balloons.push(files.balloonWebPath);
+  // As for the round: a project file with no balloon has none to change
+  const balloons = [files.balloonPath, files.balloonWebPath].filter((p): p is string => p !== null);
   for (const path of balloons) {
     if (!read(path).includes(BALLOON_MARKER)) return none('balloon_marker_missing');
   }

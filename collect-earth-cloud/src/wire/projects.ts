@@ -86,7 +86,10 @@ export type CepErrorCode = 'not_a_zip' | 'too_large' | 'no_survey' | 'survey_unr
 /** added: the server added round; own: the survey has a round key; none: no round. */
 export type RoundState = 'added' | 'own' | 'none';
 
-/** Why the server did not add round to a project file. */
+/**
+ * Why the server did not add round to a project file. `balloon_missing` is no longer given (a project file with no
+ * balloon gets its round: Collect Earth 2 makes its form from the survey); projects stored before may still hold it.
+ */
 export type RefusalCode =
   | CepErrorCode
   | 'several_entities'
@@ -104,7 +107,7 @@ export interface CodeItem {
   label: string;
 }
 
-/** Why the server did not add the coordinator's note to a project file. */
+/** Why the server did not add the coordinator's note to a project file. `balloon_missing`: as for the round, no longer given. */
 export type NoteRefusal =
   | CepErrorCode
   | 'several_entities'
@@ -162,6 +165,8 @@ export interface CepUploadAnswer {
   removedSettings?: string[];
   /** The extra map's address seems to carry a key, which every collector's Collect Earth receives with it. */
   keyInExtraMap?: boolean;
+  /** The survey guide the file had inside (survey_guide.pdf) is kept apart now, served from `url`: the project file is that much lighter. */
+  guideMoved?: { bytes: number; url: string };
 }
 
 /** GET /v1/projects/:pid/round: null before any upload. */
@@ -438,6 +443,12 @@ export interface PlotLayout {
   boundary: number;
   /** inner_point_side: the side of each sample point's square, in metres */
   pointSide: number;
+}
+
+/** GET, PUT /v1/projects/:pid/survey-guide: the project's survey guide, and what Collect Earth writes into its settings for it. */
+export interface SurveyGuideAnswer {
+  guide: { kind: 'file' | 'link'; url: string; filename: string; bytes: number; updatedAt: number } | null;
+  properties: { survey_guide_url: string };
 }
 
 /** POST /v1/uploads: a file to send in parts (PUT /v1/uploads/:id/parts/:n, each of partBytes but the last), then named by an import. */

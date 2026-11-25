@@ -17,7 +17,7 @@ describe("app bar", () => {
     expect(items.filter((i) => !comingSoon(i)).map((i) => i.id)).toEqual([
       "importCep", "projects", "joinCloud", "language", "quit", "export", "import",
       "analyse", "lulucf", "loadKml", "dataFolder", "myDashboard", "missingPlots", "divideCsv", "deletePlots", "properties",
-      "surveyGuide", "manual", "support", "log", "showExceptions", "updates", "disclaimer", "about"]);
+      "surveyGuide", "showAround", "whatChanged", "manual", "support", "log", "showExceptions", "tips", "updates", "disclaimer", "about"]);
     // An entry menus.ts does not enable, or this file has no action for, is not offered
     expect(comingSoon({ id: "fly", label: "x", enabled: true })).toBe(true);
     expect(comingSoon({ id: "quit", label: "x", enabled: false })).toBe(true);

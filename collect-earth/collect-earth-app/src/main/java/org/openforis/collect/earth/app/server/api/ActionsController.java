@@ -12,6 +12,8 @@ import org.openforis.collect.earth.app.service.BackupSqlLiteService;
 import org.openforis.collect.earth.app.service.FolderFinder;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
+import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
+import org.openforis.collect.earth.app.service.SurveyGuide;
 import org.openforis.collect.earth.app.service.QuitService;
 import org.openforis.collect.earth.app.service.cloud.CloudApiClient;
 import org.openforis.collect.earth.app.service.dashboard.LocalDashboardService;
@@ -176,6 +178,15 @@ public class ActionsController {
 		actions.put("openAnalysis", () -> openAnalysis(dashboard, properties, cloud));
 		// The Help menu's files and pages (CollectEarthMenu.getHelpMenu)
 		actions.put("openSurveyGuide", () -> {
+			// From 2.0 the guide is an address the project file carries (a document kept on a server): opened in the
+			// browser. A project file of before has it inside, opened as a file
+			URI address = properties == null ? null : SurveyGuide.addressOf(properties.getValue(EarthProperty.SURVEY_GUIDE_URL));
+			if (address != null) {
+				if (!CollectEarthUtils.openUrl(address)) {
+					throw new IllegalStateException("The browser could not open " + address);
+				}
+				return;
+			}
 			File guide = surveys.getSurveyGuide();
 			if (guide == null || !guide.exists() || !guide.canRead()) {
 				throw new ApiException("help.guideMissing", Messages.getString("HelpPage.guideMissing"));

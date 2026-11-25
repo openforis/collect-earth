@@ -6,14 +6,17 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.Enumeration;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Observable;
 import java.util.Properties;
+import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
 
@@ -47,7 +50,8 @@ public class LocalPropertiesService extends Observable {
 	 *
 	 */
 	public enum EarthProperty {
-		ACTIVE_PROJECT_DEFINITION("active_project_definition"), ALTERNATIVE_BALLOON_FOR_BROWSER(
+		ACTIVE_PROJECT_DEFINITION("active_project_definition"), INTRO_SEEN("intro_seen"), INTRO_TIPS(
+				"intro_tips"), INTRO_EARLIER_USER("intro_earlier_user"), ALTERNATIVE_BALLOON_FOR_BROWSER(
 				"alternative_balloon_for_browser"), AUTOMATIC_BACKUP("automatic_backup"), BALLOON_TEMPLATE_KEY(
 				"balloon"), BALLOON_TEMPLATE_KEY_WEB("balloon_web"), BALLOON_TEMPLATE_KEY_CHECKSUM("balloon_checksum"), BROWSER_TO_USE("use_browser"), CHROME_BINARY_PATH(
 				"chrome_exe_path"), CRS_KEY("coordinates_reference_system"), CSV_KEY_CHECKSUM(
@@ -110,6 +114,12 @@ public class LocalPropertiesService extends Observable {
 				GEEAPP_TO_DATE("geeapp_date_to"),
 				/** The survey's configuration of the Explorer window (its layers and charts), a JSON document passed as it is */
 				EXPLORER_CONFIG("explorer_config"),
+				/**
+				 * The address of the survey's guide (how to interpret the plots): a document kept on a server, opened in the
+				 * browser. From 2.0 the guide is an address and not a file inside the project file (survey_guide.pdf, still
+				 * read when a project file has one): the project file stays light
+				 */
+				SURVEY_GUIDE_URL("survey_guide_url"),
 				OPEN_ESRI_WAYBACK("open_esri_wayback"),
 				/** Share of the height of Google Earth Web's view a plot fills (0.375 when not set), see GoogleEarthWebUrls */
 				GEW_PLOT_VIEW_SHARE("gew_plot_view_share"),
@@ -670,13 +680,57 @@ public class LocalPropertiesService extends Observable {
 	/** The balloon HTML of the CEP (balloon_web when the CEP has one), as in the first plots map versions. */
 	public static final String WEB_FORM_BALLOON = "balloon";
 
-	/** Which data entry form the plots map shows next to the map. */
+	/**
+	 * Which data entry form the plots map shows next to the map. The balloon only in a project that has one: a project
+	 * with no balloon (the demo's, since its form is made from its survey) shows the generated form whatever is asked.
+	 */
 	public String getWebForm() {
-		return WEB_FORM_BALLOON.equals(getValue(EarthProperty.WEB_FORM)) ? WEB_FORM_BALLOON : WEB_FORM_GENERATED;
+		final boolean asked = WEB_FORM_BALLOON.equals(getValue(EarthProperty.WEB_FORM));
+		return asked && StringUtils.isNotBlank(getValue(EarthProperty.BALLOON_TEMPLATE_KEY)) ? WEB_FORM_BALLOON : WEB_FORM_GENERATED;
 	}
 
 	public Boolean isExceptionShown() {
 		return isPropertyActivated(EarthProperty.EXCEPTION_SHOWN);
+	}
+
+	/**
+	 * What of the introduction to the interface (the pages' intro.ts) this installation has shown, by its ids: kept here
+	 * and not in the browser, which may be another one, or start with an empty profile, the next time.
+	 */
+	public Set<String> getIntroSeen() {
+		Set<String> seen = new LinkedHashSet<>();
+		for (String id : getValue(EarthProperty.INTRO_SEEN).split(",")) {
+			if (StringUtils.isNotBlank(id)) {
+				seen.add(id.trim());
+			}
+		}
+		return seen;
+	}
+
+	public void setIntroSeen(Collection<String> seen) {
+		setValue(EarthProperty.INTRO_SEEN, String.join(",", new LinkedHashSet<>(seen)));
+	}
+
+	/** The tips shown once beside a control: on unless switched off (Help > Show tips). */
+	public boolean isIntroTips() {
+		return !"false".equalsIgnoreCase(getValue(EarthProperty.INTRO_TIPS).trim());
+	}
+
+	public void setIntroTips(boolean tips) {
+		setValue(EarthProperty.INTRO_TIPS, Boolean.toString(tips));
+	}
+
+	/**
+	 * Whether Collect Earth was in use here before it had an introduction (so before 2.0): such a user is shown what
+	 * changed since Collect Earth 1. Null until it is decided, at the first start that has the introduction.
+	 */
+	public Boolean getIntroEarlierUser() {
+		String value = getValue(EarthProperty.INTRO_EARLIER_USER).trim();
+		return value.isEmpty() ? null : Boolean.valueOf(value);
+	}
+
+	public void setIntroEarlierUser(boolean earlier) {
+		setValue(EarthProperty.INTRO_EARLIER_USER, Boolean.toString(earlier));
 	}
 
 	/**

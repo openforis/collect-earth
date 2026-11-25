@@ -225,10 +225,12 @@ export interface ProjectStorage {
   recordBytes: number;
   /** Training sets (their files) and their records: they count towards the project's storage too. */
   trainingBytes?: number;
+  /** The survey guide's PDF, when the server keeps one. */
+  guideBytes?: number;
 }
 
 export function totalStorageBytes(s: ProjectStorage): number {
-  return s.cepBytes + Object.values(s.csvBytesByFilename).reduce((a, b) => a + b, 0) + s.recordBytes + (s.trainingBytes ?? 0);
+  return s.cepBytes + Object.values(s.csvBytesByFilename).reduce((a, b) => a + b, 0) + s.recordBytes + (s.trainingBytes ?? 0) + (s.guideBytes ?? 0);
 }
 
 /** What the server did about the round key of a project's CEP (see src/cep.ts). */

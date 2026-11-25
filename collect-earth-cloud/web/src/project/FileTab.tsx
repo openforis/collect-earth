@@ -31,6 +31,7 @@ import { noteMessage, originalFileName, roundCodeLabel, roundMessage } from "../
 import { saveBlob } from "../saveBlob";
 import { useLoad } from "../useLoad";
 import { SurveyDesignCards } from "./SurveyDesign";
+import { SurveyGuideCard } from "./SurveyGuideCard";
 import { queryClient } from "../queryClient";
 
 /** The Select's value for "None" (a code is never empty). */
@@ -187,6 +188,8 @@ export function FileTab({ projectId }: { projectId: string }) {
   const [wrongType, setWrongType] = useState(false);
   const [uploaded, setUploaded] = useState(false);
   const [cleaned, setCleaned] = useState<{ removed: string[]; keyInExtraMap: boolean } | null>(null);
+  /** The size of the guide the uploaded project file had inside, now kept apart */
+  const [guideMoved, setGuideMoved] = useState<number | null>(null);
   // Counts uploads, so the round section starts again from what the server says about the new file.
   const [uploads, setUploads] = useState(0);
   // The plot files of the project file's grid folder: how many were added, and which were refused (and why).
@@ -250,6 +253,8 @@ export function FileTab({ projectId }: { projectId: string }) {
       const answer = await uploadProjectFile(projectId, file, setProgress);
       const info = answer.round;
       setCleaned({ removed: answer.removedSettings ?? [], keyInExtraMap: answer.keyInExtraMap ?? false });
+      setGuideMoved(answer.guideMoved?.bytes ?? null);
+      queryClient.removeQueries({ queryKey: ["project", projectId, "getSurveyGuide"] });
       setUploaded(true);
       setUploads((n) => n + 1);
       // The new file's survey, plot layout and imagery (Setup's sections of them): asked again when it opens, not the old file's
@@ -318,6 +323,7 @@ export function FileTab({ projectId }: { projectId: string }) {
               <Alert severity="warning" role="status">{t("file.secretsRemoved", { settings: cleaned.removed.join(", ") })}</Alert>
             )}
             {cleaned?.keyInExtraMap && <Alert severity="warning" role="status">{t("file.keyInExtraMap")}</Alert>}
+            {guideMoved !== null && <Alert severity="info" role="status">{t("guide.moved", { size: formatBytes(guideMoved, language) })}</Alert>}
             {uploaded && (
               <Alert severity="success" role="status">
                 {t("file.uploaded.short")}
@@ -334,7 +340,8 @@ export function FileTab({ projectId }: { projectId: string }) {
         <RoundStatus key={uploads} projectId={projectId} projectName={overview.data?.name ?? ""} info={round.data} onChange={round.setData} />
       ) : null}
 
-      {/* Read again after an upload: the new file brings its own layout. */}
+      {/* The survey guide: kept apart from the project file, which carries its address (read again after an upload: a file with a guide inside moves it there) */}
+      {!noSurvey && <SurveyGuideCard key={`guide-${uploads}`} projectId={projectId} />}
 
       {/* No close on Escape or outside clicks: the grid files wait for one of the two answers. */}
       <Dialog open={pendingGrid !== null} aria-labelledby="grid-choice" maxWidth="sm" fullWidth>

@@ -76,7 +76,7 @@ describe('the analysis model, generated from the survey', () => {
 
   it('keeps every level of a hierarchical list, with each item\'s parent and labels', () => {
     const forest = model.lists.land_uses.find((i) => i.code === 'F')!;
-    expect(forest).toMatchObject({ parent: null, level: 0, labels: { en: 'Forest', fr: 'Forêt' } });
+    expect(forest).toMatchObject({ parent: null, level: 0, labels: { en: 'Forest', fr: 'Terres forestières' } });
     const sub = model.lists.land_uses.find((i) => i.code === 'broadleaf_dec')!;
     expect(sub).toMatchObject({ parent: 'F', level: 1 });
   });
@@ -118,7 +118,7 @@ describe('the tables, from the records\' summaries', () => {
     // the entity with only a blank answer is left out
     expect(rowsOf(tables[1].csv).map((r) => [r._record, r.element, r.coverage, r.percentage])).toEqual([['1,1', 'trees', '13', '24'], ['1,1', 'water_body', '', '4']]);
     const lists = rowsOf(tables[3].csv);
-    expect(lists.find((r) => r.list === 'land_uses' && r.code === 'F')).toMatchObject({ parent: '', level: '0', label_en: 'Forest', label_es: 'Bosque' });
+    expect(lists.find((r) => r.list === 'land_uses' && r.code === 'F')).toMatchObject({ parent: '', level: '0', label_en: 'Forest', label_es: 'Tierras forestales' });
   });
 
   it('hides the round and the assessment from a collector', () => {

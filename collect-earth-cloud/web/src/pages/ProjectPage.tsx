@@ -6,6 +6,7 @@ import Link from "@mui/material/Link";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Tab from "@mui/material/Tab";
+import { SurveyGuideButton } from "../project/SurveyGuideCard";
 import Tabs from "@mui/material/Tabs";
 import Typography from "@mui/material/Typography";
 import ChevronLeft from "@mui/icons-material/ChevronLeft";
@@ -215,6 +216,7 @@ export function ProjectPage({
           <Button variant="outlined" {...linkProps(pathFor({ name: "analysis", projectId }))}>
             {t("analysis.title")}
           </Button>
+          <SurveyGuideButton projectId={projectId} />
         </Box>
         <Tabs value={tab} onChange={(_, value: ProjectTab) => go(value)} variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile aria-label={t("project.sections")} sx={{ mb: 3, borderBottom: 1, borderColor: "divider", display: { md: "none" } }}>
           {REVIEWER_TABS.map((id) => (
@@ -277,6 +279,7 @@ export function ProjectPage({
             <Button variant="outlined" {...linkProps(pathFor({ name: "analysis", projectId }))}>
               {t("analysis.title")}
             </Button>
+            <SurveyGuideButton projectId={projectId} />
           </Box>
         </Paper>
       </AppShell>

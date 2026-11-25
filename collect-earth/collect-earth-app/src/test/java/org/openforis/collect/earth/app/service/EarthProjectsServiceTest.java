@@ -78,6 +78,30 @@ public class EarthProjectsServiceTest {
 	}
 
 	/**
+	 * A project with no balloon (the demo's: its form is made from its survey) does not keep the balloon of the project
+	 * open before, nor show it because that project asked for its own (web_form, which a local project keeps).
+	 */
+	@Test
+	public void aProjectWithNoBalloonDoesNotShowTheOneOfTheProjectBefore() throws IOException {
+		LocalPropertiesService properties = new LocalPropertiesService(new Properties());
+		EarthProjectsService projects = new EarthProjectsService();
+		projects.init(properties);
+		File before = project("before", "web_form=balloon\nballoon=${project_path}/balloon.html\n");
+		File demo = project("demo");
+
+		assertTrue(projects.loadProjectInFolder(before));
+		assertEquals(new File(before, "balloon.html").getAbsolutePath(), new File(properties.getBalloonFile()).getAbsolutePath());
+		assertEquals(LocalPropertiesService.WEB_FORM_BALLOON, properties.getWebForm());
+
+		assertTrue(projects.loadProjectInFolder(demo));
+		assertEquals("", properties.getBalloonFile());
+		assertEquals(LocalPropertiesService.WEB_FORM_GENERATED, properties.getWebForm());
+
+		assertTrue(projects.loadProjectInFolder(before));
+		assertEquals(LocalPropertiesService.WEB_FORM_BALLOON, properties.getWebForm());
+	}
+
+	/**
 	 * A cloud project's file made by its server has no plot file (the person's plots are downloaded after it): the plot
 	 * file of the project open before is not kept, nor its form. A local project keeps them as before.
 	 */
@@ -86,7 +110,7 @@ public class EarthProjectsServiceTest {
 		LocalPropertiesService properties = new LocalPropertiesService(new Properties());
 		EarthProjectsService projects = new EarthProjectsService();
 		projects.init(properties);
-		File before = project("before", "csv=${project_path}/plots.csv\nweb_form=balloon\n");
+		File before = project("before", "csv=${project_path}/plots.csv\nweb_form=balloon\nballoon=${project_path}/balloon.html\n");
 		File cloud = project("cloud");
 		File bound = project("bound");
 		File local = project("local");

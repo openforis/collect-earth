@@ -120,6 +120,28 @@ const backupBody = (files: BackupFiles) => ({
   ...(files.plotFile !== null ? { plotFile: files.plotFile, plotFileName: files.plotFileName ?? undefined } : {}),
 });
 
+export type { SurveyGuideAnswer } from "../../../src/wire/projects";
+import type { SurveyGuideAnswer } from "../../../src/wire/projects";
+
+/** The project's survey guide (any member): the address people open, null when it has none. */
+export function getSurveyGuide(projectId: string): Promise<SurveyGuideAnswer> {
+  return request("GET", `${p(projectId)}/survey-guide`);
+}
+
+/** A PDF for the server to keep as the project's guide. */
+export function uploadSurveyGuide(projectId: string, file: File, onProgress?: Progress): Promise<SurveyGuideAnswer> {
+  return upload<SurveyGuideAnswer>("PUT", `${p(projectId)}/survey-guide?filename=${encodeURIComponent(file.name)}`, file, "application/pdf", onProgress);
+}
+
+/** A link to a guide kept elsewhere. */
+export function linkSurveyGuide(projectId: string, url: string): Promise<SurveyGuideAnswer> {
+  return request("PUT", `${p(projectId)}/survey-guide`, { json: { url } });
+}
+
+export function removeSurveyGuide(projectId: string): Promise<void> {
+  return request("DELETE", `${p(projectId)}/survey-guide`);
+}
+
 /**
  * Sends a file in parts, each a request of its own (a backup is larger than one request holds), and gives the upload's
  * id for an import to name. The server keeps one upload per account, for a few hours, until an import uses it.

@@ -1109,6 +1109,10 @@ caches to the 1 GiB column (`gcloud run services update collect-earth-cloud --re
 
 ## Known limitations
 
+- **A survey guide kept on the server is a PDF of 25 MB at most** (`MAX_GUIDE_BYTES`, `src/surveyGuide.ts`; migration
+  054). It is served with no login from `/guide/<project>/<token>`, whose address is written into the project file with
+  the server's public address: set `PUBLIC_BASE_URL` before the first guide is uploaded, or the address is the one the
+  upload came through. A larger guide, or one kept elsewhere, is given as a link.
 - **A backup to import is 70 MB at most** (`MAX_UPLOAD_BYTES`, `src/uploads.ts`). The dashboard sends it in parts of
   4 MB (a request holds 32 MB at most, Cloud Run's limit for HTTP/1 too), kept in the database (`uploads`,
   `upload_parts`, migration 053) until the import reads them: three hours at most, one upload per account. A 63.7 MB
