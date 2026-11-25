@@ -9,7 +9,8 @@ import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import { useT, type MessageKey } from "../../i18n";
 
 /** What moved, in the order someone used to Collect Earth 1 meets it */
-const ROWS = ["window", "earth", "plot", "imagery", "save", "status", "analysis", "team"] as const;
+// (the form is not among them: the earlier one was much the same, with its cards and smaller forms)
+const ROWS = ["window", "earth", "plot", "imagery", "status", "analysis", "team"] as const;
 
 /**
  * "What changed from Collect Earth 1": each thing of the old program, and where it is now. Shown once to those who used
