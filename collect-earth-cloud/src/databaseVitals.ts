@@ -68,6 +68,12 @@ export class DatabaseVitals {
     this.current().busy += 1;
   }
 
+  /** Whether a request was answered busy this minute or the one before: the database is not keeping up now */
+  busyLately(): boolean {
+    const minute = Math.floor(this.now() / MINUTE_MS);
+    return this.minutes.some((m) => m.minute >= minute - 1 && m.busy > 0);
+  }
+
   /** The last hour (the current minute and the 59 before it) */
   summary(): DatabaseSummary {
     const from = Math.floor(this.now() / MINUTE_MS) - MINUTES;
