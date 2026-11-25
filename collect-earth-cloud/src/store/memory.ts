@@ -1,4 +1,5 @@
 import type { UploadInfo } from '../uploads.js';
+import type { SurveyGuide } from '../surveyGuide.js';
 import { renameOperatorInSummary, renameOperatorInXml } from '../anonymize.js';
 import { randomUUID } from 'node:crypto';
 import { generateShareToken, generateToken, hashToken, SESSION_IDLE_MS, SESSION_TOUCH_MS } from '../auth.js';
@@ -269,6 +270,7 @@ export class InMemoryStore implements Store {
   private readonly excludedMembers = new Map<string, { at: number; reason: string | null }>();
   private readonly invites = new Map<string, InviteEntry>(); // invite token hash -> entry
   private readonly resets = new Map<string, ResetEntry>(); // reset token hash -> entry
+  private readonly guides = new Map<string, { kind: 'file' | 'link'; url: string; filename: string; data: Buffer | null; token: string; updatedAt: number }>(); // project id -> its survey guide
   private readonly uploads = new Map<string, { userId: string; bytes: number; partBytes: number; name: string; createdAt: number; parts: Map<number, Buffer> }>(); // upload id -> a file in parts
   /** Progress links (share_links): token hash -> link. */
   private readonly shareLinks = new Map<string, ShareLinkEntry>();
@@ -667,6 +669,7 @@ export class InMemoryStore implements Store {
       storage.recordBytes += Buffer.byteLength(r.xml ?? '', 'utf8') + Buffer.byteLength(JSON.stringify(r.summary), 'utf8');
     }
     const training = this.training.get(projectId);
+    storage.guideBytes = this.guides.get(projectId)?.data?.length ?? 0;
     storage.trainingBytes = 0;
     for (const e of training?.sets.values() ?? []) storage.trainingBytes += e.data.length;
     for (const r of training?.records.values() ?? []) {
@@ -1607,6 +1610,30 @@ export class InMemoryStore implements Store {
     }
     user.isPlatformAdmin = on;
     return 'ok';
+  }
+
+  async getSurveyGuide(projectId: string): Promise<SurveyGuide | null> {
+    const g = this.guides.get(projectId);
+    return g ? { kind: g.kind, url: g.url, filename: g.filename, bytes: g.data?.length ?? 0, token: g.token, updatedAt: g.updatedAt } : null;
+  }
+
+  async getSurveyGuideFile(projectId: string): Promise<Buffer | null> {
+    return this.guides.get(projectId)?.data ?? null;
+  }
+
+  async setSurveyGuide(projectId: string, input: { kind: 'link'; url: string } | { kind: 'file'; filename: string; data: Buffer; urlOf: (token: string) => string }, _by: string | null): Promise<SurveyGuide> {
+    const token = this.guides.get(projectId)?.token ?? generateToken();
+    this.guides.set(
+      projectId,
+      input.kind === 'link'
+        ? { kind: 'link', url: input.url, filename: '', data: null, token, updatedAt: Date.now() }
+        : { kind: 'file', url: input.urlOf(token), filename: input.filename, data: Buffer.from(input.data), token, updatedAt: Date.now() },
+    );
+    return (await this.getSurveyGuide(projectId))!;
+  }
+
+  async deleteSurveyGuide(projectId: string): Promise<boolean> {
+    return this.guides.delete(projectId);
   }
 
   async createUpload(userId: string, input: { bytes: number; partBytes: number; name: string }, expiredBefore: number): Promise<string> {

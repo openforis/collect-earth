@@ -1,6 +1,7 @@
 import { OPERATOR_SUMMARY_KEY, operatorXmlPattern } from '../anonymize.js';
 import pg from 'pg';
 import type { UploadInfo } from '../uploads.js';
+import type { SurveyGuide } from '../surveyGuide.js';
 import { DatabaseBusyError, isPoolWaitTimeout } from './busy.js';
 import { databaseVitals, type DatabaseVitals } from '../databaseVitals.js';
 import { createHash, randomUUID } from 'node:crypto';
@@ -1900,6 +1901,43 @@ export class PostgresStore implements Store {
     } finally {
       client.release();
     }
+  }
+
+  async getSurveyGuide(projectId: string): Promise<SurveyGuide | null> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query(`SELECT kind, url, filename, COALESCE(octet_length(data), 0) AS bytes, token, updated_at FROM survey_guides WHERE project_id = $1`, [projectId]);
+      const r = res.rows[0];
+      return r ? { kind: r.kind, url: r.url, filename: r.filename, bytes: Number(r.bytes), token: r.token, updatedAt: (r.updated_at as Date).getTime() } : null;
+    });
+  }
+
+  async getSurveyGuideFile(projectId: string): Promise<Buffer | null> {
+    return this.withProject(projectId, async (client) => {
+      const res = await client.query<{ data: Buffer | null }>(`SELECT data FROM survey_guides WHERE project_id = $1`, [projectId]);
+      return res.rows[0]?.data ?? null;
+    });
+  }
+
+  async setSurveyGuide(projectId: string, input: { kind: 'link'; url: string } | { kind: 'file'; filename: string; data: Buffer; urlOf: (token: string) => string }, by: string | null): Promise<SurveyGuide> {
+    return this.withProject(projectId, async (client) => {
+      const had = await client.query<{ token: string }>(`SELECT token FROM survey_guides WHERE project_id = $1 FOR UPDATE`, [projectId]);
+      const token = had.rows[0]?.token ?? generateToken();
+      const file = input.kind === 'file';
+      const res = await client.query(
+        `INSERT INTO survey_guides (project_id, kind, url, filename, data, token, updated_by, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, now())
+         ON CONFLICT (project_id) DO UPDATE SET kind = EXCLUDED.kind, url = EXCLUDED.url, filename = EXCLUDED.filename, data = EXCLUDED.data,
+           updated_by = EXCLUDED.updated_by, updated_at = now()
+         RETURNING kind, url, filename, COALESCE(octet_length(data), 0) AS bytes, token, updated_at`,
+        [projectId, input.kind, file ? input.urlOf(token) : input.url, file ? input.filename : '', file ? input.data : null, token, by],
+      );
+      const r = res.rows[0];
+      return { kind: r.kind, url: r.url, filename: r.filename, bytes: Number(r.bytes), token: r.token, updatedAt: (r.updated_at as Date).getTime() };
+    });
+  }
+
+  async deleteSurveyGuide(projectId: string): Promise<boolean> {
+    return this.withProject(projectId, async (client) => ((await client.query(`DELETE FROM survey_guides WHERE project_id = $1`, [projectId])).rowCount ?? 0) > 0);
   }
 
   async createUpload(userId: string, input: { bytes: number; partBytes: number; name: string }, expiredBefore: number): Promise<string> {
@@ -4303,6 +4341,7 @@ async function storageOf(client: pg.PoolClient, projectId: string): Promise<Proj
            + COALESCE((SELECT SUM(COALESCE(octet_length(xml), 0) + octet_length(summary::text)) FROM training_records WHERE project_id = $1), 0))::bigint AS bytes`,
     [projectId],
   );
+  const guide = await client.query(`SELECT COALESCE(SUM(octet_length(data)), 0)::bigint AS bytes FROM survey_guides WHERE project_id = $1`, [projectId]);
   const csvBytesByFilename: Record<string, number> = {};
   for (const r of csv.rows) {
     csvBytesByFilename[r.filename as string] = Number(r.bytes);
@@ -4312,6 +4351,7 @@ async function storageOf(client: pg.PoolClient, projectId: string): Promise<Proj
     csvBytesByFilename,
     recordBytes: Number(rec.rows[0].bytes),
     trainingBytes: Number(training.rows[0].bytes),
+    guideBytes: Number(guide.rows[0].bytes),
   };
 }
 

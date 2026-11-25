@@ -7,6 +7,7 @@ import type { FastifyRequest } from 'fastify';
 
 /** Paths whose next segment is a secret token. */
 const SECRET_PREFIXES = ['/v1/public/progress/', '/p/', '/v1/join/', '/join/', '/reset/', '/v1/auth/reset/', '/v1/collect-backup/', '/v1/unsubscribe/', '/unsubscribe/', '/confirm-email/'];
+const GUIDE_PREFIX = '/guide/';
 /** Query parameters that may hold a token. */
 const SECRET_PARAMS = /([?&](?:token|inviteToken|resetToken)=)[^&#]*/gi;
 
@@ -17,6 +18,8 @@ export function redactUrl(url: string): string {
   const q = url.search(/[?#]/);
   let path = q === -1 ? url : url.slice(0, q);
   const rest = q === -1 ? '' : url.slice(q);
+  // A survey guide's address is /guide/<project>/<token>: all of it after the prefix goes
+  if (path.startsWith(GUIDE_PREFIX) && path.length > GUIDE_PREFIX.length) return `${GUIDE_PREFIX}${REDACTED}${rest.replace(SECRET_PARAMS, `$1${REDACTED}`)}`;
   for (const prefix of SECRET_PREFIXES) {
     if (path.startsWith(prefix) && path.length > prefix.length) {
       const after = path.slice(prefix.length);

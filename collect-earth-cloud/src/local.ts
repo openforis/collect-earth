@@ -93,6 +93,11 @@ export const LOCAL_OFF_ROUTES: readonly string[] = [
   'POST /v1/projects',
   'POST /v1/projects/from-ceo/preview',
   'POST /v1/projects/from-ceo',
+  // The survey guide kept on a server: alone, the project file's own (survey_guide.pdf, or its survey_guide_url)
+  'GET /v1/projects/:pid/survey-guide',
+  'PUT /v1/projects/:pid/survey-guide',
+  'DELETE /v1/projects/:pid/survey-guide',
+  'GET /guide/:pid/:token',
   'POST /v1/projects/from-backup/preview',
   'POST /v1/projects/from-backup',
   'POST /v1/projects/:pid/repeat/preview',

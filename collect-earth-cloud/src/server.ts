@@ -53,6 +53,7 @@ import { registerPlotsGeoRoutes } from './routes/plotsGeo.js';
 import { registerProgressRoutes } from './routes/progress.js';
 import { registerBackupImportRoutes } from './routes/backupImport.js';
 import { registerUploadRoutes } from './routes/uploads.js';
+import { registerSurveyGuideRoutes } from './routes/surveyGuide.js';
 import { registerCeoImportRoutes } from './routes/ceoImport.js';
 import { registerRepeatSurveyRoutes } from './routes/repeatSurvey.js';
 import { registerPlotLayoutRoutes } from './routes/plotLayout.js';
@@ -222,6 +223,8 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     done(null, body);
   app.addContentTypeParser('application/zip', { parseAs: 'buffer' }, bufferBody);
   app.addContentTypeParser('application/octet-stream', { parseAs: 'buffer' }, bufferBody);
+  // a survey guide (PUT /survey-guide)
+  app.addContentTypeParser('application/pdf', { parseAs: 'buffer' }, bufferBody);
   app.addContentTypeParser('text/csv', { parseAs: 'buffer' }, bufferBody);
 
   app.get('/health', async () => ({ status: 'ok' }));
@@ -390,6 +393,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   await registerCeoImportRoutes(app, store);
   await registerBackupImportRoutes(app, store);
   await registerUploadRoutes(app, store);
+  await registerSurveyGuideRoutes(app, store, config);
   await registerRepeatSurveyRoutes(app, store);
   await registerCeoShapesRoutes(app, store);
   await registerCollectImportRoutes(app, store);

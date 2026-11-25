@@ -1,4 +1,5 @@
 import type { UploadInfo } from '../uploads.js';
+import type { SurveyGuide } from '../surveyGuide.js';
 import type {
   AiRunEnd,
   AiRunProgress,
@@ -403,6 +404,19 @@ export interface Store {
   consumePasswordReset(token: string, now: number): Promise<string | null>;
   /** Whether a reset token would be taken now (known, not used, not expired), without using it. */
   checkPasswordReset(token: string, now: number): Promise<boolean>;
+
+  // --- The survey guide (src/surveyGuide.ts): a project's ---
+  /** The project's guide, without the PDF's bytes; null when it has none. */
+  getSurveyGuide(projectId: string): Promise<SurveyGuide | null>;
+  /** The PDF of a guide the server keeps; null for a link, or without a guide. */
+  getSurveyGuideFile(projectId: string): Promise<Buffer | null>;
+  /**
+   * Sets the project's guide (one per project: it replaces the one there was). `urlOf` gives the address of a PDF from
+   * its token, which is kept when the project had a guide already (the address in the project files people hold stays good).
+   */
+  setSurveyGuide(projectId: string, input: { kind: 'link'; url: string } | { kind: 'file'; filename: string; data: Buffer; urlOf: (token: string) => string }, by: string | null): Promise<SurveyGuide>;
+  /** Removes the guide; false when there was none. */
+  deleteSurveyGuide(projectId: string): Promise<boolean>;
 
   // --- A large file sent in parts (src/uploads.ts): an account's, never a project's ---
   /** A new upload of this account, which replaces the ones it had; the expired ones of anyone (made before `expiredBefore`) go too. Its id. */
