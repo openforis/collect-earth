@@ -190,4 +190,74 @@ public class AppInfoControllerTest {
 	public void withNoSurveyThereIsNoProjectName() {
 		assertNull(AppInfoController.projectName(null, "es"));
 	}
+
+	@Test
+	public void theIntroductionOfANewInstallationHasShownNothingAndTakesNobodyForAnEarlierUser() throws Exception {
+		when(properties.getIntroSeen()).thenReturn(new java.util.LinkedHashSet<>());
+		when(properties.isIntroTips()).thenReturn(true);
+		// not decided yet (a mock would answer false)
+		when(properties.getIntroEarlierUser()).thenReturn(null);
+		mvc.perform(get("/api/app")).andExpect(status().isOk())
+				.andExpect(jsonPath("$.intro.seen").isEmpty())
+				.andExpect(jsonPath("$.intro.tips").value(true))
+				.andExpect(jsonPath("$.intro.earlierUser").value(false));
+		// decided once, at the first start that has the introduction
+		verify(properties).setIntroEarlierUser(false);
+	}
+
+	@Test
+	public void someoneWithANameHereUsedCollectEarthBefore() throws Exception {
+		when(properties.getOperator()).thenReturn("alfonso");
+		when(properties.getIntroEarlierUser()).thenReturn(null);
+		mvc.perform(get("/api/app")).andExpect(jsonPath("$.intro.earlierUser").value(true));
+		verify(properties).setIntroEarlierUser(true);
+	}
+
+	@Test
+	public void whoUsedCollectEarthBeforeIsNotDecidedAgain() throws Exception {
+		when(properties.getOperator()).thenReturn("alfonso");
+		when(properties.getIntroEarlierUser()).thenReturn(false);
+		mvc.perform(get("/api/app")).andExpect(jsonPath("$.intro.earlierUser").value(false));
+		verify(properties, never()).setIntroEarlierUser(org.mockito.ArgumentMatchers.anyBoolean());
+	}
+
+	@Test
+	public void whatTheIntroductionHasShownIsAddedOnceAndOnlyAsIds() throws Exception {
+		when(properties.getIntroSeen()).thenReturn(new java.util.LinkedHashSet<>(java.util.List.of("map.list")));
+		when(properties.isIntroTips()).thenReturn(true);
+		when(properties.getIntroEarlierUser()).thenReturn(false);
+		mvc.perform(put("/api/app/intro").contentType(MediaType.APPLICATION_JSON)
+				.content("{\"seen\":[\"map.list\",\"tip.cloud\",\"not an id!\",null]}")).andExpect(status().isOk());
+		verify(properties).setIntroSeen(new java.util.LinkedHashSet<>(java.util.List.of("map.list", "tip.cloud")));
+		verify(properties, never()).setIntroTips(org.mockito.ArgumentMatchers.anyBoolean());
+	}
+
+	@Test
+	public void nothingNewIsNotSaved() throws Exception {
+		when(properties.getIntroSeen()).thenReturn(new java.util.LinkedHashSet<>(java.util.List.of("map.list")));
+		when(properties.isIntroTips()).thenReturn(true);
+		when(properties.getIntroEarlierUser()).thenReturn(false);
+		mvc.perform(put("/api/app/intro").contentType(MediaType.APPLICATION_JSON).content("{\"seen\":[\"map.list\"]}")).andExpect(status().isOk());
+		verify(properties, never()).setIntroSeen(org.mockito.ArgumentMatchers.any());
+	}
+
+	@Test
+	public void theTipsSwitchedOnAgainStartOver() throws Exception {
+		when(properties.getIntroSeen()).thenReturn(new java.util.LinkedHashSet<>(java.util.List.of("map.list", "tip.cloud", "tip.keys")));
+		when(properties.isIntroTips()).thenReturn(false);
+		when(properties.getIntroEarlierUser()).thenReturn(false);
+		mvc.perform(put("/api/app/intro").contentType(MediaType.APPLICATION_JSON).content("{\"tips\":true}")).andExpect(status().isOk());
+		verify(properties).setIntroTips(true);
+		verify(properties).setIntroSeen(new java.util.LinkedHashSet<>(java.util.List.of("map.list")));
+	}
+
+	@Test
+	public void theTipsSwitchedOffKeepWhatWasShown() throws Exception {
+		when(properties.getIntroSeen()).thenReturn(new java.util.LinkedHashSet<>(java.util.List.of("tip.cloud")));
+		when(properties.isIntroTips()).thenReturn(true);
+		when(properties.getIntroEarlierUser()).thenReturn(false);
+		mvc.perform(put("/api/app/intro").contentType(MediaType.APPLICATION_JSON).content("{\"tips\":false}")).andExpect(status().isOk());
+		verify(properties).setIntroTips(false);
+		verify(properties, never()).setIntroSeen(org.mockito.ArgumentMatchers.any());
+	}
 }

@@ -66,6 +66,9 @@ interface Props {
   reload: () => void;
   /** Opens the settings page (the Settings menu). */
   onSettings: () => void;
+  /** The introduction (App, intro.ts): its tips are on, and what Help asks of it */
+  tips: boolean;
+  onIntro: (ask: "showAround" | "whatChanged" | "tips") => void;
 }
 
 /**
@@ -74,7 +77,7 @@ interface Props {
  * when there is none, as the Swing window did at start-up, and once Collect Earth quits it covers the page, which can
  * do nothing more.
  */
-export function AppBar({ info, texts, reload, onSettings }: Props) {
+export function AppBar({ info, texts, reload, onSettings, tips, onIntro }: Props) {
   const t = useT();
   // Where the project keeps its data and how its sending goes; what /api/app knows until it is read
   const [cloudNow, refreshCloud] = useCloudState(info.cloud);
@@ -137,6 +140,7 @@ export function AppBar({ info, texts, reload, onSettings }: Props) {
     importCep: () => { setDropped(null); setDialog("importCep"); }, projects: () => setDialog("projects"), joinCloud: () => setDialog("joinCloud"), cloudStatus: () => setDialog("cloudStatus"), language: () => setDialog("language"),
     surveyGuide: quick("openSurveyGuide"), manual: quick("openManual"), support: quick("openSupport"), updates: quick("runUpdater"),
     log: () => setDialog("log"), disclaimer: () => setDialog("disclaimer"), about: () => setDialog("about"),
+    showAround: () => onIntro("showAround"), whatChanged: () => onIntro("whatChanged"), tips: () => onIntro("tips"),
     showExceptions: () => {
       const shown = !errorsShown;
       setErrorsShown(shown);
@@ -150,7 +154,7 @@ export function AppBar({ info, texts, reload, onSettings }: Props) {
     window.addEventListener(SEND_TO_CLOUD, openSend);
     return () => window.removeEventListener(SEND_TO_CLOUD, openSend);
   }, []);
-  const toggles: Record<string, boolean> = { showExceptions: errorsShown };
+  const toggles: Record<string, boolean> = { showExceptions: errorsShown, tips };
   const run = (item: AppMenuItem) => {
     setOpen(false);
     const action = actionOf(item);
@@ -351,7 +355,7 @@ function QuitDialog({ open, texts, onKeepOpen, onClosed }: {
 /** Over everything once Collect Earth has quit: the page stays in the browser, but no call would be answered. */
 function ClosedOverlay({ text }: { text: string }) {
   return (
-    <Box role="alert" sx={{
+    <Box role="alert" data-blocks-intro sx={{
       position: "fixed", inset: 0, zIndex: (theme) => theme.zIndex.modal + 1, bgcolor: "background.default",
       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, p: 3, textAlign: "center",
     }}>

@@ -1,3 +1,4 @@
+import type { IntroInfo } from "./intro";
 import { apiGet, apiPost, apiPut } from "./apiClient";
 import type { CloudState, RecordSync } from "./cloud";
 import type { CloudStatus } from "./project";
@@ -66,3 +67,6 @@ export const setLanguage = (language: string) => apiPut<void>("app/language", { 
 export const helpText = (name: "disclaimer" | "log", signal?: AbortSignal) => apiGet<{ path: string; text: string }>("help/text?name=" + name, signal);
 
 export const setErrorsShown = (shown: boolean) => apiPut<void>("help/errorsShown", { shown });
+
+/** What the introduction has shown since (never shown twice), and the switch of its tips; answers it as it is now */
+export const saveIntro = (change: { seen?: string[]; tips?: boolean }) => apiPut<IntroInfo>("app/intro", change);

@@ -14,7 +14,8 @@ export interface Menu { id: string; label: string; items: MenuItem[] }
 // The entries built so far: the others show, disabled, until their stage of docs/plans/2026-10-28-html-ui-design.md
 const BUILT = new Set(["quit", "properties", "export", "import",
   "analyse", "lulucf", "loadKml", "dataFolder", "myDashboard", "missingPlots", "divideCsv", "deletePlots", "sendToCloud",
-  "importCep", "projects", "joinCloud", "cloudStatus", "language", "surveyGuide", "manual", "support", "log", "showExceptions", "updates", "disclaimer", "about"]);
+  "importCep", "projects", "joinCloud", "cloudStatus", "language", "surveyGuide", "manual", "support", "log", "showExceptions", "updates", "disclaimer", "about",
+  "showAround", "whatChanged", "tips"]);
 
 /**
  * The entries the Swing window disabled when Collect Earth acts as a client of another instance (serverMenuItems):
@@ -98,10 +99,16 @@ function allMenus(app: MenuContext): Menu[] {
     { id: "settings", label: "CollectEarthWindow.15", items: [item("properties", "CollectEarthWindow.15")] },
     { id: "help", label: "CollectEarthWindow.16", items: [
       ...(app.surveyGuide ? [item("surveyGuide", "CollectEarthWindow.70")] : []),
+      // The introduction to the interface (intro.ts): the map of the screen again, and what changed from Collect
+      // Earth 1. Before the manual: someone lost looks here first
+      item("showAround", "Intro.showAround"),
+      item("whatChanged", "Intro.whatChanged"),
       item("manual", "CollectEarthWindow.50"),
       item("support", "CollectEarthWindow.64"),
       item("log", "CollectEarthWindow.52"),
       toggle("showExceptions", "CollectEarthMenu.9"),
+      // ...and the switch of its tips, with the other switch
+      toggle("tips", "Intro.tips"),
       item("updates", "CollectEarthWindow.51"),
       item("disclaimer", "CollectEarthWindow.17"),
       item("about", "CollectEarthWindow.56"),

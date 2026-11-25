@@ -95,7 +95,66 @@ public class AppInfoController {
 		app.put("languages", languages());
 		// A client of another Collect Earth has no data of its own: the Swing window disabled the entries that act on it
 		app.put("client", properties.getOperationMode() == OperationMode.CLIENT_MODE);
+		app.put("intro", intro(operator));
 		return app;
+	}
+
+	/** The prefix of the ids of the tips, among what the introduction has shown (intro.ts) */
+	static final String TIP_PREFIX = "tip.";
+	/** An id of the introduction: a short name of letters, digits, dots and hyphens */
+	private static final java.util.regex.Pattern INTRO_ID = java.util.regex.Pattern.compile("[A-Za-z0-9.-]{1,40}");
+	/** At most this many ids are kept: the pages have a dozen */
+	private static final int MAX_INTRO_IDS = 60;
+
+	/**
+	 * The introduction to the interface (intro.ts): what it has shown here, whether the tips are on, and whether this is
+	 * someone who used Collect Earth before 2.0, decided once: at the first start that has the introduction, a new
+	 * installation has no operator yet, and one that was in use has.
+	 */
+	private Map<String, Object> intro(String operator) {
+		Boolean earlier = properties.getIntroEarlierUser();
+		if (earlier == null) {
+			earlier = StringUtils.isNotBlank(operator);
+			properties.setIntroEarlierUser(earlier);
+		}
+		Map<String, Object> intro = new LinkedHashMap<>();
+		intro.put("seen", new ArrayList<>(properties.getIntroSeen()));
+		intro.put("tips", properties.isIntroTips());
+		intro.put("earlierUser", earlier);
+		return intro;
+	}
+
+	/** What the introduction has shown since, and the switch of its tips. */
+	public static class IntroRequest {
+		public List<String> seen;
+		public Boolean tips;
+	}
+
+	/**
+	 * Adds what the introduction has shown (it is never shown twice), and switches the tips: switched on again, they
+	 * start over, so each shows once more.
+	 */
+	@PutMapping("/api/app/intro")
+	public Map<String, Object> intro(@RequestBody IntroRequest request) {
+		java.util.Set<String> seen = new java.util.LinkedHashSet<>(properties.getIntroSeen());
+		boolean changed = false;
+		if (request.tips != null && request.tips != properties.isIntroTips()) {
+			properties.setIntroTips(request.tips);
+			if (request.tips) {
+				changed = seen.removeIf(id -> id.startsWith(TIP_PREFIX));
+			}
+		}
+		if (request.seen != null) {
+			for (String id : request.seen) {
+				if (id != null && INTRO_ID.matcher(id).matches() && seen.size() < MAX_INTRO_IDS && seen.add(id)) {
+					changed = true;
+				}
+			}
+		}
+		if (changed) {
+			properties.setIntroSeen(seen);
+		}
+		return intro(properties.getOperator());
 	}
 
 	private static List<Map<String, String>> languages() {

@@ -3,6 +3,9 @@ import AddLocationAltOutlinedIcon from "@mui/icons-material/AddLocationAltOutlin
 import PivotTableChartOutlinedIcon from "@mui/icons-material/PivotTableChartOutlined";
 import BugReportOutlinedIcon from "@mui/icons-material/BugReportOutlined";
 import CallSplitOutlinedIcon from "@mui/icons-material/CallSplitOutlined";
+import CompareArrowsOutlinedIcon from "@mui/icons-material/CompareArrowsOutlined";
+import ExploreOutlinedIcon from "@mui/icons-material/ExploreOutlined";
+import LightbulbOutlinedIcon from "@mui/icons-material/LightbulbOutlined";
 import CloudUploadOutlinedIcon from "@mui/icons-material/CloudUploadOutlined";
 import CloudSyncOutlinedIcon from "@mui/icons-material/CloudSyncOutlined";
 import DashboardOutlinedIcon from "@mui/icons-material/DashboardOutlined";
@@ -31,6 +34,9 @@ import TranslateOutlinedIcon from "@mui/icons-material/TranslateOutlined";
  * in the menus of the wide one. Kept out of menus.ts, which stays plain data.
  */
 export const MENU_ICONS: Record<string, SvgIconComponent> = {
+  showAround: ExploreOutlinedIcon,
+  whatChanged: CompareArrowsOutlinedIcon,
+  tips: LightbulbOutlinedIcon,
   importCep: FileOpenOutlinedIcon,
   projects: SwapHorizOutlinedIcon,
   joinCloud: GroupAddOutlinedIcon,

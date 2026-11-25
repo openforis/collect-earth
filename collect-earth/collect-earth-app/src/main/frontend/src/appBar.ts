@@ -6,7 +6,8 @@ import type { MenuItem } from "./menus";
 export type AppAction = "quit" | "settings" | "export" | "import"
   | "analyse" | "lulucf" | "loadKml" | "dataFolder" | "myDashboard" | "missingPlots" | "divideCsv" | "deletePlots" | "sendToCloud"
   | "importCep" | "projects" | "joinCloud" | "cloudStatus" | "language"
-  | "surveyGuide" | "manual" | "support" | "log" | "showExceptions" | "updates" | "disclaimer" | "about";
+  | "surveyGuide" | "manual" | "support" | "log" | "showExceptions" | "updates" | "disclaimer" | "about"
+  | "showAround" | "whatChanged" | "tips";
 
 // A Map, not an object: an entry called "constructor" would find a property of every object
 const ACTIONS = new Map<string, AppAction>([
@@ -16,6 +17,7 @@ const ACTIONS = new Map<string, AppAction>([
   ["importCep", "importCep"], ["projects", "projects"], ["joinCloud", "joinCloud"], ["cloudStatus", "cloudStatus"], ["language", "language"],
   ["surveyGuide", "surveyGuide"], ["manual", "manual"], ["support", "support"], ["log", "log"], ["showExceptions", "showExceptions"],
   ["updates", "updates"], ["disclaimer", "disclaimer"], ["about", "about"],
+  ["showAround", "showAround"], ["whatChanged", "whatChanged"], ["tips", "tips"],
 ]);
 
 /** The action of an entry of the menus, or null for one that does nothing yet. */

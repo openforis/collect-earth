@@ -1,3 +1,4 @@
+import type { IntroInfo } from "./intro";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiGet } from "./apiClient";
 import { APP_INFO_CHANGED } from "./notices";
@@ -26,6 +27,8 @@ export interface AppInfo {
   languages: { code: string; label: string }[];
   /** Collect Earth acts as a client of another instance: the entries that act on the data go */
   client: boolean;
+  /** The introduction to the interface: what it has shown here (intro.ts) */
+  intro?: IntroInfo;
 }
 
 /** How long after a failed read of /api/app it is tried again: without it the bar, and Quit, would never show. */

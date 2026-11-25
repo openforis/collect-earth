@@ -9,7 +9,7 @@ import { Logo } from "../Logo";
  */
 export function RestartingOverlay({ text }: { text: string }) {
   return (
-    <Box role="alert" sx={{
+    <Box role="alert" data-blocks-intro sx={{
       position: "fixed", inset: 0, zIndex: (theme) => theme.zIndex.modal + 1, bgcolor: "background.default",
       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, p: 3, textAlign: "center",
     }}>
