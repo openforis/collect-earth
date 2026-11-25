@@ -114,6 +114,12 @@ public class LocalPropertiesService extends Observable {
 				GEEAPP_TO_DATE("geeapp_date_to"),
 				/** The survey's configuration of the Explorer window (its layers and charts), a JSON document passed as it is */
 				EXPLORER_CONFIG("explorer_config"),
+				/**
+				 * The address of the survey's guide (how to interpret the plots): a document kept on a server, opened in the
+				 * browser. From 2.0 the guide is an address and not a file inside the project file (survey_guide.pdf, still
+				 * read when a project file has one): the project file stays light
+				 */
+				SURVEY_GUIDE_URL("survey_guide_url"),
 				OPEN_ESRI_WAYBACK("open_esri_wayback"),
 				/** Share of the height of Google Earth Web's view a plot fills (0.375 when not set), see GoogleEarthWebUrls */
 				GEW_PLOT_VIEW_SHARE("gew_plot_view_share"),

@@ -26,6 +26,7 @@ import org.openforis.collect.earth.app.service.cloud.CloudApiClient.CloudApiExce
 import org.openforis.collect.earth.app.service.cloud.CloudRecordSerializer.RecordEnvelope;
 import org.openforis.collect.earth.app.service.cloud.CloudSyncQueueDao.QueueItem;
 import org.openforis.collect.earth.app.service.cloud.CloudSyncQueueDao.QueueStatus;
+import org.openforis.collect.earth.app.service.SurveyGuide;
 import org.openforis.collect.earth.app.service.notices.Notice;
 import org.openforis.collect.earth.app.service.notices.NoticeService;
 import org.openforis.collect.earth.app.view.Messages;
@@ -85,6 +86,9 @@ public class CloudSyncService implements ApplicationListener<ContextRefreshedEve
 	private NoticeService notices;
 	@Autowired(required = false)
 	private CloudCoordinatorSettings coordinatorSettings;
+	/** The survey's guide, which the coordinator sets on the dashboard */
+	@Autowired(required = false)
+	private SurveyGuide surveyGuide;
 	/** Taken when the cycle runs: it needs CloudService, which needs this service */
 	@Autowired
 	private ObjectProvider<TrainingPlotFiles> trainingPlotFiles;
@@ -237,6 +241,14 @@ public class CloudSyncService implements ApplicationListener<ContextRefreshedEve
 			refreshProject();
 			if (coordinatorSettings != null) {
 				coordinatorSettings.checkIfDue(System.currentTimeMillis()); // the coordinator may have changed them on the dashboard
+			}
+			if (surveyGuide != null && surveyGuide.checkIfDue(System.currentTimeMillis(), apiClient::getSurveyGuide)) {
+				// set, changed or taken away on the dashboard: the pages show its button (or not) from now on
+				logger.info("The survey guide of the cloud project changed"); //$NON-NLS-1$
+				if (notices != null) {
+					notices.post(new Notice("surveyGuide", Notice.INFO, Messages.getString("CollectEarthWindow.70"), //$NON-NLS-1$ //$NON-NLS-2$
+							Messages.getString(surveyGuide.exists() ? "SurveyGuide.set" : "SurveyGuide.removed"))); //$NON-NLS-1$ //$NON-NLS-2$
+				}
 			}
 			TrainingPlotFiles training = trainingPlotFiles == null ? null : trainingPlotFiles.getIfAvailable();
 			if (training != null) {

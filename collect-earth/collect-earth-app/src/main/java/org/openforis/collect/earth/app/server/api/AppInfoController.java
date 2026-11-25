@@ -13,6 +13,8 @@ import org.openforis.collect.earth.app.EarthConstants.OperationMode;
 import org.openforis.collect.earth.app.EarthConstants.UI_LANGUAGE;
 import org.openforis.collect.earth.app.service.EarthSurveyService;
 import org.openforis.collect.earth.app.service.LocalPropertiesService;
+import org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty;
+import org.openforis.collect.earth.app.service.SurveyGuide;
 import org.openforis.collect.earth.app.service.UpdateIniUtils;
 import org.openforis.collect.earth.app.service.WindowLayoutService;
 import org.openforis.collect.earth.app.view.Messages;
@@ -87,8 +89,10 @@ public class AppInfoController {
 		// No token either: the server stopped taking it (CloudSyncService.signedOut), so the login is asked for again
 		app.put("cloudLoginNeeded", cloud && (StringUtils.isBlank(operator) || StringUtils.isBlank(properties.getCloudSyncToken())));
 		app.put("errorsShown", Boolean.TRUE.equals(properties.isExceptionShown()));
+		// The survey's guide: an address the project file carries (from 2.0), or the file inside an older one
 		File guide = surveyGuide.get();
-		app.put("surveyGuide", guide != null && guide.exists() && guide.canRead());
+		app.put("surveyGuide", SurveyGuide.addressOf(properties.getValue(EarthProperty.SURVEY_GUIDE_URL)) != null
+				|| (guide != null && guide.exists() && guide.canRead()));
 		app.put("manual", manual.exists() && manual.canRead());
 		app.put("build", build());
 		app.put("java", System.getProperty("java.version"));

@@ -14,6 +14,7 @@ import TextField from "@mui/material/TextField";
 import Toolbar from "@mui/material/Toolbar";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import MenuBookOutlinedIcon from "@mui/icons-material/MenuBookOutlined";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import CloudDoneOutlinedIcon from "@mui/icons-material/CloudDoneOutlined";
 import CloudOffOutlinedIcon from "@mui/icons-material/CloudOffOutlined";
@@ -184,6 +185,14 @@ export function AppBar({ info, texts, reload, onSettings, tips, onIntro }: Props
         {/* Where the project keeps its data, always in sight: this computer, or the cloud project and its sending */}
         {info.project && <ProjectChipView chip={chip} onStatus={() => setDialog("cloudStatus")} onSignIn={() => setCloudPrompt("login")} />}
         <Box sx={{ flex: 1 }} />
+        {/* The survey's guide (how to interpret the plots), in sight beside the form: it was an entry of the Help menu only */}
+        {info.surveyGuide && (
+          <Tooltip title={s("CollectEarthWindow.70")}>
+            <IconButton size="small" color="primary" aria-label={s("CollectEarthWindow.70")} onClick={actions.surveyGuide} data-testid="survey-guide-button">
+              <MenuBookOutlinedIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )}
         {/* The settings beside you, one click from the plot form, without going through the menus */}
         <Tooltip title={t("appBar.settingsTip")}>
           <IconButton size="small" aria-label={s("CollectEarthWindow.15")} onClick={onSettings} data-testid="settings-button">

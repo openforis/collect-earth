@@ -232,6 +232,10 @@ public class EarthProjectsService {
 		if (!projectProperties.containsKey(EarthProperty.SAMPLE_POINT_NUMBERS.toString())) {
 			localPropertiesService.setValue(EarthProperty.SAMPLE_POINT_NUMBERS, ""); //$NON-NLS-1$
 		}
+		// Nor the guide of the survey before
+		if (!projectProperties.containsKey(EarthProperty.SURVEY_GUIDE_URL.toString())) {
+			localPropertiesService.setValue(EarthProperty.SURVEY_GUIDE_URL, ""); //$NON-NLS-1$
+		}
 		// Nor the Explorer window of the survey before
 		if (!projectProperties.containsKey(EarthProperty.EXPLORER_CONFIG.toString())) {
 			localPropertiesService.setValue(EarthProperty.EXPLORER_CONFIG, ""); //$NON-NLS-1$

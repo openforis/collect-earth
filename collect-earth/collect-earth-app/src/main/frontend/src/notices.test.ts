@@ -54,6 +54,8 @@ describe("the notices that change the app's info", () => {
   it("are the cloud sign-in the server no longer takes, after which the login is asked for again", () => {
     const of = (kind: string) => ({ id: "1", kind, severity: "warning" as const, title: "", message: "", html: false, options: [] });
     expect(changesAppInfo(of("cloudSignedOut"))).toBe(true);
+    // the survey guide set or taken away on the dashboard: its button shows or goes
+    expect(changesAppInfo(of("surveyGuide"))).toBe(true);
     expect(changesAppInfo(of("announcement"))).toBe(false);
   });
 });

@@ -34,10 +34,11 @@ export const NOTICES_POLL_MILLIS = 5000;
 export const APP_INFO_CHANGED = "collectEarth:appInfoChanged";
 /**
  * The notices after which the app's info has changed: the cloud sign-in the server no longer takes
- * (CloudSyncService.signedOut), after which the login is asked for again.
+ * (CloudSyncService.signedOut), after which the login is asked for again; and the survey guide the coordinator set or
+ * took away on the dashboard, whose button shows or goes.
  */
 export function changesAppInfo(notice: Notice): boolean {
-  return notice.kind === "cloudSignedOut";
+  return notice.kind === "cloudSignedOut" || notice.kind === "surveyGuide";
 }
 
 /** The event that opens Data > Send this computer's records to the cloud project (AppBar) */

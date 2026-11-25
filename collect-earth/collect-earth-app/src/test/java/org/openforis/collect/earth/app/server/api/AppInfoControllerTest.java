@@ -260,4 +260,14 @@ public class AppInfoControllerTest {
 		verify(properties).setIntroTips(false);
 		verify(properties, never()).setIntroSeen(org.mockito.ArgumentMatchers.any());
 	}
+
+	/** From 2.0 the guide is an address the project file carries: no file is needed, and what is no address is no guide. */
+	@Test
+	public void theSurveyGuideIsAnAddressTooNotOnlyAFile() throws Exception {
+		when(properties.getValue(org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty.SURVEY_GUIDE_URL))
+				.thenReturn("https://cloud.example.org/guide/327db2ed-beef-439b-993b-916b49bcd8b4/AbC_9-xAbC_9-xAbC_9-x");
+		mvc.perform(get("/api/app")).andExpect(status().isOk()).andExpect(jsonPath("$.surveyGuide").value(true));
+		when(properties.getValue(org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty.SURVEY_GUIDE_URL)).thenReturn("guide.pdf");
+		mvc.perform(get("/api/app")).andExpect(status().isOk()).andExpect(jsonPath("$.surveyGuide").value(false));
+	}
 }

@@ -735,6 +735,21 @@ public class CloudApiClient {
 		return getProjectSettings("getImagery", "imagery", "imagery");
 	}
 
+	/**
+	 * The cloud project's survey guide (GET /survey-guide): its address by property name (survey_guide_url, "" without a
+	 * guide). A server of before the guides (404) gives nothing, and nothing is changed here.
+	 */
+	public Map<String, String> getSurveyGuide() throws IOException {
+		try {
+			return getProjectSettings("getSurveyGuide", "survey-guide", "properties");
+		} catch (CloudApiException e) {
+			if (e.getStatus() == 404) {
+				return new LinkedHashMap<>();
+			}
+			throw e;
+		}
+	}
+
 	private Map<String, String> getProjectSettings(String what, String path, String field) throws IOException {
 		HttpGet request = new HttpGet(baseUrl() + "/v1/projects/" + projectId() + "/" + path);
 		prepare(request);
