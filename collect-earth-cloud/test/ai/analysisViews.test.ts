@@ -22,7 +22,7 @@ describe('the survey structure sent to the model', () => {
   it('has the questions by the ids of the dashboard\'s cube, labels in the language, the codes of their lists', () => {
     const lu = byId.get('land_use_category')!;
     expect(lu).toMatchObject({ label: 'Uso de la tierra 2025', type: 'code', source: 'answer' });
-    expect(lu.codes).toContainEqual({ code: 'F', label: 'Bosque', level: 0 });
+    expect(lu.codes).toContainEqual({ code: 'F', label: 'Tierras forestales', level: 0 });
     expect(byId.get('province')).toMatchObject({ source: 'plotFile', type: 'text' });
     expect(byId.get('_saved_week')).toMatchObject({ time: true, source: 'collection' });
     // the keys and Collect Earth's own attributes are no questions to analyse

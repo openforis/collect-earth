@@ -142,7 +142,7 @@ describe('recordsCsv in the person\'s language, with the labels and the weights'
     ]);
     // several values: their labels joined as the codes are; a code not in the list stays the code; no answer, no label
     expect(spanish.rows.map((r) => r.slice(9))).toEqual([
-      ['F', 'Bosque', 'broadleaf_dec::a qualifier===zz', 'Bosque de hoja ancha caducifolio===zz', '2', '1 puntos', '1'],
+      ['F', 'Tierras forestales', 'broadleaf_dec::a qualifier===zz', 'Bosque de hoja ancha caducifolio===zz', '2', '1 punto', '1'],
       ['', '', '', '', '', '', '2'],
     ]);
     expect(table('tr').rows[0].slice(9, 11)).toEqual(['F', 'Forest']);
@@ -420,7 +420,7 @@ describe('the data download\'s choices: the labels, the records changed since th
     expect(body.languages).toEqual(['en', 'fr', 'pt', 'es']);
     expect(body.questions).toContainEqual(expect.objectContaining({ key: 'collect_code_land_use_category', name: 'land_use_category', list: 'land_uses' }));
     expect(body.questions).toContainEqual(expect.objectContaining({ key: 'collect_text_province', list: null }));
-    expect(body.lists.land_uses[0]).toMatchObject({ code: 'F', labels: { es: 'Bosque' } });
+    expect(body.lists.land_uses[0]).toMatchObject({ code: 'F', labels: { es: 'Tierras forestales' } });
   });
 
   it('adds the labels of the answers in the person\'s language, to the map files too', async () => {
@@ -428,9 +428,9 @@ describe('the data download\'s choices: the labels, the records changed since th
     const header = csv[0].split(';');
     const at = header.indexOf('collect_code_land_use_category');
     expect(header[at + 1]).toBe('collect_code_land_use_category_label');
-    expect(csv.slice(1).map((l) => l.split(';')[at + 1])).toEqual(['Bosque', expect.any(String), 'Bosque']);
+    expect(csv.slice(1).map((l) => l.split(';')[at + 1])).toEqual(['Tierras forestales', expect.any(String), 'Tierras forestales']);
     const geojson = (await get('/export.geojson?lang=fr&labels=include')).json();
-    expect(geojson.features[0].properties).toMatchObject({ collect_code_land_use_category: 'F', collect_code_land_use_category_label: 'Forêt' });
+    expect(geojson.features[0].properties).toMatchObject({ collect_code_land_use_category: 'F', collect_code_land_use_category_label: 'Terres forestières' });
     const [logged] = await ctx.store.listAudit(pid, { limit: 1, action: 'export.downloaded' });
     expect(logged.details).toEqual({ records: 3, format: 'geojson', labels: true });
   });
