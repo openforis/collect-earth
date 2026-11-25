@@ -1,8 +1,8 @@
 // The project file (.cep) of a project made from a Collect Earth Online project (docs/plans/2026-11-09-ceo-bridge.md,
-// B4): the survey (idml.ts), project_definition.properties, the KML template and a balloon. The form is the one the
-// plots map and Google Earth Web build from the survey; the balloon is there for what reads it: the cloud's addRound
-// and addNote (its marker line and EXTRA_ID_ATTRIBUTES) and Collect Earth with web_form=balloon, where it only says
-// where the form is. (Collect Earth 2 reads no KML template; earlier versions made Google Earth Pro's KML with it.) The import report goes in too, so it stays with the project.
+// B4): the survey (idml.ts), project_definition.properties and the KML template. There is no balloon: the form is the
+// one the plots map and Google Earth Web build from the survey, and the cloud's addRound and addNote change a project
+// file that has none. (Collect Earth 2 reads no KML template; earlier versions made Google Earth Pro's KML with it.)
+// The import report goes in too, so it stays with the project.
 import { zipCep } from '../cep.js';
 import type { CeoSurvey } from './index.js';
 import { KML_TEMPLATE } from './kmlTemplate.js';
@@ -25,8 +25,6 @@ export function reportText(survey: CeoSurvey): string {
 
 const count = (s: CeoSurvey, area: ReportEntry['area'], outcome: ReportEntry['outcome']) => s.report.count(outcome, area);
 
-const escapeHtml = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-
 /** A properties value: backslashes, and a leading space, escaped; one line */
 const property = (s: string): string => s.replace(/\\/g, '\\\\').replace(/^ /, '\\ ').replace(/\r?\n/g, ' ');
 
@@ -34,8 +32,6 @@ const property = (s: string): string => s.replace(/\\/g, '\\\\').replace(/^ /, '
 export interface MadeProjectFile {
   /** the survey (placemark.idm.xml) */
   idml: string;
-  /** the project's name, for the balloon's title */
-  title: string;
   /** survey_name: the survey's name, as Collect Earth names its project folder */
   surveyName: string;
   /** the first line of the properties (a comment: where the project comes from) */
@@ -50,10 +46,9 @@ export interface MadeProjectFile {
 }
 
 /**
- * A project file made by the server (a CEO import, a backup's): the survey, project_definition.properties, the KML
- * template and a balloon. The form is the one the plots map and Google Earth Web build from the survey; the balloon is
- * there for what reads it: the cloud's addRound and addNote (its marker line and EXTRA_ID_ATTRIBUTES) and Collect
- * Earth with web_form=balloon, where it only says where the form is.
+ * A project file made by the server (a CEO import, a backup's, a new survey's): the survey,
+ * project_definition.properties and the KML template. No balloon: the form is the one the plots map and Google Earth
+ * Web build from the survey.
  */
 export function madeProjectFile(o: MadeProjectFile, date: Date): Buffer {
   const extraData = [
@@ -62,30 +57,9 @@ export function madeProjectFile(o: MadeProjectFile, date: Date): Buffer {
   ].join('\n');
   const template = KML_TEMPLATE.replace('@@EXTRA_DATA@@', extraData);
 
-  const balloon = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8" />
-  <title>${escapeHtml(o.title)}</title>
-  <script type="text/javascript">
-    var EXTRA_ID_ATTRIBUTES = ['collect_text_id'];
-  </script>
-</head>
-<body>
-  <form>
-<!-- START OF EXTRA CSV DATA -->
-<input type="hidden" id="collect_text_id" name="collect_text_id" value="$[EXTRA_id]" class="extra" />
-  </form>
-  <p>Plot $[EXTRA_id]: this project's form opens in Collect Earth's plots map, beside Google Earth Web,
-  not in this balloon.</p>
-</body>
-</html>
-`;
-
   const properties = [
     `#${property(o.comment)}`,
     'metadata_file=${project_path}/placemark.idm.xml',
-    'balloon=${project_path}/balloon.html',
     'template=${project_path}/kml_template.fmt',
     `survey_name=${property(o.surveyName)}`,
     'coordinates_reference_system=EPSG\\:4326',
@@ -98,7 +72,6 @@ export function madeProjectFile(o: MadeProjectFile, date: Date): Buffer {
   const entries = new Map<string, Uint8Array>([
     ['placemark.idm.xml', utf8(o.idml)],
     ['project_definition.properties', utf8(properties)],
-    ['balloon.html', utf8(balloon)],
     ['kml_template.fmt', utf8(template)],
     // Collect Earth copies this folder beside the KML it makes (KmlGeneratorService), and fails without it
     ['earthFiles/README.txt', utf8('Files for the KML of this project, which Collect Earth copies beside it.\n')],
@@ -113,7 +86,6 @@ export function ceoProjectFile(survey: CeoSurvey, date: Date): Buffer {
   return madeProjectFile(
     {
       idml: survey.idml,
-      title: project.name,
       surveyName,
       comment: `Collect Earth project made from Collect Earth Online${project.id !== null ? ` project ${project.id}` : ''}`,
       columns: ['elevation', 'slope', 'aspect', ...plan.columns.map((c) => c.name)],

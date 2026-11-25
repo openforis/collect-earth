@@ -58,7 +58,10 @@ describe('a new survey', () => {
     expect(properties.get('survey_name')).toBe('basic_3f2a9c1e');
     expect(properties.get('sample_shape')).toBe('SQUARE');
     expect(properties.get('number_of_sampling_points_in_plot')).toBe('25');
-    expect([...files.entries.keys()]).toEqual(expect.arrayContaining(['placemark.idm.xml', 'project_definition.properties', 'balloon.html', 'kml_template.fmt']));
+    expect([...files.entries.keys()]).toEqual(expect.arrayContaining(['placemark.idm.xml', 'project_definition.properties', 'kml_template.fmt']));
+    // No balloon: Collect Earth 2 makes the form from the survey
+    expect([...files.entries.keys()].filter((name) => name.includes('balloon'))).toEqual([]);
+    expect(properties.has('balloon')).toBe(false);
   });
 });
 

@@ -87,14 +87,15 @@ describe('a new project from a Collect Earth Online project', () => {
     expect(reportText).toContain('Imported from Collect Earth Online, project 2616');
     expect((await ctx.store.listMemberships(owner.userId)).map((m) => [m.projectId, m.role])).toEqual([[projectId, 'admin']]);
 
-    // what Collect Earth downloads: the survey with its round key, the balloon and template edited for it
+    // what Collect Earth downloads: the survey with its round key and the template edited for it; no balloon
     const cep = await ctx.app.inject({ method: 'GET', url: `/v1/projects/${projectId}/cep`, headers: bearer(owner.token) });
     expect(cep.statusCode).toBe(200);
     const files = readCep(cep.rawPayload);
     expect(files.surveyPath).toBe('placemark.idm.xml');
     const entries = unzipSync(new Uint8Array(cep.rawPayload));
     expect(strFromU8(entries['placemark.idm.xml'])).toContain('name="round"');
-    expect(strFromU8(entries['balloon.html'])).toContain('collect_code_round');
+    expect(entries['balloon.html']).toBeUndefined();
+    expect(strFromU8(entries['project_definition.properties'])).not.toMatch(/^balloon/m);
     expect(strFromU8(entries['kml_template.fmt'])).toContain('<Data name="EXTRA_round">');
     expect(entries['earthFiles/README.txt']).toBeDefined();
     expect(strFromU8(entries['project_definition.properties'])).toMatch(/sample_shape=CIRCLE/);
