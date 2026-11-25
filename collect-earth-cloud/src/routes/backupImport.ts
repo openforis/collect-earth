@@ -279,7 +279,6 @@ export async function registerBackupImportRoutes(app: FastifyInstance, store: St
     const cep = madeProjectFile(
       {
         idml: original.xml,
-        title: name,
         surveyName: original.surveyName,
         comment: 'Collect Earth project made from a backup of its data',
         columns: original.plotColumns,

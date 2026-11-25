@@ -144,14 +144,13 @@ export function newSurvey(o: NewSurveyOptions): { survey: Buffer; surveyName: st
   return { survey: edit.bytes(), surveyName };
 }
 
-/** A new project's project file: the survey, its properties (the default plot layout), the KML template and a balloon */
+/** A new project's project file: the survey, its properties (the default plot layout) and the KML template */
 export function newProjectFile(o: NewSurveyOptions, date: Date): Buffer {
   const { survey, surveyName } = newSurvey(o);
   const design = surveyDesign(survey);
   return madeProjectFile(
     {
       idml: survey.toString('utf8'),
-      title: o.title.trim(),
       surveyName,
       comment: `Collect Earth project designed in Collect Earth Cloud, from the ${o.template} template`,
       // The plot file's columns after id, latitude and longitude: the values filled from it, in the survey's order
