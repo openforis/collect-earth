@@ -71,6 +71,7 @@
     <li><strong>Faster on the next plot.</strong> While you work on a plot, the Explorer already loads the next unfinished one: the charts you keep open and the map as you left it.</li>
     <li><strong>It remembers your view.</strong> The layer you looked at, its year and colours, a comparison, which charts are folded and which analyses are on stay the same from one plot to the next, on that computer.</li>
     <li><strong>The standard window</strong> has three imagery layers (Sentinel-2, Landsat, Sentinel-1 radar) and six charts: a Landsat index, a Sentinel-2 index, CCDC change, MODIS with burned areas, and, folded, Sentinel-1 radar and rainfall. A survey can change all of it (section 2).</li>
+    <li><strong>Help in the window.</strong> <span class="ui">Help</span>, beside the Explorer's name, lists in seven lines how to use the window.</li>
   </ul>
 
   <figure><img src="../img/screens/explorer-window.jpg" alt="Collect Earth Explorer on a plot in Rondônia, Brazil: the Layers panel and a Sentinel-2 false-colour image on the left, the summary line and the Landsat and Sentinel-2 NDVI charts on the right" loading="lazy" width="1440" height="900"><figcaption>The Explorer on a plot at a forest edge in Rondônia, Brazil: Sentinel-2 in false colour, with forest in orange and pasture in yellow-green. The summary reads: Landsat NDVI, significant decrease, change in 2005.</figcaption></figure>
@@ -121,7 +122,7 @@
       <thead><tr><th>Starting point</th><th>What it gives</th><th>For</th></tr></thead>
       <tbody>
         <tr><td><span class="ui">Standard</span></td><td>All three imagery layers, the main charts open</td><td>Most surveys</td></tr>
-        <tr><td><span class="ui">Deforestation</span></td><td>The CCDC change chart first, the change year on the index charts</td><td>Forest loss and its year</td></tr>
+        <tr><td><span class="ui">Deforestation</span></td><td>The CCDC change chart first, the yearly forest loss with its alerts, the change year on the index charts</td><td>Forest loss and its year</td></tr>
         <tr><td><span class="ui">Fire</span></td><td>The NBR burn index with its change year, and MODIS with burned areas</td><td>Burns and recovery</td></tr>
         <tr><td><span class="ui">Cloudy tropics</span></td><td>The Sentinel-1 radar layer first and its chart open</td><td>Places where clouds hide most optical images</td></tr>
         <tr><td><span class="ui">Drylands</span></td><td>MODIS with rain and seasons, the rainfall chart open, SAVI for sparse vegetation</td><td>Savannas, rangelands, drought years</td></tr>
@@ -154,8 +155,10 @@
       <tbody>
         <tr><td><span class="ui">Index</span></td><td>Landsat, Sentinel-2, HLS, MODIS, CCDC</td><td>What the chart follows: NDVI by default (see <a href="#indices">Choosing an index</a>); MODIS NDVI or EVI; CCDC NDFI or NDVI</td></tr>
         <tr><td><span class="ui">Custom formula…</span></td><td>Landsat, Sentinel-2, HLS</td><td>Your own index, with its <span class="ui">Name of your formula</span>. Bands <code>blue green red nir swir1 swir2</code>, and on Sentinel-2 <code>rededge1 rededge2 rededge3</code>, as reflectance from 0 to 1; numbers, <code>+ - * /</code>, brackets, <code>sqrt abs min max pow</code>. Example: <code>(nir - rededge1) / (nir + rededge1)</code></td></tr>
-        <tr><td><span class="ui">Analyses shown when the chart opens</span></td><td>Landsat, Sentinel-2, HLS, MODIS, radar, rainfall</td><td>Which of <span class="ui">Yearly median</span>, <span class="ui">Trend</span>, <span class="ui">Change year</span>, <span class="ui">Unusual values</span> and <span class="ui">Seasonal profile</span> are on at first (section 5). People can still switch them</td></tr>
+        <tr><td><span class="ui">Analyses shown when the chart opens</span></td><td>Landsat, Sentinel-2, HLS, MODIS, radar, rainfall</td><td>Which of <span class="ui">Yearly median</span>, <span class="ui">Trend</span>, <span class="ui">Change year</span>, <span class="ui">Unusual values</span> and <span class="ui">Seasonal profile</span> are on at first, and on the rainfall chart <span class="ui">Against normal</span> (section 5). People can still switch them</td></tr>
         <tr><td><span class="ui">Index</span> (radar)</td><td>Sentinel-1</td><td>VH (more from vegetation, the default) or VV (more from the ground)</td></tr>
+        <tr><td><span class="ui">Years shown</span>: <span class="ui">From year</span>, <span class="ui">To year</span></td><td>All</td><td>The first and last year this chart shows, whatever period the project sets; the chart's title then names them. Leave both blank to show the whole period. Use it to start one chart on the reference year while the others show everything</td></tr>
+        <tr><td><span class="ui">Rainfall data</span></td><td>Rainfall</td><td><span class="ui">ERA5-Land</span> (the default: about 11&nbsp;km, from 1950, worldwide); <span class="ui">CHIRPS</span> (about 5&nbsp;km, from 1981, with rain gauges, only between 50°S and 50°N: the most local); <span class="ui">GPM IMERG</span> (about 11&nbsp;km, from 1998, worldwide, published about a year late)</td></tr>
         <tr><td><span class="ui">Show rainfall under the chart</span></td><td>MODIS</td><td>Monthly rainfall drawn as bars under the index</td></tr>
         <tr><td><span class="ui">Start folded</span></td><td>All</td><td>The chart loads only when someone opens it: the window is faster. Fold the charts people need only now and then</td></tr>
         <tr><td><span class="ui">Most cloud cover allowed</span></td><td>Landsat, Sentinel-2, HLS (More options)</td><td>The scene cloud limit the chart starts with (40 % by default)</td></tr>
@@ -192,6 +195,7 @@
     <li><strong>Difference.</strong> While comparing two images of the same sensor, <span class="ui">Difference (NDVI change)</span> replaces the split with one map of the change in vegetation, right minus left, from <span class="ui">loss</span> (brown) to <span class="ui">gain</span> (blue-green). It is not available for radar.</li>
     <li><strong>A scene.</strong> Click a point in a Landsat or Sentinel-2 chart, or <span class="ui">Scene before</span> and <span class="ui">Scene after</span> beside a change year: the map shows that single image (<span class="ui">Scene</span>). Use it to see what lies behind an odd value: a cloud, a fire scar, a harvested field.</li>
     <li><strong>Redraw the plot.</strong> <span class="ui">Redraw polygon</span>: click the corners of another shape, or one place for a point, then <span class="ui">Done</span>. Every chart is computed again for that shape. Use it to look at only one part of a mixed plot, or at a patch beside it. It changes nothing in Collect Earth or in the survey's data; <span class="ui">Original plot</span> brings the plot back. A shape can cover at most 100&nbsp;ha and 0.1° across; it is not available while comparing.</li>
+    <li><strong>Back to the plot.</strong> Press <kbd>R</kbd> to bring the map back to the plot after moving around.</li>
   </ul>
   <figure><img src="../img/screens/explorer-compare.jpg" alt="The Explorer comparing Landsat 2004 on the left with Landsat 2006 on the right, split by a handle across the plot" loading="lazy" width="1440" height="900"><figcaption>Compare years around the change year 2005: Landsat 2004 on the left, 2006 on the right, split by a handle you drag across the plot.</figcaption></figure>
   <figure><img src="../img/screens/explorer-difference.jpg" alt="The NDVI difference between Landsat 2004 and 2006: the plot and the land around it in dark brown, loss of vegetation" loading="lazy" width="1440" height="900"><figcaption>Difference (NDVI change) between the same two years: the plot falls in a patch of dark brown, a loss of vegetation.</figcaption></figure>
@@ -208,7 +212,8 @@
         <tr><td><span class="ui">Change over time (CCDC segmentation)</span></td><td>Every Landsat 7, 8 and 9 image, with lines fitted between breaks (<span class="ui">Segment</span> 1, 2…)</td><td>When the land changed, found without choosing dates; NDFI for forest, or NDVI</td></tr>
         <tr><td><span class="ui">MODIS 16-day index and burned area</span></td><td>NDVI or EVI every 16 days since 2000 at 250&nbsp;m, burned months marked; <span class="ui">Rain</span> adds monthly rainfall under it</td><td>Fires; the seasons of the area; droughts</td></tr>
         <tr><td><span class="ui">Sentinel-1 radar signal over time</span></td><td>The radar backscatter in dB at each pass, VH or VV, since 2015</td><td>Changes under persistent cloud</td></tr>
-        <tr><td><span class="ui">Monthly rainfall</span></td><td>Rainfall in mm per month (ERA5-Land, about 11&nbsp;km: the area's, not the plot's)</td><td>Telling a dry year from a land use change</td></tr>
+        <tr><td><span class="ui">Monthly rainfall</span></td><td>Rainfall in mm per month, from ERA5-Land, CHIRPS or GPM IMERG (about 5 to 11&nbsp;km: the area's, not the plot's)</td><td>Telling a dry year from a land use change</td></tr>
+        <tr><td><span class="ui">Forest loss and alerts</span></td><td>The tree cover lost each year since 2001 (Hansen Global Forest Change, 30&nbsp;m), with the deforestation alerts of each month: RADD (Sentinel-1 radar, 10&nbsp;m, humid tropical primary forest) and GLAD (Landsat, 30&nbsp;m), confirmed and unconfirmed. Under it: the tree cover in 2000, the loss in ha and as a share of the plot, and which alert system does not cover the plot</td><td>Whether, and in which year, global maps saw the plot's trees go; a second opinion on a change year. Click a year's bar to compare the Landsat images of the years before and after. Not in the standard window: it comes with the <span class="ui">Deforestation</span> starting point, or add it in the editor</td></tr>
       </tbody>
     </table>
   </div>
@@ -238,6 +243,8 @@
     <li><strong>CCDC</strong>: each segment is a stable period with its own level and seasons; a break between segments is a change. A short segment between two similar ones is often a disturbance and recovery.</li>
     <li><strong>MODIS burned areas</strong> mark the months the area burned (MCD64A1, 500&nbsp;m): useful to explain a drop, too coarse to say the plot itself burned.</li>
     <li><strong>Radar</strong> backscatter falls when trees are cleared (VH especially), but is also affected by soil moisture after rain: read it with the rainfall.</li>
+    <li><strong>Rainfall against normal.</strong> <span class="ui">Against normal</span> on the rainfall chart shows each month minus that month's mean over the years shown (it needs 10 years): bars below zero are a drier month than usual. The other analyses then apply to those differences, so a <span class="ui">Trend</span> down is a drying climate, not just a dry year.</li>
+    <li><strong>Forest loss and alerts</strong> come from global maps, not from looking at this plot: a loss year agrees with a change year on the index charts when the clearing is real, and the images tell you what replaced the trees. No loss on the chart does not prove the trees are there: the maps miss small or gradual losses, and the tree cover of 2000 counts plantations and orchards as trees too.</li>
   </ul>
 
   <h2 id="indices">6. Choosing an index</h2>
@@ -266,12 +273,12 @@
     <table>
       <thead><tr><th>Question</th><th>Look at</th></tr></thead>
       <tbody>
-        <tr><td>Was the forest cleared, and when?</td><td>CCDC (NDFI) for the break; Landsat NDVI with <span class="ui">Change year</span> and <span class="ui">Compare years</span>; the Landsat layer compared left and right, with <span class="ui">Difference</span></td></tr>
+        <tr><td>Was the forest cleared, and when?</td><td>CCDC (NDFI) for the break; <span class="ui">Forest loss and alerts</span> for the year global maps record; Landsat NDVI with <span class="ui">Change year</span> and <span class="ui">Compare years</span>; the Landsat layer compared left and right, with <span class="ui">Difference</span></td></tr>
         <tr><td>Is the forest degraded, not cleared?</td><td>NDMI or NDFI: a lasting <span class="ui">Trend</span> down, or a shallow step, with the canopy still closed on VHR</td></tr>
         <tr><td>Did it burn?</td><td>MODIS burned months; NBR with <span class="ui">Change year</span>; the scene after the fire for the scar; recovery in the years after</td></tr>
         <tr><td>Is it cropland?</td><td>Sentinel-2 NDVI with <span class="ui">Seasonal profile</span>: one or two strong peaks a year, bare between them</td></tr>
         <tr><td>Did trees grow back, or were they planted?</td><td><span class="ui">Trend: significant increase</span>; CCDC's last segment rising; rows of young trees on VHR</td></tr>
-        <tr><td>Was it only a dry year?</td><td><span class="ui">Monthly rainfall</span>, or <span class="ui">Rain</span> under MODIS; whether the index recovers the next year</td></tr>
+        <tr><td>Was it only a dry year?</td><td><span class="ui">Monthly rainfall</span> with <span class="ui">Against normal</span>, or <span class="ui">Rain</span> under MODIS; whether the index recovers the next year</td></tr>
         <tr><td>Clouds hide everything</td><td>The Sentinel-1 layer and chart; the HLS chart, with an image every 2 to 3 days; the <span class="ui">Cloudy tropics</span> starting point</td></tr>
         <tr><td>The plot holds two kinds of land, or a change happened beside it</td><td><span class="ui">Redraw polygon</span> around one part, or the patch beside it, and read the charts for that shape alone</td></tr>
         <tr><td>Water, wetland or flooding?</td><td>MNDWI; the Sentinel-2 layer in false colour</td></tr>
@@ -290,6 +297,8 @@
         <tr><td><span class="ui">No images for this plot and period.</span></td><td>The period or the cloud limit leaves nothing: widen the period, or raise <span class="ui">Most cloud cover allowed</span></td></tr>
         <tr><td><span class="ui">Trend needs 8 years of data</span></td><td>The period is too short, or the cloud filter leaves too few years: start the period earlier, or loosen the filter</td></tr>
         <tr><td><span class="ui">This survey's Explorer settings were partly ignored</span></td><td>An item of the setup is not understood and was skipped; the coordinator corrects it in the editor</td></tr>
+        <tr><td><span class="ui">CHIRPS has no data for this plot</span></td><td>CHIRPS covers only latitudes 50°S to 50°N: choose ERA5-Land or GPM IMERG as the <span class="ui">Rainfall data</span></td></tr>
+        <tr><td><span class="ui">Against normal needs at least 10 years of each month</span></td><td>Show more years on the rainfall chart, or turn <span class="ui">Against normal</span> off</td></tr>
         <tr><td>The plot is refused</td><td>The Explorer takes plots of up to 100&nbsp;ha and 0.1° across</td></tr>
         <tr><td>Nothing opens</td><td>Check that <span class="ui">Collect Earth Explorer</span> is on in the settings and that the computer is online</td></tr>
       </tbody>
