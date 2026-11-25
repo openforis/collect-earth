@@ -974,7 +974,6 @@ describe('addRound', () => {
       () => miniCep({ 'placemark.idm.xml': idmWith('<text id="2" name="id" key="true"/><text id="4" name="b" key="true"/>') }),
     ],
     ['several_keys', () => miniCep({ 'placemark.idm.xml': idmWith('<text id="2" name="id"/>') })],
-    ['balloon_missing', () => miniCep({ 'balloon.html': null })],
     ['balloon_marker_missing', () => miniCep({ 'balloon.html': miniBalloon().replace(BALLOON_MARKER, '') })],
     [
       'balloon_ids_missing',
@@ -997,6 +996,14 @@ describe('addRound', () => {
       expect(cep.equals(original)).toBe(true);
     });
   }
+
+  it('a project file with no balloon gets its round all the same: Collect Earth 2 makes its form from the survey', () => {
+    const { cep, info } = addRound(miniCep({ 'balloon.html': null }));
+    expect(info).toMatchObject({ state: 'added', refusal: null });
+    expect(Object.keys(unzipSync(cep))).not.toContain('balloon.html');
+    expect(text(cep, 'placemark.idm.xml')).toMatch(/name="round"/);
+    expect(text(cep, 'kml_template.fmt')).toContain('<Data name="EXTRA_round">');
+  });
 
   it('reads the served file back within the limits the upload had, however small it zips', () => {
     // Stored, the upload is as big as its contents; deflated, the served file is far smaller.
@@ -1196,7 +1203,6 @@ describe("addNote (the coordinator's note, Task 16)", () => {
           'placemark.idm.xml': idmWith('<text id="2" name="id" key="true"/><entity id="4" name="e"><text id="5" name="x" collectearth:fromcsv="true"/></entity>'),
         }),
     ],
-    ['balloon_missing', () => miniCep({ 'balloon.html': null })],
     ['balloon_marker_missing', () => miniCep({ 'balloon.html': miniBalloon().replace(BALLOON_MARKER, '') })],
     ['balloon_marker_missing', () => miniCep({ 'balloon_web.html': miniBalloon().replace(BALLOON_MARKER, '') })],
     ['template_missing', () => miniCep({ 'kml_template.fmt': null })],
@@ -1210,6 +1216,17 @@ describe("addNote (the coordinator's note, Task 16)", () => {
       expect(cep.equals(original)).toBe(true);
     });
   }
+
+  it('a project file with no balloon gets the note all the same, as the demo Collect Earth ships does', () => {
+    const { cep, info } = addNote(miniCep({ 'balloon.html': null }));
+    expect(info).toEqual({ state: 'added', refusal: null, column: 0 });
+    expect(Object.keys(unzipSync(cep))).not.toContain('balloon.html');
+    expect(text(cep, 'kml_template.fmt')).toContain('<Data name="EXTRA_coordinator_note">');
+    const shipped = realDemoCep();
+    expect(Object.keys(unzipSync(shipped)).filter((n) => n.includes('balloon'))).toEqual([]);
+    expect(addRound(shipped).info.state).toBe('own');
+    expect(addNote(shipped).info).toMatchObject({ state: 'added', refusal: null });
+  });
 
   it('throws too_large, naming the limit, rather than handing back a refusal', () => {
     const limits = { maxEntries: 2000, maxTotalBytes: 1000, maxRatio: 20, minAllowanceBytes: 0 };

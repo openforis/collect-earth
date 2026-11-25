@@ -244,7 +244,8 @@ public class KmlGeneratorService {
 				getLocalProperties().setValue(EarthProperty.SAMPLE_FILE, otherCsv.getAbsolutePath());
 			}
 
-			if (!balloon.exists()) {
+			// A project with no balloon has none to look for (the data folder itself would be "found")
+			if (StringUtils.isNotBlank(balloonPath) && !balloon.exists()) {
 				final File otherFile = new File(prefixUserFolder + getLocalProperties().getBalloonFile());
 				if (otherFile.exists()) {
 					getLocalProperties().setValue(EarthProperty.BALLOON_TEMPLATE_KEY, otherFile.getAbsolutePath());

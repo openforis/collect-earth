@@ -228,6 +228,11 @@ public class EarthProjectsService {
 		if (!projectProperties.containsKey(EarthProperty.BALLOON_TEMPLATE_KEY_WEB.toString())) {
 			localPropertiesService.setValue(EarthProperty.BALLOON_TEMPLATE_KEY_WEB, ""); //$NON-NLS-1$
 		}
+		// Nor does a project with no balloon at all (its form is made from its survey, as the demo's) keep the balloon
+		// of the project before, which web_form=balloon would then show for another survey
+		if (!projectProperties.containsKey(EarthProperty.BALLOON_TEMPLATE_KEY.toString())) {
+			localPropertiesService.setValue(EarthProperty.BALLOON_TEMPLATE_KEY, ""); //$NON-NLS-1$
+		}
 		// Nor does a project that does not number its sample points keep the numbers of the one before
 		if (!projectProperties.containsKey(EarthProperty.SAMPLE_POINT_NUMBERS.toString())) {
 			localPropertiesService.setValue(EarthProperty.SAMPLE_POINT_NUMBERS, ""); //$NON-NLS-1$

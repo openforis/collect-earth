@@ -680,9 +680,13 @@ public class LocalPropertiesService extends Observable {
 	/** The balloon HTML of the CEP (balloon_web when the CEP has one), as in the first plots map versions. */
 	public static final String WEB_FORM_BALLOON = "balloon";
 
-	/** Which data entry form the plots map shows next to the map. */
+	/**
+	 * Which data entry form the plots map shows next to the map. The balloon only in a project that has one: a project
+	 * with no balloon (the demo's, since its form is made from its survey) shows the generated form whatever is asked.
+	 */
 	public String getWebForm() {
-		return WEB_FORM_BALLOON.equals(getValue(EarthProperty.WEB_FORM)) ? WEB_FORM_BALLOON : WEB_FORM_GENERATED;
+		final boolean asked = WEB_FORM_BALLOON.equals(getValue(EarthProperty.WEB_FORM));
+		return asked && StringUtils.isNotBlank(getValue(EarthProperty.BALLOON_TEMPLATE_KEY)) ? WEB_FORM_BALLOON : WEB_FORM_GENERATED;
 	}
 
 	public Boolean isExceptionShown() {

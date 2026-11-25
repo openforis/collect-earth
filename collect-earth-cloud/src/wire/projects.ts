@@ -86,7 +86,10 @@ export type CepErrorCode = 'not_a_zip' | 'too_large' | 'no_survey' | 'survey_unr
 /** added: the server added round; own: the survey has a round key; none: no round. */
 export type RoundState = 'added' | 'own' | 'none';
 
-/** Why the server did not add round to a project file. */
+/**
+ * Why the server did not add round to a project file. `balloon_missing` is no longer given (a project file with no
+ * balloon gets its round: Collect Earth 2 makes its form from the survey); projects stored before may still hold it.
+ */
 export type RefusalCode =
   | CepErrorCode
   | 'several_entities'
@@ -104,7 +107,7 @@ export interface CodeItem {
   label: string;
 }
 
-/** Why the server did not add the coordinator's note to a project file. */
+/** Why the server did not add the coordinator's note to a project file. `balloon_missing`: as for the round, no longer given. */
 export type NoteRefusal =
   | CepErrorCode
   | 'several_entities'

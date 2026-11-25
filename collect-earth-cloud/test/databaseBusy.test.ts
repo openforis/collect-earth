@@ -45,10 +45,10 @@ describe('a busy database', () => {
     expect(reads.mock.calls.filter(([pid]) => pid === p.projectId)).toHaveLength(2);
   });
 
-  it('keeps a project file of megabytes built too (the IPCC demo survey, 8.6 MB): the database read once per project', async () => {
+  it('keeps a project file of megabytes built too (the IPCC demo survey, over 7 MB): the database read once per project', async () => {
     const p = await createProject(ctx.app, 'Big survey');
     const big = readFileSync('../collect-earth/collect-earth-app/resources/demo_survey.cep');
-    expect(big.length).toBeGreaterThan(8 * 1024 * 1024);
+    expect(big.length).toBeGreaterThan(6 * 1024 * 1024);
     expect((await ctx.app.inject({ method: 'PUT', url: `/v1/projects/${p.projectId}/cep`, headers: { ...bearer(p.adminToken), 'content-type': 'application/zip' }, payload: big })).statusCode).toBeLessThan(300);
     const invite = await ctx.app.inject({ method: 'POST', url: `/v1/projects/${p.projectId}/invites`, headers: bearer(p.adminToken), payload: { role: 'operator', maxUses: 1 } });
     const collector = (await ctx.app.inject({ method: 'POST', url: '/v1/auth/register', payload: { username: 'ana', password: 'password12', inviteToken: invite.json().inviteToken } })).json().token;

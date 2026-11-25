@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+	<script type="text/javascript">
+	/**
+	 * 
+	 * Values expected ( for the "HTTP parameters" -> "Collect format"
+	 * conversion to work )
+	 * 
+	 * All inputs that have proccesable information ( hidden or otherwise) should
+	 * start with "collect_" :
+	 * 
+	 * If the input is text then it should be followed by "text_" If the input is a
+	 * code (option in combo-box for instance) then it should be followed by "code_"
+	 * If the input is a date then it should be followed by "date_" If the input is
+	 * a coordinate then it should be followed by "coord_" ( the value expected has
+	 * the format "longitude,latitude" ) If the input is an integer then it should
+	 * be followed by "integer_" If the input is a boolean then it should be
+	 * followed by "boolean_"
+	 * 
+	 * When multiple values can be sent ( in a multiple select for instance ) the
+	 * data sent in the Http parameters has to be separated using " " ( a space )
+	 * 
+	 * So, for Mongolia we expect these values : collect_text_id
+	 * collect_coord_location collect_integer_elevation collect_text_operator (
+	 * filled in the earthSurveyService store method as the operator name is fetched
+	 * through a properties file) collect_code_land_use_category
+	 * collect_code_land_use_subcategory collect_code_land_use_subdivision
+	 * collect_code_site_accessibility collect_entity_topography[X]_code_element
+	 * collect_entity_topography[X]_code_coverage collect_code_human_impact_type
+	 * collect_code_human_impact_grade collect_integer_human_impact_year
+	 * collect_date_rs_date collect_code_rs_satellite collect_code_canopy_cover
+	 * collect_code_canopy_type collect_boolean_actively_saved // Set this to true
+	 * when the user saves the data by actively clicking in submit
+	 * 
+	 * collect_real_aspect collect_real_slope collect_text_directions
+	 * collect_code_bearing collect_boolean_land_use_category_accuracy
+	 * collect_boolean_land_use_subcategory_accuracy
+	 * collect_boolean_land_use_subdivision_accuracy
+	 * 
+	 * When a value has multiple values they will be separated with "===" i.e.
+	 * collect_code_human_impact_type = "fire===logging===grazing"
+	 * 
+	 * 
+	 * 
+	 * Other inputs: earth_skip_filled
+	 * 
+	 */
+	 
+ 	/**
+ 	* STATIC CONSTANTS 
+ 	* DO NOT REMOVE THIS LINE
+ 	*/
+	var DEBUG = false; // if set to true, log messages will appear in a box in the bottom part of the balloon
+ 	var NEXT_ID = "$[next_id]";
+ 	var HOST = "$[host]";
+ 	
+ 	var SUBMIT_LABEL = "Send";
+    var NEXT_LABEL = "Next";
+    var PREVIOUS_LABEL = "Previous";
+    
+    var COLLECT_NOT_RUNNING = "The Collect Earth server is not running!";
+    var PLACEMARK_ALREADY_FILLED = "The data for this plot has already been filled";
+    
+    var PREVIEW = false;
+    
+    
+    // By default all Collect Earth surveys are defined as having at least the id attribute "id" which is stored by the balloon as collect_text_id
+    // If more id attributes are present in the survey then their names ( using the protocoal for the transmission e.g. "collect_code_year") will be specified in this list :
+    // the value of this variable should be something like ['collect_text_id'] or ['collect_text_id','collect_code_measurement']
+    var EXTRA_ID_ATTRIBUTES = ['collect_text_id','collect_code_round'];
+    
+    
+	</script>
+	
+	<script src="earthFiles/jquery/jquery.js?v=174366"></script>
+	<script src="earthFiles/jquery/jquery-ui.js?v=174366"></script>
+	<script src="earthFiles/jquery/jquery.blockUI.js?v=174366"></script>
+	<script src="earthFiles/jquery/jquery.selectBoxIt.min.js?v=174366"></script>
+	<script src="earthFiles/jquery/jquery.steps.openforis.js?v=174366"></script>
+	<script src="earthFiles/bootstrap/bootstrap.min.js?v=174366"></script>
+	<script src="earthFiles/bootstrap/moment.js?v=174366"></script>
+	<script src="earthFiles/bootstrap/bootstrap-datetimepicker.min.js?v=174366"></script>
+
+	<script src="earthFiles/openforis/of.js?v=174366"></script>
+	<script src="earthFiles/openforis/of-arrays.js?v=174366"></script>
+	<script src="earthFiles/openforis/of-ui.js?v=174366"></script>
+	<script src="earthFiles/openforis/of-ui-forms.js?v=174366"></script>
+	<script src="earthFiles/openforis/of-ui-forms-validation.js?v=174366"></script>
+	
+	<script src="earthFiles/js/earth_new.js?v=174366"></script>
+	
+	<link href="earthFiles/jquery/jquery-ui.css?v=174366" rel="stylesheet" />
+	<link href="earthFiles/jquery/jquery.selectBoxIt.css?v=174366" rel="stylesheet" />
+	<link href="earthFiles/jquery/jquery-steps.css?v=174366" rel="stylesheet" />
+	<link href="earthFiles/bootstrap/bootstrap.css?v=174366" rel="stylesheet" />
+	<link href="earthFiles/bootstrap/bootstrap-datetimepicker.min.css?v=174366" rel="stylesheet"  />
+	
+	<link href="earthFiles/css/earth.css?v=174366" rel="stylesheet" />
+	<!--
+	
+		Handle the fonts for different languages that don't have their own glyphs opn the standard interface
+		Right now we only have Lao
+		
+		The TTF file needs to be loaded through the same URL than the balloon to avoid cross referencing issues
+		Use the two character code of the language as the name of the font  
+	-->
+	<style  type="text/css">
+	        @font-face {
+		      font-family: 'lo'; 
+			  src: url('$[host]generated/earthFiles/fonts/Phetsarath_OT.ttf');
+			}
+		
+			body {
+				font-family: "en","Trebuchet MS", "Helvetica", "Arial", "Verdana",
+					"sans-serif";
+			}
+	</style>
+</head>
+
+<body>
+
+	<div id="dialogSuccess" style="display: none">
+		<table>
+			<tr>
+				<td valign="top">
+					<span class="ui-icon ui-icon-circle-check"
+						style="float: left; margin: 0 7px 70px 0;"> </span>
+				</td>
+				<td valign="top">
+					<div id="succ_mess">
+					</div>
+				</td>
+			</tr>
+		</table>
+	</div>
+
+	<div id="confirm_dialog" style="display: none">
+		<table>
+			<tr>
+				<td valign="top">
+					<span class="ui-icon ui-icon-circle-check"
+						style="float: left; margin: 0 7px 70px 0;"> </span>
+				</td>
+				<td valign="top">
+					<div id="confirm_dialog_message">
+					</div>
+				</td>
+			</tr>
+		</table>
+	</div>
+
+	<div id="contentDiv" style="height:600px; width:400px;">
+		<div id="loadingPanel">
+			<span>Loading...</span>
+		</div>
+		
+		<div id="errorPanel" style="display: none">
+			<span><b>An error occurred!</b><span>
+			<br /> <br />
+			<span>Please try to open again the same plot or restart Collect Earth.</span>
+		</div>
+		
+		<div id="collectEarthNotRunningPanel" style="display: none">
+			<span>The Collect Earth server is not running!</span>
+		</div>
+		
+		<div id="scrollingDiv" style="overflow: visible; display: none; width:400px" class="earthDiv">
+			<form id="formAll" class="form-horizontal" action="$[host]save-data-expanded">
+			<!-- <form id="formAll" class="form-horizontal" action="http://127.0.0.1:8028/earth/save-data-expanded"> -->
+								
+				<input type="hidden" id="collect_coord_location" 
+					name="collect_coord_location" value="$[latitude],$[longitude]"
+					class="extra" />
+				
+				<input type="hidden" id="collect_text_plot_file" 
+					name="collect_text_plot_file" value="$[plot_file]"
+					class="extra" />
+
+				<input type="hidden" id="collect_boolean_actively_saved"
+					name="collect_boolean_actively_saved" value="false" />
+					
+<!-- DO NOT REMOVE THIS LINE - IT GENERATES THE EXTRA FIELDS FROM THE CSV-BALLOON INTEGRATION -->
+<!-- START OF EXTRA CSV DATA -->
+<input type="hidden" id="collect_text_id" name="collect_text_id" value="$[EXTRA_id]" class="extra" />
+<input type="hidden" id="collect_code_round" name="collect_code_round" value="$[EXTRA_round]" class="extra" />
+<input type="hidden" id="collect_integer_elevation" name="collect_integer_elevation" value="$[EXTRA_elevation]" class="extra" />
+<input type="hidden" id="collect_real_slope" name="collect_real_slope" value="$[EXTRA_slope]" class="extra" />
+<input type="hidden" id="collect_real_aspect" name="collect_real_aspect" value="$[EXTRA_aspect]" class="extra" />
+<input type="hidden" id="collect_code_climate" name="collect_code_climate" value="$[EXTRA_climate]" class="extra" />
+<input type="hidden" id="collect_code_soil" name="collect_code_soil" value="$[EXTRA_soil]" class="extra" />
+<input type="hidden" id="collect_code_gez" name="collect_code_gez" value="$[EXTRA_gez]" class="extra" />
+<input type="hidden" id="collect_text_country" name="collect_text_country" value="$[EXTRA_country]" class="extra" />
+<input type="hidden" id="collect_text_province" name="collect_text_province" value="$[EXTRA_province]" class="extra" />
+<input type="hidden" id="collect_text_district" name="collect_text_district" value="$[EXTRA_district]" class="extra" />
+
+<!-- END OF EXTRA CSV DATA -->
+		
+<!-- DO NOT REMOVE THIS LINE - IT GENERATES THE DYNAMIC FIELDS FROM THE SURVEY DEFINITION -->
+<!-- START OF DYNAMIC FIELDS -->
+<div class="steps">
+<h3>Land Cover</h3>
+<section class="step">
+<fieldset class="entity-group">
+<legend><span>Land cover (latest VHR image)</span><span class="ui-icon  ui-icon-info" style="display:inline-block" title="Use the most recent Google Earth image"></span></legend>
+<table class="table">
+<thead>
+<tr>
+<th>Element</th><th>Coverage</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><label class="control-label col-sm-4">Trees (in forest/grassland)</label></td><td>
+<div class="form-group">
+<div class="col-sm-8">
+<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_entity_land_cover[trees].code_coverage" name="collect_entity_land_cover[trees].code_coverage"><option value="na">0 Points &#x2013; No Coverage</option><option value="2">1 Points</option><option value="4">2 Points</option><option value="6">3 Points</option><option value="8">4 Points</option><option value="10">5-9 Points</option><option value="20">10-14 Points</option><option value="30">15-19 Points</option><option value="40">20-24 Points</option><option value="50">25-29 Points</option><option value="60">30-34 Points</option><option value="70">35-39 Points</option><option value="80">40-44 Points</option><option value="90">45-49 Points</option></select>
+</div>
+</div>
+</td>
+</tr>
+<tr>
+<td><label class="control-label col-sm-4">Trees (in agriculture/settlement)</label></td><td>
+<div class="form-group">
+<div class="col-sm-8">
+<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_entity_land_cover[tof].code_coverage" name="collect_entity_land_cover[tof].code_coverage"><option value="na">0 Points &#x2013; No Coverage</option><option value="2">1 Points</option><option value="4">2 Points</option><option value="6">3 Points</option><option value="8">4 Points</option><option value="10">5-9 Points</option><option value="20">10-14 Points</option><option value="30">15-19 Points</option><option value="40">20-24 Points</option><option value="50">25-29 Points</option><option value="60">30-34 Points</option><option value="70">35-39 Points</option><option value="80">40-44 Points</option><option value="90">45-49 Points</option></select>
+</div>
+</div>
+</td>
+</tr>
+<tr>
+<td><label class="control-label col-sm-4">Crops</label><span class="ui-icon  ui-icon-info" style="display:inline-block" title="Annual or permanent crops"></span></td><td>
+<div class="form-group">
+<div class="col-sm-8">
+<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_entity_land_cover[crops].code_coverage" name="collect_entity_land_cover[crops].code_coverage"><option value="na">0 Points &#x2013; No Coverage</option><option value="2">1 Points</option><option value="4">2 Points</option><option value="6">3 Points</option><option value="8">4 Points</option><option value="10">5-9 Points</option><option value="20">10-14 Points</option><option value="30">15-19 Points</option><option value="40">20-24 Points</option><option value="50">25-29 Points</option><option value="60">30-34 Points</option><option value="70">35-39 Points</option><option value="80">40-44 Points</option><option value="90">45-49 Points</option></select>
+</div>
+</div>
+</td>
+</tr>
+<tr>
+<td><label class="control-label col-sm-4">Grass</label><span class="ui-icon  ui-icon-info" style="display:inline-block" title="Herbaceous cover that is expected to grow even only during the rainy season."></span></td><td>
+<div class="form-group">
+<div class="col-sm-8">
+<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_entity_land_cover[grass].code_coverage" name="collect_entity_land_cover[grass].code_coverage"><option value="na">0 Points &#x2013; No Coverage</option><option value="2">1 Points</option><option value="4">2 Points</option><option value="6">3 Points</option><option value="8">4 Points</option><option value="10">5-9 Points</option><option value="20">10-14 Points</option><option value="30">15-19 Points</option><option value="40">20-24 Points</option><option value="50">25-29 Points</option><option value="60">30-34 Points</option><option value="70">35-39 Points</option><option value="80">40-44 Points</option><option value="90">45-49 Points</option></select>
+</div>
+</div>
+</td>
+</tr>
+<tr>
+<td><label class="control-label col-sm-4">Bushes/Shrubs</label><span class="ui-icon  ui-icon-info" style="display:inline-block" title="This category includes: steppe rangelands, cactus, pastoral plantations, maquis, etc."></span></td><td>
+<div class="form-group">
+<div class="col-sm-8">
+<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_entity_land_cover[shrubs].code_coverage" name="collect_entity_land_cover[shrubs].code_coverage"><option value="na">0 Points &#x2013; No Coverage</option><option value="2">1 Points</option><option value="4">2 Points</option><option value="6">3 Points</option><option value="8">4 Points</option><option value="10">5-9 Points</option><option value="20">10-14 Points</option><option value="30">15-19 Points</option><option value="40">20-24 Points</option><option value="50">25-29 Points</option><option value="60">30-34 Points</option><option value="70">35-39 Points</option><option value="80">40-44 Points</option><option value="90">45-49 Points</option></select>
+</div>
+</div>
+</td>
+</tr>
+<tr>
+<td><label class="control-label col-sm-4">Built up</label><span class="ui-icon  ui-icon-info" style="display:inline-block" title="Urban areas, villages, hamlets, farms, single-family homes"></span></td><td>
+<div class="form-group">
+<div class="col-sm-8">
+<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_entity_land_cover[housing].code_coverage" name="collect_entity_land_cover[housing].code_coverage"><option value="na">0 Points &#x2013; No Coverage</option><option value="2">1 Points</option><option value="4">2 Points</option><option value="6">3 Points</option><option value="8">4 Points</option><option value="10">5-9 Points</option><option value="20">10-14 Points</option><option value="30">15-19 Points</option><option value="40">20-24 Points</option><option value="50">25-29 Points</option><option value="60">30-34 Points</option><option value="70">35-39 Points</option><option value="80">40-44 Points</option><option value="90">45-49 Points</option></select>
+</div>
+</div>
+</td>
+</tr>
+<tr>
+<td><label class="control-label col-sm-4">Infrastructures</label><span class="ui-icon  ui-icon-info" style="display:inline-block" title="Roads, railways, airports, ports, power generation, mining. Any human-made structure used for industrial, transportation, or productive (non-agricultural) purposes."></span></td><td>
+<div class="form-group">
+<div class="col-sm-8">
+<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_entity_land_cover[infrastucture].code_coverage" name="collect_entity_land_cover[infrastucture].code_coverage"><option value="na">0 Points &#x2013; No Coverage</option><option value="2">1 Points</option><option value="4">2 Points</option><option value="6">3 Points</option><option value="8">4 Points</option><option value="10">5-9 Points</option><option value="20">10-14 Points</option><option value="30">15-19 Points</option><option value="40">20-24 Points</option><option value="50">25-29 Points</option><option value="60">30-34 Points</option><option value="70">35-39 Points</option><option value="80">40-44 Points</option><option value="90">45-49 Points</option></select>
+</div>
+</div>
+</td>
+</tr>
+<tr>
+<td><label class="control-label col-sm-4">Water Body</label><span class="ui-icon  ui-icon-info" style="display:inline-block" title="Rivers, lakes, reservoirs, dams, lagoons, marshes"></span></td><td>
+<div class="form-group">
+<div class="col-sm-8">
+<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_entity_land_cover[water_body].code_coverage" name="collect_entity_land_cover[water_body].code_coverage"><option value="na">0 Points &#x2013; No Coverage</option><option value="2">1 Points</option><option value="4">2 Points</option><option value="6">3 Points</option><option value="8">4 Points</option><option value="10">5-9 Points</option><option value="20">10-14 Points</option><option value="30">15-19 Points</option><option value="40">20-24 Points</option><option value="50">25-29 Points</option><option value="60">30-34 Points</option><option value="70">35-39 Points</option><option value="80">40-44 Points</option><option value="90">45-49 Points</option></select>
+</div>
+</div>
+</td>
+</tr>
+<tr>
+<td><label class="control-label col-sm-4">Bare Soil</label><span class="ui-icon  ui-icon-info" style="display:inline-block" title="Unproductive soil, without vegetation year-round: rock, sand, or hardened/eroded soil --> no herbaceous cover even during the rainy season, NDVI < 0.25 over the entire period."></span></td><td>
+<div class="form-group">
+<div class="col-sm-8">
+<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_entity_land_cover[bareSoil].code_coverage" name="collect_entity_land_cover[bareSoil].code_coverage"><option value="na">0 Points &#x2013; No Coverage</option><option value="2">1 Points</option><option value="4">2 Points</option><option value="6">3 Points</option><option value="8">4 Points</option><option value="10">5-9 Points</option><option value="20">10-14 Points</option><option value="30">15-19 Points</option><option value="40">20-24 Points</option><option value="50">25-29 Points</option><option value="60">30-34 Points</option><option value="70">35-39 Points</option><option value="80">40-44 Points</option><option value="90">45-49 Points</option></select>
+</div>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</fieldset>
+<div class="form-group">
+<label class="control-label col-sm-4" for="collect_integer_lc_points_summed">% of land cover assessed</label>
+<div class="col-sm-8">
+<input class="form-control numeric extra" disabled id="collect_integer_lc_points_summed" name="collect_integer_lc_points_summed" type="text" value="0">
+</div>
+</div>
+</section>
+<h3>LU 2025</h3>
+<section class="step">
+<div class="form-group">
+<label class="control-label col-sm-4" for="collect_code_plot_distribution">Land Use Distribution in the plot</label><span class="ui-icon  ui-icon-info" style="display:inline-block" title="What are the land uses within the parcel according to the most modern image of Google Earth? If the plot is entirely covered by the same use, use &quot;Single&quot;, if there are several uses on the plot, use &quot;Multiple&quot;"></span>
+<div class="col-sm-8">
+<div class="code-items-group" id="collect_code_plot_distribution_group">
+<input class="form-control" data-field-type="CODE_BUTTON_GROUP" id="collect_code_plot_distribution" name="collect_code_plot_distribution" type="hidden">
+<div class="code-items" data-toggle="buttons-radio" id="collect_code_plot_distribution_group_0">
+<button class="btn btn-info code-item" data-code-item-id="2012486" title="The plot is fully covered with a single Land Uses, i.e. the whole plot falls within a city or a forest" type="button" value="single">Single Land Use</button><button class="btn btn-info code-item" data-code-item-id="2012487" title="The plot is covered by multiple Land Uses, for example, the plot falls between a forest and an agricultural area" type="button" value="multiple">Multiple Land Uses</button>
+</div>
+</div>
+</div>
+</div>
+<fieldset class="entity-group">
+<legend><span>Land Uses in the plot 2025</span></legend>
+<table class="table">
+<thead>
+<tr>
+<th>LU</th><th>Control points</th><th>%</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><label class="control-label col-sm-4">Forest</label><span class="ui-icon  ui-icon-info" style="display:inline-block" title="Land spanning more than 0.5 hectares with trees higher than 5 meters and a canopy cover of more than 10 percent, or trees able to reach these thresholds in situ."></span></td><td>
+<div class="form-group">
+<div class="col-sm-8">
+<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_entity_land_use[F].code_coverage" name="collect_entity_land_use[F].code_coverage"><option value="na">0 Points &#x2013; No Coverage</option><option value="2">1 Points</option><option value="4">2 Points</option><option value="6">3 Points</option><option value="8">4 Points</option><option value="10">5-9 Points</option><option value="20">10-14 Points</option><option value="30">15-19 Points</option><option value="40">20-24 Points</option><option value="50">25-29 Points</option><option value="60">30-34 Points</option><option value="70">35-39 Points</option><option value="80">40-44 Points</option><option value="90">45-49 Points</option></select>
+</div>
+</div>
+</td><td>
+<div class="form-group">
+<div class="col-sm-8">
+<input class="form-control numeric extra" disabled id="collect_entity_land_use[F].integer_percentage" name="collect_entity_land_use[F].integer_percentage" type="text" value="0">
+</div>
+</div>
+</td>
+</tr>
+<tr>
+<td><label class="control-label col-sm-4">Cropland</label><span class="ui-icon  ui-icon-info" style="display:inline-block" title="Land use for the production of annual and perennial crops, including fallow land, agroforestry, and temporary grassland."></span></td><td>
+<div class="form-group">
+<div class="col-sm-8">
+<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_entity_land_use[C].code_coverage" name="collect_entity_land_use[C].code_coverage"><option value="na">0 Points &#x2013; No Coverage</option><option value="2">1 Points</option><option value="4">2 Points</option><option value="6">3 Points</option><option value="8">4 Points</option><option value="10">5-9 Points</option><option value="20">10-14 Points</option><option value="30">15-19 Points</option><option value="40">20-24 Points</option><option value="50">25-29 Points</option><option value="60">30-34 Points</option><option value="70">35-39 Points</option><option value="80">40-44 Points</option><option value="90">45-49 Points</option></select>
+</div>
+</div>
+</td><td>
+<div class="form-group">
+<div class="col-sm-8">
+<input class="form-control numeric extra" disabled id="collect_entity_land_use[C].integer_percentage" name="collect_entity_land_use[C].integer_percentage" type="text" value="0">
+</div>
+</div>
+</td>
+</tr>
+<tr>
+<td><label class="control-label col-sm-4">Grassland</label><span class="ui-icon  ui-icon-info" style="display:inline-block" title="Land covered with herbaceous vegetation, managed or unmanaged, and used for grazing or left idle."></span></td><td>
+<div class="form-group">
+<div class="col-sm-8">
+<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_entity_land_use[G].code_coverage" name="collect_entity_land_use[G].code_coverage"><option value="na">0 Points &#x2013; No Coverage</option><option value="2">1 Points</option><option value="4">2 Points</option><option value="6">3 Points</option><option value="8">4 Points</option><option value="10">5-9 Points</option><option value="20">10-14 Points</option><option value="30">15-19 Points</option><option value="40">20-24 Points</option><option value="50">25-29 Points</option><option value="60">30-34 Points</option><option value="70">35-39 Points</option><option value="80">40-44 Points</option><option value="90">45-49 Points</option></select>
+</div>
+</div>
+</td><td>
+<div class="form-group">
+<div class="col-sm-8">
+<input class="form-control numeric extra" disabled id="collect_entity_land_use[G].integer_percentage" name="collect_entity_land_use[G].integer_percentage" type="text" value="0">
+</div>
+</div>
+</td>
+</tr>
+<tr>
+<td><label class="control-label col-sm-4">Settlement</label><span class="ui-icon  ui-icon-info" style="display:inline-block" title="Built-up or degraded land with less than 10 percent vegetation cover, including infrastructure, settlements, or bare areas."></span></td><td>
+<div class="form-group">
+<div class="col-sm-8">
+<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_entity_land_use[S].code_coverage" name="collect_entity_land_use[S].code_coverage"><option value="na">0 Points &#x2013; No Coverage</option><option value="2">1 Points</option><option value="4">2 Points</option><option value="6">3 Points</option><option value="8">4 Points</option><option value="10">5-9 Points</option><option value="20">10-14 Points</option><option value="30">15-19 Points</option><option value="40">20-24 Points</option><option value="50">25-29 Points</option><option value="60">30-34 Points</option><option value="70">35-39 Points</option><option value="80">40-44 Points</option><option value="90">45-49 Points</option></select>
+</div>
+</div>
+</td><td>
+<div class="form-group">
+<div class="col-sm-8">
+<input class="form-control numeric extra" disabled id="collect_entity_land_use[S].integer_percentage" name="collect_entity_land_use[S].integer_percentage" type="text" value="0">
+</div>
+</div>
+</td>
+</tr>
+<tr>
+<td><label class="control-label col-sm-4">Wetland</label><span class="ui-icon  ui-icon-info" style="display:inline-block" title="Land covered or saturated by water permanently or seasonally, including natural or constructed wetlands."></span></td><td>
+<div class="form-group">
+<div class="col-sm-8">
+<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_entity_land_use[W].code_coverage" name="collect_entity_land_use[W].code_coverage"><option value="na">0 Points &#x2013; No Coverage</option><option value="2">1 Points</option><option value="4">2 Points</option><option value="6">3 Points</option><option value="8">4 Points</option><option value="10">5-9 Points</option><option value="20">10-14 Points</option><option value="30">15-19 Points</option><option value="40">20-24 Points</option><option value="50">25-29 Points</option><option value="60">30-34 Points</option><option value="70">35-39 Points</option><option value="80">40-44 Points</option><option value="90">45-49 Points</option></select>
+</div>
+</div>
+</td><td>
+<div class="form-group">
+<div class="col-sm-8">
+<input class="form-control numeric extra" disabled id="collect_entity_land_use[W].integer_percentage" name="collect_entity_land_use[W].integer_percentage" type="text" value="0">
+</div>
+</div>
+</td>
+</tr>
+<tr>
+<td><label class="control-label col-sm-4">Otherland</label><span class="ui-icon  ui-icon-info" style="display:inline-block" title="Land not classified in any of the above categories, typically consisting of permanent snow, ice, or unproductive desert."></span></td><td>
+<div class="form-group">
+<div class="col-sm-8">
+<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_entity_land_use[O].code_coverage" name="collect_entity_land_use[O].code_coverage"><option value="na">0 Points &#x2013; No Coverage</option><option value="2">1 Points</option><option value="4">2 Points</option><option value="6">3 Points</option><option value="8">4 Points</option><option value="10">5-9 Points</option><option value="20">10-14 Points</option><option value="30">15-19 Points</option><option value="40">20-24 Points</option><option value="50">25-29 Points</option><option value="60">30-34 Points</option><option value="70">35-39 Points</option><option value="80">40-44 Points</option><option value="90">45-49 Points</option></select>
+</div>
+</div>
+</td><td>
+<div class="form-group">
+<div class="col-sm-8">
+<input class="form-control numeric extra" disabled id="collect_entity_land_use[O].integer_percentage" name="collect_entity_land_use[O].integer_percentage" type="text" value="0">
+</div>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</fieldset>
+<div class="form-group">
+<label class="control-label col-sm-4" for="collect_integer_lu_points_summed">% of land use assessed</label>
+<div class="col-sm-8">
+<input class="form-control numeric extra" disabled id="collect_integer_lu_points_summed" name="collect_integer_lu_points_summed" type="text" value="0">
+</div>
+</div>
+<div class="form-group">
+<label class="control-label col-sm-4" for="collect_code_land_use_whole_plot">Land Use (Whole Plot)</label><span class="ui-icon  ui-icon-info" style="display:inline-block" title="This is the Land Use that covers the whole of the plot, used when the plot is in an area where no other Land Uses are present.
+
+Remember that a plot can be wholly in a Forest even if the canopy cover is low ( FAO forest definition is only 10% of canopy over)"></span>
+<div class="col-sm-8">
+<div class="code-items-group" id="collect_code_land_use_whole_plot_group">
+<input class="form-control" data-field-type="CODE_BUTTON_GROUP" id="collect_code_land_use_whole_plot" name="collect_code_land_use_whole_plot" type="hidden">
+<div class="code-items" data-toggle="buttons-radio" id="collect_code_land_use_whole_plot_group_0">
+<button class="btn btn-info code-item" data-code-item-id="2012980" title="Land spanning more than 0.5 hectares with trees higher than 5 meters and a canopy cover of more than 10 percent, or trees able to reach these thresholds in situ." type="button" value="F">Forest</button><button class="btn btn-info code-item" data-code-item-id="2012994" title="Land use for the production of annual and perennial crops, including fallow land, agroforestry, and temporary grassland." type="button" value="C">Cropland</button><button class="btn btn-info code-item" data-code-item-id="2013002" title="Land covered with herbaceous vegetation, managed or unmanaged, and used for grazing or left idle." type="button" value="G">Grassland</button><button class="btn btn-info code-item" data-code-item-id="2013010" title="Built-up or degraded land with less than 10 percent vegetation cover, including infrastructure, settlements, or bare areas." type="button" value="S">Settlement</button><button class="btn btn-info code-item" data-code-item-id="2013017" title="Land covered or saturated by water permanently or seasonally, including natural or constructed wetlands." type="button" value="W">Wetland</button><button class="btn btn-info code-item" data-code-item-id="2013028" title="Land not classified in any of the above categories, typically consisting of permanent snow, ice, or unproductive desert." type="button" value="O">Otherland</button>
+</div>
+</div>
+</div>
+</div>
+</section>
+<h3>LULUC</h3>
+<section class="step">
+<div class="form-group">
+<label class="control-label col-sm-4" for="collect_code_land_use_subcategory">Land Use Change (2000-2025)</label><span class="ui-icon  ui-icon-info" style="display:inline-block" title="Has the land use of the plot changed since 2000 or has it remained the same?"></span>
+<div class="col-sm-8">
+<div class="code-items-group" id="collect_code_land_use_subcategory_group">
+<input class="form-control" data-field-type="CODE_BUTTON_GROUP" data-parent-id-field-id="collect_code_land_use_category_alias" id="collect_code_land_use_subcategory" name="collect_code_land_use_subcategory" type="hidden">
+<div class="code-items" data-parent-id="2012719" data-toggle="buttons-radio" id="collect_code_land_use_subcategory_group_2012719" style="display: none;">
+<button class="btn btn-info code-item" data-code-item-id="2012720" title="Wetland remaining Wetland" type="button" value="WW">W &gt; W</button><button class="btn btn-info code-item" data-code-item-id="2012721" title="Settlement becoming Wetland" type="button" value="SW">S &gt; W</button><button class="btn btn-info code-item" data-code-item-id="2012722" title="Cropland becoming Wetland" type="button" value="CW">C &gt; W</button><button class="btn btn-info code-item" data-code-item-id="2012723" title="Forest becoming Wetland" type="button" value="FW">F &gt; W</button><button class="btn btn-info code-item" data-code-item-id="2012724" title="Grassland becoming Wetland" type="button" value="GW">G &gt; W</button><button class="btn btn-info code-item" data-code-item-id="2012725" title="Otherland becoming Wetland" type="button" value="OW">O &gt; W</button>
+</div>
+<div class="code-items" data-parent-id="2012698" data-toggle="buttons-radio" id="collect_code_land_use_subcategory_group_2012698" style="display: none;">
+<button class="btn btn-info code-item" data-code-item-id="2012699" title="Cropland remaining Cropland" type="button" value="CC">C &gt; C</button><button class="btn btn-info code-item" data-code-item-id="2012700" title="Settlement becoming Cropland" type="button" value="SC">S &gt; C</button><button class="btn btn-info code-item" data-code-item-id="2012701" title="Forest becoming Cropland" type="button" value="FC">F &gt; C</button><button class="btn btn-info code-item" data-code-item-id="2012702" title="Grassland becoming Cropland" type="button" value="GC">G &gt; C</button><button class="btn btn-info code-item" data-code-item-id="2012703" title="Wetland becoming Cropland" type="button" value="WC">W &gt; C</button><button class="btn btn-info code-item" data-code-item-id="2012704" title="Otherland becoming Cropland" type="button" value="OC">O &gt; C</button>
+</div>
+<div class="code-items" data-parent-id="2012712" data-toggle="buttons-radio" id="collect_code_land_use_subcategory_group_2012712" style="display: none;">
+<button class="btn btn-info code-item" data-code-item-id="2012713" title="Grassland remaining Grassland" type="button" value="GG">G &gt; G</button><button class="btn btn-info code-item" data-code-item-id="2012714" title="Settlement becoming Grassland" type="button" value="SG">S &gt; G</button><button class="btn btn-info code-item" data-code-item-id="2012715" title="Cropland becoming Grassland" type="button" value="CG">C &gt; G</button><button class="btn btn-info code-item" data-code-item-id="2012716" title="Forest becoming Grassland" type="button" value="FG">F &gt; G</button><button class="btn btn-info code-item" data-code-item-id="2012717" title="Wetland becoming Grassland" type="button" value="WG">W &gt; G</button><button class="btn btn-info code-item" data-code-item-id="2012718" title="Otherland becoming Grassland" type="button" value="OG">O &gt; G</button>
+</div>
+<div class="code-items" data-parent-id="2012726" data-toggle="buttons-radio" id="collect_code_land_use_subcategory_group_2012726" style="display: none;">
+<button class="btn btn-info code-item" data-code-item-id="2012727" title="Otherland remaining Otherland" type="button" value="OO">O &gt; O</button><button class="btn btn-info code-item" data-code-item-id="2012728" title="Settlement becoming Otherland" type="button" value="SO">S &gt; O</button><button class="btn btn-info code-item" data-code-item-id="2012729" title="Cropland becoming Otherland" type="button" value="CO">C &gt; O</button><button class="btn btn-info code-item" data-code-item-id="2012730" title="Forest becoming Otherland" type="button" value="FO">F &gt; O</button><button class="btn btn-info code-item" data-code-item-id="2012731" title="Grassland becoming Otherland" type="button" value="GO">G &gt; O</button><button class="btn btn-info code-item" data-code-item-id="2012732" title="Wetland becoming Otherland" type="button" value="WO">W &gt; O</button>
+</div>
+<div class="code-items" data-parent-id="2012691" data-toggle="buttons-radio" id="collect_code_land_use_subcategory_group_2012691" style="display: none;">
+<button class="btn btn-info code-item" data-code-item-id="2012692" title="Settlement remaining Settlement" type="button" value="SS">S &gt; S</button><button class="btn btn-info code-item" data-code-item-id="2012693" title="Cropland becoming Settlement" type="button" value="CS">C &gt; S</button><button class="btn btn-info code-item" data-code-item-id="2012694" title="Forest becoming Settlement" type="button" value="FS">F &gt; S</button><button class="btn btn-info code-item" data-code-item-id="2012695" title="Grassland becoming Settlement" type="button" value="GS">G &gt; S</button><button class="btn btn-info code-item" data-code-item-id="2012696" title="Wetland becoming Settlement" type="button" value="WS">W &gt; S</button><button class="btn btn-info code-item" data-code-item-id="2012697" title="Otherland becoming Settlement" type="button" value="OS">O &gt; S</button>
+</div>
+<div class="code-items" data-parent-id="2012705" data-toggle="buttons-radio" id="collect_code_land_use_subcategory_group_2012705" style="display: none;">
+<button class="btn btn-info code-item" data-code-item-id="2012706" title="Forest remaining Forest" type="button" value="FF">F &gt; F</button><button class="btn btn-info code-item" data-code-item-id="2012707" title="Settlement becoming Forest" type="button" value="SF">S &gt; F</button><button class="btn btn-info code-item" data-code-item-id="2012708" title="Cropland becoming Forest" type="button" value="CF">C &gt; F</button><button class="btn btn-info code-item" data-code-item-id="2012709" title="Grassland becoming Forest" type="button" value="GF">G &gt; F</button><button class="btn btn-info code-item" data-code-item-id="2012710" title="Wetland becoming Forest" type="button" value="WF">W &gt; F</button><button class="btn btn-info code-item" data-code-item-id="2012711" title="Otherland becoming Forest" type="button" value="OF">O &gt; F</button>
+</div>
+</div>
+</div>
+</div>
+<div class="form-group">
+<label class="control-label col-sm-4" for="collect_code_land_use_subcategory_year_of_change">Land Use Change - Year of change</label><span class="ui-icon  ui-icon-info" style="display:inline-block" title="In which year can you first appreciate the change of Land Use?"></span>
+<div class="col-sm-8">
+<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_code_land_use_subcategory_year_of_change" name="collect_code_land_use_subcategory_year_of_change"><option selected="true" value="">Nothing selected</option><option value="2025">2025</option><option value="2024">2024</option><option value="2023">2023</option><option value="2022">2022</option><option value="2021">2021</option><option value="2020">2020</option><option value="2019">2019</option><option value="2018">2018</option><option value="2017">2017</option><option value="2016">2016</option><option value="2015">2015</option><option value="2014">2014</option><option value="2013">2013</option><option value="2012">2012</option><option value="2011">2011</option><option value="2010">2010</option><option value="2009">2009</option><option value="2008">2008</option><option value="2007">2007</option><option value="2006">2006</option><option value="2005">2005</option><option value="2004">2004</option><option value="2003">2003</option><option value="2002">2002</option><option value="2001">2001</option><option value="2000">2000</option></select>
+</div>
+</div>
+<div class="form-group">
+<label class="control-label col-sm-4" for="collect_code_land_use_subdivision">Land Use Subdivision 2025</label><span class="ui-icon  ui-icon-info" style="display:inline-block" title="Country specific Land Use"></span>
+<div class="col-sm-8">
+<div class="code-items-group" id="collect_code_land_use_subdivision_group">
+<input class="form-control" data-field-type="CODE_BUTTON_GROUP" data-parent-id-field-id="collect_code_land_use_category" id="collect_code_land_use_subdivision" name="collect_code_land_use_subdivision" type="hidden">
+<div class="code-items" data-parent-id="2013002" data-toggle="buttons-radio" id="collect_code_land_use_subdivision_group_2013002" style="display: none;">
+<button class="btn btn-info code-item" data-code-item-id="2013003" type="button" value="grassland">Grassland</button><button class="btn btn-info code-item" data-code-item-id="2013004" title="Grassland with scattered trees, canopy cover 10&#x2013;30%." type="button" value="grassland_trees">Grassland with trees</button><button class="btn btn-info code-item" data-code-item-id="2013005" title="Grassland with scattered shrubs, shrub cover 10&#x2013;30%." type="button" value="grassland_shrubs">Grassland with shrubs</button><button class="btn btn-info code-item" data-code-item-id="2013006" title="Grassland with scattered trees and shrubs, combined canopy <30%." type="button" value="grassland_trees_shrubs">Grassland with trees and shrubs</button><button class="btn btn-info code-item" data-code-item-id="2013007" title="Land with shrub cover >10% and tree cover <10%" type="button" value="shrubland">Shrubland</button><button class="btn btn-info code-item" data-code-item-id="2013008" title="Shrubland with scattered trees, tree cover 10&#x2013;30%." type="button" value="shrubland_trees">Shrubland with trees</button><button class="btn btn-info code-item" data-code-item-id="2013009" title="Land dominated by lichens and mosses, sparse higher vegetation." type="button" value="lichens_mosses">Lichens and mosses</button>
+</div>
+<div class="code-items" data-parent-id="2013017" data-toggle="buttons-radio" id="collect_code_land_use_subdivision_group_2013017" style="display: none;">
+<button class="btn btn-info code-item" data-code-item-id="2013018" title="Inland standing water body year-round, area >0.01 km&#x00B2;." type="button" value="permanent_lake">Permanent lake</button><button class="btn btn-info code-item" data-code-item-id="2013019" title="Inland water body seasonally inundated, dry part of year." type="button" value="seasonal_lake">Seasonal lake</button><button class="btn btn-info code-item" data-code-item-id="2013020" title="Channelized water flow year-round, permanent stream." type="button" value="permanent_river">Permanent River</button><button class="btn btn-info code-item" data-code-item-id="2013021" title="Watercourse with flow only in rainy season or part-year." type="button" value="seasonal_river">Seasonal river</button><button class="btn btn-info code-item" data-code-item-id="2013022" title="Wetland with woody vegetation, flooded part of the year." type="button" value="swamp">Swamp</button><button class="btn btn-info code-item" data-code-item-id="2013023" title="Shallow coastal or inland lagoon, separated by a barrier, brackish." type="button" value="lagoon">Lagoon</button><button class="btn btn-info code-item" data-code-item-id="2013024" title="Peatland with organic layer (>30 cm of peat)." type="button" value="peatland">Peatland</button><button class="btn btn-info code-item" data-code-item-id="2013025" title="Areas of salt pans and solar evaporation for salt production." type="button" value="salt_extraction">Salt extraction</button><button class="btn btn-info code-item" data-code-item-id="2013026" title="Terras n&#x00E3;o classificadas em outras categorias." type="button" value="other_wetlands">Other</button><button class="btn btn-info code-item" data-code-item-id="2013027" type="button" value="art_water_body">Artificial Water Bodies</button>
+</div>
+<div class="code-items" data-parent-id="2012980" data-toggle="buttons-radio" id="collect_code_land_use_subdivision_group_2012980" style="display: none;">
+<button class="btn btn-info code-item" data-code-item-id="2012981" title="Land with tree canopy cover >10%, dominated by species that seasonally shed all leaves." type="button" value="broadleaf_dec">Broadleaf deciduous</button><button class="btn btn-info code-item" data-code-item-id="2012982" title="Forest land with broadleaf species that retain foliage year-round, canopy cover >10%." type="button" value="broadleaf_ever">Broadleaf evergreen</button><button class="btn btn-info code-item" data-code-item-id="2012983" title="Forest land with a mix of deciduous and evergreen broadleaf species, canopy cover >10%." type="button" value="broadleaf_mix">Broadleaf mixed</button><button class="btn btn-info code-item" data-code-item-id="2012984" title="Forest land dominated by deciduous conifer species (e.g. larch), canopy cover >10%." type="button" value="coniferous_dec">Coniferous deciduous</button><button class="btn btn-info code-item" data-code-item-id="2012985" title="Forest land dominated by evergreen conifers, canopy cover >10%." type="button" value="coniferous_ever">Coniferous evergreen</button><button class="btn btn-info code-item" data-code-item-id="2012986" title="Forest land with a mix of deciduous and evergreen conifers, canopy cover >10%." type="button" value="coniferous_mix">Coniferous mixed</button><button class="btn btn-info code-item" data-code-item-id="2012987" title="Forest land comprised of both broadleaf and coniferous species, canopy cover >10%." type="button" value="mixed_forest">Mixed forest (brod-con)</button><button class="btn btn-info code-item" data-code-item-id="2012988" title="Forested areas adjacent to rivers and streams, seasonally inundated riparian zones." type="button" value="riparian">Riparian forest</button><button class="btn btn-info code-item" data-code-item-id="2012989" title="Coastal intertidal forest dominated by salt-tolerant woody species." type="button" value="mangrove">Mangrove forest</button><button class="btn btn-info code-item" data-code-item-id="2012990" title="Planted area dominated by conifer species, established for production." type="button" value="coniferous_plant">Coniferous plantation</button><button class="btn btn-info code-item" data-code-item-id="2012991" title="Managed plantations of Acacia spp. for wood, pulp or fodder." type="button" value="acacia_plant">Acacia plantation</button><button class="btn btn-info code-item" data-code-item-id="2012992" title="Monoculture plantations of Eucalyptus spp. for pulp and timber." type="button" value="eucalyptus_plant">Eucalyptus plantation</button><button class="btn btn-info code-item" data-code-item-id="2012993" title="Any managed plantation not classified elsewhere, e.g. rubber, teak." type="button" value="other_plant">Other plantation</button>
+</div>
+<div class="code-items" data-parent-id="2013028" data-toggle="buttons-radio" id="collect_code_land_use_subdivision_group_2013028" style="display: none;">
+<button class="btn btn-info code-item" data-code-item-id="2013029" title="Exposed rocky surfaces, bedrock, stone outcrops." type="button" value="rock_stone">Rocks / Stone</button><button class="btn btn-info code-item" data-code-item-id="2013030" title="Unconsolidated sand or dune formations, bare ground." type="button" value="sand_dunes">Sand / Dunes</button><button class="btn btn-info code-item" data-code-item-id="2013031" title="Year-round snow, glaciers or ice fields, non-vegetated." type="button" value="snow">Permanent Snow / Glaciers / Ice</button><button class="btn btn-info code-item" data-code-item-id="2013032" title="Bare ground with minimal organic cover, no vegetation." type="button" value="barren_soil">Barren soil</button><button class="btn btn-info code-item" data-code-item-id="2013033" title="Any other non-vegetated area that does not fit the other classes." type="button" value="other_otherland">Other</button>
+</div>
+<div class="code-items" data-parent-id="2012994" data-toggle="buttons-radio" id="collect_code_land_use_subdivision_group_2012994" style="display: none;">
+<button class="btn btn-info code-item" data-code-item-id="2012995" title="Agricultural land with crops harvested within one year." type="button" value="annual_crops">Annual crops</button><button class="btn btn-info code-item" data-code-item-id="2012996" title="Agricultural land with crops harvested over multiple years (e.g. fruit orchards)." type="button" value="perennial_crops">Perennial crops</button><button class="btn btn-info code-item" data-code-item-id="2012997" title="Mosaic of fields under rotational cultivation and fallow." type="button" value="shifting_agriculture">Shifting Agriculture</button><button class="btn btn-info code-item" data-code-item-id="2012998" title="Cultivo de pequena escala junto a habita&#x00E7;&#x00E3;o, principalmente para subsist&#x00EA;ncia." type="button" value="garden">Garden</button><button class="btn btn-info code-item" data-code-item-id="2012999" title="Flooded fields for paddy rice cultivation under flooded conditions." type="button" value="rice">Rice paddy</button><button class="btn btn-info code-item" data-code-item-id="2013000" title="Plantations of oil palm (Elaeis guineensis) for edible oil." type="button" value="palm">Palm Oil</button><button class="btn btn-info code-item" data-code-item-id="2013001" title="Closed structures for controlled crop production throughout the year." type="button" value="greenhouse">Greenhouse</button>
+</div>
+<div class="code-items" data-parent-id="2013010" data-toggle="buttons-radio" id="collect_code_land_use_subdivision_group_2013010" style="display: none;">
+<button class="btn btn-info code-item" data-code-item-id="2013011" title="Urban area with high density of buildings and infrastructure." type="button" value="city">City</button><button class="btn btn-info code-item" data-code-item-id="2013012" title="Small settlement with residential buildings and local services." type="button" value="village">Village</button><button class="btn btn-info code-item" data-code-item-id="2013013" title="Areas of mineral extraction, removed or altered soil." type="button" value="mining">Mining</button><button class="btn btn-info code-item" data-code-item-id="2013014" title="Areas occupied by transportation, utilities and other structures." type="button" value="infrastructure">Infrastructure</button><button class="btn btn-info code-item" data-code-item-id="2013015" title="Continuous built environment including residential and commercial." type="button" value="built_up">Built up</button><button class="btn btn-info code-item" data-code-item-id="2013016" title="Green public space within urban areas, managed for recreation." type="button" value="urban_park">Urban park</button>
+</div>
+</div>
+</div>
+</div>
+<div class="form-group">
+<label class="control-label col-sm-4" for="collect_boolean_land_use_subdivision_change">Land use subdivision changed 2000/2025</label><span class="ui-icon  ui-icon-info" style="display:inline-block" title="The plot has changed at subdivision level but not its use category, for example, a forest plothas changed from Native Forest to Forest Plantation (no change in Land Use but change on sudivision, indicator of degradation)"></span>
+<div class="col-sm-8">
+<div class="boolean-group" data-toggle="buttons-radio">
+<input class="form-control" data-field-type="BOOLEAN" id="collect_boolean_land_use_subdivision_change" name="collect_boolean_land_use_subdivision_change" type="hidden"><button class="btn btn-info" type="button" value="true">Yes</button><button class="btn btn-info" type="button" value="false">No</button>
+</div>
+</div>
+</div>
+<div class="form-group">
+<label class="control-label col-sm-4" for="collect_boolean_land_use_assessment_confidence">Land Use / Land Use Change - Confidence</label><span class="ui-icon  ui-icon-info" style="display:inline-block" title="Is the interpreter confident that the assessed Land Use category and subdivision of the plot?"></span>
+<div class="col-sm-8">
+<div class="boolean-group" data-toggle="buttons-radio">
+<input class="form-control" data-field-type="BOOLEAN" id="collect_boolean_land_use_assessment_confidence" name="collect_boolean_land_use_assessment_confidence" type="hidden"><button class="btn btn-info" type="button" value="true">Yes</button><button class="btn btn-info" type="button" value="false">No</button>
+</div>
+</div>
+</div>
+<div class="form-group">
+<label class="control-label col-sm-4" for="collect_code_land_use_subdivision_year_of_change">Year of the Subdivision change</label>
+<div class="col-sm-8">
+<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_code_land_use_subdivision_year_of_change" name="collect_code_land_use_subdivision_year_of_change"><option selected="true" value="">Nothing selected</option><option value="2025">2025</option><option value="2024">2024</option><option value="2023">2023</option><option value="2022">2022</option><option value="2021">2021</option><option value="2020">2020</option><option value="2019">2019</option><option value="2018">2018</option><option value="2017">2017</option><option value="2016">2016</option><option value="2015">2015</option><option value="2014">2014</option><option value="2013">2013</option><option value="2012">2012</option><option value="2011">2011</option><option value="2010">2010</option><option value="2009">2009</option><option value="2008">2008</option><option value="2007">2007</option><option value="2006">2006</option><option value="2005">2005</option><option value="2004">2004</option><option value="2003">2003</option><option value="2002">2002</option><option value="2001">2001</option><option value="2000">2000</option></select>
+</div>
+</div>
+<div class="form-group">
+<label class="control-label col-sm-4" for="collect_code_land_use_initial_subdivision">Previous Land Use Subdivision</label>
+<div class="col-sm-8">
+<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-parent-id-field-id="collect_code_calculated_initial_land_use" data-width="75px" id="collect_code_land_use_initial_subdivision" name="collect_code_land_use_initial_subdivision"></select>
+</div>
+</div>
+<div class="form-group">
+<label class="control-label col-sm-4" for="collect_boolean_second_lu_change">Has there been a previous land use?</label><span class="ui-icon  ui-icon-info" style="display:inline-block" title="Has the land use change more than once since 2000? For instance this might happen if there is a transition from Forest in 2000 to Grassland in 2005 that becomes settlement in 2010."></span>
+<div class="col-sm-8">
+<div class="boolean-group" data-toggle="buttons-radio">
+<input class="form-control" data-field-type="BOOLEAN" id="collect_boolean_second_lu_change" name="collect_boolean_second_lu_change" type="hidden"><button class="btn btn-info" type="button" value="true">Yes</button><button class="btn btn-info" type="button" value="false">No</button>
+</div>
+</div>
+</div>
+<div class="form-group">
+<label class="control-label col-sm-4" for="collect_code_second_lu_conversion">Oldest Land Use</label><span class="ui-icon  ui-icon-info" style="display:inline-block" title="What is the precedent Land Use? In the case that the plot has gone from Forest to Cropland and then Settlement the oldest land use would be Forest."></span>
+<div class="col-sm-8">
+<div class="code-items-group" id="collect_code_second_lu_conversion_group">
+<input class="form-control" data-field-type="CODE_BUTTON_GROUP" id="collect_code_second_lu_conversion" name="collect_code_second_lu_conversion" type="hidden">
+<div class="code-items" data-toggle="buttons-radio" id="collect_code_second_lu_conversion_group_0">
+<button class="btn btn-info code-item" data-code-item-id="2012980" title="Land spanning more than 0.5 hectares with trees higher than 5 meters and a canopy cover of more than 10 percent, or trees able to reach these thresholds in situ." type="button" value="F">Forest</button><button class="btn btn-info code-item" data-code-item-id="2012994" title="Land use for the production of annual and perennial crops, including fallow land, agroforestry, and temporary grassland." type="button" value="C">Cropland</button><button class="btn btn-info code-item" data-code-item-id="2013002" title="Land covered with herbaceous vegetation, managed or unmanaged, and used for grazing or left idle." type="button" value="G">Grassland</button><button class="btn btn-info code-item" data-code-item-id="2013010" title="Built-up or degraded land with less than 10 percent vegetation cover, including infrastructure, settlements, or bare areas." type="button" value="S">Settlement</button><button class="btn btn-info code-item" data-code-item-id="2013017" title="Land covered or saturated by water permanently or seasonally, including natural or constructed wetlands." type="button" value="W">Wetland</button><button class="btn btn-info code-item" data-code-item-id="2013028" title="Land not classified in any of the above categories, typically consisting of permanent snow, ice, or unproductive desert." type="button" value="O">Otherland</button>
+</div>
+</div>
+</div>
+</div>
+<div class="form-group">
+<label class="control-label col-sm-4" for="collect_code_second_lu_conversion_year">Year of the conversion from the oldest land use</label><span class="ui-icon  ui-icon-info" style="display:inline-block" title="If the dynamic is Forest -> 2005 Grassland ->2010 Settlement, then here you would set 2005."></span>
+<div class="col-sm-8">
+<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_code_second_lu_conversion_year" name="collect_code_second_lu_conversion_year"><option selected="true" value="">Nothing selected</option><option value="2025">2025</option><option value="2024">2024</option><option value="2023">2023</option><option value="2022">2022</option><option value="2021">2021</option><option value="2020">2020</option><option value="2019">2019</option><option value="2018">2018</option><option value="2017">2017</option><option value="2016">2016</option><option value="2015">2015</option><option value="2014">2014</option><option value="2013">2013</option><option value="2012">2012</option><option value="2011">2011</option><option value="2010">2010</option><option value="2009">2009</option><option value="2008">2008</option><option value="2007">2007</option><option value="2006">2006</option><option value="2005">2005</option><option value="2004">2004</option><option value="2003">2003</option><option value="2002">2002</option><option value="2001">2001</option><option value="2000">2000</option></select>
+</div>
+</div>
+<div class="form-group">
+<label class="control-label col-sm-4" for="collect_code_second_lu_subdivision">Oldest Land Use Subdivision</label><span class="ui-icon  ui-icon-info" style="display:inline-block" title="If the Land Use conversion has been from Forest to Cropland to Settlement here we need to put the type of Forest that this plot initially was."></span>
+<div class="col-sm-8">
+<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-parent-id-field-id="collect_code_second_lu_conversion" data-width="75px" id="collect_code_second_lu_subdivision" name="collect_code_second_lu_subdivision"></select>
+</div>
+</div>
+</section>
+<h3>CE Internal Attributes (hidden to interpreter, used in analysis)</h3>
+<section class="step"></section>
+<h3>Data coming from the CSV  (hidden to interpreter, used in analysis)</h3>
+<section class="step"></section>
+<h3>Calculated LU Timeseries IPCC  (hidden to interpreter, used in analysis)</h3>
+<section class="step"></section>
+<h3>&#x0394; Forest Cover</h3>
+<section class="step">
+<div class="form-group">
+<label class="control-label col-sm-4" for="collect_code_deforestation_driver">Deforestation driver</label>
+<div class="col-sm-8">
+<div class="code-items-group" id="collect_code_deforestation_driver_group">
+<input class="form-control" data-field-type="CODE_BUTTON_GROUP" id="collect_code_deforestation_driver" name="collect_code_deforestation_driver" type="hidden">
+<div class="code-items" data-toggle="buttons-radio" id="collect_code_deforestation_driver_group_0">
+<button class="btn btn-info code-item" data-code-item-id="2012534" type="button" value="logging">Logging</button><button class="btn btn-info code-item" data-code-item-id="2012535" type="button" value="agro_burning">Agricultural burning</button><button class="btn btn-info code-item" data-code-item-id="2012536" type="button" value="forest_fire">Forest fire</button>
+</div>
+</div>
+</div>
+</div>
+<div class="form-group">
+<label class="control-label col-sm-4" for="collect_code_forest_dynamics">Forest Dynamics</label>
+<div class="col-sm-8">
+<div class="code-items-group" id="collect_code_forest_dynamics_group">
+<input class="form-control" data-field-type="CODE_BUTTON_GROUP" id="collect_code_forest_dynamics" name="collect_code_forest_dynamics" type="hidden">
+<div class="code-items" data-toggle="buttons-radio" id="collect_code_forest_dynamics_group_0">
+<button class="btn btn-info code-item" data-code-item-id="2012537" type="button" value="none">No Changes</button><button class="btn btn-info code-item" data-code-item-id="2012538" type="button" value="degradation">Degradation</button><button class="btn btn-info code-item" data-code-item-id="2012547" type="button" value="reforestation">Recovery/Reforestation</button>
+</div>
+</div>
+</div>
+</div>
+<div class="form-group">
+<label class="control-label col-sm-4" for="collect_code_forest_dynamics_type">Type of change dynamics</label>
+<div class="col-sm-8">
+<div class="code-items-group" id="collect_code_forest_dynamics_type_group">
+<input class="form-control" data-field-type="CODE_BUTTON_GROUP" data-parent-id-field-id="collect_code_forest_dynamics" id="collect_code_forest_dynamics_type" name="collect_code_forest_dynamics_type" type="hidden">
+<div class="code-items" data-parent-id="2012538" data-toggle="buttons-radio" id="collect_code_forest_dynamics_type_group_2012538" style="display: none;">
+<button class="btn btn-info code-item" data-code-item-id="2012539" type="button" value="fire">Fires</button><button class="btn btn-info code-item" data-code-item-id="2012540" type="button" value="logging">Logging</button><button class="btn btn-info code-item" data-code-item-id="2012541" type="button" value="pests">Pests</button><button class="btn btn-info code-item" data-code-item-id="2012542" type="button" value="cattle">Cattle raising</button><button class="btn btn-info code-item" data-code-item-id="2012543" type="button" value="agriculture">Agriculture</button><button class="btn btn-info code-item" data-code-item-id="2012544" type="button" value="paths">Roads</button><button class="btn btn-info code-item" data-code-item-id="2012545" type="button" value="settlements">Settlements</button><button class="btn btn-info code-item" data-code-item-id="2012546" type="button" value="climate">Cyclone / Flood / Weather Events</button>
+</div>
+<div class="code-items" data-parent-id="2012547" data-toggle="buttons-radio" id="collect_code_forest_dynamics_type_group_2012547" style="display: none;">
+<button class="btn btn-info code-item" data-code-item-id="2012548" type="button" value="natural">Natural</button><button class="btn btn-info code-item" data-code-item-id="2012549" type="button" value="antropogenic">Anthropogenic</button>
+</div>
+</div>
+</div>
+</div>
+<div class="form-group">
+<label class="control-label col-sm-4" for="collect_code_previous_tree_cover">Tree cover before disturbance</label><span class="ui-icon  ui-icon-info" style="display:inline-block" title="Be careful not to consider the seasonality of the vegetation (a rainy season image may appear as an increase in canopy cover). We want to take into account here only the impact of forest degradation on the tree cover"></span>
+<div class="col-sm-8">
+<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_code_previous_tree_cover" name="collect_code_previous_tree_cover"><option value="na">0 Points &#x2013; No Coverage</option><option value="2">1 Points</option><option value="4">2 Points</option><option value="6">3 Points</option><option value="8">4 Points</option><option value="10">5-9 Points</option><option value="20">10-14 Points</option><option value="30">15-19 Points</option><option value="40">20-24 Points</option><option value="50">25-29 Points</option><option value="60">30-34 Points</option><option value="70">35-39 Points</option><option value="80">40-44 Points</option><option value="90">45-49 Points</option></select>
+</div>
+</div>
+<div class="form-group">
+<label class="control-label col-sm-4" for="collect_code_degradation_year">Year of degradation</label>
+<div class="col-sm-8">
+<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_code_degradation_year" name="collect_code_degradation_year"><option selected="true" value="">Nothing selected</option><option value="2025">2025</option><option value="2024">2024</option><option value="2023">2023</option><option value="2022">2022</option><option value="2021">2021</option><option value="2020">2020</option><option value="2019">2019</option><option value="2018">2018</option><option value="2017">2017</option><option value="2016">2016</option><option value="2015">2015</option><option value="2014">2014</option><option value="2013">2013</option><option value="2012">2012</option><option value="2011">2011</option><option value="2010">2010</option><option value="2009">2009</option><option value="2008">2008</option><option value="2007">2007</option><option value="2006">2006</option><option value="2005">2005</option><option value="2004">2004</option><option value="2003">2003</option><option value="2002">2002</option><option value="2001">2001</option><option value="2000">2000</option></select>
+</div>
+</div>
+<div class="form-group">
+<label class="control-label col-sm-4" for="collect_code_increase_year">Year of recovery</label>
+<div class="col-sm-8">
+<select class="form-control selectboxit show-menu-arrow show-tick" data-field-type="CODE_SELECT" data-width="75px" id="collect_code_increase_year" name="collect_code_increase_year"><option selected="true" value="">Nothing selected</option><option value="2025">2025</option><option value="2024">2024</option><option value="2023">2023</option><option value="2022">2022</option><option value="2021">2021</option><option value="2020">2020</option><option value="2019">2019</option><option value="2018">2018</option><option value="2017">2017</option><option value="2016">2016</option><option value="2015">2015</option><option value="2014">2014</option><option value="2013">2013</option><option value="2012">2012</option><option value="2011">2011</option><option value="2010">2010</option><option value="2009">2009</option><option value="2008">2008</option><option value="2007">2007</option><option value="2006">2006</option><option value="2005">2005</option><option value="2004">2004</option><option value="2003">2003</option><option value="2002">2002</option><option value="2001">2001</option><option value="2000">2000</option></select>
+</div>
+</div>
+</section>
+<h3>Comm.</h3>
+<section class="step">
+<div class="form-group">
+<label class="control-label col-sm-4" for="collect_text_comments">Comments</label><span class="ui-icon  ui-icon-info" style="display:inline-block" title="If this plot was difficult to assess you should leave a comment here so the reviewers might understand the reasoning for the classification."></span>
+<div class="col-sm-8">
+<textarea class="form-control" id="collect_text_comments" name="collect_text_comments" rows="3"> </textarea>
+</div>
+</div>
+</section>
+</div>
+
+<!-- END OF DYNAMIC FIELDS -->
+			</form>
+		</div>
+	</div>
+</body>
+
+<script>
+	if (!PREVIEW) {
+		$.ajax({
+		  url: "http://127.0.0.1:$[local_port]/earth/ancillaryWindows?id=$[EXTRA_id]&round=$[EXTRA_round]",
+		  async : 'true'
+		});
+	}
+</script>
+
+</html>
