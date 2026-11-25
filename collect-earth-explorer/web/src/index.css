@@ -34,6 +34,12 @@ input[type="radio"], input[type="checkbox"], input[type="range"] { accent-color:
 .side-pane h2 { margin: 0 0 2px; font-size: 18px; line-height: 1.3; overflow-wrap: anywhere; }
 .dates { margin: 0 0 12px; font-size: 12px; }
 .config-notice { margin: 0 0 12px; padding: 8px 10px; font-size: 12px; background: #fff; border-left: 4px solid var(--of-blue); border-radius: 6px; overflow-wrap: anywhere; }
+/* The "how to use" guide: compact, so the charts stay near the top. */
+.guide-toggle { margin-left: auto; }
+.guide { margin: 0 0 12px; padding: 6px 10px 8px; font-size: 12px; line-height: 1.4; background: #fff; border-left: 4px solid var(--of-green); border-radius: 6px; }
+.guide h3 { margin: 0 0 2px; font-size: 13px; }
+.guide ul { margin: 0 0 6px; padding-left: 16px; }
+.guide li { margin: 1px 0; }
 /* Each series chart's verdict under the dates, wrapping when long; a line is a button that scrolls to its card. */
 .summary { list-style: none; margin: -6px 0 10px; padding: 0; }
 .summary-line, .summary-line:hover { display: block; width: 100%; padding: 1px 2px; background: none; color: var(--heading); font: 400 12px/1.4 var(--font); text-align: left; overflow-wrap: anywhere; }
@@ -45,6 +51,10 @@ input[type="radio"], input[type="checkbox"], input[type="range"] { accent-color:
 .layers-panel, .map-status, .redraw { position: absolute; z-index: 2; left: 8px; background: rgba(255, 255, 255, 0.9); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); color: var(--heading); }
 .layers-panel { top: 8px; padding: 10px 12px; border-radius: 12px; width: 320px; display: flex; flex-direction: column; gap: 4px; }
 .layers-panel strong { font-weight: 600; }
+/* The title folds the panel; folded, only it remains, as a small pill. */
+.layers-collapsed { width: auto; padding: 6px 8px; }
+.layers-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin: -2px -4px; padding: 2px 4px; background: none; color: var(--heading); font: inherit; text-align: left; }
+.layers-head:hover { background: var(--sand); }
 .layer-row { display: flex; gap: 6px; align-items: center; }
 .layers-panel select { width: 100%; }
 /* A row's radio label with its band selector, small and right-aligned. */
@@ -69,15 +79,19 @@ input[type="radio"], input[type="checkbox"], input[type="range"] { accent-color:
 .redraw button:disabled { opacity: 0.5; cursor: default; background: var(--of-green); }
 .redraw p { margin: 6px 2px 0; }
 .redraw-error { color: var(--error); }
-/* The Layers button only exists on narrow screens; wide ones always show the panel. */
-.layers-toggle { display: none; }
+/* Idle: no box, a 29 px button in the look of MapLibre's zoom control, level with it. */
+.redraw-idle { top: 10px; padding: 0; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.redraw-start, .redraw-start:hover { display: inline-flex; align-items: center; justify-content: center; width: 29px; height: 29px; padding: 0; border-radius: 4px; background: #fff; color: #333; box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1); }
+.redraw-start:hover { background: #f2f2f2; }
 @media (max-width: 900px) {
   .viewer { flex-direction: column; }
   .map-pane { height: 50vh; flex: none; }
   /* Scrolls on its own under the map instead of growing the page. */
   .side-pane { width: auto; flex: 1; min-height: 0; }
-  .layers-toggle { display: inline-block; position: absolute; top: 8px; left: 8px; z-index: 2; }
-  .layers-panel { top: 44px; max-width: calc(100% - 16px); max-height: calc(100% - 52px); overflow-y: auto; box-sizing: border-box; }
+  /* Drawing: Done, Cancel and the hint above the scale bar, not over the Layers panel. */
+  .redraw:not(.redraw-idle) { top: auto; bottom: 100px; }
+  /* Clear of the redraw button and the zoom control on its right. */
+  .layers-panel { max-width: calc(100% - 96px); max-height: calc(100% - 16px); overflow-y: auto; box-sizing: border-box; }
 }
 
 .chart-card { border-radius: 12px; margin-bottom: 12px; background: #fff; overflow: hidden; }
@@ -115,8 +129,13 @@ input[type="radio"], input[type="checkbox"], input[type="range"] { accent-color:
 
 /* Opened without a plot: the logo and the sample plots in a box on sand. */
 .welcome { min-height: 100%; box-sizing: border-box; display: flex; align-items: center; justify-content: center; padding: 24px; background: var(--sand); border-top: 8px solid var(--of-blue); }
-.welcome-box { max-width: 460px; padding: 32px 36px; background: #fff; border-radius: 16px; font-size: 15px; line-height: 1.7; }
+.welcome-box { max-width: 540px; padding: 32px 36px; background: #fff; border-radius: 16px; font-size: 15px; line-height: 1.7; }
 .welcome-box img { display: block; height: 80px; width: auto; }
 .welcome-box h1 { margin: 12px 0 8px; font-size: 26px; line-height: 1.2; }
 .welcome-box p { margin: 0 0 8px; }
-.welcome-box ul { margin: 0; padding-left: 20px; }
+.welcome-box ul, .welcome-box ol { margin: 0; padding-left: 20px; }
+.welcome-help { margin-top: 24px; padding-top: 8px; border-top: 1px solid var(--line); font-size: 14px; line-height: 1.6; }
+.welcome-help h2 { margin: 16px 0 4px; font-size: 15px; }
+.welcome-help li { margin-bottom: 4px; }
+.welcome-help p { margin-top: 12px; }
+@media (max-width: 480px) { .welcome { padding: 16px; } .welcome-box { padding: 24px 20px; } }

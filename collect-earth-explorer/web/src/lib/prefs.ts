@@ -52,6 +52,33 @@ export function writePref(key: string, v: Value) {
   listeners.forEach((l) => l());
 }
 
+/**
+ * How many tab sessions have called this for `key`, this one included (Collect Earth keeps one tab per run and reloads
+ * it per plot, so a session is a run). Counted once per session; Infinity in the preview or when storage throws.
+ */
+export function sessionNumber(key: string): number {
+  if (preview) return Infinity;
+  try {
+    const seen = sessionStorage.getItem(key);
+    if (seen !== null) return Number(seen);
+    const n = (Number(localStorage.getItem(key)) || 0) + 1;
+    localStorage.setItem(key, String(n));
+    sessionStorage.setItem(key, String(n));
+    return n;
+  } catch {
+    return Infinity;
+  }
+}
+
+/** Makes `sessionNumber(key)` return Infinity for the rest of this tab session. */
+export function endForSession(key: string) {
+  try {
+    if (!preview) sessionStorage.setItem(key, "Infinity");
+  } catch {
+    // storage unavailable: sessionNumber already returns Infinity
+  }
+}
+
 /** A short hash of `value`'s JSON (FNV-1a), to key what is stored per configuration. */
 export function hashOf(value: unknown): string {
   let h = 0x811c9dc5;

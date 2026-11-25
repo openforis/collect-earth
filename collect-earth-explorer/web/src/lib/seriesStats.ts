@@ -127,6 +127,18 @@ export function unusuallyLow(points: Point[]): boolean[] {
   return anomaly.map((a) => a !== undefined && a < -2.5 * spread);
 }
 
+/**
+ * Each value minus its calendar month's mean over all the points (the "normal"), rounded to 0.1, at the same dates;
+ * undefined unless every calendar month present has at least 10 values (about ten years).
+ */
+export function againstNormal(points: Point[]): Point[] | undefined {
+  const byMonth: number[][] = Array.from({ length: 12 }, () => []);
+  for (const p of points) byMonth[new Date(p.date).getUTCMonth()].push(p.value);
+  if (!points.length || byMonth.some((v) => v.length > 0 && v.length < 10)) return undefined;
+  const normal = byMonth.map((v) => v.reduce((a, b) => a + b, 0) / v.length);
+  return points.map((p) => ({ date: p.date, value: Math.round((p.value - normal[new Date(p.date).getUTCMonth()]) * 10) / 10 }));
+}
+
 /** The verdict a series summary line shows: the trend, the change year when significant, the last observation's date. */
 export interface Summary {
   trend: "increase" | "decrease" | "none" | "too-few";

@@ -5,7 +5,7 @@ import { useApi } from "../../hooks/useApi";
 import { postApi } from "../../lib/api";
 import { usePlot } from "../../state/PlotContext";
 import { pointsToCsv, downloadText, type Point } from "../../lib/csv";
-import { chartRequest } from "../../lib/config";
+import { chartRequest, withYears } from "../../lib/config";
 import { t } from "../../lib/i18n";
 
 /** Backscatter in dB: most land lies between -25 and -5. */
@@ -21,7 +21,7 @@ export default function Sentinel1Card(props: CardProps) {
   const state = useApi<{ points: Point[] }>((s) => postApi(path, body, s), [plot, start, end, band], { enabled: fold.live });
   return (
     <ChartCard
-      title={`Sentinel-1 ${band} (dB)`}
+      title={withYears(`Sentinel-1 ${band} (dB)`, params)}
       tooltip={t("s1.tooltip")}
       state={state}
       open={fold.open}

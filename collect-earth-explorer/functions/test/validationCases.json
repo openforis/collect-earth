@@ -229,6 +229,40 @@
     },
     {
       "kind": "charts",
+      "type": "precipitation",
+      "name": "dataset",
+      "accepted": [
+        "era5-land",
+        "chirps",
+        "imerg"
+      ],
+      "refused": [
+        "CHIRPS",
+        "era5",
+        "",
+        null,
+        1
+      ]
+    },
+    {
+      "kind": "charts",
+      "type": "forest-loss",
+      "name": "startYear",
+      "maxYear": 2026,
+      "accepted": [
+        2001,
+        2026
+      ],
+      "refused": [
+        2000,
+        1984,
+        2027,
+        "2015",
+        null
+      ]
+    },
+    {
+      "kind": "charts",
       "type": "ccdc",
       "name": "collapsed",
       "accepted": [

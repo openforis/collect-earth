@@ -6,7 +6,7 @@ import { postApi } from "../../lib/api";
 import { usePlot, type Scene } from "../../state/PlotContext";
 import { useFold, type CardProps } from "../../lib/folds";
 import { pointsToCsv, downloadText, type Point } from "../../lib/csv";
-import { chartRequest, indexLabel, normaliseFormula } from "../../lib/config";
+import { chartRequest, indexLabel, normaliseFormula, withYears } from "../../lib/config";
 import { t } from "../../lib/i18n";
 
 const isoDay = (ms: number) => new Date(ms).toISOString().slice(0, 10);
@@ -39,7 +39,7 @@ export default function IndexSeriesCard({ type, ...props }: CardProps & { type: 
   usePublishSummary(position, fold.open, state.status, cloud.points);
   return (
     <ChartCard
-      title={`${name} ${label}`}
+      title={withYears(`${name} ${label}`, params)}
       tooltip={t("series.clickTooltip")}
       state={state}
       open={fold.open}

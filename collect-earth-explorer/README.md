@@ -96,6 +96,15 @@ used. Example:
   11 km, so it is the rainfall of the area rather than of the plot), as bars. It takes the analysis
   switches below, all off by default, and `collapsed`; it is in the standard configuration,
   collapsed.
+  `dataset` picks the rainfall data: `"era5-land"` (the default; about 11 km, from 1950,
+  worldwide), `"chirps"` (about 5 km, from 1981, with rain gauges, only 50°S to 50°N) or `"imerg"`
+  (GPM IMERG, about 11 km, from 1998, worldwide, published about a year late). `anomaly` (default
+  false) starts it "against normal": each month minus the mean of that calendar month over the
+  years shown (needs ten years); the other analyses then apply to those differences.
+- `forest-loss` (not in the standard configuration; in the deforestation starting point) charts the
+  tree cover lost each year since 2001 (Hansen Global Forest Change) with the RADD and GLAD
+  deforestation alerts per month, and states the tree cover in 2000, the loss and which alert
+  system does not cover the plot. It takes `startYear`/`endYear` (from 2001) and `collapsed`.
 - `hls-series` (not in the standard configuration) charts an index from NASA's Harmonized Landsat
   Sentinel-2: Landsat 8/9 and Sentinel-2 combined into one consistent 30 m series, an image every
   2-3 days since 2015 (Landsat only from 2013). It takes the same parameters as `landsat-series`;
@@ -103,6 +112,11 @@ used. Example:
 - `modis` also takes `rainfall` (true or false, default false): whether the chart starts with the
   monthly rainfall drawn as bars under it. The chart's Rain switch turns it on and off, remembered
   like the analyses.
+- Every chart takes `startYear` and `endYear` (from 1984 to this year, either or both): the first
+  and last year it shows, whatever period Collect Earth sends; the title then shows them. Without
+  them a chart shows the period in the address (without one, everything since 1984). A single year
+  outside the address's period extends it: `startYear` alone then runs to today, `endYear` alone
+  from 1984. The MODIS rainfall bars follow the MODIS entry's years.
 - An entry that is not understood is skipped and a notice is shown; the rest still works.
 - Types, parameters, allowed values and defaults: `functions/catalogue.json`, served at
   `GET /api/catalogue`.

@@ -48,6 +48,7 @@ export class FakeMap {
   });
   getContainer = vi.fn(() => this.options.container as HTMLElement);
   addControl = vi.fn(() => this);
+  fitBounds = vi.fn();
   isStyleLoaded = () => false;
   on = vi.fn((ev: string, h: Handler) => {
     this.record("on");

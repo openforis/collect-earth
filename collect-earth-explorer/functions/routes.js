@@ -10,6 +10,7 @@ const { sentinel2Series } = require("./ee/sentinel2Series");
 const { hlsSeries } = require("./ee/hls");
 const { sentinel1CompositeTiles, sentinel1Series } = require("./ee/sentinel1");
 const { precipitationSeries } = require("./ee/precipitation");
+const { forestLoss } = require("./ee/forestLoss");
 const { sceneTiles, sceneImage, validateSceneRequest } = require("./ee/scene");
 const { differenceTiles } = require("./ee/difference");
 const { ccdcSeries, validateCcdcRequest } = require("./ee/ccdc");
@@ -22,8 +23,11 @@ const { createRateLimit, clientAddress } = require("./lib/rateLimit");
 // Generous on purpose: a classroom of interpreters shares one address. Counts computations only, not cache hits.
 const defaultRateLimit = createRateLimit();
 
-/** Cache lifetimes in seconds: tile URLs expire on the EE side after ~24 h, series results are stable. */
-const TTL = { tiles: 20 * 3600, series: 30 * 24 * 3600 };
+/**
+ * Cache lifetimes in seconds: tile URLs expire on the EE side after ~24 h, series results are stable, and the forest
+ * loss answer holds the RADD and GLAD alerts, which are updated weekly or more often (3 days: at most half a week old).
+ */
+const TTL = { tiles: 20 * 3600, series: 30 * 24 * 3600, alerts: 3 * 24 * 3600 };
 
 /**
  * Builds a cached POST handler. Order per request:
@@ -173,7 +177,12 @@ function registerRoutes(app, { cache = defaultCache, rateLimit = defaultRateLimi
   app.post("/api/series/sentinel2", route("series/sentinel2@cloud", TTL.series, seriesExtras("sentinel2-series"), (p, g, x) => sentinel2Series(g, p.start, p.end, x.index, x.formula)));
   app.post("/api/series/hls", route("series/hls", TTL.series, seriesExtras("hls-series"), (p, g, x) => hlsSeries(g, p.start, p.end, x.index, x.formula)));
   app.post("/api/series/sentinel1", route("series/sentinel1", TTL.series, (b) => nonDefault("charts", "sentinel1-series", b, ["band"]), (p, g, x) => sentinel1Series(g, p.start, p.end, x.band)));
-  app.post("/api/series/precipitation", route("series/precipitation", TTL.series, null, (p, g) => precipitationSeries(g, p.start, p.end)));
+  app.post(
+    "/api/series/precipitation",
+    route("series/precipitation", TTL.series, (b) => nonDefault("charts", "precipitation", b, ["dataset"]), (p, g, x) => precipitationSeries(g, p.start, p.end, x.dataset))
+  );
+  // Everything since 2001 whatever the dates (the web keeps the entry's years), so one entry per plot.
+  app.post("/api/series/forest-loss", route("series/forest-loss", TTL.alerts, null, (p, g) => forestLoss(g), null, noDates));
   app.post(
     "/api/tiles/scene",
     route("tiles/scene", TTL.tiles, TILE_SOURCES["tiles/scene"].extrasOf, (p, g, x) => sceneTiles(g, p.start, p.end, x.sensor, x.timeStart), null, noDates)

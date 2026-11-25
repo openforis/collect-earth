@@ -38,6 +38,8 @@
       "title": "CCDC temporal segmentation",
       "params": {
         "band": { "type": "choice", "values": ["NDFI", "NDVI"], "default": "NDFI" },
+        "startYear": { "type": "year", "min": 1984 },
+        "endYear": { "type": "year", "min": 1984 },
         "collapsed": { "type": "bool", "default": false }
       }
     },
@@ -53,6 +55,8 @@
         "unusual": { "type": "bool", "default": false },
         "season": { "type": "bool", "default": false },
         "maxCloud": { "type": "choice", "values": ["any", "80", "60", "40", "20", "10"], "default": "40" },
+        "startYear": { "type": "year", "min": 1984 },
+        "endYear": { "type": "year", "min": 1984 },
         "collapsed": { "type": "bool", "default": false }
       }
     },
@@ -68,6 +72,8 @@
         "unusual": { "type": "bool", "default": false },
         "season": { "type": "bool", "default": false },
         "maxCloud": { "type": "choice", "values": ["any", "80", "60", "40", "20", "10"], "default": "40" },
+        "startYear": { "type": "year", "min": 1984 },
+        "endYear": { "type": "year", "min": 1984 },
         "collapsed": { "type": "bool", "default": false }
       }
     },
@@ -83,6 +89,8 @@
         "unusual": { "type": "bool", "default": false },
         "season": { "type": "bool", "default": false },
         "maxCloud": { "type": "choice", "values": ["any", "80", "60", "40", "20", "10"], "default": "40" },
+        "startYear": { "type": "year", "min": 1984 },
+        "endYear": { "type": "year", "min": 1984 },
         "collapsed": { "type": "bool", "default": false }
       }
     },
@@ -96,6 +104,8 @@
         "unusual": { "type": "bool", "default": false },
         "season": { "type": "bool", "default": false },
         "rainfall": { "type": "bool", "default": false },
+        "startYear": { "type": "year", "min": 1984 },
+        "endYear": { "type": "year", "min": 1984 },
         "collapsed": { "type": "bool", "default": false }
       }
     },
@@ -108,17 +118,31 @@
         "change": { "type": "bool", "default": false },
         "unusual": { "type": "bool", "default": false },
         "season": { "type": "bool", "default": false },
+        "startYear": { "type": "year", "min": 1984 },
+        "endYear": { "type": "year", "min": 1984 },
         "collapsed": { "type": "bool", "default": false }
       }
     },
     "precipitation": {
       "title": "Monthly rainfall",
       "params": {
+        "dataset": { "type": "choice", "values": ["era5-land", "chirps", "imerg"], "default": "era5-land" },
+        "anomaly": { "type": "bool", "default": false },
         "median": { "type": "bool", "default": false },
         "trend": { "type": "bool", "default": false },
         "change": { "type": "bool", "default": false },
         "unusual": { "type": "bool", "default": false },
         "season": { "type": "bool", "default": false },
+        "startYear": { "type": "year", "min": 1984 },
+        "endYear": { "type": "year", "min": 1984 },
+        "collapsed": { "type": "bool", "default": false }
+      }
+    },
+    "forest-loss": {
+      "title": "Forest loss and alerts",
+      "params": {
+        "startYear": { "type": "year", "min": 2001 },
+        "endYear": { "type": "year", "min": 2001 },
         "collapsed": { "type": "bool", "default": false }
       }
     }
@@ -153,7 +177,7 @@
     "deforestation": {
       "v": 1,
       "layers": [{ "type": "sentinel2" }, { "type": "landsat" }],
-      "charts": [{ "type": "ccdc" }, { "type": "landsat-series", "change": true }, { "type": "sentinel2-series", "change": true }, { "type": "modis", "collapsed": true }]
+      "charts": [{ "type": "ccdc" }, { "type": "forest-loss" }, { "type": "landsat-series", "change": true }, { "type": "sentinel2-series", "change": true }, { "type": "modis", "collapsed": true }]
     },
     "fire": {
       "v": 1,

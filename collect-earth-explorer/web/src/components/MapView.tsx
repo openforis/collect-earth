@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 import {
   Map as MlMap,
   NavigationControl,
@@ -64,6 +64,23 @@ export function setImagery(map: MlMap, tileUrl: string | undefined) {
   map.addLayer({ id: IMAGERY_SOURCE, type: "raster", source: IMAGERY_SOURCE }, OUTLINE_LAYER);
 }
 
+/** How a map frames a plot: when it opens and on the R key. */
+export const FIT = { padding: 80, maxZoom: 16 };
+
+/** The R key brings `mapRef`'s map back to `home`, as the page opened. Not with Ctrl/Alt/Meta (reload) or while typing or choosing in a list. */
+export function useHomeKey(mapRef: RefObject<MlMap | null>, home: Polygon) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() !== "r" || e.ctrlKey || e.metaKey || e.altKey) return;
+      const el = e.target as HTMLInputElement;
+      if (el.isContentEditable || el.tagName === "SELECT" || el.tagName === "TEXTAREA" || (el.tagName === "INPUT" && !/^(radio|checkbox|range)$/.test(el.type))) return;
+      mapRef.current?.fitBounds(polygonBounds(home), FIT);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [mapRef, home]);
+}
+
 const outline = (plot: Polygon) => ({ type: "Feature" as const, geometry: plot, properties: {} });
 
 export function addPlotOutline(map: MlMap, plot: Polygon) {
@@ -76,12 +93,14 @@ export function addPlotOutline(map: MlMap, plot: Polygon) {
 
 interface Props {
   plot: Polygon;
+  /** The plot the R key returns to; `plot` when left out. */
+  home?: Polygon;
   tileUrl?: string;
   /** Called with the map once its style has loaded, and with null when it is removed. */
   onMap?: (m: MlMap | null) => void;
 }
 
-export default function MapView({ plot, tileUrl, onMap }: Props) {
+export default function MapView({ plot, home = plot, tileUrl, onMap }: Props) {
   const el = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MlMap | null>(null);
   // Latest tileUrl, read by the "load" handler so the first imagery layer is
@@ -99,7 +118,7 @@ export default function MapView({ plot, tileUrl, onMap }: Props) {
       container: el.current!,
       style: BASE_STYLE,
       bounds: polygonBounds(plot),
-      fitBoundsOptions: { padding: 80, maxZoom: 16 },
+      fitBoundsOptions: FIT,
       locale: MAP_LOCALE,
     });
     map.addControl(new NavigationControl(), "top-right");
@@ -128,6 +147,8 @@ export default function MapView({ plot, tileUrl, onMap }: Props) {
   useEffect(() => {
     if (mapRef.current) setImagery(mapRef.current, tileUrl);
   }, [tileUrl]);
+
+  useHomeKey(mapRef, home);
 
   // A redrawn plot moves the outline; the view stays where the user is looking.
   useEffect(() => {

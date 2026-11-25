@@ -416,6 +416,42 @@ describe("series cards", () => {
     download.mockRestore();
   });
 
+  it("a rainfall card on CHIRPS sends the dataset, names it, puts it in the CSV name and says when it has no data", async () => {
+    fetchMock.mockImplementation(async () => json({ points: [] }));
+    const download = vi.spyOn(csv, "downloadText").mockImplementation(() => {});
+    setup(<PrecipitationCard params={paramsOf("precipitation", { collapsed: false, dataset: "chirps" })} />);
+    await screen.findByText(/CHIRPS has no data for this plot/);
+    expect(lastRequest().body.dataset).toBe("chirps");
+    expect(screen.getByRole("heading").getAttribute("title")).toBe("Monthly rainfall, CHIRPS");
+    fireEvent.click(screen.getByRole("button", { name: "Download CSV" }));
+    expect(download.mock.calls.at(-1)![0]).toBe("demo-rainfall-chirps.csv");
+    download.mockRestore();
+  });
+
+  it("Against normal stays disabled under ten years of each month, and on ten years shows the differences", async () => {
+    const months = (years: number) => Array.from({ length: years * 12 }, (_, i) => ({ date: Date.UTC(2010, i, 1), value: i % 12 === 0 ? 10 + i / 12 : 50 }));
+    fetchMock.mockImplementation(async () => json({ points: months(9) }));
+    const { unmount } = render(
+      <PlotProvider params={params} config={resolveConfig(undefined, 2026)}>
+        <PrecipitationCard params={paramsOf("precipitation", { collapsed: false })} />
+      </PlotProvider>,
+    );
+    await screen.findByTestId("series-chart");
+    const box = () => screen.getByRole("checkbox", { name: /Rainfall against normal/ }) as HTMLInputElement;
+    expect(box().disabled).toBe(true);
+    expect(box().parentElement!.getAttribute("title")).toBe("Against normal needs at least 10 years of each month");
+    unmount();
+    fetchMock.mockImplementation(async () => json({ points: months(10) }));
+    setup(<PrecipitationCard params={paramsOf("precipitation", { collapsed: false, anomaly: true })} />);
+    await screen.findByTestId("series-chart");
+    expect(box().checked).toBe(true);
+    expect(screen.getByTestId("series-chart").getAttribute("data-name")).toBe("Against normal (mm)");
+    // A survey's start value is stored apart; off draws the rainfall again.
+    fireEvent.click(box());
+    expect(localStorage.getItem("explorer.rainAnomaly.survey")).toBe("false");
+    expect(screen.getByTestId("series-chart").getAttribute("data-name")).toBe("Rainfall");
+  });
+
   it("ModisCard requests rainfall only while its Rain switch is on, and passes it as bars", async () => {
     const modis = { ndvi: [{ date: T0, value: 0.4 }], fires: [] };
     fetchMock.mockImplementation(async (url: string) => json(url.endsWith("modis") ? modis : { points: [{ date: T0, value: 97 }] }));
@@ -432,6 +468,22 @@ describe("series cards", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: "Rainfall" }));
     expect(screen.getByTestId("series-chart").getAttribute("data-bars")).toBe("");
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("the rain overlay follows the MODIS entry's years, and the title shows them", async () => {
+    fetchMock.mockImplementation(async (url: string) => json(url.endsWith("modis") ? { ndvi: [{ date: T0, value: 0.4 }], fires: [] } : { points: [] }));
+    setup(<ModisCard params={paramsOf("modis", { rainfall: true, startYear: 2015, endYear: 2020 })} />);
+    await screen.findByTestId("series-chart");
+    const bodies = fetchMock.mock.calls.map(([u, init]) => [u, JSON.parse((init as RequestInit).body as string)]);
+    for (const [, body] of bodies) expect([body.start, body.end]).toEqual(["2015-01-01", "2021-01-01"]);
+    expect(bodies.map(([u]) => u).sort()).toEqual(["/api/series/modis", "/api/series/precipitation"]);
+    expect(screen.getByRole("heading").textContent).toBe("MODIS NDVI 2015–2020");
+  });
+
+  it("a chart with one of its years says which in its title", async () => {
+    fetchMock.mockImplementation(async () => json({ points: [POINT] }));
+    setup(<PrecipitationCard params={paramsOf("precipitation", { collapsed: false, startYear: 2015 })} />);
+    expect(screen.getByRole("heading").textContent).toBe("Rainfall (mm) from 2015");
   });
 
   it("a survey's rainfall starts the Rain switch on, and a failed rainfall request leaves the MODIS chart", async () => {

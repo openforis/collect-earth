@@ -76,6 +76,7 @@ describe("warmRequests", () => {
       config({ v: 1, layers: [{ type: "landsat", bands: "true-colour" }], charts: [{ type: "ccdc", band: "NDVI" }, { type: "landsat-series", index: "NDMI" }, { type: "sentinel2-series", formula: " nir / red ", name: "x" }, { type: "modis", index: "EVI" }] }),
       config({ v: 1, layers: [{ type: "sentinel2", year: 2020, maxCloud: 30 }] }),
       config({ v: 1, charts: [{ type: "hls-series" }, { type: "hls-series", index: "NBR" }] }),
+      config({ v: 1, charts: [{ type: "landsat-series", startYear: 2015, endYear: 2020 }, { type: "modis", startYear: 2010 }, { type: "ccdc", endYear: 2018 }, { type: "precipitation", endYear: 2019 }] }),
       config({ v: 1, layers: [{ type: "sentinel1", bands: "vh" }], charts: [{ type: "sentinel1-series" }, { type: "sentinel1-series", band: "VV" }, { type: "precipitation" }] }),
     ])
       same(cfg);
