@@ -5,7 +5,8 @@ import { fileURLToPath } from 'node:url';
 import { createGunzip } from 'node:zlib';
 import fastifyStatic from '@fastify/static';
 import { trustProxyOf } from './trustProxy.js';
-import Fastify, { LogController, type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
+import Fastify, { LogController, type FastifyBaseLogger, type FastifyInstance, type FastifyReply, type FastifyRequest, type RawRequestDefaultExpression } from 'fastify';
+import type { Bindings, ChildLoggerOptions } from 'pino';
 import { generateSetupCode } from './accountRules.js';
 import { ActivityRecorder, registerActivity } from './activity.js';
 import { registerCompression } from './compress.js';
@@ -16,7 +17,8 @@ import { AiRunService, type AiRunServiceOptions } from './ai/service.js';
 import { DEFAULT_AI_MODEL, type Config } from './config.js';
 import { QualityService, QualityWorker } from './qualityService.js';
 import { RateLimiter } from './rateLimit.js';
-import { redactUrlsIn, requestSerializer } from './logRedact.js';
+import { redactUrl, redactUrlsIn, requestSerializer } from './logRedact.js';
+import { logFormatters, MESSAGE_KEY, traceFields, whoOf } from './cloudLog.js';
 import { mailerFrom, type Mailer } from './mail.js';
 import type { KeySource } from './oidc.js';
 import { ServerCounters } from './serverCounters.js';
@@ -163,9 +165,15 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   const app = Fastify({
     // A token in an address (progress links, invitations, reset pages, backup downloads) is never
     // written to the server's log (src/logRedact.ts).
+    // As Google Cloud Logging reads them (src/cloudLog.ts): the severity, the message, the trace, an error's stack
     logger: options.logger
-      ? { ...loggerOptions, stream: errorLog.tee(loggerOptions.stream ?? process.stdout), serializers: { req: requestSerializer } }
+      ? { messageKey: MESSAGE_KEY, formatters: logFormatters, ...loggerOptions, stream: errorLog.tee(loggerOptions.stream ?? process.stdout), serializers: { req: requestSerializer } }
       : false,
+    // Each request's lines carry its trace, so the log viewer shows them with Cloud Run's own line for the request
+    ...(options.logger
+      ? { childLoggerFactory: (logger: FastifyBaseLogger, bindings: Bindings, opts: ChildLoggerOptions, rawReq: RawRequestDefaultExpression) =>
+          logger.child({ ...bindings, ...traceFields(rawReq.headers['x-cloud-trace-context'], config.googleCloudProject) }, opts) }
+      : {}),
     // One line per request, after it (the onResponse hook below), instead of Fastify's two; none for Collect Earth's
     // routine sync calls that went well (QUIET_ROUTES)
     logController: new LogController({ disableRequestLogging: true }),
@@ -282,7 +290,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     if (reply.statusCode < 400 && ms < SLOW_REQUEST_MS && QUIET_ROUTES.has(`${request.method} ${request.routeOptions?.url ?? ''}`)) return;
     // a server error at error level: what the owner's alert mail attaches (src/errorLog.ts), and what a log alert looks for
     const level = reply.statusCode >= 500 ? 'error' : 'info';
-    request.log[level]({ req: request, res: { statusCode: reply.statusCode }, responseTime: ms }, 'request completed');
+    request.log[level]({ req: request, res: { statusCode: reply.statusCode }, responseTime: ms, ...whoOf(request) }, 'request completed');
   });
   if (!local) {
     // Each project's storage against the server's limit, every hour
@@ -370,7 +378,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
       // its name, message, code and stack only, as the error reports have it: not a database error's detail, which holds
       // the values it was about (an address, a name)
       const failure = { type: error.name, message: redactUrlsIn(error.message), code: (error as { code?: unknown }).code, stack: error.stack ? redactUrlsIn(error.stack) : undefined };
-      request.log.error({ failure, route: request.routeOptions?.url ?? 'unknown', method: request.method }, 'request failed');
+      request.log.error({ failure, route: request.routeOptions?.url ?? 'unknown', method: request.method, url: redactUrl(request.url), ...whoOf(request) }, 'request failed');
       telemetry.captureError(error, { route: request.routeOptions?.url ?? 'unknown', method: request.method, project: request.membership?.projectId });
     }
   });

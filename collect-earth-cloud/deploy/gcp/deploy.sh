@@ -668,7 +668,8 @@ build_image() {
 deploy_service() {
   step "starting the server (Cloud Run, about 1 minute)" \
     "Cloud Run could not start the new version. The previous version, if any, keeps running. Its log may say why: gcloud run services logs read $SERVICE --region $REGION --project $PROJECT"
-  local env_vars="STORE_BACKEND=postgres,MIGRATE_ON_BOOT=true"
+  # GOOGLE_CLOUD_PROJECT: the log's lines of a request are shown with Cloud Run's own line for it (src/cloudLog.ts)
+  local env_vars="STORE_BACKEND=postgres,MIGRATE_ON_BOOT=true,GOOGLE_CLOUD_PROJECT=$PROJECT"
   [[ -n "$DOMAIN" ]] && env_vars+=",PUBLIC_BASE_URL=https://$DOMAIN"
   # An update keeps the memory and timeout the server has, unless MEMORY / REQUEST_TIMEOUT say otherwise.
   local memory="$MEMORY" timeout="$REQUEST_TIMEOUT" current="" current_memory="" current_timeout=""

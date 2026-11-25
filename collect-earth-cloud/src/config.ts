@@ -21,6 +21,11 @@ export interface Config {
   migrationDatabaseUrl?: string;
   /** Error reports (src/telemetry.ts): off unless TELEMETRY=1; absent in the local mode. */
   telemetry?: TelemetryConfig;
+  /**
+   * GOOGLE_CLOUD_PROJECT: the Google Cloud project the server runs in, which names each request's trace in its log lines
+   * (src/cloudLog.ts) so Cloud Logging shows them together. deploy/gcp/deploy.sh sets it.
+   */
+  googleCloudProject?: string;
   /** When set, POST /v1/projects requires header `x-admin-key` to match. */
   adminApiKey?: string;
   /**
@@ -256,6 +261,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     trustForwardedHost: env.TRUST_FORWARDED_HOST === 'true' || env.TRUST_FORWARDED_HOST === '1',
     webDir: webDirOf(env.WEB_DIR),
     telemetry: telemetryConfigOf(env),
+    ...(env.GOOGLE_CLOUD_PROJECT?.trim() ? { googleCloudProject: env.GOOGLE_CLOUD_PROJECT.trim() } : {}),
   };
 }
 

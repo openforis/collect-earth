@@ -182,7 +182,7 @@ describe('the alerts on a running server', () => {
     // the log's own redaction: what the log says, nothing more
     expect(file.content).not.toContain('secret-in-the-address');
     // the error's name, message, code and stack, not the values a database error holds
-    const failed = file.content.trim().split('\n').map((l) => JSON.parse(l)).find((l) => l.msg === 'request failed');
+    const failed = file.content.trim().split('\n').map((l) => JSON.parse(l)).find((l) => l.message === 'request failed');
     expect(failed.failure).toMatchObject({ type: 'Error', message: 'the disk is on fire', code: '23505' });
     expect(failed.failure.stack).toContain('the disk is on fire');
     expect(file.content).not.toContain('someone@example.org');
