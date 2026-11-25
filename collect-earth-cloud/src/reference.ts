@@ -31,6 +31,12 @@ export const MAX_PLOTS_PER_REQUEST = 500;
 export const RECENT_CHECKS = 10;
 /** A reference answer is in doubt from this many collectors answering the question on the plot. */
 export const MIN_DOUBT = 3;
+/**
+ * ...and when more than this share of them gave one same other answer. A bare majority was not enough: on a question
+ * of two answers given at random, five or six of nine agree by chance, and a run of Demo 2 listed 49 answers in doubt
+ * of which 2 were. More than two thirds: 3 of 3, 4 of 5, 7 of 9, 14 of 20.
+ */
+export const DOUBT_SHARE = 2 / 3;
 /** At most this many reference answers in doubt are listed (the total is counted). */
 export const MAX_DOUBTFUL = 100;
 
@@ -94,6 +100,9 @@ export function referenceFigures(input: QualityInput): ReferenceFigures {
     // What the collectors answered to each choice question of this plot, grouped as answers are compared (by their
     // codes): measured with or without the reference assessment, which may come later.
     const given = new Map<string, Map<string, { shown: string; count: number }>>();
+    // This plot's questions whose reference answer is in doubt: left out of whether a check matches the plot (layer 5),
+    // else one wrong reference answer makes the plot look hard for everyone and hides the plots that are
+    const inDoubt = new Set<string>();
     for (const check of p.checks.values()) {
       for (const key of Object.keys(check.summary)) {
         const value = check.summary[key];
@@ -131,10 +140,11 @@ export function referenceFigures(input: QualityInput): ReferenceFigures {
         a.agreeing += same;
         a.kappaPlots.push(answers);
       }
-      // In doubt: most collectors gave one same answer, and the reference says something else.
-      if (p.main && top && !tied && answered >= MIN_DOUBT && top.count * 2 > answered) {
+      // In doubt: more than two thirds of the collectors gave one same answer, and the reference says something else.
+      if (p.main && top && !tied && answered >= MIN_DOUBT && top.count > answered * DOUBT_SHARE) {
         const ref = Object.hasOwn(p.main.summary, key) && typeof p.main.summary[key] === 'string' ? p.main.summary[key] : '';
         if (choiceText(ref) !== top.id) {
+          inDoubt.add(key);
           doubts.push({ plot, assessor: row.assessor, key, label: key, reference: isBlankAnswer(ref) ? '' : shownText(ref), majority: top.shown, count: top.count, of: answered });
         }
       }
@@ -144,6 +154,8 @@ export function referenceFigures(input: QualityInput): ReferenceFigures {
     for (const [operator, check] of p.checks) {
       let person = people.get(operator);
       let all = true;
+      // As `all`, the questions in doubt on this plot left out: what the plot's row counts
+      let allButDoubted = true;
       let compared = 0;
       let agreeing = 0;
       compareAnswers(p.main.summary, check.summary, ruleOf, margins, (key, kind, agrees) => {
@@ -170,6 +182,7 @@ export function referenceFigures(input: QualityInput): ReferenceFigures {
           agreeing += 1;
         } else {
           all = false;
+          if (!inDoubt.has(key)) allButDoubted = false;
         }
       });
       // A check with no question compared (blank wherever the reference is) says nothing: not counted.
@@ -177,10 +190,8 @@ export function referenceFigures(input: QualityInput): ReferenceFigures {
       checks += 1;
       person.compared += 1;
       person.checks.push({ at: check.firstSubmittedOn ?? check.modifiedOn, compared, agreeing });
-      if (all) {
-        person.agreeing += 1;
-        row.agreeing += 1;
-      }
+      if (all) person.agreeing += 1;
+      if (allButDoubted) row.agreeing += 1;
     }
   }
 

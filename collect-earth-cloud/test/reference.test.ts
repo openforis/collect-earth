@@ -245,10 +245,11 @@ describe('referenceFigures: the collectors among themselves on the reference plo
     expect(figures.doubtful).toEqual([]);
   });
 
-  it('puts a reference answer in doubt when more than half of at least three collectors give one other answer', () => {
+  it('puts a reference answer in doubt when more than two thirds of at least three collectors give one other answer', () => {
     const figures = referenceFigures(
       shared(5, {
-        // r1: all three say grassland against forest. r2: two of three. r3: one of three (the reference stands).
+        // r1: all three say grassland against forest. r2: two of three (not more than two thirds: chance gives as
+        // much). r3: one of three (the reference stands).
         // r4: a tie of two answers among four (no majority). r5: two collectors only (too few).
         ana: (i) => (i === 5 ? 'grassland' : i === 3 ? 'forest' : 'grassland'),
         ben: (i) => (i === 1 || i === 2 || i === 5 ? 'grassland' : i === 4 ? 'grassland' : 'forest'),
@@ -258,17 +259,38 @@ describe('referenceFigures: the collectors among themselves on the reference plo
     );
     expect(figures.doubtful).toEqual([
       { plot: 'r1', assessor: 'coord', key: 'collect_code_land_use', label: 'Land use', reference: 'forest', majority: 'grassland', count: 3, of: 3 },
-      { plot: 'r2', assessor: 'coord', key: 'collect_code_land_use', label: 'Land use', reference: 'forest', majority: 'grassland', count: 2, of: 3 },
     ]);
-    expect(figures.doubtfulTotal).toBe(2);
-    // How many checks of each plot agree with the reference on everything.
+    expect(figures.doubtfulTotal).toBe(1);
+    // How many checks of each plot agree with the reference on everything but the answers in doubt: r1's only
+    // difference is its land use in doubt, so the plot is not hard (its reference is in question, layer 2)
     expect(figures.byPlot.map((p) => [p.plot, p.checks, p.agreeing])).toEqual([
-      ['r1', 3, 0],
+      ['r1', 3, 3],
       ['r2', 3, 1],
       ['r3', 3, 2],
       ['r4', 4, 0],
       ['r5', 2, 0],
     ]);
+  });
+
+  it('more than two thirds: 7 of 9 is a doubt, 6 of 9 is not', () => {
+    const nine = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i'];
+    const figures = referenceFigures(
+      shared(2, Object.fromEntries(nine.map((name, k) => [name, (i: number) => (k < (i === 1 ? 7 : 6) ? 'grassland' : 'forest')]))),
+    );
+    expect(figures.doubtful.map((d) => [d.plot, d.count, d.of])).toEqual([['r1', 7, 9]]);
+  });
+
+  it("a plot's row leaves out the questions in doubt on it: the plots hard for everyone show under a wrong reference", () => {
+    // Everyone says grassland where the reference says forest (in doubt); on the canopy, the reference's 50, cleo 20
+    const records = [rec('r1,1', 'coord', { collect_code_land_use: 'forest', collect_real_canopy: '50' })];
+    for (const [name, canopy] of [['ana', '50'], ['ben', '50'], ['cleo', '20']]) {
+      records.push(rec('r1,2', name, { collect_code_land_use: 'grassland', collect_real_canopy: canopy }, { firstSubmittedOn: day }));
+    }
+    const figures = referenceFigures({ records, info: added, units: new Set(['r1']), copyHolders: new Map(), outline, margins: {}, reference: new Map([['r1', 'coord']]) });
+    expect(figures.doubtful.map((d) => d.key)).toEqual(['collect_code_land_use']);
+    expect(figures.byPlot).toEqual([expect.objectContaining({ plot: 'r1', checks: 3, agreeing: 2 })]);
+    // A person's plots matching on every answer still count everything: no one matched the whole reference
+    expect(figures.people.map((p) => [p.username, p.plots.agreeing])).toEqual([['ana', 0], ['ben', 0], ['cleo', 0]]);
   });
 
   it('a majority agreeing with the reference is no doubt, nor one the reference left blank where they all agree on it', () => {

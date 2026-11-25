@@ -197,7 +197,7 @@ export interface ReferenceFigures {
   questions: ReferenceQuestion[];
   /** Everyone with a check measured, by name. */
   people: ReferencePerson[];
-  /** Each reference plot (plot order): its assessor, whether the reference is submitted, how many checks of it are, and how many of them match the reference on every question. */
+  /** Each reference plot (plot order): its assessor, whether the reference is submitted, how many checks of it are, and how many of them match the reference on every question but those whose reference answer is in doubt on the plot (`doubtful`): a wrong reference answer would make it look hard for everyone. */
   byPlot: { plot: string; assessor: string; assessed: boolean; checks: number; agreeing: number }[];
   /** The collectors' agreement among themselves, per choice question, in the survey's order. */
   among: ReferenceAmong[];
