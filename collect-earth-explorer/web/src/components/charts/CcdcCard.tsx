@@ -6,7 +6,7 @@ import { useApi } from "../../hooks/useApi";
 import { postApi } from "../../lib/api";
 import { usePlot } from "../../state/PlotContext";
 import { pointsToCsv, downloadText } from "../../lib/csv";
-import { chartRequest } from "../../lib/config";
+import { chartRequest, withYears } from "../../lib/config";
 import { t } from "../../lib/i18n";
 
 const isoDay = (ms: number) => new Date(ms).toISOString().slice(0, 10);
@@ -27,7 +27,7 @@ export default function CcdcCard(props: CardProps) {
   );
   return (
     <ChartCard
-      title="CCDC (Landsat)"
+      title={withYears("CCDC (Landsat)", params)}
       tooltip={t("ccdc.tooltip")}
       state={state}
       open={fold.open}

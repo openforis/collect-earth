@@ -6,7 +6,7 @@ import { useApi } from "../../hooks/useApi";
 import { postApi } from "../../lib/api";
 import { usePlot } from "../../state/PlotContext";
 import { pointsToCsv, downloadText, type Point } from "../../lib/csv";
-import { chartRequest } from "../../lib/config";
+import { chartRequest, withYears } from "../../lib/config";
 import { usePref } from "../../lib/prefs";
 import { RAIN_COLOR } from "./PrecipitationCard";
 import { t } from "../../lib/i18n";
@@ -26,8 +26,8 @@ export default function ModisCard(props: CardProps) {
   // As the analysis switches (SeriesChart useSwitch): a survey that starts with rain on keeps the user's choice apart.
   const rainStart = params.rainfall === true;
   const [rain, setRain] = usePref(`explorer.rain${rainStart ? ".survey" : ""}`, rainStart);
-  // The standalone rainfall card's request, so both share the server's answer.
-  const rainRequest = chartRequest({ type: "precipitation", params: {} }, { plot, start, end });
+  // The standalone rainfall card's request over the MODIS entry's years, so both share the server's answer when theirs match.
+  const rainRequest = chartRequest({ type: "precipitation", params: { startYear: params.startYear, endYear: params.endYear } }, { plot, start, end });
   const rainState = useApi<{ points: Point[] }>((s) => postApi(rainRequest.path, rainRequest.body, s), [plot, start, end], { enabled: fold.live && rain });
   const rainPoints = rain ? rainState.data?.points : undefined;
   // Only the months MODIS covers (from 2000): rainfall goes back further and would stretch the time axis.
@@ -38,7 +38,7 @@ export default function ModisCard(props: CardProps) {
   );
   return (
     <ChartCard
-      title={`MODIS ${index}`}
+      title={withYears(`MODIS ${index}`, params)}
       tooltip={t("modis.tooltip", { index })}
       state={state}
       open={fold.open}

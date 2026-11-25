@@ -27,7 +27,7 @@ describe("in a Spanish browser", () => {
         <LayersPanel />
       </PlotProvider>,
     );
-    expect(screen.getByText("Capas", { selector: "strong" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Capas" }).getAttribute("aria-expanded")).toBe("true");
     expect(screen.getByRole("radio", { name: "Sentinel-2, últimos 12 meses" })).toBeTruthy();
     expect(screen.getByRole("radio", { name: "Escena (clic en un punto del gráfico)" })).toBeTruthy();
     expect(screen.getByRole("slider", { name: "Año de Landsat" })).toBeTruthy();

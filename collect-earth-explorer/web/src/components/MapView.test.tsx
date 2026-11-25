@@ -22,6 +22,26 @@ describe("MapView", () => {
     FakeMap.instances.length = 0;
   });
 
+  it("brings the map back to the plot on the R key, but not on Ctrl+R or while choosing in a list", () => {
+    render(
+      <>
+        <MapView plot={plot} />
+        <select />
+      </>,
+    );
+    const [map] = FakeMap.instances;
+    const press = (init: KeyboardEventInit, target: EventTarget = document.body) =>
+      act(() => void target.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, ...init })));
+    press({ key: "r" });
+    expect(map.fitBounds).not.toHaveBeenCalled(); // not loaded yet
+    act(() => map.fire("load"));
+    press({ key: "r", ctrlKey: true });
+    press({ key: "r" }, document.querySelector("select")!);
+    expect(map.fitBounds).not.toHaveBeenCalled();
+    press({ key: "R" });
+    expect(map.fitBounds).toHaveBeenCalledWith([[30, -3], [31, -2]], { padding: 80, maxZoom: 16 });
+  });
+
   it("swaps the tile URL in place while tiles are loading and never touches the StrictMode-discarded map", () => {
     const { rerender } = render(
       <StrictMode>

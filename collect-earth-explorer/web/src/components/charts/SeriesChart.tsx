@@ -27,6 +27,8 @@ interface Props {
   bars?: { points: Point[]; name: string; color: string };
   /** Draw `points` as bars instead of a line with markers. */
   bar?: boolean;
+  /** One colour per point of trace 0 instead of `color` (rainfall above and below normal). */
+  colors?: string[];
 }
 
 const STANDARD = { median: false, trend: true, change: false, unusual: false, season: false };
@@ -56,7 +58,7 @@ const yearOf = (ms: number) => new Date(ms).getUTCFullYear();
  * `data` and `layout` are memoised and `uirevision` is constant, so a re-render neither
  * re-plots nor resets the user's zoom.
  */
-export default function SeriesChart({ points, name, color = "#587F2E", markers, onClickPoint, onCompareYears, onCompareScenes, yRange = DEFAULT_Y_RANGE, selected, analyses, bars, bar }: Props) {
+export default function SeriesChart({ points, name, color = "#587F2E", markers, onClickPoint, onCompareYears, onCompareScenes, yRange = DEFAULT_Y_RANGE, selected, analyses, bars, bar, colors }: Props) {
   const [yMin, yMax] = yRange;
   const markerX = markers?.x;
   const markerName = markers?.name;
@@ -80,7 +82,7 @@ export default function SeriesChart({ points, name, color = "#587F2E", markers, 
 
   const data = useMemo<Data[]>(() => {
     // Unusual values are coloured on trace 0 itself, so a click on one still maps to its point.
-    const pointColor = showUnusual && unusualCount ? flags.map((f) => (f ? RED : color)) : color;
+    const pointColor = showUnusual && unusualCount ? flags.map((f, i) => (f ? RED : colors?.[i] ?? color)) : colors ?? color;
     const traces: Data[] = [
       bar
         ? {
@@ -154,7 +156,7 @@ export default function SeriesChart({ points, name, color = "#587F2E", markers, 
     }
     traces.push(...selectedRing(points, selected));
     return traces;
-  }, [points, name, color, markerX, markerName, markerColor, yMax, selected, median, fit, showMedian, showTrend, flags, unusualCount, showUnusual, bars, bar]);
+  }, [points, name, color, markerX, markerName, markerColor, yMax, selected, median, fit, showMedian, showTrend, flags, unusualCount, showUnusual, bars, bar, colors]);
 
   const changeYear = showChange ? change?.year : undefined;
   const changeColor = change && change.p < 0.05 ? RED : GREY;

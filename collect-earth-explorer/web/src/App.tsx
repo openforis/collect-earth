@@ -15,6 +15,7 @@ import type { CardProps } from "./lib/folds";
 import Summary from "./components/Summary";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { t, type Key } from "./lib/i18n";
+import { endForSession, sessionNumber } from "./lib/prefs";
 
 // The chart cards pull in Plotly (several MB): loaded in a separate chunk after the
 // map is up, so the first paint does not wait for it.
@@ -27,9 +28,14 @@ const CARDS: Record<string, ComponentType<CardProps>> = {
   modis: lazy(() => import("./components/charts/ModisCard")),
   "sentinel1-series": lazy(() => import("./components/charts/Sentinel1Card")),
   precipitation: lazy(() => import("./components/charts/PrecipitationCard")),
+  "forest-loss": lazy(() => import("./components/charts/ForestLossCard")),
 };
 // The landing page is rare: its help and texts stay out of this chunk.
 const WelcomeHelp = lazy(() => import("./components/WelcomeHelp"));
+// Likewise the "how to use" guide, shown during a person's first collection sessions and by the Help button.
+const Guide = lazy(() => import("./components/Guide"));
+const GUIDE_KEY = "explorer.guide";
+const GUIDE_SESSIONS = 3;
 
 /** One line of the map status box: loading / error (with Retry when retryable) / the layer label. */
 function TileStatus({ side, tiles }: { side?: string; tiles: ApiState<TileResponse> }) {
@@ -50,7 +56,7 @@ function TileStatus({ side, tiles }: { side?: string; tiles: ApiState<TileRespon
 
 function Viewer() {
   const p = usePlot();
-  const { plot, plotId, start, end, activeLayer, compare, compareLayer, compareYear, compareScene, difference, charts, notices } = p;
+  const { plot, plotId, start, end, activeLayer, compare, compareLayer, compareYear, compareScene, difference, charts, notices, home } = p;
   const showDifference = compare && difference && !differenceBlocked(p);
   // While the difference is shown the two sides' own tiles are not needed.
   const tiles = useLayerTiles(activeLayer, { enabled: !showDifference });
@@ -64,15 +70,21 @@ function Viewer() {
   const right = sameLayer ? tiles : rightOwn;
   // The single map, once loaded: Redraw polygon is offered there only, not while comparing.
   const [map, setMap] = useState<MlMap | null>(null);
+  // Read once per page load: counting the session is a side effect render must not repeat.
+  const [guide, setGuide] = useState(() => sessionNumber(GUIDE_KEY) <= GUIDE_SESSIONS);
+  const closeGuide = () => {
+    endForSession(GUIDE_KEY);
+    setGuide(false);
+  };
   return (
     <div className="viewer">
       <div className="map-pane">
         {showDifference ? (
-          <MapView key="difference" plot={plot} tileUrl={change.data?.tileUrl} />
+          <MapView key="difference" plot={plot} home={home} tileUrl={change.data?.tileUrl} />
         ) : compare ? (
-          <CompareMap key="compare" plot={plot} leftTileUrl={tiles.data?.tileUrl} rightTileUrl={right.data?.tileUrl} />
+          <CompareMap key="compare" plot={plot} home={home} leftTileUrl={tiles.data?.tileUrl} rightTileUrl={right.data?.tileUrl} />
         ) : (
-          <MapView key="single" plot={plot} tileUrl={tiles.data?.tileUrl} onMap={setMap} />
+          <MapView key="single" plot={plot} home={home} tileUrl={tiles.data?.tileUrl} onMap={setMap} />
         )}
         <LayersPanel />
         {map && !compare && <RedrawControl map={map} />}
@@ -93,11 +105,19 @@ function Viewer() {
             <img src="/logo.png" alt="Collect Earth · Open Foris" width="129" height="56" />
           </a>
           <span>Explorer</span>
+          <button className="guide-toggle" aria-expanded={guide} onClick={guide ? closeGuide : () => setGuide(true)}>
+            {t("guide.help")}
+          </button>
         </header>
         <h2>{t("plot.title", { id: plotId || t("plot.noId") })}</h2>
         <p className="dates">{t("plot.dates", { start, end })}</p>
         {notices.length > 0 && (
           <p className="config-notice">{t("config.ignored", { notices: notices.join(" ") })}</p>
+        )}
+        {guide && (
+          <Suspense fallback={null}>
+            <Guide onClose={closeGuide} />
+          </Suspense>
         )}
         <Summary />
         <Suspense fallback={<div className="chart-placeholder">{t("charts.loading")}</div>}>

@@ -24,7 +24,7 @@ export const catalogue = catalogueJson as unknown as Record<Kind, Record<string,
 /** What the dashboard and Collect Earth store at most (the dashboard's EXPLORER_CONFIG_MAX). */
 export const EXPLORER_CONFIG_MAX = 2000;
 const MAX_WINDOW_DAYS = 1096;
-export const ANALYSES = ["median", "trend", "change", "unusual", "season"];
+export const ANALYSES = ["anomaly", "median", "trend", "change", "unusual", "season"];
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 const isBlank = (v: unknown) => v === undefined || (typeof v === "string" && v.trim() === "");
@@ -140,6 +140,7 @@ export function entryErrors(kind: Kind, entry: Entry, thisYear: number): Record<
     }
     for (const name of ["year", "years"]) if (has(name)) errors[name] ??= "yearOrWindow";
   }
+  if (has("startYear") && has("endYear") && !errors.startYear && !errors.endYear && (p.startYear as number) > (p.endYear as number)) errors.endYear = "yearOrder";
   if (isCustom(entry) && !has("formula")) errors.formula ??= "formulaRequired";
   if (has("formula") && has("index") && p.index !== specs.index?.default) errors.formula ??= "indexOrFormula";
   return errors;
@@ -160,6 +161,8 @@ export function summarize(kind: Kind, entry: Entry): string[] {
     if (name === "label") out.push(`“${v as string}”`);
     else if (name === "years" && Array.isArray(v)) out.push(ct("summary.years", { from: String(v[0]), to: String(v[1]) }));
     else if (name === "year") out.push(ct("summary.year", { year: String(v) }));
+    else if (name === "startYear") out.push(isBlank(p.endYear) ? ct("summary.fromYear", { year: String(v) }) : ct("summary.years", { from: String(v), to: String(p.endYear) }));
+    else if (name === "endYear" && isBlank(p.startYear)) out.push(ct("summary.toYear", { year: String(v) }));
     else if (name === "start") out.push(ct("summary.period", { start: v as string, end: String(p.end ?? "…") }));
     else if (name === "bands") out.push(v === "true-colour" ? ct("summary.trueColour") : String(v).toUpperCase());
     else if (name === "maxCloud") out.push(v === "any" ? ct("summary.noCloudLimit") : ct("summary.cloud", { n: String(v) }));
@@ -171,6 +174,7 @@ export function summarize(kind: Kind, entry: Entry): string[] {
     } else if (name === "rainfall" && v === true) out.push(ct("summary.rainfall"));
     else if (name === "collapsed" && v === true) out.push(ct("summary.folded"));
     else if (name === "band") out.push(String(v));
+    else if (name === "dataset") out.push(String(v).toUpperCase());
   }
   return out;
 }

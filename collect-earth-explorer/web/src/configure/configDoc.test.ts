@@ -24,10 +24,10 @@ const everyType: Doc = {
   charts: [
     { type: "ccdc", params: { band: "NDVI", collapsed: true } },
     { type: "sentinel2-series", params: { name: "NDRE", formula: "(nir - rededge1) / (nir + rededge1)" } },
-    { type: "landsat-series", params: { index: "NBR", change: true, trend: false, maxCloud: "any" } },
-    { type: "modis", params: { index: "EVI", rainfall: true, season: true } },
+    { type: "landsat-series", params: { index: "NBR", change: true, trend: false, maxCloud: "any", startYear: 2000, endYear: 2020 } },
+    { type: "modis", params: { index: "EVI", rainfall: true, season: true, startYear: 2015 } },
     { type: "sentinel1-series", params: { band: "VV", unusual: true } },
-    { type: "precipitation", params: { median: true } },
+    { type: "precipitation", params: { dataset: "chirps", anomaly: true, median: true, endYear: 2020 } },
   ],
 };
 
@@ -101,6 +101,15 @@ describe("entryErrors", () => {
     expect(errors("charts", "ccdc", { collapsed: "yes" })).toEqual({ collapsed: "invalid" });
   });
 
+  it("takes a chart's years from 1984 to this year, the first not after the last, and blanks for everything available", () => {
+    expect(errors("charts", "modis", { startYear: 2020, endYear: 2020 })).toEqual({});
+    expect(errors("charts", "modis", { startYear: undefined, endYear: undefined })).toEqual({});
+    expect(errors("charts", "modis", { startYear: 1983, endYear: 2027 })).toEqual({ startYear: "year", endYear: "year" });
+    expect(errors("charts", "modis", { startYear: 2020, endYear: 2015 })).toEqual({ endYear: "yearOrder" });
+    expect(serialiseDoc({ layers: standard.layers, charts: [{ type: "ccdc", params: { startYear: undefined, endYear: 2020 } }] })).toBe(
+      '{"v":1,"layers":[{"type":"sentinel2"},{"type":"landsat"},{"type":"sentinel1"}],"charts":[{"type":"ccdc","endYear":2020}]}');
+  });
+
   it("refuses a formula the Explorer would not understand, for the chart's own bands", () => {
     for (const formula of ["foo + 1", "2 * 3", "(nir - red", "nir +", "sqrt nir", "nir red", "nir\t/ red", "nir /\nred"])
       expect(errors("charts", "sentinel2-series", { formula }), formula).toEqual({ formula: "formula" });
@@ -167,6 +176,10 @@ describe("summarize", () => {
       .toEqual(["NBR", "Trend off", "Change year", "folded"]);
     expect(summarize("layers", everyType.layers[0])).toEqual(["“Dry season 2019”", "2019-06-01 to 2019-09-30", "true colour", "cloud limit 30 %"]);
     expect(summarize("charts", everyType.charts[1])).toEqual(["NDRE"]);
+    expect(summarize("charts", everyType.charts[2])).toEqual(["NBR", "Trend off", "Change year", "no cloud limit", "years 2000–2020"]);
+    expect(summarize("charts", everyType.charts[3])).toContain("from 2015");
+    expect(summarize("charts", everyType.charts[5])).toContain("to 2020");
+    expect(summarize("charts", everyType.charts[5])).toEqual(expect.arrayContaining(["CHIRPS", "Against normal"]));
   });
 });
 

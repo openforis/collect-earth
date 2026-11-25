@@ -2,12 +2,14 @@ import { useEffect, useRef } from "react";
 import { Map as MlMap } from "maplibre-gl";
 import Compare from "@maplibre/maplibre-gl-compare";
 import "@maplibre/maplibre-gl-compare/dist/maplibre-gl-compare.css";
-import { BASE_STYLE, addPlotOutline, setImagery } from "./MapView";
+import { BASE_STYLE, FIT, addPlotOutline, setImagery, useHomeKey } from "./MapView";
 import { MAP_LOCALE } from "../lib/i18n";
 import { polygonBounds, type Polygon } from "../lib/urlParams";
 
 interface Props {
   plot: Polygon;
+  /** The plot the R key returns to; `plot` when left out. */
+  home?: Polygon;
   leftTileUrl?: string;
   rightTileUrl?: string;
 }
@@ -16,7 +18,7 @@ interface Props {
  * Two maps of the same plot, kept in sync and split by a draggable swipe handle:
  * `leftTileUrl` imagery on the left, `rightTileUrl` on the right.
  */
-export default function CompareMap({ plot, leftTileUrl, rightTileUrl }: Props) {
+export default function CompareMap({ plot, home = plot, leftTileUrl, rightTileUrl }: Props) {
   const wrap = useRef<HTMLDivElement | null>(null);
   const leftEl = useRef<HTMLDivElement | null>(null);
   const rightEl = useRef<HTMLDivElement | null>(null);
@@ -38,7 +40,7 @@ export default function CompareMap({ plot, leftTileUrl, rightTileUrl }: Props) {
     const opts = {
       style: BASE_STYLE,
       bounds: polygonBounds(plot),
-      fitBoundsOptions: { padding: 80, maxZoom: 16 },
+      fitBoundsOptions: FIT,
       locale: MAP_LOCALE,
     };
     const left = new MlMap({ container: leftEl.current!, ...opts });
@@ -69,6 +71,9 @@ export default function CompareMap({ plot, leftTileUrl, rightTileUrl }: Props) {
     };
   }, []);
   /* oxlint-enable react-hooks/exhaustive-deps */
+
+  // The right map follows the left (the compare control keeps them in sync).
+  useHomeKey(leftRef, home);
 
   // See MapView: do not gate on isStyleLoaded(), which is false while tiles load.
   useEffect(() => {

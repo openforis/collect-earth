@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { changePoint, monthlyProfile, trend, unusuallyLow, yearlyMedian } from "./seriesStats";
+import { againstNormal, changePoint, monthlyProfile, trend, unusuallyLow, yearlyMedian } from "./seriesStats";
 import type { Point } from "./csv";
 
 describe("yearlyMedian", () => {
@@ -152,5 +152,25 @@ describe("unusuallyLow", () => {
     expect(unusuallyLow(base.slice(1)).some(Boolean)).toBe(false);
     const flat = base.map((p, i) => ({ ...p, value: i === 0 ? 0.1 : 0.5 }));
     expect(unusuallyLow(flat).some(Boolean)).toBe(false);
+  });
+});
+
+describe("againstNormal", () => {
+  const at = (y: number, m: number, value: number): Point => ({ date: Date.UTC(y, m, 1), value });
+  /** Ten years of January and July: January `jan + year index`, July always 100. */
+  const tenYears = (jan = 10) => Array.from({ length: 10 }, (_, i) => [at(2010 + i, 0, jan + i), at(2010 + i, 6, 100)]).flat();
+
+  it("gives each month minus the mean of that calendar month over all the points, rounded to 0.1, same dates", () => {
+    const r = againstNormal(tenYears())!;
+    // January's mean is 14.5.
+    expect(r.filter((p) => new Date(p.date).getUTCMonth() === 0).map((p) => p.value)).toEqual([-4.5, -3.5, -2.5, -1.5, -0.5, 0.5, 1.5, 2.5, 3.5, 4.5]);
+    expect(r.filter((p) => new Date(p.date).getUTCMonth() === 6).every((p) => p.value === 0)).toBe(true);
+    expect(r.map((p) => p.date)).toEqual(tenYears().map((p) => p.date));
+  });
+
+  it("needs ten values of every calendar month present", () => {
+    expect(againstNormal(tenYears().slice(2))).toBeUndefined();
+    expect(againstNormal([...tenYears(), at(2020, 3, 5)])).toBeUndefined();
+    expect(againstNormal([])).toBeUndefined();
   });
 });

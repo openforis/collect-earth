@@ -54,6 +54,8 @@ export interface PlotState extends PlotParams {
   /** What each open Landsat/Sentinel-2/HLS series card publishes for the summary above the charts, by chart position. */
   summaries: Record<number, SeriesSummary | undefined>;
   setSummary: (i: number, s: SeriesSummary | undefined) => void;
+  /** The address's plot, whatever is drawn on the map since: where the R key brings the map back to. */
+  home: Polygon;
   /** Whether `plot` is a shape drawn on the map instead of the address's. */
   redrawn: boolean;
   /** Analyses `p` instead of the address's plot (undefined returns to it); in memory only. Clears the scenes, which belong to the old shape's series. */
@@ -178,6 +180,7 @@ export function PlotProvider({
     () => ({
       ...params,
       plot: drawn ?? params.plot,
+      home: params.plot,
       redrawn: drawn !== undefined,
       setPlot,
       ...config,

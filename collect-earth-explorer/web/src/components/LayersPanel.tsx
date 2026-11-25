@@ -3,9 +3,10 @@ import { LAST_12_MONTHS, usePlot, type LayerId, type Year } from "../state/PlotC
 import { layerChoices, yearRange, type LayerEntry } from "../lib/config";
 import { differenceBlocked } from "./LayerSources";
 import { t } from "../lib/i18n";
+import { usePref } from "../lib/prefs";
 
 const COMMIT_DELAY_MS = 400;
-/** Below this width (matches the CSS breakpoint) the panel starts collapsed behind a Layers button. */
+/** Up to this width (matches the CSS breakpoint) the panel starts collapsed. */
 const NARROW_QUERY = "(max-width: 900px)";
 
 /** Whether the viewport is currently narrow; false where `matchMedia` is missing (jsdom). */
@@ -121,28 +122,22 @@ function LayerRow({ i, entry }: { i: number; entry: LayerEntry }) {
 
 export default function LayersPanel() {
   const p = usePlot();
-  // Collapsed by default on narrow screens, open on wide ones (where the toggle
-  // button is hidden by CSS). Crossing the breakpoint resets it to that default.
+  // Remembered between plots, apart for narrow and wide screens (closed and open by default), so folding it on a
+  // phone leaves a desktop's alone.
   const narrow = useNarrow();
-  const [open, setOpen] = useState(!narrow);
-  const [prevNarrow, setPrevNarrow] = useState(narrow);
-  if (narrow !== prevNarrow) {
-    setPrevNarrow(narrow);
-    setOpen(!narrow);
-  }
-
-  const toggle = (
-    <button className="layers-toggle" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
-      {t("layers.title")}
-    </button>
-  );
-  if (!open) return toggle;
+  const [open, setOpen] = usePref(narrow ? "explorer.layers.narrow" : "explorer.layers", !narrow);
 
   return (
-    <>
-      {toggle}
-      <div className="layers-panel">
+    <div className={open ? "layers-panel" : "layers-panel layers-collapsed"}>
+      {/* The title folds the panel, with the chart cards' chevron (index.css .chart-fold). */}
+      <button className="layers-head chart-fold" aria-expanded={open} onClick={() => setOpen(!open)}>
         <strong>{t("layers.title")}</strong>
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M4 6l4 4 4-4" />
+        </svg>
+      </button>
+      {open && (
+      <>
         {p.layers.map((entry, i) => (
           <LayerRow key={i} i={i} entry={entry} />
         ))}
@@ -187,7 +182,8 @@ export default function LayersPanel() {
             <span>{t("layers.gain")}</span>
           </div>
         )}
-      </div>
-    </>
+      </>
+      )}
+    </div>
   );
 }

@@ -437,7 +437,7 @@ describe("LayersPanel", () => {
     });
   });
 
-  describe("collapsing on narrow screens", () => {
+  describe("collapsing", () => {
     it("subscribes to the 900 px media query", () => {
       setup();
       expect(media.query).toBe("(max-width: 900px)");
@@ -476,11 +476,29 @@ describe("LayersPanel", () => {
       expect(radio(/Landsat 2010/).checked).toBe(true);
     });
 
-    it("starts open on a wide screen; the toggle is still in the DOM (hidden by CSS) and reports expanded", () => {
+    it("starts open on a wide screen, and its title collapses and reopens it", () => {
       setup();
       expect(toggleButton().getAttribute("aria-expanded")).toBe("true");
-      expect(toggleButton().className).toBe("layers-toggle");
       expect(screen.getAllByRole("radio")).toHaveLength(4);
+      fireEvent.click(toggleButton());
+      expect(toggleButton().getAttribute("aria-expanded")).toBe("false");
+      expect(screen.queryByRole("radio")).toBeNull();
+      expect(localStorage.getItem("explorer.layers")).toBe("false");
+      fireEvent.click(toggleButton());
+      expect(screen.getAllByRole("radio")).toHaveLength(4);
+    });
+
+    it("remembers the choice for the next plot (the page reloads per plot)", () => {
+      const { unmount } = render(
+        <PlotProvider params={params} config={resolveConfig(undefined, 2026)}>
+          <LayersPanel />
+        </PlotProvider>,
+      );
+      fireEvent.click(toggleButton());
+      unmount();
+      setup();
+      expect(toggleButton().getAttribute("aria-expanded")).toBe("false");
+      expect(screen.queryByRole("radio")).toBeNull();
     });
 
     it("collapses when the window narrows and reappears when it is widened again", () => {
@@ -496,15 +514,17 @@ describe("LayersPanel", () => {
       expect(screen.getAllByRole("radio")).toHaveLength(4);
     });
 
-    it("reopens a panel the user closed on a narrow screen once widened, and closes one they opened once narrowed", () => {
-      stubMatchMedia(true);
+    it("keeps the narrow and the wide choice apart", () => {
       setup();
-      fireEvent.click(toggleButton());
-      expect(screen.getAllByRole("radio")).toHaveLength(4);
-      resizeTo(false);
-      expect(screen.getAllByRole("radio")).toHaveLength(4);
+      fireEvent.click(toggleButton()); // closed on the wide screen
       resizeTo(true);
+      fireEvent.click(toggleButton()); // opened on the narrow one
+      expect(screen.getAllByRole("radio")).toHaveLength(4);
+      expect(localStorage.getItem("explorer.layers.narrow")).toBe("true");
+      resizeTo(false);
       expect(screen.queryByRole("radio")).toBeNull();
+      resizeTo(true);
+      expect(screen.getAllByRole("radio")).toHaveLength(4);
     });
 
     it("unsubscribes from the media query on unmount", () => {

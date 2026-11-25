@@ -272,6 +272,30 @@ test("POST /api/series/precipitation keys the cache with the plot and dates only
   assert400(await request(appWith(c)).post("/api/series/precipitation").send({}), /plot is required/, c);
 });
 
+test("POST /api/series/precipitation keys a dataset other than ERA5-Land, and refuses an unknown one before the cache", async () => {
+  assert.deepEqual(await extrasFor("/api/series/precipitation", { dataset: "era5-land" }), {});
+  assert.deepEqual(await extrasFor("/api/series/precipitation", { dataset: "chirps" }), { dataset: "chirps" });
+  assert.deepEqual(await extrasFor("/api/series/precipitation", { dataset: "imerg" }), { dataset: "imerg" });
+  for (const dataset of ["CHIRPS", "gpm", 1]) {
+    const c = fakeCache();
+    assert400(await request(appWith(c)).post("/api/series/precipitation").send({ plot: belize, dataset }), /dataset/, c);
+  }
+});
+
+test("POST /api/series/forest-loss keys the cache with the plot only, for the alerts' 3 days", async () => {
+  const cache = fakeCache({ hansen: [] });
+  const res = await request(appWith(cache)).post("/api/series/forest-loss").send({ plot: belize, start: "2020-01-01", end: "2021-01-01", startYear: 2015 });
+  assert.equal(res.status, 200);
+  assert.equal(cache.calls[0].endpoint, "series/forest-loss");
+  assert.equal(cache.calls[0].ttlSeconds, 3 * 24 * 3600);
+  assert.equal(cache.calls[0].ttlSeconds, TTL.alerts);
+  assert.equal(cache.calls[0].parsed.start, null);
+  assert.equal(cache.calls[0].parsed.end, null);
+  assert.deepEqual(cache.calls[0].extras, {});
+  const c = fakeCache();
+  assert400(await request(appWith(c)).post("/api/series/forest-loss").send({}), /plot is required/, c);
+});
+
 test("POST /api/series/modis without a body is a 400 bad_request", async () => {
   const cache = fakeCache();
   const res = await request(appWith(cache)).post("/api/series/modis");

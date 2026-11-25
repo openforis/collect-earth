@@ -185,11 +185,61 @@ describe("resolveConfig", () => {
 
   it("resolves a rainfall chart with every analysis off and requests it with the plot only", () => {
     const r = resolve({ v: 1, charts: [{ type: "precipitation" }, { type: "modis", rainfall: true }] });
-    expect(r.charts[0].params).toEqual({ median: false, trend: false, change: false, unusual: false, season: false, collapsed: false });
+    expect(r.charts[0].params).toEqual({ dataset: "era5-land", anomaly: false, median: false, trend: false, change: false, unusual: false, season: false, collapsed: false });
     expect(r.charts[1].params.rainfall).toBe(true);
     const p = { plot: { type: "Polygon" as const, coordinates: [] }, start: "2020-01-01", end: "2021-01-01" };
     expect(chartRequest(r.charts[0], p)).toEqual({ path: "series/precipitation", body: p });
     // The MODIS request does not change with the rainfall overlay.
     expect(chartRequest(r.charts[1], p)).toEqual({ path: "series/modis", body: p });
+  });
+
+  it("sends a rainfall dataset other than ERA5-Land, never the analysis switches", () => {
+    const p = { plot: { type: "Polygon" as const, coordinates: [] }, start: "2020-01-01", end: "2021-01-01" };
+    const body = (entry: object) => chartRequest(resolve({ v: 1, charts: [entry] }).charts[0], p).body;
+    expect(body({ type: "precipitation", dataset: "chirps", anomaly: true })).toEqual({ ...p, dataset: "chirps" });
+    expect(body({ type: "precipitation", dataset: "imerg" })).toEqual({ ...p, dataset: "imerg" });
+    expect(JSON.stringify(body({ type: "precipitation", dataset: "era5-land" }))).toBe(JSON.stringify(p));
+    expect(resolve({ v: 1, charts: [{ type: "precipitation", dataset: "gpm" }] }).notices).toHaveLength(1);
+  });
+
+  it("with one year that contradicts the address's dates, asks for everything on the other side: today, or 1984", () => {
+    const p = { plot: { type: "Polygon" as const, coordinates: [] }, start: "2000-01-01", end: "2010-01-01" };
+    const body = (entry: object) => chartRequest(resolve({ v: 1, charts: [entry] }).charts[0], p, "2026-11-25").body;
+    expect(body({ type: "modis", startYear: 2015 })).toEqual({ ...p, start: "2015-01-01", end: "2026-11-25" });
+    expect(body({ type: "modis", startYear: 2010 })).toEqual({ ...p, start: "2010-01-01", end: "2026-11-25" });
+    expect(body({ type: "modis", endYear: 1995 })).toEqual({ ...p, start: "1984-01-01", end: "1996-01-01" });
+    expect(body({ type: "modis", endYear: 1999 })).toEqual({ ...p, start: "1984-01-01", end: "2000-01-01" });
+    // No contradiction, or no years: as before.
+    expect(body({ type: "modis", startYear: 2009 })).toEqual({ ...p, start: "2009-01-01" });
+    expect(body({ type: "modis", endYear: 2000 })).toEqual({ ...p, end: "2001-01-01" });
+    expect(JSON.stringify(body({ type: "modis" }))).toBe(JSON.stringify(p));
+  });
+
+  it("requests a chart's own years instead of the address's dates, the whole last year (the API's end is exclusive)", () => {
+    const p = { plot: { type: "Polygon" as const, coordinates: [] }, start: "2000-03-01", end: "2025-06-15" };
+    const body = (entry: object) => chartRequest(resolve({ v: 1, charts: [entry] }).charts[0], p).body;
+    expect(body({ type: "landsat-series", startYear: 2015, endYear: 2020 })).toEqual({ ...p, start: "2015-01-01", end: "2021-01-01" });
+    expect(body({ type: "modis", startYear: 2015 })).toEqual({ ...p, start: "2015-01-01" });
+    expect(body({ type: "ccdc", endYear: 2020 })).toEqual({ ...p, end: "2021-01-01", band: "NDFI" });
+    // Without the years, byte for byte what it always was.
+    for (const type of STANDARD_CHARTS.concat("hls-series")) {
+      const entry = resolve({ v: 1, charts: [{ type }] }).charts[0];
+      expect(JSON.stringify(chartRequest(entry, p).body)).toBe(JSON.stringify(type === "ccdc" || type === "sentinel1-series" ? { ...p, band: entry.params.band } : p));
+    }
+  });
+
+  it("accepts a chart's years from 1984 to this year, the first not after the last, and skips the entry otherwise", () => {
+    const ok = (entry: object) => resolve({ v: 1, charts: [entry] }).notices.length === 0;
+    for (const type of [...STANDARD_CHARTS, "hls-series"]) {
+      expect(ok({ type, startYear: 1984, endYear: MAX_YEAR }), type).toBe(true);
+      expect(ok({ type, startYear: 2020, endYear: 2020 }), type).toBe(true);
+      expect(ok({ type, endYear: 2000 }), type).toBe(true);
+    }
+    for (const bad of [{ startYear: 1983 }, { endYear: MAX_YEAR + 1 }, { startYear: "2015" }, { endYear: 2015.5 }]) expect(ok({ type: "modis", ...bad }), JSON.stringify(bad)).toBe(false);
+    const r = resolve({ v: 1, charts: [{ type: "modis", startYear: 2020, endYear: 2015 }, { type: "ccdc" }] });
+    expect(types(r.charts)).toEqual(["ccdc"]);
+    expect(r.notices).toEqual(['Chart "modis" skipped: startYear must not be after endYear.']);
+    // No default: an entry without them has neither.
+    expect(resolve({ v: 1, charts: [{ type: "modis" }] }).charts[0].params).not.toHaveProperty("startYear");
   });
 });

@@ -72,7 +72,7 @@ export default function RedrawControl({ map }: { map: MlMap }) {
   };
 
   return (
-    <div className="redraw">
+    <div className={drawing ? "redraw" : "redraw redraw-idle"}>
       {drawing ? (
         <>
           <div className="redraw-buttons">
@@ -86,8 +86,16 @@ export default function RedrawControl({ map }: { map: MlMap }) {
         </>
       ) : (
         <div className="redraw-buttons">
-          <button onClick={() => setCorners([])}>{t("redraw.start")}</button>
           {redrawn && <button onClick={() => setPlot()}>{t("redraw.original")}</button>}
+          {/* A map control like the zoom buttons: a polygon outline with its corners. */}
+          <button className="redraw-start" aria-label={t("redraw.start")} title={t("redraw.start")} onClick={() => setCorners([])}>
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" aria-hidden="true">
+              <path d="M4 15 6 5l8-2 2.5 9L9 17z" strokeDasharray="2.5 1.5" />
+              <g fill="currentColor" stroke="none">
+                <circle cx="4" cy="15" r="1.8" /><circle cx="6" cy="5" r="1.8" /><circle cx="14" cy="3" r="1.8" /><circle cx="16.5" cy="12" r="1.8" /><circle cx="9" cy="17" r="1.8" />
+              </g>
+            </svg>
+          </button>
         </div>
       )}
     </div>

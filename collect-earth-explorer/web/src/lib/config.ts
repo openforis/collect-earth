@@ -103,6 +103,8 @@ function resolveEntry(kind: Kind, raw: unknown, maxYear: number): Entry | string
   // Same cap as the API (routes.js MAX_WINDOW_DAYS).
   if (type === "sentinel2" && "start" in params && Date.parse(params.end as string) - Date.parse(params.start as string) > 1096 * 86400000)
     return skipped(kind, type, "reason.windowLength");
+  if (typeof params.startYear === "number" && typeof params.endYear === "number" && params.startYear > params.endYear)
+    return skipped(kind, type, "reason.yearOrder");
   // Same rules as the API's series routes: the formula is checked against the sensor's bands, and excludes another index.
   if ("formula" in params) {
     if (params.index !== undefined && params.index !== specs.index.default) return skipped(kind, type, "reason.indexOrFormula");
@@ -126,16 +128,37 @@ const CHART_PATHS: Record<string, string> = {
   modis: "series/modis",
   "sentinel1-series": "series/sentinel1",
   precipitation: "series/precipitation",
+  "forest-loss": "series/forest-loss",
 };
 
 /**
  * The API path and body of a chart entry's request for a plot. The cards and the next-plot warm-up
  * both build theirs here, so the warm-up hits the server key the card will use.
  */
-export function chartRequest(entry: ChartEntry, p: PlotBody): { path: string; body: PlotBody & Record<string, unknown> } {
-  const { band, index, formula } = entry.params;
-  const extra = entry.type === "ccdc" || entry.type === "sentinel1-series" ? { band } : formula !== undefined ? { formula: normaliseFormula(formula as string) } : index !== undefined && index !== "NDVI" ? { index } : {};
-  return { path: CHART_PATHS[entry.type], body: { ...p, ...extra } };
+export function chartRequest(entry: ChartEntry, p: PlotBody, today = new Date().toISOString().slice(0, 10)): { path: string; body: PlotBody & Record<string, unknown> } {
+  const { band, index, formula, dataset, startYear, endYear } = entry.params;
+  const extra = entry.type === "ccdc" || entry.type === "sentinel1-series" ? { band }
+    : formula !== undefined ? { formula: normaliseFormula(formula as string) }
+    : dataset !== undefined && dataset !== "era5-land" ? { dataset }
+    : index !== undefined && index !== "NDVI" ? { index } : {};
+  // The entry's years win over the address's dates. The API's end is exclusive, and a future one is clamped to today.
+  const start = startYear !== undefined ? `${startYear}-01-01` : undefined;
+  const end = endYear !== undefined ? `${(endYear as number) + 1}-01-01` : undefined;
+  // One year alone that contradicts the address's other date: that side means everything available (the address defaults).
+  const period = {
+    ...(start !== undefined && { start }),
+    ...(end !== undefined && { end }),
+    ...(start !== undefined && end === undefined && p.end <= start && { end: today }),
+    ...(end !== undefined && start === undefined && p.start >= end && { start: "1984-01-01" }),
+  };
+  return { path: CHART_PATHS[entry.type], body: { ...p, ...period, ...extra } };
+}
+
+/** A chart's title with the entry's own years, when it gives any (the page header shows the address's period). */
+export function withYears(title: string, { startYear: from, endYear: to }: ChartEntry["params"]): string {
+  if (from === undefined && to === undefined) return title;
+  const years = from === undefined ? t("card.toYear", { year: String(to) }) : to === undefined ? t("card.fromYear", { year: String(from) }) : `${from}–${to}`;
+  return `${title} ${years}`;
 }
 
 /** What a Landsat, Sentinel-2 or HLS series chart is called after its sensor: the index, or the custom formula's name, else `custom`. */

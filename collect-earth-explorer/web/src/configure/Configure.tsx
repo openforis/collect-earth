@@ -225,6 +225,7 @@ function EntryFields({ kind, entry, errors, onChange }: { kind: Kind; entry: Ent
     <>
       {has("bands") && field("bands")}
       {has("band") && field("band")}
+      {has("dataset") && field("dataset")}
       {has("formula") ? <IndexField entry={entry} errors={errors} set={set} field={field} /> : has("index") && field("index")}
       {entry.type === "sentinel2" ? (
         <fieldset className="configure-group">
@@ -244,6 +245,14 @@ function EntryFields({ kind, entry, errors, onChange }: { kind: Kind; entry: Ent
         </fieldset>
       ) : (
         has("year") && field("year")
+      )}
+      {has("startYear") && (
+        <fieldset className="configure-group">
+          <legend>{ct("period")}</legend>
+          {field("startYear")}
+          {field("endYear")}
+          <p className="configure-hint">{ct("periodHint")}</p>
+        </fieldset>
       )}
       {analyses.length > 0 && (
         <fieldset className="configure-group" aria-describedby={analysisErrors.length ? `${moreId}-analyses` : undefined}>
@@ -364,7 +373,7 @@ function ParamField({ type, name, value, error, onChange }: { type: string; name
       );
     case "int":
     case "year": {
-      const placeholder = spec.default !== undefined ? String(spec.default) : type === "sentinel2" ? ct("last12") : ct("lastYear");
+      const placeholder = spec.default !== undefined ? String(spec.default) : name !== "year" ? undefined : type === "sentinel2" ? ct("last12") : ct("lastYear");
       return (
         <Field id={id} label={label} error={text}>
           {(a11y) => <input {...a11y} type="number" min={spec.min} max={max} step={1} value={shown} placeholder={placeholder} onChange={(e) => onChange(toNumber(e.target.value))} />}

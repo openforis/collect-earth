@@ -93,6 +93,36 @@ describe("Configure", () => {
     expect(row(/1\. Sentinel-2 index over time/)).toHaveTextContent("EVI");
   });
 
+  it("gives every chart optional From year and To year fields, blank for everything available", () => {
+    const post = vi.fn();
+    const parent = vi.spyOn(window, "parent", "get").mockReturnValue({ postMessage: post } as unknown as Window);
+    open('{"charts":[{"type":"modis"}]}');
+    fireEvent.click(row(/^1\. MODIS/));
+    expect(screen.getByRole("group", { name: "Years shown" })).toHaveTextContent("Leave both blank to show all the years available.");
+    fireEvent.change(screen.getByLabelText("From year"), { target: { value: "2020" } });
+    fireEvent.change(screen.getByLabelText("To year"), { target: { value: "2015" } });
+    expect(screen.getByLabelText("To year")).toHaveAccessibleDescription("The first year must not be after the last");
+    expect(lastConfig(post).valid).toBe(false);
+    fireEvent.change(screen.getByLabelText("To year"), { target: { value: "" } });
+    expect(lastConfig(post)).toMatchObject({ valid: true, config: expect.stringContaining('{"type":"modis","startYear":2020}') });
+    expect(row(/^1\. MODIS/)).toHaveTextContent("from 2020");
+    parent.mockRestore();
+  });
+
+  it("chooses the rainfall chart's dataset, each option saying its detail, start and area, and its Against normal switch", () => {
+    const post = vi.fn();
+    const parent = vi.spyOn(window, "parent", "get").mockReturnValue({ postMessage: post } as unknown as Window);
+    open('{"charts":[{"type":"precipitation"}]}');
+    fireEvent.click(row(/^1\. Monthly rainfall/));
+    expect(screen.getByRole("option", { name: "CHIRPS: about 5 km, from 1981, latitudes 50°S to 50°N, with rain gauges" })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Rainfall data"), { target: { value: "imerg" } });
+    fireEvent.click(screen.getByRole("checkbox", { name: "Against normal" }));
+    expect(lastConfig(post)).toMatchObject({ valid: true, config: expect.stringContaining('{"type":"precipitation","dataset":"imerg","anomaly":true}') });
+    fireEvent.change(screen.getByLabelText("Rainfall data"), { target: { value: "era5-land" } });
+    expect(lastConfig(post).config).toContain('{"type":"precipitation","anomaly":true}');
+    parent.mockRestore();
+  });
+
   it("keeps the last layer, but lets every chart go", () => {
     open('{"layers":[{"type":"landsat"}],"charts":[{"type":"ccdc"}]}');
     const [layers, charts] = screen.getAllByRole("list").filter((l) => l.tagName === "OL");
