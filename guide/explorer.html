@@ -143,13 +143,13 @@
     <table>
       <thead><tr><th>Option</th><th>Charts</th><th>What it does</th></tr></thead>
       <tbody>
-        <tr><td><span class="ui">Index</span></td><td>Landsat, Sentinel-2, MODIS, CCDC</td><td>What the chart follows: NDVI by default (see <a href="#indices">Choosing an index</a>); MODIS NDVI or EVI; CCDC NDFI or NDVI</td></tr>
-        <tr><td><span class="ui">Custom formula…</span></td><td>Landsat, Sentinel-2</td><td>Your own index, with its <span class="ui">Name of your formula</span>. Bands <code>blue green red nir swir1 swir2</code>, and on Sentinel-2 <code>rededge1 rededge2 rededge3</code>, as reflectance from 0 to 1; numbers, <code>+ - * /</code>, brackets, <code>sqrt abs min max pow</code>. Example: <code>(nir - rededge1) / (nir + rededge1)</code></td></tr>
-        <tr><td><span class="ui">Analyses shown when the chart opens</span></td><td>Landsat, Sentinel-2, MODIS, radar, rainfall</td><td>Which of <span class="ui">Yearly median</span>, <span class="ui">Trend</span>, <span class="ui">Change year</span>, <span class="ui">Unusual values</span> and <span class="ui">Seasonal profile</span> are on at first (section 5). People can still switch them</td></tr>
+        <tr><td><span class="ui">Index</span></td><td>Landsat, Sentinel-2, HLS, MODIS, CCDC</td><td>What the chart follows: NDVI by default (see <a href="#indices">Choosing an index</a>); MODIS NDVI or EVI; CCDC NDFI or NDVI</td></tr>
+        <tr><td><span class="ui">Custom formula…</span></td><td>Landsat, Sentinel-2, HLS</td><td>Your own index, with its <span class="ui">Name of your formula</span>. Bands <code>blue green red nir swir1 swir2</code>, and on Sentinel-2 <code>rededge1 rededge2 rededge3</code>, as reflectance from 0 to 1; numbers, <code>+ - * /</code>, brackets, <code>sqrt abs min max pow</code>. Example: <code>(nir - rededge1) / (nir + rededge1)</code></td></tr>
+        <tr><td><span class="ui">Analyses shown when the chart opens</span></td><td>Landsat, Sentinel-2, HLS, MODIS, radar, rainfall</td><td>Which of <span class="ui">Yearly median</span>, <span class="ui">Trend</span>, <span class="ui">Change year</span>, <span class="ui">Unusual values</span> and <span class="ui">Seasonal profile</span> are on at first (section 5). People can still switch them</td></tr>
         <tr><td><span class="ui">Index</span> (radar)</td><td>Sentinel-1</td><td>VH (more from vegetation, the default) or VV (more from the ground)</td></tr>
         <tr><td><span class="ui">Show rainfall under the chart</span></td><td>MODIS</td><td>Monthly rainfall drawn as bars under the index</td></tr>
         <tr><td><span class="ui">Start folded</span></td><td>All</td><td>The chart loads only when someone opens it: the window is faster. Fold the charts people need only now and then</td></tr>
-        <tr><td><span class="ui">Most cloud cover allowed</span></td><td>Landsat, Sentinel-2 (More options)</td><td>The scene cloud limit the chart starts with (40 % by default)</td></tr>
+        <tr><td><span class="ui">Most cloud cover allowed</span></td><td>Landsat, Sentinel-2, HLS (More options)</td><td>The scene cloud limit the chart starts with (40 % by default)</td></tr>
       </tbody>
     </table>
   </div>
@@ -164,6 +164,17 @@
   <p><strong>Limits.</strong> A setup is saved as a short text of at most 2,000 characters; the editor counts it and says when an item must go. Fields in red must be fixed before the preview and the save work. If the window later shows <span class="ui">This survey's Explorer settings were partly ignored</span>, an item was skipped: open the editor and correct it.</p>
 
   <h2 id="map">3. The map and its layers</h2>
+  <p>Each layer is a composite: the median of the images of a year (or of the period chosen), with clouds masked, so a single cloudy or hazy day does not show.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Layer</th><th>What it shows</th><th>Years</th><th>Use it for</th></tr></thead>
+      <tbody>
+        <tr><td><span class="ui">Sentinel-2</span></td><td>10&nbsp;m, the median of a year's images or of a fixed period; the slider ends with the last 12 months</td><td>From 2016</td><td>The plot today and in recent years: field edges, small clearings, tracks; one season, with a fixed period; the newest state when very high resolution imagery is old</td></tr>
+        <tr><td><span class="ui">Landsat</span></td><td>30&nbsp;m, the median of every Landsat satellite flying that year</td><td>From 1984</td><td>The past: the plot in the survey's reference year and before Sentinel-2 or very high resolution imagery existed; large changes over decades</td></tr>
+        <tr><td><span class="ui">Sentinel-1 radar</span></td><td>10&nbsp;m, the year's median radar signal, VV and VH; it sees through clouds and at night</td><td>From 2015</td><td>Places where clouds hide most optical images: forest against open land, clearings, flooded ground. It shows the surface's structure and wetness, not its colour</td></tr>
+      </tbody>
+    </table>
+  </div>
   <ul>
     <li>The <span class="ui">Layers</span> panel lists the survey's layers. Each has its colours and a year slider: slide it to see the plot in another year. A Sentinel-2 slider ends with <span class="ui">Last 12 months</span>. The label at the bottom left names the image shown.</li>
     <li><strong>Reading the colours.</strong> <span class="ui">True colour</span> looks as the eye sees it. <span class="ui">False colour</span> shows near infrared as red, shortwave infrared as green and red as blue: dense forest appears orange to red-brown, grassland, pasture and crops yellow to yellow-green, bare soil and built-up land pale green to cyan, water dark blue to black. It tells vegetation types apart better than true colour.</li>
@@ -171,18 +182,20 @@
     <li><strong>Compare.</strong> <span class="ui">Compare with</span> splits the map with a handle you drag: the layer ticked above on the <span class="ui">Left</span>, the one you choose on the <span class="ui">Right</span>, each at its own year. <span class="ui">Compare years</span> on a chart does it for you around a change year.</li>
     <li><strong>Difference.</strong> While comparing two images of the same sensor, <span class="ui">Difference (NDVI change)</span> replaces the split with one map of the change in vegetation, right minus left, from <span class="ui">loss</span> (brown) to <span class="ui">gain</span> (blue-green). It is not available for radar.</li>
     <li><strong>A scene.</strong> Click a point in a Landsat or Sentinel-2 chart, or <span class="ui">Scene before</span> and <span class="ui">Scene after</span> beside a change year: the map shows that single image (<span class="ui">Scene</span>). Use it to see what lies behind an odd value: a cloud, a fire scar, a harvested field.</li>
+    <li><strong>Redraw the plot.</strong> <span class="ui">Redraw polygon</span>: click the corners of another shape, or one place for a point, then <span class="ui">Done</span>. Every chart is computed again for that shape. Use it to look at only one part of a mixed plot, or at a patch beside it. It changes nothing in Collect Earth or in the survey's data; <span class="ui">Original plot</span> brings the plot back. A shape can cover at most 100&nbsp;ha and 0.1° across; it is not available while comparing.</li>
   </ul>
   <figure><img src="../img/screens/explorer-compare.jpg" alt="The Explorer comparing Landsat 2004 on the left with Landsat 2006 on the right, split by a handle across the plot" loading="lazy" width="1440" height="900"><figcaption>Compare years around the change year 2005: Landsat 2004 on the left, 2006 on the right, split by a handle you drag across the plot.</figcaption></figure>
   <figure><img src="../img/screens/explorer-difference.jpg" alt="The NDVI difference between Landsat 2004 and 2006: the plot and the land around it in dark brown, loss of vegetation" loading="lazy" width="1440" height="900"><figcaption>Difference (NDVI change) between the same two years: the plot falls in a patch of dark brown, a loss of vegetation.</figcaption></figure>
 
   <h2 id="charts">4. The charts</h2>
-  <p>Each chart follows the plot over time. A line above the charts sums up each Landsat and Sentinel-2 chart: its trend, a significant change year, and the date of the last image; click a line to go to its chart.</p>
+  <p>Each chart follows the plot over time. A line above the charts sums up each Landsat, Sentinel-2 and HLS chart: its trend, a significant change year, and the date of the last image; click a line to go to its chart.</p>
   <div class="table-wrap">
     <table>
       <thead><tr><th>Chart</th><th>What each point is</th><th>Use it for</th></tr></thead>
       <tbody>
         <tr><td><span class="ui">Landsat index over time</span></td><td>The plot's mean index on one Landsat image, since 1984, clouds masked</td><td>The long history; dating changes before 2016</td></tr>
         <tr><td><span class="ui">Sentinel-2 index over time</span></td><td>The same on Sentinel-2, since 2016, in more detail (10&nbsp;m)</td><td>Recent changes; small plots; the seasonal cycle</td></tr>
+        <tr><td><span class="ui">Landsat and Sentinel-2 (HLS) index over time</span></td><td>The same on NASA's Harmonized Landsat Sentinel-2: Landsat 8 and 9 and Sentinel-2 made into one consistent series at 30&nbsp;m, an image every 2 to 3 days since 2015 (Landsat only from 2013)</td><td>Cloudy places, where more images means more clear ones; dating a recent change to the month. Not in the standard window: add it in the editor</td></tr>
         <tr><td><span class="ui">Change over time (CCDC segmentation)</span></td><td>Every Landsat 7, 8 and 9 image, with lines fitted between breaks (<span class="ui">Segment</span> 1, 2…)</td><td>When the land changed, found without choosing dates; NDFI for forest, or NDVI</td></tr>
         <tr><td><span class="ui">MODIS 16-day index and burned area</span></td><td>NDVI or EVI every 16 days since 2000 at 250&nbsp;m, burned months marked; <span class="ui">Rain</span> adds monthly rainfall under it</td><td>Fires; the seasons of the area; droughts</td></tr>
         <tr><td><span class="ui">Sentinel-1 radar signal over time</span></td><td>The radar backscatter in dB at each pass, VH or VV, since 2015</td><td>Changes under persistent cloud</td></tr>
@@ -194,7 +207,7 @@
   <figure class="narrow"><img src="../img/screens/explorer-chart-ccdc.png" alt="The CCDC chart on NDFI: grey observations and one green fitted segment with its seasonal waves from 1999 to today" loading="lazy" width="746" height="666"><figcaption>CCDC on NDFI for the same plot: one segment, so no abrupt break was found, while its level slowly declines.</figcaption></figure>
 
   <h2 id="analyses">5. Reading the analyses</h2>
-  <p>The Landsat, Sentinel-2, MODIS and Sentinel-1 charts carry five analyses, each with a switch. <span class="ui">Explain</span> describes them on the chart. Your choice of switches applies to all charts and stays for the next plots.</p>
+  <p>The Landsat, Sentinel-2, HLS, MODIS and Sentinel-1 charts carry five analyses, each with a switch. <span class="ui">Explain</span> describes them on the chart. Your choice of switches applies to all charts and stays for the next plots.</p>
   <div class="table-wrap">
     <table>
       <thead><tr><th>Analysis</th><th>What it shows</th><th>How to read it</th></tr></thead>
@@ -250,7 +263,8 @@
         <tr><td>Is it cropland?</td><td>Sentinel-2 NDVI with <span class="ui">Seasonal profile</span>: one or two strong peaks a year, bare between them</td></tr>
         <tr><td>Did trees grow back, or were they planted?</td><td><span class="ui">Trend: significant increase</span>; CCDC's last segment rising; rows of young trees on VHR</td></tr>
         <tr><td>Was it only a dry year?</td><td><span class="ui">Monthly rainfall</span>, or <span class="ui">Rain</span> under MODIS; whether the index recovers the next year</td></tr>
-        <tr><td>Clouds hide everything</td><td>The Sentinel-1 layer and chart; the <span class="ui">Cloudy tropics</span> starting point</td></tr>
+        <tr><td>Clouds hide everything</td><td>The Sentinel-1 layer and chart; the HLS chart, with an image every 2 to 3 days; the <span class="ui">Cloudy tropics</span> starting point</td></tr>
+        <tr><td>The plot holds two kinds of land, or a change happened beside it</td><td><span class="ui">Redraw polygon</span> around one part, or the patch beside it, and read the charts for that shape alone</td></tr>
         <tr><td>Water, wetland or flooding?</td><td>MNDWI; the Sentinel-2 layer in false colour</td></tr>
       </tbody>
     </table>
