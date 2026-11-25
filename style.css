@@ -47,20 +47,23 @@ header.top { position: sticky; top: 0; z-index: 50; background: #fff; box-shadow
 header.top .wrap { display: flex; align-items: center; justify-content: space-between; height: 84px; gap: 16px; position: relative; }
 header.top .brand img { height: 56px; width: auto; display: block; }
 nav { display: flex; align-items: center; }
-nav a { padding: 8px 14px; color: var(--menu); font-size: 15px; font-weight: 500; border-radius: 4px; white-space: nowrap; }
+nav a { padding: 8px 10px; color: var(--menu); font-size: 15px; font-weight: 500; border-radius: 4px; white-space: nowrap; }
 nav a:hover { color: var(--of-blue); text-decoration: none; }
 nav a[aria-current="page"] { color: var(--of-blue); }
-nav .btn { margin-left: 12px; padding: 9px 18px; font-size: 15px; }
+nav .btn { margin-left: 10px; padding: 9px 16px; font-size: 15px; }
 nav .btn:hover { color: #fff; }
+/* the downloads, beside the dashboard: outlined, so the dashboard stays the main button */
+nav .btn.ghost { color: var(--of-blue); box-shadow: inset 0 0 0 1.5px var(--of-blue); }
+nav .btn.ghost:hover { background: var(--of-blue); color: #fff; }
 .menu-toggle { display: none; background: none; border: 0; padding: 8px; cursor: pointer; color: var(--of-blue); }
 .menu-toggle svg { display: block; }
-/* seven links on the guide pages: tighter between the collapsed menu and the full width */
-@media (min-width: 1041px) and (max-width: 1260px) {
-  nav a { padding: 8px 9px; font-size: 14.5px; }
-  nav .btn { margin-left: 8px; padding: 9px 14px; }
+/* seven links and two buttons on the guide pages: tighter between the collapsed menu and the full width */
+@media (min-width: 1141px) and (max-width: 1260px) {
+  nav a { padding: 8px 8px; font-size: 14.5px; }
+  nav .btn { margin-left: 8px; padding: 9px 13px; }
 }
 
-@media (max-width: 1040px) {
+@media (max-width: 1140px) {
   .js .menu-toggle { display: block; }
   .js header.top nav { display: none; position: absolute; top: 100%; left: 0; right: 0; flex-direction: column; align-items: stretch; background: #fff; padding: 8px 16px 18px; box-shadow: 0 10px 20px rgba(1,7,39,.08); }
   .js header.top.open nav { display: flex; }

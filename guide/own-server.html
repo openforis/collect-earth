@@ -27,6 +27,7 @@
       <a href="coordinators.html">Coordinators</a>
       <a href="mapathon.html">Mapathons</a>
       <a href="own-server.html" aria-current="page">Own server</a>
+      <a class="btn ghost" href="install.html#download">Download</a>
       <a class="btn primary" href="https://cloud.collectearth.org">Open the dashboard</a>
     </nav>
   </div>
@@ -61,7 +62,7 @@
   <h2 id="why">Is it for you?</h2>
   <p>A private server is the same Collect Earth Cloud that FAO runs at <a href="https://cloud.collectearth.org">cloud.collectearth.org</a>: the web dashboard, the sync service Collect Earth talks to, and a database with nightly backups. Coordinators and interpreters work exactly as on the shared server. The difference is where it runs and who controls it.</p>
   <ul class="ticks one">
-    <li><strong>The data stays with you.</strong> Everything runs in your organisation's own Google Cloud project, or on your own hardware. Nobody else, including FAO and the Collect Earth team, can see it, and the server sends no usage data, and error reports only if you switch them on.</li>
+    <li><strong>The data stays with you.</strong> Everything runs in your organisation's own Google Cloud project, or on your own hardware. Nobody else, including FAO and Collect Earth's team, can see it, and the server sends no usage data, and error reports only if you switch them on.</li>
     <li><strong>You decide the rules:</strong> who gets an account, who may create projects, how much each project may hold, and which projects exist at all.</li>
     <li><strong>No programming needed.</strong> On Google Cloud a guided panel and one command do the work. You need someone comfortable with a web console and copying a command, and a payment card on a Google Cloud billing account.</li>
   </ul>
@@ -158,7 +159,7 @@
   <div class="note">In large organisations, Google Cloud policies sometimes block public web services or new service accounts. If the script stops with a message about an organisation policy, ask your Google Cloud administrator to exempt the project; the message says which policy it is.</div>
 
   <h2 id="install">Install it on Google Cloud</h2>
-  <p>Press the button. It opens <strong>Cloud Shell</strong>, a terminal in your browser provided by Google for free and already signed in with your account, with the Collect Earth code and a step-by-step panel on the right.</p>
+  <p>Press the button. It opens <strong>Cloud Shell</strong>, a terminal in your browser provided by Google for free and already signed in with your account, with Collect Earth's code and a step-by-step panel on the right.</p>
   <p class="cta-line"><a class="btn green" href="https://shell.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https://github.com/openforis/collect-earth&amp;cloudshell_git_branch=master&amp;cloudshell_workspace=collect-earth-cloud&amp;cloudshell_tutorial=deploy/gcp/tutorial.md&amp;show=terminal">Open in Cloud Shell</a></p>
   <ol class="steps">
     <li><strong>Trust the repository.</strong> Cloud Shell asks whether you trust it: tick <span class="ui">Trust repo</span> and press <span class="ui">Confirm</span>. Without this the terminal has no access to your Google account and the installation cannot work.</li>
@@ -228,7 +229,7 @@
     <li><span class="ui">Accounts</span>: every account, to search and filter. From here you can add accounts (each gets a link to choose its password), make or remove administrators, unlock an account, reset a password or two-step sign-in, sign someone out everywhere, disable or delete an account, and send a message to all coordinators or everyone.</li>
     <li><span class="ui">Projects</span>: every project by number, with its status, last activity, space and people. Projects without an active coordinator are flagged. Archive, restore or hand one to a coordinator.</li>
     <li><span class="ui">Settings</span>: who can create accounts and projects, sign-up and sign-in rules, limits, the server's name, contact and announcement, the AI assistant, and when to raise alerts.</li>
-    <li><span class="ui">System</span>: the database, the Collect Earth versions people use (the outdated ones flagged), whether mail works, with a test email, and the server activity log: who changed what, kept for good.</li>
+    <li><span class="ui">System</span>: the database, the versions of Collect Earth people use (the outdated ones flagged), whether mail works, with a test email, and the server activity log: who changed what, kept for good.</li>
   </ul>
 
   <h3>Backups and restoring</h3>
@@ -316,7 +317,7 @@ docker build -t collect-earth-cloud .</code></pre></li>
       <h4>Guides</h4>
       <a href="../guide/choose.html">Which set-up?</a>
       <a href="../guide/sampling.html">Designing the sample</a>
-      <a href="../guide/install.html">Try the Collect Earth 2 beta</a>
+      <a href="../guide/install.html">Try Collect Earth 2 beta</a>
       <a href="../guide/interpreters.html">Collect Earth for interpreters</a>
       <a href="../guide/land-use-change.html">Reading land use change</a>
       <a href="../guide/explorer.html">Collect Earth Explorer</a>

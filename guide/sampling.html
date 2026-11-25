@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap">
 <title>Designing the sample · Collect Earth</title>
-<meta name="description" content="How to make the plot file of a Collect Earth survey: SIGRID, the Collect Earth Grid Generator on Google Earth Engine, and the dashboard's plot design.">
+<meta name="description" content="How to make the plot file of a Collect Earth survey: SIGRID, Collect Earth Grid Generator on Google Earth Engine, and the dashboard's plot design.">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <link rel="icon" href="../favicon.ico" sizes="any">
 <link rel="stylesheet" href="../style.css">
@@ -27,6 +27,7 @@
       <a href="coordinators.html">Coordinators</a>
       <a href="mapathon.html">Mapathons</a>
       <a href="own-server.html">Own server</a>
+      <a class="btn ghost" href="install.html#download">Download</a>
       <a class="btn primary" href="https://cloud.collectearth.org">Open the dashboard</a>
     </nav>
   </div>
@@ -37,7 +38,7 @@
   <div class="box">
     <p class="crumb"><a href="../">Collect Earth</a> › <a href="../#guides">Guides</a></p>
     <h1>Designing the sample</h1>
-    <p class="lead">Before anyone assesses a plot, you decide where the plots are: the sampling design. Collect Earth reads it from a plot file, a CSV with one row per plot. This guide shows three ways to make one: SIGRID, the global systematic grid; the Collect Earth Grid Generator on Google Earth Engine; and the dashboard's own <span class="ui">Design the plots</span>.</p>
+    <p class="lead">Before anyone assesses a plot, you decide where the plots are: the sampling design. Collect Earth reads it from a plot file, a CSV with one row per plot. This guide shows three ways to make one: SIGRID, the global systematic grid; Collect Earth Grid Generator on Google Earth Engine; and the dashboard's own <span class="ui">Design the plots</span>.</p>
   </div>
 </div>
 <div class="doc">
@@ -95,7 +96,7 @@
 
   <h2 id="gee">The Grid Generator on Google Earth Engine</h2>
   <p>The <a href="https://collectearth.users.earthengine.app/view/collect-earth-grid-generator">Collect Earth Grid Generator</a> makes a systematic or random grid for any area and adds data from Google Earth Engine to every plot, ready for Collect Earth. There is a <a href="https://www.youtube.com/watch?v=Nad3gPLV9DU">video tutorial</a>.</p>
-  <figure><img src="../img/screens/gee.png" alt="The Collect Earth Grid Generator on Google Earth Engine" loading="lazy"><figcaption>The Grid Generator: choose the area, the grid and the data to add.</figcaption></figure>
+  <figure><img src="../img/screens/gee.png" alt="Collect Earth Grid Generator on Google Earth Engine" loading="lazy"><figcaption>The Grid Generator: choose the area, the grid and the data to add.</figcaption></figure>
   <ol class="steps">
     <li><strong>Select AOI</strong>, the area of interest: a country, then a province or district (GAUL 2015 administrative boundaries); or your own polygons uploaded to Earth Engine as an asset (it must be shared or public); or a polygon drawn on the map; or GeoJSON pasted as text (made with mapshaper.org, QGIS or ogr2ogr).</li>
     <li><strong>The projection</strong> (EPSG code) the grid is laid out in. EPSG:4326 is recommended for large countries; for a small area a local projection keeps the distances exact (see <a href="https://epsg.io">epsg.io</a>).</li>
@@ -135,7 +136,7 @@
 
   <div class="next">
     <a href="choose.html">← Which set-up?</a>
-    <a href="install.html">Try the Collect Earth 2 beta →</a>
+    <a href="install.html">Try Collect Earth 2 beta →</a>
   </div>
 </div>
 </main>
@@ -152,7 +153,7 @@
       <h4>Guides</h4>
       <a href="../guide/choose.html">Which set-up?</a>
       <a href="../guide/sampling.html">Designing the sample</a>
-      <a href="../guide/install.html">Try the Collect Earth 2 beta</a>
+      <a href="../guide/install.html">Try Collect Earth 2 beta</a>
       <a href="../guide/interpreters.html">Collect Earth for interpreters</a>
       <a href="../guide/land-use-change.html">Reading land use change</a>
       <a href="../guide/explorer.html">Collect Earth Explorer</a>
