@@ -217,7 +217,8 @@ public class KmlGeneratorService {
 	 * file found there would show plots the operator was not assigned. @return null to keep the plots file as it is
 	 */
 	static File plotFileElsewhere(File csvFile, String prefixUserFolder, boolean cloudProject) {
-		if (cloudProject || csvFile.exists()) {
+		// A project with no plot file yet has none to look for: the data folder itself would be "found"
+		if (cloudProject || csvFile.getPath().trim().isEmpty() || csvFile.exists()) {
 			return null;
 		}
 		final File otherFile = new File(prefixUserFolder + csvFile.getPath());

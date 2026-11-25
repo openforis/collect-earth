@@ -29,5 +29,7 @@ public class PlotFileElsewhereTest {
 		// Nothing to replace a file that is there, or with nothing in the data folder
 		assertNull(KmlGeneratorService.plotFileElsewhere(inDataFolder, prefix, false));
 		assertNull(KmlGeneratorService.plotFileElsewhere(new File("other/none.csv"), prefix, false));
+		// A project with no plot file yet (csv empty): the data folder itself is not taken for its plot file
+		assertNull(KmlGeneratorService.plotFileElsewhere(new File(""), prefix, false));
 	}
 }

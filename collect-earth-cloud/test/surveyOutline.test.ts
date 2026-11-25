@@ -247,6 +247,26 @@ describe('surveyOutline: summary keys, as BalloonInputFieldsUtils.getValuesByHtm
     expect(child.get('collect_entity_stand.integer_round')!.excluded).toBe(false);
   });
 
+  it('excludes what Collect calculates from the plot file or from nothing: no one answers it, so everyone would agree', () => {
+    const calculated = surveyOutline(
+      SURVEY.replace(
+        '<text id="40" name="operator_notes"/>',
+        `<text id="40" name="operator_notes"/>
+      <number id="60" name="elevation" collectearth:fromcsv="true" type="integer"/>
+      <code id="61" name="elevation_class" calculated="true" list="covers"><default expr="format-number(ceiling(elevation div 100), '#')"/></code>
+      <code id="62" name="steep" calculated="true" list="covers"><default value="trees" if="elevation_class &gt; 10 and elevation &gt;= 3"/></code>
+      <code id="63" name="base_year" calculated="true" list="covers"><default value="grass"/></code>
+      <code id="64" name="cover_of_use" calculated="true" list="covers"><default value="trees" if="land_use = 'F' and elevation &gt; 0"/></code>
+      <code id="65" name="other_way" calculated="true" list="covers"/>`,
+      ),
+    );
+    // From the plot file, from what is calculated from it, from a constant
+    for (const name of ['elevation_class', 'steep', 'base_year']) expect(calculated.get(`collect_code_${name}`)!.excluded, name).toBe(true);
+    // From an answer (land use), and from nothing that can be read: compared, as before
+    expect(calculated.get('collect_code_cover_of_use')!.excluded).toBe(false);
+    expect(calculated.get('collect_code_other_way')!.excluded).toBe(false);
+  });
+
   it('exports the exact bookkeeping keys the desktop app adds', () => {
     expect([...BOOKKEEPING_KEYS].sort()).toEqual([
       'collect_boolean_actively_saved',
@@ -282,8 +302,10 @@ describe('surveyOutline on the demo survey', () => {
     expect(outline.get('collect_integer_forest_percentage')!.kind).toBe('number');
   });
 
-  it('keys and metadata are excluded', () => {
+  it('keys and metadata are excluded, and the classes calculated from the plot file; the land use calculated from an answer is not', () => {
     expect(outline.get('collect_text_id')!.excluded).toBe(true);
+    for (const key of ['collect_code_calculated_elevation_range', 'collect_code_calculated_aspect', 'collect_code_calculated_slope']) expect(outline.get(key)!.excluded, key).toBe(true);
+    expect(outline.get('collect_code_land_use_category')).toMatchObject({ calculated: true, excluded: false });
     expect(outline.get('collect_code_round')!.excluded).toBe(true);
     expect(outline.get('collect_text_operator')!.excluded).toBe(true);
     expect(outline.get('collect_boolean_actively_saved')!.excluded).toBe(true);

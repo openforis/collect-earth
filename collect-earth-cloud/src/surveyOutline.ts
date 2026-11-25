@@ -14,7 +14,9 @@ export interface Question {
   /**
    * Never compared: key attributes (collect_text_id, the keys of entities), any root
    * attribute named round, the BOOKKEEPING_KEYS, and attributes filled from the plot file
-   * (collectearth:fromcsv), which are the same for every round.
+   * (collectearth:fromcsv), which are the same for every round, nor attributes Collect calculates from those or
+   * from nothing (the elevation class of the plot file's elevation, a fixed base year): no one answers them, so
+   * everyone would agree on them (plotFileOnly).
    */
   excluded: boolean;
   /** The attribute may hold several values; the summary joins them with "===". */
@@ -109,6 +111,56 @@ export const BOOKKEEPING_KEYS: ReadonlySet<string> = new Set([
   'collect_text_plot_file',
   'collect_coord_location',
 ]);
+
+/** Words of Collect's expressions that are not names of attributes */
+const EXPRESSION_WORDS = new Set(['and', 'or', 'div', 'mod']);
+
+/**
+ * The names a calculated attribute's values come from: the names its <default> elements' expressions and conditions
+ * use (functions, string literals and operators left out). Null when it has no default to read (calculated some other
+ * way: nothing can be said of it).
+ */
+function namesUsed(node: XmlNode): string[] | null {
+  const defaults = elements(childrenOf(node), 'default');
+  if (defaults.length === 0) return null;
+  const names: string[] = [];
+  for (const d of defaults) {
+    for (const expression of [attr(d, 'expr'), attr(d, 'if')]) {
+      if (expression === undefined) continue;
+      const bare = expression.replace(/'[^']*'|"[^"]*"/g, ' ');
+      for (const m of bare.matchAll(/[A-Za-z_][\w:-]*/g)) {
+        const after = bare.slice(m.index! + m[0].length).trimStart();
+        if (after.startsWith('(') || EXPRESSION_WORDS.has(m[0])) continue;
+        names.push(m[0]);
+      }
+    }
+  }
+  return names;
+}
+
+/**
+ * The names of the attributes whose value is the plot's, not anyone's answer: those filled from the plot file, and
+ * those Collect calculates from them only, or from nothing (a constant).
+ */
+function plotFileOnly(entities: readonly XmlNode[]): Set<string> {
+  const attributes = entities.flatMap((e) => childrenOf(e).filter((c) => attr(c, 'name') !== undefined && prefixOf(c) !== null && tagOf(c) !== 'entity'));
+  const names = new Set(attributes.filter((a) => attr(a, 'collectearth:fromcsv') === 'true').map((a) => attr(a, 'name')!));
+  const calculated = attributes.filter((a) => attr(a, 'calculated') === 'true' && !names.has(attr(a, 'name')!));
+  // One calculated from another one calculated from the plot file: until nothing more is found
+  for (let changed = true; changed; ) {
+    changed = false;
+    for (const a of calculated) {
+      const name = attr(a, 'name')!;
+      if (names.has(name)) continue;
+      const used = namesUsed(a);
+      if (used !== null && used.every((n) => names.has(n))) {
+        names.add(name);
+        changed = true;
+      }
+    }
+  }
+  return names;
+}
 
 /** The root attribute holding the round (EarthConstants.ROUND_ATTRIBUTE_NAME). */
 const ROUND_NAME = 'round';
@@ -209,11 +261,13 @@ export function surveyOutline(idmXml: string): Map<string, Question> {
   };
 
   const outline = new Map<string, Question>();
+  // The root entity's (an entity's attribute may share a name with one of the root's)
+  const fromThePlot = plotFileOnly([root]);
   const hasCondition = (node: XmlNode) => attr(node, 'relevant') !== undefined || attr(node, 'requiredIf') !== undefined;
   const add = (key: string, node: XmlNode, siblings: XmlNode[], label: string, isKey: boolean, root = false, inConditional = false) => {
     const prefix = prefixOf(node)!;
     const kind = KIND_BY_PREFIX[prefix] ?? 'other';
-    const excluded = isKey || attr(node, 'collectearth:fromcsv') === 'true' || BOOKKEEPING_KEYS.has(key);
+    const excluded = isKey || attr(node, 'collectearth:fromcsv') === 'true' || (root && fromThePlot.has(attr(node, 'name') ?? '')) || BOOKKEEPING_KEYS.has(key);
     const calculated = attr(node, 'calculated') === 'true';
     const minCount = Number(attr(node, 'minCount') ?? '0');
     const required =

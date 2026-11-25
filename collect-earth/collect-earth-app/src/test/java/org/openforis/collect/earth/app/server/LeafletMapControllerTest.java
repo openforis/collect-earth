@@ -27,6 +27,10 @@ public class LeafletMapControllerTest {
 		assertEquals("", LeafletMapController.plotsVersion(null));
 		assertEquals("", LeafletMapController.plotsVersion(" "));
 		assertEquals("", LeafletMapController.plotsVersion(folder.resolve("missing.csv").toString()));
+		// No plot in it: a cloud participant holding none yet (an empty my-plots.csv), or only blank lines; a folder
+		assertEquals("", LeafletMapController.plotsVersion(Files.writeString(folder.resolve("empty.csv"), "").toString()));
+		assertEquals("", LeafletMapController.plotsVersion(Files.writeString(folder.resolve("blank.csv"), "\n \n").toString()));
+		assertEquals("", LeafletMapController.plotsVersion(folder.toString()));
 		File all = Files.writeString(folder.resolve("all.csv"), "id,x,y\n").toFile();
 		File assigned = Files.writeString(folder.resolve("assigned.csv"), "id,x,y\n").toFile();
 		String version = LeafletMapController.plotsVersion(all.getPath());

@@ -324,7 +324,9 @@ public class LeafletMapController {
 
 	/**
 	 * The plot file the plots map shows, and its version: its path, when it was last changed and its size, "" when there
-	 * is none.
+	 * is none: no path, no such file, a folder, or a file with no plot in it (a cloud participant holding no plot yet,
+	 * after a calibration say: its my-plots.csv is empty), which the plot file reader refuses and the map then showed as
+	 * an error.
 	 * The plots map loads its plots again when the statuses tell another one (settings applied, a plot file dropped, the
 	 * cloud project's assigned file), as nothing reloads the panel of Google Earth Web.
 	 */
@@ -333,7 +335,23 @@ public class LeafletMapController {
 			return "";
 		}
 		File csv = new File(csvFile);
-		return csv.exists() ? csvFile + "@" + csv.lastModified() + ":" + csv.length() : "";
+		return csv.isFile() && hasData(csv) ? csvFile + "@" + csv.lastModified() + ":" + csv.length() : "";
+	}
+
+	/** Whether a plot file has anything but blank lines; a file over a few kilobytes is taken to (it is not read) */
+	private static boolean hasData(File csv) {
+		final long length = csv.length();
+		if (length == 0) {
+			return false;
+		}
+		if (length > 4096) {
+			return true;
+		}
+		try {
+			return !new String(java.nio.file.Files.readAllBytes(csv.toPath()), StandardCharsets.UTF_8).trim().isEmpty();
+		} catch (IOException e) {
+			return true; // the reader then says what is wrong with it
+		}
 	}
 
 	@GetMapping("/mapConfig")
