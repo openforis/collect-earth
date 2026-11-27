@@ -10,6 +10,8 @@
 	major Means the user will be notified automatically.
 	minor (or nothing) means that the user can update COllect Earth but he will not be notified when Collect Earth starts that there is a new version
 	-->
+    <!-- Always major: this manifest is published only by the release that moves the installations to the next Java
+         (autoupdate.previous-manifest.upload), which every one of them has to take. -->
     <version>PROJECT_VERSION major</version>
     <platformFileList>
         <platformFile>

@@ -148,6 +148,39 @@
 			<build>
 
 			<plugins>
+			<!-- autoupdate.severity, how the release is announced to the installations (the <version> of the manifest, read by
+			     UpdateIniUtils), has to be chosen for each build of the installers: the root pom's placeholder stops it here.
+			     minor: offered without interrupting anyone, shown at start only to an installation more than 30 days behind.
+			     major: every installation is told at its next start; for what everyone must have now (data loss, security,
+			     imagery that stopped working). The previous Java's manifest (the move to a new Java) is always major. -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-enforcer-plugin</artifactId>
+				<executions>
+					<execution>
+						<id>enforce-update-severity</id>
+						<goals>
+							<goal>enforce</goal>
+						</goals>
+						<configuration>
+							<rules>
+								<requireProperty>
+									<property>autoupdate.severity</property>
+									<regex>major|minor</regex>
+									<regexMessage>
+Choose how this release is announced to the installations, and add it to the command:
+  -Dautoupdate.severity=minor   offered, interrupts no one (only installations over 30 days behind are told at start)
+  -Dautoupdate.severity=major   every installation is told at its next start: data loss, security, broken imagery
+for example:  mvn -P assembly release:prepare -Dautoupdate.severity=minor
+              mvn -P assembly release:perform -Dautoupdate.severity=minor -Dmaven.wagon.http.retryHandler.count=3
+With -Darguments="..." put it inside the quotes too: -Darguments="-rf :collect-earth-installer -Dautoupdate.severity=minor"
+(it was "${autoupdate.severity}")</regexMessage>
+								</requireProperty>
+							</rules>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
 
 				<!--  0. create a buildnumber to use for the updater and set a ${buildNumber} variable -->
 				<plugin>
@@ -350,6 +383,10 @@
 								<replacement>
 									<token>PROJECT_VERSION</token>
 									<value>${project.version}</value>
+								</replacement>
+								<replacement>
+									<token>UPDATE_SEVERITY</token>
+									<value>${autoupdate.severity}</value>
 								</replacement>
 								<replacement>
 									<token>BUILD_NUMBER</token>
