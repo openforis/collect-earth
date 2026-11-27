@@ -386,6 +386,26 @@ mvn org.sonatype.plugins:nexus-staging-maven-plugin:1.6.14:rc-close \
   limit per organisation from October 2026, and the installers that used to go there are
   what exhausted it.
 
+### Announcements
+
+Collect Earth reads `https://www.openforis.org/fileadmin/installer/announcements.json` 5 seconds after it starts
+(`service/notices/AnnouncementService`, `StartupNotices`) and shows each announcement valid today once, as a dialog of
+the pages; the ids shown are kept in `shown_announcements.txt` in the data folder. Every version reads the same file:
+
+```json
+{ "id": "202612011", "title": "…", "message": "<p>HTML: p, h1-h4, b, strong, i, em, u, ul, ol, li, br, a (http, https, mailto)</p>",
+  "severity": "critical|warning|info", "start_date": "2026-12-01", "end_date": "2027-03-01",
+  "min_version": "2.0", "max_version": "2.1.99" }
+```
+
+- `id` is new for each announcement: it is how an installation knows it showed it.
+- The message is HTML, not Markdown, reduced by `sanitizeNoticeHtml` (the pages' `notices.ts`) to the tags above.
+- `min_version` and `max_version` (optional, both included, compared number by number, so `1.99` is after `1.23.19`
+  and before `2.0`) say which versions it is for; without them, every version. An announcement about Collect Earth 1's
+  menus or Google Earth Pro takes `"max_version": "1.99"`: a new Collect Earth 2 installation has shown nothing yet and
+  would show it at its first start. A version or a date that cannot be read keeps the announcement off. Collect Earth 2
+  takes an installed version it cannot read (update.ini missing, as from the IDE) as 2.0.0.
+
 ## Module Architecture
 
 The project is organized into **5 Maven modules** in the reactor build — `collect-earth-core`, `collect-earth-app`, `collect-earth-sampler`, `collect-earth-grid` and `collect-earth-installer` (see `<modules>` in the root `pom.xml`).

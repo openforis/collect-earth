@@ -6,8 +6,8 @@ describe("the HTML of a notice", () => {
     expect(sanitizeNoticeHtml("<html><b>New version!</b><br/>How do you want to proceed?</html>"))
       .toBe("<b>New version!</b><br>How do you want to proceed?");
     expect(sanitizeNoticeHtml('<h2>Hi</h2><p class="x">See <a href="https://openforis.org/?a=1&amp;b=2" target="_blank">this</a> &amp; <i>that</i></p><ul><li>one</li></ul>'))
-      .toBe('<h2>Hi</h2><p>See <a href="https://openforis.org/?a=1&amp;b=2">this</a> &amp; <i>that</i></p><ul><li>one</li></ul>');
-    expect(sanitizeNoticeHtml("<a href='mailto:x@y.org'>mail</a> 1 < 2")).toBe('<a href="mailto:x@y.org">mail</a> 1 &lt; 2');
+      .toBe('<h2>Hi</h2><p>See <a href="https://openforis.org/?a=1&amp;b=2" target="_blank" rel="noopener noreferrer">this</a> &amp; <i>that</i></p><ul><li>one</li></ul>');
+    expect(sanitizeNoticeHtml("<a href='mailto:x@y.org'>mail</a> 1 < 2")).toBe('<a href="mailto:x@y.org" target="_blank" rel="noopener noreferrer">mail</a> 1 &lt; 2');
   });
   it("takes out scripts, event handlers and javascript: links", () => {
     expect(sanitizeNoticeHtml("a<script>alert(1)</script>b<style>p{}</style>")).toBe("ab");

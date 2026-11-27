@@ -59,7 +59,7 @@ export function nextNotice(notices: Notice[], answered: Set<string>): Notice | n
 const ALLOWED_TAGS = new Set(["p", "h1", "h2", "h3", "h4", "b", "strong", "i", "em", "u", "ul", "ol", "li", "br", "a"]);
 
 /**
- * The HTML of a notice reduced to plain formatting and http(s)/mailto links: announcements come from openforis.org and
+ * The HTML of a notice reduced to plain formatting and http(s)/mailto links, which open in a new tab: announcements come from openforis.org and
  * would otherwise run on this page, whose API takes no credentials. Fails closed: the output holds only the tags made
  * here and escaped text, so markup this does not understand shows as text, never as markup. (A string scan, not
  * DOMParser, so that the tests, which run without a DOM, check the real thing.)
@@ -81,7 +81,8 @@ export function sanitizeNoticeHtml(html: string): string {
     else if (tag === "a") {
       const href = /\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/i.exec(attrs);
       const url = href ? (href[1] ?? href[2] ?? href[3]).trim() : "";
-      out += /^(https?:|mailto:)/i.test(url) ? `<a href="${escape(url)}">` : "<a>";
+      // In a new tab, as the About dialog's: in the page, a link would put the web page in place of the panel
+      out += /^(https?:|mailto:)/i.test(url) ? `<a href="${escape(url)}" target="_blank" rel="noopener noreferrer">` : "<a>";
     } else out += `<${tag}>`;
   }
   return out + escape(cleaned.slice(last));
