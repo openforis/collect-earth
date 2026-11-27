@@ -124,6 +124,20 @@ Notes:
   (`gpg.executable`, `gpg.passphrase`, optionally `gpg.keyname`) that sign the artifacts on Central — the
   installers are not attached to the Maven build, so this is their only signature. If signing fails, the
   installers and checksums are still published and the log says how to sign and upload `SHA256SUMS.asc` by hand.
+- **How a release is announced** to the installations is the word after the version in the manifest's `<version>`,
+  from `autoupdate.severity` in `collect-earth-installer/pom.xml`. `minor`, the default, is offered without interrupting
+  anyone: only an installation more than 30 days behind is told at start (`UpdateIniUtils.shouldWarnUser`). `major`
+  tells every installation at its next start: keep it for what everyone must have now (data loss, security, imagery
+  that stopped working), so people are not asked to update for every small change. It goes through `-Darguments`, as
+  `release:perform` forks a build:
+
+  ```bash
+  mvn -P assembly release:perform -Darguments="-Dautoupdate.severity=major" -Dmaven.wagon.http.retryHandler.count=3
+  ```
+
+  The build stops on any other value. The previous Java's manifest (`collectEarthUpdateJRE11.xml`) is always `major`:
+  it is published only by the release that moves everyone to the new Java. Until 2.0 every release was announced as
+  `major`, so every installation was asked to update for each of them.
 - The generated update manifest (`collectEarthUpdateJRE21.xml` from 2.0 on, `collectEarthUpdateJRE11.xml` before) is
   uploaded to the web server by the build, at the `deploy`
   phase, by the `upload-autoupdate-manifest` execution of maven-antrun-plugin. It goes over scp with a key to

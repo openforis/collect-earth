@@ -66,6 +66,13 @@
 		<autoupdater-xml-file-name>collectEarthUpdateJRE21.xml</autoupdater-xml-file-name>
 		<previous-autoupdater-xml-file-name>collectEarthUpdateJRE11.xml</previous-autoupdater-xml-file-name>
 		<autoupdate.previous-manifest.upload>true</autoupdate.previous-manifest.upload>
+		<!-- How the release is announced to the installations (the <version> of the manifest, read by UpdateIniUtils):
+		     minor, the default, is offered without interrupting anyone, and shown at start only to an installation more
+		     than 30 days behind; major tells every installation at its next start. Choose major only for what everyone
+		     must have now (data loss, security, imagery that stopped working), with -Dautoupdate.severity=major, which
+		     release:perform takes as -Darguments="-Dautoupdate.severity=major". The previous manifest (the move to a new
+		     Java) is always major. -->
+		<autoupdate.severity>minor</autoupdate.severity>
 		<!-- download.html guesses the platform and offers all three; download-windows.html, -osx.html and
 		     -linux.html redirect straight to one installer with no JavaScript. They are uploaded with the manifest,
 		     so https://www.openforis.org/fileadmin/installer/download.html is a link that never needs editing. -->
@@ -148,6 +155,28 @@
 			<build>
 
 			<plugins>
+			<!-- autoupdate.severity is major or minor: anything else would be announced as minor without a word -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-enforcer-plugin</artifactId>
+				<executions>
+					<execution>
+						<id>enforce-update-severity</id>
+						<goals>
+							<goal>enforce</goal>
+						</goals>
+						<configuration>
+							<rules>
+								<requireProperty>
+									<property>autoupdate.severity</property>
+									<regex>major|minor</regex>
+									<regexMessage>autoupdate.severity must be major or minor, not "${autoupdate.severity}"</regexMessage>
+								</requireProperty>
+							</rules>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
 
 				<!--  0. create a buildnumber to use for the updater and set a ${buildNumber} variable -->
 				<plugin>
@@ -350,6 +379,10 @@
 								<replacement>
 									<token>PROJECT_VERSION</token>
 									<value>${project.version}</value>
+								</replacement>
+								<replacement>
+									<token>UPDATE_SEVERITY</token>
+									<value>${autoupdate.severity}</value>
 								</replacement>
 								<replacement>
 									<token>BUILD_NUMBER</token>

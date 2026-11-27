@@ -5,12 +5,12 @@
 -->
     <versionId>BUILD_NUMBER</versionId> <!-- When changing this version make sure to have the same one in update.ini and rebuild the autoupdater ! -->
     <!--
-    version HERE WE CAN use " major" to mark that the user should be warned of the new update
-    This is used to indicate if the user should be prompted or not about the new updater.
-	major Means the user will be notified automatically.
-	minor (or nothing) means that the user can update COllect Earth but he will not be notified when Collect Earth starts that there is a new version
+    The word after the version says how the release is announced (UpdateIniUtils.isMajorUpdate):
+	major: every installation is told at its next start.
+	minor: the update is offered, but only an installation more than 30 days behind is told at start.
+    The build fills it in from autoupdate.severity (collect-earth-installer/pom.xml), minor unless the release says major.
 	-->
-    <version>PROJECT_VERSION major</version>
+    <version>PROJECT_VERSION UPDATE_SEVERITY</version>
     <platformFileList>
         <platformFile>
             <filename>collect-earth-installer-PROJECT_VERSION-windows-updater.exe</filename>
