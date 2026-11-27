@@ -50,6 +50,10 @@
 		     (the keychains of Windows, macOS and Linux and the commands they run; Google Earth Web and the imagery
 		     browser through Selenium; the start-up of the application), which unit tests cannot run on a build server -->
 		<sonar.coverage.exclusions>**/desktop/WindowsDpapiProtector.java,**/desktop/MacKeychainProtector.java,**/desktop/LinuxKeyringProtector.java,**/desktop/SecretCommand.java,**/desktop/EarthApp.java,**/service/GoogleEarthWebService.java,**/service/imagery/BidiTabDriver.java,**/service/BrowserService.java,**/service/BrowserWindowIcon.java</sonar.coverage.exclusions>
+		<!-- How a release is announced to the installations: minor or major, chosen on the release command
+		     (-Dautoupdate.severity=minor). Not a value: collect-earth-installer's assembly build stops on it and says what
+		     to type, so no release goes out announced by default. -->
+		<autoupdate.severity>choose-minor-or-major</autoupdate.severity>
 	</properties>
 
 	<!-- The id has to be the one the credentials are stored under in settings.xml, and it has to be the same one
@@ -211,6 +215,10 @@
 						     straight to distributionManagement instead of staging. Both plugins live in the release
 						     profile, so the release has to ask for it. -->
 						<releaseProfiles>release</releaseProfiles>
+						<!-- How the release is announced (autoupdate.severity, a property of this pom), given once on the release command and
+						     passed to the builds release:prepare and release:perform start. A -Darguments on the command
+						     line replaces this: it then goes inside its quotes. -->
+						<arguments>-Dautoupdate.severity=${autoupdate.severity}</arguments>
 					</configuration>
 				</plugin>
 				

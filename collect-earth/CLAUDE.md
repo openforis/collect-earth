@@ -67,8 +67,10 @@ The project uses Maven Release Plugin with Bitrock InstallBuilder for creating i
 ```bash
 cd collect-earth-app
 
+# Every release says how it is announced to the installations: minor or major (see below). The build of the
+# installers stops until it is given, with a message that says what to type.
 # Prepare release (updates versions, creates git tags)
-mvn -P assembly release:clean release:prepare
+mvn -P assembly release:clean release:prepare -Dautoupdate.severity=minor
 
 # Rollback if preparation fails
 mvn release:rollback
@@ -76,13 +78,14 @@ mvn release:rollback
 # Perform release (builds and deploys installers)
 # The retry handler matters: the installers are ~1 GB in total and a single
 # dropped connection otherwise throws away the whole 35-minute upload.
-mvn -P assembly release:perform -Dmaven.wagon.http.retryHandler.count=3
+mvn -P assembly release:perform -Dautoupdate.severity=minor -Dmaven.wagon.http.retryHandler.count=3
 
 # Resume failed perform from a specific module.
 # NOTE: release:perform forks a new Maven run inside target/checkout, so a bare
 # -rf applies to the outer invocation and does nothing. It has to be passed
 # through with -Darguments.
-mvn -P assembly release:perform -Darguments="-rf :collect-earth-installer"
+# A -Darguments replaces the one the release plugin passes on: autoupdate.severity goes inside its quotes.
+mvn -P assembly release:perform -Darguments="-rf :collect-earth-installer -Dautoupdate.severity=minor"
 ```
 
 Notes:
@@ -125,19 +128,17 @@ Notes:
   installers are not attached to the Maven build, so this is their only signature. If signing fails, the
   installers and checksums are still published and the log says how to sign and upload `SHA256SUMS.asc` by hand.
 - **How a release is announced** to the installations is the word after the version in the manifest's `<version>`,
-  from `autoupdate.severity` in `collect-earth-installer/pom.xml`. `minor`, the default, is offered without interrupting
-  anyone: only an installation more than 30 days behind is told at start (`UpdateIniUtils.shouldWarnUser`). `major`
-  tells every installation at its next start: keep it for what everyone must have now (data loss, security, imagery
-  that stopped working), so people are not asked to update for every small change. It goes through `-Darguments`, as
-  `release:perform` forks a build:
-
-  ```bash
-  mvn -P assembly release:perform -Darguments="-Dautoupdate.severity=major" -Dmaven.wagon.http.retryHandler.count=3
-  ```
-
-  The build stops on any other value. The previous Java's manifest (`collectEarthUpdateJRE11.xml`) is always `major`:
-  it is published only by the release that moves everyone to the new Java. Until 2.0 every release was announced as
-  `major`, so every installation was asked to update for each of them.
+  `autoupdate.severity`, which **every release has to choose**: it has no default (the root pom's placeholder
+  `choose-minor-or-major`), and the `assembly` build of `collect-earth-installer` stops until it is `minor` or
+  `major`, saying what to type. `minor` is offered without interrupting anyone: only an installation more than 30 days
+  behind is told at start (`UpdateIniUtils.shouldWarnUser`). `major` tells every installation at its next start: keep it
+  for what everyone must have now (data loss, security, imagery that stopped working), so people are not asked to
+  update for every small change. Give it once on the command (`-Dautoupdate.severity=minor`): the release plugin passes
+  it to the builds `release:prepare` and `release:perform` start (`<arguments>` in the root pom). A `-Darguments` on the
+  command line replaces that, so then it goes inside its quotes. A local `mvn -P assembly install` needs it too. The
+  previous Java's manifest (`collectEarthUpdateJRE11.xml`) is always `major`: it is published only by the release that
+  moves everyone to the new Java. Until 2.0 every release was announced as `major`, so every installation was asked to
+  update for each of them.
 - The generated update manifest (`collectEarthUpdateJRE21.xml` from 2.0 on, `collectEarthUpdateJRE11.xml` before) is
   uploaded to the web server by the build, at the `deploy`
   phase, by the `upload-autoupdate-manifest` execution of maven-antrun-plugin. It goes over scp with a key to
