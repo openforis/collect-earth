@@ -16,7 +16,8 @@ export interface CloudPreview { baseUrl: string; inviteToken: string; projectId:
 export const cloudPreview = (url: string) => apiPost<CloudPreview>("cloud/preview", { url });
 
 /** `useAccount`: join with the preview's `account`, no username or password (cloud.signInAgain when its sign-in ended) */
-export interface JoinRequest { baseUrl: string; inviteToken: string; projectId: string; username: string; password: string; register: boolean; code?: string; useAccount?: boolean }
+/** `othersConfirmed`: told of other people's plots of the project's survey on this computer (cloud.othersRecords), joined all the same */
+export interface JoinRequest { baseUrl: string; inviteToken: string; projectId: string; username: string; password: string; register: boolean; code?: string; useAccount?: boolean; othersConfirmed?: boolean }
 
 export const cloudJoin = (request: JoinRequest) => apiPost<{ restart: boolean }>("cloud/join", request);
 
@@ -37,8 +38,8 @@ export interface CloudProject {
 export const cloudProjects = (signal?: AbortSignal) => apiGet<{ projects: CloudProject[] }>("cloud/projects", signal).then((r) => r.projects);
 
 /** Opens one of them, with the sign-in kept: Collect Earth restarts with it. The server says which one when several are signed in. */
-export const openCloudProject = (projectId: string, server?: string | null) =>
-  apiPost<{ restart: boolean }>("cloud/projects/open", server ? { projectId, server } : { projectId });
+export const openCloudProject = (projectId: string, server?: string | null, othersConfirmed?: boolean) =>
+  apiPost<{ restart: boolean }>("cloud/projects/open", { projectId, ...(server ? { server } : {}), ...(othersConfirmed ? { othersConfirmed } : {}) });
 
 export const cloudStatus =(signal?: AbortSignal) => apiGet<CloudStatus>("cloud/status", signal);
 

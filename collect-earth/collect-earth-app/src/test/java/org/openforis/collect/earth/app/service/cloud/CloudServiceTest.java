@@ -154,6 +154,82 @@ public class CloudServiceTest {
 		verify(projects).loadCompressedProjectFile(cep3, true);
 	}
 
+	/**
+	 * Before a cloud project takes the place of a project of this computer, the plots of its survey saved under other
+	 * people's names are counted: the join stops with how many and whose until the person confirms. The person's own
+	 * (the name typed here, one typed before an earlier join, the account) and plots with no name are not asked about.
+	 */
+	@Test
+	public void joiningOverOtherPeoplesPlotsAsksFirst() throws Exception {
+		File local = new File(folder, "projects/collect_earth_initial_2025");
+		java.nio.file.Files.createDirectories(local.toPath());
+		java.nio.file.Files.write(new File(local, EarthProjectsService.PROJECT_PROPERTIES_FILE_NAME).toPath(), "survey_name=collect_earth_initial_2025".getBytes());
+		when(api.login("https://c.org", "maria", "pw", null, "tok")).thenReturn("session-token");
+		when(properties.getOperator()).thenReturn("Ana");
+		when(properties.getValue(LocalPropertiesService.EarthProperty.CLOUD_LOCAL_NAMES)).thenReturn("ana-old");
+		when(properties.getProjectFolder()).thenReturn(local.getPath());
+		when(api.getProject(any())).thenReturn(new JoinPreview("p1", "Kenya 2025", "operator", true));
+		service.setSafetyCopier((reason, project) -> new File(folder, "copy.zip"));
+		java.util.Map<String, Integer> here = new java.util.TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+		here.put("ana", 12);
+		here.put("ANA-OLD", 2);
+		here.put("maria", 1);
+		here.put("", 3);
+		here.put("ben", 5);
+		here.put("cleo", 1);
+		java.util.List<String> asked = new java.util.ArrayList<>();
+		service.setRecordsByName(survey -> {
+			asked.add(survey);
+			return here;
+		});
+		JoinRequest request = new JoinRequest();
+		request.baseUrl = "https://c.org";
+		request.inviteToken = "tok";
+		request.projectId = "p1";
+		request.username = "maria";
+		request.password = "pw";
+
+		File cep = projectFile("kenya.cep");
+		when(api.downloadCep("https://c.org", "p1", "session-token")).thenReturn(cep);
+		when(projects.projectFolderFor(cep)).thenReturn(local);
+		InvalidCloudRequestException question = assertThrows(InvalidCloudRequestException.class, () -> service.join(request));
+		assertEquals("cloud.othersRecords", question.getCode());
+		assertEquals(java.util.List.of("collect_earth_initial_2025"), asked);
+		// How many, of which project, whose: ben's 5 and cleo's 1; not Ana's, ana-old's, maria's, nor those with no name
+		assertTrue(question.getMessage().startsWith("This computer has 6 plots of collect_earth_initial_2025"), question.getMessage());
+		assertTrue(question.getMessage().contains("ben (5), cleo (1)"), question.getMessage());
+		assertFalse(question.getMessage().contains("ana"), question.getMessage());
+		verify(projects, never()).loadCompressedProjectFile(cep, true);
+
+		// Confirmed: joined
+		File cep2 = projectFile("kenya2.cep");
+		when(api.downloadCep("https://c.org", "p1", "session-token")).thenReturn(cep2);
+		when(projects.projectFolderFor(cep2)).thenReturn(local);
+		request.othersConfirmed = true;
+		service.join(request);
+		verify(projects).loadCompressedProjectFile(cep2, true);
+
+		// Only the person's own plots: nothing asked
+		here.remove("ben");
+		here.remove("cleo");
+		File cep3 = projectFile("kenya3.cep");
+		when(api.downloadCep("https://c.org", "p1", "session-token")).thenReturn(cep3);
+		when(projects.projectFolderFor(cep3)).thenReturn(local);
+		request.othersConfirmed = false;
+		service.join(request);
+		verify(projects).loadCompressedProjectFile(cep3, true);
+
+		// Counting failing (the database busy, say) does not stop the join: its files are copied all the same
+		service.setRecordsByName(survey -> {
+			throw new IOException("database locked");
+		});
+		File cep4 = projectFile("kenya4.cep");
+		when(api.downloadCep("https://c.org", "p1", "session-token")).thenReturn(cep4);
+		when(projects.projectFolderFor(cep4)).thenReturn(local);
+		service.join(request);
+		verify(projects).loadCompressedProjectFile(cep4, true);
+	}
+
 	/** A project file as a server gives it: a zip with its project definition */
 	private File projectFile(String name) throws IOException {
 		File cep = new File(folder, name);

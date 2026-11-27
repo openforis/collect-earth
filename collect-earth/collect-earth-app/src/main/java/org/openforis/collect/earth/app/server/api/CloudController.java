@@ -110,13 +110,15 @@ public class CloudController {
 		public String projectId;
 		/** The server it is on; the first signed in to when not given */
 		public String server;
+		/** Told of the other people's plots on this computer (cloud.othersRecords), and opened all the same */
+		public boolean othersConfirmed;
 	}
 
 	/** One of them opened: the restart follows the answer, as after a join */
 	@PostMapping("/api/cloud/projects/open")
 	public Map<String, Object> open(@RequestBody OpenRequest request) throws IOException {
 		try {
-			cloud.open(request.projectId, request.server);
+			cloud.open(request.projectId, request.server, request.othersConfirmed);
 		} catch (InvalidCloudRequestException e) {
 			throw new ApiException(e.getCode(), e.getMessage());
 		}

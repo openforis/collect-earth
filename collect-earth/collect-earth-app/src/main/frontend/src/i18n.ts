@@ -289,6 +289,9 @@ const en = {
   "cloud.alreadyHere": "Already on this computer",
   "cloud.join.as": "You join with the account you are signed in with on this server: {account}.",
   "cloud.join.join": "Join",
+  "cloud.others.title": "Plots of other people on this computer",
+  "cloud.others.join": "Join anyway",
+  "cloud.others.open": "Open anyway",
   "cloud.join.otherAccount": "Use another account",
 };
 
@@ -579,6 +582,9 @@ const es: Catalogue = {
   "cloud.alreadyHere": "Ya en este ordenador",
   "cloud.join.as": "Se unirá con la cuenta con la que ha iniciado sesión en este servidor: {account}.",
   "cloud.join.join": "Unirse",
+  "cloud.others.title": "Parcelas de otras personas en este equipo",
+  "cloud.others.join": "Unirse de todos modos",
+  "cloud.others.open": "Abrir de todos modos",
   "cloud.join.otherAccount": "Usar otra cuenta",
 };
 
@@ -866,6 +872,9 @@ const fr: Catalogue = {
   "cloud.alreadyHere": "Déjà sur cet ordinateur",
   "cloud.join.as": "Vous rejoignez le projet avec le compte connecté à ce serveur : {account}.",
   "cloud.join.join": "Rejoindre",
+  "cloud.others.title": "Parcelles d'autres personnes sur cet ordinateur",
+  "cloud.others.join": "Rejoindre quand même",
+  "cloud.others.open": "Ouvrir quand même",
   "cloud.join.otherAccount": "Utiliser un autre compte",
 };
 
@@ -1153,6 +1162,9 @@ const pt: Catalogue = {
   "cloud.alreadyHere": "Já neste computador",
   "cloud.join.as": "Vai entrar com a conta com que tem sessão iniciada neste servidor: {account}.",
   "cloud.join.join": "Entrar",
+  "cloud.others.title": "Parcelas de outras pessoas neste computador",
+  "cloud.others.join": "Entrar mesmo assim",
+  "cloud.others.open": "Abrir mesmo assim",
   "cloud.join.otherAccount": "Usar outra conta",
 };
 
@@ -1424,6 +1436,9 @@ const tr: Catalogue = {
   "cloud.alreadyHere": "Zaten bu bilgisayarda",
   "cloud.join.as": "Bu sunucuda oturum açtığınız hesapla katılırsınız: {account}.",
   "cloud.join.join": "Katıl",
+  "cloud.others.title": "Bu bilgisayarda başka kişilerin parselleri",
+  "cloud.others.join": "Yine de katıl",
+  "cloud.others.open": "Yine de aç",
   "cloud.join.otherAccount": "Başka bir hesap kullan",
   "periodFilter.label": "Önceki dönemle karşılaştırıldığında",
   "periodFilter.all": "Tüm parseller",

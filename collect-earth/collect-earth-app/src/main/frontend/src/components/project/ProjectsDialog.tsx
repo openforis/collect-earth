@@ -13,6 +13,7 @@ import Tooltip from "@mui/material/Tooltip";
 import CloudOutlinedIcon from "@mui/icons-material/CloudOutlined";
 import ComputerOutlinedIcon from "@mui/icons-material/ComputerOutlined";
 import PersonIcon from "@mui/icons-material/Person";
+import { ApiError } from "../../apiClient";
 import { errorText } from "../../appBar";
 import { cloudProjectServers, roleOf } from "../../cloud";
 import { useT } from "../../i18n";
@@ -60,6 +61,8 @@ function CloudProjects({ texts, onRestarting }: { texts: Texts | null; onRestart
   const [projects, setProjects] = useState<CloudProject[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [opening, setOpening] = useState<string | null>(null);
+  // This computer has plots of the project's survey saved under other people's names: asked before opening it
+  const [others, setOthers] = useState<{ project: CloudProject; message: string } | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -67,11 +70,16 @@ function CloudProjects({ texts, onRestarting }: { texts: Texts | null; onRestart
     return () => controller.abort();
   }, [t]);
 
-  const openProject = (p: CloudProject) => {
+  const openProject = (p: CloudProject, othersConfirmed = false) => {
     setOpening(p.projectId);
     setError(null);
-    openCloudProject(p.projectId, p.server).then((r) => { if (r.restart) onRestarting(); },
-      (e) => { setError(errorText(e, t("appBar.unreachable"))); setOpening(null); });
+    setOthers(null);
+    openCloudProject(p.projectId, p.server, othersConfirmed).then((r) => { if (r.restart) onRestarting(); },
+      (e) => {
+        if (e instanceof ApiError && e.code === "cloud.othersRecords") setOthers({ project: p, message: e.message });
+        else setError(errorText(e, t("appBar.unreachable")));
+        setOpening(null);
+      });
   };
 
   if (!error && projects.length === 0) return null;
@@ -88,6 +96,15 @@ function CloudProjects({ texts, onRestarting }: { texts: Texts | null; onRestart
         {servers.list && serverMark(servers.list)}
       </Stack>
       {error && <Alert severity="warning">{error}</Alert>}
+      {others && (
+        <Alert severity="warning" sx={{ whiteSpace: "pre-line" }} data-testid="open-others-records"
+          action={<Stack spacing={1}>
+            <Button color="warning" variant="contained" size="small" onClick={() => openProject(others.project, true)}>{t("cloud.others.open")}</Button>
+            <Button color="inherit" size="small" onClick={() => setOthers(null)}>{s("OptionWizard.24")}</Button>
+          </Stack>}>
+          {others.message}
+        </Alert>
+      )}
       {projects.map((p, i) => {
         const role = roleOf(p.role, t);
         const server = servers.each[i];

@@ -74,6 +74,16 @@ public class CloudService {
 		public String code;
 		/** Join with the account signed in here to the invitation's server (the preview's {@code account}), no password */
 		public boolean useAccount;
+		/**
+		 * The person was told that this computer has plots of the project's survey saved under other people's names
+		 * (cloud.othersRecords) and joins all the same
+		 */
+		public boolean othersConfirmed;
+	}
+
+	/** The plots of a survey on this computer, by the name they were saved under (RecordsHereByName) */
+	public interface RecordsByName {
+		Map<String, Integer> of(String surveyName) throws IOException;
 	}
 
 	private static final String JOIN_MARKER = "/join/";
@@ -99,6 +109,14 @@ public class CloudService {
 
 	void setSafetyCopier(SafetyCopier safetyCopier) {
 		this.safetyCopier = safetyCopier;
+	}
+
+	/** Who the plots of a survey on this computer were saved by; absent in some tests (then nothing is asked) */
+	private RecordsByName recordsByName;
+
+	@Autowired(required = false)
+	public void setRecordsByName(RecordsByName recordsByName) {
+		this.recordsByName = recordsByName;
 	}
 
 	/** To start a learning set's new attempt afresh (deleting earlier records); absent in some tests. */
@@ -210,7 +228,7 @@ public class CloudService {
 	private void joined(JoinRequest request, String token, String username) throws InvalidCloudRequestException, IOException {
 		// The name typed on this computer until now: its records are this person's (CloudRecordsSender sends those)
 		CloudRecordsSender.rememberLocalName(properties, properties.getOperator());
-		useProject(request.baseUrl, request.projectId, token, username);
+		useProject(request.baseUrl, request.projectId, token, username, request.othersConfirmed);
 		// The next start offers to send the records this computer already has (CloudRecordsSender)
 		properties.setValue(EarthProperty.CLOUD_OFFER_LOCAL_RECORDS, Boolean.TRUE.toString());
 	}
@@ -249,12 +267,13 @@ public class CloudService {
 	 * Downloads the project and loads it, binds its folder to the cloud project (the other projects keep theirs), keeps
 	 * the server's sign-in, and switches to cloud mode for it: the caller restarts.
 	 */
-	private void useProject(String baseUrl, String projectId, String token, String username) throws InvalidCloudRequestException, IOException {
+	private void useProject(String baseUrl, String projectId, String token, String username, boolean othersConfirmed)
+			throws InvalidCloudRequestException, IOException {
 		if (!opening.tryLock()) {
 			throw new InvalidCloudRequestException("cloud.busy", Messages.getString("CloudJoin.busy")); //$NON-NLS-1$ //$NON-NLS-2$
 		}
 		try {
-			useProjectNow(baseUrl, projectId, token, username);
+			useProjectNow(baseUrl, projectId, token, username, othersConfirmed);
 		} finally {
 			opening.unlock();
 		}
@@ -265,7 +284,8 @@ public class CloudService {
 		return opening.isLocked();
 	}
 
-	private void useProjectNow(String baseUrl, String projectId, String token, String username) throws InvalidCloudRequestException, IOException {
+	private void useProjectNow(String baseUrl, String projectId, String token, String username, boolean othersConfirmed)
+			throws InvalidCloudRequestException, IOException {
 		String server = LocalPropertiesService.normalizeServer(baseUrl);
 		// The training set open in this very project (a changed survey taken during a training): open again after
 		File training = isOpen(server, projectId) ? openTrainingFile() : null;
@@ -279,8 +299,12 @@ public class CloudService {
 			revision = SurveyRevision.ofProjectFile(cep);
 			CloudBinding bound = folder == null ? null : properties.getCloudBinding(folder);
 			boolean sameProject = bound != null && StringUtils.equals(bound.projectId, projectId);
-			// A project of this computer in no cloud project (one of Collect Earth 1, say) with the same survey: its files
-			// are about to be replaced and its survey updated to the cloud project's, so they are copied first
+			// A project of this computer in no cloud project (one of Collect Earth 1, say) with the same survey: asked first
+			// when its plots include other people's, then its files (about to be replaced, and its survey updated to the
+			// cloud project's) are copied
+			if (bound == null && !othersConfirmed) {
+				askAboutOthersRecords(folder, username);
+			}
 			File safetyCopy = bound == null ? copyLocalProject(folder) : null;
 			if (sameProject) {
 				sendBeforeTheSurveyChanges(cep, folder, bound, server, projectId, revision);
@@ -394,6 +418,11 @@ public class CloudService {
 	 * given), as a join does with no invitation or login: the caller restarts.
 	 */
 	public void open(String projectId, String server) throws InvalidCloudRequestException, IOException {
+		open(projectId, server, false);
+	}
+
+	/** {@link #open(String, String)}, the person told already of the other people's plots here (cloud.othersRecords) */
+	public void open(String projectId, String server, boolean othersConfirmed) throws InvalidCloudRequestException, IOException {
 		Map<String, String> accounts = properties.getCloudAccounts();
 		String url = StringUtils.isNotBlank(server) ? LocalPropertiesService.normalizeServer(server)
 				: accounts.isEmpty() ? null : accounts.keySet().iterator().next();
@@ -402,13 +431,56 @@ public class CloudService {
 		if (StringUtils.isBlank(token) || projectId == null || !projectId.matches("[A-Za-z0-9_-]+")) {
 			throw new InvalidCloudRequestException("cloud.projects", Messages.getString("CloudProjects.failed"));
 		}
-		useProject(url, projectId, token, accounts.get(url));
+		useProject(url, projectId, token, accounts.get(url), othersConfirmed);
 	}
 
 	/**
 	 * Joining unzips the project over the folder of its survey: when that folder is another cloud project's with records
 	 * not sent yet, it is refused, as they would be sent nowhere (the queue keeps them for their own cloud project).
 	 */
+	/**
+	 * A project of this computer that a cloud project's file is about to replace, whose survey has plots saved under
+	 * names that are not the person's (not the name typed here before, nor one typed before an earlier join, nor the
+	 * account's): joining brings them into the cloud project's survey, where they show as done but are never sent (they
+	 * are not the person's), and where opening one changes it. Refused with what to do (cloud.othersRecords) until the
+	 * person confirms. Plots saved under no name are not counted: nothing says whose they are.
+	 */
+	private void askAboutOthersRecords(File folder, String username) throws InvalidCloudRequestException {
+		if (recordsByName == null || folder == null || !folder.isDirectory()
+				|| !new File(folder, EarthProjectsService.PROJECT_PROPERTIES_FILE_NAME).isFile()) {
+			return;
+		}
+		Map<String, Integer> byName;
+		try {
+			byName = recordsByName.of(folder.getName());
+		} catch (IOException | RuntimeException e) {
+			// Not knowing is no reason to stop the join: its files are copied first all the same
+			logger.warn("The plots of {} on this computer could not be counted: {}", folder.getName(), e.getMessage()); //$NON-NLS-1$
+			return;
+		}
+		Set<String> mine = new java.util.TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+		mine.addAll(CloudRecordsSender.localNames(properties));
+		for (String name : new String[] { properties.getOperator(), username }) {
+			if (StringUtils.isNotBlank(name)) {
+				mine.add(name.trim());
+			}
+		}
+		Map<String, Integer> others = new java.util.LinkedHashMap<>();
+		byName.forEach((name, count) -> {
+			if (StringUtils.isNotBlank(name) && !mine.contains(name.trim())) {
+				others.put(name.trim(), count);
+			}
+		});
+		if (others.isEmpty()) {
+			return;
+		}
+		int total = others.values().stream().mapToInt(Integer::intValue).sum();
+		StringBuilder names = new StringBuilder();
+		others.forEach((name, count) -> names.append(names.length() == 0 ? "" : ", ").append(name).append(" (").append(count).append(')')); //$NON-NLS-1$ //$NON-NLS-2$
+		throw new InvalidCloudRequestException("cloud.othersRecords", //$NON-NLS-1$
+				MessageFormat.format(Messages.getString("CloudJoin.othersRecords"), total, folder.getName(), names.toString())); //$NON-NLS-1$
+	}
+
 	/**
 	 * The project of this computer that a cloud project's file is about to replace, copied with the database and the
 	 * settings (SafetyCopy) when it is one: a folder with a project definition that is in no cloud project. The join is

@@ -108,6 +108,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   database and the settings are now zipped into `safetyCopies` first, and the next start says what happened, where the
   copy is, and how to send the plots collected without a server to the project. When the copy cannot be taken (a full
   disk), the join is refused and nothing is replaced
+- Before joining (or opening) a cloud project over such a project, Collect Earth now asks when this computer has plots
+  of its survey saved under other people's names (not the name typed here, nor the account's): how many, whose, and
+  that in the cloud project they would show as done but never be sent, and opening one would change it. "Join anyway"
+  goes on; Cancel leaves everything as it was
 - Google Earth Web stayed on the plot shown before when the plot clicked had the same id in another plot file (a training set and the person's plots), so the wrong ground was interpreted
 - The Planet Daily window asked port 8028 whatever port Collect Earth runs on, so it showed nothing on another port
 - A training plot whose record was not sent yet when the training finished kept its record on the computer for good; it is deleted once sent

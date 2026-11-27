@@ -143,10 +143,14 @@ public class CloudControllerTest {
 	public void aCloudProjectIsOpenedOnTheServerGivenOrTheFirstSignedInTo() throws Exception {
 		mvc.perform(post("/api/cloud/projects/open").contentType(MediaType.APPLICATION_JSON).content("{\"projectId\":\"p2\"}"))
 				.andExpect(status().isOk()).andExpect(jsonPath("$.restart").value(true));
-		verify(cloud).open("p2", null);
+		verify(cloud).open("p2", null, false);
 		mvc.perform(post("/api/cloud/projects/open").contentType(MediaType.APPLICATION_JSON).content("{\"projectId\":\"p9\",\"server\":\"https://d.org\"}"))
 				.andExpect(status().isOk());
-		verify(cloud).open("p9", "https://d.org");
+		verify(cloud).open("p9", "https://d.org", false);
+		// Opened again once the person was told of other people's plots here (cloud.othersRecords)
+		mvc.perform(post("/api/cloud/projects/open").contentType(MediaType.APPLICATION_JSON).content("{\"projectId\":\"p9\",\"server\":\"https://d.org\",\"othersConfirmed\":true}"))
+				.andExpect(status().isOk());
+		verify(cloud).open("p9", "https://d.org", true);
 		assertTrue(restarted.get());
 	}
 
