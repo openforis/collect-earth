@@ -1,5 +1,6 @@
 package org.openforis.collect.earth.app.service.cloud;
 
+import org.openforis.collect.earth.app.service.SafetyCopy;
 import org.openforis.collect.earth.app.service.notices.NoticeService;
 import org.openforis.collect.earth.app.service.notices.Notice;
 import java.util.Set;
@@ -87,6 +88,18 @@ public class CloudService {
 	 * would unzip into the same folder, and the second is refused.
 	 */
 	private final ReentrantLock opening = new ReentrantLock();
+
+	/** Takes a safety copy of a project folder with the database and the settings (SafetyCopy.make) */
+	interface SafetyCopier {
+		File copy(String reason, File projectFolder) throws IOException;
+	}
+
+	/** The real one writes into the data folder's safetyCopies; tests give their own */
+	private SafetyCopier safetyCopier = SafetyCopy::make;
+
+	void setSafetyCopier(SafetyCopier safetyCopier) {
+		this.safetyCopier = safetyCopier;
+	}
 
 	/** To start a learning set's new attempt afresh (deleting earlier records); absent in some tests. */
 	private EarthSurveyService surveyService;
@@ -266,6 +279,9 @@ public class CloudService {
 			revision = SurveyRevision.ofProjectFile(cep);
 			CloudBinding bound = folder == null ? null : properties.getCloudBinding(folder);
 			boolean sameProject = bound != null && StringUtils.equals(bound.projectId, projectId);
+			// A project of this computer in no cloud project (one of Collect Earth 1, say) with the same survey: its files
+			// are about to be replaced and its survey updated to the cloud project's, so they are copied first
+			File safetyCopy = bound == null ? copyLocalProject(folder) : null;
 			if (sameProject) {
 				sendBeforeTheSurveyChanges(cep, folder, bound, server, projectId, revision);
 			}
@@ -276,6 +292,9 @@ public class CloudService {
 			} catch (IOException | RuntimeException e) {
 				restoreAfterFailure(folder);
 				throw e;
+			}
+			if (safetyCopy != null) {
+				SafetyCopy.tellAtNextStart(properties, SafetyCopy.BEFORE_JOIN, safetyCopy, folder.getName());
 			}
 			if (!sameProject) {
 				// The folder was another project's (or a local one), and is bound to this one now: its files are not put
@@ -390,6 +409,26 @@ public class CloudService {
 	 * Joining unzips the project over the folder of its survey: when that folder is another cloud project's with records
 	 * not sent yet, it is refused, as they would be sent nowhere (the queue keeps them for their own cloud project).
 	 */
+	/**
+	 * The project of this computer that a cloud project's file is about to replace, copied with the database and the
+	 * settings (SafetyCopy) when it is one: a folder with a project definition that is in no cloud project. The join is
+	 * refused when the copy cannot be taken, rather than replace a project with no copy of it.
+	 *
+	 * @return the copy, or null when the folder holds no project
+	 */
+	private File copyLocalProject(File folder) throws InvalidCloudRequestException {
+		if (folder == null || !folder.isDirectory() || !new File(folder, EarthProjectsService.PROJECT_PROPERTIES_FILE_NAME).isFile()) {
+			return null;
+		}
+		try {
+			return safetyCopier.copy("before-joining-" + folder.getName(), folder); //$NON-NLS-1$
+		} catch (IOException | RuntimeException e) {
+			logger.error("The project {} could not be copied before joining", folder, e); //$NON-NLS-1$
+			throw new InvalidCloudRequestException("cloud.safetyCopyFailed", //$NON-NLS-1$
+					MessageFormat.format(Messages.getString("CloudJoin.safetyCopyFailed"), folder.getName(), String.valueOf(e.getMessage()))); //$NON-NLS-1$
+		}
+	}
+
 	private void refuseToReplaceUnsent(File folder, String projectId) throws InvalidCloudRequestException {
 		CloudBinding bound = properties.getCloudBinding(folder);
 		if (bound == null || StringUtils.equals(bound.projectId, projectId)) {

@@ -35,6 +35,7 @@ import org.openforis.collect.earth.app.desktop.ServerController.ServerInitializa
 import org.openforis.collect.earth.app.logging.GAlogger;
 import org.openforis.collect.earth.app.server.LoadProjectFileServlet;
 import org.openforis.collect.earth.app.server.OpenWindowServlet;
+import org.openforis.collect.earth.app.service.SafetyCopy;
 import org.openforis.collect.earth.app.service.BrowserService;
 import org.openforis.collect.earth.app.service.EarthProjectsService;
 import org.openforis.collect.earth.app.service.FolderFinder;
@@ -133,6 +134,10 @@ public class EarthApp {
 					"Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.4; en-US; rv:1.9.2.2) Gecko/20100316 Firefox/3.6.2");
 
 			initializeSentry();
+			// Once, before the settings are first read (which changes them) and the database opened (Collect brings it up
+			// to date): a copy of Collect Earth 1's database and settings as they were, which no backup rotation deletes
+			SafetyCopy.beforeFirstStart();
+			SafetyCopy.rememberFirstStart(getLocalProperties());
 			// The cloud token kept by the system, not in plain text (before the first read of the settings): Windows' data
 			// protection, the macOS Keychain, the Linux desktop's keyring; without one (a Linux with no desktop) the
 			// settings file is private to its owner. One still in plain text is protected now

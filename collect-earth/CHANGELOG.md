@@ -98,6 +98,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cloud projects: what the collectors work on is set by the project's coordinator. The plots file can only be one of the files the server assigned to the collector (Settings > Project, the list of assigned files, which a divided file serves with only their plots): the field is read-only and the server refuses any other file; a missing plots file is no longer replaced by one found in the data folder. The plot design (the whole Plot section: shape, size, points, reference area) and the imagery windows (the Imagery section but the Planet key) are the coordinator's: they come from the project file, follow the changes the coordinator makes on the dashboard, and are shown read-only, a change refused. Tools > Load KML is disabled, and refused by the server, as is a plots file or KML dropped on the page. Leaving the cloud project (another database or project) is not held back.
 
 ### Fixed
+- Coming from Collect Earth 1 keeps a copy of the data that nothing deletes: at its first start, before it reads the
+  settings or opens the database, Collect Earth 2 zips the database and `earth.properties` as Collect Earth 1 left them
+  into the data folder's `safetyCopies` folder, and says where. The automatic backups keep only the ten newest, one at
+  every quit, and Collect Earth 2 quits and starts again often: within a few restarts the last backup of Collect Earth 1
+  was gone. Taken once; a new installation, with no database yet, takes none
+- Joining a cloud project whose survey has the name of a project of this computer that is in no cloud project (a
+  Collect Earth 1 project the team moves to the cloud) replaced that project's files without a word. Its folder, the
+  database and the settings are now zipped into `safetyCopies` first, and the next start says what happened, where the
+  copy is, and how to send the plots collected without a server to the project. When the copy cannot be taken (a full
+  disk), the join is refused and nothing is replaced
 - Google Earth Web stayed on the plot shown before when the plot clicked had the same id in another plot file (a training set and the person's plots), so the wrong ground was interpreted
 - The Planet Daily window asked port 8028 whatever port Collect Earth runs on, so it showed nothing on another port
 - A training plot whose record was not sent yet when the training finished kept its record on the computer for good; it is deleted once sent

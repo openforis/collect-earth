@@ -99,6 +99,72 @@ public class CloudServiceTest {
 		verify(properties).setValue(org.openforis.collect.earth.app.service.LocalPropertiesService.EarthProperty.CLOUD_FETCH_OWN_RECORDS, "true");
 	}
 
+	/**
+	 * A cloud project whose survey has the name of a project of this computer that is in no cloud project (one of Collect
+	 * Earth 1): its files are about to replace that project's, so it is copied first, and the next start says where.
+	 * When the copy cannot be taken, the join is refused and nothing is replaced.
+	 */
+	@Test
+	public void joiningOverAProjectOfThisComputerCopiesItFirstOrRefuses() throws Exception {
+		File local = new File(folder, "projects/collect_earth_initial_2025");
+		java.nio.file.Files.createDirectories(local.toPath());
+		java.nio.file.Files.write(new File(local, EarthProjectsService.PROJECT_PROPERTIES_FILE_NAME).toPath(), "survey_name=collect_earth_initial_2025".getBytes());
+		File cep = projectFile("kenya.cep");
+		when(api.login("https://c.org", "maria", "pw", null, "tok")).thenReturn("session-token");
+		when(api.downloadCep("https://c.org", "p1", "session-token")).thenReturn(cep);
+		when(projects.projectFolderFor(cep)).thenReturn(local);
+		when(properties.getProjectFolder()).thenReturn(local.getPath());
+		when(api.getProject(any())).thenReturn(new JoinPreview("p1", "Kenya 2025", "operator", true));
+		File copy = new File(folder, "safetyCopies/before-joining-collect_earth_initial_2025_2026-11-27_101500.zip");
+		java.util.List<String> asked = new java.util.ArrayList<>();
+		service.setSafetyCopier((reason, project) -> {
+			asked.add(reason + " " + project.getName());
+			return copy;
+		});
+		JoinRequest request = new JoinRequest();
+		request.baseUrl = "https://c.org";
+		request.inviteToken = "tok";
+		request.projectId = "p1";
+		request.username = "maria";
+		request.password = "pw";
+		service.join(request);
+		assertEquals(java.util.List.of("before-joining-collect_earth_initial_2025 collect_earth_initial_2025"), asked);
+		verify(projects).loadCompressedProjectFile(cep, true);
+		verify(properties).setValue(LocalPropertiesService.EarthProperty.SAFETY_COPY_NOTICE,
+				"beforeJoin\n" + copy.getAbsolutePath() + "\ncollect_earth_initial_2025");
+
+		// The copy failing (a full disk): refused, and the project's files are not replaced
+		File cep2 = projectFile("kenya2.cep");
+		when(api.downloadCep("https://c.org", "p1", "session-token")).thenReturn(cep2);
+		when(projects.projectFolderFor(cep2)).thenReturn(local);
+		service.setSafetyCopier((reason, project) -> {
+			throw new IOException("No space left on device");
+		});
+		InvalidCloudRequestException refused = assertThrows(InvalidCloudRequestException.class, () -> service.join(request));
+		assertEquals("cloud.safetyCopyFailed", refused.getCode());
+		assertTrue(refused.getMessage().contains("collect_earth_initial_2025") && refused.getMessage().contains("No space left on device"));
+		verify(projects, never()).loadCompressedProjectFile(cep2, true);
+
+		// A folder already bound to a cloud project is that project's: no copy (its own checks apply)
+		File cep3 = projectFile("kenya3.cep");
+		when(api.downloadCep("https://c.org", "p1", "session-token")).thenReturn(cep3);
+		when(projects.projectFolderFor(cep3)).thenReturn(local);
+		when(properties.getCloudBinding(local)).thenReturn(new CloudBinding(local.getPath(), "https://c.org", "p1", "Kenya 2025", "maria"));
+		service.join(request);
+		verify(projects).loadCompressedProjectFile(cep3, true);
+	}
+
+	/** A project file as a server gives it: a zip with its project definition */
+	private File projectFile(String name) throws IOException {
+		File cep = new File(folder, name);
+		try (java.util.zip.ZipOutputStream zip = new java.util.zip.ZipOutputStream(java.nio.file.Files.newOutputStream(cep.toPath()))) {
+			zip.putNextEntry(new java.util.zip.ZipEntry(EarthProjectsService.PROJECT_PROPERTIES_FILE_NAME));
+			zip.write("survey_name=collect_earth_initial_2025\n".getBytes());
+			zip.closeEntry();
+		}
+		return cep;
+	}
+
 	/** The projects of every server signed in to, each with its server, the open one marked, those here marked */
 	@Test
 	public void listsTheProjectsOfEveryServerSignedInToTheOpenOneMarked() throws Exception {

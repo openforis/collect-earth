@@ -36,7 +36,7 @@ public class EarthProjectsService {
 
 	private static final int NEW_MAX_FOLDER_LENGTH = 255;
 
-	private static final String PROJECT_PROPERTIES_FILE_NAME = "project_definition.properties"; //$NON-NLS-1$
+	public static final String PROJECT_PROPERTIES_FILE_NAME = "project_definition.properties"; //$NON-NLS-1$
 
 	private static final String PROJECTS = "projects"; //$NON-NLS-1$
 

@@ -141,6 +141,13 @@ public class LocalPropertiesService extends Observable {
 				/** "true" from joining a cloud project to the next start, which offers to send this computer's records there */
 				CLOUD_OFFER_LOCAL_RECORDS("cloud_offer_local_records"),
 				/**
+				 * The safety copy taken at the first start of Collect Earth 2, before it opens the database of Collect Earth 1
+				 * (SafetyCopy): its file name, or "-" when there was nothing to copy. Set once: never taken again.
+				 */
+				SAFETY_COPY_FIRST_START("safety_copy_first_start"),
+				/** A safety copy to tell the person about at the next start (SafetyCopy.noticeAfterStart), then emptied */
+				SAFETY_COPY_NOTICE("safety_copy_notice"),
+				/**
 				 * "true" from joining or opening a cloud project to the next start, which brings the account's own records of
 				 * it to this computer (CloudOwnRecordsFetcher)
 				 */
