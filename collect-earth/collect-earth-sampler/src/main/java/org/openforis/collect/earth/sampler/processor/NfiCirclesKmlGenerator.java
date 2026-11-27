@@ -5,7 +5,7 @@ import java.util.ArrayList;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openforis.collect.earth.sampler.model.SimpleRegion;
 import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
-import org.opengis.referencing.operation.TransformException;
+import org.geotools.api.referencing.operation.TransformException;
 
 public abstract class NfiCirclesKmlGenerator extends PolygonKmlGenerator {
 

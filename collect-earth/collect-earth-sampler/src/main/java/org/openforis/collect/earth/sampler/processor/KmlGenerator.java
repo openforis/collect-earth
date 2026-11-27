@@ -24,7 +24,7 @@ import org.openforis.collect.earth.sampler.utils.NotWgs84Exception;
 import org.openforis.collect.metamodel.CollectAnnotations;
 import org.openforis.collect.model.CollectSurvey;
 import org.openforis.idm.metamodel.AttributeDefinition;
-import org.opengis.referencing.operation.TransformException;
+import org.geotools.api.referencing.operation.TransformException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

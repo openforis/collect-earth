@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Security
 - Dependencies brought up to date after a review of the Dependabot alerts
+  - Before the 2.0 release, every library of Collect Earth at its newest stable version, so that fewer are left to update
+    after it: sqlite-jdbc 3.54.1.0, the PostgreSQL driver 42.7.15, Selenium 4.54.0, Sentry 8.66.0, JNA 5.19.1,
+    Jackson 2.23.0, commons-lang3 3.22.0, OpenTelemetry 1.68.0, Byte Buddy 1.18.17, json-smart 2.6.1, GeoTools 35.2
+    (from 24.7: its TransformException moved to org.geotools.api), POI 6.0.0 for the IPCC and uncertainty Excel files
+    (a test now writes the IPCC land use matrix and reads it back), the tests' JUnit 5.14.5, Mockito 5.25.0, json-path
+    2.10.0 and Hamcrest 3.0, and the build plugins; the plots map's MUI 9.6, Vite 8.4 and Vitest 5.1. The installers
+    bundle the JRE 21.0.13.1+2 and Node 24.22.3, the active LTS (supported until April 2028; 22 ends in April 2027),
+    with which the local dashboard and Collect Earth Cloud's tests pass. Collect (4.0.111), commons-io, HttpClient
+    5.6.5 and Log4j 2.26.1 are the newest already; Spring 5.3 and Jetty 10 stay, as their next versions need
+    the Jakarta servlet API, which Collect has not moved to; Log4j 3 and the Maven 4 plugins are not released yet
   - Collect Earth Cloud runs on Fastify 5 (Fastify 4 has had no fixes since mid-2025) and its static files plugin 10: a client could write the forwarded headers itself, and several URL and validation checks could be bypassed. The proxies the server takes `x-forwarded-*` from are now checked by address as well as counted: by default this computer, link-local addresses (Cloud Run's front end) and private networks; `TRUST_PROXY_ADDRESSES` names others (DEPLOY.md). Its image runs Node 22 (Node 20 is out of support), and its tests Vitest 5
   - Collect Earth uses Collect 4.0.111, and so Java 17 like Collect (the installers already bundle Java 21); Spring stays at Collect's 5.3.39. The build's Maven plugins are Collect's versions, with Maven 3.6.3 or newer as Collect asks. Selenium's OpenTelemetry is 1.67 (1.66 could take quadratic time on a crafted trace header) and byte-buddy the 1.18.14 Selenium asks for (1.15.4 shipped)
   - Collect Earth Explorer's functions: Google's libraries updated within their versions; four moderate alerts remain, from `uuid` inside the Earth Engine library, which has no fixed release yet and is not reached (it concerns a buffer argument the library does not pass)

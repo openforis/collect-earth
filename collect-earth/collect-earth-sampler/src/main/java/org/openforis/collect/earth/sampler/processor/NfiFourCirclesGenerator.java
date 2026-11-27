@@ -1,7 +1,7 @@
 package org.openforis.collect.earth.sampler.processor;
 
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
-import org.opengis.referencing.operation.TransformException;
+import org.geotools.api.referencing.operation.TransformException;
 
 public class NfiFourCirclesGenerator extends NfiCirclesKmlGenerator {
 

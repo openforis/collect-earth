@@ -20,7 +20,7 @@
 		     repository serves it: ../utils/repack_jres.py downloads it from Adoptium and installs it in the local
 		     repository as net.java.openjdk:jre, and the assembly profile runs that script when it is not there yet
 		     (python.executable to run it with, -Djre.ensure.skip=true to leave it out). -->
-		<jre.version>21.0.12.1+1</jre.version>
+		<jre.version>21.0.13.1+2</jre.version>
 		<jre.major.version>21</jre.major.version>
 		<python.executable>python</python.executable>
 		<jre.ensure.skip>false</jre.ensure.skip>
@@ -39,8 +39,8 @@
 		     SHASUMS256.txt here. CLAUDE.md, "The bundled Node", has the commands.
 		     -Dnode.ensure.skip=true leaves out the download and the checks: the archives must then be in the
 		     local repository already (once they are, the step needs no network anyway). -->
-		<node.version>22.22.0</node.version>
-		<node.shasums.sha256>782c13291346fa7b5ac3ce3d6f0a466a1c9c317a30471a3f65f9ab7f6f7156c0</node.shasums.sha256>
+		<node.version>24.22.3</node.version>
+		<node.shasums.sha256>06d17307d84ec057dd2783863f12cb228c9273f9424b330532e4e3699f5d47c9</node.shasums.sha256>
 		<node.dist.url>https://nodejs.org/dist</node.dist.url>
 		<node.ensure.skip>false</node.ensure.skip>
 		<!-- installer file names -->
@@ -186,7 +186,7 @@ With -Darguments="..." put it inside the quotes too: -Darguments="-rf :collect-e
 				<plugin>
 					<groupId>org.codehaus.mojo</groupId>
 					<artifactId>buildnumber-maven-plugin</artifactId>
-					<version>3.3.1</version>
+					<version>3.4.0</version>
 					<executions>
 						<execution>
 							<phase>validate</phase>
@@ -426,7 +426,7 @@ With -Darguments="..." put it inside the quotes too: -Darguments="-rf :collect-e
 					<plugin>
 						<groupId>org.codehaus.mojo</groupId>
 						<artifactId>exec-maven-plugin</artifactId>
-						<version>3.3.0</version>
+						<version>3.7.0</version>
 						<executions>
 							<!-- 0b. the bundled JREs in the local repository, before unpack-jre needs them: downloaded
 							     and repacked the first time a machine builds the installers, a quick check after -->
@@ -588,7 +588,7 @@ With -Darguments="..." put it inside the quotes too: -Darguments="-rf :collect-e
 					<plugin>
 						<groupId>org.codehaus.mojo</groupId>
 						<artifactId>build-helper-maven-plugin</artifactId>
-						<version>3.6.2</version>
+						<version>3.8.0</version>
 						<executions>
 							<execution>
 								<id>attach-installer-artifacts</id>

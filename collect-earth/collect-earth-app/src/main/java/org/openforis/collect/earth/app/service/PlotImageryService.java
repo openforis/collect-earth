@@ -20,7 +20,7 @@ import org.openforis.collect.earth.app.view.Messages;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openforis.collect.earth.sampler.processor.KmlGenerator;
 import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
-import org.opengis.referencing.operation.TransformException;
+import org.geotools.api.referencing.operation.TransformException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;

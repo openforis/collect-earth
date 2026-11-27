@@ -225,7 +225,8 @@ and the build of the updaters stops unless that is the release before it (the la
 
 The installers and updaters also bundle Node.js, which runs the local dashboard
 (`docs/plans/2026-11-03-desktop-dashboard.md`). `node.version` in `collect-earth-installer/pom.xml` is the same version
-as the `nodeVersion` of frontend-maven-plugin in `collect-earth-app/pom.xml` (22.22.0): change both together.
+as the `nodeVersion` of frontend-maven-plugin in `collect-earth-app/pom.xml` (24.22.3, the active LTS: supported until
+April 2028, where 22 ends in April 2027): change both together.
 
 - **What is downloaded:** the official archives of `https://nodejs.org/dist/v<version>/`: `win-x64.zip`,
   `linux-x64.tar.xz`, `darwin-arm64.tar.gz` and `darwin-x64.tar.gz` (~36, 31, 50 and 51 MB), with the release's
@@ -257,11 +258,12 @@ as the `nodeVersion` of frontend-maven-plugin in `collect-earth-app/pom.xml` (22
   release's signature and pin its `SHASUMS256.txt`:
 
   ```bash
-  V=22.22.0
+  V=24.22.3
   curl -sSO https://nodejs.org/dist/v$V/SHASUMS256.txt -O https://nodejs.org/dist/v$V/SHASUMS256.txt.asc
   curl -sSo node-keys.kbx https://raw.githubusercontent.com/nodejs/release-keys/main/gpg/pubring.kbx
   gpg --no-default-keyring --keyring ./node-keys.kbx --output signed.txt --decrypt SHASUMS256.txt.asc  # Good signature
-  cmp signed.txt SHASUMS256.txt && sha256sum SHASUMS256.txt   # the value of node.shasums.sha256
+  # gpg ends the text it writes with a line break of its own: the same text, that break left out
+  cmp <(head -c -1 signed.txt) SHASUMS256.txt && sha256sum SHASUMS256.txt   # the value of node.shasums.sha256
   ```
 
 #### The bundled dashboard

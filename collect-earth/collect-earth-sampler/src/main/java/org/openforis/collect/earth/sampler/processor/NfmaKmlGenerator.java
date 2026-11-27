@@ -8,7 +8,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openforis.collect.earth.sampler.model.SimpleRegion;
 import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
-import org.opengis.referencing.operation.TransformException;
+import org.geotools.api.referencing.operation.TransformException;
 
 public class NfmaKmlGenerator extends PolygonKmlGenerator {
 	static final int DIST_TRACT_CORNER_LAT = 500;

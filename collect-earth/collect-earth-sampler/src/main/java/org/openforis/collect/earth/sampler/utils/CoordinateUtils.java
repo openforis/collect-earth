@@ -3,7 +3,7 @@ package org.openforis.collect.earth.sampler.utils;
 import org.geotools.referencing.GeodeticCalculator;
 import org.geotools.referencing.crs.DefaultGeographicCRS;
 import org.locationtech.jts.geom.Coordinate;
-import org.opengis.referencing.operation.TransformException;
+import org.geotools.api.referencing.operation.TransformException;
 
 public class CoordinateUtils {
 

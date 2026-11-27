@@ -10,7 +10,7 @@ import org.locationtech.jts.io.kml.KMLWriter;
 import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openforis.collect.earth.sampler.utils.KmlGenerationException;
-import org.opengis.referencing.operation.TransformException;
+import org.geotools.api.referencing.operation.TransformException;
 
 public abstract class PolygonGeometryGenerator extends AbstractPolygonGeometryKmlGenerator {
 	private KMLWriter kmlWriter;

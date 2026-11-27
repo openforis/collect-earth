@@ -1,7 +1,7 @@
 package org.openforis.collect.earth.sampler.processor;
 
 import org.openforis.collect.earth.sampler.utils.CoordinateUtils;
-import org.opengis.referencing.operation.TransformException;
+import org.geotools.api.referencing.operation.TransformException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

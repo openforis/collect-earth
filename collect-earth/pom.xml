@@ -37,8 +37,8 @@
 		     a mismatched module (log4j-jcl was arriving at 2.20.0 against a
 		     2.26.1 core, and poi-ooxml at 5.2.3 against a 5.5.1 poi). -->
 		<log4j.version>2.26.1</log4j.version>
-		<poi.version>5.5.1</poi.version>
-		<jackson.version>2.22.4</jackson.version>
+		<poi.version>6.0.0</poi.version>
+		<jackson.version>2.23.0</jackson.version>
 		<project.scm.id>github.com</project.scm.id>
 		<sonar.language>java</sonar.language>
 		<sonar.organization>openforis</sonar.organization>
@@ -230,7 +230,7 @@
 				<plugin>
 					<groupId>org.codehaus.mojo</groupId>
 					<artifactId>versions-maven-plugin</artifactId>
-					<version>2.23.0</version>
+					<version>2.25.3</version>
 				</plugin>
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
@@ -337,7 +337,7 @@
 			<dependency>
 				<groupId>org.apache.commons</groupId>
 				<artifactId>commons-lang3</artifactId>
-				<version>3.21.0</version>
+				<version>3.22.0</version>
 			</dependency>
 			<dependency>
 				<groupId>org.apache.commons</groupId>
@@ -360,7 +360,7 @@
 			<dependency>
 				<groupId>io.opentelemetry</groupId>
 				<artifactId>opentelemetry-bom</artifactId>
-				<version>1.67.0</version>
+				<version>1.68.0</version>
 				<type>pom</type>
 				<scope>import</scope>
 			</dependency>
@@ -369,19 +369,19 @@
 			<dependency>
 				<groupId>net.bytebuddy</groupId>
 				<artifactId>byte-buddy</artifactId>
-				<version>1.18.14</version>
+				<version>1.18.17</version>
 			</dependency>
 			<dependency>
 				<groupId>net.bytebuddy</groupId>
 				<artifactId>byte-buddy-agent</artifactId>
-				<version>1.18.14</version>
+				<version>1.18.17</version>
 			</dependency>
 
 			<!-- Tests only, through json-path: 2.5.0 recurses without a limit (CVE-2024-57699) -->
 			<dependency>
 				<groupId>net.minidev</groupId>
 				<artifactId>json-smart</artifactId>
-				<version>2.5.2</version>
+				<version>2.6.1</version>
 			</dependency>
 
 			<!-- Jackson was version-managed in a leaf module and enforced by ad-hoc

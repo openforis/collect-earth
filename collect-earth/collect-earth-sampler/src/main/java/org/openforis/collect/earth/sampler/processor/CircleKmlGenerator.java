@@ -9,7 +9,7 @@ import org.openforis.collect.earth.app.EarthConstants.BUFFER_SHAPE;
 import org.openforis.collect.earth.sampler.model.SimpleCoordinate;
 import org.openforis.collect.earth.sampler.model.SimplePlacemarkObject;
 import org.openforis.collect.earth.sampler.model.SimpleRegion;
-import org.opengis.referencing.operation.TransformException;
+import org.geotools.api.referencing.operation.TransformException;
 
 public class CircleKmlGenerator extends AbstractPolygonKmlGenerator {
 

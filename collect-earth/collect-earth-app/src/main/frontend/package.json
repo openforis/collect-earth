@@ -14,21 +14,21 @@
     "@emotion/react": "11.14.0",
     "@emotion/styled": "11.14.1",
     "@fontsource/roboto": "5.3.0",
-    "@mui/icons-material": "9.5.0",
-    "@mui/material": "9.5.0",
-    "@tanstack/react-virtual": "3.14.21",
+    "@mui/icons-material": "9.6.0",
+    "@mui/material": "9.6.0",
+    "@tanstack/react-virtual": "3.14.28",
     "leaflet": "1.9.4",
     "react": "19.3.1",
     "react-dom": "19.3.1"
   },
   "devDependencies": {
-    "@types/leaflet": "1.9.22",
-    "@types/node": "22.19.1",
-    "@types/react": "19.3.0",
+    "@types/leaflet": "1.9.23",
+    "@types/node": "24.19.4",
+    "@types/react": "19.3.3",
     "@types/react-dom": "19.3.0",
-    "@vitejs/plugin-react": "6.1.2",
+    "@vitejs/plugin-react": "6.3.0",
     "typescript": "7.0.2",
-    "vite": "8.3.4",
-    "vitest": "5.0.5"
+    "vite": "8.4.0",
+    "vitest": "5.1.2"
   }
 }
